@@ -1,11 +1,14 @@
 #include <vulkan/vulkan.hpp>
-#define GLFW_INCLUDE_VULKAN
+# define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#define GLM_FORCE_RADIANS
+# define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+# define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+# define VMA_DEBUG_MARGIN 16
+# define VMA_DEBUG_DETECT_CORRUPTION 1
 #include <vk_mem_alloc.h>
 
 #include <iostream>
@@ -23,6 +26,12 @@ namespace my_app
         "VK_LAYER_LUNARG_standard_validation"};
     constexpr std::array<const char*, 1> g_device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
+    struct UniformBufferObject {
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+    };
+
     struct Vertex {
         glm::vec4 pos;
         glm::vec4 color;
@@ -39,7 +48,6 @@ namespace my_app
         static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
         {
             std::array<vk::VertexInputAttributeDescription, 2> descs;
-
             descs[0].binding = 0;
             descs[0].location = 0;
             descs[0].format = vk::Format::eR32G32B32A32Sfloat;
@@ -513,24 +521,14 @@ namespace my_app
 
         void CreateUniformBuffer()
         {
-            auto projection = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
-            auto view = glm::lookAt(
-                glm::vec3(-5, 3, -10), // Camera is at (-5,3,-10), in World Space
-                glm::vec3(0, 0, 0),    // and looks at the origin
-                glm::vec3(0, -1, 0)    // Head is up (set to 0,-1,0 to look upside-down)
-                );
-            auto model = glm::mat4(1.0f);
-            // Vulkan clip space has inverted Y and half Z.
-            auto clip = glm::mat4(1.0f,  0.0f, 0.0f, 0.0f,
-                                  0.0f, -1.0f, 0.0f, 0.0f,
-                                  0.0f,  0.0f, 0.5f, 0.0f,
-                                  0.0f,  0.0f, 0.5f, 1.0f);
-
-            auto mvp = clip * projection * view * model;
+            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            ubo.proj = glm::perspective(glm::radians(45.0f), vk_ctx.swapchain_extent.width / (float) vk_ctx.swapchain_extent.height, 0.1f, 10.0f);
+            ubo.proj[1][1] *= -1;
 
             auto ci = vk::BufferCreateInfo();
             ci.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
-            ci.setSize(sizeof(mvp));
+            ci.setSize(sizeof(ubo));
 
 
             VmaAllocationCreateInfo allocInfo = {};
@@ -543,7 +541,7 @@ namespace my_app
 
             void* mappedData;
             vmaMapMemory(vk_ctx.allocator, vk_ctx.uniform_alloc, &mappedData);
-            memcpy(mappedData, &mvp, sizeof(mvp));
+            memcpy(mappedData, &ubo, sizeof(ubo));
             vmaUnmapMemory(vk_ctx.allocator, vk_ctx.uniform_alloc);
         }
 
@@ -587,7 +585,7 @@ namespace my_app
             auto dbi = vk::DescriptorBufferInfo();
             dbi.buffer = vk_ctx.uniform_buffer;
             dbi.offset = 0;
-            dbi.range = sizeof(vk_ctx.uniform_buffer);
+            dbi.range = sizeof(ubo);
 
             std::array<vk::WriteDescriptorSet, 1> writes;
             writes[0].setDstSet(vk_ctx.desc_sets[0]);
@@ -683,7 +681,7 @@ namespace my_app
 
             auto ci = vk::BufferCreateInfo();
             ci.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
-            ci.setSize(sizeof(vertexBufferSize));
+            ci.setSize(vertexBufferSize);
 
             VmaAllocationCreateInfo allocInfo = {};
             allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -704,11 +702,15 @@ namespace my_app
             std::vector<char> vert_code = readFile("shaders/vert.spv");
             std::vector<char> frag_code = readFile("shaders/frag.spv");
 
-            vk_ctx.vert_module = vk_ctx.device.createShaderModule(vk::ShaderModuleCreateInfo(
-                                                                      vk::ShaderModuleCreateFlags(), vert_code.size(), reinterpret_cast<const uint32_t*>(vert_code.data())));
+            auto vert_i = vk::ShaderModuleCreateInfo();
+            vert_i.codeSize = vert_code.size();
+            vert_i.pCode = reinterpret_cast<const uint32_t*>(vert_code.data());
+            vk_ctx.vert_module = vk_ctx.device.createShaderModule(vert_i);
 
-            vk_ctx.frag_module = vk_ctx.device.createShaderModule(vk::ShaderModuleCreateInfo(
-                                                                      vk::ShaderModuleCreateFlags(), frag_code.size(), reinterpret_cast<const uint32_t*>(frag_code.data())));
+            auto frag_i = vk::ShaderModuleCreateInfo();
+            frag_i.codeSize = frag_code.size();
+            frag_i.pCode = reinterpret_cast<const uint32_t*>(frag_code.data());
+            vk_ctx.frag_module = vk_ctx.device.createShaderModule(frag_i);
 
             std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages = {
                 vk::PipelineShaderStageCreateInfo(
@@ -760,7 +762,7 @@ namespace my_app
             vk::PipelineRasterizationStateCreateInfo rast_i;
             rast_i.flags = vk::PipelineRasterizationStateCreateFlags();
             rast_i.polygonMode = vk::PolygonMode::eFill;
-            rast_i.cullMode = vk::CullModeFlagBits::eBack;
+            rast_i.cullMode = vk::CullModeFlagBits::eNone;
             rast_i.frontFace = vk::FrontFace::eClockwise;
             rast_i.depthClampEnable = VK_TRUE;
             rast_i.rasterizerDiscardEnable = VK_FALSE;
@@ -771,25 +773,25 @@ namespace my_app
             rast_i.lineWidth = 1.0f;
 
             std::array<vk::PipelineColorBlendAttachmentState, 1> att_states;
-            att_states[0].colorWriteMask = vk::ColorComponentFlags();
-            att_states[0].blendEnable = VK_FALSE;
-            att_states[0].alphaBlendOp = vk::BlendOp::eAdd;
+            att_states[0].colorWriteMask = vk::ColorComponentFlags(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+            att_states[0].blendEnable = VK_TRUE;
+            att_states[0].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            att_states[0].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
             att_states[0].colorBlendOp = vk::BlendOp::eAdd;
-            att_states[0].srcColorBlendFactor = vk::BlendFactor::eZero;
-            att_states[0].dstColorBlendFactor = vk::BlendFactor::eZero;
-            att_states[0].srcAlphaBlendFactor = vk::BlendFactor::eZero;
+            att_states[0].srcAlphaBlendFactor = vk::BlendFactor::eOne;
             att_states[0].dstAlphaBlendFactor = vk::BlendFactor::eZero;
+            att_states[0].alphaBlendOp = vk::BlendOp::eAdd;
 
             vk::PipelineColorBlendStateCreateInfo colorblend_i;
             colorblend_i.flags = vk::PipelineColorBlendStateCreateFlags();
             colorblend_i.attachmentCount = att_states.size();
             colorblend_i.pAttachments = att_states.data();
             colorblend_i.logicOpEnable = VK_FALSE;
-            colorblend_i.logicOp = vk::LogicOp::eNoOp;
-            colorblend_i.blendConstants[0] = 1.0f;
-            colorblend_i.blendConstants[1] = 1.0f;
-            colorblend_i.blendConstants[2] = 1.0f;
-            colorblend_i.blendConstants[3] = 1.0f;
+            colorblend_i.logicOp = vk::LogicOp::eCopy;
+            colorblend_i.blendConstants[0] = 0.0f;
+            colorblend_i.blendConstants[1] = 0.0f;
+            colorblend_i.blendConstants[2] = 0.0f;
+            colorblend_i.blendConstants[3] = 0.0f;
 
             vk::PipelineViewportStateCreateInfo vp_i;
             vp_i.flags = vk::PipelineViewportStateCreateFlags();
@@ -798,10 +800,9 @@ namespace my_app
             vp_i.pScissors = nullptr;
             vp_i.pViewports = nullptr;
 
-
             vk::PipelineDepthStencilStateCreateInfo ds_i;
             ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
-            ds_i.depthTestEnable = VK_TRUE;
+            ds_i.depthTestEnable = VK_FALSE;
             ds_i.depthWriteEnable = VK_TRUE;
             ds_i.depthCompareOp = vk::CompareOp::eLessOrEqual;
             ds_i.depthBoundsTestEnable = VK_FALSE;
@@ -853,14 +854,14 @@ namespace my_app
             auto renderArea = vk::Rect2D(vk::Offset2D(), vk_ctx.swapchain_extent);
 
             std::array<vk::ClearValue, 2> clearValues = {};
-            clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 1.0f, 0.0f, 1.0f});
+            clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 1.0f, 0.0f, 0.5f});
             clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
             // From here we can do common GL commands
             // Lets add commands to each command buffer.
             for (int32_t i = 0; i < vk_ctx.command_buffers.size(); ++i)
             {
-                vk_ctx.command_buffers[i].begin(vk::CommandBufferBeginInfo());
+                vk_ctx.command_buffers[i].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
                 vk_ctx.command_buffers[i].beginRenderPass(
                     vk::RenderPassBeginInfo(
                         vk_ctx.render_pass,
@@ -902,7 +903,7 @@ namespace my_app
                 vk::DeviceSize offsets[] = {0};
 		vk_ctx.command_buffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
 
-                vk_ctx.command_buffers[i].draw(4, 1, 0, 0);
+                vk_ctx.command_buffers[i].draw(3, 1, 0, 0);
                 vk_ctx.command_buffers[i].endRenderPass();
                 vk_ctx.command_buffers[i].end();
             }
@@ -926,39 +927,42 @@ namespace my_app
 
                 auto tStart = std::chrono::high_resolution_clock::now();
 
+                device.waitForFences(1, &vk_ctx.command_buffers_fences[currentBuffer], VK_TRUE, UINT64_MAX);
+                device.resetFences(1, &vk_ctx.command_buffers_fences[currentBuffer]);
+
+                // will signal acquire_semaphore when the next image is acquired
+                // and put its index in imageIndex
                 device.acquireNextImageKHR(*vk_ctx.swapchain,
                                            std::numeric_limits<uint64_t>::max(),
                                            vk_ctx.acquire_semaphores[currentBuffer],
                                            nullptr,
                                            &imageIndex);
 
-                device.waitForFences(1, &vk_ctx.command_buffers_fences[currentBuffer], VK_TRUE, UINT64_MAX);
-                device.resetFences(1, &vk_ctx.command_buffers_fences[currentBuffer]);
 
                 // Create kernels to submit to the queue on a given render pass.
-                vk::PipelineStageFlags kernelPipelineStageFlags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+                vk::PipelineStageFlags stages[] = {
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                };
 
-                auto kernel = vk::SubmitInfo(
-                    1,
-                    &vk_ctx.acquire_semaphores[currentBuffer],
-                    &kernelPipelineStageFlags,
-                    1,
-                    &vk_ctx.command_buffers[imageIndex],
-                    1,
-                    &vk_ctx.render_complete_semaphores[currentBuffer]
-                    );
+                auto kernel = vk::SubmitInfo();
+                kernel.waitSemaphoreCount = 1;
+                kernel.pWaitSemaphores = &vk_ctx.acquire_semaphores[currentBuffer];
+                kernel.pWaitDstStageMask = stages;
+                kernel.commandBufferCount = 1;
+                kernel.pCommandBuffers = &vk_ctx.command_buffers[imageIndex];
+                kernel.signalSemaphoreCount = 1;
+                kernel.pSignalSemaphores = &vk_ctx.render_complete_semaphores[currentBuffer];
 
+                // the fences will be signaled
                 graphicsQueue.submit(1, &kernel, vk_ctx.command_buffers_fences[currentBuffer]);
-                graphicsQueue.presentKHR(
-                    vk::PresentInfoKHR(
-                        1,
-                        &vk_ctx.render_complete_semaphores[currentBuffer],
-                        1,
-                        &(*vk_ctx.swapchain),
-                        &imageIndex,
-                        nullptr
-                        )
-                    );
+
+                auto present_i = vk::PresentInfoKHR();
+                present_i.waitSemaphoreCount = 1;
+                present_i.pWaitSemaphores = &vk_ctx.render_complete_semaphores[currentBuffer];
+                present_i.swapchainCount = 1;
+                present_i.pSwapchains = &vk_ctx.swapchain.get();
+                present_i.pImageIndices = &imageIndex;
+                graphicsQueue.presentKHR(present_i);
 
                 currentBuffer = (currentBuffer + 1) % NUM_FRAME_DATA;
 
@@ -984,6 +988,8 @@ namespace my_app
       private:
         VulkanContext vk_ctx;
         GLFWwindow* window;
+        UniformBufferObject ubo;
+
     };
 } // namespace my_app
 

@@ -1,7 +1,13 @@
 [
 {
   "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP  -I..\\lib\\glfw-3.2.1\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -I..\\lib\\glm  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\main.cpp",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP  -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\VulkanMemoryAllocator\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -I..\\lib\\glm  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\vk_mem_alloc.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\vk_mem_alloc.cpp",
+  "file": "D:/code/test-vulkan/src/vk_mem_alloc.cpp"
+},
+
+{
+  "directory": "D:/code/test-vulkan/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP  -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\VulkanMemoryAllocator\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -I..\\lib\\glm  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\main.cpp",
   "file": "D:/code/test-vulkan/src/main.cpp"
 },
 

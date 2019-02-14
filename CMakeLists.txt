@@ -8,7 +8,6 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
 find_package(Vulkan REQUIRED)
 
 # Don't build useless stuff for glfw
@@ -26,7 +25,6 @@ set(SOURCE
 )
 
 add_executable(test-vulkan ${SOURCE})
-
 target_link_libraries(test-vulkan
   Vulkan::Vulkan
   glfw
