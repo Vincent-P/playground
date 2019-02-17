@@ -1,97 +1,25 @@
 [
 {
   "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP  -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\VulkanMemoryAllocator\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -I..\\lib\\glm  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\vk_mem_alloc.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\vk_mem_alloc.cpp",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -DGLFW_DLL -I..\\include -I\\..\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -ID:\\code\\merde\\vcpkg\\installed\\x64-windows\\include  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -std=c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\vk_mem_alloc.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\vk_mem_alloc.cpp",
   "file": "D:/code/test-vulkan/src/vk_mem_alloc.cpp"
 },
 
 {
   "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP  -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\VulkanMemoryAllocator\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -I..\\lib\\glm  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\main.cpp",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -DGLFW_DLL -I..\\include -I\\..\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -ID:\\code\\merde\\vcpkg\\installed\\x64-windows\\include  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -std=c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\tiny_gltf.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\tiny_gltf.cpp",
+  "file": "D:/code/test-vulkan/src/tiny_gltf.cpp"
+},
+
+{
+  "directory": "D:/code/test-vulkan/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -DGLFW_DLL -I..\\include -I\\..\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -ID:\\code\\merde\\vcpkg\\installed\\x64-windows\\include  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -std=c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\model.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\model.cpp",
+  "file": "D:/code/test-vulkan/src/model.cpp"
+},
+
+{
+  "directory": "D:/code/test-vulkan/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -DGLFW_DLL -I..\\include -I\\..\\include -IC:\\VulkanSDK\\1.1.97.0\\Include -ID:\\code\\merde\\vcpkg\\installed\\x64-windows\\include  /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -std=c++17 /FoCMakeFiles\\test-vulkan.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\src\\main.cpp",
   "file": "D:/code/test-vulkan/src/main.cpp"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\context.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\context.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/context.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\init.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\init.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/init.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\input.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\input.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/input.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\monitor.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\monitor.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/monitor.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\vulkan.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\vulkan.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/vulkan.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\window.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\window.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/window.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_init.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_init.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_init.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_joystick.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_joystick.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_joystick.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_monitor.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_monitor.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_monitor.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_time.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_time.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_time.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_tls.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_tls.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_tls.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\win32_window.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\win32_window.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/win32_window.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\wgl_context.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\wgl_context.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/wgl_context.c"
-},
-
-{
-  "directory": "D:/code/test-vulkan/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -I..\\lib\\glfw-3.2.1\\include -I..\\lib\\glfw-3.2.1\\src -Ilib\\glfw-3.2.1\\src  /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1   /std:c++17 -Wall /Folib\\glfw-3.2.1\\src\\CMakeFiles\\glfw.dir\\egl_context.c.obj /FdTARGET_COMPILE_PDB -c D:\\code\\test-vulkan\\lib\\glfw-3.2.1\\src\\egl_context.c",
-  "file": "D:/code/test-vulkan/lib/glfw-3.2.1/src/egl_context.c"
 }
 ]
