@@ -1,6 +1,6 @@
 ﻿---
 AllowShortLoopsOnASingleLine: 'false'
-BreakBeforeBraces: Linux
+BreakBeforeBraces: Allman
 ColumnLimit: '100'
 IndentCaseLabels: 'false'
 IndentWidth: '4'

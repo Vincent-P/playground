@@ -1,37 +1,47 @@
 cmake_minimum_required(VERSION 3.13)
-project(test-vulkan LANGUAGES CXX)
 
 if(WIN32)
   add_compile_options(/std:c++17)
+  add_compile_options(-std=c++17)
+endif()
+
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING "")
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+project(test-vulkan LANGUAGES CXX)
+
 find_package(Vulkan REQUIRED)
-
-# Don't build useless stuff for glfw
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(lib/glfw-3.2.1)
-
-set(glm_DIR lib/glm/build)
+# These are the names of the package using vcpkg on Windows
 find_package(glm REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(tinyGLTF CONFIG REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 
 set(SOURCE
   src/vk_mem_alloc.cpp
+  src/tiny_gltf.cpp
+  src/model.cpp
   src/main.cpp
-)
+  )
 
 add_executable(test-vulkan ${SOURCE})
 target_link_libraries(test-vulkan
+  PRIVATE
   Vulkan::Vulkan
   glfw
   glm
+  nlohmann_json
+  nlohmann_json::nlohmann_json
+  unofficial::vulkan-memory-allocator::vulkan-memory-allocator
   )
 
 target_include_directories(test-vulkan
-  PUBLIC lib/glfw-3.2.1/include
-  PUBLIC lib/VulkanMemoryAllocator/include
+  PUBLIC include/
+  PUBLIC ${TinyGLTF_INCLUDE_DIR}
   )
