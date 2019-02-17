@@ -1,11 +1,11 @@
+#include "tiny_gltf.h"
 #include <string>
 #include <vulkan/vulkan.hpp>
-#include "tiny_gltf.h"
-# define GLM_FORCE_RADIANS
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
-# define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
-# define VMA_DEBUG_MARGIN 16
-# define VMA_DEBUG_DETECT_CORRUPTION 1
+#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+#define VMA_DEBUG_MARGIN 16
+#define VMA_DEBUG_DETECT_CORRUPTION 1
 #include <vk_mem_alloc.h>
 
 namespace my_app
@@ -36,7 +36,6 @@ namespace my_app
         }
     };
 
-
     struct Primitive
     {
         std::uint32_t first_vertex;
@@ -46,7 +45,7 @@ namespace my_app
 
     class Mesh
     {
-    public:
+        public:
         void draw(vk::CommandBuffer& cmd) const;
 
         std::vector<Primitive> primitives_;
@@ -54,7 +53,7 @@ namespace my_app
 
     class Model
     {
-    public:
+        public:
         Model(std::string);
         ~Model() = default;
 
@@ -67,4 +66,4 @@ namespace my_app
         std::vector<Vertex> vertices_;
         std::vector<uint32_t> indices_;
     };
-}
+}    // namespace my_app

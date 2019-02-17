@@ -1,17 +1,17 @@
 #include <vulkan/vulkan.hpp>
-# define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-# define GLM_FORCE_RADIANS
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <vk_mem_alloc.h>
 
 #include <chrono>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <cstdint>
 
 #include "buffer.hpp"
 #include "image.hpp"
@@ -24,10 +24,8 @@ namespace my_app
     constexpr int NUM_FRAME_DATA = 2;
 
     constexpr bool enableValidationLayers = true;
-    constexpr std::array<const char*, 1> g_validation_layers =
-    {
-        "VK_LAYER_LUNARG_standard_validation"
-    };
+    constexpr std::array<const char*, 1> g_validation_layers = {
+        "VK_LAYER_LUNARG_standard_validation"};
     constexpr std::array<const char*, 1> g_device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     struct UniformBufferObject
@@ -122,7 +120,7 @@ namespace my_app
 
     class Application
     {
-      public:
+        public:
         Application()
             : model_("models/Box/glTF/Box.gltf")
         {
@@ -151,9 +149,9 @@ namespace my_app
         {
 
             if (enableValidationLayers)
-                vk_ctx_.instance->destroyDebugUtilsMessengerEXT(vk_ctx_.debug_messenger, nullptr,
-                                                               vk_ctx_.dldi);
-
+                vk_ctx_.instance->destroyDebugUtilsMessengerEXT(vk_ctx_.debug_messenger,
+                                                                nullptr,
+                                                                vk_ctx_.dldi);
             vk_ctx_.vertex_buffer.Free();
             vk_ctx_.index_buffer.Free();
             vk_ctx_.uniform_buffer.Free();
@@ -198,30 +196,32 @@ namespace my_app
             auto installed = vk::enumerateInstanceLayerProperties();
 
             for (auto& layer : installed)
-            {
                 for (auto& wanted : g_validation_layers)
-                {
                     if (std::string(layer.layerName).compare(wanted) == 0)
-                    {
                         layers.push_back(wanted);
-                    }
-                }
-            }
 
             return layers;
         }
 
         void CreateInstance()
         {
-            auto app_info = vk::ApplicationInfo("MyApp", VK_MAKE_VERSION(1, 0, 0), "MyEngine",
-                                                VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_1);
+            vk::ApplicationInfo app_info;
+            app_info.pApplicationName = "MyApp";
+            app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+            app_info.pEngineName = "MyEngine";
+            app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            app_info.apiVersion = VK_API_VERSION_1_1;
 
             auto extensions = GetExtensions();
             auto layers = GetLayers();
 
-            auto create_info =
-                vk::InstanceCreateInfo(vk::InstanceCreateFlags(), &app_info, layers.size(),
-                                       layers.data(), extensions.size(), extensions.data());
+            vk::InstanceCreateInfo create_info;
+            create_info.flags = {};
+            create_info.pApplicationInfo = &app_info;
+            create_info.enabledLayerCount = layers.size();
+            create_info.ppEnabledLayerNames = layers.data();
+            create_info.enabledExtensionCount = extensions.size();
+            create_info.ppEnabledExtensionNames = extensions.data();
 
             vk_ctx_.instance = vk::createInstanceUnique(create_info);
             vk_ctx_.dldi = vk::DispatchLoaderDynamic(*vk_ctx_.instance);
@@ -232,34 +232,31 @@ namespace my_app
             if (!enableValidationLayers)
                 return;
 
-            auto create_info = vk::DebugUtilsMessengerCreateInfoEXT(
-                vk::DebugUtilsMessengerCreateFlagBitsEXT(),
+            vk::DebugUtilsMessengerCreateInfoEXT ci;
+            ci.flags = {};
+            ci.messageSeverity =
                 vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-                    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+            ci.messageType =
                 vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                    vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-                DebugCallback);
+                vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+            ci.pfnUserCallback = DebugCallback;
 
-            vk_ctx_.debug_messenger =
-                vk_ctx_.instance->createDebugUtilsMessengerEXT(create_info, nullptr, vk_ctx_.dldi);
+            vk_ctx_.debug_messenger = vk_ctx_.instance->createDebugUtilsMessengerEXT(ci, nullptr, vk_ctx_.dldi);
         }
 
         void CreateSurface()
         {
-            if (glfwCreateWindowSurface(static_cast<VkInstance>(*vk_ctx_.instance), window_, nullptr,
-                                        reinterpret_cast<VkSurfaceKHR*>(&vk_ctx_.surface)) !=
-                VK_SUCCESS)
+            if (glfwCreateWindowSurface(static_cast<VkInstance>(*vk_ctx_.instance), window_, nullptr, reinterpret_cast<VkSurfaceKHR*>(&vk_ctx_.surface)) != VK_SUCCESS)
                 throw std::runtime_error("failed to create window surface.");
         }
 
         void CreateLogicalDevice()
         {
-            // TODO(vincent): pick the best device
             auto physical_devices = vk_ctx_.instance->enumeratePhysicalDevices();
-            auto gpu = *std::find_if(physical_devices.begin(), physical_devices.end(), [
-            ](const vk::PhysicalDevice& d) -> auto {
+            auto gpu = *std::find_if(physical_devices.begin(), physical_devices.end(), [](const vk::PhysicalDevice& d) -> auto {
                 return d.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
             });
 
@@ -329,9 +326,18 @@ namespace my_app
             }
 
             vk_ctx_.physical_device = gpu;
-            vk_ctx_.device = gpu.createDevice(vk::DeviceCreateInfo(
-                vk::DeviceCreateFlags(), queue_create_infos.size(), queue_create_infos.data(),
-                layers.size(), layers.data(), extensions.size(), extensions.data(), &features));
+
+            vk::DeviceCreateInfo dci;
+            dci.flags = {};
+            dci.queueCreateInfoCount = queue_create_infos.size();
+            dci.pQueueCreateInfos = queue_create_infos.data();
+            dci.enabledLayerCount = layers.size();
+            dci.ppEnabledLayerNames = layers.data();
+            dci.enabledExtensionCount = extensions.size();
+            dci.ppEnabledExtensionNames = extensions.data();
+            dci.pEnabledFeatures = &features;
+
+            vk_ctx_.device = gpu.createDevice(dci);
         }
 
         void InitAllocator()
@@ -448,20 +454,23 @@ namespace my_app
 
         void CreateCommandPoolAndBuffers()
         {
-            auto ci = vk::CommandPoolCreateInfo(
-                vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer),
-                vk_ctx_.graphics_family_idx);
+            vk::CommandPoolCreateInfo ci;
+            ci.flags = vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
+            ci.queueFamilyIndex = vk_ctx_.graphics_family_idx;
+
             vk_ctx_.command_pool = vk_ctx_.device.createCommandPool(ci);
 
-            vk_ctx_.command_buffers =
-                vk_ctx_.device.allocateCommandBuffers(vk::CommandBufferAllocateInfo(
-                    vk_ctx_.command_pool, vk::CommandBufferLevel::ePrimary, NUM_FRAME_DATA));
+            vk::CommandBufferAllocateInfo cbai;
+            cbai.commandPool = vk_ctx_.command_pool;
+            cbai.level = vk::CommandBufferLevel::ePrimary;
+            cbai.commandBufferCount = NUM_FRAME_DATA;
+
+            vk_ctx_.command_buffers = vk_ctx_.device.allocateCommandBuffers(cbai);
 
             vk_ctx_.command_buffers_fences.resize(vk_ctx_.command_buffers.size());
             for (int i = 0; i < vk_ctx_.command_buffers.size(); i++)
             {
-                vk_ctx_.command_buffers_fences[i] = vk_ctx_.device.createFence(
-                    vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+                vk_ctx_.command_buffers_fences[i] = vk_ctx_.device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
             }
         }
 
@@ -521,8 +530,7 @@ namespace my_app
             vci.image = vk_ctx_.depth_image.GetImage();
             vci.viewType = vk::ImageViewType::e2D;
             vci.subresourceRange.aspectMask =
-                vk::ImageAspectFlagBits::eDepth |
-                vk::ImageAspectFlagBits::eStencil;
+                vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
             vci.subresourceRange.baseMipLevel = 0;
             vci.subresourceRange.levelCount = 1;
             vci.subresourceRange.baseArrayLayer = 0;
@@ -536,16 +544,15 @@ namespace my_app
             ubo_.model =
                 glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-            ubo_.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                                   glm::vec3(0.0f, 0.0f, 0.0f),
-                                   glm::vec3(0.0f, 0.0f, 1.0f));
+            ubo_.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                                    glm::vec3(0.0f, 0.0f, 1.0f));
 
-            ubo_.proj = glm::perspective(
-                glm::radians(45.0f),
-                vk_ctx_.swapchain_extent.width / (float)vk_ctx_.swapchain_extent.height, 0.1f, 10.0f);
+            ubo_.proj = glm::perspective(glm::radians(45.0f),
+                                         vk_ctx_.swapchain_extent.width /
+                                             (float)vk_ctx_.swapchain_extent.height,
+                                         0.1f, 10.0f);
 
             ubo_.proj[1][1] *= -1;
-
 
             auto buf_usage = vk::BufferUsageFlagBits::eUniformBuffer;
             auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -559,10 +566,8 @@ namespace my_app
 
         void CreateDescriptors()
         {
-            std::vector<vk::DescriptorPoolSize> descriptorPoolSizes =
-            {
-                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1)
-            };
+            std::vector<vk::DescriptorPoolSize> descriptorPoolSizes = {
+                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1)};
 
             vk_ctx_.desc_pool = vk_ctx_.device.createDescriptorPool(
                 vk::DescriptorPoolCreateInfo(
@@ -573,22 +578,20 @@ namespace my_app
 
             // Binding 0: Uniform buffer (Vertex shader)
             std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings =
-            {
-                vk::DescriptorSetLayoutBinding(
-                    0,
-                    vk::DescriptorType::eUniformBuffer,
-                    1,
-                    vk::ShaderStageFlagBits::eVertex,
-                    nullptr)
-            };
+                {
+                    vk::DescriptorSetLayoutBinding(
+                        0,
+                        vk::DescriptorType::eUniformBuffer,
+                        1,
+                        vk::ShaderStageFlagBits::eVertex,
+                        nullptr)};
 
             std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = {
                 vk_ctx_.device.createDescriptorSetLayout(
                     vk::DescriptorSetLayoutCreateInfo(
                         vk::DescriptorSetLayoutCreateFlags(),
                         descriptorSetLayoutBindings.size(),
-                        descriptorSetLayoutBindings.data()))
-            };
+                        descriptorSetLayoutBindings.data()))};
 
             vk_ctx_.desc_sets = vk_ctx_.device.allocateDescriptorSets(
                 vk::DescriptorSetAllocateInfo(
@@ -731,23 +734,34 @@ namespace my_app
             vk_ctx_.frag_module = vk_ctx_.device.createShaderModule(frag_i);
 
             std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages = {
-                vk::PipelineShaderStageCreateInfo(vk::PipelineShaderStageCreateFlags(),
-                                                  vk::ShaderStageFlagBits::eVertex,
-                                                  vk_ctx_.vert_module, "main", nullptr),
-                vk::PipelineShaderStageCreateInfo(vk::PipelineShaderStageCreateFlags(),
-                                                  vk::ShaderStageFlagBits::eFragment,
-                                                  vk_ctx_.frag_module, "main", nullptr)};
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eVertex,
+                    vk_ctx_.vert_module,
+                    "main",
+                    nullptr),
+
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eFragment,
+                    vk_ctx_.frag_module,
+                    "main",
+                    nullptr)};
 
             vk_ctx_.shader_stages = pipelineShaderStages;
         }
 
         void CreateGraphicsPipeline()
         {
-            std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport,
-                                                            vk::DynamicState::eScissor};
+            std::vector<vk::DynamicState> dynamic_states =
+                {
+                    vk::DynamicState::eViewport,
+                    vk::DynamicState::eScissor};
 
-            vk::PipelineDynamicStateCreateInfo dyn_i(vk::PipelineDynamicStateCreateFlags(),
-                                                     dynamic_states.size(), dynamic_states.data());
+            vk::PipelineDynamicStateCreateInfo dyn_i(
+                vk::PipelineDynamicStateCreateFlags(),
+                dynamic_states.size(),
+                dynamic_states.data());
 
             auto bindings = Vertex::getBindingDescriptions();
             auto attributes = Vertex::getAttributeDescriptions();
@@ -778,8 +792,10 @@ namespace my_app
 
             std::array<vk::PipelineColorBlendAttachmentState, 1> att_states;
             att_states[0].colorWriteMask = vk::ColorComponentFlags(
-                vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+                vk::ColorComponentFlagBits::eR |
+                vk::ColorComponentFlagBits::eG |
+                vk::ColorComponentFlagBits::eB |
+                vk::ColorComponentFlagBits::eA);
             att_states[0].blendEnable = VK_TRUE;
             att_states[0].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
             att_states[0].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
@@ -851,8 +867,7 @@ namespace my_app
             pipe_i.renderPass = vk_ctx_.render_pass;
             pipe_i.subpass = 0;
 
-            vk_ctx_.pipeline_cache =
-                vk_ctx_.device.createPipelineCache(vk::PipelineCacheCreateInfo());
+            vk_ctx_.pipeline_cache = vk_ctx_.device.createPipelineCache(vk::PipelineCacheCreateInfo());
             vk_ctx_.pipeline = vk_ctx_.device.createGraphicsPipeline(vk_ctx_.pipeline_cache, pipe_i);
         }
 
@@ -861,23 +876,33 @@ namespace my_app
             auto renderArea = vk::Rect2D(vk::Offset2D(), vk_ctx_.swapchain_extent);
 
             std::array<vk::ClearValue, 2> clearValues = {};
-            clearValues[0].color =
-                vk::ClearColorValue(std::array<float, 4>{0.0f, 1.0f, 0.0f, 0.5f});
+            clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 1.0f, 0.0f, 0.5f});
             clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
             // From here we can do common GL commands
             // Lets add commands to each command buffer.
             for (int32_t i = 0; i < vk_ctx_.command_buffers.size(); ++i)
             {
-                vk_ctx_.command_buffers[i].begin(
-                    vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
+                vk_ctx_.command_buffers[i].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
+
                 vk_ctx_.command_buffers[i].beginRenderPass(
-                    vk::RenderPassBeginInfo(vk_ctx_.render_pass, vk_ctx_.frame_buffers[i], renderArea,
-                                            clearValues.size(), clearValues.data()),
+                    vk::RenderPassBeginInfo(
+                        vk_ctx_.render_pass,
+                        vk_ctx_.frame_buffers[i],
+                        renderArea,
+                        clearValues.size(),
+                        clearValues.data()),
                     vk::SubpassContents::eInline);
 
-                std::vector<vk::Viewport> viewports = {vk::Viewport(
-                    0, 0, vk_ctx_.swapchain_extent.width, vk_ctx_.swapchain_extent.height, 0, 1.0f)};
+                std::vector<vk::Viewport> viewports =
+                    {
+                        vk::Viewport(
+                            0,
+                            0,
+                            vk_ctx_.swapchain_extent.width,
+                            vk_ctx_.swapchain_extent.height,
+                            0,
+                            1.0f)};
 
                 vk_ctx_.command_buffers[i].setViewport(0, viewports);
 
@@ -886,16 +911,24 @@ namespace my_app
                 vk_ctx_.command_buffers[i].setScissor(0, scissors);
 
                 // Bind Descriptor Sets, these are attribute/uniform "descriptions"
-                vk_ctx_.command_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                                       vk_ctx_.pipeline);
+                vk_ctx_.command_buffers[i].bindPipeline(
+                    vk::PipelineBindPoint::eGraphics,
+                    vk_ctx_.pipeline);
 
-                vk_ctx_.command_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                                             vk_ctx_.pipeline_layout, 0,
-                                                             vk_ctx_.desc_sets, nullptr);
+                vk_ctx_.command_buffers[i].bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    vk_ctx_.pipeline_layout,
+                    0,
+                    vk_ctx_.desc_sets,
+                    nullptr);
 
                 vk::Buffer vertexBuffers[] = {vk_ctx_.vertex_buffer.GetBuffer()};
                 vk::DeviceSize offsets[] = {0};
-                vk_ctx_.command_buffers[i].bindIndexBuffer(vk_ctx_.index_buffer.GetBuffer(), 0, vk::IndexType::eUint32);
+                vk_ctx_.command_buffers[i].bindIndexBuffer(
+                    vk_ctx_.index_buffer.GetBuffer(),
+                    0,
+                    vk::IndexType::eUint32);
+
                 vk_ctx_.command_buffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
 
                 model_.draw(vk_ctx_.command_buffers[i]);
@@ -923,14 +956,19 @@ namespace my_app
 
                 auto tStart = std::chrono::high_resolution_clock::now();
 
-                device.waitForFences(1, &vk_ctx_.command_buffers_fences[currentBuffer], VK_TRUE,
+                device.waitForFences(1,
+                                     &vk_ctx_.command_buffers_fences[currentBuffer],
+                                     VK_TRUE,
                                      UINT64_MAX);
+
                 device.resetFences(1, &vk_ctx_.command_buffers_fences[currentBuffer]);
 
                 // will signal acquire_semaphore when the next image is acquired
                 // and put its index in imageIndex
-                device.acquireNextImageKHR(*vk_ctx_.swapchain, std::numeric_limits<uint64_t>::max(),
-                                           vk_ctx_.acquire_semaphores[currentBuffer], nullptr,
+                device.acquireNextImageKHR(*vk_ctx_.swapchain,
+                                           std::numeric_limits<uint64_t>::max(),
+                                           vk_ctx_.acquire_semaphores[currentBuffer],
+                                           nullptr,
                                            &imageIndex);
 
                 // Create kernels to submit to the queue on a given render pass.
@@ -968,8 +1006,7 @@ namespace my_app
                 fpsTimer += tDiff;
                 if (fpsTimer > 1000.0)
                 {
-                    std::string windowTitle =
-                        "Test vulkan - " + std::to_string(frameCounter) + " fps";
+                    std::string windowTitle = "Test vulkan - " + std::to_string(frameCounter) + " fps";
                     glfwSetWindowTitle(window_, windowTitle.c_str());
 
                     lastFPS = roundf(1.0 / frameTimer);
@@ -980,13 +1017,13 @@ namespace my_app
             device.waitIdle();
         }
 
-      private:
+        private:
         Model model_;
         VulkanContext vk_ctx_;
         GLFWwindow* window_;
         UniformBufferObject ubo_;
     };
-} // namespace my_app
+}    // namespace my_app
 
 int main()
 {
