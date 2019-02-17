@@ -1,0 +1,13 @@
+* TODO
+** glTF
+
+   Vertex buffer is a custom struct not the same representation as the glTF buffer accesors.
+   It only requires the pos (vec3); the normals (vec3), uv (vec2), joints/skins are not required;
+
+   _Model_
+   - one vertex buffer
+   - one index buffer
+
+   _Mesh_
+   - has uniform buffer
+   - its vertices and indices are stored in the model buffers
