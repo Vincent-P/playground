@@ -82,6 +82,7 @@ namespace my_app
         vk::ShaderModule frag_module;
 
         vk::DescriptorPool desc_pool;
+        std::vector<vk::DescriptorSetLayout> desc_set_layouts;
         std::vector<vk::DescriptorSet> desc_sets;
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;

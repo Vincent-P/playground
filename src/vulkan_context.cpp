@@ -198,14 +198,14 @@ namespace my_app
         dci.ppEnabledExtensionNames = extensions.data();
         dci.pEnabledFeatures = &features;
 
-        device = gpu.createDevice(dci);
+        device = gpu.createDeviceUnique(dci);
     }
 
     void VulkanContext::InitAllocator()
     {
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.physicalDevice = physical_device;
-        allocatorInfo.device = device;
+        allocatorInfo.device = *device;
         vmaCreateAllocator(&allocatorInfo, &allocator);
     }
 

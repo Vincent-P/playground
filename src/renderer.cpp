@@ -27,6 +27,37 @@ namespace my_app
 
     Renderer::~Renderer()
     {
+        for (auto& o: swapchain_image_views)
+            ctx_.device->destroy(o);
+        ctx_.device->destroy(depth_image_view);
+
+        for (auto& o: frame_buffers)
+            ctx_.device->destroy(o);
+
+        for (auto& o: command_buffers_fences)
+            ctx_.device->destroy(o);
+
+        for (auto& o: acquire_semaphores)
+            ctx_.device->destroy(o);
+
+        for (auto& o: render_complete_semaphores)
+            ctx_.device->destroy(o);
+
+        for (auto& o: desc_set_layouts)
+            ctx_.device->destroy(o);
+
+        ctx_.device->destroy(desc_pool);
+        ctx_.device->destroy(command_pool);
+
+        ctx_.device->destroy(vert_module);
+        ctx_.device->destroy(frag_module);
+
+        ctx_.device->destroy(pipeline_cache);
+        ctx_.device->destroy(pipeline_layout);
+        ctx_.device->destroy(pipeline);
+
+        ctx_.device->destroy(render_pass);
+
         vertex_buffer.Free();
         index_buffer.Free();
         uniform_buffer.Free();
@@ -113,8 +144,8 @@ namespace my_app
         ci.presentMode = present_mode;
         ci.clipped = VK_TRUE;
 
-        swapchain = ctx_.device.createSwapchainKHRUnique(ci);
-        swapchain_images = ctx_.device.getSwapchainImagesKHR(*swapchain);
+        swapchain = ctx_.device->createSwapchainKHRUnique(ci);
+        swapchain_images = ctx_.device->getSwapchainImagesKHR(*swapchain);
         swapchain_format = format.format;
         swapchain_present_mode = present_mode;
         swapchain_extent = extent;
@@ -136,7 +167,7 @@ namespace my_app
             ci.subresourceRange.baseArrayLayer = 0;
             ci.subresourceRange.layerCount = 1;
             ci.flags = {};
-            auto view = ctx_.device.createImageView(ci);
+            auto view = ctx_.device->createImageView(ci);
             swapchain_image_views.push_back(view);
         }
     }
@@ -147,19 +178,19 @@ namespace my_app
         ci.flags = vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
         ci.queueFamilyIndex = ctx_.graphics_family_idx;
 
-        command_pool = ctx_.device.createCommandPool(ci);
+        command_pool = ctx_.device->createCommandPool(ci);
 
         vk::CommandBufferAllocateInfo cbai;
         cbai.commandPool = command_pool;
         cbai.level = vk::CommandBufferLevel::ePrimary;
         cbai.commandBufferCount = NUM_FRAME_DATA;
 
-        command_buffers = ctx_.device.allocateCommandBuffers(cbai);
+        command_buffers = ctx_.device->allocateCommandBuffers(cbai);
 
         command_buffers_fences.resize(command_buffers.size());
         for (int i = 0; i < command_buffers.size(); i++)
         {
-            command_buffers_fences[i] = ctx_.device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+            command_buffers_fences[i] = ctx_.device->createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
         }
     }
 
@@ -171,9 +202,9 @@ namespace my_app
         for (int i = 0; i < NUM_FRAME_DATA; ++i)
         {
             acquire_semaphores[i] =
-                ctx_.device.createSemaphore(vk::SemaphoreCreateInfo());
+                ctx_.device->createSemaphore(vk::SemaphoreCreateInfo());
             render_complete_semaphores[i] =
-                ctx_.device.createSemaphore(vk::SemaphoreCreateInfo());
+                ctx_.device->createSemaphore(vk::SemaphoreCreateInfo());
         }
     }
 
@@ -224,7 +255,7 @@ namespace my_app
         vci.subresourceRange.levelCount = 1;
         vci.subresourceRange.baseArrayLayer = 0;
         vci.subresourceRange.layerCount = 1;
-        depth_image_view = ctx_.device.createImageView(vci);
+        depth_image_view = ctx_.device->createImageView(vci);
     }
 
     void Renderer::CreateUniformBuffer()
@@ -258,7 +289,7 @@ namespace my_app
         std::vector<vk::DescriptorPoolSize> descriptorPoolSizes = {
             vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1)};
 
-        desc_pool = ctx_.device.createDescriptorPool(
+        desc_pool = ctx_.device->createDescriptorPool(
             vk::DescriptorPoolCreateInfo(
                 vk::DescriptorPoolCreateFlags(),
                 1,
@@ -275,23 +306,23 @@ namespace my_app
                     vk::ShaderStageFlagBits::eVertex,
                     nullptr)};
 
-        std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = {
-            ctx_.device.createDescriptorSetLayout(
+        desc_set_layouts = {
+            ctx_.device->createDescriptorSetLayout(
                 vk::DescriptorSetLayoutCreateInfo(
                     vk::DescriptorSetLayoutCreateFlags(),
                     descriptorSetLayoutBindings.size(),
                     descriptorSetLayoutBindings.data()))};
 
-        desc_sets = ctx_.device.allocateDescriptorSets(
+        desc_sets = ctx_.device->allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo(
                 desc_pool,
-                descriptorSetLayouts.size(),
-                descriptorSetLayouts.data()));
+                desc_set_layouts.size(),
+                desc_set_layouts.data()));
 
         auto ci = vk::PipelineLayoutCreateInfo();
-        ci.pSetLayouts = descriptorSetLayouts.data();
-        ci.setLayoutCount = descriptorSetLayouts.size();
-        pipeline_layout = ctx_.device.createPipelineLayout(ci);
+        ci.pSetLayouts = desc_set_layouts.data();
+        ci.setLayoutCount = desc_set_layouts.size();
+        pipeline_layout = ctx_.device->createPipelineLayout(ci);
 
         auto dbi = vk::DescriptorBufferInfo();
         dbi.buffer = uniform_buffer.GetBuffer();
@@ -306,7 +337,7 @@ namespace my_app
         writes[0].dstArrayElement = 0;
         writes[0].dstBinding = 0;
 
-        ctx_.device.updateDescriptorSets(writes, nullptr);
+        ctx_.device->updateDescriptorSets(writes, nullptr);
     }
 
     void Renderer::CreateRenderPass()
@@ -356,7 +387,7 @@ namespace my_app
         rp_info.pSubpasses = &subpass;
         rp_info.dependencyCount = 0;
         rp_info.pDependencies = nullptr;
-        render_pass = ctx_.device.createRenderPass(rp_info);
+        render_pass = ctx_.device->createRenderPass(rp_info);
     }
 
     void Renderer::CreateFrameBuffers()
@@ -377,7 +408,7 @@ namespace my_app
         for (size_t i = 0; i < swapchain_image_views.size(); i++)
         {
             attachments[0] = swapchain_image_views[i];
-            frame_buffers[i] = ctx_.device.createFramebuffer(ci);
+            frame_buffers[i] = ctx_.device->createFramebuffer(ci);
         }
     }
 
@@ -433,12 +464,12 @@ namespace my_app
         auto vert_i = vk::ShaderModuleCreateInfo();
         vert_i.codeSize = vert_code.size();
         vert_i.pCode = reinterpret_cast<const uint32_t*>(vert_code.data());
-        vert_module = ctx_.device.createShaderModule(vert_i);
+        vert_module = ctx_.device->createShaderModule(vert_i);
 
         auto frag_i = vk::ShaderModuleCreateInfo();
         frag_i.codeSize = frag_code.size();
         frag_i.pCode = reinterpret_cast<const uint32_t*>(frag_code.data());
-        frag_module = ctx_.device.createShaderModule(frag_i);
+        frag_module = ctx_.device->createShaderModule(frag_i);
 
         std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages = {
             vk::PipelineShaderStageCreateInfo(
@@ -574,8 +605,8 @@ namespace my_app
         pipe_i.renderPass = render_pass;
         pipe_i.subpass = 0;
 
-        pipeline_cache = ctx_.device.createPipelineCache(vk::PipelineCacheCreateInfo());
-        pipeline = ctx_.device.createGraphicsPipeline(pipeline_cache, pipe_i);
+        pipeline_cache = ctx_.device->createPipelineCache(vk::PipelineCacheCreateInfo());
+        pipeline = ctx_.device->createGraphicsPipeline(pipeline_cache, pipe_i);
     }
 
     void Renderer::FillCommandBuffers()
@@ -651,19 +682,19 @@ namespace my_app
         static uint32_t imageIndex = 0;
 
         auto& device = ctx_.device;
-        auto graphicsQueue = device.getQueue(ctx_.graphics_family_idx, 0);
+        auto graphicsQueue = device->getQueue(ctx_.graphics_family_idx, 0);
 
 
-        device.waitForFences(1,
+        device->waitForFences(1,
                              &command_buffers_fences[currentBuffer],
                              VK_TRUE,
                              UINT64_MAX);
 
-        device.resetFences(1, &command_buffers_fences[currentBuffer]);
+        device->resetFences(1, &command_buffers_fences[currentBuffer]);
 
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
-        device.acquireNextImageKHR(*swapchain,
+        device->acquireNextImageKHR(*swapchain,
                                    std::numeric_limits<uint64_t>::max(),
                                    acquire_semaphores[currentBuffer],
                                    nullptr,
@@ -699,6 +730,6 @@ namespace my_app
 
     void Renderer::WaitIdle()
     {
-        ctx_.device.waitIdle();
+        ctx_.device->waitIdle();
     }
 }    // namespace my_app

@@ -38,7 +38,7 @@ namespace my_app
         vk::UniqueSurfaceKHR surface;
 
         vk::PhysicalDevice physical_device;
-        vk::Device device;
+        vk::UniqueDevice device;
         vk::DispatchLoaderDynamic dldid;
 
         size_t graphics_family_idx;
