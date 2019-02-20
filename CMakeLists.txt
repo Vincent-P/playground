@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.13)
 
 if(WIN32)
   add_compile_options(/std:c++17)
-  add_compile_options(-std=c++17)
 endif()
 
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
@@ -27,6 +26,8 @@ set(SOURCE
   src/vk_mem_alloc.cpp
   src/tiny_gltf.cpp
   src/model.cpp
+  src/renderer.cpp
+  src/vulkan_context.cpp
   src/main.cpp
   )
 
