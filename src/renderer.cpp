@@ -27,25 +27,23 @@ namespace my_app
 
     Renderer::~Renderer()
     {
-        for (auto& o: swapchain_image_views)
+        for (auto& o : swapchain_image_views)
             ctx_.device->destroy(o);
         ctx_.device->destroy(depth_image_view);
 
-        for (auto& o: frame_buffers)
+        for (auto& o : frame_buffers)
             ctx_.device->destroy(o);
 
-        for (auto& o: command_buffers_fences)
+        for (auto& o : command_buffers_fences)
             ctx_.device->destroy(o);
 
-        for (auto& o: acquire_semaphores)
+        for (auto& o : acquire_semaphores)
             ctx_.device->destroy(o);
 
-        for (auto& o: render_complete_semaphores)
+        for (auto& o : render_complete_semaphores)
             ctx_.device->destroy(o);
 
-        for (auto& o: desc_set_layouts)
-            ctx_.device->destroy(o);
-
+        ctx_.device->destroy(desc_set_layout);
         ctx_.device->destroy(desc_pool);
         ctx_.device->destroy(command_pool);
 
@@ -60,7 +58,8 @@ namespace my_app
 
         vertex_buffer.Free();
         index_buffer.Free();
-        uniform_buffer.Free();
+        for (auto& ub : uniform_buffers)
+            ub.Free();
         depth_image.Free();
 
         vmaDestroyAllocator(ctx_.allocator);
@@ -260,42 +259,40 @@ namespace my_app
 
     void Renderer::CreateUniformBuffer()
     {
-        // transformation, angle, rotations axis
-        ubo_.model =
-            glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        uniform_buffers.resize(swapchain_images.size());
 
-        ubo_.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+        for (auto& uniform_buffer : uniform_buffers)
+        {
+            auto buf_usage = vk::BufferUsageFlagBits::eUniformBuffer;
+            auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            uniform_buffer = Buffer(sizeof(MVP), buf_usage, mem_usage, ctx_.allocator);
+        }
+    }
+
+    void Renderer::UpdateUniformBuffer(Buffer& uniform_buffer, float time)
+    {
+        // transformation, angle, rotations axis
+        MVP ubo;
+        ubo.model =
+            glm::rotate(glm::mat4(1.0f), time/100 * glm::radians(9.0f), glm::vec3(0.33f, 0.5f, 1.0f));
+
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                                 glm::vec3(0.0f, 0.0f, 1.0f));
 
-        ubo_.proj = glm::perspective(glm::radians(45.0f),
-                                     swapchain_extent.width /
-                                         (float)swapchain_extent.height,
-                                     0.1f, 10.0f);
+        ubo.proj = glm::perspective(glm::radians(45.0f),
+                                     swapchain_extent.width / (float)swapchain_extent.height,
+                                     0.1f,
+                                     10.0f);
 
-        ubo_.proj[1][1] *= -1;
-
-        auto buf_usage = vk::BufferUsageFlagBits::eUniformBuffer;
-        auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-
-        uniform_buffer = Buffer(sizeof(ubo_), buf_usage, mem_usage, ctx_.allocator);
+        ubo.proj[1][1] *= -1;
 
         void* mappedData = uniform_buffer.Map();
-        memcpy(mappedData, &ubo_, sizeof(ubo_));
+        memcpy(mappedData, &ubo, sizeof(ubo));
         uniform_buffer.Unmap();
     }
 
     void Renderer::CreateDescriptors()
     {
-        std::vector<vk::DescriptorPoolSize> descriptorPoolSizes = {
-            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1)};
-
-        desc_pool = ctx_.device->createDescriptorPool(
-            vk::DescriptorPoolCreateInfo(
-                vk::DescriptorPoolCreateFlags(),
-                1,
-                descriptorPoolSizes.size(),
-                descriptorPoolSizes.data()));
-
         // Binding 0: Uniform buffer (Vertex shader)
         std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings =
             {
@@ -306,39 +303,50 @@ namespace my_app
                     vk::ShaderStageFlagBits::eVertex,
                     nullptr)};
 
-        desc_set_layouts = {
+        desc_set_layout =
             ctx_.device->createDescriptorSetLayout(
                 vk::DescriptorSetLayoutCreateInfo(
                     vk::DescriptorSetLayoutCreateFlags(),
                     descriptorSetLayoutBindings.size(),
-                    descriptorSetLayoutBindings.data()))};
+                    descriptorSetLayoutBindings.data()));
+
+        auto layouts = std::vector<vk::DescriptorSetLayout>(swapchain_images.size(), desc_set_layout);
+
+        std::vector<vk::DescriptorPoolSize> descriptorPoolSizes = {
+            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, swapchain_images.size())};
+
+        desc_pool = ctx_.device->createDescriptorPool(
+            vk::DescriptorPoolCreateInfo(
+                vk::DescriptorPoolCreateFlags(),
+                swapchain_images.size(),
+                descriptorPoolSizes.size(),
+                descriptorPoolSizes.data()));
 
         desc_sets = ctx_.device->allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo(
                 desc_pool,
-                desc_set_layouts.size(),
-                desc_set_layouts.data()));
+                swapchain_images.size(),
+                layouts.data()));
 
-        auto ci = vk::PipelineLayoutCreateInfo();
-        ci.pSetLayouts = desc_set_layouts.data();
-        ci.setLayoutCount = desc_set_layouts.size();
-        pipeline_layout = ctx_.device->createPipelineLayout(ci);
+        for (size_t i = 0; i < swapchain_images.size(); i++)
+        {
+            auto dbi = vk::DescriptorBufferInfo();
+            dbi.buffer = uniform_buffers[i].GetBuffer();
+            dbi.offset = 0;
+            dbi.range = sizeof(MVP);
 
-        auto dbi = vk::DescriptorBufferInfo();
-        dbi.buffer = uniform_buffer.GetBuffer();
-        dbi.offset = 0;
-        dbi.range = sizeof(ubo_);
+            std::array<vk::WriteDescriptorSet, 1> writes;
+            writes[0].setDstSet(desc_sets[i]);
+            writes[0].setDescriptorCount(1);
+            writes[0].setDescriptorType(vk::DescriptorType::eUniformBuffer);
+            writes[0].pBufferInfo = &dbi;
+            writes[0].dstArrayElement = 0;
+            writes[0].dstBinding = 0;
 
-        std::array<vk::WriteDescriptorSet, 1> writes;
-        writes[0].setDstSet(desc_sets[0]);
-        writes[0].setDescriptorCount(desc_sets.size());
-        writes[0].setDescriptorType(vk::DescriptorType::eUniformBuffer);
-        writes[0].pBufferInfo = &dbi;
-        writes[0].dstArrayElement = 0;
-        writes[0].dstBinding = 0;
-
-        ctx_.device->updateDescriptorSets(writes, nullptr);
+            ctx_.device->updateDescriptorSets(writes, nullptr);
+        }
     }
+
 
     void Renderer::CreateRenderPass()
     {
@@ -414,27 +422,27 @@ namespace my_app
 
     void Renderer::CreateIndexBuffer()
     {
-        auto size = model_.indices_.size() * sizeof(std::uint32_t);
+        auto size = model_.indices.size() * sizeof(std::uint32_t);
         auto buf_usage = vk::BufferUsageFlagBits::eIndexBuffer;
         auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
         index_buffer = Buffer(size, buf_usage, mem_usage, ctx_.allocator);
 
         void* mappedData = index_buffer.Map();
-        memcpy(mappedData, model_.indices_.data(), size);
+        memcpy(mappedData, model_.indices.data(), size);
         index_buffer.Unmap();
     }
 
     void Renderer::CreateVertexBuffer()
     {
-        auto size = model_.vertices_.size() * sizeof(Vertex);
+        auto size = model_.vertices.size() * sizeof(Vertex);
         auto buf_usage = vk::BufferUsageFlagBits::eVertexBuffer;
         auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 
         vertex_buffer = Buffer(size, buf_usage, mem_usage, ctx_.allocator);
 
         void* mappedData = vertex_buffer.Map();
-        memcpy(mappedData, model_.vertices_.data(), size);
+        memcpy(mappedData, model_.vertices.data(), size);
         vertex_buffer.Unmap();
     }
 
@@ -587,6 +595,16 @@ namespace my_app
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = 0.0;
 
+        auto ci = vk::PipelineLayoutCreateInfo();
+        ci.pSetLayouts = &desc_set_layout;
+        ci.setLayoutCount = 1;
+
+        auto pcr = vk::PushConstantRange(vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial));
+        ci.pushConstantRangeCount = 1;
+        ci.pPushConstantRanges = &pcr;
+
+        pipeline_layout = ctx_.device->createPipelineLayout(ci);
+
         vk::GraphicsPipelineCreateInfo pipe_i;
         pipe_i.layout = pipeline_layout;
         pipe_i.basePipelineHandle = nullptr;
@@ -614,7 +632,7 @@ namespace my_app
         auto renderArea = vk::Rect2D(vk::Offset2D(), swapchain_extent);
 
         std::array<vk::ClearValue, 2> clearValues = {};
-        clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 1.0f, 0.0f, 0.5f});
+        clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.5f});
         clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
         // From here we can do common GL commands
@@ -657,7 +675,9 @@ namespace my_app
                 vk::PipelineBindPoint::eGraphics,
                 pipeline_layout,
                 0,
-                desc_sets,
+                1,
+                &desc_sets[i],
+                0,
                 nullptr);
 
             vk::Buffer vertexBuffers[] = {vertex_buffer.GetBuffer()};
@@ -669,14 +689,14 @@ namespace my_app
 
             command_buffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
 
-            model_.draw(command_buffers[i]);
+            model_.draw(command_buffers[i], pipeline_layout);
 
             command_buffers[i].endRenderPass();
             command_buffers[i].end();
         }
     }
 
-    void Renderer::DrawFrame()
+    void Renderer::DrawFrame(double time)
     {
         static uint32_t currentBuffer = 0;
         static uint32_t imageIndex = 0;
@@ -686,19 +706,21 @@ namespace my_app
 
 
         device->waitForFences(1,
-                             &command_buffers_fences[currentBuffer],
-                             VK_TRUE,
-                             UINT64_MAX);
+                              &command_buffers_fences[currentBuffer],
+                              VK_TRUE,
+                              UINT64_MAX);
 
         device->resetFences(1, &command_buffers_fences[currentBuffer]);
 
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
         device->acquireNextImageKHR(*swapchain,
-                                   std::numeric_limits<uint64_t>::max(),
-                                   acquire_semaphores[currentBuffer],
-                                   nullptr,
-                                   &imageIndex);
+                                    std::numeric_limits<uint64_t>::max(),
+                                    acquire_semaphores[currentBuffer],
+                                    nullptr,
+                                    &imageIndex);
+
+        UpdateUniformBuffer(uniform_buffers[imageIndex], time);
 
         // Create kernels to submit to the queue on a given render pass.
         vk::PipelineStageFlags stages[] = {

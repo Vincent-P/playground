@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vulkan/vulkan.hpp>
 
 #define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1

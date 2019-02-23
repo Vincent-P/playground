@@ -16,21 +16,6 @@ namespace my_app
         return VK_FALSE;
     }
 
-    VulkanContext::VulkanContext(GLFWwindow* window)
-    {
-        CreateInstance();
-        SetupDebugCallback();
-        CreateSurface(window);
-        CreateLogicalDevice();
-        InitAllocator();
-    }
-
-    VulkanContext::~VulkanContext()
-    {
-        if (enable_validation_layers)
-            instance->destroyDebugUtilsMessengerEXT(debug_messenger, nullptr, dldi);
-    }
-
     std::vector<const char*> GetExtensions()
     {
         auto installed = vk::enumerateInstanceExtensionProperties();
@@ -62,9 +47,26 @@ namespace my_app
         return layers;
     }
 
-    void VulkanContext::CreateInstance()
+    VulkanContext::VulkanContext(GLFWwindow* window)
+        : instance(CreateInstance())
+        , dldi(vk::DispatchLoaderDynamic(*instance))
+        , debug_messenger(SetupDebugCallback())
+    {
+        CreateSurface(window);
+        CreateLogicalDevice();
+        InitAllocator();
+    }
+
+    VulkanContext::~VulkanContext()
+    {
+        if (debug_messenger)
+            instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr, dldi);
+    }
+
+    vk::UniqueInstance VulkanContext::CreateInstance()
     {
         vk::ApplicationInfo app_info;
+
         app_info.pApplicationName = "MyApp";
         app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         app_info.pEngineName = "MyEngine";
@@ -82,14 +84,13 @@ namespace my_app
         create_info.enabledExtensionCount = extensions.size();
         create_info.ppEnabledExtensionNames = extensions.data();
 
-        instance = vk::createInstanceUnique(create_info);
-        dldi = vk::DispatchLoaderDynamic(*instance);
+        return vk::createInstanceUnique(create_info);
     }
 
-    void VulkanContext::SetupDebugCallback()
+    std::optional<vk::DebugUtilsMessengerEXT> VulkanContext::SetupDebugCallback()
     {
         if (!enable_validation_layers)
-            return;
+            return std::nullopt;
 
         vk::DebugUtilsMessengerCreateInfoEXT ci;
         ci.flags = {};
@@ -103,7 +104,7 @@ namespace my_app
             vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
         ci.pfnUserCallback = DebugCallback;
 
-        debug_messenger = instance->createDebugUtilsMessengerEXT(ci, nullptr, dldi);
+        return instance->createDebugUtilsMessengerEXT(ci, nullptr, dldi);
     }
 
     void VulkanContext::CreateSurface(GLFWwindow* window)

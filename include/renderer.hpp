@@ -12,14 +12,13 @@
 
 struct GLFWwindow;
 
-
 namespace my_app
 {
     constexpr int WIDTH = 800;
     constexpr int HEIGHT = 600;
     constexpr int NUM_FRAME_DATA = 2;
 
-    struct UniformBufferObject
+    struct MVP
     {
         alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 view;
@@ -47,7 +46,8 @@ namespace my_app
         void CreateGraphicsPipeline();
         void FillCommandBuffers();
 
-        void DrawFrame();
+        void UpdateUniformBuffer(Buffer& uniform_buffer, float time);
+        void DrawFrame(double time);
         void WaitIdle();
 
     private:
@@ -55,7 +55,6 @@ namespace my_app
         VulkanContext ctx_;
 
         Model model_;
-        UniformBufferObject ubo_;
 
         vk::UniqueSwapchainKHR swapchain;
         std::vector<vk::Image> swapchain_images;
@@ -74,7 +73,7 @@ namespace my_app
         vk::ImageView depth_image_view;
         vk::Format depth_format;
 
-        Buffer uniform_buffer;
+        std::vector<Buffer> uniform_buffers;
         Buffer index_buffer;
         Buffer vertex_buffer;
 
@@ -82,7 +81,7 @@ namespace my_app
         vk::ShaderModule frag_module;
 
         vk::DescriptorPool desc_pool;
-        std::vector<vk::DescriptorSetLayout> desc_set_layouts;
+        vk::DescriptorSetLayout desc_set_layout;
         std::vector<vk::DescriptorSet> desc_sets;
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;

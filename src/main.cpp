@@ -39,6 +39,7 @@ namespace my_app
             double frameTimer = 0.0;
             double fpsTimer = 0.0;
             double lastFPS = 0.0;
+            double timer = 0.0;
 
             while (!glfwWindowShouldClose(window_))
             {
@@ -46,7 +47,7 @@ namespace my_app
 
                 auto tStart = std::chrono::high_resolution_clock::now();
 
-                renderer_.DrawFrame();
+                renderer_.DrawFrame(timer);
 
                 frameCounter++;
                 auto tEnd = std::chrono::high_resolution_clock::now();
@@ -54,9 +55,11 @@ namespace my_app
                 frameTimer = tDiff / 1000.0;
 
                 fpsTimer += tDiff;
+                timer += tDiff;
                 if (fpsTimer > 1000.0)
                 {
-                    std::string windowTitle = "Test vulkan - " + std::to_string(frameCounter) + " fps";
+                    std::string windowTitle = "Test vulkan - " + std::to_string(frameCounter) + " fps"
+                        + " - "+ std::to_string(timer);
                     glfwSetWindowTitle(window_, windowTitle.c_str());
 
                     lastFPS = roundf(1.0 / frameTimer);

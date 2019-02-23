@@ -1,6 +1,7 @@
 #pragma once
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <optional>
 
 struct GLFWwindow;
 
@@ -24,15 +25,15 @@ namespace my_app
         VulkanContext(VulkanContext& other) = delete;
         ~VulkanContext();
 
-        void CreateInstance();
-        void SetupDebugCallback();
+        vk::UniqueInstance CreateInstance();
+        std::optional<vk::DebugUtilsMessengerEXT> SetupDebugCallback();
         void CreateSurface(GLFWwindow *window);
         void CreateLogicalDevice();
         void InitAllocator();
 
         vk::UniqueInstance instance;
-        vk::DebugUtilsMessengerEXT debug_messenger;
         vk::DispatchLoaderDynamic dldi;
+        std::optional<vk::DebugUtilsMessengerEXT> debug_messenger;
 
         VmaAllocator allocator;
         vk::UniqueSurfaceKHR surface;
