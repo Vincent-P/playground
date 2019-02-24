@@ -1,6 +1,5 @@
 #pragma once
 
-#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vector>
@@ -17,6 +16,15 @@ namespace my_app
     constexpr int WIDTH = 800;
     constexpr int HEIGHT = 600;
     constexpr int NUM_FRAME_DATA = 2;
+
+    struct Camera
+    {
+        glm::vec3 position = glm::vec3(2.0f, 0.0f, 2.0f);
+        glm::vec3 front = glm::vec3(-2.0f, 0.0f, -2.0f );
+        glm::vec3 up = glm::vec3(0.0f, -1.0f,  0.0f);
+        double yaw = -135.0;
+        double pitch = 0.0;
+    };
 
     struct MVP
     {
@@ -45,9 +53,10 @@ namespace my_app
         void LoadShaders();
         void CreateGraphicsPipeline();
         void FillCommandBuffers();
+        void Resize(int width, int height);
 
-        void UpdateUniformBuffer(Buffer& uniform_buffer, float time);
-        void DrawFrame(double time);
+        void UpdateUniformBuffer(Buffer& uniform_buffer, float time, Camera& camera);
+        void DrawFrame(double time, Camera& camera);
         void WaitIdle();
 
     private:
@@ -55,6 +64,9 @@ namespace my_app
         VulkanContext ctx_;
 
         Model model_;
+
+        // Not null if a resize is requested
+        std::optional<std::pair<int, int>> current_resize_;
 
         vk::UniqueSwapchainKHR swapchain;
         std::vector<vk::Image> swapchain_images;

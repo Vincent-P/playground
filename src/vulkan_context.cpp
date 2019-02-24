@@ -1,5 +1,4 @@
 #include <iostream>
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include "vulkan_context.hpp"
@@ -51,11 +50,11 @@ namespace my_app
         : instance(CreateInstance())
         , dldi(vk::DispatchLoaderDynamic(*instance))
         , debug_messenger(SetupDebugCallback())
-    {
-        CreateSurface(window);
-        CreateLogicalDevice();
-        InitAllocator();
-    }
+        , surface(CreateSurface(window))
+        , physical_device(PickPhysicalDevice())
+        , device(CreateLogicalDevice())
+        , allocator(InitAllocator())
+    {}
 
     VulkanContext::~VulkanContext()
     {
@@ -107,23 +106,26 @@ namespace my_app
         return instance->createDebugUtilsMessengerEXT(ci, nullptr, dldi);
     }
 
-    void VulkanContext::CreateSurface(GLFWwindow* window)
+    vk::UniqueSurfaceKHR VulkanContext::CreateSurface(GLFWwindow* window)
     {
         VkSurfaceKHR surfaceTmp;
         glfwCreateWindowSurface(static_cast<VkInstance>(*instance), window, nullptr, &surfaceTmp);
-        surface = vk::UniqueSurfaceKHR(surfaceTmp, *instance);
+        return vk::UniqueSurfaceKHR(surfaceTmp, *instance);
     }
 
-    void VulkanContext::CreateLogicalDevice()
+    vk::PhysicalDevice VulkanContext::PickPhysicalDevice()
     {
         auto physical_devices = instance->enumeratePhysicalDevices();
-        auto gpu = *std::find_if(physical_devices.begin(), physical_devices.end(),
+        return *std::find_if(physical_devices.begin(), physical_devices.end(),
                                  [](const vk::PhysicalDevice& d) -> auto {
                                      return d.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
                                  });
+    }
 
+    vk::UniqueDevice VulkanContext::CreateLogicalDevice()
+    {
         std::vector<const char*> extensions;
-        auto installed_ext = gpu.enumerateDeviceExtensionProperties();
+        auto installed_ext = physical_device.enumerateDeviceExtensionProperties();
         for (const auto& wanted : g_device_extensions)
         {
             for (const auto& extension : installed_ext)
@@ -137,7 +139,7 @@ namespace my_app
         }
 
         std::vector<const char*> layers;
-        auto installed_lay = gpu.enumerateDeviceLayerProperties();
+        auto installed_lay = physical_device.enumerateDeviceLayerProperties();
         for (const auto& wanted : g_validation_layers)
         {
             for (auto& layer : installed_lay)
@@ -150,8 +152,8 @@ namespace my_app
             }
         }
 
-        auto features = gpu.getFeatures();
-        auto queue_families = gpu.getQueueFamilyProperties();
+        auto features = physical_device.getFeatures();
+        auto queue_families = physical_device.getQueueFamilyProperties();
 
         std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
         float priority = 0.0;
@@ -169,7 +171,7 @@ namespace my_app
                 graphics_family_idx = i;
             }
 
-            if (!has_present && gpu.getSurfaceSupportKHR(i, *surface))
+            if (!has_present && physical_device.getSurfaceSupportKHR(i, *surface))
             {
                 // Create a single graphics queue.
                 queue_create_infos.push_back(
@@ -183,11 +185,7 @@ namespace my_app
             throw std::runtime_error("failed to find a graphics and present queue.");
 
         if (present_family_idx == graphics_family_idx)
-        {
             queue_create_infos.pop_back();
-        }
-
-        physical_device = gpu;
 
         vk::DeviceCreateInfo dci;
         dci.flags = {};
@@ -199,15 +197,17 @@ namespace my_app
         dci.ppEnabledExtensionNames = extensions.data();
         dci.pEnabledFeatures = &features;
 
-        device = gpu.createDeviceUnique(dci);
+        return physical_device.createDeviceUnique(dci);
     }
 
-    void VulkanContext::InitAllocator()
+    VmaAllocator VulkanContext::InitAllocator()
     {
+        VmaAllocator result;
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.physicalDevice = physical_device;
         allocatorInfo.device = *device;
-        vmaCreateAllocator(&allocatorInfo, &allocator);
+        vmaCreateAllocator(&allocatorInfo, &result);
+        return result;
     }
 
 }    // namespace my_app

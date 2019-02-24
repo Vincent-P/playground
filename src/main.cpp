@@ -1,26 +1,100 @@
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <thread>
+#include <glm/glm.hpp>
 
 #include "renderer.hpp"
 
 namespace my_app
 {
+    constexpr int fps_cap = 288;
+    constexpr double mouse_sensitivity = 0.2;
+    constexpr double camera_speed = 0.01;
+
     class Application
     {
         public:
         Application()
             : window_(CreateGLFWWindow())
             , renderer_(window_)
-        {}
+        {
+            glfwSetWindowUserPointer(window_, this);
+
+            glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwSetCursorPosCallback(window_, CursorCallback);
+            glfwSetFramebufferSizeCallback(window_, ResizeCallback);
+        }
 
         ~Application()
         {
             glfwTerminate();
+        }
+
+        static void ResizeCallback(GLFWwindow* window, int width, int height)
+        {
+            if (!width || !height)
+                return;
+
+            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+            app->renderer_.Resize(width, height);
+        }
+
+        static void CursorCallback(GLFWwindow* window, double xpos, double ypos)
+        {
+            static double last_x = xpos;
+            static double last_y = ypos;
+
+            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+
+            if (glfwGetKey(app->window_, GLFW_KEY_LEFT_ALT))
+                return;
+
+            auto& yaw = app->camera_.yaw;
+            auto& pitch = app->camera_.pitch;
+
+            yaw   += (last_x - xpos) * mouse_sensitivity;
+            pitch += (last_y - ypos) * mouse_sensitivity;
+
+            glm::vec3 front;
+            front.x = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
+            front.y = sin(glm::radians(pitch));
+            front.z = cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+            app->camera_.front = glm::normalize(front);
+
+            last_x = xpos;
+            last_y = ypos;
+        }
+
+        void UpdateInput(double delta_t)
+        {
+            auto cursor_mode = glfwGetInputMode(window_, GLFW_CURSOR);
+
+            if (glfwGetKey(window_, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_NORMAL)
+                glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            else if (!glfwGetKey(window_, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_DISABLED)
+                glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+            int forward = 0;
+            int right = 0;
+
+            if (glfwGetKey(window_, GLFW_KEY_W))
+                forward++;
+            if (glfwGetKey(window_, GLFW_KEY_A))
+                right--;
+            if (glfwGetKey(window_, GLFW_KEY_S))
+                forward--;
+            if (glfwGetKey(window_, GLFW_KEY_D))
+                right++;
+
+            if (forward)
+                camera_.position += float(camera_speed * forward * delta_t) * camera_.front;
+
+            if (right)
+                camera_.position += float(camera_speed * right * delta_t) * glm::normalize(glm::cross(camera_.front, camera_.up));
         }
 
         GLFWwindow* CreateGLFWWindow()
@@ -28,59 +102,69 @@ namespace my_app
             glfwInit();
 
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-            return glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+            return glfwCreateWindow(WIDTH, HEIGHT, "Test vulkan", nullptr, nullptr);
         }
 
-        void run()
+        void Run()
         {
-            uint64_t frameCounter = 0;
-            double frameTimer = 0.0;
-            double fpsTimer = 0.0;
-            double lastFPS = 0.0;
+            using clock = std::chrono::steady_clock;
+
+            auto next_frame = clock::now();
+            auto start = next_frame;
+            auto end = next_frame;
+            auto last_fps_update = next_frame;
+
+            uint64_t frame_counter = 0;
             double timer = 0.0;
+            double delta_t = 0.0;
 
             while (!glfwWindowShouldClose(window_))
             {
+                int visible = glfwGetWindowAttrib(window_, GLFW_VISIBLE);
+                int focused = glfwGetWindowAttrib(window_, GLFW_FOCUSED);
+                if (!visible || !focused)
+                    glfwWaitEvents();
+
+                start = clock::now();
+                next_frame += std::chrono::milliseconds(1000 / fps_cap);
+
                 glfwPollEvents();
+                UpdateInput(delta_t);
+                renderer_.DrawFrame(timer / 1000, camera_);
 
-                auto tStart = std::chrono::high_resolution_clock::now();
+                if (clock::now() < next_frame)
+                    std::this_thread::sleep_until(next_frame);
 
-                renderer_.DrawFrame(timer);
+                frame_counter++;
 
-                frameCounter++;
-                auto tEnd = std::chrono::high_resolution_clock::now();
-                auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-                frameTimer = tDiff / 1000.0;
+                end = clock::now();
 
-                fpsTimer += tDiff;
-                timer += tDiff;
-                if (fpsTimer > 1000.0)
+                delta_t = std::chrono::duration<double, std::milli>(end - start).count();
+                timer += delta_t;
+
+                if (last_fps_update + std::chrono::milliseconds(1000) < end)
                 {
-                    std::string windowTitle = "Test vulkan - " + std::to_string(frameCounter) + " fps"
-                        + " - "+ std::to_string(timer);
-                    glfwSetWindowTitle(window_, windowTitle.c_str());
-
-                    lastFPS = roundf(1.0 / frameTimer);
-                    fpsTimer = 0.0;
-                    frameCounter = 0;
+                    std::string windowTitle = "Test vulkan - " + std::to_string(frame_counter) + " fps";
+		    glfwSetWindowTitle(window_, windowTitle.c_str());
+                    frame_counter = 0;
+                    last_fps_update = end;
                 }
             }
 
             renderer_.WaitIdle();
         }
 
-        private:
         GLFWwindow* window_;
         Renderer renderer_;
+        Camera camera_;
     };
 }    // namespace my_app
 
 int main()
 {
     my_app::Application app;
-    app.run();
+    app.Run();
 
     return 0;
 }

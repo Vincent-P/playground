@@ -14,12 +14,6 @@ layout (location = 0) out vec3 outWorldPos;
 layout (location = 1) out vec3 outNormal;
 
 void main() {
-    // gl_Position = ubo.proj * ubo.view * ubo.model * inPosition;
-
-    vec4 locPos = ubo.model * vec4(inPosition, 1.0);
-    outNormal = normalize(transpose(inverse(mat3(ubo.model))) * inNormal);
-
-    locPos.y = -locPos.y;
-    outWorldPos = locPos.xyz / locPos.w;
-    gl_Position =  ubo.proj * ubo.view * vec4(outWorldPos, 1.0);
+    outNormal = inNormal;
+    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
 }

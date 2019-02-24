@@ -14,6 +14,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 project(test-vulkan LANGUAGES CXX)
 
+add_definitions(
+        -DGLFW_INCLUDE_VULKAN
+        -DGLM_FORCE_RADIANS
+        -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
+        -DVMA_DEBUG_MARGIN=16
+        -DVMA_DEBUG_DETECT_CORRUPTION=1
+        )
+
 find_package(Vulkan REQUIRED)
 # These are the names of the package using vcpkg on Windows
 find_package(glm REQUIRED)

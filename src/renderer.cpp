@@ -1,6 +1,8 @@
 #include <fstream>
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vk_mem_alloc.h>
+#include <iostream>
 
 #include "renderer.hpp"
 
@@ -269,22 +271,22 @@ namespace my_app
         }
     }
 
-    void Renderer::UpdateUniformBuffer(Buffer& uniform_buffer, float time)
+    void Renderer::UpdateUniformBuffer(Buffer& uniform_buffer, float time, Camera& camera)
     {
         // transformation, angle, rotations axis
         MVP ubo;
-        ubo.model =
-            glm::rotate(glm::mat4(1.0f), time/100 * glm::radians(9.0f), glm::vec3(0.33f, 0.5f, 1.0f));
+        ubo.model = glm::mat4(1.0f);
 
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                                glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(
+            camera.position, // origin of camera
+            camera.position + camera.front, // where to look
+            camera.up);
 
-        ubo.proj = glm::perspective(glm::radians(45.0f),
-                                     swapchain_extent.width / (float)swapchain_extent.height,
-                                     0.1f,
-                                     10.0f);
-
-        ubo.proj[1][1] *= -1;
+        ubo.proj = glm::perspective(
+            glm::radians(45.0f),
+            swapchain_extent.width / (float)swapchain_extent.height,
+            0.1f,
+            10.0f);
 
         void* mappedData = uniform_buffer.Map();
         memcpy(mappedData, &ubo, sizeof(ubo));
@@ -632,7 +634,7 @@ namespace my_app
         auto renderArea = vk::Rect2D(vk::Offset2D(), swapchain_extent);
 
         std::array<vk::ClearValue, 2> clearValues = {};
-        clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.5f});
+        clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.5f, 0.5f, 0.5f, 1.0f});
         clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
         // From here we can do common GL commands
@@ -650,15 +652,21 @@ namespace my_app
                     clearValues.data()),
                 vk::SubpassContents::eInline);
 
-            std::vector<vk::Viewport> viewports =
-                {
-                    vk::Viewport(
-                        0,
-                        0,
-                        swapchain_extent.width,
-                        swapchain_extent.height,
-                        0,
-                        1.0f)};
+            std::vector<vk::Viewport> viewports;
+            viewports.emplace_back(
+                0,
+                0,
+                swapchain_extent.width,
+                swapchain_extent.height,
+                0,
+                1.0f);
+
+            if (current_resize_)
+            {
+                viewports[0].setWidth(current_resize_->first);
+                viewports[0].setHeight(current_resize_->second);
+                current_resize_ = std::nullopt;
+            }
 
             command_buffers[i].setViewport(0, viewports);
 
@@ -696,7 +704,12 @@ namespace my_app
         }
     }
 
-    void Renderer::DrawFrame(double time)
+    void Renderer::Resize(int width, int height)
+    {
+        current_resize_ = std::make_optional<std::pair<int, int>>(width, height);
+    }
+
+    void Renderer::DrawFrame(double time, Camera& camera)
     {
         static uint32_t currentBuffer = 0;
         static uint32_t imageIndex = 0;
@@ -720,7 +733,28 @@ namespace my_app
                                     nullptr,
                                     &imageIndex);
 
-        UpdateUniformBuffer(uniform_buffers[imageIndex], time);
+        UpdateUniformBuffer(uniform_buffers[imageIndex], time, camera);
+
+        if (current_resize_)
+        {
+
+            std::vector<vk::Viewport> viewports;
+            viewports.emplace_back(
+                0,
+                0,
+                current_resize_->first,
+                current_resize_->second,
+                0,
+                1.0f);
+
+            current_resize_ = std::nullopt;
+
+            command_buffers[imageIndex].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
+            command_buffers[imageIndex].setViewport(0, viewports);
+            command_buffers[imageIndex].end();
+        }
+
+
 
         // Create kernels to submit to the queue on a given render pass.
         vk::PipelineStageFlags stages[] = {

@@ -1,7 +1,4 @@
 #include <iostream>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -125,9 +122,7 @@ namespace my_app
                 }
 
                 auto normal = attrs.find("NORMAL");
-                if (normal == attrs.end())
-                    throw std::runtime_error("The mesh doesn't have vertex normals.");
-
+                if (normal != attrs.end())
                 {
                     const auto& normal_acc = model.accessors[normal->second];
                     const auto& normal_view = model.bufferViews[normal_acc.bufferView];

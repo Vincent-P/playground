@@ -3,11 +3,7 @@
 #include "tiny_gltf.h"
 #include <string>
 #include <vulkan/vulkan.hpp>
-#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
-#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
-#define VMA_DEBUG_MARGIN 16
-#define VMA_DEBUG_DETECT_CORRUPTION 1
 #include <vk_mem_alloc.h>
 
 namespace my_app

@@ -18,29 +18,26 @@ namespace my_app
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    class VulkanContext
+    struct VulkanContext
     {
-    public:
         VulkanContext(GLFWwindow *window);
         VulkanContext(VulkanContext& other) = delete;
         ~VulkanContext();
 
         vk::UniqueInstance CreateInstance();
         std::optional<vk::DebugUtilsMessengerEXT> SetupDebugCallback();
-        void CreateSurface(GLFWwindow *window);
-        void CreateLogicalDevice();
-        void InitAllocator();
+        vk::UniqueSurfaceKHR CreateSurface(GLFWwindow *window);
+        vk::PhysicalDevice PickPhysicalDevice();
+        vk::UniqueDevice CreateLogicalDevice();
+        VmaAllocator InitAllocator();
 
         vk::UniqueInstance instance;
         vk::DispatchLoaderDynamic dldi;
         std::optional<vk::DebugUtilsMessengerEXT> debug_messenger;
-
-        VmaAllocator allocator;
         vk::UniqueSurfaceKHR surface;
-
         vk::PhysicalDevice physical_device;
         vk::UniqueDevice device;
-        vk::DispatchLoaderDynamic dldid;
+        VmaAllocator allocator;
 
         size_t graphics_family_idx;
         size_t present_family_idx;
