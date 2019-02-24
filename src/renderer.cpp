@@ -1,8 +1,8 @@
 #include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <vk_mem_alloc.h>
 #include <iostream>
+#include <vk_mem_alloc.h>
 
 #include "renderer.hpp"
 
@@ -10,7 +10,9 @@ namespace my_app
 {
     Renderer::Renderer(GLFWwindow* window)
         : ctx_(window)
-        , model_("models/Box/glTF/Box.gltf")
+          , model_("models/Sponza/glTF/Sponza.gltf", ctx_)
+          // , model_("models/OrientationTest/glTF/OrientationTest.gltf", ctx_)
+          // , model_("models/Box/glTF/Box.gltf", ctx_)
     {
         CreateSwapchain();
         CreateCommandPoolAndBuffers();
@@ -45,7 +47,9 @@ namespace my_app
         for (auto& o : render_complete_semaphores)
             ctx_.device->destroy(o);
 
-        ctx_.device->destroy(desc_set_layout);
+        ctx_.device->destroy(scene_desc_layout);
+        ctx_.device->destroy(node_desc_layout);
+
         ctx_.device->destroy(desc_pool);
         ctx_.device->destroy(command_pool);
 
@@ -63,6 +67,7 @@ namespace my_app
         for (auto& ub : uniform_buffers)
             ub.Free();
         depth_image.Free();
+        model_.Free();
 
         vmaDestroyAllocator(ctx_.allocator);
     }
@@ -247,15 +252,19 @@ namespace my_app
 
         auto vci = vk::ImageViewCreateInfo();
         vci.flags = {};
-        vci.format = depth_format;
         vci.image = depth_image.GetImage();
-        vci.viewType = vk::ImageViewType::e2D;
-        vci.subresourceRange.aspectMask =
-            vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        vci.format = depth_format;
+        vci.components.r = vk::ComponentSwizzle::eR;
+        vci.components.g = vk::ComponentSwizzle::eG;
+        vci.components.b = vk::ComponentSwizzle::eB;
+        vci.components.a = vk::ComponentSwizzle::eA;
+        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
         vci.subresourceRange.baseMipLevel = 0;
         vci.subresourceRange.levelCount = 1;
         vci.subresourceRange.baseArrayLayer = 0;
         vci.subresourceRange.layerCount = 1;
+        vci.viewType = vk::ImageViewType::e2D;
+
         depth_image_view = ctx_.device->createImageView(vci);
     }
 
@@ -278,15 +287,20 @@ namespace my_app
         ubo.model = glm::mat4(1.0f);
 
         ubo.view = glm::lookAt(
-            camera.position, // origin of camera
-            camera.position + camera.front, // where to look
+            camera.position,                   // origin of camera
+            camera.position + camera.front,    // where to look
             camera.up);
 
-        ubo.proj = glm::perspective(
+        ubo.proj = glm::infinitePerspective(
             glm::radians(45.0f),
             swapchain_extent.width / (float)swapchain_extent.height,
-            0.1f,
-            10.0f);
+            0.1f);
+
+        // Vulkan clip space has inverted Y and half Z.
+        ubo.clip = glm::mat4(1.0f,  0.0f, 0.0f, 0.0f,
+                             0.0f, -1.0f, 0.0f, 0.0f,
+                             0.0f,  0.0f, 0.5f, 0.0f,
+                             0.0f,  0.0f, 0.5f, 1.0f);
 
         void* mappedData = uniform_buffer.Map();
         memcpy(mappedData, &ubo, sizeof(ubo));
@@ -295,57 +309,70 @@ namespace my_app
 
     void Renderer::CreateDescriptors()
     {
-        // Binding 0: Uniform buffer (Vertex shader)
-        std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings =
+        std::vector<vk::DescriptorPoolSize> pool_sizes =
             {
-                vk::DescriptorSetLayoutBinding(
-                    0,
-                    vk::DescriptorType::eUniformBuffer,
-                    1,
-                    vk::ShaderStageFlagBits::eVertex,
-                    nullptr)};
+                // MVP uniform + each mesh transforms
+                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (1 + model_.meshes.size()) * swapchain_images.size())
 
-        desc_set_layout =
-            ctx_.device->createDescriptorSetLayout(
-                vk::DescriptorSetLayoutCreateInfo(
-                    vk::DescriptorSetLayoutCreateFlags(),
-                    descriptorSetLayoutBindings.size(),
-                    descriptorSetLayoutBindings.data()));
+            };
 
-        auto layouts = std::vector<vk::DescriptorSetLayout>(swapchain_images.size(), desc_set_layout);
+        vk::DescriptorPoolCreateInfo dpci{};
+        dpci.poolSizeCount = pool_sizes.size();
+        dpci.pPoolSizes = pool_sizes.data();
+        dpci.maxSets = (1 + model_.meshes.size()) * swapchain_images.size();
+        desc_pool = ctx_.device->createDescriptorPool(dpci);
 
-        std::vector<vk::DescriptorPoolSize> descriptorPoolSizes = {
-            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, swapchain_images.size())};
-
-        desc_pool = ctx_.device->createDescriptorPool(
-            vk::DescriptorPoolCreateInfo(
-                vk::DescriptorPoolCreateFlags(),
-                swapchain_images.size(),
-                descriptorPoolSizes.size(),
-                descriptorPoolSizes.data()));
-
-        desc_sets = ctx_.device->allocateDescriptorSets(
-            vk::DescriptorSetAllocateInfo(
-                desc_pool,
-                swapchain_images.size(),
-                layouts.data()));
-
-        for (size_t i = 0; i < swapchain_images.size(); i++)
+        // Binding 0: Uniform buffer with scene informations (MVP)
         {
-            auto dbi = vk::DescriptorBufferInfo();
-            dbi.buffer = uniform_buffers[i].GetBuffer();
-            dbi.offset = 0;
-            dbi.range = sizeof(MVP);
+            std::vector<vk::DescriptorSetLayoutBinding> bindings =
+                {
+                    {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr}
 
-            std::array<vk::WriteDescriptorSet, 1> writes;
-            writes[0].setDstSet(desc_sets[i]);
-            writes[0].setDescriptorCount(1);
-            writes[0].setDescriptorType(vk::DescriptorType::eUniformBuffer);
-            writes[0].pBufferInfo = &dbi;
-            writes[0].dstArrayElement = 0;
-            writes[0].dstBinding = 0;
+                };
 
-            ctx_.device->updateDescriptorSets(writes, nullptr);
+            vk::DescriptorSetLayoutCreateInfo dslci{};
+            dslci.bindingCount = bindings.size();
+            dslci.pBindings = bindings.data();
+            scene_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+
+            auto layouts = std::vector<vk::DescriptorSetLayout>(swapchain_images.size(), scene_desc_layout);
+            vk::DescriptorSetAllocateInfo dsai{};
+            dsai.descriptorPool = desc_pool;
+            dsai.pSetLayouts = layouts.data();
+            dsai.descriptorSetCount = layouts.size();
+            desc_sets = ctx_.device->allocateDescriptorSets(dsai);
+
+            for (size_t i = 0; i < swapchain_images.size(); i++)
+            {
+                auto dbi = uniform_buffers[i].GetDescInfo();
+
+                std::array<vk::WriteDescriptorSet, 1> writes;
+                writes[0].dstSet = desc_sets[i];
+                writes[0].descriptorCount = 1;
+                writes[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+                writes[0].pBufferInfo = &dbi;
+                writes[0].dstArrayElement = 0;
+                writes[0].dstBinding = 0;
+
+                ctx_.device->updateDescriptorSets(writes, nullptr);
+            }
+        }
+
+        // Binding 1: Nodes uniform (local transforms of each mesh)
+        {
+            std::vector<vk::DescriptorSetLayoutBinding> bindings =
+                {
+                    {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr}
+
+                };
+
+            vk::DescriptorSetLayoutCreateInfo dslci{};
+            dslci.bindingCount = bindings.size();
+            dslci.pBindings = bindings.data();
+            node_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+
+            for (auto& node : model_.scene_nodes)
+                node.SetupNodeDescriptorSet(desc_pool, node_desc_layout, *ctx_.device);
         }
     }
 
@@ -375,8 +402,7 @@ namespace my_app
         attachments[1].flags = vk::AttachmentDescriptionFlags();
 
         auto color_ref = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
-        auto depth_ref =
-            vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        auto depth_ref = vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         vk::SubpassDescription subpass = {};
         subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
@@ -530,7 +556,7 @@ namespace my_app
         rast_i.polygonMode = vk::PolygonMode::eFill;
         rast_i.cullMode = vk::CullModeFlagBits::eBack;
         rast_i.frontFace = vk::FrontFace::eCounterClockwise;
-        rast_i.depthClampEnable = VK_TRUE;
+        rast_i.depthClampEnable = VK_FALSE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
         rast_i.depthBiasEnable = VK_FALSE;
         rast_i.depthBiasConstantFactor = 0;
@@ -576,8 +602,8 @@ namespace my_app
         ds_i.depthWriteEnable = VK_TRUE;
         ds_i.depthCompareOp = vk::CompareOp::eLessOrEqual;
         ds_i.depthBoundsTestEnable = VK_FALSE;
-        ds_i.minDepthBounds = 0;
-        ds_i.maxDepthBounds = 0;
+        ds_i.minDepthBounds = 0.0f;
+        ds_i.maxDepthBounds = 0.0f;
         ds_i.stencilTestEnable = VK_FALSE;
         ds_i.back.failOp = vk::StencilOp::eKeep;
         ds_i.back.passOp = vk::StencilOp::eKeep;
@@ -597,9 +623,14 @@ namespace my_app
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = 0.0;
 
+        std::array<vk::DescriptorSetLayout, 2> layouts =
+            {
+                scene_desc_layout, node_desc_layout
+
+            };
         auto ci = vk::PipelineLayoutCreateInfo();
-        ci.pSetLayouts = &desc_set_layout;
-        ci.setLayoutCount = 1;
+        ci.pSetLayouts = layouts.data();
+        ci.setLayoutCount = layouts.size();
 
         auto pcr = vk::PushConstantRange(vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial));
         ci.pushConstantRangeCount = 1;
@@ -679,25 +710,12 @@ namespace my_app
                 vk::PipelineBindPoint::eGraphics,
                 pipeline);
 
-            command_buffers[i].bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                pipeline_layout,
-                0,
-                1,
-                &desc_sets[i],
-                0,
-                nullptr);
-
             vk::Buffer vertexBuffers[] = {vertex_buffer.GetBuffer()};
             vk::DeviceSize offsets[] = {0};
-            command_buffers[i].bindIndexBuffer(
-                index_buffer.GetBuffer(),
-                0,
-                vk::IndexType::eUint32);
-
             command_buffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
+            command_buffers[i].bindIndexBuffer(index_buffer.GetBuffer(), 0, vk::IndexType::eUint32);
 
-            model_.draw(command_buffers[i], pipeline_layout);
+            model_.draw(command_buffers[i], pipeline_layout, desc_sets[i]);
 
             command_buffers[i].endRenderPass();
             command_buffers[i].end();
@@ -753,7 +771,6 @@ namespace my_app
             command_buffers[imageIndex].setViewport(0, viewports);
             command_buffers[imageIndex].end();
         }
-
 
 
         // Create kernels to submit to the queue on a given render pass.

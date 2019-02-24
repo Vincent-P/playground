@@ -18,11 +18,21 @@ layout (push_constant) uniform Material {
 	float alphaMaskCutoff;
 } material;
 
-layout(location = 0) in vec3 outWorldPos;
-layout(location = 1) in vec3 outNormal;
+layout(location = 0) in vec3 inWorldPos;
+layout(location = 1) in vec3 inNormal;
 
 layout(location = 0) out vec4 outColor;
 
-void main() {
-    outColor = material.baseColorFactor;
+void main()
+{
+    vec3 lightDir = vec3(1.0, 1.0, 0.0);
+    vec3 lightColor = vec3(1.0, 1.0, 1.0);
+
+    float diff = max(dot(inNormal, lightDir), 0.0);
+
+    vec3 diffuse = diff * lightColor;
+    vec3 ambient = 0.6 * lightColor;
+
+    vec3 result = (ambient + diffuse) * material.baseColorFactor.xyz;
+    outColor = vec4(result, 1.0);
 }

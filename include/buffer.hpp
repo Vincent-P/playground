@@ -62,6 +62,15 @@ namespace my_app
 
         vk::Buffer GetBuffer() const { return buffer_; }
 
+        vk::DescriptorBufferInfo GetDescInfo() const
+        {
+            vk::DescriptorBufferInfo dbi{};
+            dbi.buffer = buffer_;
+            dbi.offset = 0;
+            dbi.range = size_;
+            return dbi;
+        }
+
         size_t GetSize() const { return size_; }
 
         vk::BufferUsageFlags GetBufUsage() const { return buf_usage_; }

@@ -1,14 +1,23 @@
 #pragma once
 
 #include "tiny_gltf.h"
-#include <string>
-#include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <optional>
+#include <string>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
+
+#include "buffer.hpp"
 
 namespace my_app
 {
+    constexpr float global_scale = .1f;
+
     static tinygltf::TinyGLTF loader;
+
+    struct VulkanContext;
 
     struct Vertex
     {
@@ -55,6 +64,7 @@ namespace my_app
             MetallicRoughness,
             SpecularGlossiness
         };
+
         constexpr static float WorkflowFloat(PbrWorkflow workflow)
         {
             switch (workflow)
@@ -120,24 +130,71 @@ namespace my_app
 
     struct Mesh
     {
-        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout) const;
+        struct UniformBlock
+        {
+            glm::mat4 matrix;
+        } uniform_block;
+
+        Mesh(VulkanContext& ctx);
+        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
 
         std::vector<Primitive> primitives;
+        Buffer uniform;
+        vk::DescriptorSet uniform_desc;
+    };
+
+    struct Node
+    {
+        Node* parent = nullptr;
+        std::vector<Node> children;
+
+        Mesh* mesh = nullptr;
+
+        glm::mat4 matrix;
+        glm::vec3 translation{};
+        glm::vec3 scale{1.0f};
+        glm::quat rotation{};
+
+        glm::mat4 localMatrix()
+        {
+            return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
+        }
+
+        glm::mat4 getMatrix()
+        {
+            glm::mat4 m = localMatrix();
+            auto p = parent;
+            while (p)
+            {
+                m = p->localMatrix() * m;
+                p = p->parent;
+            }
+            return m;
+        }
+
+        void update();
+        void SetupNodeDescriptorSet(vk::DescriptorPool& desc_pool, vk::DescriptorSetLayout& desc_set_layout, vk::Device& device);
+
+        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
     };
 
     struct Model
     {
-        Model(std::string);
+        Model(std::string path, VulkanContext& ctx);
         ~Model() = default;
 
         void LoadMaterials();
-        void LoadMeshesBuffers();
+        void LoadMeshes(VulkanContext& ctx);
+        Node LoadNode(size_t i);
+        void LoadNodes();
+        void Free();
 
-        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout) const;
+        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
 
         tinygltf::Model model;
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
+        std::vector<Node> scene_nodes;
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
     };

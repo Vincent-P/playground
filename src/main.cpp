@@ -12,8 +12,8 @@
 namespace my_app
 {
     constexpr int fps_cap = 288;
-    constexpr double mouse_sensitivity = 0.2;
-    constexpr double camera_speed = 0.01;
+    constexpr double mouse_sensitivity = 0.15;
+    constexpr double camera_speed = 0.002;
 
     class Application
     {
@@ -56,7 +56,7 @@ namespace my_app
             auto& yaw = app->camera_.yaw;
             auto& pitch = app->camera_.pitch;
 
-            yaw   += (last_x - xpos) * mouse_sensitivity;
+            yaw   += (xpos - last_x) * mouse_sensitivity;
             pitch += (last_y - ypos) * mouse_sensitivity;
 
             glm::vec3 front;

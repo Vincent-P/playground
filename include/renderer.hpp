@@ -19,10 +19,10 @@ namespace my_app
 
     struct Camera
     {
-        glm::vec3 position = glm::vec3(2.0f, 0.0f, 2.0f);
-        glm::vec3 front = glm::vec3(-2.0f, 0.0f, -2.0f );
-        glm::vec3 up = glm::vec3(0.0f, -1.0f,  0.0f);
-        double yaw = -135.0;
+        glm::vec3 position = glm::vec3(0.0f, 0.0f, -2.0f);
+        glm::vec3 front = glm::vec3(0.0f, 0.0f, 1.0f );
+        glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
+        double yaw = 0.0;
         double pitch = 0.0;
     };
 
@@ -31,6 +31,7 @@ namespace my_app
         alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
+        alignas(16) glm::mat4 clip;
     };
 
     class Renderer
@@ -93,7 +94,10 @@ namespace my_app
         vk::ShaderModule frag_module;
 
         vk::DescriptorPool desc_pool;
-        vk::DescriptorSetLayout desc_set_layout;
+
+        vk::DescriptorSetLayout scene_desc_layout;
+        vk::DescriptorSetLayout node_desc_layout;
+
         std::vector<vk::DescriptorSet> desc_sets;
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
