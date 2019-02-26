@@ -36,6 +36,7 @@ namespace my_app
         width = gltf_image.width;
         height = gltf_image.height;
         mip_levels = floor(log2(std::max(width, height))) + 1.0;
+        mip_levels = 1;
         auto copy_queue = ctx.device->getQueue(ctx.graphics_family_idx, 0);
 
         // Move the pixels to a staging buffer that will be copied to the image
@@ -67,7 +68,7 @@ namespace my_app
         vk::CommandBufferBeginInfo cbi{};
         cmd.begin(cbi);
 
-        vk::ImageSubresourceRange subresource_range{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
+        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
         {
             vk::ImageMemoryBarrier b{};
@@ -107,15 +108,17 @@ namespace my_app
         vk::SubmitInfo submit{};
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &cmd;
-        copy_queue.submit(submit, fence);
 
+        copy_queue.submit(submit, fence);
         ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-        ctx.device->resetFences(fence);
+        ctx.device->destroy(fence);
 
         staging_buffer.Free();
 
         // Generate the mipchain (because glTF's textures are regular images)
-        cmd.begin(cbi);
+
+        vk::CommandBuffer bcmd = ctx.device->allocateCommandBuffers({ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
+        bcmd.begin(cbi);
 
         for (uint32_t i = 1; i < mip_levels; i++)
         {
@@ -133,8 +136,7 @@ namespace my_app
             blit.dstOffsets[1].y = height >> i;
             blit.dstOffsets[1].z = 1;
 
-            // TODO(vincent): maybe i is at the wrong place, emacs is drunk
-            vk::ImageSubresourceRange mip_sub_range{vk::ImageAspectFlagBits::eColor, i, 1, 0, 1};
+            vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
 
             {
                 vk::ImageMemoryBarrier b{};
@@ -144,10 +146,10 @@ namespace my_app
                 b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
                 b.image = image.GetImage();
                 b.subresourceRange = mip_sub_range;
-                cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
             }
 
-            cmd.blitImage(image.GetImage(), vk::ImageLayout::eTransferSrcOptimal, image.GetImage(), vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+            bcmd.blitImage(image.GetImage(), vk::ImageLayout::eTransferSrcOptimal, image.GetImage(), vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
 
             {
                 vk::ImageMemoryBarrier b{};
@@ -157,7 +159,7 @@ namespace my_app
                 b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
                 b.image = image.GetImage();
                 b.subresourceRange = mip_sub_range;
-                cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
             }
         }
 
@@ -167,15 +169,19 @@ namespace my_app
         {
             vk::ImageMemoryBarrier b{};
             b.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-            b.newLayout = desc_info.imageLayout;
+            b.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
             b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
             b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
             b.image = image.GetImage();
             b.subresourceRange = subresource_range;
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, nullptr, nullptr, b);
+            bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, nullptr, nullptr, b);
         }
 
-        cmd.end();
+        bcmd.end();
+
+        fence = ctx.device->createFence({});
+        submit.commandBufferCount = 1;
+        submit.pCommandBuffers = &bcmd;
 
         copy_queue.submit(submit, fence);
         ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
@@ -422,6 +428,18 @@ namespace my_app
                 new_mat.texCoordSets.normal = material.additionalValues["normalTexture"].TextureTexCoord();
             }
 
+            if (material.additionalValues.count("emissiveTexture"))
+            {
+                new_mat.emissiveTexture = &textures[material.additionalValues["emissiveTexture"].TextureIndex()];
+                new_mat.texCoordSets.emissive = material.additionalValues["emissiveTexture"].TextureTexCoord();
+            }
+
+            if (material.additionalValues.count("occlusionTexture"))
+            {
+                new_mat.occlusionTexture = &textures[material.additionalValues["occlusionTexture"].TextureIndex()];
+                new_mat.texCoordSets.occlusion = material.additionalValues["occlusionTexture"].TextureTexCoord();
+            }
+
             if (material.additionalValues.count("alphaMode"))
             {
                 tinygltf::Parameter& param = material.additionalValues["alphaMode"];
@@ -435,6 +453,12 @@ namespace my_app
                     new_mat.alphaMode = Material::AlphaMode::Mask;
                 }
             }
+
+            if (material.additionalValues.count("alphaCutoff"))
+                new_mat.alphaCutoff = material.additionalValues["alphaCutoff"].Factor();
+
+            if (material.additionalValues.count("emissiveFactor"))
+                new_mat.emissiveFactor = glm::vec4(glm::make_vec3(material.additionalValues["emissiveFactor"].ColorFactor().data()), 1.0f);
 
             materials.push_back(std::move(new_mat));
         }
@@ -568,9 +592,7 @@ namespace my_app
     Node Model::LoadNode(size_t i)
     {
         auto& node = model.nodes[i];
-        Node n;
-
-        n.matrix = glm::mat4(1.0f);
+        Node n{};
 
         // Generate local node matrix
         if (node.translation.size() == 3)

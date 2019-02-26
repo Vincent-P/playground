@@ -14,7 +14,7 @@
 
 namespace my_app
 {
-    constexpr float global_scale = 1.0;
+    constexpr float global_scale = 1.;
 
     static tinygltf::TinyGLTF loader;
 
@@ -225,10 +225,10 @@ namespace my_app
 
         Mesh* mesh = nullptr;
 
-        glm::mat4 matrix;
-        glm::vec3 translation{};
+        glm::mat4 matrix{1.0f};
+        glm::vec3 translation;
         glm::vec3 scale{1.0f};
-        glm::quat rotation{};
+        glm::mat4 rotation{1.0f};
 
         glm::mat4 localMatrix()
         {

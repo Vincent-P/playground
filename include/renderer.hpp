@@ -13,8 +13,8 @@ struct GLFWwindow;
 
 namespace my_app
 {
-    constexpr int WIDTH = 1280;
-    constexpr int HEIGHT = 720;
+    constexpr int WIDTH = 1920;
+    constexpr int HEIGHT = 1080;
     constexpr int NUM_FRAME_DATA = 2;
 
     struct Camera
@@ -28,10 +28,10 @@ namespace my_app
 
     struct MVP
     {
-        alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
         alignas(16) glm::mat4 clip;
+        alignas(16) glm::vec3 cam_pos;
     };
 
     class Renderer

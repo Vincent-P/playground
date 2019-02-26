@@ -329,7 +329,7 @@ namespace my_app
     {
         // transformation, angle, rotations axis
         MVP ubo;
-        ubo.model = glm::mat4(1.0f);
+        ubo.cam_pos = camera.position;
 
         ubo.view = glm::lookAt(
             camera.position,                   // origin of camera
