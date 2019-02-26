@@ -54,12 +54,14 @@ namespace my_app
         , physical_device(PickPhysicalDevice())
         , device(CreateLogicalDevice())
         , allocator(InitAllocator())
+        , command_pool(device->createCommandPool({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, static_cast<uint32_t>(graphics_family_idx)}))
     {}
 
     VulkanContext::~VulkanContext()
     {
         if (debug_messenger)
             instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr, dldi);
+        device->destroy(command_pool);
     }
 
     vk::UniqueInstance VulkanContext::CreateInstance()

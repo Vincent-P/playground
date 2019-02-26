@@ -17,7 +17,8 @@ namespace my_app
         {
         }
 
-        Image(vk::ImageCreateInfo image_info, VmaMemoryUsage mem_usage, VmaAllocator& allocator)
+        Image(VmaAllocator& allocator, vk::ImageCreateInfo image_info,
+              VmaMemoryUsage mem_usage = VMA_MEMORY_USAGE_GPU_ONLY)
             : allocator_(&allocator)
             , image_info_(image_info)
             , image_()

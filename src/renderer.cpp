@@ -10,12 +10,60 @@ namespace my_app
 {
     Renderer::Renderer(GLFWwindow* window)
         : ctx_(window)
-          , model_("models/Sponza/glTF/Sponza.gltf", ctx_)
-          // , model_("models/OrientationTest/glTF/OrientationTest.gltf", ctx_)
-          // , model_("models/Box/glTF/Box.gltf", ctx_)
+        , model_("models/Sponza/glTF/Sponza.gltf", ctx_)
     {
+        auto format = vk::Format::eA8B8G8R8UnormPack32;
+        auto ci = vk::ImageCreateInfo();
+        ci.imageType = vk::ImageType::e2D;
+        ci.format = format;
+        ci.extent.width = 1;
+        ci.extent.height = 1;
+        ci.extent.depth = 1;
+        ci.mipLevels = 1;
+        ci.arrayLayers = 1;
+        ci.samples = vk::SampleCountFlagBits::e1;
+        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.usage = vk::ImageUsageFlagBits::eSampled;
+        ci.queueFamilyIndexCount = 0;
+        ci.pQueueFamilyIndices = NULL;
+        ci.sharingMode = vk::SharingMode::eExclusive;
+        ci.flags = {};
+        empty_image = Image{ctx_.allocator, ci};
+
+        // Create the sampler for the texture
+        TextureSampler texture_sampler;
+        vk::SamplerCreateInfo sci{};
+        sci.magFilter = texture_sampler.magFilter;
+        sci.minFilter = texture_sampler.minFilter;
+        sci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        sci.addressModeU = texture_sampler.addressModeU;
+        sci.addressModeV = texture_sampler.addressModeV;
+        sci.addressModeW = texture_sampler.addressModeW;
+        sci.compareOp = vk::CompareOp::eNever;
+        sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+        sci.maxAnisotropy = 1.0;
+        sci.anisotropyEnable = VK_FALSE;
+        sci.maxLod = 1.0f;
+        sci.maxAnisotropy = 8.0f;
+        sci.anisotropyEnable = VK_TRUE;
+        empty_info.sampler = ctx_.device->createSampler(sci);
+
+        // Create the image view holding the texture
+        vk::ImageViewCreateInfo vci{};
+        vci.flags = {};
+        vci.image = empty_image.GetImage();
+        vci.format = format;
+        vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        vci.subresourceRange.baseMipLevel = 0;
+        vci.subresourceRange.levelCount = 1;
+        vci.subresourceRange.baseArrayLayer = 0;
+        vci.subresourceRange.layerCount = 1;
+        vci.viewType = vk::ImageViewType::e2D;
+        empty_info.imageView = ctx_.device->createImageView(vci);
+
         CreateSwapchain();
-        CreateCommandPoolAndBuffers();
+        CreateCommandBuffers();
         CreateSemaphores();
         CreateDepthBuffer();
         CreateUniformBuffer();
@@ -31,6 +79,10 @@ namespace my_app
 
     Renderer::~Renderer()
     {
+        ctx_.device->destroy(empty_info.imageView);
+        ctx_.device->destroy(empty_info.sampler);
+        empty_image.Free();
+
         for (auto& o : swapchain_image_views)
             ctx_.device->destroy(o);
         ctx_.device->destroy(depth_image_view);
@@ -49,9 +101,9 @@ namespace my_app
 
         ctx_.device->destroy(scene_desc_layout);
         ctx_.device->destroy(node_desc_layout);
+        ctx_.device->destroy(mat_desc_layout);
 
         ctx_.device->destroy(desc_pool);
-        ctx_.device->destroy(command_pool);
 
         ctx_.device->destroy(vert_module);
         ctx_.device->destroy(frag_module);
@@ -178,16 +230,10 @@ namespace my_app
         }
     }
 
-    void Renderer::CreateCommandPoolAndBuffers()
+    void Renderer::CreateCommandBuffers()
     {
-        vk::CommandPoolCreateInfo ci;
-        ci.flags = vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
-        ci.queueFamilyIndex = ctx_.graphics_family_idx;
-
-        command_pool = ctx_.device->createCommandPool(ci);
-
         vk::CommandBufferAllocateInfo cbai;
-        cbai.commandPool = command_pool;
+        cbai.commandPool = ctx_.command_pool;
         cbai.level = vk::CommandBufferLevel::ePrimary;
         cbai.commandBufferCount = NUM_FRAME_DATA;
 
@@ -216,9 +262,12 @@ namespace my_app
 
     void Renderer::CreateDepthBuffer()
     {
-        std::vector<vk::Format> depthFormats = {
-            vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat, vk::Format::eD24UnormS8Uint,
-            vk::Format::eD16UnormS8Uint, vk::Format::eD16Unorm};
+        std::vector<vk::Format> depthFormats =
+            {
+                vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat, vk::Format::eD24UnormS8Uint,
+                vk::Format::eD16UnormS8Uint, vk::Format::eD16Unorm
+
+            };
 
         for (auto& format : depthFormats)
         {
@@ -248,7 +297,7 @@ namespace my_app
         ci.sharingMode = vk::SharingMode::eExclusive;
         ci.flags = {};
 
-        depth_image = Image(ci, VMA_MEMORY_USAGE_GPU_ONLY, ctx_.allocator);
+        depth_image = Image(ctx_.allocator, ci);
 
         auto vci = vk::ImageViewCreateInfo();
         vci.flags = {};
@@ -273,11 +322,7 @@ namespace my_app
         uniform_buffers.resize(swapchain_images.size());
 
         for (auto& uniform_buffer : uniform_buffers)
-        {
-            auto buf_usage = vk::BufferUsageFlagBits::eUniformBuffer;
-            auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            uniform_buffer = Buffer(sizeof(MVP), buf_usage, mem_usage, ctx_.allocator);
-        }
+            uniform_buffer = Buffer(ctx_.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
     }
 
     void Renderer::UpdateUniformBuffer(Buffer& uniform_buffer, float time, Camera& camera)
@@ -297,10 +342,10 @@ namespace my_app
             0.1f);
 
         // Vulkan clip space has inverted Y and half Z.
-        ubo.clip = glm::mat4(1.0f,  0.0f, 0.0f, 0.0f,
+        ubo.clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
                              0.0f, -1.0f, 0.0f, 0.0f,
-                             0.0f,  0.0f, 0.5f, 0.0f,
-                             0.0f,  0.0f, 0.5f, 1.0f);
+                             0.0f, 0.0f, 0.5f, 0.0f,
+                             0.0f, 0.0f, 0.5f, 1.0f);
 
         void* mappedData = uniform_buffer.Map();
         memcpy(mappedData, &ubo, sizeof(ubo));
@@ -311,15 +356,17 @@ namespace my_app
     {
         std::vector<vk::DescriptorPoolSize> pool_sizes =
             {
-                // MVP uniform + each mesh transforms
-                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (1 + model_.meshes.size()) * swapchain_images.size())
+                // TODO(vincent): count meshes
+                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (4 + model_.meshes.size()) * swapchain_images.size()),
+                // TODO(vincent): count textures
+                vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * model_.materials.size() * swapchain_images.size())
 
             };
 
         vk::DescriptorPoolCreateInfo dpci{};
         dpci.poolSizeCount = pool_sizes.size();
         dpci.pPoolSizes = pool_sizes.data();
-        dpci.maxSets = (1 + model_.meshes.size()) * swapchain_images.size();
+        dpci.maxSets = (2 + model_.meshes.size() + model_.materials.size()) * swapchain_images.size();
         desc_pool = ctx_.device->createDescriptorPool(dpci);
 
         // Binding 0: Uniform buffer with scene informations (MVP)
@@ -358,7 +405,72 @@ namespace my_app
             }
         }
 
-        // Binding 1: Nodes uniform (local transforms of each mesh)
+        // Binding 1: Material (samplers)
+        {
+            std::vector<vk::DescriptorSetLayoutBinding> bindings = {
+                {0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr},
+                {1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr},
+                {2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr},
+                {3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr},
+                {4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr},
+
+            };
+
+            vk::DescriptorSetLayoutCreateInfo dslci{};
+            dslci.bindingCount = bindings.size();
+            dslci.pBindings = bindings.data();
+            mat_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+
+            // Per-Material descriptor sets
+            for (auto& material : model_.materials)
+            {
+                vk::DescriptorSetAllocateInfo dsai{};
+                dsai.descriptorPool = desc_pool;
+                dsai.pSetLayouts = &mat_desc_layout;
+                dsai.descriptorSetCount = 1;
+                material.desc_set = ctx_.device->allocateDescriptorSets(dsai)[0];
+
+                // Dont do this at home
+
+                std::vector<vk::DescriptorImageInfo> imageDescriptors = {
+                    empty_info,
+                    empty_info,
+                    material.normalTexture ? material.normalTexture->desc_info : empty_info,
+                    material.occlusionTexture ? material.occlusionTexture->desc_info : empty_info,
+                    material.emissiveTexture ? material.emissiveTexture->desc_info : empty_info};
+
+                // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
+
+                if (material.workflow == Material::PbrWorkflow::MetallicRoughness)
+                {
+                    if (material.baseColorTexture)
+                        imageDescriptors[0] = material.baseColorTexture->desc_info;
+                    if (material.metallicRoughnessTexture)
+                        imageDescriptors[1] = material.metallicRoughnessTexture->desc_info;
+                }
+                else
+                {
+                    if (material.extension.diffuseTexture)
+                        imageDescriptors[0] = material.extension.diffuseTexture->desc_info;
+                    if (material.extension.specularGlossinessTexture)
+                        imageDescriptors[1] = material.extension.specularGlossinessTexture->desc_info;
+                }
+
+                std::array<vk::WriteDescriptorSet, 5> writeDescriptorSets{};
+                for (uint32_t i = 0; i < imageDescriptors.size(); i++)
+                {
+                    writeDescriptorSets[i].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+                    writeDescriptorSets[i].descriptorCount = 1;
+                    writeDescriptorSets[i].dstSet = material.desc_set;
+                    writeDescriptorSets[i].dstBinding = i;
+                    writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
+                }
+
+                ctx_.device->updateDescriptorSets(writeDescriptorSets, nullptr);
+            }
+        }
+
+        // Binding 2: Nodes uniform (local transforms of each mesh)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings =
                 {
@@ -451,10 +563,7 @@ namespace my_app
     void Renderer::CreateIndexBuffer()
     {
         auto size = model_.indices.size() * sizeof(std::uint32_t);
-        auto buf_usage = vk::BufferUsageFlagBits::eIndexBuffer;
-        auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-
-        index_buffer = Buffer(size, buf_usage, mem_usage, ctx_.allocator);
+        index_buffer = Buffer(ctx_.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
 
         void* mappedData = index_buffer.Map();
         memcpy(mappedData, model_.indices.data(), size);
@@ -464,10 +573,7 @@ namespace my_app
     void Renderer::CreateVertexBuffer()
     {
         auto size = model_.vertices.size() * sizeof(Vertex);
-        auto buf_usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        auto mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-
-        vertex_buffer = Buffer(size, buf_usage, mem_usage, ctx_.allocator);
+        vertex_buffer = Buffer(ctx_.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
 
         void* mappedData = vertex_buffer.Map();
         memcpy(mappedData, model_.vertices.data(), size);
@@ -623,9 +729,9 @@ namespace my_app
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = 0.0;
 
-        std::array<vk::DescriptorSetLayout, 2> layouts =
+        std::array<vk::DescriptorSetLayout, 3> layouts =
             {
-                scene_desc_layout, node_desc_layout
+                scene_desc_layout, mat_desc_layout, node_desc_layout
 
             };
         auto ci = vk::PipelineLayoutCreateInfo();
@@ -735,13 +841,8 @@ namespace my_app
         auto& device = ctx_.device;
         auto graphicsQueue = device->getQueue(ctx_.graphics_family_idx, 0);
 
-
-        device->waitForFences(1,
-                              &command_buffers_fences[currentBuffer],
-                              VK_TRUE,
-                              UINT64_MAX);
-
-        device->resetFences(1, &command_buffers_fences[currentBuffer]);
+        device->waitForFences(command_buffers_fences[currentBuffer], VK_TRUE, UINT64_MAX);
+        device->resetFences(command_buffers_fences[currentBuffer]);
 
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
@@ -788,7 +889,7 @@ namespace my_app
         kernel.pSignalSemaphores = &render_complete_semaphores[currentBuffer];
 
         // the fences will be signaled
-        graphicsQueue.submit(1, &kernel, command_buffers_fences[currentBuffer]);
+        graphicsQueue.submit(kernel, command_buffers_fences[currentBuffer]);
 
         auto present_i = vk::PresentInfoKHR();
         present_i.waitSemaphoreCount = 1;

@@ -12,8 +12,8 @@
 namespace my_app
 {
     constexpr int fps_cap = 288;
-    constexpr double mouse_sensitivity = 0.15;
-    constexpr double camera_speed = 0.002;
+    constexpr double mouse_sensitivity = 0.3;
+    constexpr double camera_speed = 0.02;
 
     class Application
     {

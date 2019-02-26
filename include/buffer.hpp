@@ -17,8 +17,8 @@ namespace my_app
         {
         }
 
-        Buffer(size_t size, vk::BufferUsageFlags buf_usage, VmaMemoryUsage mem_usage,
-               VmaAllocator& allocator)
+        Buffer(VmaAllocator& allocator, size_t size, vk::BufferUsageFlags buf_usage,
+               VmaMemoryUsage mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU)
             : allocator_(&allocator)
             , mapped_(nullptr)
             , size_(size)

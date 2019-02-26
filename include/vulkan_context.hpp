@@ -39,6 +39,8 @@ namespace my_app
         vk::UniqueDevice device;
         VmaAllocator allocator;
 
+        vk::CommandPool command_pool;
+
         size_t graphics_family_idx;
         size_t present_family_idx;
     };

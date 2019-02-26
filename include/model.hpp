@@ -10,19 +10,74 @@
 #include <vulkan/vulkan.hpp>
 
 #include "buffer.hpp"
+#include "image.hpp"
 
 namespace my_app
 {
-    constexpr float global_scale = .1f;
+    constexpr float global_scale = 1.0;
 
     static tinygltf::TinyGLTF loader;
 
     struct VulkanContext;
 
+    constexpr vk::SamplerAddressMode GetVkWrapMode(int32_t wrapMode)
+    {
+        switch (wrapMode)
+        {
+            case TINYGLTF_TEXTURE_WRAP_REPEAT:
+                return vk::SamplerAddressMode::eRepeat;
+            case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
+                return vk::SamplerAddressMode::eClampToEdge;
+            case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
+                return vk::SamplerAddressMode::eMirroredRepeat;
+        }
+    }
+
+    constexpr vk::Filter GetVkFilterMode(int32_t filterMode)
+    {
+        switch (filterMode)
+        {
+            case TINYGLTF_TEXTURE_FILTER_NEAREST:
+                return vk::Filter::eNearest;
+            case TINYGLTF_TEXTURE_FILTER_LINEAR:
+                return vk::Filter::eLinear;
+            case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
+                return vk::Filter::eNearest;
+            case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
+                return vk::Filter::eNearest;
+            case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
+                return vk::Filter::eLinear;
+            case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
+                return vk::Filter::eLinear;
+        }
+    }
+
+    struct TextureSampler
+    {
+        vk::Filter magFilter = vk::Filter::eLinear;
+        vk::Filter minFilter = vk::Filter::eLinear;
+        vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode addressModeV = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode addressModeW = vk::SamplerAddressMode::eRepeat;
+    };
+
+    struct Texture
+    {
+        Image image;
+        vk::DescriptorImageInfo desc_info;
+        uint32_t width, height;
+        uint32_t mip_levels;
+        uint32_t layerCount;
+
+        Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler);
+    };
+
     struct Vertex
     {
         glm::vec3 pos;
         glm::vec3 normal;
+        glm::vec2 uv0;
+        glm::vec2 uv1;
 
         static std::array<vk::VertexInputBindingDescription, 1> getBindingDescriptions()
         {
@@ -33,9 +88,9 @@ namespace my_app
             return bindings;
         }
 
-        static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+        static std::array<vk::VertexInputAttributeDescription, 4> getAttributeDescriptions()
         {
-            std::array<vk::VertexInputAttributeDescription, 2> descs;
+            std::array<vk::VertexInputAttributeDescription, 4> descs;
             descs[0].binding = 0;
             descs[0].location = 0;
             descs[0].format = vk::Format::eR32G32B32Sfloat;
@@ -45,6 +100,16 @@ namespace my_app
             descs[1].location = 1;
             descs[1].format = vk::Format::eR32G32B32Sfloat;
             descs[1].offset = offsetof(Vertex, normal);
+
+            descs[2].binding = 0;
+            descs[2].location = 2;
+            descs[2].format = vk::Format::eR32G32Sfloat;
+            descs[2].offset = offsetof(Vertex, uv0);
+
+            descs[3].binding = 0;
+            descs[3].location = 3;
+            descs[3].format = vk::Format::eR32G32Sfloat;
+            descs[3].offset = offsetof(Vertex, uv1);
 
             return descs;
         }
@@ -83,16 +148,26 @@ namespace my_app
         glm::vec4 baseColorFactor = glm::vec4(1.0f);
         glm::vec4 emissiveFactor = glm::vec4(1.0f);
 
-        // vkglTF::Texture *baseColorTexture;
-        // vkglTF::Texture *metallicRoughnessTexture;
-        // vkglTF::Texture *normalTexture;
-        // vkglTF::Texture *occlusionTexture;
-        // vkglTF::Texture *emissiveTexture;
+        Texture* baseColorTexture;
+        Texture* metallicRoughnessTexture;
+        Texture* normalTexture;
+        Texture* occlusionTexture;
+        Texture* emissiveTexture;
+
+        struct TexCoordSets
+        {
+            uint8_t baseColor = 0;
+            uint8_t metallicRoughness = 0;
+            uint8_t specularGlossiness = 0;
+            uint8_t normal = 0;
+            uint8_t occlusion = 0;
+            uint8_t emissive = 0;
+        } texCoordSets;
 
         struct Extension
         {
-            // vkglTF::Texture *specularGlossinessTexture;
-            // vkglTF::Texture *diffuseTexture;
+            Texture* specularGlossinessTexture;
+            Texture* diffuseTexture;
             glm::vec4 diffuseFactor = glm::vec4(1.0f);
             glm::vec3 specularFactor = glm::vec3(0.0f);
         } extension;
@@ -109,11 +184,11 @@ namespace my_app
         glm::vec4 diffuseFactor;
         glm::vec4 specularFactor;
         float workflow;
-        float hasColorTexture;
-        float hasPhysicalDescriptorTexture;
-        float hasNormalTexture;
-        float hasOcclusionTexture;
-        float hasEmissiveTexture;
+        int colorTextureSet;
+        int PhysicalDescriptorTextureSet;
+        int normalTextureSet;
+        int occlusionTextureSet;
+        int emissiveTextureSet;
         float metallicFactor;
         float roughnessFactor;
         float alphaMask;
@@ -183,15 +258,20 @@ namespace my_app
         Model(std::string path, VulkanContext& ctx);
         ~Model() = default;
 
+        void LoadTextures();
+        void LoadSamplers();
         void LoadMaterials();
-        void LoadMeshes(VulkanContext& ctx);
+        void LoadMeshes();
         Node LoadNode(size_t i);
         void LoadNodes();
         void Free();
 
         void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
 
+        VulkanContext &ctx;
         tinygltf::Model model;
+        std::vector<TextureSampler> text_samplers;
+        std::vector<Texture> textures;
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
         std::vector<Node> scene_nodes;

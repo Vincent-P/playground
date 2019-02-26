@@ -13,8 +13,8 @@ struct GLFWwindow;
 
 namespace my_app
 {
-    constexpr int WIDTH = 800;
-    constexpr int HEIGHT = 600;
+    constexpr int WIDTH = 1280;
+    constexpr int HEIGHT = 720;
     constexpr int NUM_FRAME_DATA = 2;
 
     struct Camera
@@ -42,7 +42,7 @@ namespace my_app
         ~Renderer();
 
         void CreateSwapchain();
-        void CreateCommandPoolAndBuffers();
+        void CreateCommandBuffers();
         void CreateSemaphores();
         void CreateDepthBuffer();
         void CreateUniformBuffer();
@@ -76,7 +76,6 @@ namespace my_app
         vk::PresentModeKHR swapchain_present_mode;
         vk::Extent2D swapchain_extent;
 
-        vk::CommandPool command_pool;
         std::vector<vk::CommandBuffer> command_buffers;
         std::vector<vk::Fence> command_buffers_fences;
         std::vector<vk::Semaphore> acquire_semaphores;
@@ -85,6 +84,9 @@ namespace my_app
         Image depth_image;
         vk::ImageView depth_image_view;
         vk::Format depth_format;
+
+        Image empty_image;
+        vk::DescriptorImageInfo empty_info;
 
         std::vector<Buffer> uniform_buffers;
         Buffer index_buffer;
@@ -96,6 +98,7 @@ namespace my_app
         vk::DescriptorPool desc_pool;
 
         vk::DescriptorSetLayout scene_desc_layout;
+        vk::DescriptorSetLayout mat_desc_layout;
         vk::DescriptorSetLayout node_desc_layout;
 
         std::vector<vk::DescriptorSet> desc_sets;
