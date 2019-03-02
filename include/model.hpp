@@ -14,7 +14,7 @@
 
 namespace my_app
 {
-    constexpr float global_scale = 1.;
+    constexpr float global_scale = 5.;
 
     static tinygltf::TinyGLTF loader;
 
@@ -54,7 +54,7 @@ namespace my_app
 
     struct TextureSampler
     {
-        vk::Filter magFilter = vk::Filter::eLinear;
+        vk::Filter magFilter = vk::Filter::eNearest;
         vk::Filter minFilter = vk::Filter::eLinear;
         vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
         vk::SamplerAddressMode addressModeV = vk::SamplerAddressMode::eRepeat;

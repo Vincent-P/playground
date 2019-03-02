@@ -42,6 +42,9 @@ namespace my_app
         ~Renderer();
 
         void CreateSwapchain();
+        void DestroySwapchain();
+        void RecreateSwapchain();
+
         void CreateCommandBuffers();
         void CreateSemaphores();
         void CreateDepthBuffer();
@@ -66,10 +69,7 @@ namespace my_app
 
         Model model_;
 
-        // Not null if a resize is requested
-        std::optional<std::pair<int, int>> current_resize_;
-
-        vk::UniqueSwapchainKHR swapchain;
+        vk::SwapchainKHR swapchain;
         std::vector<vk::Image> swapchain_images;
         std::vector<vk::ImageView> swapchain_image_views;
         vk::Format swapchain_format;

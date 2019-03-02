@@ -62,6 +62,8 @@ namespace my_app
         if (debug_messenger)
             instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr, dldi);
         device->destroy(command_pool);
+
+        vmaDestroyAllocator(allocator);
     }
 
     vk::UniqueInstance VulkanContext::CreateInstance()

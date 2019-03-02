@@ -39,12 +39,15 @@ const float PBR_WORKFLOW_METALLIC_ROUGHNESS = 0.0;
 const float PBR_WORKFLOW_SPECULAR_GLOSINESS = 1.0f;
 
 const vec3 LightPos = vec3(1.0, 5.0, 1.0);
-const vec3 LightColor = vec3(500.0);
+const vec3 LightColor = vec3(2.0);
 
 // Find the normal for this fragment, pulling either from a predefined normal map
 // or from the interpolated mesh normal and tangent attributes.
 vec3 getNormal()
 {
+    if (material.normalTextureSet <= -1)
+        return normalize(inNormal);
+
     // Perturb normal, see http://www.thetenthplanet.de/archives/1180
     vec3 tangentNormal = texture(normalMap, material.normalTextureSet == 0 ? inUV0 : inUV1).xyz * 2.0 - 1.0;
 
@@ -195,6 +198,7 @@ void main()
     vec3 specularColor = mix(F0, baseColor.rgb, metallic);
 
     vec3 N = getNormal();
+
     vec3 V = normalize(inCamPos - inWorldPos);
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -207,7 +211,8 @@ void main()
     vec3 H = normalize(V + L);
     float distance = length(LightPos - inWorldPos);
     float attenuation = 1.0 / (distance * distance);
-    vec3 radiance = LightColor * attenuation;
+    // vec3 radiance = LightColor * attenuation;
+    vec3 radiance = LightColor;
 
     // Cook-Torrance BRDF
     float NDF = DistributionGGX(N, H, alphaRoughness);
@@ -236,7 +241,7 @@ void main()
     Lo += (kD * baseColor.xyz / M_PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
     // END FOR EACH LIGHT
 
-    vec3 color = Lo;
+    vec3 color = Lo + 0.05 * baseColor.xyz;
 
     // Apply optional PBR terms for additional (optional) shading
     if (material.occlusionTextureSet > -1)

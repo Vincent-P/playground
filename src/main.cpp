@@ -2,23 +2,23 @@
 
 #include <chrono>
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
-#include <glm/glm.hpp>
 
 #include "renderer.hpp"
 
 namespace my_app
 {
-    constexpr int fps_cap = 288;
+    constexpr int fps_cap = 200;
     constexpr double mouse_sensitivity = 0.3;
     constexpr double camera_speed = 0.02;
 
-    class Application
+    class App
     {
         public:
-        Application()
+        App()
             : window_(CreateGLFWWindow())
             , renderer_(window_)
         {
@@ -29,7 +29,7 @@ namespace my_app
             glfwSetFramebufferSizeCallback(window_, ResizeCallback);
         }
 
-        ~Application()
+        ~App()
         {
             glfwTerminate();
         }
@@ -39,7 +39,7 @@ namespace my_app
             if (!width || !height)
                 return;
 
-            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+            auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
             app->renderer_.Resize(width, height);
         }
 
@@ -48,16 +48,21 @@ namespace my_app
             static double last_x = xpos;
             static double last_y = ypos;
 
-            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+            auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
 
-            if (glfwGetKey(app->window_, GLFW_KEY_LEFT_ALT))
+            if (glfwGetKey(app->window_, GLFW_KEY_LEFT_ALT) || !app->is_focused_)
                 return;
 
             auto& yaw = app->camera_.yaw;
             auto& pitch = app->camera_.pitch;
 
-            yaw   += (xpos - last_x) * mouse_sensitivity;
+            yaw += (xpos - last_x) * mouse_sensitivity;
             pitch += (last_y - ypos) * mouse_sensitivity;
+
+            if (pitch > 89.0f)
+                pitch = 89.0f;
+            if (pitch < -89.0f)
+                pitch = -89.0f;
 
             glm::vec3 front;
             front.x = cos(glm::radians(pitch)) * cos(glm::radians(yaw));
@@ -71,6 +76,9 @@ namespace my_app
 
         void UpdateInput(double delta_t)
         {
+            if (!is_focused_)
+                return;
+
             auto cursor_mode = glfwGetInputMode(window_, GLFW_CURSOR);
 
             if (glfwGetKey(window_, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_NORMAL)
@@ -123,7 +131,8 @@ namespace my_app
             {
                 int visible = glfwGetWindowAttrib(window_, GLFW_VISIBLE);
                 int focused = glfwGetWindowAttrib(window_, GLFW_FOCUSED);
-                if (!visible || !focused)
+                is_focused_ = visible && focused;
+                if (!is_focused_)
                     glfwWaitEvents();
 
                 start = clock::now();
@@ -146,7 +155,7 @@ namespace my_app
                 if (last_fps_update + std::chrono::milliseconds(1000) < end)
                 {
                     std::string windowTitle = "Test vulkan - " + std::to_string(frame_counter) + " fps";
-		    glfwSetWindowTitle(window_, windowTitle.c_str());
+                    glfwSetWindowTitle(window_, windowTitle.c_str());
                     frame_counter = 0;
                     last_fps_update = end;
                 }
@@ -158,13 +167,13 @@ namespace my_app
         GLFWwindow* window_;
         Renderer renderer_;
         Camera camera_;
+        bool is_focused_;
     };
 }    // namespace my_app
 
 int main()
 {
-    my_app::Application app;
+    my_app::App app;
     app.Run();
-
     return 0;
 }

@@ -35,8 +35,7 @@ namespace my_app
         vk::Format format = vk::Format::eA8B8G8R8UnormPack32;
         width = gltf_image.width;
         height = gltf_image.height;
-        mip_levels = floor(log2(std::max(width, height))) + 1.0;
-        mip_levels = 1;
+        mip_levels = std::floor(std::log2(std::max(width, height))) + 1.0;
         auto copy_queue = ctx.device->getQueue(ctx.graphics_family_idx, 0);
 
         // Move the pixels to a staging buffer that will be copied to the image
@@ -49,18 +48,16 @@ namespace my_app
         auto ci = vk::ImageCreateInfo();
         ci.imageType = vk::ImageType::e2D;
         ci.format = format;
-        ci.extent.width = width;
-        ci.extent.height = height;
-        ci.extent.depth = 1;
         ci.mipLevels = mip_levels;
         ci.arrayLayers = 1;
         ci.samples = vk::SampleCountFlagBits::e1;
-        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.tiling = vk::ImageTiling::eOptimal;
         ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
-        ci.queueFamilyIndexCount = 0;
-        ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
-        ci.flags = {};
+        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.extent.width = width;
+        ci.extent.height = height;
+        ci.extent.depth = 1;
         image = Image{ctx.allocator, ci};
 
         // Copy buffer to the image
@@ -124,14 +121,14 @@ namespace my_app
         {
             vk::ImageBlit blit{};
             blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-            blit.srcSubresource.mipLevel = i - 1;
             blit.srcSubresource.layerCount = 1;
+            blit.srcSubresource.mipLevel = i - 1;
             blit.srcOffsets[1].x = width >> (i - 1);
             blit.srcOffsets[1].y = height >> (i - 1);
             blit.srcOffsets[1].z = 1;
             blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-            blit.dstSubresource.mipLevel = i;
             blit.dstSubresource.layerCount = 1;
+            blit.dstSubresource.mipLevel = i;
             blit.dstOffsets[1].x = width >> i;
             blit.dstOffsets[1].y = height >> i;
             blit.dstOffsets[1].z = 1;
@@ -142,11 +139,11 @@ namespace my_app
                 vk::ImageMemoryBarrier b{};
                 b.oldLayout = vk::ImageLayout::eUndefined;
                 b.newLayout = vk::ImageLayout::eTransferDstOptimal;
-                b.srcAccessMask = {};
+                b.srcAccessMask = vk::AccessFlags();
                 b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
                 b.image = image.GetImage();
                 b.subresourceRange = mip_sub_range;
-                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, b);
             }
 
             bcmd.blitImage(image.GetImage(), vk::ImageLayout::eTransferSrcOptimal, image.GetImage(), vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
@@ -159,12 +156,24 @@ namespace my_app
                 b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
                 b.image = image.GetImage();
                 b.subresourceRange = mip_sub_range;
-                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+                bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, b);
             }
         }
 
+        bcmd.end();
+
+        fence = ctx.device->createFence({});
+        submit.commandBufferCount = 1;
+        submit.pCommandBuffers = &bcmd;
+
+        copy_queue.submit(submit, fence);
+        ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
+        ctx.device->destroy(fence);
+
         subresource_range.levelCount = mip_levels;
         desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+        bcmd.begin(cbi);
 
         {
             vk::ImageMemoryBarrier b{};
@@ -174,7 +183,7 @@ namespace my_app
             b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
             b.image = image.GetImage();
             b.subresourceRange = subresource_range;
-            bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, nullptr, nullptr, b);
+            bcmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), nullptr, nullptr, b);
         }
 
         bcmd.end();
@@ -197,8 +206,7 @@ namespace my_app
         sci.addressModeW = texture_sampler.addressModeW;
         sci.compareOp = vk::CompareOp::eNever;
         sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
-        sci.maxAnisotropy = 1.0;
-        sci.anisotropyEnable = VK_FALSE;
+        sci.minLod = 0;
         sci.maxLod = float(mip_levels);
         sci.maxAnisotropy = 8.0f;
         sci.anisotropyEnable = VK_TRUE;
@@ -399,7 +407,7 @@ namespace my_app
     {
         for (auto& material : model.materials)
         {
-            Material new_mat;
+            Material new_mat{};
 
             if (material.values.count("metallicFactor"))
                 new_mat.metallicFactor = material.values["metallicFactor"].Factor();

@@ -44,8 +44,6 @@ namespace my_app
         sci.maxAnisotropy = 1.0;
         sci.anisotropyEnable = VK_FALSE;
         sci.maxLod = 1.0f;
-        sci.maxAnisotropy = 8.0f;
-        sci.anisotropyEnable = VK_TRUE;
         empty_info.sampler = ctx_.device->createSampler(sci);
 
         // Create the image view holding the texture
@@ -62,48 +60,49 @@ namespace my_app
         vci.viewType = vk::ImageViewType::e2D;
         empty_info.imageView = ctx_.device->createImageView(vci);
 
+        // Create the sapchain
         CreateSwapchain();
         CreateCommandBuffers();
-        CreateSemaphores();
         CreateDepthBuffer();
-        CreateUniformBuffer();
-        CreateDescriptors();
         CreateRenderPass();
         CreateFrameBuffers();
+
+        // Create the pipeline
+        CreateUniformBuffer();
+        CreateDescriptors();
         CreateVertexBuffer();
         CreateIndexBuffer();
         LoadShaders();
         CreateGraphicsPipeline();
+
+        // Fill the pipeline to draw things
+        CreateSemaphores();
         FillCommandBuffers();
     }
 
     Renderer::~Renderer()
     {
+        // EMPTY TEXTURE
+
         ctx_.device->destroy(empty_info.imageView);
         ctx_.device->destroy(empty_info.sampler);
         empty_image.Free();
 
-        for (auto& o : swapchain_image_views)
-            ctx_.device->destroy(o);
-        ctx_.device->destroy(depth_image_view);
+        // SWAPCHAIN OBJECTS
+        DestroySwapchain();
 
-        for (auto& o : frame_buffers)
-            ctx_.device->destroy(o);
+        // PIPELINE OBJECTS
 
-        for (auto& o : command_buffers_fences)
-            ctx_.device->destroy(o);
+        ctx_.device->destroy(scene_desc_layout);
+        ctx_.device->destroy(node_desc_layout);
+        ctx_.device->destroy(mat_desc_layout);
+        ctx_.device->destroy(desc_pool);
 
         for (auto& o : acquire_semaphores)
             ctx_.device->destroy(o);
 
         for (auto& o : render_complete_semaphores)
             ctx_.device->destroy(o);
-
-        ctx_.device->destroy(scene_desc_layout);
-        ctx_.device->destroy(node_desc_layout);
-        ctx_.device->destroy(mat_desc_layout);
-
-        ctx_.device->destroy(desc_pool);
 
         ctx_.device->destroy(vert_module);
         ctx_.device->destroy(frag_module);
@@ -112,16 +111,45 @@ namespace my_app
         ctx_.device->destroy(pipeline_layout);
         ctx_.device->destroy(pipeline);
 
-        ctx_.device->destroy(render_pass);
 
         vertex_buffer.Free();
         index_buffer.Free();
         for (auto& ub : uniform_buffers)
             ub.Free();
-        depth_image.Free();
         model_.Free();
+    }
 
-        vmaDestroyAllocator(ctx_.allocator);
+    void Renderer::DestroySwapchain()
+    {
+        for (auto& o : swapchain_image_views)
+            ctx_.device->destroy(o);
+        ctx_.device->destroy(depth_image_view);
+
+        ctx_.device->freeCommandBuffers(ctx_.command_pool, command_buffers);
+        for (auto& o : command_buffers_fences)
+            ctx_.device->destroy(o);
+
+        depth_image.Free();
+
+        ctx_.device->destroy(render_pass);
+
+        for (auto& o : frame_buffers)
+            ctx_.device->destroy(o);
+
+        ctx_.device->destroy(swapchain);
+    }
+
+    void Renderer::RecreateSwapchain()
+    {
+        ctx_.device->waitIdle();
+        DestroySwapchain();
+        ctx_.device->waitIdle();
+        CreateSwapchain();
+        CreateCommandBuffers();
+        CreateDepthBuffer();
+        CreateRenderPass();
+        CreateFrameBuffers();
+        FillCommandBuffers();
     }
 
     void Renderer::CreateSwapchain()
@@ -174,20 +202,24 @@ namespace my_app
         }
 
         assert(capabilities.maxImageCount >= NUM_FRAME_DATA);
-        auto ci = vk::SwapchainCreateInfoKHR();
+
+        vk::SwapchainCreateInfoKHR ci{};
         ci.surface = *ctx_.surface;
         ci.minImageCount = NUM_FRAME_DATA;
         ci.imageFormat = format.format;
         ci.imageColorSpace = format.colorSpace;
         ci.imageExtent = extent;
         ci.imageArrayLayers = 1;
-        ci.imageUsage =
-            vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
+        ci.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
 
         if (ctx_.graphics_family_idx != ctx_.present_family_idx)
         {
-            uint32_t indices[] = {(uint32_t)ctx_.graphics_family_idx,
-                                  (uint32_t)ctx_.present_family_idx};
+            uint32_t indices[] =
+                {
+                    (uint32_t)ctx_.graphics_family_idx,
+                    (uint32_t)ctx_.present_family_idx
+
+                };
             ci.imageSharingMode = vk::SharingMode::eConcurrent;
             ci.queueFamilyIndexCount = 2;
             ci.pQueueFamilyIndices = indices;
@@ -201,9 +233,9 @@ namespace my_app
         ci.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
         ci.presentMode = present_mode;
         ci.clipped = VK_TRUE;
+        swapchain = ctx_.device->createSwapchainKHR(ci);
 
-        swapchain = ctx_.device->createSwapchainKHRUnique(ci);
-        swapchain_images = ctx_.device->getSwapchainImagesKHR(*swapchain);
+        swapchain_images = ctx_.device->getSwapchainImagesKHR(swapchain);
         swapchain_format = format.format;
         swapchain_present_mode = present_mode;
         swapchain_extent = extent;
@@ -211,28 +243,24 @@ namespace my_app
         swapchain_image_views.clear();
         for (const auto& image : swapchain_images)
         {
-            auto ci = vk::ImageViewCreateInfo();
+            vk::ImageViewCreateInfo ci{};
             ci.image = image;
             ci.viewType = vk::ImageViewType::e2D;
             ci.format = swapchain_format;
-            ci.components.r = vk::ComponentSwizzle::eR;
-            ci.components.g = vk::ComponentSwizzle::eG;
-            ci.components.b = vk::ComponentSwizzle::eB;
-            ci.components.a = vk::ComponentSwizzle::eA;
+            ci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
             ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
             ci.subresourceRange.baseMipLevel = 0;
             ci.subresourceRange.levelCount = 1;
             ci.subresourceRange.baseArrayLayer = 0;
             ci.subresourceRange.layerCount = 1;
-            ci.flags = {};
             auto view = ctx_.device->createImageView(ci);
-            swapchain_image_views.push_back(view);
+            swapchain_image_views.push_back(std::move(view));
         }
     }
 
     void Renderer::CreateCommandBuffers()
     {
-        vk::CommandBufferAllocateInfo cbai;
+        vk::CommandBufferAllocateInfo cbai{};
         cbai.commandPool = ctx_.command_pool;
         cbai.level = vk::CommandBufferLevel::ePrimary;
         cbai.commandBufferCount = NUM_FRAME_DATA;
@@ -240,24 +268,8 @@ namespace my_app
         command_buffers = ctx_.device->allocateCommandBuffers(cbai);
 
         command_buffers_fences.resize(command_buffers.size());
-        for (int i = 0; i < command_buffers.size(); i++)
-        {
-            command_buffers_fences[i] = ctx_.device->createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
-        }
-    }
-
-    void Renderer::CreateSemaphores()
-    {
-        acquire_semaphores.resize(NUM_FRAME_DATA);
-        render_complete_semaphores.resize(NUM_FRAME_DATA);
-
-        for (int i = 0; i < NUM_FRAME_DATA; ++i)
-        {
-            acquire_semaphores[i] =
-                ctx_.device->createSemaphore(vk::SemaphoreCreateInfo());
-            render_complete_semaphores[i] =
-                ctx_.device->createSemaphore(vk::SemaphoreCreateInfo());
-        }
+        for (auto& buffer_fence: command_buffers_fences)
+            buffer_fence = ctx_.device->createFence({vk::FenceCreateFlagBits::eSignaled});
     }
 
     void Renderer::CreateDepthBuffer()
@@ -273,15 +285,15 @@ namespace my_app
         {
             auto depthFormatProperties = ctx_.physical_device.getFormatProperties(format);
             // Format must support depth stencil attachment for optimal tiling
-            if (depthFormatProperties.optimalTilingFeatures &
-                vk::FormatFeatureFlagBits::eDepthStencilAttachment)
+            if (depthFormatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
             {
                 depth_format = format;
                 break;
             }
         }
 
-        auto ci = vk::ImageCreateInfo();
+        vk::ImageCreateInfo ci {};
+        ci.flags = {};
         ci.imageType = vk::ImageType::e2D;
         ci.format = depth_format;
         ci.extent.width = swapchain_extent.width;
@@ -295,18 +307,14 @@ namespace my_app
         ci.queueFamilyIndexCount = 0;
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
-        ci.flags = {};
 
         depth_image = Image(ctx_.allocator, ci);
 
-        auto vci = vk::ImageViewCreateInfo();
+        vk::ImageViewCreateInfo vci {};
         vci.flags = {};
         vci.image = depth_image.GetImage();
         vci.format = depth_format;
-        vci.components.r = vk::ComponentSwizzle::eR;
-        vci.components.g = vk::ComponentSwizzle::eG;
-        vci.components.b = vk::ComponentSwizzle::eB;
-        vci.components.a = vk::ComponentSwizzle::eA;
+        vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
         vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
         vci.subresourceRange.baseMipLevel = 0;
         vci.subresourceRange.levelCount = 1;
@@ -315,6 +323,77 @@ namespace my_app
         vci.viewType = vk::ImageViewType::e2D;
 
         depth_image_view = ctx_.device->createImageView(vci);
+    }
+
+    void Renderer::CreateRenderPass()
+    {
+        std::array<vk::AttachmentDescription, 2> attachments;
+
+        attachments[0].format = swapchain_format;
+        attachments[0].samples = vk::SampleCountFlagBits::e1;
+        attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
+        attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
+        attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[0].initialLayout = vk::ImageLayout::eUndefined;
+        attachments[0].finalLayout = vk::ImageLayout::ePresentSrcKHR;
+        attachments[0].flags = vk::AttachmentDescriptionFlags();
+
+        attachments[1].format = depth_format;
+        attachments[1].samples = vk::SampleCountFlagBits::e1;
+        attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
+        attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[1].initialLayout = vk::ImageLayout::eUndefined;
+        attachments[1].finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        attachments[1].flags = vk::AttachmentDescriptionFlags();
+
+        auto color_ref = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
+        auto depth_ref = vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        vk::SubpassDescription subpass = {};
+        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpass.flags = vk::SubpassDescriptionFlags();
+        subpass.inputAttachmentCount = 0;
+        subpass.pInputAttachments = nullptr;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &color_ref;
+        subpass.pResolveAttachments = nullptr;
+        subpass.pDepthStencilAttachment = &depth_ref;
+        subpass.preserveAttachmentCount = 0;
+        subpass.pPreserveAttachments = nullptr;
+
+        vk::RenderPassCreateInfo rp_info = {};
+        rp_info.attachmentCount = attachments.size();
+        rp_info.pAttachments = attachments.data();
+        rp_info.subpassCount = 1;
+        rp_info.pSubpasses = &subpass;
+        rp_info.dependencyCount = 0;
+        rp_info.pDependencies = nullptr;
+        render_pass = ctx_.device->createRenderPass(rp_info);
+    }
+
+    void Renderer::CreateFrameBuffers()
+    {
+        std::array<vk::ImageView, 2> attachments;
+        attachments[1] = depth_image_view;
+
+        frame_buffers.resize(swapchain_images.size());
+
+        vk::FramebufferCreateInfo ci;
+        ci.renderPass = render_pass;
+        ci.attachmentCount = attachments.size();
+        ci.pAttachments = attachments.data();
+        ci.width = swapchain_extent.width;
+        ci.height = swapchain_extent.height;
+        ci.layers = 1;
+
+        for (size_t i = 0; i < swapchain_image_views.size(); i++)
+        {
+            attachments[0] = swapchain_image_views[i];
+            frame_buffers[i] = ctx_.device->createFramebuffer(ci);
+        }
     }
 
     void Renderer::CreateUniformBuffer()
@@ -337,7 +416,7 @@ namespace my_app
             camera.up);
 
         ubo.proj = glm::infinitePerspective(
-            glm::radians(45.0f),
+            glm::radians(55.0f),
             swapchain_extent.width / (float)swapchain_extent.height,
             0.1f);
 
@@ -382,7 +461,8 @@ namespace my_app
             dslci.pBindings = bindings.data();
             scene_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
 
-            auto layouts = std::vector<vk::DescriptorSetLayout>(swapchain_images.size(), scene_desc_layout);
+            std::vector<vk::DescriptorSetLayout> layouts{swapchain_images.size(), scene_desc_layout};
+
             vk::DescriptorSetAllocateInfo dsai{};
             dsai.descriptorPool = desc_pool;
             dsai.pSetLayouts = layouts.data();
@@ -485,78 +565,6 @@ namespace my_app
 
             for (auto& node : model_.scene_nodes)
                 node.SetupNodeDescriptorSet(desc_pool, node_desc_layout, *ctx_.device);
-        }
-    }
-
-
-    void Renderer::CreateRenderPass()
-    {
-        std::array<vk::AttachmentDescription, 2> attachments;
-
-        attachments[0].format = swapchain_format;
-        attachments[0].samples = vk::SampleCountFlagBits::e1;
-        attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
-        attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
-        attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[0].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[0].finalLayout = vk::ImageLayout::ePresentSrcKHR;
-        attachments[0].flags = vk::AttachmentDescriptionFlags();
-
-        attachments[1].format = depth_format;
-        attachments[1].samples = vk::SampleCountFlagBits::e1;
-        attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
-        attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[1].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[1].finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        attachments[1].flags = vk::AttachmentDescriptionFlags();
-
-        auto color_ref = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
-        auto depth_ref = vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-        vk::SubpassDescription subpass = {};
-        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-        subpass.flags = vk::SubpassDescriptionFlags();
-        subpass.inputAttachmentCount = 0;
-        subpass.pInputAttachments = nullptr;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_ref;
-        subpass.pResolveAttachments = nullptr;
-        subpass.pDepthStencilAttachment = &depth_ref;
-        subpass.preserveAttachmentCount = 0;
-        subpass.pPreserveAttachments = nullptr;
-
-        vk::RenderPassCreateInfo rp_info = {};
-        rp_info.attachmentCount = attachments.size();
-        rp_info.pAttachments = attachments.data();
-        rp_info.subpassCount = 1;
-        rp_info.pSubpasses = &subpass;
-        rp_info.dependencyCount = 0;
-        rp_info.pDependencies = nullptr;
-        render_pass = ctx_.device->createRenderPass(rp_info);
-    }
-
-    void Renderer::CreateFrameBuffers()
-    {
-        std::array<vk::ImageView, 2> attachments;
-        attachments[1] = depth_image_view;
-
-        frame_buffers.resize(swapchain_images.size());
-
-        vk::FramebufferCreateInfo ci;
-        ci.renderPass = render_pass;
-        ci.attachmentCount = attachments.size();
-        ci.pAttachments = attachments.data();
-        ci.width = swapchain_extent.width;
-        ci.height = swapchain_extent.height;
-        ci.layers = 1;
-
-        for (size_t i = 0; i < swapchain_image_views.size(); i++)
-        {
-            attachments[0] = swapchain_image_views[i];
-            frame_buffers[i] = ctx_.device->createFramebuffer(ci);
         }
     }
 
@@ -766,6 +774,18 @@ namespace my_app
         pipeline = ctx_.device->createGraphicsPipeline(pipeline_cache, pipe_i);
     }
 
+    void Renderer::CreateSemaphores()
+    {
+        acquire_semaphores.resize(NUM_FRAME_DATA);
+        render_complete_semaphores.resize(NUM_FRAME_DATA);
+
+        for (int i = 0; i < NUM_FRAME_DATA; ++i)
+        {
+            acquire_semaphores[i] = ctx_.device->createSemaphore({});
+            render_complete_semaphores[i] = ctx_.device->createSemaphore({});
+        }
+    }
+
     void Renderer::FillCommandBuffers()
     {
         auto renderArea = vk::Rect2D(vk::Offset2D(), swapchain_extent);
@@ -798,13 +818,6 @@ namespace my_app
                 0,
                 1.0f);
 
-            if (current_resize_)
-            {
-                viewports[0].setWidth(current_resize_->first);
-                viewports[0].setHeight(current_resize_->second);
-                current_resize_ = std::nullopt;
-            }
-
             command_buffers[i].setViewport(0, viewports);
 
             std::vector<vk::Rect2D> scissors = {renderArea};
@@ -828,9 +841,9 @@ namespace my_app
         }
     }
 
-    void Renderer::Resize(int width, int height)
+    void Renderer::Resize(int, int)
     {
-        current_resize_ = std::make_optional<std::pair<int, int>>(width, height);
+        RecreateSwapchain();
     }
 
     void Renderer::DrawFrame(double time, Camera& camera)
@@ -846,33 +859,20 @@ namespace my_app
 
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
-        device->acquireNextImageKHR(*swapchain,
+        auto result = device->acquireNextImageKHR(swapchain,
                                     std::numeric_limits<uint64_t>::max(),
                                     acquire_semaphores[currentBuffer],
                                     nullptr,
                                     &imageIndex);
 
-        UpdateUniformBuffer(uniform_buffers[imageIndex], time, camera);
-
-        if (current_resize_)
+        if (result == vk::Result::eErrorOutOfDateKHR)
         {
-
-            std::vector<vk::Viewport> viewports;
-            viewports.emplace_back(
-                0,
-                0,
-                current_resize_->first,
-                current_resize_->second,
-                0,
-                1.0f);
-
-            current_resize_ = std::nullopt;
-
-            command_buffers[imageIndex].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
-            command_buffers[imageIndex].setViewport(0, viewports);
-            command_buffers[imageIndex].end();
+            std::cerr << "The swapchain is out of date. Recreating it...\n";
+            RecreateSwapchain();
+            return;
         }
 
+        UpdateUniformBuffer(uniform_buffers[imageIndex], time, camera);
 
         // Create kernels to submit to the queue on a given render pass.
         vk::PipelineStageFlags stages[] = {
@@ -895,7 +895,7 @@ namespace my_app
         present_i.waitSemaphoreCount = 1;
         present_i.pWaitSemaphores = &render_complete_semaphores[currentBuffer];
         present_i.swapchainCount = 1;
-        present_i.pSwapchains = &swapchain.get();
+        present_i.pSwapchains = &swapchain;
         present_i.pImageIndices = &imageIndex;
         graphicsQueue.presentKHR(present_i);
 
