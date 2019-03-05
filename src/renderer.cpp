@@ -63,6 +63,7 @@ namespace my_app
         // Create the sapchain
         CreateSwapchain();
         CreateCommandBuffers();
+        CreateColorBuffer();
         CreateDepthBuffer();
         CreateRenderPass();
         CreateFrameBuffers();
@@ -123,13 +124,16 @@ namespace my_app
     {
         for (auto& o : swapchain_image_views)
             ctx_.device->destroy(o);
+
         ctx_.device->destroy(depth_image_view);
+        ctx_.device->destroy(color_image_view);
 
         ctx_.device->freeCommandBuffers(ctx_.command_pool, command_buffers);
         for (auto& o : command_buffers_fences)
             ctx_.device->destroy(o);
 
         depth_image.Free();
+        color_image.Free();
 
         ctx_.device->destroy(render_pass);
 
@@ -146,6 +150,7 @@ namespace my_app
         ctx_.device->waitIdle();
         CreateSwapchain();
         CreateCommandBuffers();
+        CreateColorBuffer();
         CreateDepthBuffer();
         CreateRenderPass();
         CreateFrameBuffers();
@@ -268,9 +273,77 @@ namespace my_app
         command_buffers = ctx_.device->allocateCommandBuffers(cbai);
 
         command_buffers_fences.resize(command_buffers.size());
-        for (auto& buffer_fence: command_buffers_fences)
+        for (auto& buffer_fence : command_buffers_fences)
             buffer_fence = ctx_.device->createFence({vk::FenceCreateFlagBits::eSignaled});
     }
+
+    void Renderer::CreateColorBuffer()
+    {
+        vk::ImageCreateInfo ci{};
+        ci.flags = {};
+        ci.imageType = vk::ImageType::e2D;
+        ci.format = swapchain_format;
+        ci.extent.width = swapchain_extent.width;
+        ci.extent.height = swapchain_extent.height;
+        ci.extent.depth = 1;
+        ci.mipLevels = 1;
+        ci.arrayLayers = 1;
+        ci.samples = msaa_samples;
+        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.usage = vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment;
+        ci.queueFamilyIndexCount = 0;
+        ci.pQueueFamilyIndices = NULL;
+        ci.sharingMode = vk::SharingMode::eExclusive;
+
+        color_image = Image(ctx_.allocator, ci);
+
+        vk::ImageViewCreateInfo vci{};
+        vci.flags = {};
+        vci.image = color_image.GetImage();
+        vci.format = swapchain_format;
+        vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        vci.subresourceRange.baseMipLevel = 0;
+        vci.subresourceRange.levelCount = 1;
+        vci.subresourceRange.baseArrayLayer = 0;
+        vci.subresourceRange.layerCount = 1;
+        vci.viewType = vk::ImageViewType::e2D;
+
+        color_image_view = ctx_.device->createImageView(vci);
+
+        // Transition the layout of the image
+        {
+            vk::CommandBuffer cmd = ctx_.device->allocateCommandBuffers({ctx_.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
+            vk::CommandBufferBeginInfo cbi{};
+            cmd.begin(cbi);
+
+            vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+            {
+                vk::ImageMemoryBarrier b{};
+                b.oldLayout = vk::ImageLayout::eUndefined;
+                b.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+                b.srcAccessMask = {};
+                b.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentRead;
+                b.image = color_image.GetImage();
+                b.subresourceRange = subresource_range;
+                cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, b);
+            }
+
+            cmd.end();
+
+            vk::Fence fence = ctx_.device->createFence({});
+            vk::SubmitInfo submit{};
+            submit.commandBufferCount = 1;
+            submit.pCommandBuffers = &cmd;
+
+            auto copy_queue = ctx_.device->getQueue(ctx_.graphics_family_idx, 0);
+            copy_queue.submit(submit, fence);
+            ctx_.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
+            ctx_.device->destroy(fence);
+        }
+    }
+
 
     void Renderer::CreateDepthBuffer()
     {
@@ -292,7 +365,7 @@ namespace my_app
             }
         }
 
-        vk::ImageCreateInfo ci {};
+        vk::ImageCreateInfo ci{};
         ci.flags = {};
         ci.imageType = vk::ImageType::e2D;
         ci.format = depth_format;
@@ -301,7 +374,7 @@ namespace my_app
         ci.extent.depth = 1;
         ci.mipLevels = 1;
         ci.arrayLayers = 1;
-        ci.samples = vk::SampleCountFlagBits::e1;
+        ci.samples = msaa_samples;
         ci.initialLayout = vk::ImageLayout::eUndefined;
         ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
         ci.queueFamilyIndexCount = 0;
@@ -310,7 +383,7 @@ namespace my_app
 
         depth_image = Image(ctx_.allocator, ci);
 
-        vk::ImageViewCreateInfo vci {};
+        vk::ImageViewCreateInfo vci{};
         vci.flags = {};
         vci.image = depth_image.GetImage();
         vci.format = depth_format;
@@ -327,20 +400,22 @@ namespace my_app
 
     void Renderer::CreateRenderPass()
     {
-        std::array<vk::AttachmentDescription, 2> attachments;
+        std::array<vk::AttachmentDescription, 3> attachments;
 
+        // Color attachment
         attachments[0].format = swapchain_format;
-        attachments[0].samples = vk::SampleCountFlagBits::e1;
+        attachments[0].samples = msaa_samples;
         attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
         attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
         attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[0].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[0].finalLayout = vk::ImageLayout::ePresentSrcKHR;
-        attachments[0].flags = vk::AttachmentDescriptionFlags();
+        attachments[0].finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        attachments[0].flags = {};
 
+        // Depth attachment
         attachments[1].format = depth_format;
-        attachments[1].samples = vk::SampleCountFlagBits::e1;
+        attachments[1].samples = msaa_samples;
         attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
         attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
         attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
@@ -349,8 +424,20 @@ namespace my_app
         attachments[1].finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         attachments[1].flags = vk::AttachmentDescriptionFlags();
 
-        auto color_ref = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
-        auto depth_ref = vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        // Color resolve attachment
+        attachments[2].format = swapchain_format;
+        attachments[2].samples = vk::SampleCountFlagBits::e1;
+        attachments[2].loadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[2].storeOp = vk::AttachmentStoreOp::eStore;
+        attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[2].initialLayout = vk::ImageLayout::eUndefined;
+        attachments[2].finalLayout = vk::ImageLayout::ePresentSrcKHR;
+        attachments[2].flags = {};
+
+        vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+        vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
 
         vk::SubpassDescription subpass = {};
         subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
@@ -359,7 +446,7 @@ namespace my_app
         subpass.pInputAttachments = nullptr;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &color_ref;
-        subpass.pResolveAttachments = nullptr;
+        subpass.pResolveAttachments = &color_resolve_ref;
         subpass.pDepthStencilAttachment = &depth_ref;
         subpass.preserveAttachmentCount = 0;
         subpass.pPreserveAttachments = nullptr;
@@ -376,7 +463,8 @@ namespace my_app
 
     void Renderer::CreateFrameBuffers()
     {
-        std::array<vk::ImageView, 2> attachments;
+        std::array<vk::ImageView, 3> attachments;
+        attachments[0] = color_image_view;
         attachments[1] = depth_image_view;
 
         frame_buffers.resize(swapchain_images.size());
@@ -391,7 +479,7 @@ namespace my_app
 
         for (size_t i = 0; i < swapchain_image_views.size(); i++)
         {
-            attachments[0] = swapchain_image_views[i];
+            attachments[2] = swapchain_image_views[i];
             frame_buffers[i] = ctx_.device->createFramebuffer(ci);
         }
     }
@@ -418,7 +506,7 @@ namespace my_app
         ubo.proj = glm::infinitePerspective(
             glm::radians(55.0f),
             swapchain_extent.width / (float)swapchain_extent.height,
-            0.1f);
+            .1f);
 
         // Vulkan clip space has inverted Y and half Z.
         ubo.clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
@@ -621,20 +709,23 @@ namespace my_app
         frag_i.pCode = reinterpret_cast<const uint32_t*>(frag_code.data());
         frag_module = ctx_.device->createShaderModule(frag_i);
 
-        std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages = {
-            vk::PipelineShaderStageCreateInfo(
-                vk::PipelineShaderStageCreateFlags(),
-                vk::ShaderStageFlagBits::eVertex,
-                vert_module,
-                "main",
-                nullptr),
+        std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages =
+            {
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eVertex,
+                    vert_module,
+                    "main",
+                    nullptr),
 
-            vk::PipelineShaderStageCreateInfo(
-                vk::PipelineShaderStageCreateFlags(),
-                vk::ShaderStageFlagBits::eFragment,
-                frag_module,
-                "main",
-                nullptr)};
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(),
+                    vk::ShaderStageFlagBits::eFragment,
+                    frag_module,
+                    "main",
+                    nullptr)
+
+            };
 
         shader_stages = pipelineShaderStages;
     }
@@ -644,12 +735,11 @@ namespace my_app
         std::vector<vk::DynamicState> dynamic_states =
             {
                 vk::DynamicState::eViewport,
-                vk::DynamicState::eScissor};
+                vk::DynamicState::eScissor
 
-        vk::PipelineDynamicStateCreateInfo dyn_i(
-            vk::PipelineDynamicStateCreateFlags(),
-            dynamic_states.size(),
-            dynamic_states.data());
+            };
+
+        vk::PipelineDynamicStateCreateInfo dyn_i({}, dynamic_states.size(), dynamic_states.data());
 
         auto bindings = Vertex::getBindingDescriptions();
         auto attributes = Vertex::getAttributeDescriptions();
@@ -679,11 +769,7 @@ namespace my_app
         rast_i.lineWidth = 1.0f;
 
         std::array<vk::PipelineColorBlendAttachmentState, 1> att_states;
-        att_states[0].colorWriteMask = vk::ColorComponentFlags(
-            vk::ColorComponentFlagBits::eR |
-            vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB |
-            vk::ColorComponentFlagBits::eA);
+        att_states[0].colorWriteMask = {vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
         att_states[0].blendEnable = VK_TRUE;
         att_states[0].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
         att_states[0].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
@@ -731,11 +817,11 @@ namespace my_app
         vk::PipelineMultisampleStateCreateInfo ms_i;
         ms_i.flags = vk::PipelineMultisampleStateCreateFlags();
         ms_i.pSampleMask = nullptr;
-        ms_i.rasterizationSamples = vk::SampleCountFlagBits::e1;
-        ms_i.sampleShadingEnable = VK_FALSE;
+        ms_i.rasterizationSamples = msaa_samples;
+        ms_i.sampleShadingEnable = VK_TRUE;
         ms_i.alphaToCoverageEnable = VK_FALSE;
         ms_i.alphaToOneEnable = VK_FALSE;
-        ms_i.minSampleShading = 0.0;
+        ms_i.minSampleShading = .2f;
 
         std::array<vk::DescriptorSetLayout, 3> layouts =
             {
@@ -860,10 +946,10 @@ namespace my_app
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
         auto result = device->acquireNextImageKHR(swapchain,
-                                    std::numeric_limits<uint64_t>::max(),
-                                    acquire_semaphores[currentBuffer],
-                                    nullptr,
-                                    &imageIndex);
+                                                  std::numeric_limits<uint64_t>::max(),
+                                                  acquire_semaphores[currentBuffer],
+                                                  nullptr,
+                                                  &imageIndex);
 
         if (result == vk::Result::eErrorOutOfDateKHR)
         {

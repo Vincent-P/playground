@@ -47,6 +47,7 @@ namespace my_app
 
         void CreateCommandBuffers();
         void CreateSemaphores();
+        void CreateColorBuffer();
         void CreateDepthBuffer();
         void CreateUniformBuffer();
         void CreateDescriptors();
@@ -67,8 +68,10 @@ namespace my_app
 
         VulkanContext ctx_;
 
+        // Model to display
         Model model_;
 
+        // Pipeline objects
         vk::SwapchainKHR swapchain;
         std::vector<vk::Image> swapchain_images;
         std::vector<vk::ImageView> swapchain_image_views;
@@ -84,6 +87,9 @@ namespace my_app
         Image depth_image;
         vk::ImageView depth_image_view;
         vk::Format depth_format;
+
+        Image color_image;
+        vk::ImageView color_image_view;
 
         Image empty_image;
         vk::DescriptorImageInfo empty_info;
@@ -110,5 +116,9 @@ namespace my_app
         vk::PipelineLayout pipeline_layout;
         vk::RenderPass render_pass;
         std::vector<vk::Framebuffer> frame_buffers;
+
+        // Settings
+        vk::SampleCountFlagBits msaa_samples = vk::SampleCountFlagBits::e2;
+
     };
 }
