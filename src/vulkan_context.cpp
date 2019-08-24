@@ -120,10 +120,17 @@ namespace my_app
     vk::PhysicalDevice VulkanContext::PickPhysicalDevice()
     {
         auto physical_devices = instance->enumeratePhysicalDevices();
-        return *std::find_if(physical_devices.begin(), physical_devices.end(),
-                                 [](const vk::PhysicalDevice& d) -> auto {
-                                     return d.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu;
-                                 });
+        vk::PhysicalDevice selected = physical_devices[0];
+        for (const auto& device : physical_devices)
+        {
+            auto properties = device.getProperties();
+            std::cout << "Device: " << properties.deviceName << "\n";
+            if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+                std::cout << "Selected: " << properties.deviceName << "\n";
+                selected = device;
+            }
+        }
+        return selected;
     }
 
     vk::UniqueDevice VulkanContext::CreateLogicalDevice()

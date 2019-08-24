@@ -60,7 +60,7 @@ namespace my_app
         vci.viewType = vk::ImageViewType::e2D;
         empty_info.imageView = ctx_.device->createImageView(vci);
 
-        // Create the sapchain
+        // Create the swapchain
         CreateSwapchain();
         CreateCommandBuffers();
         CreateColorBuffer();
@@ -680,6 +680,8 @@ namespace my_app
     {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
+        std::cout << "Opened file: " << filename << "\n";
+
         if (!file.is_open())
             throw std::runtime_error("failed to open file!");
 
@@ -696,8 +698,8 @@ namespace my_app
 
     void Renderer::LoadShaders()
     {
-        std::vector<char> vert_code = readFile("shaders/vert.spv");
-        std::vector<char> frag_code = readFile("shaders/frag.spv");
+        std::vector<char> vert_code = readFile("build/shaders/shader.frag.spv");
+        std::vector<char> frag_code = readFile("build/shaders/shader.vert.spv");
 
         auto vert_i = vk::ShaderModuleCreateInfo();
         vert_i.codeSize = vert_code.size();
@@ -934,20 +936,20 @@ namespace my_app
 
     void Renderer::DrawFrame(double time, Camera& camera)
     {
-        static uint32_t currentBuffer = 0;
-        static uint32_t imageIndex = 0;
+        static uint32_t virtualFrameIdx = 0;
 
         auto& device = ctx_.device;
         auto graphicsQueue = device->getQueue(ctx_.graphics_family_idx, 0);
 
-        device->waitForFences(command_buffers_fences[currentBuffer], VK_TRUE, UINT64_MAX);
-        device->resetFences(command_buffers_fences[currentBuffer]);
+        device->waitForFences(command_buffers_fences[virtualFrameIdx], VK_TRUE, UINT64_MAX);
+        device->resetFences(command_buffers_fences[virtualFrameIdx]);
 
         // will signal acquire_semaphore when the next image is acquired
         // and put its index in imageIndex
+        uint32_t imageIndex = 0;
         auto result = device->acquireNextImageKHR(swapchain,
                                                   std::numeric_limits<uint64_t>::max(),
-                                                  acquire_semaphores[currentBuffer],
+                                                  acquire_semaphores[virtualFrameIdx],
                                                   nullptr,
                                                   &imageIndex);
 
@@ -967,25 +969,25 @@ namespace my_app
 
         auto kernel = vk::SubmitInfo();
         kernel.waitSemaphoreCount = 1;
-        kernel.pWaitSemaphores = &acquire_semaphores[currentBuffer];
+        kernel.pWaitSemaphores = &acquire_semaphores[virtualFrameIdx];
         kernel.pWaitDstStageMask = stages;
         kernel.commandBufferCount = 1;
         kernel.pCommandBuffers = &command_buffers[imageIndex];
         kernel.signalSemaphoreCount = 1;
-        kernel.pSignalSemaphores = &render_complete_semaphores[currentBuffer];
+        kernel.pSignalSemaphores = &render_complete_semaphores[virtualFrameIdx];
 
         // the fences will be signaled
-        graphicsQueue.submit(kernel, command_buffers_fences[currentBuffer]);
+        graphicsQueue.submit(kernel, command_buffers_fences[virtualFrameIdx]);
 
         auto present_i = vk::PresentInfoKHR();
         present_i.waitSemaphoreCount = 1;
-        present_i.pWaitSemaphores = &render_complete_semaphores[currentBuffer];
+        present_i.pWaitSemaphores = &render_complete_semaphores[virtualFrameIdx];
         present_i.swapchainCount = 1;
         present_i.pSwapchains = &swapchain;
         present_i.pImageIndices = &imageIndex;
         graphicsQueue.presentKHR(present_i);
 
-        currentBuffer = (currentBuffer + 1) % NUM_FRAME_DATA;
+        virtualFrameIdx = (virtualFrameIdx + 1) % NUM_FRAME_DATA;
     }
 
     void Renderer::WaitIdle()

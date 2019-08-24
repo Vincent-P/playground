@@ -173,7 +173,15 @@ namespace my_app
 
 int main()
 {
-    my_app::App app;
-    app.Run();
+    try
+    {
+        my_app::App app;
+        app.Run();
+    }
+    catch (std::exception const& e)
+    {
+        std::cerr << "Exception :" << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }

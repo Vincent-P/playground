@@ -242,7 +242,8 @@ namespace my_app
                 {
                     desc_set,
                     primitive.material.desc_set,
-                    uniform_desc};
+                    uniform_desc
+                };
 
             cmd.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
