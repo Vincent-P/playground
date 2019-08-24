@@ -48,7 +48,6 @@ find_package(Vulkan REQUIRED)
 find_package(glm REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(tinyGLTF CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 target_link_libraries(test-vulkan
   PRIVATE
@@ -64,7 +63,7 @@ target_link_libraries(test-vulkan
 # Setup the include directories
 target_include_directories(test-vulkan
   PUBLIC include/
-  PUBLIC ${TinyGLTF_INCLUDE_DIR}
+  PUBLIC third_party/tinygltf
   )
 
 # Add a run target to launch the executable
