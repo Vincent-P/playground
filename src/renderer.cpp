@@ -9,8 +9,8 @@
 namespace my_app
 {
     Renderer::Renderer(GLFWwindow* window)
-        : ctx_(window)
-        , model_("models/Sponza/glTF/Sponza.gltf", ctx_)
+        : vk_ctx_(window)
+        , Model_("models/Sponza/glTF/Sponza.gltf", vk_ctx_)
     {
         auto format = vk::Format::eA8B8G8R8UnormPack32;
         auto ci = vk::ImageCreateInfo();
@@ -28,7 +28,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
         ci.flags = {};
-        empty_image = Image{ctx_.allocator, ci};
+        empty_image = Image{vk_ctx_.allocator, ci};
 
         // Create the sampler for the texture
         TextureSampler texture_sampler;
@@ -44,7 +44,7 @@ namespace my_app
         sci.maxAnisotropy = 1.0;
         sci.anisotropyEnable = VK_FALSE;
         sci.maxLod = 1.0f;
-        empty_info.sampler = ctx_.device->createSampler(sci);
+        empty_info.sampler = vk_ctx_.device->createSampler(sci);
 
         // Create the image view holding the texture
         vk::ImageViewCreateInfo vci{};
@@ -58,35 +58,36 @@ namespace my_app
         vci.subresourceRange.baseArrayLayer = 0;
         vci.subresourceRange.layerCount = 1;
         vci.viewType = vk::ImageViewType::e2D;
-        empty_info.imageView = ctx_.device->createImageView(vci);
+        empty_info.imageView = vk_ctx_.device->createImageView(vci);
+
+        // wtf
+        empty_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         // Create the swapchain
         CreateSwapchain();
-        CreateCommandBuffers();
+
+        // Create ressources
+        LoadShaders();
         CreateColorBuffer();
         CreateDepthBuffer();
-        CreateRenderPass();
-        CreateFrameBuffers();
-
-        // Create the pipeline
         CreateUniformBuffer();
         CreateDescriptors();
         CreateVertexBuffer();
         CreateIndexBuffer();
-        LoadShaders();
-        CreateGraphicsPipeline();
+        CreateFrameRessources();
 
-        // Fill the pipeline to draw things
-        CreateSemaphores();
-        FillCommandBuffers();
+
+        // Create the pipeline
+        CreateRenderPass();
+        CreateGraphicsPipeline();
     }
 
     Renderer::~Renderer()
     {
         // EMPTY TEXTURE
 
-        ctx_.device->destroy(empty_info.imageView);
-        ctx_.device->destroy(empty_info.sampler);
+        vk_ctx_.device->destroy(empty_info.imageView);
+        vk_ctx_.device->destroy(empty_info.sampler);
         empty_image.Free();
 
         // SWAPCHAIN OBJECTS
@@ -94,135 +95,118 @@ namespace my_app
 
         // PIPELINE OBJECTS
 
-        ctx_.device->destroy(scene_desc_layout);
-        ctx_.device->destroy(node_desc_layout);
-        ctx_.device->destroy(mat_desc_layout);
-        ctx_.device->destroy(desc_pool);
+        vk_ctx_.device->destroy(scene_desc_layout);
+        vk_ctx_.device->destroy(node_desc_layout);
+        vk_ctx_.device->destroy(mat_desc_layout);
+        vk_ctx_.device->destroy(desc_pool);
 
-        for (auto& o : acquire_semaphores)
-            ctx_.device->destroy(o);
+        vk_ctx_.device->destroy(vert_module);
+        vk_ctx_.device->destroy(frag_module);
 
-        for (auto& o : render_complete_semaphores)
-            ctx_.device->destroy(o);
-
-        ctx_.device->destroy(vert_module);
-        ctx_.device->destroy(frag_module);
-
-        ctx_.device->destroy(pipeline_cache);
-        ctx_.device->destroy(pipeline_layout);
-        ctx_.device->destroy(pipeline);
+        vk_ctx_.device->destroy(pipeline_cache);
+        vk_ctx_.device->destroy(pipeline_layout);
+        vk_ctx_.device->destroy(pipeline);
 
 
         vertex_buffer.Free();
         index_buffer.Free();
-        for (auto& ub : uniform_buffers)
-            ub.Free();
-        model_.Free();
+        uniform_buffer.Free();
+        Model_.Free();
     }
 
     void Renderer::DestroySwapchain()
     {
-        for (auto& o : swapchain_image_views)
-            ctx_.device->destroy(o);
+        for (auto& o : SwapChain_.ImageViews)
+            vk_ctx_.device->destroy(o);
 
-        ctx_.device->destroy(depth_image_view);
-        ctx_.device->destroy(color_image_view);
+        vk_ctx_.device->destroy(depth_image_view);
+        vk_ctx_.device->destroy(color_image_view);
 
-        ctx_.device->freeCommandBuffers(ctx_.command_pool, command_buffers);
-        for (auto& o : command_buffers_fences)
-            ctx_.device->destroy(o);
+        for (auto& frame_ressource : FrameRessources_)
+            vk_ctx_.device->destroy(frame_ressource.Fence);
 
         depth_image.Free();
         color_image.Free();
 
-        ctx_.device->destroy(render_pass);
+        vk_ctx_.device->destroy(render_pass);
 
         for (auto& o : frame_buffers)
-            ctx_.device->destroy(o);
-
-        ctx_.device->destroy(swapchain);
+            vk_ctx_.device->destroy(o);
     }
 
     void Renderer::RecreateSwapchain()
     {
-        ctx_.device->waitIdle();
+        vk_ctx_.device->waitIdle();
         DestroySwapchain();
-        ctx_.device->waitIdle();
+        vk_ctx_.device->waitIdle();
+
         CreateSwapchain();
-        CreateCommandBuffers();
         CreateColorBuffer();
         CreateDepthBuffer();
         CreateRenderPass();
-        CreateFrameBuffers();
-        FillCommandBuffers();
+        CreateFrameRessources();
     }
 
     void Renderer::CreateSwapchain()
     {
-        auto capabilities = ctx_.physical_device.getSurfaceCapabilitiesKHR(*ctx_.surface);
-        auto extent = capabilities.currentExtent;
+        // Use default extent for the swapchain
+        auto capabilities = vk_ctx_.physical_device.getSurfaceCapabilitiesKHR(*vk_ctx_.surface);
+        SwapChain_.Extent = capabilities.currentExtent;
 
-        auto present_modes = ctx_.physical_device.getSurfacePresentModesKHR(*ctx_.surface);
-        auto present_mode = vk::PresentModeKHR::eFifo;
+        // Find a good present mode (by priority Mailbox then Immediate then FIFO)
+        auto present_modes = vk_ctx_.physical_device.getSurfacePresentModesKHR(*vk_ctx_.surface);
+        SwapChain_.PresentMode = vk::PresentModeKHR::eFifo;
 
         for (auto& pm : present_modes)
-        {
             if (pm == vk::PresentModeKHR::eMailbox)
             {
-                present_mode = vk::PresentModeKHR::eMailbox;
+                SwapChain_.PresentMode = vk::PresentModeKHR::eMailbox;
                 break;
             }
-        }
 
-        if (present_mode == vk::PresentModeKHR::eFifo)
-        {
+        if (SwapChain_.PresentMode == vk::PresentModeKHR::eFifo)
             for (auto& pm : present_modes)
-            {
                 if (pm == vk::PresentModeKHR::eImmediate)
                 {
-                    present_mode = vk::PresentModeKHR::eImmediate;
+                    SwapChain_.PresentMode = vk::PresentModeKHR::eImmediate;
                     break;
                 }
-            }
-        }
 
-        auto formats = ctx_.physical_device.getSurfaceFormatsKHR(*ctx_.surface);
-        auto format = formats[0];
-        if (format.format == vk::Format::eUndefined)
+        // Find the best format
+        auto formats = vk_ctx_.physical_device.getSurfaceFormatsKHR(*vk_ctx_.surface);
+        SwapChain_.Format = formats[0];
+        if (SwapChain_.Format.format == vk::Format::eUndefined)
         {
-            format.format = vk::Format::eB8G8R8A8Unorm;
-            format.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
+            SwapChain_.Format.format = vk::Format::eB8G8R8A8Unorm;
+            SwapChain_.Format.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
         }
         else
         {
             for (const auto& f : formats)
-            {
-                if (f.format == vk::Format::eB8G8R8A8Unorm &&
-                    f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+                if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
                 {
-                    format = f;
+                    SwapChain_.Format = f;
                     break;
                 }
-            }
         }
 
-        assert(capabilities.maxImageCount >= NUM_FRAME_DATA);
+        assert(capabilities.maxImageCount >= NUM_VIRTUAL_FRAME);
 
         vk::SwapchainCreateInfoKHR ci{};
-        ci.surface = *ctx_.surface;
-        ci.minImageCount = NUM_FRAME_DATA;
-        ci.imageFormat = format.format;
-        ci.imageColorSpace = format.colorSpace;
-        ci.imageExtent = extent;
+        ci.surface = *vk_ctx_.surface;
+        ci.minImageCount = capabilities.minImageCount + 1;
+        ci.imageFormat = SwapChain_.Format.format;
+        ci.imageColorSpace = SwapChain_.Format.colorSpace;
+        ci.imageExtent = SwapChain_.Extent;
         ci.imageArrayLayers = 1;
         ci.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
 
-        if (ctx_.graphics_family_idx != ctx_.present_family_idx)
+        if (vk_ctx_.graphics_family_idx != vk_ctx_.present_family_idx)
         {
             uint32_t indices[] =
                 {
-                    (uint32_t)ctx_.graphics_family_idx,
-                    (uint32_t)ctx_.present_family_idx
+                    (uint32_t)vk_ctx_.graphics_family_idx,
+                    (uint32_t)vk_ctx_.present_family_idx
 
                 };
             ci.imageSharingMode = vk::SharingMode::eConcurrent;
@@ -236,45 +220,29 @@ namespace my_app
 
         ci.preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity;
         ci.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-        ci.presentMode = present_mode;
+        ci.presentMode = SwapChain_.PresentMode;
         ci.clipped = VK_TRUE;
-        swapchain = ctx_.device->createSwapchainKHR(ci);
 
-        swapchain_images = ctx_.device->getSwapchainImagesKHR(swapchain);
-        swapchain_format = format.format;
-        swapchain_present_mode = present_mode;
-        swapchain_extent = extent;
+        SwapChain_.Handle = vk_ctx_.device->createSwapchainKHRUnique(ci);
 
-        swapchain_image_views.clear();
-        for (const auto& image : swapchain_images)
+        SwapChain_.Images = vk_ctx_.device->getSwapchainImagesKHR(*SwapChain_.Handle);
+
+        SwapChain_.ImageViews.resize(SwapChain_.Images.size());
+
+        for (size_t i = 0; i < SwapChain_.Images.size(); i++)
         {
             vk::ImageViewCreateInfo ci{};
-            ci.image = image;
+            ci.image = SwapChain_.Images[i];
             ci.viewType = vk::ImageViewType::e2D;
-            ci.format = swapchain_format;
+            ci.format = SwapChain_.Format.format;
             ci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
             ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
             ci.subresourceRange.baseMipLevel = 0;
             ci.subresourceRange.levelCount = 1;
             ci.subresourceRange.baseArrayLayer = 0;
             ci.subresourceRange.layerCount = 1;
-            auto view = ctx_.device->createImageView(ci);
-            swapchain_image_views.push_back(std::move(view));
+            SwapChain_.ImageViews[i] = vk_ctx_.device->createImageView(ci);
         }
-    }
-
-    void Renderer::CreateCommandBuffers()
-    {
-        vk::CommandBufferAllocateInfo cbai{};
-        cbai.commandPool = ctx_.command_pool;
-        cbai.level = vk::CommandBufferLevel::ePrimary;
-        cbai.commandBufferCount = NUM_FRAME_DATA;
-
-        command_buffers = ctx_.device->allocateCommandBuffers(cbai);
-
-        command_buffers_fences.resize(command_buffers.size());
-        for (auto& buffer_fence : command_buffers_fences)
-            buffer_fence = ctx_.device->createFence({vk::FenceCreateFlagBits::eSignaled});
     }
 
     void Renderer::CreateColorBuffer()
@@ -282,9 +250,9 @@ namespace my_app
         vk::ImageCreateInfo ci{};
         ci.flags = {};
         ci.imageType = vk::ImageType::e2D;
-        ci.format = swapchain_format;
-        ci.extent.width = swapchain_extent.width;
-        ci.extent.height = swapchain_extent.height;
+        ci.format = SwapChain_.Format.format;
+        ci.extent.width = SwapChain_.Extent.width;
+        ci.extent.height = SwapChain_.Extent.height;
         ci.extent.depth = 1;
         ci.mipLevels = 1;
         ci.arrayLayers = 1;
@@ -295,12 +263,12 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        color_image = Image(ctx_.allocator, ci);
+        color_image = Image(vk_ctx_.allocator, ci);
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
         vci.image = color_image.GetImage();
-        vci.format = swapchain_format;
+        vci.format = SwapChain_.Format.format;
         vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
         vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
         vci.subresourceRange.baseMipLevel = 0;
@@ -309,54 +277,34 @@ namespace my_app
         vci.subresourceRange.layerCount = 1;
         vci.viewType = vk::ImageViewType::e2D;
 
-        color_image_view = ctx_.device->createImageView(vci);
+        color_image_view = vk_ctx_.device->createImageView(vci);
 
-        // Transition the layout of the image
-        {
-            vk::CommandBuffer cmd = ctx_.device->allocateCommandBuffers({ctx_.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
-            vk::CommandBufferBeginInfo cbi{};
-            cmd.begin(cbi);
+        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
-            vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        vk::ImageMemoryBarrier b{};
+        b.oldLayout = vk::ImageLayout::eUndefined;
+        b.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        b.srcAccessMask = {};
+        b.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+        b.image = color_image.GetImage();
+        b.subresourceRange = subresource_range;
 
-            {
-                vk::ImageMemoryBarrier b{};
-                b.oldLayout = vk::ImageLayout::eUndefined;
-                b.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-                b.srcAccessMask = {};
-                b.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentRead;
-                b.image = color_image.GetImage();
-                b.subresourceRange = subresource_range;
-                cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, nullptr, nullptr, b);
-            }
-
-            cmd.end();
-
-            vk::Fence fence = ctx_.device->createFence({});
-            vk::SubmitInfo submit{};
-            submit.commandBufferCount = 1;
-            submit.pCommandBuffers = &cmd;
-
-            auto copy_queue = ctx_.device->getQueue(ctx_.graphics_family_idx, 0);
-            copy_queue.submit(submit, fence);
-            ctx_.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-            ctx_.device->destroy(fence);
-        }
+        vk_ctx_.TransitionLayout(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, b);
     }
 
 
     void Renderer::CreateDepthBuffer()
     {
         std::vector<vk::Format> depthFormats =
-            {
-                vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat, vk::Format::eD24UnormS8Uint,
-                vk::Format::eD16UnormS8Uint, vk::Format::eD16Unorm
+        {
+            vk::Format::eD32SfloatS8Uint, vk::Format::eD32Sfloat, vk::Format::eD24UnormS8Uint,
+            vk::Format::eD16UnormS8Uint, vk::Format::eD16Unorm
 
-            };
+        };
 
         for (auto& format : depthFormats)
         {
-            auto depthFormatProperties = ctx_.physical_device.getFormatProperties(format);
+            auto depthFormatProperties = vk_ctx_.physical_device.getFormatProperties(format);
             // Format must support depth stencil attachment for optimal tiling
             if (depthFormatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
             {
@@ -369,8 +317,8 @@ namespace my_app
         ci.flags = {};
         ci.imageType = vk::ImageType::e2D;
         ci.format = depth_format;
-        ci.extent.width = swapchain_extent.width;
-        ci.extent.height = swapchain_extent.height;
+        ci.extent.width = SwapChain_.Extent.width;
+        ci.extent.height = SwapChain_.Extent.height;
         ci.extent.depth = 1;
         ci.mipLevels = 1;
         ci.arrayLayers = 1;
@@ -381,7 +329,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        depth_image = Image(ctx_.allocator, ci);
+        depth_image = Image(vk_ctx_.allocator, ci);
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -395,7 +343,7 @@ namespace my_app
         vci.subresourceRange.layerCount = 1;
         vci.viewType = vk::ImageViewType::e2D;
 
-        depth_image_view = ctx_.device->createImageView(vci);
+        depth_image_view = vk_ctx_.device->createImageView(vci);
     }
 
     void Renderer::CreateRenderPass()
@@ -403,7 +351,7 @@ namespace my_app
         std::array<vk::AttachmentDescription, 3> attachments;
 
         // Color attachment
-        attachments[0].format = swapchain_format;
+        attachments[0].format = SwapChain_.Format.format;
         attachments[0].samples = msaa_samples;
         attachments[0].loadOp = vk::AttachmentLoadOp::eClear;
         attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
@@ -425,7 +373,7 @@ namespace my_app
         attachments[1].flags = vk::AttachmentDescriptionFlags();
 
         // Color resolve attachment
-        attachments[2].format = swapchain_format;
+        attachments[2].format = SwapChain_.Format.format;
         attachments[2].samples = vk::SampleCountFlagBits::e1;
         attachments[2].loadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].storeOp = vk::AttachmentStoreOp::eStore;
@@ -458,41 +406,15 @@ namespace my_app
         rp_info.pSubpasses = &subpass;
         rp_info.dependencyCount = 0;
         rp_info.pDependencies = nullptr;
-        render_pass = ctx_.device->createRenderPass(rp_info);
-    }
-
-    void Renderer::CreateFrameBuffers()
-    {
-        std::array<vk::ImageView, 3> attachments;
-        attachments[0] = color_image_view;
-        attachments[1] = depth_image_view;
-
-        frame_buffers.resize(swapchain_images.size());
-
-        vk::FramebufferCreateInfo ci;
-        ci.renderPass = render_pass;
-        ci.attachmentCount = attachments.size();
-        ci.pAttachments = attachments.data();
-        ci.width = swapchain_extent.width;
-        ci.height = swapchain_extent.height;
-        ci.layers = 1;
-
-        for (size_t i = 0; i < swapchain_image_views.size(); i++)
-        {
-            attachments[2] = swapchain_image_views[i];
-            frame_buffers[i] = ctx_.device->createFramebuffer(ci);
-        }
+        render_pass = vk_ctx_.device->createRenderPass(rp_info);
     }
 
     void Renderer::CreateUniformBuffer()
     {
-        uniform_buffers.resize(swapchain_images.size());
-
-        for (auto& uniform_buffer : uniform_buffers)
-            uniform_buffer = Buffer(ctx_.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
+        uniform_buffer = Buffer(vk_ctx_.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
     }
 
-    void Renderer::UpdateUniformBuffer(Buffer& uniform_buffer, float time, Camera& camera)
+    void Renderer::UpdateUniformBuffer(float time, Camera& camera)
     {
         // transformation, angle, rotations axis
         MVP ubo;
@@ -505,7 +427,7 @@ namespace my_app
 
         ubo.proj = glm::infinitePerspective(
             glm::radians(55.0f),
-            swapchain_extent.width / (float)swapchain_extent.height,
+            SwapChain_.Extent.width / (float)SwapChain_.Extent.height,
             .1f);
 
         // Vulkan clip space has inverted Y and half Z.
@@ -524,17 +446,17 @@ namespace my_app
         std::vector<vk::DescriptorPoolSize> pool_sizes =
             {
                 // TODO(vincent): count meshes
-                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (4 + model_.meshes.size()) * swapchain_images.size()),
+                vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (4 + Model_.meshes.size()) * SwapChain_.Images.size()),
                 // TODO(vincent): count textures
-                vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * model_.materials.size() * swapchain_images.size())
+                vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * Model_.materials.size() * SwapChain_.Images.size())
 
             };
 
         vk::DescriptorPoolCreateInfo dpci{};
         dpci.poolSizeCount = pool_sizes.size();
         dpci.pPoolSizes = pool_sizes.data();
-        dpci.maxSets = (2 + model_.meshes.size() + model_.materials.size()) * swapchain_images.size();
-        desc_pool = ctx_.device->createDescriptorPool(dpci);
+        dpci.maxSets = (2 + Model_.meshes.size() + Model_.materials.size()) * SwapChain_.Images.size();
+        desc_pool = vk_ctx_.device->createDescriptorPool(dpci);
 
         // Binding 0: Uniform buffer with scene informations (MVP)
         {
@@ -547,19 +469,19 @@ namespace my_app
             vk::DescriptorSetLayoutCreateInfo dslci{};
             dslci.bindingCount = bindings.size();
             dslci.pBindings = bindings.data();
-            scene_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+            scene_desc_layout = vk_ctx_.device->createDescriptorSetLayout(dslci);
 
-            std::vector<vk::DescriptorSetLayout> layouts{swapchain_images.size(), scene_desc_layout};
+            std::vector<vk::DescriptorSetLayout> layouts{SwapChain_.Images.size(), scene_desc_layout};
 
             vk::DescriptorSetAllocateInfo dsai{};
             dsai.descriptorPool = desc_pool;
             dsai.pSetLayouts = layouts.data();
             dsai.descriptorSetCount = layouts.size();
-            desc_sets = ctx_.device->allocateDescriptorSets(dsai);
+            desc_sets = vk_ctx_.device->allocateDescriptorSets(dsai);
 
-            for (size_t i = 0; i < swapchain_images.size(); i++)
+            for (size_t i = 0; i < SwapChain_.Images.size(); i++)
             {
-                auto dbi = uniform_buffers[i].GetDescInfo();
+                auto dbi = uniform_buffer.GetDescInfo();
 
                 std::array<vk::WriteDescriptorSet, 1> writes;
                 writes[0].dstSet = desc_sets[i];
@@ -569,7 +491,7 @@ namespace my_app
                 writes[0].dstArrayElement = 0;
                 writes[0].dstBinding = 0;
 
-                ctx_.device->updateDescriptorSets(writes, nullptr);
+                vk_ctx_.device->updateDescriptorSets(writes, nullptr);
             }
         }
 
@@ -587,16 +509,16 @@ namespace my_app
             vk::DescriptorSetLayoutCreateInfo dslci{};
             dslci.bindingCount = bindings.size();
             dslci.pBindings = bindings.data();
-            mat_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+            mat_desc_layout = vk_ctx_.device->createDescriptorSetLayout(dslci);
 
             // Per-Material descriptor sets
-            for (auto& material : model_.materials)
+            for (auto& material : Model_.materials)
             {
                 vk::DescriptorSetAllocateInfo dsai{};
                 dsai.descriptorPool = desc_pool;
                 dsai.pSetLayouts = &mat_desc_layout;
                 dsai.descriptorSetCount = 1;
-                material.desc_set = ctx_.device->allocateDescriptorSets(dsai)[0];
+                material.desc_set = vk_ctx_.device->allocateDescriptorSets(dsai)[0];
 
                 // Dont do this at home
 
@@ -634,7 +556,7 @@ namespace my_app
                     writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
                 }
 
-                ctx_.device->updateDescriptorSets(writeDescriptorSets, nullptr);
+                vk_ctx_.device->updateDescriptorSets(writeDescriptorSets, nullptr);
             }
         }
 
@@ -643,36 +565,35 @@ namespace my_app
             std::vector<vk::DescriptorSetLayoutBinding> bindings =
                 {
                     {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr}
-
                 };
 
             vk::DescriptorSetLayoutCreateInfo dslci{};
             dslci.bindingCount = bindings.size();
             dslci.pBindings = bindings.data();
-            node_desc_layout = ctx_.device->createDescriptorSetLayout(dslci);
+            node_desc_layout = vk_ctx_.device->createDescriptorSetLayout(dslci);
 
-            for (auto& node : model_.scene_nodes)
-                node.SetupNodeDescriptorSet(desc_pool, node_desc_layout, *ctx_.device);
+            for (auto& node : Model_.scene_nodes)
+                node.SetupNodeDescriptorSet(desc_pool, node_desc_layout, *vk_ctx_.device);
         }
     }
 
     void Renderer::CreateIndexBuffer()
     {
-        auto size = model_.indices.size() * sizeof(std::uint32_t);
-        index_buffer = Buffer(ctx_.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
+        auto size = Model_.indices.size() * sizeof(std::uint32_t);
+        index_buffer = Buffer(vk_ctx_.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
 
         void* mappedData = index_buffer.Map();
-        memcpy(mappedData, model_.indices.data(), size);
+        memcpy(mappedData, Model_.indices.data(), size);
         index_buffer.Unmap();
     }
 
     void Renderer::CreateVertexBuffer()
     {
-        auto size = model_.vertices.size() * sizeof(Vertex);
-        vertex_buffer = Buffer(ctx_.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
+        auto size = Model_.vertices.size() * sizeof(Vertex);
+        vertex_buffer = Buffer(vk_ctx_.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
 
         void* mappedData = vertex_buffer.Map();
-        memcpy(mappedData, model_.vertices.data(), size);
+        memcpy(mappedData, Model_.vertices.data(), size);
         vertex_buffer.Unmap();
     }
 
@@ -680,12 +601,14 @@ namespace my_app
     {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-        std::cout << "Opened file: " << filename << "\n";
-
         if (!file.is_open())
             throw std::runtime_error("failed to open file!");
 
+
         size_t fileSize = (size_t)file.tellg();
+
+        std::cout << "Opened file: " << filename << " (" << fileSize << ")\n";
+
         std::vector<char> buffer(fileSize);
 
         file.seekg(0);
@@ -704,12 +627,12 @@ namespace my_app
         auto vert_i = vk::ShaderModuleCreateInfo();
         vert_i.codeSize = vert_code.size();
         vert_i.pCode = reinterpret_cast<const uint32_t*>(vert_code.data());
-        vert_module = ctx_.device->createShaderModule(vert_i);
+        vert_module = vk_ctx_.device->createShaderModule(vert_i);
 
         auto frag_i = vk::ShaderModuleCreateInfo();
         frag_i.codeSize = frag_code.size();
         frag_i.pCode = reinterpret_cast<const uint32_t*>(frag_code.data());
-        frag_module = ctx_.device->createShaderModule(frag_i);
+        frag_module = vk_ctx_.device->createShaderModule(frag_i);
 
         std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages =
             {
@@ -730,6 +653,23 @@ namespace my_app
             };
 
         shader_stages = pipelineShaderStages;
+    }
+
+    void Renderer::CreateFrameRessources()
+    {
+        FrameRessources_.resize(NUM_VIRTUAL_FRAME);
+
+        for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
+        {
+            auto frame_ressource = FrameRessources_.data() + i;
+
+            vk::FenceCreateInfo fci{};
+            frame_ressource->Fence = vk_ctx_.device->createFence({vk::FenceCreateFlagBits::eSignaled});
+            frame_ressource->ImageAvailableSemaphore = vk_ctx_.device->createSemaphoreUnique({});
+            frame_ressource->RenderingFinishedSemaphore = vk_ctx_.device->createSemaphoreUnique({});
+
+            frame_ressource->CommandBuffer = std::move(vk_ctx_.device->allocateCommandBuffersUnique({vk_ctx_.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+        }
     }
 
     void Renderer::CreateGraphicsPipeline()
@@ -838,7 +778,7 @@ namespace my_app
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pcr;
 
-        pipeline_layout = ctx_.device->createPipelineLayout(ci);
+        pipeline_layout = vk_ctx_.device->createPipelineLayout(ci);
 
         vk::GraphicsPipelineCreateInfo pipe_i;
         pipe_i.layout = pipeline_layout;
@@ -858,75 +798,8 @@ namespace my_app
         pipe_i.renderPass = render_pass;
         pipe_i.subpass = 0;
 
-        pipeline_cache = ctx_.device->createPipelineCache(vk::PipelineCacheCreateInfo());
-        pipeline = ctx_.device->createGraphicsPipeline(pipeline_cache, pipe_i);
-    }
-
-    void Renderer::CreateSemaphores()
-    {
-        acquire_semaphores.resize(NUM_FRAME_DATA);
-        render_complete_semaphores.resize(NUM_FRAME_DATA);
-
-        for (int i = 0; i < NUM_FRAME_DATA; ++i)
-        {
-            acquire_semaphores[i] = ctx_.device->createSemaphore({});
-            render_complete_semaphores[i] = ctx_.device->createSemaphore({});
-        }
-    }
-
-    void Renderer::FillCommandBuffers()
-    {
-        auto renderArea = vk::Rect2D(vk::Offset2D(), swapchain_extent);
-
-        std::array<vk::ClearValue, 2> clearValues = {};
-        clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.5f, 0.5f, 0.5f, 1.0f});
-        clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-
-        // From here we can do common GL commands
-        // Lets add commands to each command buffer.
-        for (int32_t i = 0; i < command_buffers.size(); ++i)
-        {
-            command_buffers[i].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eSimultaneousUse));
-
-            command_buffers[i].beginRenderPass(
-                vk::RenderPassBeginInfo(
-                    render_pass,
-                    frame_buffers[i],
-                    renderArea,
-                    clearValues.size(),
-                    clearValues.data()),
-                vk::SubpassContents::eInline);
-
-            std::vector<vk::Viewport> viewports;
-            viewports.emplace_back(
-                0,
-                0,
-                swapchain_extent.width,
-                swapchain_extent.height,
-                0,
-                1.0f);
-
-            command_buffers[i].setViewport(0, viewports);
-
-            std::vector<vk::Rect2D> scissors = {renderArea};
-
-            command_buffers[i].setScissor(0, scissors);
-
-            // Bind Descriptor Sets, these are attribute/uniform "descriptions"
-            command_buffers[i].bindPipeline(
-                vk::PipelineBindPoint::eGraphics,
-                pipeline);
-
-            vk::Buffer vertexBuffers[] = {vertex_buffer.GetBuffer()};
-            vk::DeviceSize offsets[] = {0};
-            command_buffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
-            command_buffers[i].bindIndexBuffer(index_buffer.GetBuffer(), 0, vk::IndexType::eUint32);
-
-            model_.draw(command_buffers[i], pipeline_layout, desc_sets[i]);
-
-            command_buffers[i].endRenderPass();
-            command_buffers[i].end();
-        }
+        pipeline_cache = vk_ctx_.device->createPipelineCache(vk::PipelineCacheCreateInfo());
+        pipeline = vk_ctx_.device->createGraphicsPipeline(pipeline_cache, pipe_i);
     }
 
     void Renderer::Resize(int, int)
@@ -936,22 +809,21 @@ namespace my_app
 
     void Renderer::DrawFrame(double time, Camera& camera)
     {
-        static uint32_t virtualFrameIdx = 0;
+        static uint32_t virtual_frame_idx = 0;
 
-        auto& device = ctx_.device;
-        auto graphicsQueue = device->getQueue(ctx_.graphics_family_idx, 0);
+        auto& device = vk_ctx_.device;
+        auto graphics_queue = device->getQueue(vk_ctx_.graphics_family_idx, 0);
+        auto frame_ressource = FrameRessources_.data() + virtual_frame_idx;
 
-        device->waitForFences(command_buffers_fences[virtualFrameIdx], VK_TRUE, UINT64_MAX);
-        device->resetFences(command_buffers_fences[virtualFrameIdx]);
+        device->waitForFences(frame_ressource->Fence, VK_TRUE, UINT64_MAX);
+        device->resetFences(frame_ressource->Fence);
 
-        // will signal acquire_semaphore when the next image is acquired
-        // and put its index in imageIndex
-        uint32_t imageIndex = 0;
-        auto result = device->acquireNextImageKHR(swapchain,
+        uint32_t image_index = 0;
+        auto result = device->acquireNextImageKHR(*SwapChain_.Handle,
                                                   std::numeric_limits<uint64_t>::max(),
-                                                  acquire_semaphores[virtualFrameIdx],
+                                                  *frame_ressource->ImageAvailableSemaphore,
                                                   nullptr,
-                                                  &imageIndex);
+                                                  &image_index);
 
         if (result == vk::Result::eErrorOutOfDateKHR)
         {
@@ -960,38 +832,103 @@ namespace my_app
             return;
         }
 
-        UpdateUniformBuffer(uniform_buffers[imageIndex], time, camera);
+        // Create the framebuffer for the frame
+        {
+            std::array<vk::ImageView, 3> attachments = {
+                color_image_view,
+                depth_image_view,
+                SwapChain_.ImageViews[image_index]
+            };
+            vk::FramebufferCreateInfo ci;
+            ci.renderPass = render_pass;
+            ci.attachmentCount = attachments.size();
+            ci.pAttachments = attachments.data();
+            ci.width = SwapChain_.Extent.width;
+            ci.height = SwapChain_.Extent.height;
+            ci.layers = 1;
+            frame_ressource->FrameBuffer = vk_ctx_.device->createFramebufferUnique(ci);
+        }
 
-        // Create kernels to submit to the queue on a given render pass.
+        // Update and Draw!!!
+        {
+            UpdateUniformBuffer(time, camera);
+
+            auto renderArea = vk::Rect2D(vk::Offset2D(), SwapChain_.Extent);
+
+            std::array<vk::ClearValue, 2> clearValues = {};
+            clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.5f, 0.5f, 0.5f, 1.0f});
+            clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+
+            frame_ressource->CommandBuffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+            frame_ressource->CommandBuffer->beginRenderPass(
+                vk::RenderPassBeginInfo(
+                    render_pass,
+                    *frame_ressource->FrameBuffer,
+                    renderArea,
+                    clearValues.size(),
+                    clearValues.data()),
+                vk::SubpassContents::eInline);
+
+            std::vector<vk::Viewport> viewports;
+            viewports.emplace_back(
+                0,
+                0,
+                SwapChain_.Extent.width,
+                SwapChain_.Extent.height,
+                0,
+                1.0f);
+
+            frame_ressource->CommandBuffer->setViewport(0, viewports);
+
+            std::vector<vk::Rect2D> scissors = {renderArea};
+
+            frame_ressource->CommandBuffer->setScissor(0, scissors);
+
+            frame_ressource->CommandBuffer->bindPipeline(
+                vk::PipelineBindPoint::eGraphics,
+                pipeline);
+
+            vk::Buffer vertexBuffers[] = {vertex_buffer.GetBuffer()};
+            vk::DeviceSize offsets[] = {0};
+            frame_ressource->CommandBuffer->bindVertexBuffers(0, 1, vertexBuffers, offsets);
+            frame_ressource->CommandBuffer->bindIndexBuffer(index_buffer.GetBuffer(), 0, vk::IndexType::eUint32);
+
+            Model_.draw(*frame_ressource->CommandBuffer, pipeline_layout, desc_sets[image_index]);
+
+            frame_ressource->CommandBuffer->endRenderPass();
+            frame_ressource->CommandBuffer->end();
+        }
+
+        // Submit the command buffer
         vk::PipelineStageFlags stages[] = {
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
         };
 
         auto kernel = vk::SubmitInfo();
         kernel.waitSemaphoreCount = 1;
-        kernel.pWaitSemaphores = &acquire_semaphores[virtualFrameIdx];
+        kernel.pWaitSemaphores = &frame_ressource->ImageAvailableSemaphore.get();
         kernel.pWaitDstStageMask = stages;
         kernel.commandBufferCount = 1;
-        kernel.pCommandBuffers = &command_buffers[imageIndex];
+        kernel.pCommandBuffers = &frame_ressource->CommandBuffer.get();
         kernel.signalSemaphoreCount = 1;
-        kernel.pSignalSemaphores = &render_complete_semaphores[virtualFrameIdx];
+        kernel.pSignalSemaphores = &frame_ressource->RenderingFinishedSemaphore.get();
+        graphics_queue.submit(kernel, frame_ressource->Fence);
 
-        // the fences will be signaled
-        graphicsQueue.submit(kernel, command_buffers_fences[virtualFrameIdx]);
-
+        // Present the frame
         auto present_i = vk::PresentInfoKHR();
         present_i.waitSemaphoreCount = 1;
-        present_i.pWaitSemaphores = &render_complete_semaphores[virtualFrameIdx];
+        present_i.pWaitSemaphores = &frame_ressource->RenderingFinishedSemaphore.get();
         present_i.swapchainCount = 1;
-        present_i.pSwapchains = &swapchain;
-        present_i.pImageIndices = &imageIndex;
-        graphicsQueue.presentKHR(present_i);
+        present_i.pSwapchains = &SwapChain_.Handle.get();
+        present_i.pImageIndices = &image_index;
+        graphics_queue.presentKHR(present_i);
 
-        virtualFrameIdx = (virtualFrameIdx + 1) % NUM_FRAME_DATA;
+        virtual_frame_idx = (virtual_frame_idx + 1) % NUM_VIRTUAL_FRAME;
     }
 
     void Renderer::WaitIdle()
     {
-        ctx_.device->waitIdle();
+        vk_ctx_.device->waitIdle();
     }
 }    // namespace my_app

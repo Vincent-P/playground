@@ -15,7 +15,7 @@ namespace my_app
 {
     constexpr int WIDTH = 1920;
     constexpr int HEIGHT = 1080;
-    constexpr int NUM_FRAME_DATA = 2;
+    constexpr int NUM_VIRTUAL_FRAME = 2;
 
     struct Camera
     {
@@ -34,6 +34,25 @@ namespace my_app
         alignas(16) glm::vec3 cam_pos;
     };
 
+    struct FrameRessource
+    {
+        vk::Fence Fence;
+        vk::UniqueSemaphore ImageAvailableSemaphore;
+        vk::UniqueSemaphore RenderingFinishedSemaphore;
+        vk::UniqueFramebuffer FrameBuffer;
+        vk::UniqueCommandBuffer CommandBuffer;
+    };
+
+    struct SwapChain
+    {
+        vk::UniqueSwapchainKHR Handle;
+        std::vector<vk::Image> Images;
+        std::vector<vk::ImageView> ImageViews;
+        vk::SurfaceFormatKHR Format;
+        vk::PresentModeKHR PresentMode;
+        vk::Extent2D Extent;
+    };
+
     class Renderer
     {
     public:
@@ -45,45 +64,33 @@ namespace my_app
         void DestroySwapchain();
         void RecreateSwapchain();
 
-        void CreateCommandBuffers();
-        void CreateSemaphores();
+        void CreateFrameRessources();
         void CreateColorBuffer();
         void CreateDepthBuffer();
         void CreateUniformBuffer();
         void CreateDescriptors();
         void CreateRenderPass();
-        void CreateFrameBuffers();
         void CreateIndexBuffer();
         void CreateVertexBuffer();
         void LoadShaders();
+
         void CreateGraphicsPipeline();
-        void FillCommandBuffers();
+
         void Resize(int width, int height);
 
-        void UpdateUniformBuffer(Buffer& uniform_buffer, float time, Camera& camera);
+        void UpdateUniformBuffer(float time, Camera& camera);
         void DrawFrame(double time, Camera& camera);
         void WaitIdle();
 
     private:
 
-        VulkanContext ctx_;
+        VulkanContext vk_ctx_;
 
-        // Model to display
-        Model model_;
+        Model Model_;
+        SwapChain SwapChain_;
+        std::vector<FrameRessource> FrameRessources_;
 
-        // Pipeline objects
-        vk::SwapchainKHR swapchain;
-        std::vector<vk::Image> swapchain_images;
-        std::vector<vk::ImageView> swapchain_image_views;
-        vk::Format swapchain_format;
-        vk::PresentModeKHR swapchain_present_mode;
-        vk::Extent2D swapchain_extent;
-
-        std::vector<vk::CommandBuffer> command_buffers;
-        std::vector<vk::Fence> command_buffers_fences;
-        std::vector<vk::Semaphore> acquire_semaphores;
-        std::vector<vk::Semaphore> render_complete_semaphores;
-
+        // Attachments
         Image depth_image;
         vk::ImageView depth_image_view;
         vk::Format depth_format;
@@ -94,7 +101,7 @@ namespace my_app
         Image empty_image;
         vk::DescriptorImageInfo empty_info;
 
-        std::vector<Buffer> uniform_buffers;
+        Buffer uniform_buffer;
         Buffer index_buffer;
         Buffer vertex_buffer;
 
@@ -119,6 +126,5 @@ namespace my_app
 
         // Settings
         vk::SampleCountFlagBits msaa_samples = vk::SampleCountFlagBits::e2;
-
     };
 }

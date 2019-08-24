@@ -18,18 +18,26 @@ namespace my_app
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
+
     struct VulkanContext
     {
         VulkanContext(GLFWwindow *window);
         VulkanContext(VulkanContext& other) = delete;
         ~VulkanContext();
 
-        vk::UniqueInstance CreateInstance();
+        // Constructor
+        static vk::UniqueInstance CreateInstance();
         std::optional<vk::DebugUtilsMessengerEXT> SetupDebugCallback();
         vk::UniqueSurfaceKHR CreateSurface(GLFWwindow *window);
         vk::PhysicalDevice PickPhysicalDevice();
         vk::UniqueDevice CreateLogicalDevice();
         VmaAllocator InitAllocator();
+
+        // Utility
+        void TransitionLayout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const;
+
+        size_t graphics_family_idx;
+        size_t present_family_idx;
 
         vk::UniqueInstance instance;
         vk::DispatchLoaderDynamic dldi;
@@ -38,11 +46,7 @@ namespace my_app
         vk::PhysicalDevice physical_device;
         vk::UniqueDevice device;
         VmaAllocator allocator;
-
         vk::CommandPool command_pool;
-
-        size_t graphics_family_idx;
-        size_t present_family_idx;
     };
 
 }

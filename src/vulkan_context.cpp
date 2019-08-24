@@ -47,7 +47,9 @@ namespace my_app
     }
 
     VulkanContext::VulkanContext(GLFWwindow* window)
-        : instance(CreateInstance())
+        : graphics_family_idx(0)
+        , present_family_idx(0)
+        , instance(CreateInstance())
         , dldi(vk::DispatchLoaderDynamic(*instance))
         , debug_messenger(SetupDebugCallback())
         , surface(CreateSurface(window))
@@ -61,18 +63,17 @@ namespace my_app
     {
         if (debug_messenger)
             instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr, dldi);
-        device->destroy(command_pool);
 
+        device->destroy(command_pool);
         vmaDestroyAllocator(allocator);
     }
 
     vk::UniqueInstance VulkanContext::CreateInstance()
     {
         vk::ApplicationInfo app_info;
-
-        app_info.pApplicationName = "MyApp";
+        app_info.pApplicationName = "Test Vulkan";
         app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        app_info.pEngineName = "MyEngine";
+        app_info.pEngineName = "GoodEngine";
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         app_info.apiVersion = VK_API_VERSION_1_1;
 
@@ -219,6 +220,32 @@ namespace my_app
         allocatorInfo.device = *device;
         vmaCreateAllocator(&allocatorInfo, &result);
         return result;
+    }
+
+    void VulkanContext::TransitionLayout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const
+    {
+        vk::CommandBuffer cmd = device->allocateCommandBuffers({command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
+
+        cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        cmd.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            {},
+            nullptr,
+            nullptr,
+            barrier);
+
+        cmd.end();
+
+        vk::Fence fence = device->createFence({});
+        vk::SubmitInfo submit{};
+        submit.commandBufferCount = 1;
+        submit.pCommandBuffers = &cmd;
+
+        auto copy_queue = device->getQueue(graphics_family_idx, 0);
+        copy_queue.submit(submit, fence);
+        device->waitForFences(fence, VK_TRUE, UINT64_MAX);
+        device->destroy(fence);
     }
 
 }    // namespace my_app
