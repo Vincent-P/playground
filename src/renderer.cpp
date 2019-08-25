@@ -13,7 +13,8 @@ namespace my_app
         , Model_("models/Sponza/glTF/Sponza.gltf", vk_ctx_)
     {
         auto format = vk::Format::eA8B8G8R8UnormPack32;
-        auto ci = vk::ImageCreateInfo();
+
+        vk::ImageCreateInfo ci{};
         ci.imageType = vk::ImageType::e2D;
         ci.format = format;
         ci.extent.width = 1;
@@ -61,7 +62,7 @@ namespace my_app
         empty_info.imageView = vk_ctx_.device->createImageView(vci);
 
 
-        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        vk::ImageSubresourceRange subresource_range{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
 
         vk::ImageMemoryBarrier b{};
         b.oldLayout = vk::ImageLayout::eUndefined;
@@ -263,7 +264,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        color_image = Image(vk_ctx_.allocator, ci);
+        color_image = Image{ vk_ctx_.allocator, ci };
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -279,7 +280,7 @@ namespace my_app
 
         color_image_view = vk_ctx_.device->createImageView(vci);
 
-        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        vk::ImageSubresourceRange subresource_range{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
 
         vk::ImageMemoryBarrier b{};
         b.oldLayout = vk::ImageLayout::eUndefined;
@@ -329,7 +330,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        depth_image = Image(vk_ctx_.allocator, ci);
+        depth_image = Image{ vk_ctx_.allocator, ci };
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -387,7 +388,7 @@ namespace my_app
         vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
         vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
 
-        vk::SubpassDescription subpass = {};
+        vk::SubpassDescription subpass{};
         subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
         subpass.flags = vk::SubpassDescriptionFlags();
         subpass.inputAttachmentCount = 0;
@@ -399,7 +400,7 @@ namespace my_app
         subpass.preserveAttachmentCount = 0;
         subpass.pPreserveAttachments = nullptr;
 
-        vk::RenderPassCreateInfo rp_info = {};
+        vk::RenderPassCreateInfo rp_info{};
         rp_info.attachmentCount = attachments.size();
         rp_info.pAttachments = attachments.data();
         rp_info.subpassCount = 1;
@@ -417,18 +418,17 @@ namespace my_app
     void Renderer::UpdateUniformBuffer(float time, Camera& camera)
     {
         // transformation, angle, rotations axis
-        MVP ubo;
+        MVP ubo{};
         ubo.cam_pos = camera.position;
+
+        float aspect_ratio = SwapChain_.Extent.width / (float)SwapChain_.Extent.height;
+        float fov = 45.0f;
+        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 100.0f);
 
         ubo.view = glm::lookAt(
             camera.position,                   // origin of camera
             camera.position + camera.front,    // where to look
             camera.up);
-
-        ubo.proj = glm::infinitePerspective(
-            glm::radians(55.0f),
-            SwapChain_.Extent.width / (float)SwapChain_.Extent.height,
-            .1f);
 
         // Vulkan clip space has inverted Y and half Z.
         ubo.clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
@@ -438,7 +438,6 @@ namespace my_app
 
         void* mappedData = uniform_buffer.Map();
         memcpy(mappedData, &ubo, sizeof(ubo));
-        uniform_buffer.Unmap();
     }
 
     void Renderer::CreateDescriptors()
@@ -527,7 +526,8 @@ namespace my_app
                     empty_info,
                     material.normalTexture ? material.normalTexture->desc_info : empty_info,
                     material.occlusionTexture ? material.occlusionTexture->desc_info : empty_info,
-                    material.emissiveTexture ? material.emissiveTexture->desc_info : empty_info};
+                    material.emissiveTexture ? material.emissiveTexture->desc_info : empty_info
+                };
 
                 // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
 
@@ -584,7 +584,6 @@ namespace my_app
 
         void* mappedData = index_buffer.Map();
         memcpy(mappedData, Model_.indices.data(), size);
-        index_buffer.Unmap();
     }
 
     void Renderer::CreateVertexBuffer()
@@ -594,16 +593,13 @@ namespace my_app
 
         void* mappedData = vertex_buffer.Map();
         memcpy(mappedData, Model_.vertices.data(), size);
-        vertex_buffer.Unmap();
     }
 
     std::vector<char> readFile(const std::string& filename)
     {
-        std::ifstream file(filename, std::ios::binary);
+        std::ifstream file{ filename, std::ios::binary };
         if (file.fail())
-        {
             throw std::exception(std::string("Could not open \"" + filename + "\" file!").c_str());
-        }
 
         std::streampos begin, end;
         begin = file.tellg();
@@ -650,24 +646,25 @@ namespace my_app
 
             };
 
-        vk::PipelineDynamicStateCreateInfo dyn_i({}, dynamic_states.size(), dynamic_states.data());
+        vk::PipelineDynamicStateCreateInfo dyn_i{ {}, static_cast<uint32_t>(dynamic_states.size()), dynamic_states.data() };
 
         auto bindings = Vertex::getBindingDescriptions();
         auto attributes = Vertex::getAttributeDescriptions();
-        vk::PipelineVertexInputStateCreateInfo vert_i;
-        vert_i.flags = vk::PipelineVertexInputStateCreateFlags();
+
+        vk::PipelineVertexInputStateCreateInfo vert_i{};
+        vert_i.flags = vk::PipelineVertexInputStateCreateFlags(0);
         vert_i.vertexBindingDescriptionCount = bindings.size();
         vert_i.pVertexBindingDescriptions = bindings.data();
         vert_i.vertexAttributeDescriptionCount = attributes.size();
         vert_i.pVertexAttributeDescriptions = attributes.data();
 
-        vk::PipelineInputAssemblyStateCreateInfo asm_i;
-        asm_i.flags = vk::PipelineInputAssemblyStateCreateFlags();
+        vk::PipelineInputAssemblyStateCreateInfo asm_i{};
+        asm_i.flags = vk::PipelineInputAssemblyStateCreateFlags(0);
         asm_i.primitiveRestartEnable = VK_FALSE;
         asm_i.topology = vk::PrimitiveTopology::eTriangleList;
 
-        vk::PipelineRasterizationStateCreateInfo rast_i;
-        rast_i.flags = vk::PipelineRasterizationStateCreateFlags();
+        vk::PipelineRasterizationStateCreateInfo rast_i{};
+        rast_i.flags = vk::PipelineRasterizationStateCreateFlags(0);
         rast_i.polygonMode = vk::PolygonMode::eFill;
         rast_i.cullMode = vk::CullModeFlagBits::eBack;
         rast_i.frontFace = vk::FrontFace::eCounterClockwise;
@@ -689,8 +686,8 @@ namespace my_app
         att_states[0].dstAlphaBlendFactor = vk::BlendFactor::eZero;
         att_states[0].alphaBlendOp = vk::BlendOp::eAdd;
 
-        vk::PipelineColorBlendStateCreateInfo colorblend_i;
-        colorblend_i.flags = vk::PipelineColorBlendStateCreateFlags();
+        vk::PipelineColorBlendStateCreateInfo colorblend_i{};
+        colorblend_i.flags = vk::PipelineColorBlendStateCreateFlags(0);
         colorblend_i.attachmentCount = att_states.size();
         colorblend_i.pAttachments = att_states.data();
         colorblend_i.logicOpEnable = VK_FALSE;
@@ -700,14 +697,14 @@ namespace my_app
         colorblend_i.blendConstants[2] = 0.0f;
         colorblend_i.blendConstants[3] = 0.0f;
 
-        vk::PipelineViewportStateCreateInfo vp_i;
+        vk::PipelineViewportStateCreateInfo vp_i{};
         vp_i.flags = vk::PipelineViewportStateCreateFlags();
         vp_i.viewportCount = 1;
         vp_i.scissorCount = 1;
         vp_i.pScissors = nullptr;
         vp_i.pViewports = nullptr;
 
-        vk::PipelineDepthStencilStateCreateInfo ds_i;
+        vk::PipelineDepthStencilStateCreateInfo ds_i{};
         ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
         ds_i.depthTestEnable = VK_TRUE;
         ds_i.depthWriteEnable = VK_TRUE;
@@ -725,7 +722,7 @@ namespace my_app
         ds_i.back.writeMask = 0;
         ds_i.front = ds_i.back;
 
-        vk::PipelineMultisampleStateCreateInfo ms_i;
+        vk::PipelineMultisampleStateCreateInfo ms_i{};
         ms_i.flags = vk::PipelineMultisampleStateCreateFlags();
         ms_i.pSampleMask = nullptr;
         ms_i.rasterizationSamples = msaa_samples;
@@ -739,11 +736,11 @@ namespace my_app
                 scene_desc_layout, mat_desc_layout, node_desc_layout
 
             };
-        auto ci = vk::PipelineLayoutCreateInfo();
+        vk::PipelineLayoutCreateInfo ci{};
         ci.pSetLayouts = layouts.data();
         ci.setLayoutCount = layouts.size();
 
-        auto pcr = vk::PushConstantRange(vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial));
+        vk::PushConstantRange pcr{ vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial) };
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pcr;
 
@@ -762,10 +759,9 @@ namespace my_app
                     vk::ShaderStageFlagBits::eFragment,
                     *frag_module,
                     "main")
-
             };
 
-        vk::GraphicsPipelineCreateInfo pipe_i;
+        vk::GraphicsPipelineCreateInfo pipe_i{};
         pipe_i.layout = pipeline_layout;
         pipe_i.basePipelineHandle = nullptr;
         pipe_i.basePipelineIndex = 0;
@@ -783,7 +779,7 @@ namespace my_app
         pipe_i.renderPass = render_pass;
         pipe_i.subpass = 0;
 
-        pipeline_cache = vk_ctx_.device->createPipelineCache(vk::PipelineCacheCreateInfo());
+        pipeline_cache = vk_ctx_.device->createPipelineCache({});
         pipeline = vk_ctx_.device->createGraphicsPipeline(pipeline_cache, pipe_i);
     }
 
@@ -824,7 +820,8 @@ namespace my_app
                 depth_image_view,
                 SwapChain_.ImageViews[image_index]
             };
-            vk::FramebufferCreateInfo ci;
+
+            vk::FramebufferCreateInfo ci{};
             ci.renderPass = render_pass;
             ci.attachmentCount = attachments.size();
             ci.pAttachments = attachments.data();
@@ -838,22 +835,22 @@ namespace my_app
         {
             UpdateUniformBuffer(time, camera);
 
-            auto renderArea = vk::Rect2D(vk::Offset2D(), SwapChain_.Extent);
+            vk::Rect2D render_area{ vk::Offset2D(), SwapChain_.Extent };
 
-            std::array<vk::ClearValue, 2> clearValues = {};
+            std::array<vk::ClearValue, 2> clearValues;
             clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.5f, 0.5f, 0.5f, 1.0f});
             clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
             frame_ressource->CommandBuffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-            frame_ressource->CommandBuffer->beginRenderPass(
-                vk::RenderPassBeginInfo(
-                    render_pass,
-                    *frame_ressource->FrameBuffer,
-                    renderArea,
-                    clearValues.size(),
-                    clearValues.data()),
-                vk::SubpassContents::eInline);
+            vk::RenderPassBeginInfo rpbi{};
+            rpbi.renderArea = render_area;
+            rpbi.renderPass = render_pass;
+            rpbi.framebuffer = *frame_ressource->FrameBuffer;
+            rpbi.clearValueCount = clearValues.size();
+            rpbi.pClearValues = clearValues.data();
+
+            frame_ressource->CommandBuffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
 
             std::vector<vk::Viewport> viewports;
             viewports.emplace_back(
@@ -866,13 +863,11 @@ namespace my_app
 
             frame_ressource->CommandBuffer->setViewport(0, viewports);
 
-            std::vector<vk::Rect2D> scissors = {renderArea};
+            std::vector<vk::Rect2D> scissors = {render_area};
 
             frame_ressource->CommandBuffer->setScissor(0, scissors);
 
-            frame_ressource->CommandBuffer->bindPipeline(
-                vk::PipelineBindPoint::eGraphics,
-                pipeline);
+            frame_ressource->CommandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
             vk::Buffer vertexBuffers[] = {vertex_buffer.GetBuffer()};
             vk::DeviceSize offsets[] = {0};
@@ -890,7 +885,7 @@ namespace my_app
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
         };
 
-        auto kernel = vk::SubmitInfo();
+        vk::SubmitInfo kernel{};
         kernel.waitSemaphoreCount = 1;
         kernel.pWaitSemaphores = &frame_ressource->ImageAvailableSemaphore.get();
         kernel.pWaitDstStageMask = stages;
@@ -901,7 +896,7 @@ namespace my_app
         graphics_queue.submit(kernel, frame_ressource->Fence);
 
         // Present the frame
-        auto present_i = vk::PresentInfoKHR();
+        vk::PresentInfoKHR present_i{};
         present_i.waitSemaphoreCount = 1;
         present_i.pWaitSemaphores = &frame_ressource->RenderingFinishedSemaphore.get();
         present_i.swapchainCount = 1;

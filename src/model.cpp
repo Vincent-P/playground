@@ -42,10 +42,9 @@ namespace my_app
         Buffer staging_buffer{ctx.allocator, pixels.size(), vk::BufferUsageFlagBits::eTransferSrc};
         void* mapped = staging_buffer.Map();
         memcpy(mapped, pixels.data(), pixels.size());
-        staging_buffer.Unmap();
 
         // Create the image that will contain the texture
-        auto ci = vk::ImageCreateInfo();
+        vk::ImageCreateInfo ci{};
         ci.imageType = vk::ImageType::e2D;
         ci.format = format;
         ci.mipLevels = mip_levels;
@@ -61,10 +60,9 @@ namespace my_app
         image = Image{ctx.allocator, ci};
 
         // Copy buffer to the image
-        vk::CommandBuffer cmd = ctx.device->allocateCommandBuffers({ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
-        vk::CommandBufferBeginInfo cbi{};
-        cmd.begin(cbi);
+        auto cmd = ctx.device->allocateCommandBuffers({ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
 
+        cmd.begin({});
         vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
         {
@@ -101,7 +99,7 @@ namespace my_app
 
         cmd.end();
 
-        vk::Fence fence = ctx.device->createFence({});
+        auto fence = ctx.device->createFence({});
         vk::SubmitInfo submit{};
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &cmd;
@@ -114,8 +112,8 @@ namespace my_app
 
         // Generate the mipchain (because glTF's textures are regular images)
 
-        vk::CommandBuffer bcmd = ctx.device->allocateCommandBuffers({ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
-        bcmd.begin(cbi);
+        auto bcmd = ctx.device->allocateCommandBuffers({ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
+        bcmd.begin({});
 
         for (uint32_t i = 1; i < mip_levels; i++)
         {
@@ -173,7 +171,7 @@ namespace my_app
         subresource_range.levelCount = mip_levels;
         desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-        bcmd.begin(cbi);
+        bcmd.begin({});
 
         {
             vk::ImageMemoryBarrier b{};
@@ -228,11 +226,8 @@ namespace my_app
     }
 
     Mesh::Mesh(VulkanContext& ctx)
-        : uniform(ctx.allocator,
-                  sizeof(UniformBlock),
-                  vk::BufferUsageFlagBits::eUniformBuffer)
-    {
-    }
+        : uniform(ctx.allocator,sizeof(UniformBlock),vk::BufferUsageFlagBits::eUniformBuffer)
+    {}
 
     void Mesh::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const
     {
@@ -321,10 +316,9 @@ namespace my_app
     {
         if (mesh)
         {
-            glm::mat4 m = getMatrix();
+            auto m = getMatrix();
             void* mapped = mesh->uniform.Map();
             memcpy(mapped, &m, sizeof(m));
-            mesh->uniform.Unmap();
         }
 
         for (auto& child : children)
