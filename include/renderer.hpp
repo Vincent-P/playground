@@ -1,8 +1,13 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vector>
+
+#pragma clang diagnostic pop
 
 #include "vulkan_context.hpp"
 #include "model.hpp"
@@ -22,8 +27,8 @@ namespace my_app
         glm::vec3 position = glm::vec3(0.0f, 0.0f, -2.0f);
         glm::vec3 front = glm::vec3(0.0f, 0.0f, 1.0f );
         glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
-        double yaw = 0.0;
-        double pitch = 0.0;
+        float yaw = 0.0f;
+        float pitch = 0.0f;
     };
 
     struct MVP

@@ -1,6 +1,7 @@
 #pragma once
-
-#include "tiny_gltf.h"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+#include <tiny_gltf.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -8,6 +9,7 @@
 #include <string>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#pragma clang diagnostic pop
 
 #include "buffer.hpp"
 #include "image.hpp"
@@ -16,7 +18,7 @@ namespace my_app
 {
     constexpr float global_scale = 5.;
 
-    static tinygltf::TinyGLTF loader;
+    inline tinygltf::TinyGLTF loader;
 
     struct VulkanContext;
 
@@ -31,6 +33,7 @@ namespace my_app
             case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
                 return vk::SamplerAddressMode::eMirroredRepeat;
         }
+        return vk::SamplerAddressMode::eRepeat;
     }
 
     constexpr vk::Filter GetVkFilterMode(int32_t filterMode)
@@ -50,6 +53,7 @@ namespace my_app
             case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
                 return vk::Filter::eLinear;
         }
+        return vk::Filter::eLinear;
     }
 
     struct TextureSampler

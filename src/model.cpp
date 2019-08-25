@@ -1,13 +1,14 @@
+#pragma clang diagnostic ignored "-Weverything"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
-
+#include <tiny_gltf.h>
+#pragma clang diagnostic pop
 
 #include "buffer.hpp"
 #include "image.hpp"
 #include "model.hpp"
-#include "tiny_gltf.h"
 #include "vulkan_context.hpp"
 
 namespace my_app

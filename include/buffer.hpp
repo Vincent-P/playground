@@ -1,7 +1,10 @@
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#pragma clang diagnostic pop
 
 namespace my_app
 {

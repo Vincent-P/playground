@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
 
-# Set C++ std version
-if(WIN32)
-  add_compile_options(/std:c++17)
-endif()
-
 # Setup the vcpkg toolchain
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -16,22 +11,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Put binaries at the root of the build folder
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+
+# Setup C++
+# Uncomment to enabled cppcheck, it is disabled because it checks vulkan.hpp, glfw and unwanted libraries
+# set(CMAKE_CXX_CPPCHECK "cppcheck")
+add_compile_options(/std:c++17 -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+
 # =============================================================
 # MAIN TARGET
 project(test-vulkan LANGUAGES CXX)
 
 # List the source files
-set(SOURCE
-  src/vk_mem_alloc.cpp
-  src/tiny_gltf.cpp
+set(TEST_VULKAN_FILES
   src/model.cpp
   src/renderer.cpp
   src/vulkan_context.cpp
+  src/tiny_gltf.cpp
+  src/vk_mem_alloc.cpp
   src/main.cpp
   )
 
 # And add the main executable
-add_executable(test-vulkan ${SOURCE})
+add_executable(test-vulkan ${TEST_VULKAN_FILES})
 
 # --------------
 # Setup libraries
@@ -49,6 +50,7 @@ find_package(glm REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+
 target_link_libraries(test-vulkan
   PRIVATE
   Vulkan::Vulkan
@@ -63,7 +65,7 @@ target_link_libraries(test-vulkan
 # Setup the include directories
 target_include_directories(test-vulkan
   PUBLIC include/
-  PUBLIC third_party/tinygltf
+  SYSTEM third_party/tinygltf
   )
 
 # Add a run target to launch the executable
@@ -72,6 +74,7 @@ add_custom_target(run
   DEPENDS test-vulkan
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   )
+
 # =============================================================
 
 # =============================================================

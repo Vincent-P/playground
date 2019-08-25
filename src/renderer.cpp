@@ -1,8 +1,10 @@
+#pragma clang diagnostic ignored "-Weverything"
 #include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <vk_mem_alloc.h>
+#pragma clang diagnostic pop
 
 #include "renderer.hpp"
 

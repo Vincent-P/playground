@@ -1,5 +1,7 @@
+#pragma clang diagnostic ignored "-Weverything"
 #include <iostream>
 #include <GLFW/glfw3.h>
+#pragma clang diagnostic pop
 
 #include "vulkan_context.hpp"
 

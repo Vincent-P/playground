@@ -1,11 +1,13 @@
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
 #include <GLFW/glfw3.h>
-
 #include <chrono>
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
+#pragma clang diagnostic pop
 
 #include "renderer.hpp"
 
@@ -56,8 +58,8 @@ namespace my_app
             auto& yaw = app->camera_.yaw;
             auto& pitch = app->camera_.pitch;
 
-            yaw += (xpos - last_x) * mouse_sensitivity;
-            pitch += (last_y - ypos) * mouse_sensitivity;
+            yaw += static_cast<float>((xpos - last_x) * mouse_sensitivity);
+            pitch += static_cast<float>((last_y - ypos) * mouse_sensitivity);
 
             if (pitch > 89.0f)
                 pitch = 89.0f;
@@ -127,7 +129,7 @@ namespace my_app
             double timer = 0.0;
             double delta_t = 0.0;
 
-            while (!glfwWindowShouldClose(window_))
+            while (not glfwWindowShouldClose(window_))
             {
                 int visible = glfwGetWindowAttrib(window_, GLFW_VISIBLE);
                 int focused = glfwGetWindowAttrib(window_, GLFW_FOCUSED);
