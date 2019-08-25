@@ -35,6 +35,7 @@ namespace my_app
 
         // Utility
         void TransitionLayout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const;
+        vk::UniqueShaderModule CreateShaderModule(std::vector<char> code) const;
 
         size_t graphics_family_idx;
         size_t present_family_idx;

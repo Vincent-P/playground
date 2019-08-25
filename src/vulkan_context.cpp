@@ -228,8 +228,8 @@ namespace my_app
 
         cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
         cmd.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            src,
+            dst,
             {},
             nullptr,
             nullptr,
@@ -246,6 +246,15 @@ namespace my_app
         copy_queue.submit(submit, fence);
         device->waitForFences(fence, VK_TRUE, UINT64_MAX);
         device->destroy(fence);
+    }
+
+
+    vk::UniqueShaderModule VulkanContext::CreateShaderModule(std::vector<char> code) const
+    {
+        vk::ShaderModuleCreateInfo info{};
+        info.codeSize = code.size();
+        info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+        return device->createShaderModuleUnique(info);
     }
 
 }    // namespace my_app

@@ -72,7 +72,6 @@ namespace my_app
         void CreateRenderPass();
         void CreateIndexBuffer();
         void CreateVertexBuffer();
-        void LoadShaders();
 
         void CreateGraphicsPipeline();
 
@@ -105,8 +104,8 @@ namespace my_app
         Buffer index_buffer;
         Buffer vertex_buffer;
 
-        vk::ShaderModule vert_module;
-        vk::ShaderModule frag_module;
+        vk::UniqueShaderModule vert_module;
+        vk::UniqueShaderModule frag_module;
 
         vk::DescriptorPool desc_pool;
 
@@ -116,13 +115,10 @@ namespace my_app
 
         std::vector<vk::DescriptorSet> desc_sets;
 
-        std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
-
         vk::Pipeline pipeline;
         vk::PipelineCache pipeline_cache;
         vk::PipelineLayout pipeline_layout;
         vk::RenderPass render_pass;
-        std::vector<vk::Framebuffer> frame_buffers;
 
         // Settings
         vk::SampleCountFlagBits msaa_samples = vk::SampleCountFlagBits::e2;

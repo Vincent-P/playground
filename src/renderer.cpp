@@ -60,14 +60,24 @@ namespace my_app
         vci.viewType = vk::ImageViewType::e2D;
         empty_info.imageView = vk_ctx_.device->createImageView(vci);
 
-        // wtf
+
+        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+        vk::ImageMemoryBarrier b{};
+        b.oldLayout = vk::ImageLayout::eUndefined;
+        b.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        b.srcAccessMask = {};
+        b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+        b.image = empty_image.GetImage();
+        b.subresourceRange = subresource_range;
+
+        vk_ctx_.TransitionLayout(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, b);
         empty_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         // Create the swapchain
         CreateSwapchain();
 
         // Create ressources
-        LoadShaders();
         CreateColorBuffer();
         CreateDepthBuffer();
         CreateUniformBuffer();
@@ -75,7 +85,6 @@ namespace my_app
         CreateVertexBuffer();
         CreateIndexBuffer();
         CreateFrameRessources();
-
 
         // Create the pipeline
         CreateRenderPass();
@@ -85,7 +94,6 @@ namespace my_app
     Renderer::~Renderer()
     {
         // EMPTY TEXTURE
-
         vk_ctx_.device->destroy(empty_info.imageView);
         vk_ctx_.device->destroy(empty_info.sampler);
         empty_image.Free();
@@ -94,19 +102,14 @@ namespace my_app
         DestroySwapchain();
 
         // PIPELINE OBJECTS
-
         vk_ctx_.device->destroy(scene_desc_layout);
         vk_ctx_.device->destroy(node_desc_layout);
         vk_ctx_.device->destroy(mat_desc_layout);
         vk_ctx_.device->destroy(desc_pool);
 
-        vk_ctx_.device->destroy(vert_module);
-        vk_ctx_.device->destroy(frag_module);
-
         vk_ctx_.device->destroy(pipeline_cache);
         vk_ctx_.device->destroy(pipeline_layout);
         vk_ctx_.device->destroy(pipeline);
-
 
         vertex_buffer.Free();
         index_buffer.Free();
@@ -129,9 +132,6 @@ namespace my_app
         color_image.Free();
 
         vk_ctx_.device->destroy(render_pass);
-
-        for (auto& o : frame_buffers)
-            vk_ctx_.device->destroy(o);
     }
 
     void Renderer::RecreateSwapchain()
@@ -599,60 +599,23 @@ namespace my_app
 
     std::vector<char> readFile(const std::string& filename)
     {
-        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+        std::ifstream file(filename, std::ios::binary);
+        if (file.fail())
+        {
+            throw std::exception(std::string("Could not open \"" + filename + "\" file!").c_str());
+        }
 
-        if (!file.is_open())
-            throw std::runtime_error("failed to open file!");
+        std::streampos begin, end;
+        begin = file.tellg();
+        file.seekg(0, std::ios::end);
+        end = file.tellg();
 
-
-        size_t fileSize = (size_t)file.tellg();
-
-        std::cout << "Opened file: " << filename << " (" << fileSize << ")\n";
-
-        std::vector<char> buffer(fileSize);
-
-        file.seekg(0);
-        file.read(buffer.data(), fileSize);
-
+        std::vector<char> result(static_cast<size_t>(end - begin));
+        file.seekg(0, std::ios::beg);
+        file.read(&result[0], end - begin);
         file.close();
 
-        return buffer;
-    }
-
-    void Renderer::LoadShaders()
-    {
-        std::vector<char> vert_code = readFile("build/shaders/shader.frag.spv");
-        std::vector<char> frag_code = readFile("build/shaders/shader.vert.spv");
-
-        auto vert_i = vk::ShaderModuleCreateInfo();
-        vert_i.codeSize = vert_code.size();
-        vert_i.pCode = reinterpret_cast<const uint32_t*>(vert_code.data());
-        vert_module = vk_ctx_.device->createShaderModule(vert_i);
-
-        auto frag_i = vk::ShaderModuleCreateInfo();
-        frag_i.codeSize = frag_code.size();
-        frag_i.pCode = reinterpret_cast<const uint32_t*>(frag_code.data());
-        frag_module = vk_ctx_.device->createShaderModule(frag_i);
-
-        std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages =
-            {
-                vk::PipelineShaderStageCreateInfo(
-                    vk::PipelineShaderStageCreateFlags(),
-                    vk::ShaderStageFlagBits::eVertex,
-                    vert_module,
-                    "main",
-                    nullptr),
-
-                vk::PipelineShaderStageCreateInfo(
-                    vk::PipelineShaderStageCreateFlags(),
-                    vk::ShaderStageFlagBits::eFragment,
-                    frag_module,
-                    "main",
-                    nullptr)
-
-            };
-
-        shader_stages = pipelineShaderStages;
+        return result;
     }
 
     void Renderer::CreateFrameRessources()
@@ -674,6 +637,12 @@ namespace my_app
 
     void Renderer::CreateGraphicsPipeline()
     {
+        auto vert_code = readFile("Build/shaders/shader.vert.spv");
+        auto frag_code = readFile("Build/shaders/shader.frag.spv");
+
+        vert_module = vk_ctx_.CreateShaderModule(vert_code);
+        frag_module = vk_ctx_.CreateShaderModule(frag_code);
+
         std::vector<vk::DynamicState> dynamic_states =
             {
                 vk::DynamicState::eViewport,
@@ -780,6 +749,22 @@ namespace my_app
 
         pipeline_layout = vk_ctx_.device->createPipelineLayout(ci);
 
+        std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStages =
+            {
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(0),
+                    vk::ShaderStageFlagBits::eVertex,
+                    *vert_module,
+                    "main"),
+
+                vk::PipelineShaderStageCreateInfo(
+                    vk::PipelineShaderStageCreateFlags(0),
+                    vk::ShaderStageFlagBits::eFragment,
+                    *frag_module,
+                    "main")
+
+            };
+
         vk::GraphicsPipelineCreateInfo pipe_i;
         pipe_i.layout = pipeline_layout;
         pipe_i.basePipelineHandle = nullptr;
@@ -793,8 +778,8 @@ namespace my_app
         pipe_i.pDynamicState = &dyn_i;
         pipe_i.pViewportState = &vp_i;
         pipe_i.pDepthStencilState = &ds_i;
-        pipe_i.pStages = shader_stages.data();
-        pipe_i.stageCount = shader_stages.size();
+        pipe_i.pStages = pipelineShaderStages.data();
+        pipe_i.stageCount = pipelineShaderStages.size();
         pipe_i.renderPass = render_pass;
         pipe_i.subpass = 0;
 
