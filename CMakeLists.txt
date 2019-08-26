@@ -31,12 +31,13 @@ project(test-vulkan LANGUAGES CXX)
 
 # List the source files
 set(TEST_VULKAN_FILES
+  src/main.cpp
   src/model.cpp
   src/renderer.cpp
-  src/vulkan_context.cpp
+  src/timer.cpp
   src/tiny_gltf.cpp
   src/vk_mem_alloc.cpp
-  src/main.cpp
+  src/vulkan_context.cpp
   )
 
 # And add the main executable

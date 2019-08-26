@@ -82,8 +82,8 @@ namespace my_app
 
         void resize(int width, int height);
 
-        void update_uniform_buffer(FrameRessource* frame_ressource, float time, Camera& camera);
-        void draw_frame(double time, Camera& camera);
+        void update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera);
+        void draw_frame(Camera& camera);
         void wait_idle();
 
         private:

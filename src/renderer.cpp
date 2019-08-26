@@ -412,7 +412,7 @@ namespace my_app
     {
     }
 
-    void Renderer::update_uniform_buffer(FrameRessource* frame_ressource, float time, Camera& camera)
+    void Renderer::update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera)
     {
         // transformation, angle, rotations axis
         MVP ubo{};
@@ -767,7 +767,7 @@ namespace my_app
         recreate_swapchain();
     }
 
-    void Renderer::draw_frame(double time, Camera& camera)
+    void Renderer::draw_frame(Camera& camera)
     {
         static uint32_t virtual_frame_idx = 0;
 
@@ -812,7 +812,7 @@ namespace my_app
 
         // Update and Draw!!!
         {
-            update_uniform_buffer(frame_ressource, time, camera);
+            update_uniform_buffer(frame_ressource, camera);
 
             vk::Rect2D render_area{ vk::Offset2D(), swapchain.extent };
 

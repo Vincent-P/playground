@@ -10,12 +10,12 @@
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
+#include "timer.h"
 
 namespace my_app
 {
-    constexpr int FPS_CAP = 200;
-    constexpr double MOUSE_SENSITIVITY = 0.3;
-    constexpr double CAMERA_SPEED = 0.02;
+    constexpr float MOUSE_SENSITIVITY = 0.3f;
+    constexpr float CAMERA_SPEED = 50.f;
 
     class App
     {
@@ -23,6 +23,9 @@ namespace my_app
         App()
             : window(create_glfw_window())
             , renderer(window)
+            , camera()
+            , is_focused()
+            , timer()
         {
             glfwSetWindowUserPointer(window, this);
 
@@ -58,8 +61,8 @@ namespace my_app
             auto& yaw = app->camera.yaw;
             auto& pitch = app->camera.pitch;
 
-            yaw += static_cast<float>((xpos - last_x) * MOUSE_SENSITIVITY);
-            pitch += static_cast<float>((last_y - ypos) * MOUSE_SENSITIVITY);
+            yaw += float(xpos - last_x) * MOUSE_SENSITIVITY;
+            pitch += float(last_y - ypos) * MOUSE_SENSITIVITY;
 
             if (pitch > 89.0f)
                 pitch = 89.0f;
@@ -76,7 +79,7 @@ namespace my_app
             last_y = ypos;
         }
 
-        void update_input(double delta_t)
+        void update_input(float delta_t)
         {
             if (!is_focused)
                 return;
@@ -101,10 +104,10 @@ namespace my_app
                 right++;
 
             if (forward)
-                camera.position += float(CAMERA_SPEED * forward * delta_t) * camera.front;
+                camera.position += (CAMERA_SPEED * float(forward) * delta_t) * camera.front;
 
             if (right)
-                camera.position += float(CAMERA_SPEED * right * delta_t) * glm::normalize(glm::cross(camera.front, camera.up));
+                camera.position += (CAMERA_SPEED * float(right) * delta_t) * glm::normalize(glm::cross(camera.front, camera.up));
         }
 
         GLFWwindow* create_glfw_window()
@@ -118,17 +121,6 @@ namespace my_app
 
         void run()
         {
-            using clock = std::chrono::steady_clock;
-
-            auto next_frame = clock::now();
-            auto start = next_frame;
-            auto end = next_frame;
-            auto last_fps_update = next_frame;
-
-            uint64_t frame_counter = 0;
-            double timer = 0.0;
-            double delta_t = 0.0;
-
             while (!glfwWindowShouldClose(window))
             {
                 int visible = glfwGetWindowAttrib(window, GLFW_VISIBLE);
@@ -137,30 +129,14 @@ namespace my_app
                 if (!is_focused)
                     glfwWaitEvents();
 
-                start = clock::now();
-                next_frame += std::chrono::milliseconds(1000 / FPS_CAP);
+                timer.update();
 
                 glfwPollEvents();
-                update_input(delta_t);
-                renderer.draw_frame(timer / 1000, camera);
+                update_input(timer.get_delta_time());
+                renderer.draw_frame(camera);
 
-                if (clock::now() < next_frame)
-                    std::this_thread::sleep_until(next_frame);
-
-                frame_counter++;
-
-                end = clock::now();
-
-                delta_t = std::chrono::duration<double, std::milli>(end - start).count();
-                timer += delta_t;
-
-                if (last_fps_update + std::chrono::milliseconds(1000) < end)
-                {
-                    std::string windowTitle = "Test vulkan - " + std::to_string(frame_counter) + " fps | " + std::to_string(delta_t) + " ms";
-                    glfwSetWindowTitle(window, windowTitle.c_str());
-                    frame_counter = 0;
-                    last_fps_update = end;
-                }
+                std::string windowTitle = "Test vulkan - " + std::to_string(timer.get_average_fps() / 1) + " FPS | " + std::to_string(timer.get_delta_time() * 1000.f) + " ms";
+                glfwSetWindowTitle(window, windowTitle.c_str());
             }
 
             renderer.wait_idle();
@@ -170,6 +146,7 @@ namespace my_app
         Renderer renderer;
         Camera camera;
         bool is_focused;
+        TimerData timer;
     };
 }    // namespace my_app
 
