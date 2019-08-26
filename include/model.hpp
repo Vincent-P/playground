@@ -1,12 +1,12 @@
 #pragma once
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
-#include <tiny_gltf.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <optional>
 #include <string>
+#include <tiny_gltf.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 #pragma clang diagnostic pop
@@ -16,15 +16,14 @@
 
 namespace my_app
 {
-    constexpr float global_scale = 5.;
-
-    inline tinygltf::TinyGLTF loader;
-
     struct VulkanContext;
 
-    constexpr vk::SamplerAddressMode GetVkWrapMode(int32_t wrapMode)
+    constexpr float global_scale = 5.;
+    inline tinygltf::TinyGLTF loader;
+
+    constexpr vk::SamplerAddressMode get_vk_wrap_mode(int32_t wrap_mode)
     {
-        switch (wrapMode)
+        switch (wrap_mode)
         {
             case TINYGLTF_TEXTURE_WRAP_REPEAT:
                 return vk::SamplerAddressMode::eRepeat;
@@ -36,9 +35,9 @@ namespace my_app
         return vk::SamplerAddressMode::eRepeat;
     }
 
-    constexpr vk::Filter GetVkFilterMode(int32_t filterMode)
+    constexpr vk::Filter get_vk_filter_mode(int32_t filter_mode)
     {
-        switch (filterMode)
+        switch (filter_mode)
         {
             case TINYGLTF_TEXTURE_FILTER_NEAREST:
                 return vk::Filter::eNearest;
@@ -58,11 +57,11 @@ namespace my_app
 
     struct TextureSampler
     {
-        vk::Filter magFilter = vk::Filter::eNearest;
-        vk::Filter minFilter = vk::Filter::eLinear;
-        vk::SamplerAddressMode addressModeU = vk::SamplerAddressMode::eRepeat;
-        vk::SamplerAddressMode addressModeV = vk::SamplerAddressMode::eRepeat;
-        vk::SamplerAddressMode addressModeW = vk::SamplerAddressMode::eRepeat;
+        vk::Filter mag_filter = vk::Filter::eNearest;
+        vk::Filter min_filter = vk::Filter::eLinear;
+        vk::SamplerAddressMode address_mode_u = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode address_mode_v = vk::SamplerAddressMode::eRepeat;
+        vk::SamplerAddressMode address_mode_w = vk::SamplerAddressMode::eRepeat;
     };
 
     struct Texture
@@ -71,7 +70,7 @@ namespace my_app
         vk::DescriptorImageInfo desc_info;
         uint32_t width, height;
         uint32_t mip_levels;
-        uint32_t layerCount;
+        uint32_t layer_count;
 
         Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler);
     };
@@ -83,7 +82,7 @@ namespace my_app
         glm::vec2 uv0;
         glm::vec2 uv1;
 
-        static std::array<vk::VertexInputBindingDescription, 1> getBindingDescriptions()
+        static std::array<vk::VertexInputBindingDescription, 1> get_binding_description()
         {
             std::array<vk::VertexInputBindingDescription, 1> bindings;
             bindings[0].binding = 0;
@@ -92,7 +91,7 @@ namespace my_app
             return bindings;
         }
 
-        static std::array<vk::VertexInputAttributeDescription, 4> getAttributeDescriptions()
+        static std::array<vk::VertexInputAttributeDescription, 4> get_attribute_description()
         {
             std::array<vk::VertexInputAttributeDescription, 4> descs;
             descs[0].binding = 0;
@@ -134,7 +133,7 @@ namespace my_app
             SpecularGlossiness
         };
 
-        constexpr static float WorkflowFloat(PbrWorkflow workflow)
+        constexpr static float workflow_float(PbrWorkflow workflow)
         {
             switch (workflow)
             {
@@ -145,35 +144,35 @@ namespace my_app
             }
         }
 
-        AlphaMode alphaMode = AlphaMode::Opaque;
-        float alphaCutoff = 1.0f;
-        float metallicFactor = 1.0f;
-        float roughnessFactor = 1.0f;
-        glm::vec4 baseColorFactor = glm::vec4(1.0f);
-        glm::vec4 emissiveFactor = glm::vec4(1.0f);
+        AlphaMode alpha_mode = AlphaMode::Opaque;
+        float alpha_cutoff = 1.0f;
+        float metallic_factor = 1.0f;
+        float roughness_factor = 1.0f;
+        glm::vec4 base_color_factor = glm::vec4(1.0f);
+        glm::vec4 emissive_factor = glm::vec4(1.0f);
 
-        Texture* baseColorTexture;
-        Texture* metallicRoughnessTexture;
-        Texture* normalTexture;
-        Texture* occlusionTexture;
-        Texture* emissiveTexture;
+        Texture* base_color;
+        Texture* metallic_roughness;
+        Texture* normal;
+        Texture* occlusion;
+        Texture* emissive;
 
         struct TexCoordSets
         {
-            uint8_t baseColor = 0;
-            uint8_t metallicRoughness = 0;
-            uint8_t specularGlossiness = 0;
+            uint8_t base_color = 0;
+            uint8_t metallic_roughness = 0;
+            uint8_t specular_glosiness = 0;
             uint8_t normal = 0;
             uint8_t occlusion = 0;
             uint8_t emissive = 0;
-        } texCoordSets;
+        } tex_coord_sets;
 
         struct Extension
         {
-            Texture* specularGlossinessTexture;
-            Texture* diffuseTexture;
-            glm::vec4 diffuseFactor = glm::vec4(1.0f);
-            glm::vec3 specularFactor = glm::vec3(0.0f);
+            Texture* specular_glosiness;
+            Texture* diffuse;
+            glm::vec4 diffuse_factor = glm::vec4(1.0f);
+            glm::vec3 specular_factor = glm::vec3(0.0f);
         } extension;
 
         PbrWorkflow workflow = PbrWorkflow::MetallicRoughness;
@@ -183,20 +182,20 @@ namespace my_app
 
     struct PushConstBlockMaterial
     {
-        glm::vec4 baseColorFactor;
-        glm::vec4 emissiveFactor;
-        glm::vec4 diffuseFactor;
-        glm::vec4 specularFactor;
+        glm::vec4 base_color_factor;
+        glm::vec4 emissive_facotr;
+        glm::vec4 diffuse_factor;
+        glm::vec4 specular_factor;
         float workflow;
-        int colorTextureSet;
-        int PhysicalDescriptorTextureSet;
-        int normalTextureSet;
-        int occlusionTextureSet;
-        int emissiveTextureSet;
-        float metallicFactor;
-        float roughnessFactor;
-        float alphaMask;
-        float alphaMaskCutoff;
+        int color_texture_set;
+        int physical_descriptor_texture_set;
+        int normal_texture_set;
+        int occlusion_texture_set;
+        int emissive_texture_set;
+        float metallic_facotr;
+        float roughness_factor;
+        float alpha_mask;
+        float alpha_mask_cutoff;
     };
 
     struct Primitive
@@ -229,30 +228,30 @@ namespace my_app
 
         Mesh* mesh = nullptr;
 
-        glm::mat4 matrix{1.0f};
+        glm::mat4 matrix{ 1.0f };
         glm::vec3 translation;
-        glm::vec3 scale{1.0f};
-        glm::mat4 rotation{1.0f};
+        glm::vec3 scale{ 1.0f };
+        glm::mat4 rotation{ 1.0f };
 
-        glm::mat4 localMatrix()
+        glm::mat4 local_matrix()
         {
             return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
         }
 
-        glm::mat4 getMatrix()
+        glm::mat4 get_matrix()
         {
-            glm::mat4 m = localMatrix();
+            glm::mat4 m = local_matrix();
             auto p = parent;
             while (p)
             {
-                m = p->localMatrix() * m;
+                m = p->local_matrix() * m;
                 p = p->parent;
             }
             return m;
         }
 
         void update();
-        void SetupNodeDescriptorSet(vk::DescriptorPool& desc_pool, vk::DescriptorSetLayout& desc_set_layout, vk::Device& device);
+        void setup_node_descriptor_set(vk::DescriptorPool& desc_pool, vk::DescriptorSetLayout& desc_set_layout, vk::Device& device);
 
         void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
     };
@@ -262,17 +261,17 @@ namespace my_app
         Model(std::string path, VulkanContext& ctx);
         ~Model() = default;
 
-        void LoadTextures();
-        void LoadSamplers();
-        void LoadMaterials();
-        void LoadMeshes();
-        Node LoadNode(size_t i);
-        void LoadNodes();
-        void Free();
+        void load_textures();
+        void load_samplers();
+        void load_materials();
+        void load_meshes();
+        Node load_node(size_t i);
+        void load_nodes();
+        void free();
 
         void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
 
-        VulkanContext &ctx;
+        VulkanContext& ctx;
         tinygltf::Model model;
         std::vector<TextureSampler> text_samplers;
         std::vector<Texture> textures;

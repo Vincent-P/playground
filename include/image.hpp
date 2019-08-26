@@ -2,8 +2,8 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
-#include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 #pragma clang diagnostic pop
 
 namespace my_app
@@ -12,44 +12,43 @@ namespace my_app
     {
         public:
         Image()
-            : allocator_(nullptr)
-            , image_info_()
-            , image_()
-            , mem_usage_()
-            , allocation_()
+            : allocator(nullptr)
+            , image_info()
+            , image()
+            , mem_usage()
+            , allocation()
         {
         }
 
-        Image(VmaAllocator& allocator, vk::ImageCreateInfo image_info,
-              VmaMemoryUsage mem_usage = VMA_MEMORY_USAGE_GPU_ONLY)
-            : allocator_(&allocator)
-            , image_info_(image_info)
-            , image_()
-            , mem_usage_(mem_usage)
-            , allocation_()
+        Image(VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_GPU_ONLY)
+            : allocator(&_allocator)
+            , image_info(_image_info)
+            , image()
+            , mem_usage(_mem_usage)
+            , allocation()
         {
-            VmaAllocationCreateInfo allocInfo = {};
-            allocInfo.usage = mem_usage_;
+            VmaAllocationCreateInfo allocInfo{};
+            allocInfo.usage = mem_usage;
 
-            vmaCreateImage(*allocator_,
-                           reinterpret_cast<VkImageCreateInfo*>(&image_info_),
+            vmaCreateImage(*allocator,
+                           reinterpret_cast<VkImageCreateInfo*>(&image_info),
                            &allocInfo,
-                           reinterpret_cast<VkImage*>(&image_),
-                           &allocation_,
+                           reinterpret_cast<VkImage*>(&image),
+                           &allocation,
                            nullptr);
         }
 
-        void Free() { vmaDestroyImage(*allocator_, image_, allocation_); }
+        void free() { vmaDestroyImage(*allocator, image, allocation); }
 
-        vk::Image GetImage() const { return image_; }
+        vk::Image get_image() const { return image; }
 
-        VmaMemoryUsage GetMemUsage() const { return mem_usage_; }
+        VmaMemoryUsage get_mem_usage() const { return mem_usage; }
 
         private:
-        VmaAllocator* allocator_;
-        vk::ImageCreateInfo image_info_;
-        vk::Image image_;
-        VmaMemoryUsage mem_usage_;
-        VmaAllocation allocation_;
+        VmaAllocator* allocator;
+        vk::ImageCreateInfo image_info;
+        vk::Image image;
+        VmaMemoryUsage mem_usage;
+        VmaAllocation allocation;
     };
 }    // namespace my_app

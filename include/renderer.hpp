@@ -2,17 +2,15 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
-
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.hpp>
 #include <vector>
-
+#include <vulkan/vulkan.hpp>
 #pragma clang diagnostic pop
 
-#include "vulkan_context.hpp"
-#include "model.hpp"
-#include "image.hpp"
 #include "buffer.hpp"
+#include "image.hpp"
+#include "model.hpp"
+#include "vulkan_context.hpp"
 
 struct GLFWwindow;
 
@@ -21,12 +19,13 @@ namespace my_app
     constexpr int WIDTH = 1920;
     constexpr int HEIGHT = 1080;
     constexpr int NUM_VIRTUAL_FRAME = 2;
+    constexpr vk::SampleCountFlagBits MSAA_SAMPLES = vk::SampleCountFlagBits::e2;
 
     struct Camera
     {
         glm::vec3 position = glm::vec3(0.0f, 0.0f, -2.0f);
-        glm::vec3 front = glm::vec3(0.0f, 0.0f, 1.0f );
-        glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
+        glm::vec3 front = glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
         float yaw = 0.0f;
         float pitch = 0.0f;
     };
@@ -41,58 +40,57 @@ namespace my_app
 
     struct FrameRessource
     {
-        vk::Fence Fence;
-        vk::UniqueSemaphore ImageAvailableSemaphore;
-        vk::UniqueSemaphore RenderingFinishedSemaphore;
-        vk::UniqueFramebuffer FrameBuffer;
-        vk::UniqueCommandBuffer CommandBuffer;
+        vk::Fence fence;
+        vk::UniqueSemaphore image_available;
+        vk::UniqueSemaphore rendering_finished;
+        vk::UniqueFramebuffer framebuffer;
+        vk::UniqueCommandBuffer commandbuffer;
     };
 
     struct SwapChain
     {
-        vk::UniqueSwapchainKHR Handle;
-        std::vector<vk::Image> Images;
-        std::vector<vk::ImageView> ImageViews;
-        vk::SurfaceFormatKHR Format;
-        vk::PresentModeKHR PresentMode;
-        vk::Extent2D Extent;
+        vk::UniqueSwapchainKHR handle;
+        std::vector<vk::Image> images;
+        std::vector<vk::ImageView> image_views;
+        vk::SurfaceFormatKHR format;
+        vk::PresentModeKHR present_mode;
+        vk::Extent2D extent;
     };
 
     class Renderer
     {
-    public:
-        Renderer(GLFWwindow *window);
+        public:
+        Renderer(GLFWwindow* window);
         Renderer(Renderer& other) = delete;
         ~Renderer();
 
-        void CreateSwapchain();
-        void DestroySwapchain();
-        void RecreateSwapchain();
+        void create_swapchain();
+        void destroy_swapchain();
+        void recreate_swapchain();
 
-        void CreateFrameRessources();
-        void CreateColorBuffer();
-        void CreateDepthBuffer();
-        void CreateUniformBuffer();
-        void CreateDescriptors();
-        void CreateRenderPass();
-        void CreateIndexBuffer();
-        void CreateVertexBuffer();
+        void create_frame_ressources();
+        void create_color_buffer();
+        void create_depth_buffer();
+        void create_uniform_buffer();
+        void create_descriptors();
+        void create_render_pass();
+        void create_index_buffer();
+        void create_vertex_buffer();
 
-        void CreateGraphicsPipeline();
+        void create_graphics_pipeline();
 
-        void Resize(int width, int height);
+        void resize(int width, int height);
 
-        void UpdateUniformBuffer(float time, Camera& camera);
-        void DrawFrame(double time, Camera& camera);
-        void WaitIdle();
+        void update_uniform_buffer(float time, Camera& camera);
+        void draw_frame(double time, Camera& camera);
+        void wait_idle();
 
-    private:
+        private:
+        VulkanContext vulkan;
 
-        VulkanContext vk_ctx_;
-
-        Model Model_;
-        SwapChain SwapChain_;
-        std::vector<FrameRessource> FrameRessources_;
+        Model model;
+        SwapChain swapchain;
+        std::vector<FrameRessource> frame_ressources;
 
         // Attachments
         Image depth_image;
@@ -124,8 +122,5 @@ namespace my_app
         vk::PipelineCache pipeline_cache;
         vk::PipelineLayout pipeline_layout;
         vk::RenderPass render_pass;
-
-        // Settings
-        vk::SampleCountFlagBits msaa_samples = vk::SampleCountFlagBits::e2;
     };
-}
+}    // namespace my_app

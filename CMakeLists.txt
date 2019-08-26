@@ -15,7 +15,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # Setup C++
 # Uncomment to enabled cppcheck, it is disabled because it checks vulkan.hpp, glfw and unwanted libraries
 # set(CMAKE_CXX_CPPCHECK "cppcheck")
-add_compile_options(/std:c++17 -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+add_compile_options(/std:c++17 -fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
 
 # =============================================================
 # MAIN TARGET

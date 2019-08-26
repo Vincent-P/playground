@@ -1,6 +1,6 @@
 #pragma clang diagnostic ignored "-Weverything"
-#include <iostream>
 #include <GLFW/glfw3.h>
+#include <iostream>
 #pragma clang diagnostic pop
 
 #include "vulkan_context.hpp"
@@ -17,7 +17,7 @@ namespace my_app
         return VK_FALSE;
     }
 
-    std::vector<const char*> GetExtensions()
+    std::vector<const char*> get_extensions()
     {
         auto installed = vk::enumerateInstanceExtensionProperties();
 
@@ -28,20 +28,20 @@ namespace my_app
         for (auto i = 0; i < required_count; i++)
             extensions.push_back(required_extensions[i]);
 
-        if (enable_validation_layers)
+        if (ENABLE_VALIDATION_LAYERS)
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         return extensions;
     }
 
-    std::vector<const char*> GetLayers()
+    std::vector<const char*> get_layers()
     {
         std::vector<const char*> layers;
 
         auto installed = vk::enumerateInstanceLayerProperties();
 
         for (auto& layer : installed)
-            for (auto& wanted : g_validation_layers)
+            for (auto& wanted : VALIDATION_LAYERS)
                 if (std::string(layer.layerName).compare(wanted) == 0)
                     layers.push_back(wanted);
 
@@ -51,15 +51,16 @@ namespace my_app
     VulkanContext::VulkanContext(GLFWwindow* window)
         : graphics_family_idx(0)
         , present_family_idx(0)
-        , instance(CreateInstance())
+        , instance(create_instance())
         , dldi(vk::DispatchLoaderDynamic(*instance))
-        , debug_messenger(SetupDebugCallback())
-        , surface(CreateSurface(window))
-        , physical_device(PickPhysicalDevice())
-        , device(CreateLogicalDevice())
-        , allocator(InitAllocator())
-        , command_pool(device->createCommandPool({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, static_cast<uint32_t>(graphics_family_idx)}))
-    {}
+        , debug_messenger(setup_messenger())
+        , surface(create_surface(window))
+        , physical_device(pick_physical_device())
+        , device(create_logical_device())
+        , allocator(init_allocator())
+        , command_pool(device->createCommandPool({ { vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, static_cast<uint32_t>(graphics_family_idx) }))
+    {
+    }
 
     VulkanContext::~VulkanContext()
     {
@@ -70,7 +71,7 @@ namespace my_app
         vmaDestroyAllocator(allocator);
     }
 
-    vk::UniqueInstance VulkanContext::CreateInstance()
+    vk::UniqueInstance VulkanContext::create_instance()
     {
         vk::ApplicationInfo app_info;
         app_info.pApplicationName = "Test Vulkan";
@@ -79,8 +80,8 @@ namespace my_app
         app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         app_info.apiVersion = VK_API_VERSION_1_1;
 
-        auto extensions = GetExtensions();
-        auto layers = GetLayers();
+        auto extensions = get_extensions();
+        auto layers = get_layers();
 
         vk::InstanceCreateInfo create_info;
         create_info.flags = {};
@@ -93,34 +94,28 @@ namespace my_app
         return vk::createInstanceUnique(create_info);
     }
 
-    std::optional<vk::DebugUtilsMessengerEXT> VulkanContext::SetupDebugCallback()
+    std::optional<vk::DebugUtilsMessengerEXT> VulkanContext::setup_messenger()
     {
-        if (!enable_validation_layers)
+        if (!ENABLE_VALIDATION_LAYERS)
             return std::nullopt;
 
         vk::DebugUtilsMessengerCreateInfoEXT ci;
         ci.flags = {};
-        ci.messageSeverity =
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-        ci.messageType =
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+        ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+        ci.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
         ci.pfnUserCallback = DebugCallback;
 
         return instance->createDebugUtilsMessengerEXT(ci, nullptr, dldi);
     }
 
-    vk::UniqueSurfaceKHR VulkanContext::CreateSurface(GLFWwindow* window)
+    vk::UniqueSurfaceKHR VulkanContext::create_surface(GLFWwindow* window)
     {
         VkSurfaceKHR surfaceTmp;
         glfwCreateWindowSurface(static_cast<VkInstance>(*instance), window, nullptr, &surfaceTmp);
         return vk::UniqueSurfaceKHR(surfaceTmp, *instance);
     }
 
-    vk::PhysicalDevice VulkanContext::PickPhysicalDevice()
+    vk::PhysicalDevice VulkanContext::pick_physical_device()
     {
         auto physical_devices = instance->enumeratePhysicalDevices();
         vk::PhysicalDevice selected = physical_devices[0];
@@ -128,7 +123,8 @@ namespace my_app
         {
             auto properties = device.getProperties();
             std::cout << "Device: " << properties.deviceName << "\n";
-            if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+            if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
+            {
                 std::cout << "Selected: " << properties.deviceName << "\n";
                 selected = device;
             }
@@ -136,11 +132,11 @@ namespace my_app
         return selected;
     }
 
-    vk::UniqueDevice VulkanContext::CreateLogicalDevice()
+    vk::UniqueDevice VulkanContext::create_logical_device()
     {
         std::vector<const char*> extensions;
         auto installed_ext = physical_device.enumerateDeviceExtensionProperties();
-        for (const auto& wanted : g_device_extensions)
+        for (const auto& wanted : DEVICE_EXTENSIONS)
         {
             for (const auto& extension : installed_ext)
             {
@@ -154,7 +150,7 @@ namespace my_app
 
         std::vector<const char*> layers;
         auto installed_lay = physical_device.enumerateDeviceLayerProperties();
-        for (const auto& wanted : g_validation_layers)
+        for (const auto& wanted : VALIDATION_LAYERS)
         {
             for (auto& layer : installed_lay)
             {
@@ -214,7 +210,7 @@ namespace my_app
         return physical_device.createDeviceUnique(dci);
     }
 
-    VmaAllocator VulkanContext::InitAllocator()
+    VmaAllocator VulkanContext::init_allocator()
     {
         VmaAllocator result;
         VmaAllocatorCreateInfo allocatorInfo = {};
@@ -224,9 +220,9 @@ namespace my_app
         return result;
     }
 
-    void VulkanContext::TransitionLayout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const
+    void VulkanContext::transition_layout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const
     {
-        vk::CommandBuffer cmd = device->allocateCommandBuffers({command_pool, vk::CommandBufferLevel::ePrimary, 1})[0];
+        vk::CommandBuffer cmd = device->allocateCommandBuffers({ command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
 
         cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
         cmd.pipelineBarrier(
@@ -244,14 +240,13 @@ namespace my_app
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &cmd;
 
-        auto copy_queue = device->getQueue(graphics_family_idx, 0);
-        copy_queue.submit(submit, fence);
+        get_graphics_queue().submit(submit, fence);
         device->waitForFences(fence, VK_TRUE, UINT64_MAX);
         device->destroy(fence);
     }
 
 
-    vk::UniqueShaderModule VulkanContext::CreateShaderModule(std::vector<char> code) const
+    vk::UniqueShaderModule VulkanContext::create_shader_module(std::vector<char> code) const
     {
         vk::ShaderModuleCreateInfo info{};
         info.codeSize = code.size();
@@ -259,4 +254,13 @@ namespace my_app
         return device->createShaderModuleUnique(info);
     }
 
+    vk::Queue VulkanContext::get_graphics_queue() const
+    {
+        return device->getQueue(graphics_family_idx, 0);
+    }
+
+    vk::Queue VulkanContext::get_present_queue() const
+    {
+        return device->getQueue(present_family_idx, 0);
+    }
 }    // namespace my_app

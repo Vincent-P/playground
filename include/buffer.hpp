@@ -2,8 +2,8 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
-#include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 #pragma clang diagnostic pop
 
 namespace my_app
@@ -12,81 +12,80 @@ namespace my_app
     {
         public:
         Buffer()
-            : allocator_(nullptr)
-            , mapped_(nullptr)
-            , size_(0)
-            , buf_usage_()
-            , mem_usage_()
+            : allocator(nullptr)
+            , mapped(nullptr)
+            , size(0)
+            , buf_usage()
+            , mem_usage()
         {
         }
 
-        Buffer(VmaAllocator& allocator, size_t size, vk::BufferUsageFlags buf_usage,
-               VmaMemoryUsage mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU)
-            : allocator_(&allocator)
-            , mapped_(nullptr)
-            , size_(size)
-            , buf_usage_(buf_usage)
-            , mem_usage_(mem_usage)
+        Buffer(VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU)
+            : allocator(&_allocator)
+            , mapped(nullptr)
+            , size(_size)
+            , buf_usage(_buf_usage)
+            , mem_usage(_mem_usage)
         {
-            vk::BufferCreateInfo ci;
-            ci.setUsage(buf_usage);
-            ci.setSize(size);
+            vk::BufferCreateInfo ci{};
+            ci.usage = buf_usage;
+            ci.size = size;
 
-            VmaAllocationCreateInfo allocInfo = {};
+            VmaAllocationCreateInfo allocInfo{};
             allocInfo.usage = mem_usage;
 
-            vmaCreateBuffer(*allocator_,
+            vmaCreateBuffer(*allocator,
                             reinterpret_cast<VkBufferCreateInfo*>(&ci),
                             &allocInfo,
-                            reinterpret_cast<VkBuffer*>(&buffer_),
-                            &allocation_,
+                            reinterpret_cast<VkBuffer*>(&buffer),
+                            &allocation,
                             nullptr);
         }
 
-        void Free()
+        void free()
         {
-            Unmap();
-            vmaDestroyBuffer(*allocator_, buffer_, allocation_);
+            unmap();
+            vmaDestroyBuffer(*allocator, buffer, allocation);
         }
 
-        void* Map()
+        void* map()
         {
-            if (mapped_ == nullptr)
-                vmaMapMemory(*allocator_, allocation_, &mapped_);
-            return mapped_;
+            if (mapped == nullptr)
+                vmaMapMemory(*allocator, allocation, &mapped);
+            return mapped;
         }
 
-        void Unmap()
+        void unmap()
         {
-            if (mapped_ != nullptr)
-                vmaUnmapMemory(*allocator_, allocation_);
-            mapped_ = nullptr;
+            if (mapped != nullptr)
+                vmaUnmapMemory(*allocator, allocation);
+            mapped = nullptr;
         }
 
-        vk::Buffer GetBuffer() const { return buffer_; }
+        vk::Buffer get_buffer() const { return buffer; }
 
-        vk::DescriptorBufferInfo GetDescInfo() const
+        vk::DescriptorBufferInfo get_desc_info() const
         {
             vk::DescriptorBufferInfo dbi{};
-            dbi.buffer = buffer_;
+            dbi.buffer = buffer;
             dbi.offset = 0;
-            dbi.range = size_;
+            dbi.range = size;
             return dbi;
         }
 
-        size_t GetSize() const { return size_; }
+        size_t get_size() const { return size; }
 
-        vk::BufferUsageFlags GetBufUsage() const { return buf_usage_; }
+        vk::BufferUsageFlags get_buf_usage() const { return buf_usage; }
 
-        VmaMemoryUsage GetMemUsage() const { return mem_usage_; }
+        VmaMemoryUsage get_mem_usage() const { return mem_usage; }
 
         private:
-        VmaAllocator* allocator_;
-        void* mapped_;
-        size_t size_;
-        vk::BufferUsageFlags buf_usage_;
-        VmaMemoryUsage mem_usage_;
-        vk::Buffer buffer_;
-        VmaAllocation allocation_;
+        VmaAllocator* allocator;
+        void* mapped;
+        size_t size;
+        vk::BufferUsageFlags buf_usage;
+        VmaMemoryUsage mem_usage;
+        vk::Buffer buffer;
+        VmaAllocation allocation;
     };
 }    // namespace my_app
