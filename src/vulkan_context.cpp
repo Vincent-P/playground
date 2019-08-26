@@ -263,4 +263,13 @@ namespace my_app
     {
         return device->getQueue(present_family_idx, 0);
     }
+
+
+    vk::UniqueDescriptorSetLayout VulkanContext::create_descriptor_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) const
+    {
+            vk::DescriptorSetLayoutCreateInfo dslci{};
+            dslci.bindingCount = bindings.size();
+            dslci.pBindings = bindings.data();
+            return device->createDescriptorSetLayoutUnique(dslci);
+    }
 }    // namespace my_app

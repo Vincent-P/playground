@@ -232,12 +232,12 @@ namespace my_app
     {
     }
 
-    void Mesh::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const
+    void Mesh::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& scene) const
     {
         for (const auto& primitive : primitives)
         {
             const std::vector<vk::DescriptorSet> sets = {
-                desc_set,
+                scene,
                 primitive.material.desc_set,
                 uniform_desc
             };
@@ -288,16 +288,15 @@ namespace my_app
         }
     }
 
-    void Node::setup_node_descriptor_set(vk::DescriptorPool& desc_pool, vk::DescriptorSetLayout& desc_set_layout, vk::Device& device)
+    void Node::setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::Device& device)
     {
         if (mesh)
         {
             vk::DescriptorSetAllocateInfo allocInfo{};
-            allocInfo.descriptorPool = desc_pool;
-            allocInfo.pSetLayouts = &desc_set_layout;
+            allocInfo.descriptorPool = pool.get();
+            allocInfo.pSetLayouts = &layout.get();
             allocInfo.descriptorSetCount = 1;
-
-            mesh->uniform_desc = device.allocateDescriptorSets(allocInfo).front();
+            mesh->uniform_desc = device.allocateDescriptorSets(allocInfo)[0];
 
             vk::WriteDescriptorSet write{};
             auto bdi = mesh->uniform.get_desc_info();
@@ -311,7 +310,7 @@ namespace my_app
         }
 
         for (auto& child : children)
-            child.setup_node_descriptor_set(desc_pool, desc_set_layout, device);
+            child.setup_node_descriptor_set(pool, layout, device);
     }
 
     void Node::update()

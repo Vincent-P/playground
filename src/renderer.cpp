@@ -81,13 +81,14 @@ namespace my_app
         create_swapchain();
 
         // Create ressources
+        create_frame_ressources();
         create_color_buffer();
         create_depth_buffer();
         create_uniform_buffer();
-        create_descriptors();
         create_vertex_buffer();
         create_index_buffer();
-        create_frame_ressources();
+
+        create_descriptors();
 
         // Create the pipeline
         create_render_pass();
@@ -105,18 +106,16 @@ namespace my_app
         destroy_swapchain();
 
         // PIPELINE OBJECTS
-        vulkan.device->destroy(scene_desc_layout);
-        vulkan.device->destroy(node_desc_layout);
-        vulkan.device->destroy(mat_desc_layout);
-        vulkan.device->destroy(desc_pool);
-
         vulkan.device->destroy(pipeline_cache);
         vulkan.device->destroy(pipeline_layout);
         vulkan.device->destroy(pipeline);
 
         vertex_buffer.free();
         index_buffer.free();
-        uniform_buffer.free();
+
+        for (auto& frame_ressource : frame_ressources)
+            frame_ressource.uniform_buffer.free();
+
         model.free();
     }
 
@@ -418,10 +417,9 @@ namespace my_app
 
     void Renderer::create_uniform_buffer()
     {
-        uniform_buffer = Buffer(vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
     }
 
-    void Renderer::update_uniform_buffer(float time, Camera& camera)
+    void Renderer::update_uniform_buffer(FrameRessource* frame_ressource, float time, Camera& camera)
     {
         // transformation, angle, rotations axis
         MVP ubo{};
@@ -429,7 +427,7 @@ namespace my_app
 
         float aspect_ratio = swapchain.extent.width / (float)swapchain.extent.height;
         float fov = 45.0f;
-        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 100.0f);
+        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
 
         ubo.view = glm::lookAt(
             camera.position,                   // origin of camera
@@ -442,49 +440,42 @@ namespace my_app
                              0.0f, 0.0f, 0.5f, 0.0f,
                              0.0f, 0.0f, 0.5f, 1.0f);
 
-        void* mappedData = uniform_buffer.map();
+        void* mappedData = frame_ressource->uniform_buffer.map();
         memcpy(mappedData, &ubo, sizeof(ubo));
     }
 
     void Renderer::create_descriptors()
     {
         std::vector<vk::DescriptorPoolSize> pool_sizes = {
-            // TODO(vincent): count meshes
-            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (4 + model.meshes.size()) * swapchain.images.size()),
-            // TODO(vincent): count textures
-            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * model.materials.size() * swapchain.images.size())
-
+            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (model.meshes.size()) + NUM_VIRTUAL_FRAME),
+            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * model.materials.size())
         };
 
         vk::DescriptorPoolCreateInfo dpci{};
         dpci.poolSizeCount = pool_sizes.size();
         dpci.pPoolSizes = pool_sizes.data();
-        dpci.maxSets = (2 + model.meshes.size() + model.materials.size()) * swapchain.images.size();
-        desc_pool = vulkan.device->createDescriptorPool(dpci);
+        dpci.maxSets = NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size();
+        desc_pool = vulkan.device->createDescriptorPoolUnique(dpci);
 
-        // Binding 0: Uniform buffer with scene informations (MVP)
+        // Descriptor set 0: Scene/Camera informations (MVP)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-                { 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr }
-
+                vk::DescriptorSetLayoutBinding( 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex )
             };
 
-            vk::DescriptorSetLayoutCreateInfo dslci{};
-            dslci.bindingCount = bindings.size();
-            dslci.pBindings = bindings.data();
-            scene_desc_layout = vulkan.device->createDescriptorSetLayout(dslci);
+            scene_desc_layout = vulkan.create_descriptor_layout(bindings);
 
-            std::vector<vk::DescriptorSetLayout> layouts{ swapchain.images.size(), scene_desc_layout };
+            std::vector<vk::DescriptorSetLayout> layouts{ NUM_VIRTUAL_FRAME, scene_desc_layout.get() };
 
             vk::DescriptorSetAllocateInfo dsai{};
-            dsai.descriptorPool = desc_pool;
+            dsai.descriptorPool = desc_pool.get();
             dsai.pSetLayouts = layouts.data();
             dsai.descriptorSetCount = layouts.size();
             desc_sets = vulkan.device->allocateDescriptorSets(dsai);
 
-            for (size_t i = 0; i < swapchain.images.size(); i++)
+            for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
             {
-                auto dbi = uniform_buffer.get_desc_info();
+                auto dbi = frame_ressources[i].uniform_buffer.get_desc_info();
 
                 std::array<vk::WriteDescriptorSet, 1> writes;
                 writes[0].dstSet = desc_sets[i];
@@ -498,7 +489,7 @@ namespace my_app
             }
         }
 
-        // Binding 1: Material (samplers)
+        // Descriptor set 1: Materials
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
                 { 0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr },
@@ -507,23 +498,19 @@ namespace my_app
                 { 3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr },
                 { 4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment, nullptr },
             };
-
-            vk::DescriptorSetLayoutCreateInfo dslci{};
-            dslci.bindingCount = bindings.size();
-            dslci.pBindings = bindings.data();
-            mat_desc_layout = vulkan.device->createDescriptorSetLayout(dslci);
+            mat_desc_layout = vulkan.create_descriptor_layout(bindings);
 
             // Per-Material descriptor sets
             for (auto& material : model.materials)
             {
+                // Allocate the descriptor set for the material
                 vk::DescriptorSetAllocateInfo dsai{};
-                dsai.descriptorPool = desc_pool;
-                dsai.pSetLayouts = &mat_desc_layout;
+                dsai.descriptorPool = desc_pool.get();
+                dsai.pSetLayouts = &mat_desc_layout.get();
                 dsai.descriptorSetCount = 1;
                 material.desc_set = vulkan.device->allocateDescriptorSets(dsai)[0];
 
-                // Dont do this at home
-
+                // Informations for each texture
                 std::vector<vk::DescriptorImageInfo> image_descriptors = {
                     empty_info,
                     empty_info,
@@ -533,7 +520,6 @@ namespace my_app
                 };
 
                 // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
-
                 if (material.workflow == Material::PbrWorkflow::MetallicRoughness)
                 {
                     if (material.base_color)
@@ -549,6 +535,7 @@ namespace my_app
                         image_descriptors[1] = material.extension.specular_glosiness->desc_info;
                 }
 
+                // Fill then descriptor set with a binding for each texture
                 std::array<vk::WriteDescriptorSet, 5> write_descriptor_sets{};
                 for (uint32_t i = 0; i < image_descriptors.size(); i++)
                 {
@@ -563,16 +550,13 @@ namespace my_app
             }
         }
 
-        // Binding 2: Nodes uniform (local transforms of each mesh)
+        // Descriptor set 2: Nodes uniform (local transforms of each mesh)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
                 { 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr }
             };
 
-            vk::DescriptorSetLayoutCreateInfo dslci{};
-            dslci.bindingCount = bindings.size();
-            dslci.pBindings = bindings.data();
-            node_desc_layout = vulkan.device->createDescriptorSetLayout(dslci);
+            node_desc_layout = vulkan.create_descriptor_layout(bindings);
 
             for (auto& node : model.scene_nodes)
                 node.setup_node_descriptor_set(desc_pool, node_desc_layout, *vulkan.device);
@@ -630,6 +614,9 @@ namespace my_app
             frame_ressource->rendering_finished = vulkan.device->createSemaphoreUnique({});
 
             frame_ressource->commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
+
+
+            frame_ressource->uniform_buffer = Buffer(vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
         }
     }
 
@@ -733,8 +720,7 @@ namespace my_app
         ms_i.minSampleShading = .2f;
 
         std::array<vk::DescriptorSetLayout, 3> layouts = {
-            scene_desc_layout, mat_desc_layout, node_desc_layout
-
+            scene_desc_layout.get(), mat_desc_layout.get(), node_desc_layout.get()
         };
         vk::PipelineLayoutCreateInfo ci{};
         ci.pSetLayouts = layouts.data();
@@ -832,12 +818,12 @@ namespace my_app
 
         // Update and Draw!!!
         {
-            update_uniform_buffer(time, camera);
+            update_uniform_buffer(frame_ressource, time, camera);
 
             vk::Rect2D render_area{ vk::Offset2D(), swapchain.extent };
 
             std::array<vk::ClearValue, 2> clear_values;
-            clear_values[0].color = vk::ClearColorValue(std::array<float, 4>{ 0.5f, 0.5f, 0.5f, 1.0f });
+            clear_values[0].color = vk::ClearColorValue(std::array<float, 4>{ 0.6f, 0.7f, 0.94f, 1.0f });
             clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
             frame_ressource->commandbuffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
@@ -873,7 +859,7 @@ namespace my_app
             frame_ressource->commandbuffer->bindVertexBuffers(0, 1, vertex_buffers, offsets);
             frame_ressource->commandbuffer->bindIndexBuffer(index_buffer.get_buffer(), 0, vk::IndexType::eUint32);
 
-            model.draw(*frame_ressource->commandbuffer, pipeline_layout, desc_sets[image_index]);
+            model.draw(*frame_ressource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
 
             frame_ressource->commandbuffer->endRenderPass();
             frame_ressource->commandbuffer->end();

@@ -251,7 +251,7 @@ namespace my_app
         }
 
         void update();
-        void setup_node_descriptor_set(vk::DescriptorPool& desc_pool, vk::DescriptorSetLayout& desc_set_layout, vk::Device& device);
+        void setup_node_descriptor_set(vk::UniqueDescriptorPool& desc_pool, vk::UniqueDescriptorSetLayout& desc_set_layout, vk::Device& device);
 
         void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
     };

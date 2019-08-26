@@ -45,6 +45,7 @@ namespace my_app
         vk::UniqueSemaphore rendering_finished;
         vk::UniqueFramebuffer framebuffer;
         vk::UniqueCommandBuffer commandbuffer;
+        Buffer uniform_buffer;
     };
 
     struct SwapChain
@@ -81,7 +82,7 @@ namespace my_app
 
         void resize(int width, int height);
 
-        void update_uniform_buffer(float time, Camera& camera);
+        void update_uniform_buffer(FrameRessource* frame_ressource, float time, Camera& camera);
         void draw_frame(double time, Camera& camera);
         void wait_idle();
 
@@ -103,18 +104,17 @@ namespace my_app
         Image empty_image;
         vk::DescriptorImageInfo empty_info;
 
-        Buffer uniform_buffer;
         Buffer index_buffer;
         Buffer vertex_buffer;
 
         vk::UniqueShaderModule vert_module;
         vk::UniqueShaderModule frag_module;
 
-        vk::DescriptorPool desc_pool;
+        vk::UniqueDescriptorPool desc_pool;
 
-        vk::DescriptorSetLayout scene_desc_layout;
-        vk::DescriptorSetLayout mat_desc_layout;
-        vk::DescriptorSetLayout node_desc_layout;
+        vk::UniqueDescriptorSetLayout scene_desc_layout;
+        vk::UniqueDescriptorSetLayout mat_desc_layout;
+        vk::UniqueDescriptorSetLayout node_desc_layout;
 
         std::vector<vk::DescriptorSet> desc_sets;
 
