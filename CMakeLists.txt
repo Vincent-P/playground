@@ -15,7 +15,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # Setup C++
 # Uncomment to enabled cppcheck, it is disabled because it checks vulkan.hpp, glfw and unwanted libraries
 # set(CMAKE_CXX_CPPCHECK "cppcheck")
-add_compile_options(/std:c++17 -fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+
+
+IF (WIN32)
+    add_compile_options(/std:c++17)
+ELSE()
+    add_compile_options(-std=c++17)
+ENDIF()
+
+add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
 
 # =============================================================
 # MAIN TARGET
@@ -79,12 +87,6 @@ add_custom_target(run
 
 # =============================================================
 # SHADERS
-if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "AMD64")
-  set(GLSL_VALIDATOR "$ENV{VULKAN_SDK}/Bin/glslc.exe")
-else()
-  set(GLSL_VALIDATOR "$ENV{VULKAN_SDK}/Bin32/glslc.exe")
-endif()
-
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "shaders/*.frag"
   "shaders/*.vert"
@@ -96,7 +98,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   add_custom_command(
     OUTPUT ${SPIRV}
     COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/shaders/"
-    COMMAND ${GLSL_VALIDATOR} ${GLSL} -o ${SPIRV}
+    COMMAND glslc ${GLSL} -o ${SPIRV}
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

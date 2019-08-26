@@ -154,6 +154,13 @@ namespace my_app
     {
         // Use default extent for the swapchain
         auto capabilities = vulkan.physical_device.getSurfaceCapabilitiesKHR(*vulkan.surface);
+
+        std::cout << "The device supports:\n"
+                  << "Min image count: " << capabilities.minImageCount << "\n"
+                  << "Max image count: " << capabilities.maxImageCount << "\n"
+                  << "Min extent: " << capabilities.minImageExtent.width << "x" << capabilities.minImageExtent.height << "\n"
+                  << "Max extent: " << capabilities.maxImageExtent.width << "x" << capabilities.maxImageExtent.height << "\n";
+
         swapchain.extent = capabilities.currentExtent;
 
         // Find a good present mode (by priority Mailbox then Immediate then FIFO)
@@ -193,7 +200,7 @@ namespace my_app
                 }
         }
 
-        assert(capabilities.maxImageCount >= NUM_VIRTUAL_FRAME);
+        assert(capabilities.maxImageCount == 0 or capabilities.maxImageCount >= NUM_VIRTUAL_FRAME);
 
         vk::SwapchainCreateInfoKHR ci{};
         ci.surface = *vulkan.surface;
@@ -594,7 +601,7 @@ namespace my_app
     {
         std::ifstream file{ filename, std::ios::binary };
         if (file.fail())
-            throw std::exception(std::string("Could not open \"" + filename + "\" file!").c_str());
+            throw std::runtime_error(std::string("Could not open \"" + filename + "\" file!").c_str());
 
         std::streampos begin, end;
         begin = file.tellg();
@@ -628,8 +635,8 @@ namespace my_app
 
     void Renderer::create_graphics_pipeline()
     {
-        auto vert_code = readFile("Build/shaders/shader.vert.spv");
-        auto frag_code = readFile("Build/shaders/shader.frag.spv");
+        auto vert_code = readFile("build/shaders/shader.vert.spv");
+        auto frag_code = readFile("build/shaders/shader.frag.spv");
 
         vert_module = vulkan.create_shader_module(vert_code);
         frag_module = vulkan.create_shader_module(frag_code);
