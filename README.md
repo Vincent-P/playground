@@ -10,7 +10,7 @@ It can render basic glTF 2 models with an incomplete PBR (Physically Based Rende
 
 - Install the Vulkan SDK (https://vulkan.lunarg.com/sdk/home)
 
-- Test vulkan uses =vckpg= to manage its dependencies, so first install it:
+- Test vulkan uses `vckpg` to manage its dependencies, so first install it:
 
 ```
 > git clone https://github.com/Microsoft/vcpkg.git
@@ -22,7 +22,7 @@ Linux:~/$ ./bootstrap-vcpkg.sh
 
 - And set the VCPKG_ROOT environment variable to the vcpkg folder.
 
-- Install the dependencies, replace =x64-windows= by =x64-linux= or =x64-osx= depending on your platform:
+- Install the dependencies, replace `x64-windows` by `x64-linux` or `x64-osx` depending on your platform:
 
 ```
 vcpkg install glfw3 glm nlohmann-json stb vulkan-memory-allocator --triplet x64-windows
