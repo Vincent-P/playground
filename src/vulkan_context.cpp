@@ -267,9 +267,142 @@ namespace my_app
 
     vk::UniqueDescriptorSetLayout VulkanContext::create_descriptor_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) const
     {
-            vk::DescriptorSetLayoutCreateInfo dslci{};
-            dslci.bindingCount = bindings.size();
-            dslci.pBindings = bindings.data();
-            return device->createDescriptorSetLayoutUnique(dslci);
+        vk::DescriptorSetLayoutCreateInfo dslci{};
+        dslci.bindingCount = bindings.size();
+        dslci.pBindings = bindings.data();
+        return device->createDescriptorSetLayoutUnique(dslci);
+    }
+
+    void VulkanContext::CopyDataToImage(void const* data, uint32_t data_size, Image &target_image, uint32_t width, uint32_t height, vk::ImageSubresourceRange const& image_subresource_range, vk::ImageLayout current_image_layout, vk::AccessFlags current_image_access, vk::PipelineStageFlags generating_stages, vk::ImageLayout new_image_layout, vk::AccessFlags new_image_access, vk::PipelineStageFlags consuming_stages) const
+    {
+        // Create staging buffer and map it's memory to copy data from the CPU
+        Buffer staging_buffer{ allocator, data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        void* mapped = staging_buffer.map();
+        std::memcpy(mapped, data, data_size);
+
+        // Allocate temporary command buffer from a temporary command pool
+        vk::UniqueCommandPool command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
+        vk::CommandBufferAllocateInfo cbai{};
+        vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
+
+        // Record command buffer which copies data from the staging buffer to the destination buffer
+        {
+            cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+
+            vk::ImageMemoryBarrier pre_transfer_image_memory_barrier(
+                current_image_access,                    // VkAccessFlags                          srcAccessMask
+                vk::AccessFlagBits::eTransferWrite,      // VkAccessFlags                          dstAccessMask
+                current_image_layout,                    // VkImageLayout                          oldLayout
+                vk::ImageLayout::eTransferDstOptimal,    // VkImageLayout                          newLayout
+                VK_QUEUE_FAMILY_IGNORED,                 // uint32_t                               srcQueueFamilyIndex
+                VK_QUEUE_FAMILY_IGNORED,                 // uint32_t                               dstQueueFamilyIndex
+                target_image.get_image(),                            // VkImage                                image
+                image_subresource_range                  // VkImageSubresourceRange                subresourceRange
+            );
+            cmd->pipelineBarrier(generating_stages, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(0), {}, {}, { pre_transfer_image_memory_barrier });
+
+            std::vector<vk::BufferImageCopy> buffer_image_copy;
+            buffer_image_copy.reserve(image_subresource_range.levelCount);
+            for (uint32_t i = image_subresource_range.baseMipLevel; i < image_subresource_range.baseMipLevel + image_subresource_range.levelCount; ++i)
+            {
+                buffer_image_copy.emplace_back(
+                    0,                                             // VkDeviceSize                           bufferOffset
+                    0,                                             // uint32_t                               bufferRowLength
+                    0,                                             // uint32_t                               bufferImageHeight
+                    vk::ImageSubresourceLayers(                    // VkImageSubresourceLayers               imageSubresource
+                        image_subresource_range.aspectMask,        // VkImageAspectFlags                     aspectMask
+                        i,                                         // uint32_t                               mipLevel
+                        image_subresource_range.baseArrayLayer,    // uint32_t                               baseArrayLayer
+                        image_subresource_range.layerCount         // uint32_t                               layerCount
+                        ),
+                    vk::Offset3D(),    // VkOffset3D                             imageOffset
+                    vk::Extent3D(      // VkExtent3D                             imageExtent
+                        width,         // uint32_t                               width
+                        height,        // uint32_t                               height
+                        1              // uint32_t                               depth
+                        ));
+            }
+            cmd->copyBufferToImage(staging_buffer.get_buffer(), target_image.get_image(), vk::ImageLayout::eTransferDstOptimal, buffer_image_copy);
+
+            vk::ImageMemoryBarrier post_transfer_image_memory_barrier(
+                vk::AccessFlagBits::eTransferWrite,      // VkAccessFlags                          srcAccessMask
+                new_image_access,                        // VkAccessFlags                          dstAccessMask
+                vk::ImageLayout::eTransferDstOptimal,    // VkImageLayout                          oldLayout
+                new_image_layout,                        // VkImageLayout                          newLayout
+                VK_QUEUE_FAMILY_IGNORED,                 // uint32_t                               srcQueueFamilyIndex
+                VK_QUEUE_FAMILY_IGNORED,                 // uint32_t                               dstQueueFamilyIndex
+                target_image.get_image(),                            // VkImage                                image
+                image_subresource_range                  // VkImageSubresourceRange                subresourceRange
+            );
+            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, consuming_stages, vk::DependencyFlags(0), {}, {}, { post_transfer_image_memory_barrier });
+
+            cmd->end();
+        }
+
+        // Submit
+        {
+            vk::UniqueFence fence = device->createFenceUnique({});
+
+            vk::SubmitInfo si{};
+            si.commandBufferCount = 1;
+            si.pCommandBuffers = &cmd.get();
+            get_graphics_queue().submit({si}, fence.get());
+            device->waitForFences({fence.get()}, VK_FALSE, UINT64_MAX);
+        }
+    }
+
+    void VulkanContext::CopyDataToBuffer(void const* data, uint32_t data_size, Buffer buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const
+    {
+        // Create staging buffer and map it's memory to copy data from the CPU
+        Buffer staging_buffer{ allocator, data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        void* mapped = staging_buffer.map();
+        std::memcpy(mapped, data, data_size);
+
+        // Allocate temporary command buffer from a temporary command pool
+        vk::UniqueCommandPool command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
+        vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
+
+        // Record command buffer which copies data from the staging buffer to the destination buffer
+        {
+            cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+
+            vk::BufferMemoryBarrier bmb_pre{};
+            bmb_pre.srcAccessMask = current_buffer_access;
+            bmb_pre.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+            bmb_pre.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bmb_pre.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bmb_pre.buffer = buffer.get_buffer();
+            bmb_pre.offset = 0;
+            bmb_pre.size = data_size;
+            cmd->pipelineBarrier(generating_stages, vk::PipelineStageFlagBits::eTransfer, {}, {}, { bmb_pre }, {});
+
+            vk::BufferCopy bcp{};
+            bcp.srcOffset = 0;
+            bcp.dstOffset = 0;
+            bcp.size = data_size;
+            cmd->copyBuffer(staging_buffer.get_buffer(), buffer.get_buffer(), { bcp });
+
+            vk::BufferMemoryBarrier bmb_post{};
+            bmb_post.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            bmb_post.dstAccessMask = new_buffer_access;
+            bmb_post.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bmb_post.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bmb_post.buffer = buffer.get_buffer();
+            bmb_post.offset = 0;
+            bmb_post.size = data_size;
+            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, consuming_stages, {}, {}, { bmb_post }, {});
+            cmd->end();
+        }
+
+        // Submit
+        {
+            vk::UniqueFence fence = device->createFenceUnique({});
+
+            vk::SubmitInfo si{};
+            si.commandBufferCount = 1;
+            si.pCommandBuffers = &cmd.get();
+            get_graphics_queue().submit({si}, fence.get());
+            device->waitForFences({fence.get()}, VK_FALSE, UINT64_MAX);
+        }
     }
 }    // namespace my_app

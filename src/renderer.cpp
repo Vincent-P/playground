@@ -1,5 +1,4 @@
 #pragma clang diagnostic ignored "-Weverything"
-#include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -7,12 +6,14 @@
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
+#include "tools.hpp"
 
 namespace my_app
 {
     Renderer::Renderer(GLFWwindow* window)
         : vulkan(window)
         , model("models/Sponza/glTF/Sponza.gltf", vulkan)
+        , gui(*this)
     {
         auto format = vk::Format::eA8B8G8R8UnormPack32;
 
@@ -63,7 +64,6 @@ namespace my_app
         vci.viewType = vk::ImageViewType::e2D;
         empty_info.imageView = vulkan.device->createImageView(vci);
 
-
         vk::ImageSubresourceRange subresource_range{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
 
         vk::ImageMemoryBarrier b{};
@@ -84,7 +84,6 @@ namespace my_app
         create_frame_ressources();
         create_color_buffer();
         create_depth_buffer();
-        create_uniform_buffer();
         create_vertex_buffer();
         create_index_buffer();
 
@@ -93,6 +92,8 @@ namespace my_app
         // Create the pipeline
         create_render_pass();
         create_graphics_pipeline();
+
+        gui.init();
     }
 
     Renderer::~Renderer()
@@ -108,7 +109,7 @@ namespace my_app
         vertex_buffer.free();
         index_buffer.free();
 
-        for (auto& frame_ressource : frame_ressources)
+        for (auto& frame_ressource : frame_resources)
             frame_ressource.uniform_buffer.free();
 
         model.free();
@@ -122,7 +123,7 @@ namespace my_app
         vulkan.device->destroy(depth_image_view);
         vulkan.device->destroy(color_image_view);
 
-        for (auto& frame_ressource : frame_ressources)
+        for (auto& frame_ressource : frame_resources)
             vulkan.device->destroy(frame_ressource.fence);
 
         depth_image.free();
@@ -408,10 +409,6 @@ namespace my_app
         render_pass = vulkan.device->createRenderPassUnique(rp_info);
     }
 
-    void Renderer::create_uniform_buffer()
-    {
-    }
-
     void Renderer::update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera)
     {
         // transformation, angle, rotations axis
@@ -469,7 +466,7 @@ namespace my_app
 
             for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
             {
-                auto dbi = frame_ressources[i].uniform_buffer.get_desc_info();
+                auto dbi = frame_resources[i].uniform_buffer.get_desc_info();
 
                 std::array<vk::WriteDescriptorSet, 1> writes;
                 writes[0].dstSet = desc_sets[i].get();
@@ -575,32 +572,13 @@ namespace my_app
         memcpy(mappedData, model.vertices.data(), size);
     }
 
-    std::vector<char> readFile(const std::string& filename)
-    {
-        std::ifstream file{ filename, std::ios::binary };
-        if (file.fail())
-            throw std::runtime_error(std::string("Could not open \"" + filename + "\" file!").c_str());
-
-        std::streampos begin, end;
-        begin = file.tellg();
-        file.seekg(0, std::ios::end);
-        end = file.tellg();
-
-        std::vector<char> result(static_cast<size_t>(end - begin));
-        file.seekg(0, std::ios::beg);
-        file.read(&result[0], end - begin);
-        file.close();
-
-        return result;
-    }
-
     void Renderer::create_frame_ressources()
     {
-        frame_ressources.resize(NUM_VIRTUAL_FRAME);
+        frame_resources.resize(NUM_VIRTUAL_FRAME);
 
         for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
         {
-            auto frame_ressource = frame_ressources.data() + i;
+            auto frame_ressource = frame_resources.data() + i;
 
             vk::FenceCreateInfo fci{};
             frame_ressource->fence = vulkan.device->createFence({ vk::FenceCreateFlagBits::eSignaled });
@@ -616,8 +594,8 @@ namespace my_app
 
     void Renderer::create_graphics_pipeline()
     {
-        auto vert_code = readFile("build/shaders/shader.vert.spv");
-        auto frag_code = readFile("build/shaders/shader.frag.spv");
+        auto vert_code = tools::readFile("build/shaders/shader.vert.spv");
+        auto frag_code = tools::readFile("build/shaders/shader.frag.spv");
 
         vert_module = vulkan.create_shader_module(vert_code);
         frag_module = vulkan.create_shader_module(frag_code);
@@ -767,21 +745,23 @@ namespace my_app
         recreate_swapchain();
     }
 
-    void Renderer::draw_frame(Camera& camera)
+    void Renderer::draw_frame(Camera& camera, const TimerData& timer, tools::MouseState mouse)
     {
         static uint32_t virtual_frame_idx = 0;
 
+        gui.start_frame(timer, mouse);
+
         auto& device = vulkan.device;
         auto graphics_queue = vulkan.get_graphics_queue();
-        auto frame_ressource = frame_ressources.data() + virtual_frame_idx;
+        auto frame_resource = frame_resources.data() + virtual_frame_idx;
 
-        device->waitForFences(frame_ressource->fence, VK_TRUE, UINT64_MAX);
-        device->resetFences(frame_ressource->fence);
+        device->waitForFences(frame_resource->fence, VK_TRUE, UINT64_MAX);
+        device->resetFences(frame_resource->fence);
 
         uint32_t image_index = 0;
         auto result = device->acquireNextImageKHR(*swapchain.handle,
                                                   std::numeric_limits<uint64_t>::max(),
-                                                  *frame_ressource->image_available,
+                                                  *frame_resource->image_available,
                                                   nullptr,
                                                   &image_index);
 
@@ -807,12 +787,12 @@ namespace my_app
             ci.width = swapchain.extent.width;
             ci.height = swapchain.extent.height;
             ci.layers = 1;
-            frame_ressource->framebuffer = vulkan.device->createFramebufferUnique(ci);
+            frame_resource->framebuffer = vulkan.device->createFramebufferUnique(ci);
         }
 
         // Update and Draw!!!
         {
-            update_uniform_buffer(frame_ressource, camera);
+            update_uniform_buffer(frame_resource, camera);
 
             vk::Rect2D render_area{ vk::Offset2D(), swapchain.extent };
 
@@ -820,16 +800,16 @@ namespace my_app
             clear_values[0].color = vk::ClearColorValue(std::array<float, 4>{ 0.6f, 0.7f, 0.94f, 1.0f });
             clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
-            frame_ressource->commandbuffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+            frame_resource->commandbuffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
             vk::RenderPassBeginInfo rpbi{};
             rpbi.renderArea = render_area;
             rpbi.renderPass = render_pass.get();
-            rpbi.framebuffer = *frame_ressource->framebuffer;
+            rpbi.framebuffer = *frame_resource->framebuffer;
             rpbi.clearValueCount = clear_values.size();
             rpbi.pClearValues = clear_values.data();
 
-            frame_ressource->commandbuffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
+            frame_resource->commandbuffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
 
             std::vector<vk::Viewport> viewports;
             viewports.emplace_back(
@@ -840,24 +820,26 @@ namespace my_app
                 0,
                 1.0f);
 
-            frame_ressource->commandbuffer->setViewport(0, viewports);
+            frame_resource->commandbuffer->setViewport(0, viewports);
 
             std::vector<vk::Rect2D> scissors = { render_area };
 
-            frame_ressource->commandbuffer->setScissor(0, scissors);
+            frame_resource->commandbuffer->setScissor(0, scissors);
 
-            frame_ressource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+            frame_resource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
 
             vk::Buffer vertex_buffers[] = { vertex_buffer.get_buffer() };
             vk::DeviceSize offsets[] = { 0 };
-            frame_ressource->commandbuffer->bindVertexBuffers(0, 1, vertex_buffers, offsets);
-            frame_ressource->commandbuffer->bindIndexBuffer(index_buffer.get_buffer(), 0, vk::IndexType::eUint32);
+            frame_resource->commandbuffer->bindVertexBuffers(0, 1, vertex_buffers, offsets);
+            frame_resource->commandbuffer->bindIndexBuffer(index_buffer.get_buffer(), 0, vk::IndexType::eUint32);
 
-            model.draw(frame_ressource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
+            model.draw(frame_resource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
 
-            frame_ressource->commandbuffer->endRenderPass();
-            frame_ressource->commandbuffer->end();
+            frame_resource->commandbuffer->endRenderPass();
+            frame_resource->commandbuffer->end();
         }
+
+        gui.draw(virtual_frame_idx, frame_resource->commandbuffer, render_pass, frame_resource->framebuffer);
 
         // Submit the command buffer
         vk::PipelineStageFlags stages[] = {
@@ -866,18 +848,18 @@ namespace my_app
 
         vk::SubmitInfo kernel{};
         kernel.waitSemaphoreCount = 1;
-        kernel.pWaitSemaphores = &frame_ressource->image_available.get();
+        kernel.pWaitSemaphores = &frame_resource->image_available.get();
         kernel.pWaitDstStageMask = stages;
         kernel.commandBufferCount = 1;
-        kernel.pCommandBuffers = &frame_ressource->commandbuffer.get();
+        kernel.pCommandBuffers = &frame_resource->commandbuffer.get();
         kernel.signalSemaphoreCount = 1;
-        kernel.pSignalSemaphores = &frame_ressource->rendering_finished.get();
-        graphics_queue.submit(kernel, frame_ressource->fence);
+        kernel.pSignalSemaphores = &frame_resource->rendering_finished.get();
+        graphics_queue.submit(kernel, frame_resource->fence);
 
         // Present the frame
         vk::PresentInfoKHR present_i{};
         present_i.waitSemaphoreCount = 1;
-        present_i.pWaitSemaphores = &frame_ressource->rendering_finished.get();
+        present_i.pWaitSemaphores = &frame_resource->rendering_finished.get();
         present_i.swapchainCount = 1;
         present_i.pSwapchains = &swapchain.handle.get();
         present_i.pImageIndices = &image_index;

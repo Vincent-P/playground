@@ -11,44 +11,23 @@ namespace my_app
     class Image
     {
         public:
-        Image()
-            : allocator(nullptr)
-            , image_info()
-            , image()
-            , mem_usage()
-            , allocation()
-        {
-        }
+        Image();
+        Image(const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_GPU_ONLY);
 
-        Image(VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_GPU_ONLY)
-            : allocator(&_allocator)
-            , image_info(_image_info)
-            , image()
-            , mem_usage(_mem_usage)
-            , allocation()
-        {
-            VmaAllocationCreateInfo allocInfo{};
-            allocInfo.usage = mem_usage;
+        Image(const Image& other);
+        Image& operator=(const Image& other);
+        ~Image();
 
-            vmaCreateImage(*allocator,
-                           reinterpret_cast<VkImageCreateInfo*>(&image_info),
-                           &allocInfo,
-                           reinterpret_cast<VkImage*>(&image),
-                           &allocation,
-                           nullptr);
-        }
-
-        void free() { vmaDestroyImage(*allocator, image, allocation); }
-
+        void free();
         vk::Image get_image() const { return image; }
-
         VmaMemoryUsage get_mem_usage() const { return mem_usage; }
 
         private:
-        VmaAllocator* allocator;
+        const VmaAllocator* allocator;
         vk::ImageCreateInfo image_info;
         vk::Image image;
         VmaMemoryUsage mem_usage;
         VmaAllocation allocation;
+        bool destroyed;
     };
 }    // namespace my_app

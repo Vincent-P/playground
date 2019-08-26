@@ -10,6 +10,7 @@
 #include "buffer.hpp"
 #include "image.hpp"
 #include "model.hpp"
+#include "gui.hpp"
 #include "vulkan_context.hpp"
 
 struct GLFWwindow;
@@ -72,7 +73,6 @@ namespace my_app
         void create_frame_ressources();
         void create_color_buffer();
         void create_depth_buffer();
-        void create_uniform_buffer();
         void create_descriptors();
         void create_render_pass();
         void create_index_buffer();
@@ -83,15 +83,31 @@ namespace my_app
         void resize(int width, int height);
 
         void update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera);
-        void draw_frame(Camera& camera);
+        void draw_frame(Camera& camera, const TimerData& timer, tools::MouseState mouse);
         void wait_idle();
+
+        const VulkanContext& get_vulkan() const
+        {
+            return vulkan;
+        }
+
+        const SwapChain& get_swapchain() const
+        {
+            return swapchain;
+        }
+
+        vk::Format get_depth_format() const
+        {
+            return depth_format;
+        }
 
         private:
         VulkanContext vulkan;
 
         Model model;
+        GUI gui;
         SwapChain swapchain;
-        std::vector<FrameRessource> frame_ressources;
+        std::vector<FrameRessource> frame_resources;
 
         // Attachments
         Image depth_image;
@@ -111,11 +127,9 @@ namespace my_app
         vk::UniqueShaderModule frag_module;
 
         vk::UniqueDescriptorPool desc_pool;
-
         vk::UniqueDescriptorSetLayout scene_desc_layout;
         vk::UniqueDescriptorSetLayout mat_desc_layout;
         vk::UniqueDescriptorSetLayout node_desc_layout;
-
         std::vector<vk::UniqueDescriptorSet> desc_sets;
 
         vk::UniquePipeline pipeline;

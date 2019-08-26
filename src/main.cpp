@@ -10,7 +10,8 @@
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
-#include "timer.h"
+#include "timer.hpp"
+#include "tools.hpp"
 
 namespace my_app
 {
@@ -27,6 +28,7 @@ namespace my_app
             , is_focused()
             , stop(false)
             , timer()
+            , mouse()
         {
             glfwSetWindowUserPointer(window, this);
 
@@ -63,7 +65,13 @@ namespace my_app
             static double last_x = xpos;
             static double last_y = ypos;
 
+
             auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+
+            app->mouse.xpos = xpos;
+            app->mouse.ypos = ypos;
+            app->mouse.left_pressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS ? true : false;
+            app->mouse.right_pressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS ? true : false;
 
             if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL || !app->is_focused)
                 return;
@@ -155,7 +163,7 @@ namespace my_app
 
                 glfwPollEvents();
                 update_input(timer.get_delta_time());
-                renderer.draw_frame(camera);
+                renderer.draw_frame(camera, timer, mouse);
 
                 std::string windowTitle = "Test vulkan - " + std::to_string(timer.get_average_fps() / 1) + " FPS | " + std::to_string(timer.get_delta_time() * 1000.f) + " ms";
                 glfwSetWindowTitle(window, windowTitle.c_str());
@@ -170,6 +178,7 @@ namespace my_app
         bool is_focused;
         bool stop;
         TimerData timer;
+        tools::MouseState mouse;
     };
 }    // namespace my_app
 

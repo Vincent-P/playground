@@ -7,6 +7,9 @@
 #include <vulkan/vulkan.hpp>
 #pragma clang diagnostic pop
 
+#include "buffer.hpp"
+#include "image.hpp"
+
 struct GLFWwindow;
 
 namespace my_app
@@ -42,6 +45,8 @@ namespace my_app
         void transition_layout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const;
         vk::UniqueShaderModule create_shader_module(std::vector<char> code) const;
         vk::UniqueDescriptorSetLayout create_descriptor_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) const;
+        void CopyDataToImage(void const* data, uint32_t data_size, Image &target_image, uint32_t width, uint32_t height, vk::ImageSubresourceRange const& image_subresource_range, vk::ImageLayout current_image_layout, vk::AccessFlags current_image_access, vk::PipelineStageFlags generating_stages, vk::ImageLayout new_image_layout, vk::AccessFlags new_image_access, vk::PipelineStageFlags consuming_stages) const;
+        void CopyDataToBuffer(void const* data, uint32_t data_size, Buffer buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const;
 
         size_t graphics_family_idx;
         size_t present_family_idx;

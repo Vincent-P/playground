@@ -31,11 +31,15 @@ project(test-vulkan LANGUAGES CXX)
 
 # List the source files
 set(TEST_VULKAN_FILES
+  src/buffer.cpp
+  src/gui.cpp
+  src/image.cpp
   src/main.cpp
   src/model.cpp
   src/renderer.cpp
   src/timer.cpp
   src/tiny_gltf.cpp
+  src/tools.cpp
   src/vk_mem_alloc.cpp
   src/vulkan_context.cpp
   )
@@ -59,6 +63,7 @@ find_package(glm REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 target_link_libraries(test-vulkan
   PRIVATE
@@ -68,6 +73,7 @@ target_link_libraries(test-vulkan
   nlohmann_json
   nlohmann_json::nlohmann_json
   unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+  imgui::imgui
   )
 # --------------
 
