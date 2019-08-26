@@ -18,6 +18,8 @@ It can render basic glTF 2 models with an incomplete PBR (Physically Based Rende
 
 PS> .\bootstrap-vcpkg.bat
 Linux:~/$ ./bootstrap-vcpkg.sh
+
+> cd ..
 ```
 
 - And set the VCPKG_ROOT environment variable to the vcpkg folder.
@@ -31,6 +33,9 @@ vcpkg install glfw3 glm nlohmann-json stb vulkan-memory-allocator --triplet x64-
 - You can now build the project!
 
 ```
+git clone https://github.com/Vincent-P/test-vulkan.git
+cd test-vulkan
+
 mkdir build
 cd build
 
