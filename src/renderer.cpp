@@ -105,11 +105,6 @@ namespace my_app
         // SWAPCHAIN OBJECTS
         destroy_swapchain();
 
-        // PIPELINE OBJECTS
-        vulkan.device->destroy(pipeline_cache);
-        vulkan.device->destroy(pipeline_layout);
-        vulkan.device->destroy(pipeline);
-
         vertex_buffer.free();
         index_buffer.free();
 
@@ -132,8 +127,6 @@ namespace my_app
 
         depth_image.free();
         color_image.free();
-
-        vulkan.device->destroy(render_pass);
     }
 
     void Renderer::recreate_swapchain()
@@ -412,7 +405,7 @@ namespace my_app
         rp_info.pSubpasses = &subpass;
         rp_info.dependencyCount = 0;
         rp_info.pDependencies = nullptr;
-        render_pass = vulkan.device->createRenderPass(rp_info);
+        render_pass = vulkan.device->createRenderPassUnique(rp_info);
     }
 
     void Renderer::create_uniform_buffer()
@@ -452,6 +445,7 @@ namespace my_app
         };
 
         vk::DescriptorPoolCreateInfo dpci{};
+        dpci.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
         dpci.poolSizeCount = pool_sizes.size();
         dpci.pPoolSizes = pool_sizes.data();
         dpci.maxSets = NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size();
@@ -471,14 +465,14 @@ namespace my_app
             dsai.descriptorPool = desc_pool.get();
             dsai.pSetLayouts = layouts.data();
             dsai.descriptorSetCount = layouts.size();
-            desc_sets = vulkan.device->allocateDescriptorSets(dsai);
+            desc_sets = vulkan.device->allocateDescriptorSetsUnique(dsai);
 
             for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
             {
                 auto dbi = frame_ressources[i].uniform_buffer.get_desc_info();
 
                 std::array<vk::WriteDescriptorSet, 1> writes;
-                writes[0].dstSet = desc_sets[i];
+                writes[0].dstSet = desc_sets[i].get();
                 writes[0].descriptorCount = 1;
                 writes[0].descriptorType = vk::DescriptorType::eUniformBuffer;
                 writes[0].pBufferInfo = &dbi;
@@ -559,7 +553,7 @@ namespace my_app
             node_desc_layout = vulkan.create_descriptor_layout(bindings);
 
             for (auto& node : model.scene_nodes)
-                node.setup_node_descriptor_set(desc_pool, node_desc_layout, *vulkan.device);
+                node.setup_node_descriptor_set(desc_pool, node_desc_layout, vulkan.device);
         }
     }
 
@@ -730,7 +724,7 @@ namespace my_app
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pcr;
 
-        pipeline_layout = vulkan.device->createPipelineLayout(ci);
+        pipeline_layout = vulkan.device->createPipelineLayoutUnique(ci);
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages = {
             vk::PipelineShaderStageCreateInfo(
@@ -747,7 +741,7 @@ namespace my_app
         };
 
         vk::GraphicsPipelineCreateInfo pipe_i{};
-        pipe_i.layout = pipeline_layout;
+        pipe_i.layout = pipeline_layout.get();
         pipe_i.basePipelineHandle = nullptr;
         pipe_i.basePipelineIndex = 0;
         pipe_i.pVertexInputState = &vert_i;
@@ -761,11 +755,11 @@ namespace my_app
         pipe_i.pDepthStencilState = &ds_i;
         pipe_i.pStages = shader_stages.data();
         pipe_i.stageCount = shader_stages.size();
-        pipe_i.renderPass = render_pass;
+        pipe_i.renderPass = render_pass.get();
         pipe_i.subpass = 0;
 
-        pipeline_cache = vulkan.device->createPipelineCache({});
-        pipeline = vulkan.device->createGraphicsPipeline(pipeline_cache, pipe_i);
+        pipeline_cache = vulkan.device->createPipelineCacheUnique({});
+        pipeline = vulkan.device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);
     }
 
     void Renderer::resize(int, int)
@@ -807,7 +801,7 @@ namespace my_app
             };
 
             vk::FramebufferCreateInfo ci{};
-            ci.renderPass = render_pass;
+            ci.renderPass = render_pass.get();
             ci.attachmentCount = attachments.size();
             ci.pAttachments = attachments.data();
             ci.width = swapchain.extent.width;
@@ -830,7 +824,7 @@ namespace my_app
 
             vk::RenderPassBeginInfo rpbi{};
             rpbi.renderArea = render_area;
-            rpbi.renderPass = render_pass;
+            rpbi.renderPass = render_pass.get();
             rpbi.framebuffer = *frame_ressource->framebuffer;
             rpbi.clearValueCount = clear_values.size();
             rpbi.pClearValues = clear_values.data();
@@ -852,14 +846,14 @@ namespace my_app
 
             frame_ressource->commandbuffer->setScissor(0, scissors);
 
-            frame_ressource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+            frame_ressource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
 
             vk::Buffer vertex_buffers[] = { vertex_buffer.get_buffer() };
             vk::DeviceSize offsets[] = { 0 };
             frame_ressource->commandbuffer->bindVertexBuffers(0, 1, vertex_buffers, offsets);
             frame_ressource->commandbuffer->bindIndexBuffer(index_buffer.get_buffer(), 0, vk::IndexType::eUint32);
 
-            model.draw(*frame_ressource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
+            model.draw(frame_ressource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
 
             frame_ressource->commandbuffer->endRenderPass();
             frame_ressource->commandbuffer->end();

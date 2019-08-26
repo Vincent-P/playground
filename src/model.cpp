@@ -232,19 +232,19 @@ namespace my_app
     {
     }
 
-    void Mesh::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& scene) const
+    void Mesh::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene) const
     {
         for (const auto& primitive : primitives)
         {
             const std::vector<vk::DescriptorSet> sets = {
-                scene,
+                scene.get(),
                 primitive.material.desc_set,
                 uniform_desc
             };
 
-            cmd.bindDescriptorSets(
+            cmd->bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
-                pipeline_layout,
+                pipeline_layout.get(),
                 0,
                 sets,
                 nullptr);
@@ -278,9 +278,9 @@ namespace my_app
                 material.specular_factor = glm::vec4(primitive.material.extension.specular_factor, 1.0f);
             }
 
-            cmd.pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &material);
+            cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &material);
 
-            cmd.drawIndexed(primitive.index_count,
+            cmd->drawIndexed(primitive.index_count,
                             1,
                             primitive.first_index,
                             primitive.first_vertex,
@@ -288,7 +288,7 @@ namespace my_app
         }
     }
 
-    void Node::setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::Device& device)
+    void Node::setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::UniqueDevice& device)
     {
         if (mesh)
         {
@@ -296,7 +296,7 @@ namespace my_app
             allocInfo.descriptorPool = pool.get();
             allocInfo.pSetLayouts = &layout.get();
             allocInfo.descriptorSetCount = 1;
-            mesh->uniform_desc = device.allocateDescriptorSets(allocInfo)[0];
+            mesh->uniform_desc = device->allocateDescriptorSets(allocInfo)[0];
 
             vk::WriteDescriptorSet write{};
             auto bdi = mesh->uniform.get_desc_info();
@@ -306,7 +306,7 @@ namespace my_app
             write.dstBinding = 0;
             write.pBufferInfo = &bdi;
 
-            device.updateDescriptorSets(write, nullptr);
+            device->updateDescriptorSets(write, nullptr);
         }
 
         for (auto& child : children)
@@ -327,7 +327,7 @@ namespace my_app
     }
 
 
-    void Node::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const
+    void Node::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const
     {
         if (mesh)
             mesh->draw(cmd, pipeline_layout, desc_set);
@@ -637,7 +637,7 @@ namespace my_app
             scene_nodes[i] = load_node(scene.nodes[i]);
     }
 
-    void Model::draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const
+    void Model::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const
     {
         // TODO(vincent): bind vertex and index buffer of the model
         for (const auto& node : scene_nodes)

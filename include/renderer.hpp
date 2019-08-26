@@ -116,11 +116,11 @@ namespace my_app
         vk::UniqueDescriptorSetLayout mat_desc_layout;
         vk::UniqueDescriptorSetLayout node_desc_layout;
 
-        std::vector<vk::DescriptorSet> desc_sets;
+        std::vector<vk::UniqueDescriptorSet> desc_sets;
 
-        vk::Pipeline pipeline;
-        vk::PipelineCache pipeline_cache;
-        vk::PipelineLayout pipeline_layout;
-        vk::RenderPass render_pass;
+        vk::UniquePipeline pipeline;
+        vk::UniquePipelineCache pipeline_cache;
+        vk::UniquePipelineLayout pipeline_layout;
+        vk::UniqueRenderPass render_pass;
     };
 }    // namespace my_app

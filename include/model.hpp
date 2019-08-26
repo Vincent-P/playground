@@ -214,7 +214,7 @@ namespace my_app
         } uniform_block;
 
         Mesh(VulkanContext& ctx);
-        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
+        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const;
 
         std::vector<Primitive> primitives;
         Buffer uniform;
@@ -251,9 +251,8 @@ namespace my_app
         }
 
         void update();
-        void setup_node_descriptor_set(vk::UniqueDescriptorPool& desc_pool, vk::UniqueDescriptorSetLayout& desc_set_layout, vk::Device& device);
-
-        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
+        void setup_node_descriptor_set(vk::UniqueDescriptorPool& desc_pool, vk::UniqueDescriptorSetLayout& desc_set_layout, vk::UniqueDevice& device);
+        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const;
     };
 
     struct Model
@@ -269,7 +268,7 @@ namespace my_app
         void load_nodes();
         void free();
 
-        void draw(vk::CommandBuffer& cmd, vk::PipelineLayout& pipeline_layout, vk::DescriptorSet& desc_set) const;
+        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const;
 
         VulkanContext& ctx;
         tinygltf::Model model;
