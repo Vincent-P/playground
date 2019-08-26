@@ -25,6 +25,7 @@ namespace my_app
             , renderer(window)
             , camera()
             , is_focused()
+            , stop(false)
             , timer()
         {
             glfwSetWindowUserPointer(window, this);
@@ -37,6 +38,15 @@ namespace my_app
         ~App()
         {
             glfwTerminate();
+        }
+
+        GLFWwindow* create_glfw_window()
+        {
+            glfwInit();
+
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+            return glfwCreateWindow(WIDTH, HEIGHT, "Test vulkan", nullptr, nullptr);
         }
 
         static void resize_callback(GLFWwindow* window, int width, int height)
@@ -55,8 +65,15 @@ namespace my_app
 
             auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
 
-            if (glfwGetKey(app->window, GLFW_KEY_LEFT_ALT) || !app->is_focused)
+            if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL || !app->is_focused)
                 return;
+
+            if (abs(last_x - xpos) > 100 || abs(last_y - ypos) > 100)
+            {
+                last_x = xpos;
+                last_y = ypos;
+                return;
+            }
 
             auto& yaw = app->camera.yaw;
             auto& pitch = app->camera.pitch;
@@ -84,12 +101,26 @@ namespace my_app
             if (!is_focused)
                 return;
 
+            if (glfwGetKey(window, GLFW_KEY_ESCAPE))
+            {
+                stop = true;
+                return;
+            }
+
             auto cursor_mode = glfwGetInputMode(window, GLFW_CURSOR);
 
+
             if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_NORMAL)
+            {
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                return;
+            }
             else if (!glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_DISABLED)
+            {
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                if (glfwRawMouseMotionSupported())
+                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            }
 
             int forward = 0;
             int right = 0;
@@ -110,18 +141,9 @@ namespace my_app
                 camera.position += (CAMERA_SPEED * float(right) * delta_t) * glm::normalize(glm::cross(camera.front, camera.up));
         }
 
-        GLFWwindow* create_glfw_window()
-        {
-            glfwInit();
-
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-            return glfwCreateWindow(WIDTH, HEIGHT, "Test vulkan", nullptr, nullptr);
-        }
-
         void run()
         {
-            while (!glfwWindowShouldClose(window))
+            while (not glfwWindowShouldClose(window) and not stop)
             {
                 int visible = glfwGetWindowAttrib(window, GLFW_VISIBLE);
                 int focused = glfwGetWindowAttrib(window, GLFW_FOCUSED);
@@ -146,6 +168,7 @@ namespace my_app
         Renderer renderer;
         Camera camera;
         bool is_focused;
+        bool stop;
         TimerData timer;
     };
 }    // namespace my_app
