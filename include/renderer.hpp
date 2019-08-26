@@ -46,6 +46,7 @@ namespace my_app
         vk::UniqueSemaphore rendering_finished;
         vk::UniqueFramebuffer framebuffer;
         vk::UniqueCommandBuffer commandbuffer;
+        vk::UniqueCommandBuffer post_commandbuffer;
         Buffer uniform_buffer;
     };
 
@@ -62,7 +63,7 @@ namespace my_app
     class Renderer
     {
         public:
-        Renderer(GLFWwindow* window);
+        Renderer(GLFWwindow* window, std::string model_path);
         Renderer(Renderer& other) = delete;
         ~Renderer();
 

@@ -9,19 +9,30 @@ namespace my_app
         , image()
         , mem_usage()
         , allocation()
-        , destroyed(false)
     {
     }
 
-    Image::Image(const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage)
+
+#ifndef DEBUG_MEMORY_LEAKS
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
+
+    Image::Image(std::string name, const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage)
         : allocator(&_allocator)
         , image_info(_image_info)
         , image()
         , mem_usage(_mem_usage)
         , allocation()
     {
+
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = mem_usage;
+
+#ifdef DEBUG_MEMORY_LEAKS
+        allocInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+        allocInfo.pUserData = name.data();
+#endif
 
         VK_CHECK(vmaCreateImage(*allocator,
                                 reinterpret_cast<VkImageCreateInfo*>(&image_info),
@@ -31,47 +42,15 @@ namespace my_app
                                 nullptr));
     }
 
-    Image::Image(const Image& other)
-    {
-        if (!destroyed)
-            free();
 
-        allocator = other.allocator;
-        image_info = other.image_info;
-        image = other.image;
-        mem_usage = other.mem_usage;
-        allocation = other.allocation;
-        destroyed = other.destroyed;
-    }
+#ifndef DEBUG_MEMORY_LEAKS
+#pragma clang diagnostic pop
+#endif
 
-    Image& Image::operator=(const Image& other)
-    {
-        if (!destroyed)
-            free();
-
-        allocator = other.allocator;
-        image_info = other.image_info;
-        image = other.image;
-        mem_usage = other.mem_usage;
-        allocation = other.allocation;
-        destroyed = other.destroyed;
-        return *this;
-    }
-
-
-    Image::~Image()
-    {
-        if (!destroyed)
-            free();
-    }
 
     void Image::free()
     {
-        if (destroyed)
-            throw std::runtime_error("Attempt to double-free an Image.");
-
-        if (allocation)
+        if (image)
             vmaDestroyImage(*allocator, image, allocation);
-        destroyed = true;
     }
 }    // namespace my_app

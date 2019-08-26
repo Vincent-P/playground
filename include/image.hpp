@@ -12,11 +12,7 @@ namespace my_app
     {
         public:
         Image();
-        Image(const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_GPU_ONLY);
-
-        Image(const Image& other);
-        Image& operator=(const Image& other);
-        ~Image();
+        Image(std::string name, const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_GPU_ONLY);
 
         void free();
         vk::Image get_image() const { return image; }
@@ -28,6 +24,5 @@ namespace my_app
         vk::Image image;
         VmaMemoryUsage mem_usage;
         VmaAllocation allocation;
-        bool destroyed;
     };
 }    // namespace my_app

@@ -18,12 +18,13 @@ namespace my_app
     constexpr float MOUSE_SENSITIVITY = 0.3f;
     constexpr float CAMERA_SPEED = 50.f;
 
+
     class App
     {
         public:
-        App()
+        App(std::string model_path)
             : window(create_glfw_window())
-            , renderer(window)
+            , renderer(window, model_path)
             , camera()
             , is_focused()
             , stop(false)
@@ -182,11 +183,15 @@ namespace my_app
     };
 }    // namespace my_app
 
-int main()
+int main(int, char* argv[])
 {
     try
     {
-        my_app::App app;
+        std::string model = "models/Sponza/glTF/Sponza.gltf";
+        if (argv[1])
+            model = argv[1];
+
+        my_app::App app(model);
         app.run();
     }
     catch (std::exception const& e)

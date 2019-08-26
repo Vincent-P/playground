@@ -31,7 +31,7 @@ namespace my_app
 
         void init();
         void start_frame(const TimerData& timer, const tools::MouseState& mouse);
-        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer, vk::UniqueRenderPass const& render_pass, vk::UniqueFramebuffer const& framebuffer);
+        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer, vk::UniqueFramebuffer const& framebuffer);
 
         private:
         void draw_frame_data(vk::UniqueCommandBuffer& command_buffer, uint32_t resource_index);

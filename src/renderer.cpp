@@ -10,9 +10,9 @@
 
 namespace my_app
 {
-    Renderer::Renderer(GLFWwindow* window)
+    Renderer::Renderer(GLFWwindow* window, std::string model_path)
         : vulkan(window)
-        , model("models/Sponza/glTF/Sponza.gltf", vulkan)
+        , model(model_path, vulkan)
         , gui(*this)
     {
         auto format = vk::Format::eA8B8G8R8UnormPack32;
@@ -32,7 +32,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
         ci.flags = {};
-        empty_image = Image{ vulkan.allocator, ci };
+        empty_image = Image{ "Empty image", vulkan.allocator, ci };
 
         // Create the sampler for the texture
         TextureSampler texture_sampler;
@@ -264,7 +264,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        color_image = Image{ vulkan.allocator, ci };
+        color_image = Image{ "Color image", vulkan.allocator, ci };
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -329,7 +329,7 @@ namespace my_app
         ci.pQueueFamilyIndices = NULL;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        depth_image = Image{ vulkan.allocator, ci };
+        depth_image = Image{ "Depth image", vulkan.allocator, ci };
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -365,7 +365,7 @@ namespace my_app
         attachments[1].format = depth_format;
         attachments[1].samples = MSAA_SAMPLES;
         attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
-        attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[1].storeOp = vk::AttachmentStoreOp::eStore;
         attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[1].initialLayout = vk::ImageLayout::eUndefined;
@@ -380,7 +380,7 @@ namespace my_app
         attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[2].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[2].finalLayout = vk::ImageLayout::ePresentSrcKHR;
+        attachments[2].finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
         attachments[2].flags = {};
 
         vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
@@ -388,8 +388,8 @@ namespace my_app
         vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
 
         vk::SubpassDescription subpass{};
-        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
         subpass.flags = vk::SubpassDescriptionFlags();
+        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
         subpass.inputAttachmentCount = 0;
         subpass.pInputAttachments = nullptr;
         subpass.colorAttachmentCount = 1;
@@ -557,7 +557,7 @@ namespace my_app
     void Renderer::create_index_buffer()
     {
         auto size = model.indices.size() * sizeof(std::uint32_t);
-        index_buffer = Buffer(vulkan.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
+        index_buffer = Buffer("Index buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
 
         void* mappedData = index_buffer.map();
         memcpy(mappedData, model.indices.data(), size);
@@ -566,7 +566,7 @@ namespace my_app
     void Renderer::create_vertex_buffer()
     {
         auto size = model.vertices.size() * sizeof(Vertex);
-        vertex_buffer = Buffer(vulkan.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
+        vertex_buffer = Buffer("Vertex buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
 
         void* mappedData = vertex_buffer.map();
         memcpy(mappedData, model.vertices.data(), size);
@@ -586,9 +586,12 @@ namespace my_app
             frame_ressource->rendering_finished = vulkan.device->createSemaphoreUnique({});
 
             frame_ressource->commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
+            frame_ressource->post_commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
 
 
-            frame_ressource->uniform_buffer = Buffer(vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
+            std::string name = "Uniform buffer ";
+            name += i;
+            frame_ressource->uniform_buffer = Buffer(name, vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
         }
     }
 
@@ -837,21 +840,30 @@ namespace my_app
 
             frame_resource->commandbuffer->endRenderPass();
             frame_resource->commandbuffer->end();
+
+            vk::PipelineStageFlags stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+            vk::SubmitInfo kernel{};
+            kernel.waitSemaphoreCount = 1;
+            kernel.pWaitSemaphores = &frame_resource->image_available.get();
+            kernel.pWaitDstStageMask = &stage;
+            kernel.commandBufferCount = 1;
+            kernel.pCommandBuffers = &frame_resource->commandbuffer.get();
+            kernel.signalSemaphoreCount = 0;
+            kernel.pSignalSemaphores = nullptr;
+            graphics_queue.submit(kernel, vk::Fence());
         }
 
-        gui.draw(virtual_frame_idx, frame_resource->commandbuffer, render_pass, frame_resource->framebuffer);
+        gui.draw(virtual_frame_idx, frame_resource->post_commandbuffer, frame_resource->framebuffer);
 
         // Submit the command buffer
-        vk::PipelineStageFlags stages[] = {
-            vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        };
 
+        vk::PipelineStageFlags stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
         vk::SubmitInfo kernel{};
-        kernel.waitSemaphoreCount = 1;
-        kernel.pWaitSemaphores = &frame_resource->image_available.get();
-        kernel.pWaitDstStageMask = stages;
+        kernel.waitSemaphoreCount = 0;
+        kernel.pWaitSemaphores = nullptr;
+        kernel.pWaitDstStageMask = &stage;
         kernel.commandBufferCount = 1;
-        kernel.pCommandBuffers = &frame_resource->commandbuffer.get();
+        kernel.pCommandBuffers = &frame_resource->post_commandbuffer.get();
         kernel.signalSemaphoreCount = 1;
         kernel.pSignalSemaphores = &frame_resource->rendering_finished.get();
         graphics_queue.submit(kernel, frame_resource->fence);

@@ -11,11 +11,16 @@ namespace my_app
         , mem_usage()
         , buffer()
         , allocation()
-        , destroyed(false)
     {
     }
 
-    Buffer::Buffer(const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage)
+#ifndef DEBUG_MEMORY_LEAKS
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
+
+
+    Buffer::Buffer(std::string name, const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage)
         : allocator(&_allocator)
         , mapped(nullptr)
         , size(_size)
@@ -23,7 +28,6 @@ namespace my_app
         , mem_usage(_mem_usage)
         , buffer()
         , allocation()
-        , destroyed(false)
     {
         vk::BufferCreateInfo ci{};
         ci.usage = buf_usage;
@@ -31,6 +35,11 @@ namespace my_app
 
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = mem_usage;
+
+#ifdef DEBUG_MEMORY_LEAKS
+        allocInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+        allocInfo.pUserData = name.data();
+#endif
 
         VK_CHECK(vmaCreateBuffer(*allocator,
                                  reinterpret_cast<VkBufferCreateInfo*>(&ci),
@@ -40,57 +49,24 @@ namespace my_app
                                  nullptr));
     }
 
-    Buffer::Buffer(const Buffer& other)
-    {
-        if (!destroyed)
-            free();
-
-        allocator = other.allocator;
-        mapped = other.mapped;
-        size = other.size;
-        buf_usage = other.buf_usage;
-        mem_usage = other.mem_usage;
-        buffer = other.buffer;
-        allocation = other.allocation;
-        destroyed = other.destroyed;
-    }
-
-    Buffer& Buffer::operator=(const Buffer& other)
-    {
-        if (!destroyed)
-            free();
-
-        allocator = other.allocator;
-        mapped = other.mapped;
-        size = other.size;
-        buf_usage = other.buf_usage;
-        mem_usage = other.mem_usage;
-        buffer = other.buffer;
-        allocation = other.allocation;
-        destroyed = other.destroyed;
-        return *this;
-    }
-
-
-    Buffer::~Buffer()
-    {
-        if (!destroyed)
-            free();
-    }
+#ifndef DEBUG_MEMORY_LEAKS
+#pragma clang diagnostic pop
+#endif
 
     void Buffer::free()
     {
-        if (destroyed)
-            throw std::runtime_error("Attempt to double-free a Buffer.");
+        if (!size)
+            return;
 
         unmap();
-        if (allocation)
-            vmaDestroyBuffer(*allocator, buffer, allocation);
-        destroyed = true;
+        vmaDestroyBuffer(*allocator, buffer, allocation);
     }
 
     void* Buffer::map()
     {
+        if (!size)
+            return nullptr;
+
         if (mapped == nullptr)
             vmaMapMemory(*allocator, allocation, &mapped);
         return mapped;
@@ -98,13 +74,19 @@ namespace my_app
 
     void Buffer::unmap()
     {
-        if (mapped != nullptr && allocation)
+        if (!size)
+            return;
+
+        if (mapped != nullptr)
             vmaUnmapMemory(*allocator, allocation);
         mapped = nullptr;
     }
 
     void Buffer::flush()
     {
+        if (!size)
+            return;
+
         vmaFlushAllocation(*allocator, allocation, 0, size);
     }
 }    // namespace my_app

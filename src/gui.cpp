@@ -17,6 +17,16 @@ namespace my_app
 
     GUI::~GUI()
     {
+        parent.get_vulkan().device->destroy(texture_desc_info.imageView);
+        parent.get_vulkan().device->destroy(texture_desc_info.sampler);
+        texture.free();
+
+        for (auto& resource: resources)
+        {
+            resource.vertex_buffer.free();
+            resource.index_buffer.free();
+        }
+
         if (ImGui::GetCurrentContext())
             ImGui::DestroyContext();
     }
@@ -44,6 +54,14 @@ namespace my_app
         io.MousePos = ImVec2(static_cast<float>(mouse.xpos), static_cast<float>(mouse.ypos));
         io.DisplaySize.x = float(parent.get_swapchain().extent.width);
         io.DisplaySize.y = float(parent.get_swapchain().extent.height);
+
+        ImGui::NewFrame();
+        ImGui::ShowMetricsWindow();
+        ImGui::EndFrame();
+
+        ImGui::NewFrame();
+        ImGui::ShowUserGuide();
+        ImGui::EndFrame();
 
         ImGui::NewFrame();
 
@@ -86,16 +104,23 @@ namespace my_app
         ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f));
     }
 
-    void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd, vk::UniqueRenderPass const& _render_pass, vk::UniqueFramebuffer const& framebuffer)
+    void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd, vk::UniqueFramebuffer const& framebuffer)
     {
         // Begin command buffer
         cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
         // Begin render pass
+        std::array<vk::ClearValue, 2> clear_values;
+        clear_values[0].color = vk::ClearColorValue(std::array<float, 4>{ 0.6f, 0.7f, 0.94f, 1.0f });
+        clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+
         vk::RenderPassBeginInfo rpbi{};
         rpbi.renderArea = vk::Rect2D{ vk::Offset2D(), parent.get_swapchain().extent };
-        rpbi.renderPass = _render_pass.get();
+        rpbi.renderPass = render_pass.get();
         rpbi.framebuffer = framebuffer.get();
+        rpbi.clearValueCount = clear_values.size();
+        rpbi.pClearValues = clear_values.data();
+
         cmd->beginRenderPass(rpbi, vk::SubpassContents::eInline);
 
         // Bind pipeline and set pipeline state
@@ -133,12 +158,18 @@ namespace my_app
         // Check that there is enough space for the vertices
         uint32_t vertex_buffer_size = sizeof(ImDrawVert) * static_cast<uint32_t>(data->TotalVtxCount);
         if (resource.vertex_buffer.get_size() < vertex_buffer_size)
-            resource.vertex_buffer = std::move(Buffer{ parent.get_vulkan().allocator, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer });
+        {
+            resource.vertex_buffer.free();
+            resource.vertex_buffer = Buffer{ "GUI Vertex buffer", parent.get_vulkan().allocator, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer };
+        }
 
         // Check that there is enough space for the indices
         uint32_t index_buffer_size = sizeof(ImDrawIdx) * static_cast<uint32_t>(data->TotalIdxCount);
         if (resource.index_buffer.get_size() < index_buffer_size)
-            resource.index_buffer = std::move(Buffer{ parent.get_vulkan().allocator, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer });
+        {
+            resource.index_buffer.free();
+            resource.index_buffer = Buffer{ "GUI Index buffer", parent.get_vulkan().allocator, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer };
+        }
 
         // Upload vertex and index data
         ImDrawVert* vertices = reinterpret_cast<ImDrawVert*>(resource.vertex_buffer.map());
@@ -208,91 +239,86 @@ namespace my_app
         unsigned char* pixels;
 
         // Get image data
-        {
-            int w = 0, h = 0;
-            ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
-            width = static_cast<uint32_t>(w);
-            height = static_cast<uint32_t>(h);
-            data_size = width * height * 4;
-        }
+        int w = 0, h = 0;
+        ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+        width = static_cast<uint32_t>(w);
+        height = static_cast<uint32_t>(h);
+        data_size = width * height * 4;
 
         // Create image and sampler
-        {
+        vk::Format format = vk::Format::eR8G8B8A8Unorm;
 
-            vk::Format format = vk::Format::eR8G8B8A8Unorm;
+        vk::ImageCreateInfo ci{};
+        ci.flags = {};
+        ci.imageType = vk::ImageType::e2D;
+        ci.format = format;
+        ci.extent.width = width;
+        ci.extent.height = height;
+        ci.extent.depth = 1;
+        ci.mipLevels = 1;
+        ci.arrayLayers = 1;
+        ci.samples = vk::SampleCountFlagBits::e1;
+        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        ci.queueFamilyIndexCount = 0;
+        ci.pQueueFamilyIndices = nullptr;
+        ci.sharingMode = vk::SharingMode::eExclusive;
 
-            vk::ImageCreateInfo ci{};
-            ci.flags = {};
-            ci.imageType = vk::ImageType::e2D;
-            ci.format = format;
-            ci.extent.width = width;
-            ci.extent.height = height;
-            ci.extent.depth = 1;
-            ci.mipLevels = 1;
-            ci.arrayLayers = 1;
-            ci.samples = MSAA_SAMPLES;
-            ci.initialLayout = vk::ImageLayout::eUndefined;
-            ci.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-            ci.queueFamilyIndexCount = 0;
-            ci.pQueueFamilyIndices = nullptr;
-            ci.sharingMode = vk::SharingMode::eExclusive;
-
-            texture = Image{ parent.get_vulkan().allocator, ci };
+        texture = Image{ "GUI Texture", parent.get_vulkan().allocator, ci };
 
 
-            vk::ImageViewCreateInfo vci{};
-            vci.flags = {};
-            vci.image = texture.get_image();
-            vci.format = format;
-            vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-            vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-            vci.subresourceRange.baseMipLevel = 0;
-            vci.subresourceRange.levelCount = 1;
-            vci.subresourceRange.baseArrayLayer = 0;
-            vci.subresourceRange.layerCount = 1;
-            vci.viewType = vk::ImageViewType::e2D;
+        vk::ImageViewCreateInfo vci{};
+        vci.flags = {};
+        vci.image = texture.get_image();
+        vci.format = format;
+        vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
+        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        vci.subresourceRange.baseMipLevel = 0;
+        vci.subresourceRange.levelCount = 1;
+        vci.subresourceRange.baseArrayLayer = 0;
+        vci.subresourceRange.layerCount = 1;
+        vci.viewType = vk::ImageViewType::e2D;
 
-            texture_desc_info.imageView = parent.get_vulkan().device->createImageView(vci);
+        texture_desc_info.imageView = parent.get_vulkan().device->createImageView(vci);
 
-            vk::SamplerCreateInfo sci{};
-            sci.magFilter = vk::Filter::eNearest;
-            sci.minFilter = vk::Filter::eLinear;
-            sci.mipmapMode = vk::SamplerMipmapMode::eLinear;
-            sci.addressModeU = vk::SamplerAddressMode::eRepeat;
-            sci.addressModeV = vk::SamplerAddressMode::eRepeat;
-            sci.addressModeW = vk::SamplerAddressMode::eRepeat;
-            sci.compareOp = vk::CompareOp::eNever;
-            sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
-            sci.minLod = 0;
-            sci.maxLod = 0;
-            sci.maxAnisotropy = 8.0f;
-            sci.anisotropyEnable = VK_TRUE;
-            texture_desc_info.sampler = parent.get_vulkan().device->createSampler(sci);
-        }
+        vk::SamplerCreateInfo sci{};
+        sci.magFilter = vk::Filter::eNearest;
+        sci.minFilter = vk::Filter::eLinear;
+        sci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        sci.addressModeU = vk::SamplerAddressMode::eRepeat;
+        sci.addressModeV = vk::SamplerAddressMode::eRepeat;
+        sci.addressModeW = vk::SamplerAddressMode::eRepeat;
+        sci.compareOp = vk::CompareOp::eNever;
+        sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+        sci.minLod = 0;
+        sci.maxLod = 0;
+        sci.maxAnisotropy = 8.0f;
+        sci.anisotropyEnable = VK_TRUE;
+        texture_desc_info.sampler = parent.get_vulkan().device->createSampler(sci);
 
         // Copy data to image's memory
-        {
-            vk::ImageSubresourceRange isr{};
-            isr.aspectMask = vk::ImageAspectFlagBits::eColor;
-            isr.baseMipLevel = 0;
-            isr.levelCount = 1;
-            isr.baseArrayLayer = 0;
-            isr.layerCount = 1;
+        vk::ImageSubresourceRange isr{};
+        isr.aspectMask = vk::ImageAspectFlagBits::eColor;
+        isr.baseMipLevel = 0;
+        isr.levelCount = 1;
+        isr.baseArrayLayer = 0;
+        isr.layerCount = 1;
 
-            parent.get_vulkan().CopyDataToImage(
-                pixels,
-                data_size,
-                texture,
-                width,
-                height,
-                isr,
-                vk::ImageLayout::eUndefined,
-                vk::AccessFlags(0),
-                vk::PipelineStageFlagBits::eTopOfPipe,
-                vk::ImageLayout::eShaderReadOnlyOptimal,
-                vk::AccessFlagBits::eShaderRead,
-                vk::PipelineStageFlagBits::eFragmentShader);
-        }
+        parent.get_vulkan().CopyDataToImage(
+            pixels,
+            data_size,
+            texture,
+            width,
+            height,
+            isr,
+            vk::ImageLayout::eUndefined,
+            vk::AccessFlags(0),
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            vk::AccessFlagBits::eShaderRead,
+            vk::PipelineStageFlagBits::eFragmentShader);
+
+        texture_desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
     void GUI::create_descriptors()
@@ -337,8 +363,8 @@ namespace my_app
         // Color attachment
         attachments[0].format = parent.get_swapchain().format.format;
         attachments[0].samples = MSAA_SAMPLES;
-        attachments[0].loadOp = vk::AttachmentLoadOp::eLoad;
-        attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
+        attachments[0].loadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[0].storeOp = vk::AttachmentStoreOp::eDontCare;
         attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[0].initialLayout = vk::ImageLayout::eUndefined;
@@ -348,7 +374,7 @@ namespace my_app
         // Depth attachment
         attachments[1].format = parent.get_depth_format();
         attachments[1].samples = MSAA_SAMPLES;
-        attachments[1].loadOp = vk::AttachmentLoadOp::eClear;
+        attachments[1].loadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
         attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
@@ -359,11 +385,11 @@ namespace my_app
         // Color resolve attachment
         attachments[2].format = parent.get_swapchain().format.format;
         attachments[2].samples = vk::SampleCountFlagBits::e1;
-        attachments[2].loadOp = vk::AttachmentLoadOp::eDontCare;
+        attachments[2].loadOp = vk::AttachmentLoadOp::eLoad;
         attachments[2].storeOp = vk::AttachmentStoreOp::eStore;
         attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[2].initialLayout = vk::ImageLayout::eUndefined;
+        attachments[2].initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
         attachments[2].finalLayout = vk::ImageLayout::ePresentSrcKHR;
         attachments[2].flags = {};
 
@@ -534,7 +560,7 @@ namespace my_app
         vk::PipelineMultisampleStateCreateInfo ms_i{};
         ms_i.flags = vk::PipelineMultisampleStateCreateFlags();
         ms_i.pSampleMask = nullptr;
-        ms_i.rasterizationSamples = vk::SampleCountFlagBits::e1;
+        ms_i.rasterizationSamples = MSAA_SAMPLES;
         ms_i.sampleShadingEnable = VK_TRUE;
         ms_i.alphaToCoverageEnable = VK_FALSE;
         ms_i.alphaToOneEnable = VK_FALSE;

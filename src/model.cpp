@@ -41,7 +41,9 @@ namespace my_app
         auto copy_queue = ctx.get_graphics_queue();
 
         // Move the pixels to a staging buffer that will be copied to the image
-        Buffer staging_buffer{ ctx.allocator, pixels.size(), vk::BufferUsageFlagBits::eTransferSrc };
+        std::string buffer_name = "Buffer ";
+        buffer_name += gltf_image.name;
+        Buffer staging_buffer{ buffer_name, ctx.allocator, pixels.size(), vk::BufferUsageFlagBits::eTransferSrc };
         void* mapped = staging_buffer.map();
         memcpy(mapped, pixels.data(), pixels.size());
 
@@ -59,7 +61,10 @@ namespace my_app
         ci.extent.width = width;
         ci.extent.height = height;
         ci.extent.depth = 1;
-        image = Image{ ctx.allocator, ci };
+
+        std::string texture_name = "Texture ";
+        texture_name += gltf_image.name;
+        image = Image{ texture_name, ctx.allocator, ci };
 
         // Copy buffer to the image
         auto cmd = ctx.device->allocateCommandBuffers({ ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
@@ -228,7 +233,7 @@ namespace my_app
     }
 
     Mesh::Mesh(VulkanContext& ctx)
-        : uniform(ctx.allocator, sizeof(UniformBlock), vk::BufferUsageFlagBits::eUniformBuffer)
+        : uniform("Mesh uniform", ctx.allocator, sizeof(UniformBlock), vk::BufferUsageFlagBits::eUniformBuffer)
     {
     }
 

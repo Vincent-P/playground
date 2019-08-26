@@ -12,14 +12,13 @@ namespace my_app
     {
         public:
         Buffer();
-        Buffer(const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
-        Buffer(const Buffer& other);
-        Buffer& operator=(const Buffer& other);
-        ~Buffer();
+        Buffer(std::string name, const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
+
         void free();
         void* map();
         void unmap();
         void flush();
+        void set_name(std::string new_name);
 
         vk::Buffer get_buffer() const { return buffer; }
 
@@ -46,6 +45,5 @@ namespace my_app
         VmaMemoryUsage mem_usage;
         vk::Buffer buffer;
         VmaAllocation allocation;
-        bool destroyed;
     };
 }    // namespace my_app
