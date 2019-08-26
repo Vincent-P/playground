@@ -156,7 +156,7 @@ namespace my_app
 
                 if (last_fps_update + std::chrono::milliseconds(1000) < end)
                 {
-                    std::string windowTitle = "Test vulkan - " + std::to_string(frame_counter) + " fps";
+                    std::string windowTitle = "Test vulkan - " + std::to_string(frame_counter) + " fps | " + std::to_string(delta_t) + " ms";
                     glfwSetWindowTitle(window, windowTitle.c_str());
                     frame_counter = 0;
                     last_fps_update = end;

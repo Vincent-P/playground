@@ -64,7 +64,7 @@ namespace my_app
         // Copy buffer to the image
         auto cmd = ctx.device->allocateCommandBuffers({ ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
 
-        cmd.begin({});
+        cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
         vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
         {
@@ -115,7 +115,7 @@ namespace my_app
         // Generate the mipchain (because glTF's textures are regular images)
 
         auto bcmd = ctx.device->allocateCommandBuffers({ ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
-        bcmd.begin({});
+        bcmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
         for (uint32_t i = 1; i < mip_levels; i++)
         {
@@ -173,7 +173,7 @@ namespace my_app
         subresource_range.levelCount = mip_levels;
         desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-        bcmd.begin({});
+        bcmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
         {
             vk::ImageMemoryBarrier b{};
