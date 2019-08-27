@@ -84,7 +84,7 @@ namespace my_app
         void resize(int width, int height);
 
         void update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera);
-        void draw_frame(Camera& camera, const TimerData& timer, tools::MouseState mouse);
+        void draw_frame(Camera& camera, const TimerData& timer);
         void wait_idle();
 
         const VulkanContext& get_vulkan() const

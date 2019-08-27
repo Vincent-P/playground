@@ -748,11 +748,11 @@ namespace my_app
         recreate_swapchain();
     }
 
-    void Renderer::draw_frame(Camera& camera, const TimerData& timer, tools::MouseState mouse)
+    void Renderer::draw_frame(Camera& camera, const TimerData& timer)
     {
         static uint32_t virtual_frame_idx = 0;
 
-        gui.start_frame(timer, mouse);
+        gui.start_frame(timer);
 
         auto& device = vulkan.device;
         auto graphics_queue = vulkan.get_graphics_queue();

@@ -12,10 +12,6 @@ namespace my_app
 {
     class Renderer;
     class TimerData;
-    namespace tools
-    {
-        struct MouseState;
-    }
 
     struct GUIFrameRessource
     {
@@ -30,7 +26,7 @@ namespace my_app
         ~GUI();
 
         void init();
-        void start_frame(const TimerData& timer, const tools::MouseState& mouse);
+        void start_frame(const TimerData& timer);
         void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer, vk::UniqueFramebuffer const& framebuffer);
 
         private:

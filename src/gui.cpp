@@ -1,6 +1,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
 #include <imgui.h>
+#include <iostream>
 #pragma clang diagnostic pop
 
 #include "gui.hpp"
@@ -35,6 +36,10 @@ namespace my_app
     {
         ImGui::CreateContext();
 
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize.x = float(parent.get_swapchain().extent.width);
+        io.DisplaySize.y = float(parent.get_swapchain().extent.height);
+
         resources.resize(NUM_VIRTUAL_FRAME);
 
         create_texture();
@@ -44,26 +49,14 @@ namespace my_app
         create_graphics_pipeline();
     }
 
-    void GUI::start_frame(const TimerData& timer, const tools::MouseState& mouse)
+    void GUI::start_frame(const TimerData& timer)
     {
         ImGuiIO& io = ImGui::GetIO();
         io.DeltaTime = timer.get_delta_time();
         io.Framerate = timer.get_average_fps();
-        io.MouseDown[0] = mouse.left_pressed;
-        io.MouseDown[1] = mouse.right_pressed;
-        io.MousePos = ImVec2(static_cast<float>(mouse.xpos), static_cast<float>(mouse.ypos));
+
         io.DisplaySize.x = float(parent.get_swapchain().extent.width);
         io.DisplaySize.y = float(parent.get_swapchain().extent.height);
-
-        ImGui::NewFrame();
-        ImGui::ShowMetricsWindow();
-        ImGui::EndFrame();
-
-        ImGui::NewFrame();
-        ImGui::ShowUserGuide();
-        ImGui::EndFrame();
-
-        ImGui::NewFrame();
 
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 120.0f, 20.0f));
         ImGui::SetNextWindowSize(ImVec2(100.0f, 100.0));
@@ -101,7 +94,6 @@ namespace my_app
         }
 
         ImGui::End();
-        ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f));
     }
 
     void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd, vk::UniqueFramebuffer const& framebuffer)
