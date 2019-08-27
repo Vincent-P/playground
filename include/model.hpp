@@ -192,7 +192,7 @@ namespace my_app
         int normal_texture_set;
         int occlusion_texture_set;
         int emissive_texture_set;
-        float metallic_facotr;
+        float metallic_factor;
         float roughness_factor;
         float alpha_mask;
         float alpha_mask_cutoff;

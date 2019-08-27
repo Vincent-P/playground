@@ -41,13 +41,6 @@ namespace my_app
 
         auto copy_queue = ctx.get_graphics_queue();
 
-        // Move the pixels to a staging buffer that will be copied to the image
-        std::string buffer_name = "Buffer ";
-        buffer_name += gltf_image.name;
-        Buffer staging_buffer{ buffer_name, ctx.allocator, pixels.size(), vk::BufferUsageFlagBits::eTransferSrc };
-        void* mapped = staging_buffer.map();
-        memcpy(mapped, pixels.data(), pixels.size());
-
         // Create the image that will contain the texture
         vk::ImageCreateInfo ci{};
         ci.imageType = vk::ImageType::e2D;
@@ -67,56 +60,12 @@ namespace my_app
         texture_name += gltf_image.name;
         image = Image{ texture_name, ctx.allocator, ci };
 
-        // Copy buffer to the image
-        auto cmd = ctx.device->allocateCommandBuffers({ ctx.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
-
-        cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
         vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
-        {
-            vk::ImageMemoryBarrier b{};
-            b.oldLayout = vk::ImageLayout::eUndefined;
-            b.newLayout = vk::ImageLayout::eTransferDstOptimal;
-            b.srcAccessMask = {};
-            b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b.image = image.get_image();
-            b.subresourceRange = subresource_range;
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, nullptr, nullptr, b);
-        }
-
-        vk::BufferImageCopy region{};
-        region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-        region.imageExtent.width = width;
-        region.imageExtent.height = height;
-        region.imageExtent.depth = 1;
-        cmd.copyBufferToImage(staging_buffer.get_buffer(), image.get_image(), vk::ImageLayout::eTransferDstOptimal, region);
-
-        {
-            vk::ImageMemoryBarrier b{};
-            b.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-            b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-            b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-            b.image = image.get_image();
-            b.subresourceRange = subresource_range;
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, nullptr, nullptr, b);
-        }
-
-        cmd.end();
-
-        auto fence = ctx.device->createFence({});
-        vk::SubmitInfo submit{};
-        submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &cmd;
-
-        copy_queue.submit(submit, fence);
-        ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-        ctx.device->destroy(fence);
-
-        staging_buffer.free();
+        ctx.CopyDataToImage(pixels.data(), pixels.size(), image, width, height, subresource_range,
+                        vk::ImageLayout::eUndefined, {}, vk::PipelineStageFlagBits::eAllCommands,
+                        vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits::eTransferRead, vk::PipelineStageFlagBits::eAllCommands
+            );
 
         // Generate the mipchain (because glTF's textures are regular images)
 
@@ -168,13 +117,13 @@ namespace my_app
 
         bcmd.end();
 
-        fence = ctx.device->createFence({});
+        auto fence = ctx.device->createFenceUnique({});
+        vk::SubmitInfo submit{};
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &bcmd;
 
-        copy_queue.submit(submit, fence);
-        ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-        ctx.device->destroy(fence);
+        copy_queue.submit(submit, fence.get());
+        ctx.device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
 
         subresource_range.levelCount = mip_levels;
         desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -194,13 +143,12 @@ namespace my_app
 
         bcmd.end();
 
-        fence = ctx.device->createFence({});
+        fence = ctx.device->createFenceUnique({});
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &bcmd;
 
-        copy_queue.submit(submit, fence);
-        ctx.device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-        ctx.device->destroy(fence);
+        copy_queue.submit(submit, fence.get());
+        ctx.device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
 
         // Create the sampler for the texture
         vk::SamplerCreateInfo sci{};
@@ -270,18 +218,20 @@ namespace my_app
             if (primitive.material.workflow == Material::PbrWorkflow::MetallicRoughness)
             {
                 material.base_color_factor = primitive.material.base_color_factor;
-                material.metallic_facotr = primitive.material.metallic_factor;
+                material.metallic_factor = primitive.material.metallic_factor;
                 material.roughness_factor = primitive.material.roughness_factor;
+
                 material.physical_descriptor_texture_set = primitive.material.metallic_roughness != nullptr ? primitive.material.tex_coord_sets.metallic_roughness : -1;
                 material.color_texture_set = primitive.material.base_color != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
             }
 
             if (primitive.material.workflow == Material::PbrWorkflow::SpecularGlossiness)
             {
-                material.physical_descriptor_texture_set = primitive.material.extension.specular_glosiness != nullptr ? primitive.material.tex_coord_sets.specular_glosiness : -1;
-                material.color_texture_set = primitive.material.extension.diffuse != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
                 material.diffuse_factor = primitive.material.extension.diffuse_factor;
                 material.specular_factor = glm::vec4(primitive.material.extension.specular_factor, 1.0f);
+
+                material.physical_descriptor_texture_set = primitive.material.extension.specular_glosiness != nullptr ? primitive.material.tex_coord_sets.specular_glosiness : -1;
+                material.color_texture_set = primitive.material.extension.diffuse != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
             }
 
             cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &material);

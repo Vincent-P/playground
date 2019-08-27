@@ -36,8 +36,8 @@ namespace my_app
     {
         {
             auto previous_time = time;
-            time = std::chrono::high_resolution_clock::now();
-            delta_time = std::chrono::high_resolution_clock::now() - previous_time;
+            time = clock_t::now();
+            delta_time = clock_t::now() - previous_time;
         }
         {
             auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
@@ -69,8 +69,8 @@ namespace my_app
     }
 
     TimerData::TimerData()
-        : time(std::chrono::high_resolution_clock::now())
-        , delta_time(std::chrono::high_resolution_clock::now() - std::chrono::high_resolution_clock::now())
+        : time(clock_t::now())
+        , delta_time(clock_t::now() - clock_t::now())
         , float_delta_time(10.0f)
         , average_delta_time(10.0f)
         , average_fps(10.0f)

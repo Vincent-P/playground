@@ -6,15 +6,26 @@
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
+#include "timer.hpp"
 #include "tools.hpp"
 
 namespace my_app
 {
+    void log(time_t& start_time, const char* message)
+    {
+        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(clock_t::now() - start_time);
+        std::cout << message << " (" << milliseconds.count() << "ms)" << "\n";
+        start_time = clock_t::now();
+    }
+
     Renderer::Renderer(GLFWwindow* window, std::string model_path)
         : vulkan(window)
         , model(model_path, vulkan)
         , gui(*this)
     {
+        auto start = clock_t::now();
+
+        log(start, "Creating a dummy texture");
         auto format = vk::Format::eA8B8G8R8UnormPack32;
 
         vk::ImageCreateInfo ci{};
@@ -78,24 +89,33 @@ namespace my_app
         empty_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         // Create the swapchain
+        log(start, "Creating a swapchain");
         create_swapchain();
 
+        log(start, "Creating the descriptor sets");
         create_descriptors();
 
         // Create ressources
+        log(start, "Creating the frame resources");
         create_frame_ressources();
+        log(start, "Creating the color buffer");
         create_color_buffer();
+        log(start, "Creating the depth buffer");
         create_depth_buffer();
 
+        log(start, "Creating the vertex and index buffer");
         create_vertex_buffer();
         create_index_buffer();
 
 
         // Create the pipeline
+        log(start, "Creating the render pass");
         create_render_pass();
+        log(start, "Creating the graphics pipeline");
         create_graphics_pipeline();
-
+        log(start, "Creating GUI resources");
         gui.init();
+        log(start, "Done!");
     }
 
     Renderer::~Renderer()
