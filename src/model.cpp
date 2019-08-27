@@ -9,6 +9,7 @@
 #include "buffer.hpp"
 #include "image.hpp"
 #include "model.hpp"
+#include "timer.hpp"
 #include "vulkan_context.hpp"
 
 namespace my_app
@@ -286,10 +287,10 @@ namespace my_app
             cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &material);
 
             cmd->drawIndexed(primitive.index_count,
-                            1,
-                            primitive.first_index,
-                            primitive.first_vertex,
-                            0);
+                             1,
+                             primitive.first_index,
+                             primitive.first_vertex,
+                             0);
         }
     }
 
@@ -344,6 +345,9 @@ namespace my_app
     Model::Model(std::string path, VulkanContext& ctx)
         : ctx(ctx)
     {
+        std::cout << "Loading gltf model " << path << "\n";
+        auto start = clock_t::now();
+
         std::string err, warn;
         if (!loader.LoadASCIIFromFile(&model, &err, &warn, path) || !err.empty() || !warn.empty())
         {
@@ -362,6 +366,10 @@ namespace my_app
 
         for (auto& node : scene_nodes)
             node.update();
+
+        auto elapsed = clock_t::now() - start;
+        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+        std::cout << "Loaded in " << milliseconds.count() << "ms!\n";
     }
 
     void Model::free()
@@ -467,6 +475,43 @@ namespace my_app
 
             if (material.additionalValues.count("emissiveFactor"))
                 new_mat.emissive_factor = glm::vec4(glm::make_vec3(material.additionalValues["emissiveFactor"].ColorFactor().data()), 1.0f);
+
+            if (material.extensions.count("KHR_materials_pbrSpecularGlossiness"))
+            {
+                auto& extension = material.extensions.at("KHR_materials_pbrSpecularGlossiness");
+
+                if (extension.Has("specularGlossinessTexture"))
+                {
+                    auto index = extension.Get("specularGlossinessTexture").Get("index");
+                    new_mat.extension.specular_glosiness = &textures[index.Get<int>()];
+                    auto texCoordSet = extension.Get("specularGlossinessTexture").Get("texCoord");
+                    new_mat.tex_coord_sets.specular_glosiness = texCoordSet.Get<int>();
+                    new_mat.workflow = Material::PbrWorkflow::SpecularGlossiness;
+                }
+                if (extension.Has("diffuseTexture"))
+                {
+                    auto index = extension.Get("diffuseTexture").Get("index");
+                    new_mat.extension.diffuse = &textures[index.Get<int>()];
+                }
+                if (extension.Has("diffuseFactor"))
+                {
+                    auto factor = extension.Get("diffuseFactor");
+                    for (uint32_t i = 0; i < factor.ArrayLen(); i++)
+                    {
+                        auto val = factor.Get(i);
+                        new_mat.extension.diffuse_factor[i] = val.IsNumber() ? (float)val.Get<double>() : (float)val.Get<int>();
+                    }
+                }
+                if (extension.Has("specularFactor"))
+                {
+                    auto factor = extension.Get("specularFactor");
+                    for (uint32_t i = 0; i < factor.ArrayLen(); i++)
+                    {
+                        auto val = factor.Get(i);
+                        new_mat.extension.specular_factor[i] = val.IsNumber() ? (float)val.Get<double>() : (float)val.Get<int>();
+                    }
+                }
+            }
 
             materials.push_back(std::move(new_mat));
         }

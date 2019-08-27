@@ -138,9 +138,9 @@ namespace my_app
             switch (workflow)
             {
                 case PbrWorkflow::MetallicRoughness:
-                    return 0;
+                    return 0.0f;
                 case PbrWorkflow::SpecularGlossiness:
-                    return 1;
+                    return 1.0f;
             }
         }
 
