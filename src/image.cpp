@@ -13,11 +13,6 @@ namespace my_app
     }
 
 
-#ifndef DEBUG_MEMORY_LEAKS
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#endif
-
     Image::Image(std::string name, const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage)
         : allocator(&_allocator)
         , image_info(_image_info)
@@ -29,10 +24,8 @@ namespace my_app
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = mem_usage;
 
-#ifdef DEBUG_MEMORY_LEAKS
         allocInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
         allocInfo.pUserData = name.data();
-#endif
 
         VK_CHECK(vmaCreateImage(*allocator,
                                 reinterpret_cast<VkImageCreateInfo*>(&image_info),
@@ -41,11 +34,6 @@ namespace my_app
                                 &allocation,
                                 nullptr));
     }
-
-
-#ifndef DEBUG_MEMORY_LEAKS
-#pragma clang diagnostic pop
-#endif
 
 
     void Image::free()

@@ -14,12 +14,6 @@ namespace my_app
     {
     }
 
-#ifndef DEBUG_MEMORY_LEAKS
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#endif
-
-
     Buffer::Buffer(std::string name, const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage)
         : allocator(&_allocator)
         , mapped(nullptr)
@@ -36,10 +30,8 @@ namespace my_app
         VmaAllocationCreateInfo allocInfo{};
         allocInfo.usage = mem_usage;
 
-#ifdef DEBUG_MEMORY_LEAKS
         allocInfo.flags = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
         allocInfo.pUserData = name.data();
-#endif
 
         VK_CHECK(vmaCreateBuffer(*allocator,
                                  reinterpret_cast<VkBufferCreateInfo*>(&ci),
@@ -48,10 +40,6 @@ namespace my_app
                                  &allocation,
                                  nullptr));
     }
-
-#ifndef DEBUG_MEMORY_LEAKS
-#pragma clang diagnostic pop
-#endif
 
     void Buffer::free()
     {

@@ -41,7 +41,7 @@ namespace my_app
 
     struct FrameRessource
     {
-        vk::Fence fence;
+        vk::UniqueFence fence;
         vk::UniqueSemaphore image_available;
         vk::UniqueSemaphore rendering_finished;
         vk::UniqueFramebuffer framebuffer;

@@ -69,12 +69,10 @@ namespace my_app
 
         device->destroy(command_pool);
 
-#ifdef  DEBUG_MEMORY_LEAKS
         char* message;
         vmaBuildStatsString(allocator, &message, VK_TRUE);
         std::cout << message << std::endl;
         vmaFreeStatsString(allocator, message);
-#endif
 
         vmaDestroyAllocator(allocator);
     }

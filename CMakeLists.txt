@@ -50,7 +50,6 @@ add_executable(test-vulkan ${TEST_VULKAN_FILES})
 # --------------
 # Setup libraries
 add_definitions(
-#  -DDEBUG_MEMORY_LEAKS
   -DGLFW_INCLUDE_VULKAN
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE

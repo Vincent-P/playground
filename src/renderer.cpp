@@ -80,14 +80,16 @@ namespace my_app
         // Create the swapchain
         create_swapchain();
 
+        create_descriptors();
+
         // Create ressources
         create_frame_ressources();
         create_color_buffer();
         create_depth_buffer();
+
         create_vertex_buffer();
         create_index_buffer();
 
-        create_descriptors();
 
         // Create the pipeline
         create_render_pass();
@@ -123,9 +125,6 @@ namespace my_app
         vulkan.device->destroy(depth_image_view);
         vulkan.device->destroy(color_image_view);
 
-        for (auto& frame_ressource : frame_resources)
-            vulkan.device->destroy(frame_ressource.fence);
-
         depth_image.free();
         color_image.free();
     }
@@ -147,12 +146,6 @@ namespace my_app
     {
         // Use default extent for the swapchain
         auto capabilities = vulkan.physical_device.getSurfaceCapabilitiesKHR(*vulkan.surface);
-
-        std::cout << "The device supports:\n"
-                  << "Min image count: " << capabilities.minImageCount << "\n"
-                  << "Max image count: " << capabilities.maxImageCount << "\n"
-                  << "Min extent: " << capabilities.minImageExtent.width << "x" << capabilities.minImageExtent.height << "\n"
-                  << "Max extent: " << capabilities.maxImageExtent.width << "x" << capabilities.maxImageExtent.height << "\n";
 
         swapchain.extent = capabilities.currentExtent;
 
@@ -464,20 +457,6 @@ namespace my_app
             dsai.descriptorSetCount = layouts.size();
             desc_sets = vulkan.device->allocateDescriptorSetsUnique(dsai);
 
-            for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
-            {
-                auto dbi = frame_resources[i].uniform_buffer.get_desc_info();
-
-                std::array<vk::WriteDescriptorSet, 1> writes;
-                writes[0].dstSet = desc_sets[i].get();
-                writes[0].descriptorCount = 1;
-                writes[0].descriptorType = vk::DescriptorType::eUniformBuffer;
-                writes[0].pBufferInfo = &dbi;
-                writes[0].dstArrayElement = 0;
-                writes[0].dstBinding = 0;
-
-                vulkan.device->updateDescriptorSets(writes, nullptr);
-            }
         }
 
         // Descriptor set 1: Materials
@@ -574,6 +553,9 @@ namespace my_app
 
     void Renderer::create_frame_ressources()
     {
+        for (auto& resource : frame_resources)
+            resource.uniform_buffer.free();
+
         frame_resources.resize(NUM_VIRTUAL_FRAME);
 
         for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
@@ -581,7 +563,7 @@ namespace my_app
             auto frame_ressource = frame_resources.data() + i;
 
             vk::FenceCreateInfo fci{};
-            frame_ressource->fence = vulkan.device->createFence({ vk::FenceCreateFlagBits::eSignaled });
+            frame_ressource->fence = vulkan.device->createFenceUnique({ vk::FenceCreateFlagBits::eSignaled });
             frame_ressource->image_available = vulkan.device->createSemaphoreUnique({});
             frame_ressource->rendering_finished = vulkan.device->createSemaphoreUnique({});
 
@@ -590,8 +572,20 @@ namespace my_app
 
 
             std::string name = "Uniform buffer ";
-            name += i;
+            name += std::to_string(i);
             frame_ressource->uniform_buffer = Buffer(name, vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
+
+            auto dbi = frame_resources[i].uniform_buffer.get_desc_info();
+
+            std::array<vk::WriteDescriptorSet, 1> writes;
+            writes[0].dstSet = desc_sets[i].get();
+            writes[0].descriptorCount = 1;
+            writes[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+            writes[0].pBufferInfo = &dbi;
+            writes[0].dstArrayElement = 0;
+            writes[0].dstBinding = 0;
+
+            vulkan.device->updateDescriptorSets(writes, nullptr);
         }
     }
 
@@ -758,8 +752,8 @@ namespace my_app
         auto graphics_queue = vulkan.get_graphics_queue();
         auto frame_resource = frame_resources.data() + virtual_frame_idx;
 
-        device->waitForFences(frame_resource->fence, VK_TRUE, UINT64_MAX);
-        device->resetFences(frame_resource->fence);
+        device->waitForFences(frame_resource->fence.get(), VK_TRUE, UINT64_MAX);
+        device->resetFences(frame_resource->fence.get());
 
         uint32_t image_index = 0;
         auto result = device->acquireNextImageKHR(*swapchain.handle,
@@ -866,7 +860,7 @@ namespace my_app
         kernel.pCommandBuffers = &frame_resource->post_commandbuffer.get();
         kernel.signalSemaphoreCount = 1;
         kernel.pSignalSemaphores = &frame_resource->rendering_finished.get();
-        graphics_queue.submit(kernel, frame_resource->fence);
+        graphics_queue.submit(kernel, frame_resource->fence.get());
 
         // Present the frame
         vk::PresentInfoKHR present_i{};
