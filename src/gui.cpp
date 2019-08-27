@@ -200,6 +200,7 @@ namespace my_app
             -1.0f,                                  // X translation
             -1.0f                                   // Y translation
         };
+
         cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<uint32_t>(scale_and_translation.size()), scale_and_translation.data());
 
         // Render GUI
@@ -363,11 +364,11 @@ namespace my_app
         // Color attachment
         attachments[0].format = parent.get_swapchain().format.format;
         attachments[0].samples = MSAA_SAMPLES;
-        attachments[0].loadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[0].storeOp = vk::AttachmentStoreOp::eDontCare;
+        attachments[0].loadOp = vk::AttachmentLoadOp::eLoad;
+        attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
         attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[0].initialLayout = vk::ImageLayout::eUndefined;
+        attachments[0].initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
         attachments[0].finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
         attachments[0].flags = {};
 
@@ -385,7 +386,7 @@ namespace my_app
         // Color resolve attachment
         attachments[2].format = parent.get_swapchain().format.format;
         attachments[2].samples = vk::SampleCountFlagBits::e1;
-        attachments[2].loadOp = vk::AttachmentLoadOp::eLoad;
+        attachments[2].loadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].storeOp = vk::AttachmentStoreOp::eStore;
         attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
