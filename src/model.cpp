@@ -8,6 +8,7 @@
 
 #include "buffer.hpp"
 #include "image.hpp"
+#include "tools.hpp"
 #include "model.hpp"
 #include "timer.hpp"
 #include "vulkan_context.hpp"
@@ -295,7 +296,9 @@ namespace my_app
     Model::Model(std::string path, VulkanContext& ctx)
         : ctx(ctx)
     {
-        std::cout << "Loading gltf model " << path << "\n";
+        std::string message =  "[MODEL] Opening and parsing ";
+        message += path;
+        tools::start_log(message.c_str());
         auto start = clock_t::now();
 
         std::string err, warn;
@@ -308,18 +311,22 @@ namespace my_app
             throw std::runtime_error("Failed to load model.");
         }
 
+        tools::log(start, "[MODEL] Loading samplers");
         load_samplers();
+        tools::log(start, "[MODEL] Loading textures");
         load_textures();
+        tools::log(start, "[MODEL] Loading materials");
         load_materials();
+        tools::log(start, "[MODEL] Loading meshes");
         load_meshes();
+        tools::log(start, "[MODEL] Loading nodes");
         load_nodes();
 
+        tools::log(start, "[MODEL] Updating nodes");
         for (auto& node : scene_nodes)
             node.update();
 
-        auto elapsed = clock_t::now() - start;
-        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
-        std::cout << "Loaded in " << milliseconds.count() << "ms!\n";
+        tools::end_log(start, "[MODEL] Done!");
     }
 
     void Model::free()

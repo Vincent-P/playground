@@ -34,6 +34,9 @@ namespace my_app
 
     void GUI::init()
     {
+        tools::start_log("[GUI] Initialize ImGui");
+        auto start = clock_t::now();
+
         ImGui::CreateContext();
 
         ImGuiIO& io = ImGui::GetIO();
@@ -42,11 +45,17 @@ namespace my_app
 
         resources.resize(NUM_VIRTUAL_FRAME);
 
+        tools::log(start, "[GUI] Creating the font texture");
         create_texture();
+        tools::log(start, "[GUI] Creating the descriptor sets");
         create_descriptors();
+        tools::log(start, "[GUI] Creating the pipeline layout");
         create_pipeline_layout();
+        tools::log(start, "[GUI] Creating the render pass");
         create_render_pass();
+        tools::log(start, "[GUI] Creating the graphics pipeline");
         create_graphics_pipeline();
+        tools::end_log(start, "[GUI] Done!");
     }
 
     void GUI::start_frame(const TimerData& timer)
