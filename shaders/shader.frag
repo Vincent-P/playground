@@ -13,6 +13,8 @@ layout(set = 0, binding = 0) uniform UBO {
     vec4 light_dir;
     float debugViewInput;
     float debugViewEquation;
+    float ambient;
+    float dummy;
 } ubo;
 
 layout (set = 1, binding = 0) uniform sampler2D colorMap;
@@ -90,6 +92,7 @@ vec4 tonemap(vec4 color)
 */
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
+    return srgbIn;
 	#ifdef MANUAL_SRGB
 	#ifdef SRGB_FAST_APPROXIMATION
 	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
@@ -126,9 +129,9 @@ vec3 getNormal()
 // Calculation of the lighting contribution from an optional Image Based Light source.
 // Precomputed Environment Maps are required uniform inputs and are computed as outlined in [1].
 // See our README.md on Environment Maps [3] for additional discussion.
-        /*
 vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 {
+        /*
 	float lod = (pbrInputs.perceptualRoughness * uboParams.prefilteredCubeMipLevels);
 	// retrieve a scale and bias to F0. See [1], Figure 3
 	vec3 brdf = (texture(samplerBRDFLUT, vec2(pbrInputs.NdotV, 1.0 - pbrInputs.perceptualRoughness))).rgb;
@@ -145,9 +148,9 @@ vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 	specular *= uboParams.scaleIBLAmbient;
 
 	return diffuse + specular;
-    return vec3(ubo.ambient);
-}
         */
+    return vec3(ubo.ambient) * pbrInputs.diffuseColor;
+}
 
 // Basic Lambertian diffuse
 // Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog
@@ -332,7 +335,7 @@ void main()
 	vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
 
 	// Calculate lighting contribution from image based lighting source (IBL)
-	// color += getIBLContribution(pbrInputs, n, reflection);
+	color += getIBLContribution(pbrInputs, n, reflection);
 
 	const float u_OcclusionStrength = 1.0f;
 	// Apply optional PBR terms for additional (optional) shading

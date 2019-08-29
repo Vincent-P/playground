@@ -40,6 +40,8 @@ namespace my_app
         glm::vec4 light_dir;
         float debug_view_input;
         float debug_view_equation;
+        float ambient;
+        float dummy;
     };
 
     struct FrameRessource

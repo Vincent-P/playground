@@ -38,6 +38,14 @@ namespace my_app
         auto start = clock_t::now();
 
         ImGui::CreateContext();
+        auto &style = ImGui::GetStyle();
+        style.FrameRounding = 0.f;
+        style.GrabRounding = 0.f;
+        style.WindowRounding = 0.f;
+        style.ScrollbarRounding = 0.f;
+        style.GrabRounding = 0.f;
+        style.TabRounding = 0.f;
+
 
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize.x = float(parent.get_swapchain().extent.width);

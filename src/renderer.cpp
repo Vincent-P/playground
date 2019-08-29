@@ -192,7 +192,7 @@ namespace my_app
         else
         {
             for (const auto& f : formats)
-                if (f.format == vk::Format::eB8G8R8A8Srgb)
+                if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
                 {
                     swapchain.format = f;
                     break;
@@ -456,6 +456,12 @@ namespace my_app
         ubo.light_dir.x = light_dir[0];
         ubo.light_dir.y = light_dir[1];
         ubo.light_dir.z = light_dir[2];
+
+        ImGui::Separator();
+
+        static float ambient = 0.1f;
+        ImGui::DragFloat("Ambient light", &ambient, 0.01f, 0.f, 1.f);
+        ubo.ambient = ambient;
 
         ImGui::Separator();
 

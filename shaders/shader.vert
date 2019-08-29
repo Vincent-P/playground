@@ -13,6 +13,8 @@ layout(set = 0, binding = 0) uniform UBO {
     vec4 light_dir;
     float debugViewInput;
     float debugViewEquation;
+    float ambient;
+    float dummy;
 } ubo;
 
 layout (set = 2, binding = 0) uniform UBONode {
