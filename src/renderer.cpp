@@ -428,30 +428,57 @@ namespace my_app
 
     void Renderer::update_uniform_buffer(FrameRessource* frame_ressource, Camera& camera)
     {
-        // transformation, angle, rotations axis
-        MVP ubo{};
-        ubo.cam_pos = camera.position;
-
-        float aspect_ratio = swapchain.extent.width / (float)swapchain.extent.height;
-
         ImGui::SetNextWindowPos(ImVec2(200.f, 20.0f));
         ImGui::Begin("Uniform buffer", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        static float fov = 45.0f;
-        ImGui::DragFloat("FOV", &fov, 1.0f, 20.f, 90.f);
-
-        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
-
+        SceneUniform ubo{};
         ubo.view = glm::lookAt(
             camera.position,                   // origin of camera
             camera.position + camera.front,    // where to look
             camera.up);
+
+        static float fov = 45.0f;
+        ImGui::DragFloat("FOV", &fov, 1.0f, 20.f, 90.f);
+        float aspect_ratio = swapchain.extent.width / (float)swapchain.extent.height;
+
+        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
 
         // Vulkan clip space has inverted Y and half Z.
         ubo.clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
                              0.0f, -1.0f, 0.0f, 0.0f,
                              0.0f, 0.0f, 0.5f, 0.0f,
                              0.0f, 0.0f, 0.5f, 1.0f);
+
+        ubo.cam_pos = glm::vec4(camera.position, 0.f);
+
+        static glm::vec4 light_dir = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+        ubo.light_dir = light_dir;
+
+        ImGui::Separator();
+
+        static float exposure = 4.5f;
+        ImGui::DragFloat("Exposure", &exposure, 0.1f, 4.5f, 10.f);
+        ubo.exposure = exposure;
+
+        ImGui::Separator();
+
+        static float gamma = 2.2f;
+        ImGui::DragFloat("Gamma", &gamma, 0.1f, 2.2f, 4.f);
+        ubo.gamma = gamma;
+
+        ImGui::Separator();
+
+        static size_t debug_view_input = 0;
+        const char* input_items[] = {"Disabled", "Base color", "normal", "occlusion", "emissive", "physical 1", "physical 2"};
+        tools::imgui_select("Debug inputs", input_items, ARRAY_SIZE(input_items), debug_view_input);
+        ubo.debug_view_input = float(debug_view_input);
+
+        ImGui::Separator();
+
+        static size_t debug_view_equation = 0;
+        const char* equation_items[] = {"Disabled", "Diff (l,n)", "F (l,h)", "G (l,v,h)", "D (h)", "Specular"};
+        tools::imgui_select("Debug Equations", equation_items, ARRAY_SIZE(equation_items), debug_view_equation);
+        ubo.debug_view_equation = float(debug_view_equation);
 
         ImGui::End();
 
@@ -476,7 +503,7 @@ namespace my_app
         // Descriptor set 0: Scene/Camera informations (MVP)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-                vk::DescriptorSetLayoutBinding( 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex )
+                vk::DescriptorSetLayoutBinding( 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment )
             };
 
             scene_desc_layout = vulkan.create_descriptor_layout(bindings);
@@ -603,7 +630,7 @@ namespace my_app
 
             std::string name = "Uniform buffer ";
             name += std::to_string(i);
-            frame_ressource->uniform_buffer = Buffer(name, vulkan.allocator, sizeof(MVP), vk::BufferUsageFlagBits::eUniformBuffer);
+            frame_ressource->uniform_buffer = Buffer(name, vulkan.allocator, sizeof(SceneUniform), vk::BufferUsageFlagBits::eUniformBuffer);
 
             auto dbi = frame_resources[i].uniform_buffer.get_desc_info();
 

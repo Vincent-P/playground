@@ -31,12 +31,17 @@ namespace my_app
         float pitch = 0.0f;
     };
 
-    struct MVP
+    struct SceneUniform
     {
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-        alignas(16) glm::mat4 clip;
-        alignas(16) glm::vec3 cam_pos;
+        glm::mat4 view;
+        glm::mat4 proj;
+        glm::mat4 clip;
+        glm::vec4 cam_pos;
+        glm::vec4 light_dir;
+        float exposure;
+        float gamma;
+        float debug_view_input;
+        float debug_view_equation;
     };
 
     struct FrameRessource

@@ -15,8 +15,6 @@
 #include "timer.hpp"
 #include "tools.hpp"
 
-#define ARRAY_SIZE(_arr) (sizeof(_arr)/sizeof(*_arr))
-
 namespace my_app
 {
     constexpr float MOUSE_SENSITIVITY = 0.3f;

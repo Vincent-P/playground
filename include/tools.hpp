@@ -1,8 +1,11 @@
 #pragma once
 
+#pragma clang diagnostic ignored "-Weverything"
 #include <string>
+#include <imgui.h>
 #include <iostream>
 #include <vector>
+#pragma clang diagnostic pop
 
 #include "timer.hpp"
 
@@ -17,6 +20,8 @@
             throw std::runtime_error(error);                \
         }                                                   \
     } while (0)
+
+#define ARRAY_SIZE(_arr) (sizeof(_arr)/sizeof(*_arr))
 
 namespace my_app::tools
 {
@@ -50,5 +55,25 @@ namespace my_app::tools
         std::cout << " (" << milliseconds.count() << "ms)" << "\n"
                   << message << "\n";
         start_time = clock_t::now();
+    }
+
+    inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t &current_item)
+    {
+        std::string id("##custom combo");
+        id += title;
+
+        ImGui::Text(title);
+        if (ImGui::BeginCombo(id.c_str(), items[current_item], ImGuiComboFlags_NoArrowButton))
+        {
+            for (size_t n = 0; n < items_size; n++)
+            {
+                bool is_selected = (current_item == n);
+                if (ImGui::Selectable(items[n], is_selected))
+                    current_item = n;
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
     }
 }    // namespace my_app::tools
