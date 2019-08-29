@@ -8,6 +8,7 @@
 #include <string>
 #include <thread>
 #include <imgui.h>
+#include <math.h>
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
@@ -135,6 +136,9 @@ namespace my_app
 
                 camera.yaw += yaw_increment;
                 camera.pitch += pitch_increment;
+
+                if (isnan(camera.yaw))
+                    camera.yaw = 0.f;
 
                 ImGui::SetCursorPosX(10.0f);
                 ImGui::Text("GUI Mouse position:");

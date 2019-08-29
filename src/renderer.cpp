@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <vk_mem_alloc.h>
+#include <imgui.h>
 #pragma clang diagnostic pop
 
 #include "renderer.hpp"
@@ -385,30 +386,41 @@ namespace my_app
         attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[2].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[2].finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        attachments[2].finalLayout = vk::ImageLayout::ePresentSrcKHR;
         attachments[2].flags = {};
 
         vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
         vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
         vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
 
-        vk::SubpassDescription subpass{};
-        subpass.flags = vk::SubpassDescriptionFlags();
-        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-        subpass.inputAttachmentCount = 0;
-        subpass.pInputAttachments = nullptr;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_ref;
-        subpass.pResolveAttachments = &color_resolve_ref;
-        subpass.pDepthStencilAttachment = &depth_ref;
-        subpass.preserveAttachmentCount = 0;
-        subpass.pPreserveAttachments = nullptr;
+        std::array<vk::SubpassDescription, 2> subpasses{};
+        subpasses[0].flags = vk::SubpassDescriptionFlags(0);
+        subpasses[0].pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpasses[0].inputAttachmentCount = 0;
+        subpasses[0].pInputAttachments = nullptr;
+        subpasses[0].colorAttachmentCount = 1;
+        subpasses[0].pColorAttachments = &color_ref;
+        subpasses[0].pResolveAttachments = &color_resolve_ref;
+        subpasses[0].pDepthStencilAttachment = &depth_ref;
+        subpasses[0].preserveAttachmentCount = 0;
+        subpasses[0].pPreserveAttachments = nullptr;
+
+        subpasses[1].flags = vk::SubpassDescriptionFlags(0);
+        subpasses[1].pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpasses[1].inputAttachmentCount = 0;
+        subpasses[1].pInputAttachments = nullptr;
+        subpasses[1].colorAttachmentCount = 1;
+        subpasses[1].pColorAttachments = &color_resolve_ref;
+        subpasses[1].pResolveAttachments = nullptr;
+        subpasses[1].pDepthStencilAttachment = nullptr;
+        subpasses[1].preserveAttachmentCount = 0;
+        subpasses[1].pPreserveAttachments = nullptr;
 
         vk::RenderPassCreateInfo rp_info{};
         rp_info.attachmentCount = attachments.size();
         rp_info.pAttachments = attachments.data();
-        rp_info.subpassCount = 1;
-        rp_info.pSubpasses = &subpass;
+        rp_info.subpassCount = subpasses.size();
+        rp_info.pSubpasses = subpasses.data();
         rp_info.dependencyCount = 0;
         rp_info.pDependencies = nullptr;
         render_pass = vulkan.device->createRenderPassUnique(rp_info);
@@ -421,7 +433,13 @@ namespace my_app
         ubo.cam_pos = camera.position;
 
         float aspect_ratio = swapchain.extent.width / (float)swapchain.extent.height;
-        float fov = 45.0f;
+
+        ImGui::SetNextWindowPos(ImVec2(200.f, 20.0f));
+        ImGui::Begin("Uniform buffer", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        static float fov = 45.0f;
+        ImGui::DragFloat("FOV", &fov, 1.0f, 20.f, 90.f);
+
         ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
 
         ubo.view = glm::lookAt(
@@ -434,6 +452,8 @@ namespace my_app
                              0.0f, -1.0f, 0.0f, 0.0f,
                              0.0f, 0.0f, 0.5f, 0.0f,
                              0.0f, 0.0f, 0.5f, 1.0f);
+
+        ImGui::End();
 
         void* mappedData = frame_ressource->uniform_buffer.map();
         memcpy(mappedData, &ubo, sizeof(ubo));
@@ -580,8 +600,6 @@ namespace my_app
             frame_ressource->rendering_finished = vulkan.device->createSemaphoreUnique({});
 
             frame_ressource->commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
-            frame_ressource->post_commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
-
 
             std::string name = "Uniform buffer ";
             name += std::to_string(i);
@@ -764,7 +782,12 @@ namespace my_app
         auto graphics_queue = vulkan.get_graphics_queue();
         auto frame_resource = frame_resources.data() + virtual_frame_idx;
 
-        device->waitForFences(frame_resource->fence.get(), VK_TRUE, UINT64_MAX);
+        auto wait_result = device->waitForFences(frame_resource->fence.get(), VK_TRUE, 1000000000);
+        if (wait_result == vk::Result::eTimeout)
+        {
+            throw std::runtime_error("Submitted the frame more than 1 second ago.");
+        }
+
         device->resetFences(frame_resource->fence.get());
 
         uint32_t image_index = 0;
@@ -844,6 +867,11 @@ namespace my_app
 
             model.draw(frame_resource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
 
+
+            // Do the gui subpass
+            frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
+            gui.draw(virtual_frame_idx, frame_resource->commandbuffer);
+
             frame_resource->commandbuffer->endRenderPass();
             frame_resource->commandbuffer->end();
 
@@ -854,25 +882,10 @@ namespace my_app
             kernel.pWaitDstStageMask = &stage;
             kernel.commandBufferCount = 1;
             kernel.pCommandBuffers = &frame_resource->commandbuffer.get();
-            kernel.signalSemaphoreCount = 0;
-            kernel.pSignalSemaphores = nullptr;
-            graphics_queue.submit(kernel, vk::Fence());
+            kernel.signalSemaphoreCount = 1;
+            kernel.pSignalSemaphores = &frame_resource->rendering_finished.get();
+            graphics_queue.submit(kernel, frame_resource->fence.get());
         }
-
-        gui.draw(virtual_frame_idx, frame_resource->post_commandbuffer, frame_resource->framebuffer);
-
-        // Submit the command buffer
-
-        vk::PipelineStageFlags stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-        vk::SubmitInfo kernel{};
-        kernel.waitSemaphoreCount = 0;
-        kernel.pWaitSemaphores = nullptr;
-        kernel.pWaitDstStageMask = &stage;
-        kernel.commandBufferCount = 1;
-        kernel.pCommandBuffers = &frame_resource->post_commandbuffer.get();
-        kernel.signalSemaphoreCount = 1;
-        kernel.pSignalSemaphores = &frame_resource->rendering_finished.get();
-        graphics_queue.submit(kernel, frame_resource->fence.get());
 
         // Present the frame
         vk::PresentInfoKHR present_i{};

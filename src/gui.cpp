@@ -51,8 +51,6 @@ namespace my_app
         create_descriptors();
         tools::log(start, "[GUI] Creating the pipeline layout");
         create_pipeline_layout();
-        tools::log(start, "[GUI] Creating the render pass");
-        create_render_pass();
         tools::log(start, "[GUI] Creating the graphics pipeline");
         create_graphics_pipeline();
         tools::end_log(start, "[GUI] Done!");
@@ -105,25 +103,8 @@ namespace my_app
         ImGui::End();
     }
 
-    void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd, vk::UniqueFramebuffer const& framebuffer)
+    void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd)
     {
-        // Begin command buffer
-        cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-
-        // Begin render pass
-        std::array<vk::ClearValue, 2> clear_values;
-        clear_values[0].color = vk::ClearColorValue(std::array<float, 4>{ 0.6f, 0.7f, 0.94f, 1.0f });
-        clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-
-        vk::RenderPassBeginInfo rpbi{};
-        rpbi.renderArea = vk::Rect2D{ vk::Offset2D(), parent.get_swapchain().extent };
-        rpbi.renderPass = render_pass.get();
-        rpbi.framebuffer = framebuffer.get();
-        rpbi.clearValueCount = clear_values.size();
-        rpbi.pClearValues = clear_values.data();
-
-        cmd->beginRenderPass(rpbi, vk::SubpassContents::eInline);
-
         // Bind pipeline and set pipeline state
         cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
         cmd->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, { desc_set.get() }, {});
@@ -140,10 +121,6 @@ namespace my_app
 
         // Draw
         draw_frame_data(cmd, resource_index);
-
-        // End command buffer
-        cmd->endRenderPass();
-        cmd->end();
     }
 
 
@@ -358,90 +335,6 @@ namespace my_app
         parent.get_vulkan().device->updateDescriptorSets({ write }, nullptr);
     }
 
-    void GUI::create_render_pass()
-    {
-        std::array<vk::AttachmentDescription, 3> attachments;
-
-        // Color attachment
-        attachments[0].format = parent.get_swapchain().format.format;
-        attachments[0].samples = MSAA_SAMPLES;
-        attachments[0].loadOp = vk::AttachmentLoadOp::eLoad;
-        attachments[0].storeOp = vk::AttachmentStoreOp::eStore;
-        attachments[0].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[0].initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        attachments[0].finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        attachments[0].flags = {};
-
-        // Depth attachment
-        attachments[1].format = parent.get_depth_format();
-        attachments[1].samples = MSAA_SAMPLES;
-        attachments[1].loadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[1].storeOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[1].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[1].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[1].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[1].finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        attachments[1].flags = vk::AttachmentDescriptionFlags();
-
-        // Color resolve attachment
-        attachments[2].format = parent.get_swapchain().format.format;
-        attachments[2].samples = vk::SampleCountFlagBits::e1;
-        attachments[2].loadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[2].storeOp = vk::AttachmentStoreOp::eStore;
-        attachments[2].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[2].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[2].initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        attachments[2].finalLayout = vk::ImageLayout::ePresentSrcKHR;
-        attachments[2].flags = {};
-
-        vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-        vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-        vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
-
-        vk::SubpassDescription subpass{};
-        subpass.flags = vk::SubpassDescriptionFlags();
-        subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-        subpass.inputAttachmentCount = 0;
-        subpass.pInputAttachments = nullptr;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_ref;
-        subpass.pResolveAttachments = &color_resolve_ref;
-        subpass.pDepthStencilAttachment = &depth_ref;
-        subpass.preserveAttachmentCount = 0;
-        subpass.pPreserveAttachments = nullptr;
-
-        std::vector<vk::SubpassDependency> dependencies = {
-            {
-                VK_SUBPASS_EXTERNAL,                                  // uint32_t                       srcSubpass
-                0,                                                    // uint32_t                       dstSubpass
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,    // VkPipelineStageFlags           srcStageMask
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,    // VkPipelineStageFlags           dstStageMask
-                vk::AccessFlagBits::eColorAttachmentWrite,            // VkAccessFlags                  srcAccessMask
-                vk::AccessFlagBits::eColorAttachmentWrite,            // VkAccessFlags                  dstAccessMask
-                vk::DependencyFlagBits::eByRegion                     // VkDependencyFlags              dependencyFlags
-            },
-            {
-                0,                                                    // uint32_t                       srcSubpass
-                VK_SUBPASS_EXTERNAL,                                  // uint32_t                       dstSubpass
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,    // VkPipelineStageFlags           srcStageMask
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,    // VkPipelineStageFlags           dstStageMask
-                vk::AccessFlagBits::eColorAttachmentWrite,            // VkAccessFlags                  srcAccessMask
-                vk::AccessFlagBits::eColorAttachmentWrite,            // VkAccessFlags                  dstAccessMask
-                vk::DependencyFlagBits::eByRegion                     // VkDependencyFlags              dependencyFlags
-            }
-        };
-
-        vk::RenderPassCreateInfo rp_info{};
-        rp_info.attachmentCount = attachments.size();
-        rp_info.pAttachments = attachments.data();
-        rp_info.subpassCount = 1;
-        rp_info.pSubpasses = &subpass;
-        rp_info.dependencyCount = static_cast<uint32_t>(dependencies.size());
-        rp_info.pDependencies = dependencies.data();
-        render_pass = parent.get_vulkan().device->createRenderPassUnique(rp_info);
-    }
-
     void GUI::create_pipeline_layout()
     {
         vk::PipelineLayoutCreateInfo ci{};
@@ -467,7 +360,6 @@ namespace my_app
         std::vector<vk::DynamicState> dynamic_states = {
             vk::DynamicState::eViewport,
             vk::DynamicState::eScissor
-
         };
 
         vk::PipelineDynamicStateCreateInfo dyn_i{ {}, static_cast<uint32_t>(dynamic_states.size()), dynamic_states.data() };
@@ -562,8 +454,8 @@ namespace my_app
         vk::PipelineMultisampleStateCreateInfo ms_i{};
         ms_i.flags = vk::PipelineMultisampleStateCreateFlags();
         ms_i.pSampleMask = nullptr;
-        ms_i.rasterizationSamples = MSAA_SAMPLES;
-        ms_i.sampleShadingEnable = VK_TRUE;
+        ms_i.rasterizationSamples = vk::SampleCountFlagBits::e1;
+        ms_i.sampleShadingEnable = VK_FALSE;
         ms_i.alphaToCoverageEnable = VK_FALSE;
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = .2f;
@@ -597,8 +489,8 @@ namespace my_app
         pipe_i.pDepthStencilState = &ds_i;
         pipe_i.pStages = shader_stages.data();
         pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
-        pipe_i.renderPass = render_pass.get();
-        pipe_i.subpass = 0;
+        pipe_i.renderPass = parent.get_render_pass();
+        pipe_i.subpass = 1;
 
         pipeline_cache = parent.get_vulkan().device->createPipelineCacheUnique({});
         pipeline = parent.get_vulkan().device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);

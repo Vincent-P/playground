@@ -27,7 +27,7 @@ namespace my_app
 
         void init();
         void start_frame(const TimerData& timer);
-        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer, vk::UniqueFramebuffer const& framebuffer);
+        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer);
 
         private:
         void draw_frame_data(vk::UniqueCommandBuffer& command_buffer, uint32_t resource_index);

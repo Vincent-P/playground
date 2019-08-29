@@ -46,7 +46,6 @@ namespace my_app
         vk::UniqueSemaphore rendering_finished;
         vk::UniqueFramebuffer framebuffer;
         vk::UniqueCommandBuffer commandbuffer;
-        vk::UniqueCommandBuffer post_commandbuffer;
         Buffer uniform_buffer;
     };
 
@@ -100,6 +99,11 @@ namespace my_app
         vk::Format get_depth_format() const
         {
             return depth_format;
+        }
+
+        const vk::RenderPass get_render_pass() const
+        {
+            return render_pass.get();
         }
 
         private:
