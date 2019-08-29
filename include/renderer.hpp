@@ -38,8 +38,6 @@ namespace my_app
         glm::mat4 clip;
         glm::vec4 cam_pos;
         glm::vec4 light_dir;
-        float exposure;
-        float gamma;
         float debug_view_input;
         float debug_view_equation;
     };

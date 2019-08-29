@@ -11,8 +11,6 @@ layout(set = 0, binding = 0) uniform UBO {
     mat4 clip;
     vec4 cam_pos;
     vec4 light_dir;
-    float exposure;
-    float gamma;
     float debugViewInput;
     float debugViewEquation;
 } ubo;
@@ -68,10 +66,9 @@ const float c_MinRoughness = 0.04;
 const float PBR_WORKFLOW_METALLIC_ROUGHNESS = 0.0;
 const float PBR_WORKFLOW_SPECULAR_GLOSINESS = 1.0f;
 
-const vec3 AMBIENT = vec3(100.0f, 100.0f, 100.0f);
-
 #define MANUAL_SRGB 1
 
+/*
 vec3 Uncharted2Tonemap(vec3 color)
 {
 	float A = 0.15;
@@ -90,7 +87,7 @@ vec4 tonemap(vec4 color)
 	outcol = outcol * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
 	return vec4(pow(outcol, vec3(1.0f / ubo.gamma)), color.a);
 }
-
+*/
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
 	#ifdef MANUAL_SRGB
@@ -129,9 +126,9 @@ vec3 getNormal()
 // Calculation of the lighting contribution from an optional Image Based Light source.
 // Precomputed Environment Maps are required uniform inputs and are computed as outlined in [1].
 // See our README.md on Environment Maps [3] for additional discussion.
+        /*
 vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 {
-        /*
 	float lod = (pbrInputs.perceptualRoughness * uboParams.prefilteredCubeMipLevels);
 	// retrieve a scale and bias to F0. See [1], Figure 3
 	vec3 brdf = (texture(samplerBRDFLUT, vec2(pbrInputs.NdotV, 1.0 - pbrInputs.perceptualRoughness))).rgb;
@@ -148,9 +145,9 @@ vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 	specular *= uboParams.scaleIBLAmbient;
 
 	return diffuse + specular;
-        */
-    return AMBIENT;
+    return vec3(ubo.ambient);
 }
+        */
 
 // Basic Lambertian diffuse
 // Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog

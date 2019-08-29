@@ -35,7 +35,7 @@ namespace my_app
             }
         }
 
-        vk::Format format = vk::Format::eA8B8G8R8UnormPack32;
+        vk::Format format = vk::Format::eR8G8B8A8Unorm;
         width = gltf_image.width;
         height = gltf_image.height;
         mip_levels = std::floor(std::log2(std::max(width, height))) + 1.0;

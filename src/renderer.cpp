@@ -192,7 +192,7 @@ namespace my_app
         else
         {
             for (const auto& f : formats)
-                if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+                if (f.format == vk::Format::eB8G8R8A8Srgb)
                 {
                     swapchain.format = f;
                     break;
@@ -451,20 +451,11 @@ namespace my_app
 
         ubo.cam_pos = glm::vec4(camera.position, 0.f);
 
-        static glm::vec4 light_dir = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
-        ubo.light_dir = light_dir;
-
-        ImGui::Separator();
-
-        static float exposure = 4.5f;
-        ImGui::DragFloat("Exposure", &exposure, 0.1f, 4.5f, 10.f);
-        ubo.exposure = exposure;
-
-        ImGui::Separator();
-
-        static float gamma = 2.2f;
-        ImGui::DragFloat("Gamma", &gamma, 0.1f, 2.2f, 4.f);
-        ubo.gamma = gamma;
+        static float light_dir[3] = {1.0f, 1.0f, 1.0f};
+        ImGui::SliderFloat3("Light direction", light_dir, -40.0f, 40.0f);
+        ubo.light_dir.x = light_dir[0];
+        ubo.light_dir.y = light_dir[1];
+        ubo.light_dir.z = light_dir[2];
 
         ImGui::Separator();
 

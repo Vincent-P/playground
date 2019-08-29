@@ -31,6 +31,8 @@ namespace my_app
             , is_focused(true)
             , is_ui(false)
             , stop(false)
+            , last_xpos(0.f)
+            , last_ypos(0.f)
         {
             glfwSetWindowUserPointer(window, this);
 
@@ -123,22 +125,12 @@ namespace my_app
                 double mouse_x, mouse_y;
                 glfwGetCursorPos(window, &mouse_x, &mouse_y);
 
-                if (last_xpos == 0.f && last_ypos == 0.f)
-                {
-                    last_xpos = float(mouse_x);
-                    last_ypos = float(mouse_y);
-                }
-
                 float yaw_increment = (float(mouse_x) - last_xpos) * MOUSE_SENSITIVITY;
                 float pitch_increment = (last_ypos - float(mouse_y)) * MOUSE_SENSITIVITY;
 
                 camera.yaw += yaw_increment;
                 camera.pitch += pitch_increment;
 
-                if (isnan(camera.yaw))
-                    camera.yaw = 0.f;
-
-                ImGui::SetCursorPosX(10.0f);
                 ImGui::Text("GUI Mouse position:");
                 ImGui::SetCursorPosX(20.0f);
                 ImGui::Text("X: %.1f", double(io.MousePos.x));
@@ -176,12 +168,6 @@ namespace my_app
                 if (camera.pitch < -89.0f)
                     camera.pitch = -89.0f;
 
-                while (camera.yaw > 180.0f)
-                    camera.yaw -= 360.0f;
-
-                while (camera.yaw < -180.0f)
-                    camera.yaw += 360.0f;
-
                 glm::vec3 front;
                 front.x = cos(glm::radians(camera.pitch)) * cos(glm::radians(camera.yaw));
                 front.y = sin(glm::radians(camera.pitch));
@@ -218,11 +204,6 @@ namespace my_app
 
         void update_input(float delta_t)
         {
-            is_focused = glfwGetWindowAttrib(window, GLFW_VISIBLE) && glfwGetWindowAttrib(window, GLFW_FOCUSED);
-
-            if (!is_focused)
-                glfwWaitEvents();
-
             // Quit when escape is pressed
             if (glfwGetKey(window, GLFW_KEY_ESCAPE))
             {
@@ -266,10 +247,15 @@ namespace my_app
 
         void run()
         {
-
+            std::cout << "Start running\n";
             while (not glfwWindowShouldClose(window) and not stop)
             {
                 glfwPollEvents();
+
+                is_focused = glfwGetWindowAttrib(window, GLFW_VISIBLE) && glfwGetWindowAttrib(window, GLFW_FOCUSED);
+
+                if (!is_focused)
+                    continue;
 
                 ImGui::NewFrame();
 
@@ -279,6 +265,7 @@ namespace my_app
                 renderer.draw_frame(camera, timer);
             }
 
+            std::cout << "Stopped running, waiting for device...\n";
             renderer.wait_idle();
         }
 
@@ -289,9 +276,9 @@ namespace my_app
         bool is_focused;
         bool is_ui;
         bool stop;
-        bool mouse_just_pressed[5] = { false, false, false, false, false };
         float last_xpos;
         float last_ypos;
+        bool mouse_just_pressed[5] = { false, false, false, false, false };
     };
 }    // namespace my_app
 
