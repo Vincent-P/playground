@@ -1,16 +1,13 @@
 #pragma once
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Weverything"
 #include <glm/glm.hpp>
 #include <vector>
 #include <vulkan/vulkan.hpp>
-#pragma clang diagnostic pop
 
 #include "buffer.hpp"
+#include "gui.hpp"
 #include "image.hpp"
 #include "model.hpp"
-#include "gui.hpp"
 #include "vulkan_context.hpp"
 
 struct GLFWwindow;

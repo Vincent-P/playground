@@ -1,12 +1,11 @@
-#pragma clang diagnostic ignored "-Weverything"
+#include "renderer.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <imgui.h>
 #include <iostream>
 #include <vk_mem_alloc.h>
-#include <imgui.h>
-#pragma clang diagnostic pop
 
-#include "renderer.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
 
@@ -451,8 +450,20 @@ namespace my_app
 
         ubo.cam_pos = glm::vec4(camera.position, 0.f);
 
-        static float light_dir[3] = {1.0f, 1.0f, 1.0f};
+        ImGui::Separator();
+
+        static float light_dir[3] = { 1.0f, 1.0f, 1.0f };
+        static bool animate_light = false;
+
         ImGui::SliderFloat3("Light direction", light_dir, -40.0f, 40.0f);
+        ImGui::Checkbox("Rotate", &animate_light);
+        if (animate_light)
+        {
+            light_dir[0] += 0.01f;
+            if (light_dir[0] > 45.f)
+                light_dir[0] = -45.f;
+        }
+
         ubo.light_dir.x = light_dir[0];
         ubo.light_dir.y = light_dir[1];
         ubo.light_dir.z = light_dir[2];
@@ -466,14 +477,14 @@ namespace my_app
         ImGui::Separator();
 
         static size_t debug_view_input = 0;
-        const char* input_items[] = {"Disabled", "Base color", "normal", "occlusion", "emissive", "physical 1", "physical 2"};
+        const char* input_items[] = { "Disabled", "Base color", "normal", "occlusion", "emissive", "physical 1", "physical 2" };
         tools::imgui_select("Debug inputs", input_items, ARRAY_SIZE(input_items), debug_view_input);
         ubo.debug_view_input = float(debug_view_input);
 
         ImGui::Separator();
 
         static size_t debug_view_equation = 0;
-        const char* equation_items[] = {"Disabled", "Diff (l,n)", "F (l,h)", "G (l,v,h)", "D (h)", "Specular"};
+        const char* equation_items[] = { "Disabled", "Diff (l,n)", "F (l,h)", "G (l,v,h)", "D (h)", "Specular" };
         tools::imgui_select("Debug Equations", equation_items, ARRAY_SIZE(equation_items), debug_view_equation);
         ubo.debug_view_equation = float(debug_view_equation);
 
@@ -500,7 +511,7 @@ namespace my_app
         // Descriptor set 0: Scene/Camera informations (MVP)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-                vk::DescriptorSetLayoutBinding( 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment )
+                vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
             };
 
             scene_desc_layout = vulkan.create_descriptor_layout(bindings);
@@ -512,7 +523,6 @@ namespace my_app
             dsai.pSetLayouts = layouts.data();
             dsai.descriptorSetCount = layouts.size();
             desc_sets = vulkan.device->allocateDescriptorSetsUnique(dsai);
-
         }
 
         // Descriptor set 1: Materials

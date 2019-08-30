@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-namespace  my_app::tools
+namespace my_app::tools
 {
     std::vector<char> readFile(const std::string& filename)
     {
@@ -23,4 +23,4 @@ namespace  my_app::tools
 
         return result;
     }
-}
+}    // namespace my_app::tools

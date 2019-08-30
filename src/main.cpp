@@ -1,15 +1,12 @@
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Weverything"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <imgui.h>
 #include <iostream>
+#include <math.h>
 #include <string>
 #include <thread>
-#include <imgui.h>
-#include <math.h>
-#pragma clang diagnostic pop
 
 #include "renderer.hpp"
 #include "timer.hpp"

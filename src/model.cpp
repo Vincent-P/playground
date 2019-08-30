@@ -1,16 +1,15 @@
-#pragma clang diagnostic ignored "-Weverything"
+#include "model.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <tiny_gltf.h>
-#pragma clang diagnostic pop
 
 #include "buffer.hpp"
 #include "image.hpp"
-#include "tools.hpp"
-#include "model.hpp"
 #include "timer.hpp"
+#include "tools.hpp"
 #include "vulkan_context.hpp"
 
 namespace my_app
@@ -64,9 +63,8 @@ namespace my_app
         vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
         ctx.CopyDataToImage(pixels.data(), pixels.size(), image, width, height, subresource_range,
-                        vk::ImageLayout::eUndefined, {}, vk::PipelineStageFlagBits::eAllCommands,
-                        vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits::eTransferRead, vk::PipelineStageFlagBits::eAllCommands
-            );
+                            vk::ImageLayout::eUndefined, {}, vk::PipelineStageFlagBits::eAllCommands,
+                            vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits::eTransferRead, vk::PipelineStageFlagBits::eAllCommands);
 
         // Generate the mipchain (because glTF's textures are regular images)
 
@@ -296,7 +294,7 @@ namespace my_app
     Model::Model(std::string path, VulkanContext& ctx)
         : ctx(ctx)
     {
-        std::string message =  "[MODEL] Opening and parsing ";
+        std::string message = "[MODEL] Opening and parsing ";
         message += path;
         tools::start_log(message.c_str());
         auto start = clock_t::now();

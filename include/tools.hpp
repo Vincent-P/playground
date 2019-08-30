@@ -1,11 +1,9 @@
 #pragma once
 
-#pragma clang diagnostic ignored "-Weverything"
-#include <string>
 #include <imgui.h>
 #include <iostream>
+#include <string>
 #include <vector>
-#pragma clang diagnostic pop
 
 #include "timer.hpp"
 
@@ -21,7 +19,7 @@
         }                                                   \
     } while (0)
 
-#define ARRAY_SIZE(_arr) (sizeof(_arr)/sizeof(*_arr))
+#define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
 
 namespace my_app::tools
 {
@@ -44,7 +42,8 @@ namespace my_app::tools
     inline void log(time_t& start_time, const char* message)
     {
         auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(clock_t::now() - start_time);
-        std::cout << " (" << milliseconds.count() << "ms)" << "\n"
+        std::cout << " (" << milliseconds.count() << "ms)"
+                  << "\n"
                   << message;
         start_time = clock_t::now();
     }
@@ -52,12 +51,13 @@ namespace my_app::tools
     inline void end_log(time_t& start_time, const char* message)
     {
         auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(clock_t::now() - start_time);
-        std::cout << " (" << milliseconds.count() << "ms)" << "\n"
+        std::cout << " (" << milliseconds.count() << "ms)"
+                  << "\n"
                   << message << "\n";
         start_time = clock_t::now();
     }
 
-    inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t &current_item)
+    inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t& current_item)
     {
         std::string id("##custom combo");
         id += title;

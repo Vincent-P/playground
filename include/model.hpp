@@ -1,6 +1,5 @@
 #pragma once
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Weverything"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -9,7 +8,6 @@
 #include <tiny_gltf.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
-#pragma clang diagnostic pop
 
 #include "buffer.hpp"
 #include "image.hpp"

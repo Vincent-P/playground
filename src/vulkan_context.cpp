@@ -1,9 +1,7 @@
-#pragma clang diagnostic ignored "-Weverything"
+#include "vulkan_context.hpp"
+
 #include <GLFW/glfw3.h>
 #include <iostream>
-#pragma clang diagnostic pop
-
-#include "vulkan_context.hpp"
 
 namespace my_app
 {

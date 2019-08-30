@@ -11,14 +11,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Put binaries at the root of the build folder
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
 # Setup C++
-# Uncomment to enabled cppcheck, it is disabled because it checks vulkan.hpp, glfw and unwanted libraries
-# set(CMAKE_CXX_CPPCHECK "cppcheck")
-
-
+set(CMAKE_CXX_CPPCHECK "cppcheck")
 IF (WIN32)
     add_compile_options(/std:c++17)
+    set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")
 ELSE()
     add_compile_options(-std=c++17)
 ENDIF()
@@ -80,7 +77,10 @@ target_link_libraries(test-vulkan
 # Setup the include directories
 target_include_directories(test-vulkan
   PUBLIC include/
-  SYSTEM third_party/tinygltf
+  )
+
+target_include_directories(test-vulkan
+    SYSTEM PUBLIC third_party/tinygltf
   )
 
 # Add a run target to launch the executable

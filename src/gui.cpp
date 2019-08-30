@@ -1,13 +1,11 @@
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Weverything"
+#include "gui.hpp"
+
 #include <imgui.h>
 #include <iostream>
-#pragma clang diagnostic pop
 
-#include "gui.hpp"
 #include "renderer.hpp"
-#include "tools.hpp"
 #include "timer.hpp"
+#include "tools.hpp"
 
 namespace my_app
 {
@@ -22,7 +20,7 @@ namespace my_app
         parent.get_vulkan().device->destroy(texture_desc_info.sampler);
         texture.free();
 
-        for (auto& resource: resources)
+        for (auto& resource : resources)
         {
             resource.vertex_buffer.free();
             resource.index_buffer.free();
@@ -38,7 +36,7 @@ namespace my_app
         auto start = clock_t::now();
 
         ImGui::CreateContext();
-        auto &style = ImGui::GetStyle();
+        auto& style = ImGui::GetStyle();
         style.FrameRounding = 0.f;
         style.GrabRounding = 0.f;
         style.WindowRounding = 0.f;
