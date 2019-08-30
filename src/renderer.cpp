@@ -33,7 +33,7 @@ namespace my_app
         ci.initialLayout = vk::ImageLayout::eUndefined;
         ci.usage = vk::ImageUsageFlagBits::eSampled;
         ci.queueFamilyIndexCount = 0;
-        ci.pQueueFamilyIndices = NULL;
+        ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
         ci.flags = {};
         empty_image = Image{ "Empty image", vulkan.allocator, ci };
@@ -212,8 +212,8 @@ namespace my_app
         if (vulkan.graphics_family_idx != vulkan.present_family_idx)
         {
             uint32_t indices[] = {
-                (uint32_t)vulkan.graphics_family_idx,
-                (uint32_t)vulkan.present_family_idx
+                vulkan.graphics_family_idx,
+                vulkan.present_family_idx
             };
             ci.imageSharingMode = vk::SharingMode::eConcurrent;
             ci.queueFamilyIndexCount = 2;
@@ -237,17 +237,17 @@ namespace my_app
 
         for (size_t i = 0; i < swapchain.images.size(); i++)
         {
-            vk::ImageViewCreateInfo ci{};
-            ci.image = swapchain.images[i];
-            ci.viewType = vk::ImageViewType::e2D;
-            ci.format = swapchain.format.format;
-            ci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-            ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-            ci.subresourceRange.baseMipLevel = 0;
-            ci.subresourceRange.levelCount = 1;
-            ci.subresourceRange.baseArrayLayer = 0;
-            ci.subresourceRange.layerCount = 1;
-            swapchain.image_views[i] = vulkan.device->createImageView(ci);
+            vk::ImageViewCreateInfo ici{};
+            ici.image = swapchain.images[i];
+            ici.viewType = vk::ImageViewType::e2D;
+            ici.format = swapchain.format.format;
+            ici.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
+            ici.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            ici.subresourceRange.baseMipLevel = 0;
+            ici.subresourceRange.levelCount = 1;
+            ici.subresourceRange.baseArrayLayer = 0;
+            ici.subresourceRange.layerCount = 1;
+            swapchain.image_views[i] = vulkan.device->createImageView(ici);
         }
     }
 
@@ -266,7 +266,7 @@ namespace my_app
         ci.initialLayout = vk::ImageLayout::eUndefined;
         ci.usage = vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment;
         ci.queueFamilyIndexCount = 0;
-        ci.pQueueFamilyIndices = NULL;
+        ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
         color_image = Image{ "Color image", vulkan.allocator, ci };
@@ -331,7 +331,7 @@ namespace my_app
         ci.initialLayout = vk::ImageLayout::eUndefined;
         ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
         ci.queueFamilyIndexCount = 0;
-        ci.pQueueFamilyIndices = NULL;
+        ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
         depth_image = Image{ "Depth image", vulkan.allocator, ci };
@@ -438,7 +438,7 @@ namespace my_app
 
         static float fov = 45.0f;
         ImGui::DragFloat("FOV", &fov, 1.0f, 20.f, 90.f);
-        float aspect_ratio = swapchain.extent.width / (float)swapchain.extent.height;
+        float aspect_ratio = static_cast<float>(swapchain.extent.width) / static_cast<float>(swapchain.extent.height);
 
         ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
 
@@ -497,15 +497,15 @@ namespace my_app
     void Renderer::create_descriptors()
     {
         std::vector<vk::DescriptorPoolSize> pool_sizes = {
-            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, (model.meshes.size()) + NUM_VIRTUAL_FRAME),
-            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 5 * model.materials.size())
+            vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(model.meshes.size() + NUM_VIRTUAL_FRAME)),
+            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, static_cast<uint32_t>(5 * model.materials.size()))
         };
 
         vk::DescriptorPoolCreateInfo dpci{};
         dpci.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-        dpci.poolSizeCount = pool_sizes.size();
+        dpci.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
         dpci.pPoolSizes = pool_sizes.data();
-        dpci.maxSets = NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size();
+        dpci.maxSets = static_cast<uint32_t>(NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size());
         desc_pool = vulkan.device->createDescriptorPoolUnique(dpci);
 
         // Descriptor set 0: Scene/Camera informations (MVP)
@@ -521,7 +521,7 @@ namespace my_app
             vk::DescriptorSetAllocateInfo dsai{};
             dsai.descriptorPool = desc_pool.get();
             dsai.pSetLayouts = layouts.data();
-            dsai.descriptorSetCount = layouts.size();
+            dsai.descriptorSetCount = static_cast<uint32_t>(layouts.size());
             desc_sets = vulkan.device->allocateDescriptorSetsUnique(dsai);
         }
 
@@ -633,7 +633,7 @@ namespace my_app
             frame_ressource->image_available = vulkan.device->createSemaphoreUnique({});
             frame_ressource->rendering_finished = vulkan.device->createSemaphoreUnique({});
 
-            frame_ressource->commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
+            frame_ressource->commandbuffer = std::move(vulkan.device->allocateCommandBuffersUnique({ vulkan.command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
 
             std::string name = "Uniform buffer ";
             name += std::to_string(i);
@@ -793,7 +793,7 @@ namespace my_app
         pipe_i.pViewportState = &vp_i;
         pipe_i.pDepthStencilState = &ds_i;
         pipe_i.pStages = shader_stages.data();
-        pipe_i.stageCount = shader_stages.size();
+        pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
         pipe_i.renderPass = render_pass.get();
         pipe_i.subpass = 0;
 

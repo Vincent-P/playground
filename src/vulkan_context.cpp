@@ -6,16 +6,34 @@
 namespace my_app
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL
-    DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                  VkDebugUtilsMessageTypeFlagsEXT messageType,
-                  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+    DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+                  VkDebugUtilsMessageTypeFlagsEXT message_type,
+                  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void*)
     {
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        std::string severity{};
+        switch (message_severity)
+        {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severity = "[INFO]"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severity = "[ERROR]"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severity = "[VERBOSE]"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severity = "[WARNING]"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT: break;
+        }
+
+        std::string type{};
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
+            type += "[GENERAL]";
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+            type += "[VALIDATION]";
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+            type += "[PERFORMANCE]";
+
+        std::cerr << severity << type << " " << pCallbackData->pMessage << std::endl;
 
         return VK_FALSE;
     }
 
-    std::vector<const char*> get_extensions()
+    static std::vector<const char*> get_extensions()
     {
         auto installed = vk::enumerateInstanceExtensionProperties();
 
@@ -23,7 +41,7 @@ namespace my_app
 
         uint32_t required_count;
         const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_count);
-        for (auto i = 0; i < required_count; i++)
+        for (size_t i = 0; i < required_count; i++)
             extensions.push_back(required_extensions[i]);
 
         if (ENABLE_VALIDATION_LAYERS)
@@ -32,7 +50,7 @@ namespace my_app
         return extensions;
     }
 
-    std::vector<const char*> get_layers()
+    static std::vector<const char*> get_layers()
     {
         std::vector<const char*> layers;
 
@@ -56,7 +74,7 @@ namespace my_app
         , physical_device(pick_physical_device())
         , device(create_logical_device())
         , allocator(init_allocator())
-        , command_pool(device->createCommandPool({ { vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, static_cast<uint32_t>(graphics_family_idx) }))
+        , command_pool(device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, static_cast<uint32_t>(graphics_family_idx) }))
     {
     }
 
@@ -64,8 +82,6 @@ namespace my_app
     {
         if (debug_messenger)
             instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr, dldi);
-
-        device->destroy(command_pool);
 
         char* message;
         vmaBuildStatsString(allocator, &message, VK_TRUE);
@@ -90,9 +106,9 @@ namespace my_app
         vk::InstanceCreateInfo create_info;
         create_info.flags = {};
         create_info.pApplicationInfo = &app_info;
-        create_info.enabledLayerCount = layers.size();
+        create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
         create_info.ppEnabledLayerNames = layers.data();
-        create_info.enabledExtensionCount = extensions.size();
+        create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         create_info.ppEnabledExtensionNames = extensions.data();
 
         return vk::createInstanceUnique(create_info);
@@ -123,14 +139,14 @@ namespace my_app
     {
         auto physical_devices = instance->enumeratePhysicalDevices();
         vk::PhysicalDevice selected = physical_devices[0];
-        for (const auto& device : physical_devices)
+        for (const auto& d : physical_devices)
         {
-            auto properties = device.getProperties();
+            auto properties = d.getProperties();
             std::cout << "Device: " << properties.deviceName << "\n";
             if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
             {
                 std::cout << "Selected: " << properties.deviceName << "\n";
-                selected = device;
+                selected = d;
             }
         }
         return selected;
@@ -174,7 +190,7 @@ namespace my_app
 
         bool has_graphics = false;
         bool has_present = false;
-        for (size_t i = 0; i < queue_families.size(); i++)
+        for (uint32_t i = 0; i < queue_families.size(); i++)
         {
             if (!has_graphics && queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics)
             {
@@ -203,11 +219,11 @@ namespace my_app
 
         vk::DeviceCreateInfo dci;
         dci.flags = {};
-        dci.queueCreateInfoCount = queue_create_infos.size();
+        dci.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
         dci.pQueueCreateInfos = queue_create_infos.data();
-        dci.enabledLayerCount = layers.size();
+        dci.enabledLayerCount = static_cast<uint32_t>(layers.size());
         dci.ppEnabledLayerNames = layers.data();
-        dci.enabledExtensionCount = extensions.size();
+        dci.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         dci.ppEnabledExtensionNames = extensions.data();
         dci.pEnabledFeatures = &features;
 
@@ -226,10 +242,10 @@ namespace my_app
 
     void VulkanContext::transition_layout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const
     {
-        vk::CommandBuffer cmd = device->allocateCommandBuffers({ command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0];
+        vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
 
-        cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-        cmd.pipelineBarrier(
+        cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        cmd->pipelineBarrier(
             src,
             dst,
             {},
@@ -237,16 +253,15 @@ namespace my_app
             nullptr,
             barrier);
 
-        cmd.end();
+        cmd->end();
 
-        vk::Fence fence = device->createFence({});
+        vk::UniqueFence fence = device->createFenceUnique({});
         vk::SubmitInfo submit{};
         submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &cmd;
+        submit.pCommandBuffers = &cmd.get();
 
-        get_graphics_queue().submit(submit, fence);
-        device->waitForFences(fence, VK_TRUE, UINT64_MAX);
-        device->destroy(fence);
+        get_graphics_queue().submit(submit, fence.get());
+        device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
     }
 
 
@@ -272,12 +287,12 @@ namespace my_app
     vk::UniqueDescriptorSetLayout VulkanContext::create_descriptor_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) const
     {
         vk::DescriptorSetLayoutCreateInfo dslci{};
-        dslci.bindingCount = bindings.size();
+        dslci.bindingCount = static_cast<uint32_t>(bindings.size());
         dslci.pBindings = bindings.data();
         return device->createDescriptorSetLayoutUnique(dslci);
     }
 
-    void VulkanContext::CopyDataToImage(void const* data, uint32_t data_size, Image& target_image, uint32_t width, uint32_t height, vk::ImageSubresourceRange const& image_subresource_range, vk::ImageLayout current_image_layout, vk::AccessFlags current_image_access, vk::PipelineStageFlags generating_stages, vk::ImageLayout new_image_layout, vk::AccessFlags new_image_access, vk::PipelineStageFlags consuming_stages) const
+    void VulkanContext::CopyDataToImage(void const* data, size_t data_size, Image& target_image, uint32_t width, uint32_t height, vk::ImageSubresourceRange const& image_subresource_range, vk::ImageLayout current_image_layout, vk::AccessFlags current_image_access, vk::PipelineStageFlags generating_stages, vk::ImageLayout new_image_layout, vk::AccessFlags new_image_access, vk::PipelineStageFlags consuming_stages) const
     {
         // Create staging buffer and map it's memory to copy data from the CPU
 
@@ -288,7 +303,6 @@ namespace my_app
         std::memcpy(mapped, data, data_size);
 
         // Allocate temporary command buffer from a temporary command pool
-        vk::UniqueCommandPool command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
         vk::CommandBufferAllocateInfo cbai{};
         vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
 
@@ -356,7 +370,7 @@ namespace my_app
         staging_buffer.free();
     }
 
-    void VulkanContext::CopyDataToBuffer(void const* data, uint32_t data_size, Buffer buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const
+    void VulkanContext::CopyDataToBuffer(void const* data, size_t data_size, Buffer buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const
     {
         // Create staging buffer and map it's memory to copy data from the CPU
         std::string name = "Staging buffer CopyDataToBuffer for size ";
@@ -366,7 +380,6 @@ namespace my_app
         std::memcpy(mapped, data, data_size);
 
         // Allocate temporary command buffer from a temporary command pool
-        vk::UniqueCommandPool command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
         vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
 
         // Record command buffer which copies data from the staging buffer to the destination buffer
@@ -379,13 +392,13 @@ namespace my_app
         bmb_pre.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         bmb_pre.buffer = buffer.get_buffer();
         bmb_pre.offset = 0;
-        bmb_pre.size = data_size;
+        bmb_pre.size = static_cast<uint32_t>(data_size);
         cmd->pipelineBarrier(generating_stages, vk::PipelineStageFlagBits::eTransfer, {}, {}, { bmb_pre }, {});
 
         vk::BufferCopy bcp{};
         bcp.srcOffset = 0;
         bcp.dstOffset = 0;
-        bcp.size = data_size;
+        bcp.size = static_cast<uint32_t>(data_size);
         cmd->copyBuffer(staging_buffer.get_buffer(), buffer.get_buffer(), { bcp });
 
         vk::BufferMemoryBarrier bmb_post{};
@@ -395,7 +408,7 @@ namespace my_app
         bmb_post.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         bmb_post.buffer = buffer.get_buffer();
         bmb_post.offset = 0;
-        bmb_post.size = data_size;
+        bmb_post.size = static_cast<uint32_t>(data_size);
         cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, consuming_stages, {}, {}, { bmb_post }, {});
         cmd->end();
 

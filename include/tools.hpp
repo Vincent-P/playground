@@ -62,7 +62,7 @@ namespace my_app::tools
         std::string id("##custom combo");
         id += title;
 
-        ImGui::Text(title);
+        ImGui::Text("%s", title);
         if (ImGui::BeginCombo(id.c_str(), items[current_item], ImGuiComboFlags_NoArrowButton))
         {
             for (size_t n = 0; n < items_size; n++)
