@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.13)
 
-# Setup the vcpkg toolchain
+# Put binaries at the root of the build folder
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
+
+# =============================================================
+# Setup C++
+
+# Setup the vcpkg toolchain to get packages
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     CACHE STRING "")
@@ -8,19 +18,39 @@ endif()
 
 # Export compile commands for the lsp
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# Put binaries at the root of the build folder
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Setup C++
-set(CMAKE_CXX_CPPCHECK "cppcheck")
+# Use c++ 17 flags and fix system includes with clang-cl.exe
 IF (WIN32)
-    add_compile_options(/std:c++17)
-    set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")
+  # Use clang-cl.exe MSVC-like flags
+  add_compile_options(--driver-mode=cl)
+  add_compile_options(/std:c++17)
+  set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")
 ELSE()
-    add_compile_options(-std=c++17)
+  add_compile_options(-std=c++17)
 ENDIF()
 
+# Treat warnings as error
 add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+
+# Debug specific config
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+
+  # static analysis tools
+  set(CMAKE_CXX_CPPCHECK "cppcheck")
+
+  # Too many warnings for now...
+  # set(CMAKE_CXX_CLANG_TIDY
+  #   clang-tidy;
+  #   -header-filter=.;
+  #   -checks=*;
+  #   -warnings-as-errors=*;)
+
+
+# Release specific config
+ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
+
+ENDIF()
+
 
 # =============================================================
 # MAIN TARGET
@@ -80,7 +110,7 @@ target_include_directories(test-vulkan
   )
 
 target_include_directories(test-vulkan
-    SYSTEM PUBLIC third_party/tinygltf
+  SYSTEM PUBLIC third_party/tinygltf
   )
 
 # Add a run target to launch the executable
