@@ -189,14 +189,15 @@ namespace my_app
     {
     }
 
-    void Mesh::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene) const
+    void Mesh::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene, vk::UniqueDescriptorSet& other) const
     {
         for (const auto& primitive : primitives)
         {
             const std::vector<vk::DescriptorSet> sets = {
                 scene.get(),
                 primitive.material.desc_set,
-                uniform_desc
+                uniform_desc,
+                other.get()
             };
 
             cmd->bindDescriptorSets(
@@ -286,13 +287,13 @@ namespace my_app
     }
 
 
-    void Node::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const
+    void Node::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const
     {
         if (mesh)
-            mesh->draw(cmd, pipeline_layout, desc_set);
+            mesh->draw(cmd, pipeline_layout, desc_set, other);
 
         for (const auto& node : children)
-            node.draw(cmd, pipeline_layout, desc_set);
+            node.draw(cmd, pipeline_layout, desc_set, other);
     }
 
     Model::Model(std::string path, VulkanContext& _ctx)
@@ -650,10 +651,10 @@ namespace my_app
             scene_nodes[i] = load_node(static_cast<size_t>(scene.nodes[i]));
     }
 
-    void Model::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set) const
+    void Model::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const
     {
         // TODO(vincent): bind vertex and index buffer of the model
         for (const auto& node : scene_nodes)
-            node.draw(cmd, pipeline_layout, desc_set);
+            node.draw(cmd, pipeline_layout, desc_set, other);
     }
 }    // namespace my_app

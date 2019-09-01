@@ -63,7 +63,33 @@ namespace my_app
 
     struct Voxel
     {
-        uint32_t color;
+        glm::vec4 color;
+        glm::vec4 normal;
+
+
+        static std::array<vk::VertexInputBindingDescription, 1> get_binding_description()
+        {
+            std::array<vk::VertexInputBindingDescription, 1> bindings;
+            bindings[0].binding = 0;
+            bindings[0].stride = sizeof(Voxel);
+            bindings[0].inputRate = vk::VertexInputRate::eVertex;
+            return bindings;
+        }
+
+        static std::array<vk::VertexInputAttributeDescription, 2> get_attribute_description()
+        {
+            std::array<vk::VertexInputAttributeDescription, 2> descs;
+            descs[0].binding = 0;
+            descs[0].location = 0;
+            descs[0].format = vk::Format::eR32G32B32A32Sfloat;
+            descs[0].offset = offsetof(Voxel, color);
+
+            descs[1].binding = 0;
+            descs[1].location = 1;
+            descs[1].format = vk::Format::eR32G32B32A32Sfloat;
+            descs[1].offset = offsetof(Voxel, normal);
+            return descs;
+        }
     };
 
     class Renderer
@@ -87,6 +113,7 @@ namespace my_app
         void create_voxels_buffer();
 
         void create_graphics_pipeline();
+        void create_debug_graphics_pipeline();
 
         void resize(int width, int height);
 
@@ -141,10 +168,21 @@ namespace my_app
         vk::UniqueShaderModule frag_module;
 
         vk::UniqueDescriptorPool desc_pool;
+
+        // Descriptor layout of per scene
         vk::UniqueDescriptorSetLayout scene_desc_layout;
+        // Descriptor layout of per material
         vk::UniqueDescriptorSetLayout mat_desc_layout;
+        // Descriptor layout of per object
         vk::UniqueDescriptorSetLayout node_desc_layout;
+        vk::UniqueDescriptorSetLayout voxels_desc_layout;
+
         std::vector<vk::UniqueDescriptorSet> desc_sets;
+        vk::UniqueDescriptorSet voxels_desc_set;
+
+        vk::UniquePipeline pipeline_debug_voxels;
+        vk::UniquePipelineCache pipeline_cache_debug_voxels;
+        vk::UniquePipelineLayout pipeline_layout_debug_voxels;
 
         vk::UniquePipeline pipeline;
         vk::UniquePipelineCache pipeline_cache;

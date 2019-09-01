@@ -127,6 +127,7 @@ add_custom_target(run
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "shaders/*.frag"
   "shaders/*.vert"
+  "shaders/*.geom"
   )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})

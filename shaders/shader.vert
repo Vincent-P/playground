@@ -1,9 +1,7 @@
 #version 450
 
-layout (location = 0) in vec3 inPosition;
+layout (location = 0) in vec3 inColor;
 layout (location = 1) in vec3 inNormal;
-layout (location = 2) in vec2 inUV0;
-layout (location = 3) in vec2 inUV1;
 
 layout(set = 0, binding = 0) uniform UBO {
     mat4 view;
@@ -17,21 +15,24 @@ layout(set = 0, binding = 0) uniform UBO {
     float dummy;
 } ubo;
 
-layout (set = 2, binding = 0) uniform UBONode {
-    mat4 matrix;
-} node;
-
-layout (location = 0) out vec3 outWorldPos;
+layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec2 outUV0;
-layout (location = 3) out vec2 outUV1;
+
+#define VOXEL_DATA_RES 128
+
+// flattened array index to 3D array index
+uvec3 unflatten3D(uint idx, uvec3 dim)
+{
+	const uint z = idx / (dim.x * dim.y);
+	idx -= (z * dim.x * dim.y);
+	const uint y = idx / dim.x;
+	const uint x = idx % dim.x;
+	return  uvec3(x, y, z);
+}
 
 void main() {
-    vec4 locPos = node.matrix * vec4(inPosition, 1.0);
-    outNormal = normalize(transpose(inverse(mat3(node.matrix))) * inNormal);
-    outWorldPos = locPos.xyz / locPos.w;
-    outUV0 = inUV0;
-    outUV1 = inUV1;
-
-    gl_Position =  ubo.clip * ubo.proj * ubo.view * vec4(outWorldPos, 1.0);
+    vec3 position = unflatten3D(gl_VertexIndex, uvec3(VOXEL_DATA_RES));
+    outColor = inColor;
+    outNormal = inNormal;
+    gl_Position = vec4(position, 1.0);
 }

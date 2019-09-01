@@ -75,7 +75,7 @@ namespace my_app
         ImGui::SetNextWindowSize(ImVec2(100.0f, 100.0));
         ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar);
 
-        static bool show_fps = true;
+        static bool show_fps = false;
 
         if (ImGui::RadioButton("FPS", show_fps))
         {
@@ -496,7 +496,7 @@ namespace my_app
         pipe_i.pStages = shader_stages.data();
         pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
         pipe_i.renderPass = parent.get_render_pass();
-        pipe_i.subpass = 1;
+        pipe_i.subpass = 2;
 
         pipeline_cache = parent.get_vulkan().device->createPipelineCacheUnique({});
         pipeline = parent.get_vulkan().device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);

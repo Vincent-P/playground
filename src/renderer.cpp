@@ -85,6 +85,12 @@ namespace my_app
         tools::log(start, "[RENDERER] Creating a swapchain");
         create_swapchain();
 
+        tools::log(start, "[RENDERER] Creating the vertex and index buffer");
+        create_vertex_buffer();
+        create_index_buffer();
+        tools::log(start, "[RENDERER] Creating the voxels buffer");
+        create_voxels_buffer();
+
         tools::log(start, "[RENDERER] Creating the descriptor sets");
         create_descriptors();
 
@@ -96,16 +102,14 @@ namespace my_app
         tools::log(start, "[RENDERER] Creating the depth buffer");
         create_depth_buffer();
 
-        tools::log(start, "[RENDERER] Creating the vertex and index buffer");
-        create_vertex_buffer();
-        create_index_buffer();
-
 
         // Create the pipeline
         tools::log(start, "[RENDERER] Creating the render pass");
         create_render_pass();
         tools::log(start, "[RENDERER] Creating the graphics pipeline");
         create_graphics_pipeline();
+        tools::log(start, "[RENDERER] Creating the debug graphics pipeline");
+        create_debug_graphics_pipeline();
         tools::end_log(start, "[RENDERER] Done, now initializing the GUI!");
         gui.init();
     }
@@ -122,6 +126,7 @@ namespace my_app
 
         vertex_buffer.free();
         index_buffer.free();
+        voxels_buffer.free();
 
         for (auto& frame_ressource : frame_resources)
             frame_ressource.uniform_buffer.free();
@@ -392,15 +397,15 @@ namespace my_app
         vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
         vk::AttachmentReference color_resolve_ref(2, vk::ImageLayout::eColorAttachmentOptimal);
 
-        std::array<vk::SubpassDescription, 2> subpasses{};
+        std::array<vk::SubpassDescription, 3> subpasses{};
         subpasses[0].flags = vk::SubpassDescriptionFlags(0);
         subpasses[0].pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
         subpasses[0].inputAttachmentCount = 0;
         subpasses[0].pInputAttachments = nullptr;
-        subpasses[0].colorAttachmentCount = 1;
-        subpasses[0].pColorAttachments = &color_ref;
-        subpasses[0].pResolveAttachments = &color_resolve_ref;
-        subpasses[0].pDepthStencilAttachment = &depth_ref;
+        subpasses[0].colorAttachmentCount = 0;
+        subpasses[0].pColorAttachments = nullptr;
+        subpasses[0].pResolveAttachments = nullptr;
+        subpasses[0].pDepthStencilAttachment = nullptr;
         subpasses[0].preserveAttachmentCount = 0;
         subpasses[0].pPreserveAttachments = nullptr;
 
@@ -409,11 +414,22 @@ namespace my_app
         subpasses[1].inputAttachmentCount = 0;
         subpasses[1].pInputAttachments = nullptr;
         subpasses[1].colorAttachmentCount = 1;
-        subpasses[1].pColorAttachments = &color_resolve_ref;
-        subpasses[1].pResolveAttachments = nullptr;
-        subpasses[1].pDepthStencilAttachment = nullptr;
+        subpasses[1].pColorAttachments = &color_ref;
+        subpasses[1].pResolveAttachments = &color_resolve_ref;
+        subpasses[1].pDepthStencilAttachment = &depth_ref;
         subpasses[1].preserveAttachmentCount = 0;
         subpasses[1].pPreserveAttachments = nullptr;
+
+        subpasses[2].flags = vk::SubpassDescriptionFlags(0);
+        subpasses[2].pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpasses[2].inputAttachmentCount = 0;
+        subpasses[2].pInputAttachments = nullptr;
+        subpasses[2].colorAttachmentCount = 1;
+        subpasses[2].pColorAttachments = &color_resolve_ref;
+        subpasses[2].pResolveAttachments = nullptr;
+        subpasses[2].pDepthStencilAttachment = nullptr;
+        subpasses[2].preserveAttachmentCount = 0;
+        subpasses[2].pPreserveAttachments = nullptr;
 
         vk::RenderPassCreateInfo rp_info{};
         rp_info.attachmentCount = attachments.size();
@@ -488,24 +504,47 @@ namespace my_app
         tools::imgui_select("Debug Equations", equation_items, ARRAY_SIZE(equation_items), debug_view_equation);
         ubo.debug_view_equation = float(debug_view_equation);
 
+        /*
+        ImGui::Separator();
+
+        Voxel* voxels_data = static_cast<Voxel*>(voxels_buffer.map());
+        size_t voxels_count = 0;
+
+        for (size_t i = 0; i < 128 * 128 * 128; i++)
+        {
+            auto color = voxels_data[i].color;
+            if (color.x > 0 || color.y > 0 || color.z > 0)
+                voxels_count++;
+            if (voxels_count == 1)
+                ImGui::Text("First voxel is at: %zu", i);
+            else if (voxels_count == 2)
+                ImGui::Text("Second voxel is at: %zu", i);
+            else if (voxels_count == 3)
+                ImGui::Text("Third voxel is at: %zu", i);
+        }
+
+        ImGui::Text("Voxel count: %zu", voxels_count);
+        */
+
         ImGui::End();
 
-        void* mappedData = frame_ressource->uniform_buffer.map();
-        memcpy(mappedData, &ubo, sizeof(ubo));
+        void* uniform_data = frame_ressource->uniform_buffer.map();
+        memcpy(uniform_data, &ubo, sizeof(ubo));
     }
 
     void Renderer::create_descriptors()
     {
         std::vector<vk::DescriptorPoolSize> pool_sizes = {
             vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(model.meshes.size() + NUM_VIRTUAL_FRAME)),
-            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, static_cast<uint32_t>(5 * model.materials.size()))
+            vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, static_cast<uint32_t>(5 * model.materials.size())),
+            vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1)
         };
 
         vk::DescriptorPoolCreateInfo dpci{};
         dpci.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
         dpci.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
         dpci.pPoolSizes = pool_sizes.data();
-        dpci.maxSets = static_cast<uint32_t>(NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size());
+        dpci.maxSets = static_cast<uint32_t>(NUM_VIRTUAL_FRAME + model.meshes.size() + model.materials.size() + 1);
         desc_pool = vulkan.device->createDescriptorPoolUnique(dpci);
 
         // Descriptor set 0: Scene/Camera informations (MVP)
@@ -597,6 +636,32 @@ namespace my_app
             for (auto& node : model.scene_nodes)
                 node.setup_node_descriptor_set(desc_pool, node_desc_layout, vulkan.device);
         }
+
+        // Descriptor set 3: Voxels
+        {
+            std::vector<vk::DescriptorSetLayoutBinding> bindings = {
+                vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+            };
+
+            voxels_desc_layout = vulkan.create_descriptor_layout(bindings);
+
+            vk::DescriptorSetAllocateInfo dsai{};
+            dsai.descriptorPool = desc_pool.get();
+            dsai.pSetLayouts = &voxels_desc_layout.get();
+            dsai.descriptorSetCount = 1;
+            voxels_desc_set = std::move(vulkan.device->allocateDescriptorSetsUnique(dsai)[0]);
+
+            auto bi = voxels_buffer.get_desc_info();
+
+            vk::WriteDescriptorSet write_descriptor_set{};
+            write_descriptor_set.descriptorType = vk::DescriptorType::eStorageBuffer;
+            write_descriptor_set.descriptorCount = 1;
+            write_descriptor_set.dstSet = voxels_desc_set.get();
+            write_descriptor_set.dstBinding = 0;
+            write_descriptor_set.pBufferInfo = &bi;
+            vulkan.device->updateDescriptorSets(write_descriptor_set, nullptr);
+        }
+
     }
 
     void Renderer::create_index_buffer()
@@ -617,8 +682,12 @@ namespace my_app
 
     void Renderer::create_voxels_buffer()
     {
-        auto size = 100 * 100 * 100 * sizeof(Voxel);
-        voxels_buffer = Buffer("Voxels buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eStorageBuffer);
+        auto size = 128 * 128 * 128 * sizeof(Voxel);
+        std::cout << "Creating a voxels buffer with a size of " << std::to_string(size) << ".\n";
+        voxels_buffer = Buffer("Voxels buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eVertexBuffer);
+
+        void* mapped = voxels_buffer.map();
+        std::memset(mapped, 0, size);
     }
 
     void Renderer::create_frame_ressources()
@@ -659,19 +728,13 @@ namespace my_app
 
     void Renderer::create_graphics_pipeline()
     {
-        auto vert_code = tools::readFile("build/shaders/shader.vert.spv");
-        auto frag_code = tools::readFile("build/shaders/shader.frag.spv");
+        auto vert_code = tools::readFile("build/shaders/voxelization.vert.spv");
+        auto frag_code = tools::readFile("build/shaders/voxelization.frag.spv");
+        auto geom_code = tools::readFile("build/shaders/voxelization.geom.spv");
 
         vert_module = vulkan.create_shader_module(vert_code);
         frag_module = vulkan.create_shader_module(frag_code);
-
-        std::vector<vk::DynamicState> dynamic_states = {
-            vk::DynamicState::eViewport,
-            vk::DynamicState::eScissor
-
-        };
-
-        vk::PipelineDynamicStateCreateInfo dyn_i{ {}, static_cast<uint32_t>(dynamic_states.size()), dynamic_states.data() };
+        auto geom_module = vulkan.create_shader_module(geom_code);
 
         auto bindings = Vertex::get_binding_description();
         auto attributes = Vertex::get_attribute_description();
@@ -692,6 +755,160 @@ namespace my_app
         rast_i.flags = vk::PipelineRasterizationStateCreateFlags(0);
         rast_i.polygonMode = vk::PolygonMode::eFill;
         rast_i.cullMode = vk::CullModeFlagBits::eBack;
+        rast_i.frontFace = vk::FrontFace::eCounterClockwise;
+        rast_i.depthClampEnable = VK_FALSE;
+        rast_i.rasterizerDiscardEnable = VK_FALSE;
+        rast_i.depthBiasEnable = VK_FALSE;
+        rast_i.depthBiasConstantFactor = 0;
+        rast_i.depthBiasClamp = 0;
+        rast_i.depthBiasSlopeFactor = 0;
+        rast_i.lineWidth = 1.0f;
+
+        vk::PipelineColorBlendStateCreateInfo colorblend_i{};
+        colorblend_i.flags = vk::PipelineColorBlendStateCreateFlags(0);
+        colorblend_i.attachmentCount = 0;
+        colorblend_i.pAttachments = nullptr;
+        colorblend_i.logicOpEnable = VK_FALSE;
+        colorblend_i.logicOp = vk::LogicOp::eCopy;
+        colorblend_i.blendConstants[0] = 0.0f;
+        colorblend_i.blendConstants[1] = 0.0f;
+        colorblend_i.blendConstants[2] = 0.0f;
+        colorblend_i.blendConstants[3] = 0.0f;
+
+        vk::PipelineViewportStateCreateInfo vp_i{};
+        vp_i.flags = vk::PipelineViewportStateCreateFlags();
+        vp_i.viewportCount = 1;
+        vp_i.scissorCount = 1;
+        vp_i.pScissors = nullptr;
+        vp_i.pViewports = nullptr;
+
+        vk::PipelineDepthStencilStateCreateInfo ds_i{};
+        ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
+        ds_i.depthTestEnable = VK_FALSE;
+        ds_i.depthWriteEnable = VK_FALSE;
+        ds_i.depthCompareOp = vk::CompareOp::eLessOrEqual;
+        ds_i.depthBoundsTestEnable = VK_FALSE;
+        ds_i.minDepthBounds = 0.0f;
+        ds_i.maxDepthBounds = 0.0f;
+        ds_i.stencilTestEnable = VK_FALSE;
+        ds_i.back.failOp = vk::StencilOp::eKeep;
+        ds_i.back.passOp = vk::StencilOp::eKeep;
+        ds_i.back.compareOp = vk::CompareOp::eAlways;
+        ds_i.back.compareMask = 0;
+        ds_i.back.reference = 0;
+        ds_i.back.depthFailOp = vk::StencilOp::eKeep;
+        ds_i.back.writeMask = 0;
+        ds_i.front = ds_i.back;
+
+        vk::PipelineMultisampleStateCreateInfo ms_i{};
+        ms_i.flags = vk::PipelineMultisampleStateCreateFlags();
+        ms_i.pSampleMask = nullptr;
+        ms_i.rasterizationSamples = MSAA_SAMPLES;
+        ms_i.sampleShadingEnable = VK_FALSE;
+        ms_i.alphaToCoverageEnable = VK_FALSE;
+        ms_i.alphaToOneEnable = VK_FALSE;
+        ms_i.minSampleShading = .2f;
+
+        std::array<vk::DescriptorSetLayout, 4> layouts = {
+            scene_desc_layout.get(), mat_desc_layout.get(), node_desc_layout.get(), voxels_desc_layout.get()
+        };
+        vk::PipelineLayoutCreateInfo ci{};
+        ci.pSetLayouts = layouts.data();
+        ci.setLayoutCount = layouts.size();
+
+        vk::PushConstantRange pcr{ vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial) };
+        ci.pushConstantRangeCount = 1;
+        ci.pPushConstantRanges = &pcr;
+
+        pipeline_layout = vulkan.device->createPipelineLayoutUnique(ci);
+
+        std::vector<vk::PipelineShaderStageCreateInfo> shader_stages = {
+            vk::PipelineShaderStageCreateInfo(
+                vk::PipelineShaderStageCreateFlags(0),
+                vk::ShaderStageFlagBits::eVertex,
+                vert_module.get(),
+                "main"),
+
+            vk::PipelineShaderStageCreateInfo(
+                vk::PipelineShaderStageCreateFlags(0),
+                vk::ShaderStageFlagBits::eGeometry,
+                geom_module.get(),
+                "main"),
+
+            vk::PipelineShaderStageCreateInfo(
+                vk::PipelineShaderStageCreateFlags(0),
+                vk::ShaderStageFlagBits::eFragment,
+                frag_module.get(),
+                "main")
+        };
+
+        std::vector<vk::DynamicState> dynamic_states = {
+            vk::DynamicState::eViewport,
+            vk::DynamicState::eScissor
+
+        };
+
+        vk::PipelineDynamicStateCreateInfo dyn_i{ {}, static_cast<uint32_t>(dynamic_states.size()), dynamic_states.data() };
+
+        vk::GraphicsPipelineCreateInfo pipe_i{};
+        pipe_i.layout = pipeline_layout.get();
+        pipe_i.basePipelineHandle = nullptr;
+        pipe_i.basePipelineIndex = 0;
+        pipe_i.pVertexInputState = &vert_i;
+        pipe_i.pInputAssemblyState = &asm_i;
+        pipe_i.pRasterizationState = &rast_i;
+        pipe_i.pColorBlendState = &colorblend_i;
+        pipe_i.pTessellationState = nullptr;
+        pipe_i.pMultisampleState = &ms_i;
+        pipe_i.pDynamicState = &dyn_i;
+        pipe_i.pViewportState = &vp_i;
+        pipe_i.pDepthStencilState = &ds_i;
+        pipe_i.pStages = shader_stages.data();
+        pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
+        pipe_i.renderPass = render_pass.get();
+        pipe_i.subpass = 0;
+
+        pipeline_cache = vulkan.device->createPipelineCacheUnique({});
+        pipeline = vulkan.device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);
+    }
+
+    void Renderer::create_debug_graphics_pipeline()
+    {
+        auto vert_code = tools::readFile("build/shaders/shader.vert.spv");
+        auto frag_code = tools::readFile("build/shaders/shader.frag.spv");
+        auto geom_code = tools::readFile("build/shaders/voxel_debug.geom.spv");
+
+        vert_module = vulkan.create_shader_module(vert_code);
+        frag_module = vulkan.create_shader_module(frag_code);
+        auto geom_module = vulkan.create_shader_module(geom_code);
+
+        std::vector<vk::DynamicState> dynamic_states = {
+            vk::DynamicState::eViewport,
+            vk::DynamicState::eScissor
+
+        };
+
+        vk::PipelineDynamicStateCreateInfo dyn_i{ {}, static_cast<uint32_t>(dynamic_states.size()), dynamic_states.data() };
+
+        auto bindings = Voxel::get_binding_description();
+        auto attributes = Voxel::get_attribute_description();
+
+        vk::PipelineVertexInputStateCreateInfo vert_i{};
+        vert_i.flags = vk::PipelineVertexInputStateCreateFlags(0);
+        vert_i.vertexBindingDescriptionCount = bindings.size();
+        vert_i.pVertexBindingDescriptions = bindings.data();
+        vert_i.vertexAttributeDescriptionCount = attributes.size();
+        vert_i.pVertexAttributeDescriptions = attributes.data();
+
+        vk::PipelineInputAssemblyStateCreateInfo asm_i{};
+        asm_i.flags = vk::PipelineInputAssemblyStateCreateFlags(0);
+        asm_i.primitiveRestartEnable = VK_FALSE;
+        asm_i.topology = vk::PrimitiveTopology::ePointList;
+
+        vk::PipelineRasterizationStateCreateInfo rast_i{};
+        rast_i.flags = vk::PipelineRasterizationStateCreateFlags(0);
+        rast_i.polygonMode = vk::PolygonMode::eFill;
+        rast_i.cullMode = vk::CullModeFlagBits::eNone;
         rast_i.frontFace = vk::FrontFace::eCounterClockwise;
         rast_i.depthClampEnable = VK_FALSE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
@@ -756,8 +973,8 @@ namespace my_app
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = .2f;
 
-        std::array<vk::DescriptorSetLayout, 3> layouts = {
-            scene_desc_layout.get(), mat_desc_layout.get(), node_desc_layout.get()
+        std::array<vk::DescriptorSetLayout, 4> layouts = {
+            scene_desc_layout.get(), mat_desc_layout.get(), node_desc_layout.get(), voxels_desc_layout.get()
         };
         vk::PipelineLayoutCreateInfo ci{};
         ci.pSetLayouts = layouts.data();
@@ -767,19 +984,25 @@ namespace my_app
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pcr;
 
-        pipeline_layout = vulkan.device->createPipelineLayoutUnique(ci);
+        pipeline_layout_debug_voxels = vulkan.device->createPipelineLayoutUnique(ci);
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages = {
             vk::PipelineShaderStageCreateInfo(
                 vk::PipelineShaderStageCreateFlags(0),
                 vk::ShaderStageFlagBits::eVertex,
-                *vert_module,
+                vert_module.get(),
+                "main"),
+
+            vk::PipelineShaderStageCreateInfo(
+                vk::PipelineShaderStageCreateFlags(0),
+                vk::ShaderStageFlagBits::eGeometry,
+                geom_module.get(),
                 "main"),
 
             vk::PipelineShaderStageCreateInfo(
                 vk::PipelineShaderStageCreateFlags(0),
                 vk::ShaderStageFlagBits::eFragment,
-                *frag_module,
+                frag_module.get(),
                 "main")
         };
 
@@ -799,10 +1022,10 @@ namespace my_app
         pipe_i.pStages = shader_stages.data();
         pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
         pipe_i.renderPass = render_pass.get();
-        pipe_i.subpass = 0;
+        pipe_i.subpass = 1;
 
-        pipeline_cache = vulkan.device->createPipelineCacheUnique({});
-        pipeline = vulkan.device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);
+        pipeline_cache_debug_voxels = vulkan.device->createPipelineCacheUnique({});
+        pipeline_debug_voxels = vulkan.device->createGraphicsPipelineUnique(pipeline_cache_debug_voxels.get(), pipe_i);
     }
 
     void Renderer::resize(int, int)
@@ -898,15 +1121,20 @@ namespace my_app
 
             frame_resource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
 
-            vk::Buffer vertex_buffers[] = { vertex_buffer.get_buffer() };
-            vk::DeviceSize offsets[] = { 0 };
-            frame_resource->commandbuffer->bindVertexBuffers(0, 1, vertex_buffers, offsets);
+            frame_resource->commandbuffer->bindVertexBuffers(0, vertex_buffer.get_buffer(), {0});
             frame_resource->commandbuffer->bindIndexBuffer(index_buffer.get_buffer(), 0, vk::IndexType::eUint32);
 
-            model.draw(frame_resource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx]);
+            model.draw(frame_resource->commandbuffer, pipeline_layout, desc_sets[virtual_frame_idx], voxels_desc_set);
 
 
             // Do the gui subpass
+            frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
+            frame_resource->commandbuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_debug_voxels.get());
+
+            // Debug view draw the voxels
+            frame_resource->commandbuffer->bindVertexBuffers(0, voxels_buffer.get_buffer(), {0});
+            frame_resource->commandbuffer->draw(128*128*128, 1, 0, 0);
+
             frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
             gui.draw(virtual_frame_idx, frame_resource->commandbuffer);
 

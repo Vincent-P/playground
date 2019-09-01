@@ -155,9 +155,15 @@ namespace my_app
                 ImGui::SetCursorPosX(20.0f);
                 ImGui::Text("Yaw: %.1f", double(camera.yaw));
                 ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Pitch increment: %.1f", double(yaw_increment));
+
+                ImGui::SetCursorPosX(10.0f);
+                ImGui::Text("Position");
                 ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Yaw increment: %.1f", double(pitch_increment));
+                ImGui::Text("X: %.2f", double(camera.position.x));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Y: %.2f", double(camera.position.y));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Z: %.2f", double(camera.position.z));
 
 
                 if (camera.pitch > 89.0f)
