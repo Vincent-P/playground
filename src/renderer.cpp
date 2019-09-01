@@ -614,6 +614,11 @@ namespace my_app
 
         vulkan.CopyDataToBuffer(model.vertices.data(), size, vertex_buffer, {}, vk::PipelineStageFlagBits::eTopOfPipe, vk::AccessFlagBits::eVertexAttributeRead, vk::PipelineStageFlagBits::eVertexInput);
     }
+
+    void Renderer::create_voxels_buffer()
+    {
+        auto size = 100 * 100 * 100 * sizeof(Voxel);
+        voxels_buffer = Buffer("Voxels buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eStorageBuffer);
     }
 
     void Renderer::create_frame_ressources()

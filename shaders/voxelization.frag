@@ -68,6 +68,46 @@ const float c_MinRoughness = 0.04;
 const float PBR_WORKFLOW_METALLIC_ROUGHNESS = 0.0;
 const float PBR_WORKFLOW_SPECULAR_GLOSINESS = 1.0f;
 
+#define MANUAL_SRGB 1
+
+/*
+vec3 Uncharted2Tonemap(vec3 color)
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.02;
+	float F = 0.30;
+	float W = 11.2;
+	return ((color*(A*color+C*B)+D*E)/(color*(A*color+B)+D*F))-E/F;
+}
+
+vec4 tonemap(vec4 color)
+{
+	vec3 outcol = Uncharted2Tonemap(color.rgb * ubo.exposure);
+	outcol = outcol * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
+	return vec4(pow(outcol, vec3(1.0f / ubo.gamma)), color.a);
+}
+*/
+vec4 SRGBtoLINEAR(vec4 srgbIn)
+{
+    return srgbIn;
+	#ifdef MANUAL_SRGB
+	#ifdef SRGB_FAST_APPROXIMATION
+	vec3 linOut = pow(srgbIn.xyz,vec3(2.2));
+	#else //SRGB_FAST_APPROXIMATION
+	vec3 bLess = step(vec3(0.04045),srgbIn.xyz);
+	vec3 linOut = mix( srgbIn.xyz/vec3(12.92), pow((srgbIn.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)), bLess );
+	#endif //SRGB_FAST_APPROXIMATION
+	return vec4(linOut,srgbIn.w);;
+	#else //MANUAL_SRGB
+	return srgbIn;
+	#endif //MANUAL_SRGB
+}
+
+// Find the normal for this fragment, pulling either from a predefined normal map
+// or from the interpolated mesh normal and tangent attributes.
 vec3 getNormal()
 {
 	// Perturb normal, see http://www.thetenthplanet.de/archives/1180
@@ -109,6 +149,7 @@ vec3 getIBLContribution(PBRInfo pbrInputs, vec3 n, vec3 reflection)
 
 	return diffuse + specular;
         */
+    return vec3(ubo.ambient) * pbrInputs.diffuseColor;
 }
 
 // Basic Lambertian diffuse
@@ -293,8 +334,8 @@ void main()
 	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
 	vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
 
-	// Add an ambient light
-        color += vec3(ubo.ambient) * pbrInputs.diffuseColor;
+	// Calculate lighting contribution from image based lighting source (IBL)
+	color += getIBLContribution(pbrInputs, n, reflection);
 
 	const float u_OcclusionStrength = 1.0f;
 	// Apply optional PBR terms for additional (optional) shading

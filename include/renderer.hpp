@@ -61,6 +61,11 @@ namespace my_app
         vk::Extent2D extent;
     };
 
+    struct Voxel
+    {
+        uint32_t color;
+    };
+
     class Renderer
     {
         public:
@@ -79,6 +84,7 @@ namespace my_app
         void create_render_pass();
         void create_index_buffer();
         void create_vertex_buffer();
+        void create_voxels_buffer();
 
         void create_graphics_pipeline();
 
@@ -129,6 +135,7 @@ namespace my_app
 
         Buffer index_buffer;
         Buffer vertex_buffer;
+        Buffer voxels_buffer;
 
         vk::UniqueShaderModule vert_module;
         vk::UniqueShaderModule frag_module;
