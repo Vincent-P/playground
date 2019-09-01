@@ -1,13 +1,33 @@
-* TODO
-** glTF
+* glTF
+- Maybe move the index and vertex buffer from the renderer to the model as each model has a different set of vertices.
 
-   Vertex buffer is a custom struct not the same representation as the glTF buffer accesors.
-   It only requires the pos (vec3); the normals (vec3), uv (vec2), joints/skins are not required;
+* Voxel Cone Tracing
 
-   _Model_
-   - one vertex buffer
-   - one index buffer
+Everything has to be done in the GPU in order to have real-time performance.
 
-   _Mesh_
-   - has uniform buffer
-   - its vertices and indices are stored in the model buffers
+** Voxelization
+
+Technique:
+- No render target / Discard the results.
+- Vertex input is the geometry
+
+- Vertex shader ::
+     - Do a orthogonal projection of the size of the voxels grid
+     - Pass data to the geometry shader
+
+- Geometry shader ::
+     - Find the best orientation for the voxel
+
+- Fragment shader ::
+     - Convert the fragment to a voxel
+     - Add it to the voxel list which is a atomic storage buffer
+
+Debug:
+- Vertex input is the voxels
+- Vertex shader: Do usual thing
+- Geometry shader: if the voxel is not empty expand it to a cube
+- Fragment shader: Set the color to the voxel color
+
+** First bounce
+** Second bounce
+** Use voxels to cone trace
