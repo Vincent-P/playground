@@ -601,20 +601,19 @@ namespace my_app
 
     void Renderer::create_index_buffer()
     {
-        auto size = model.indices.size() * sizeof(std::uint32_t);
-        index_buffer = Buffer("Index buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer);
+        auto size = model.indices.size() * sizeof(uint32_t);
+        index_buffer = Buffer("Index buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 
-        void* mappedData = index_buffer.map();
-        memcpy(mappedData, model.indices.data(), size);
+        vulkan.CopyDataToBuffer(model.indices.data(), size, index_buffer, {}, vk::PipelineStageFlagBits::eTopOfPipe, vk::AccessFlagBits::eIndexRead, vk::PipelineStageFlagBits::eVertexInput);
     }
 
     void Renderer::create_vertex_buffer()
     {
         auto size = model.vertices.size() * sizeof(Vertex);
-        vertex_buffer = Buffer("Vertex buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer);
+        vertex_buffer = Buffer("Vertex buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 
-        void* mappedData = vertex_buffer.map();
-        memcpy(mappedData, model.vertices.data(), size);
+        vulkan.CopyDataToBuffer(model.vertices.data(), size, vertex_buffer, {}, vk::PipelineStageFlagBits::eTopOfPipe, vk::AccessFlagBits::eVertexAttributeRead, vk::PipelineStageFlagBits::eVertexInput);
+    }
     }
 
     void Renderer::create_frame_ressources()
