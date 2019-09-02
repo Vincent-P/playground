@@ -49,11 +49,9 @@ layout (push_constant) uniform Material
     float alphaMaskCutoff;
 } material;
 
-layout (location = 0) out vec4 outColor;
-
-#define VOXEL_DATA_CENTER vec3(40.0, 40.0, 40.0)
-#define VOXEL_DATA_SIZE 1
-#define VOXEL_DATA_RES 128
+#define VOXEL_DATA_CENTER vec3(0.0, 0.0, 0.0)
+#define VOXEL_DATA_SIZE 0.25
+#define VOXEL_DATA_RES 256
 
 // Find the normal for this fragment, pulling either from a predefined normal map
 // or from the interpolated mesh normal and tangent attributes.

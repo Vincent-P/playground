@@ -3,22 +3,10 @@
 layout (location = 0) in vec3 inColor;
 layout (location = 1) in vec3 inNormal;
 
-layout(set = 0, binding = 0) uniform UBO {
-    mat4 view;
-    mat4 proj;
-    mat4 clip;
-    vec4 cam_pos;
-    vec4 light_dir;
-    float debugViewInput;
-    float debugViewEquation;
-    float ambient;
-    float dummy;
-} ubo;
-
 layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec3 outNormal;
 
-#define VOXEL_DATA_RES 128
+#define VOXEL_DATA_RES 256
 
 // flattened array index to 3D array index
 uvec3 unflatten3D(uint idx, uvec3 dim)

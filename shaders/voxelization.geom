@@ -13,9 +13,9 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 
-#define VOXEL_DATA_CENTER vec3(40.0, 40.0, 40.0)
-#define VOXEL_DATA_SIZE 1
-#define VOXEL_DATA_RES 128
+#define VOXEL_DATA_CENTER vec3(0.0, 0.0, 0.0)
+#define VOXEL_DATA_SIZE 0.25
+#define VOXEL_DATA_RES 256
 
 void main(void)
 {

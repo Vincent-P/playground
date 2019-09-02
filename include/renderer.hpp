@@ -18,6 +18,7 @@ namespace my_app
     constexpr int HEIGHT = 1080;
     constexpr int NUM_VIRTUAL_FRAME = 2;
     constexpr vk::SampleCountFlagBits MSAA_SAMPLES = vk::SampleCountFlagBits::e2;
+    constexpr unsigned VOXEL_GRID_SIZE = 256;
 
     struct Camera
     {

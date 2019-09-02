@@ -510,7 +510,7 @@ namespace my_app
         Voxel* voxels_data = static_cast<Voxel*>(voxels_buffer.map());
         size_t voxels_count = 0;
 
-        for (size_t i = 0; i < 128 * 128 * 128; i++)
+        for (size_t i = 0; i < VOXEL_GRID_SIZE * VOXEL_GRID_SIZE * VOXEL_GRID_SIZE; i++)
         {
             auto color = voxels_data[i].color;
             if (color.x > 0 || color.y > 0 || color.z > 0)
@@ -550,7 +550,7 @@ namespace my_app
         // Descriptor set 0: Scene/Camera informations (MVP)
         {
             std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-                vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
+                vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment)
             };
 
             scene_desc_layout = vulkan.create_descriptor_layout(bindings);
@@ -682,7 +682,7 @@ namespace my_app
 
     void Renderer::create_voxels_buffer()
     {
-        auto size = 128 * 128 * 128 * sizeof(Voxel);
+        auto size = VOXEL_GRID_SIZE * VOXEL_GRID_SIZE * VOXEL_GRID_SIZE * sizeof(Voxel);
         std::cout << "Creating a voxels buffer with a size of " << std::to_string(size) << ".\n";
         voxels_buffer = Buffer("Voxels buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eVertexBuffer);
 
@@ -1133,7 +1133,7 @@ namespace my_app
 
             // Debug view draw the voxels
             frame_resource->commandbuffer->bindVertexBuffers(0, voxels_buffer.get_buffer(), {0});
-            frame_resource->commandbuffer->draw(128*128*128, 1, 0, 0);
+            frame_resource->commandbuffer->draw(VOXEL_GRID_SIZE*VOXEL_GRID_SIZE*VOXEL_GRID_SIZE, 1, 0, 0);
 
             frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
             gui.draw(virtual_frame_idx, frame_resource->commandbuffer);
