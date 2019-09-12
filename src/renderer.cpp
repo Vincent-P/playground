@@ -5,20 +5,18 @@
 #include <imgui.h>
 #include <iostream>
 #include <vk_mem_alloc.h>
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 
 #include "timer.hpp"
 #include "tools.hpp"
 
 namespace my_app
 {
-    Renderer::Renderer(GLFWwindow* window, std::string model_path)
+    Renderer::Renderer(GLFWwindow* window, const std::string &model_path)
         : vulkan(window)
         , model(model_path, vulkan)
         , gui(*this)
     {
-        tools::start_log("[RENDERER] Creating a dummy texture");
-        auto start = clock_t::now();
-
         auto format = vk::Format::eA8B8G8R8UnormPack32;
 
         vk::ImageCreateInfo ci{};
@@ -55,62 +53,44 @@ namespace my_app
         empty_info.sampler = vulkan.device->createSampler(sci);
 
         // Create the image view holding the texture
+        vk::ImageSubresourceRange subresource_range;
+        subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;
+        subresource_range.baseMipLevel = 0;
+        subresource_range.levelCount = 1;
+        subresource_range.baseArrayLayer = 0;
+        subresource_range.layerCount = 1;
+
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
         vci.image = empty_image.get_image();
         vci.format = format;
         vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        vci.subresourceRange.baseMipLevel = 0;
-        vci.subresourceRange.levelCount = 1;
-        vci.subresourceRange.baseArrayLayer = 0;
-        vci.subresourceRange.layerCount = 1;
+        vci.subresourceRange = subresource_range;
         vci.viewType = vk::ImageViewType::e2D;
         empty_info.imageView = vulkan.device->createImageView(vci);
 
-        vk::ImageSubresourceRange subresource_range{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
-
-        vk::ImageMemoryBarrier b{};
-        b.oldLayout = vk::ImageLayout::eUndefined;
-        b.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        b.srcAccessMask = {};
-        b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-        b.image = empty_image.get_image();
-        b.subresourceRange = subresource_range;
-
-        vulkan.transition_layout(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, b);
+        vulkan.transition_layout(empty_image.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, subresource_range);
         empty_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         // Create the swapchain
-        tools::log(start, "[RENDERER] Creating a swapchain");
         create_swapchain();
 
-        tools::log(start, "[RENDERER] Creating the vertex and index buffer");
         create_vertex_buffer();
         create_index_buffer();
-        tools::log(start, "[RENDERER] Creating the voxels buffer");
         create_voxels_buffer();
 
-        tools::log(start, "[RENDERER] Creating the descriptor sets");
         create_descriptors();
 
         // Create ressources
-        tools::log(start, "[RENDERER] Creating the frame resources");
         create_frame_ressources();
-        tools::log(start, "[RENDERER] Creating the color buffer");
         create_color_buffer();
-        tools::log(start, "[RENDERER] Creating the depth buffer");
         create_depth_buffer();
 
 
         // Create the pipeline
-        tools::log(start, "[RENDERER] Creating the render pass");
         create_render_pass();
-        tools::log(start, "[RENDERER] Creating the graphics pipeline");
         create_graphics_pipeline();
-        tools::log(start, "[RENDERER] Creating the debug graphics pipeline");
         create_debug_graphics_pipeline();
-        tools::end_log(start, "[RENDERER] Done, now initializing the GUI!");
         gui.init();
     }
 
@@ -276,31 +256,23 @@ namespace my_app
 
         color_image = Image{ "Color image", vulkan.allocator, ci };
 
+        vk::ImageSubresourceRange subresource_range;
+        subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;
+        subresource_range.baseMipLevel = 0;
+        subresource_range.levelCount = 1;
+        subresource_range.baseArrayLayer = 0;
+        subresource_range.layerCount = 1;
+
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
         vci.image = color_image.get_image();
         vci.format = swapchain.format.format;
         vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        vci.subresourceRange.baseMipLevel = 0;
-        vci.subresourceRange.levelCount = 1;
-        vci.subresourceRange.baseArrayLayer = 0;
-        vci.subresourceRange.layerCount = 1;
+        vci.subresourceRange = subresource_range;
         vci.viewType = vk::ImageViewType::e2D;
 
         color_image_view = vulkan.device->createImageView(vci);
-
-        vk::ImageSubresourceRange subresource_range{ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
-
-        vk::ImageMemoryBarrier b{};
-        b.oldLayout = vk::ImageLayout::eUndefined;
-        b.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        b.srcAccessMask = {};
-        b.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
-        b.image = color_image.get_image();
-        b.subresourceRange = subresource_range;
-
-        vulkan.transition_layout(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, b);
+        vulkan.transition_layout(color_image.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_COLOR_ATTACHMENT_WRITE, subresource_range);
     }
 
 

@@ -40,10 +40,9 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   if (CMAKE_CXX_CPPCHECK)
     list(
       APPEND CMAKE_CXX_CPPCHECK
+      "--suppress=missingIncludeSystem"
       "--std=c++17"
       "--enable=all"
-      "--force"
-      "--inconclusive"
       )
   endif()
 

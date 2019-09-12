@@ -96,7 +96,7 @@ namespace my_app
     class Renderer
     {
         public:
-        Renderer(GLFWwindow* window, std::string model_path);
+        Renderer(GLFWwindow* window, const std::string &model_path);
         Renderer(Renderer& other) = delete;
         ~Renderer();
 

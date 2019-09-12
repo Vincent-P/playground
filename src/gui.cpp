@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include <iostream>
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 
 #include "renderer.hpp"
 #include "timer.hpp"
@@ -32,9 +33,6 @@ namespace my_app
 
     void GUI::init()
     {
-        tools::start_log("[GUI] Initialize ImGui");
-        auto start = clock_t::now();
-
         ImGui::CreateContext();
         auto& style = ImGui::GetStyle();
         style.FrameRounding = 0.f;
@@ -51,18 +49,13 @@ namespace my_app
 
         resources.resize(NUM_VIRTUAL_FRAME);
 
-        tools::log(start, "[GUI] Creating the font texture");
         create_texture();
-        tools::log(start, "[GUI] Creating the descriptor sets");
         create_descriptors();
-        tools::log(start, "[GUI] Creating the pipeline layout");
         create_pipeline_layout();
-        tools::log(start, "[GUI] Creating the graphics pipeline");
         create_graphics_pipeline();
-        tools::end_log(start, "[GUI] Done!");
     }
 
-    void GUI::start_frame(const TimerData& timer)
+    void GUI::start_frame(const TimerData& timer) const
     {
         ImGuiIO& io = ImGui::GetIO();
         io.DeltaTime = timer.get_delta_time();
@@ -296,12 +289,8 @@ namespace my_app
             width,
             height,
             isr,
-            vk::ImageLayout::eUndefined,
-            vk::AccessFlags(0),
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::ImageLayout::eShaderReadOnlyOptimal,
-            vk::AccessFlagBits::eShaderRead,
-            vk::PipelineStageFlagBits::eFragmentShader);
+            THSVS_ACCESS_NONE,
+            THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER);
 
         texture_desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }

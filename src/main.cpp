@@ -20,7 +20,7 @@ namespace my_app
     class App
     {
         public:
-        App(std::string model_path)
+        explicit App(const std::string &model_path)
             : window(create_glfw_window())
             , renderer(window, model_path)
             , camera()

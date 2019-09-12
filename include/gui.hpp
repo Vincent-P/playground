@@ -19,15 +19,15 @@ namespace my_app
     class GUI
     {
         public:
-        GUI(const Renderer& renderer);
+        explicit GUI(const Renderer& renderer);
         ~GUI();
 
         void init();
-        void start_frame(const TimerData& timer);
-        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& command_buffer);
+        void start_frame(const TimerData& timer) const;
+        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd);
 
         private:
-        void draw_frame_data(vk::UniqueCommandBuffer& command_buffer, uint32_t resource_index);
+        void draw_frame_data(vk::UniqueCommandBuffer& cmd, uint32_t resource_index);
         void create_texture();
         void create_descriptors();
         void create_render_pass();

@@ -1,3 +1,26 @@
+Most important right now is to refactor the code.
+The renderer should just be responsible for making a renderpass.
+The differents subpasses will be in different classes, making their own pipeline and stuff.
+The renderer will then just make the renderpass, start the frame, call each subpass then do cmdnextsubpass.
+
+Subpasses:
+- glTF renderer / PBR
+- Voxelization
+- ImGUI
+
+So each subclasses will have:
+    - Specific descriptor sets
+    - Shaders
+    - Pipeline
+
+Maybe each sublclass will have its own index vertex.
+
+The renderer will have:
+   - Global descriptor sets (needed?)
+   - Render pass
+   - Swapchain
+   - Frame resources
+
 * glTF
 - Maybe move the index and vertex buffer from the renderer to the model as each model has a different set of vertices.
 
@@ -27,6 +50,8 @@ Debug:
 - Vertex shader: Do usual thing
 - Geometry shader: if the voxel is not empty expand it to a cube
 - Fragment shader: Set the color to the voxel color
+
+Works but slow for now...
 
 ** First bounce
 ** Second bounce

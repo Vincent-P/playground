@@ -3,6 +3,7 @@
 #include <optional>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 
 #include "buffer.hpp"
 #include "image.hpp"
@@ -12,6 +13,7 @@ struct GLFWwindow;
 namespace my_app
 {
     constexpr bool ENABLE_VALIDATION_LAYERS = true;
+
     constexpr std::array<const char*, 1> VALIDATION_LAYERS = {
         "VK_LAYER_LUNARG_standard_validation",
     };
@@ -20,10 +22,9 @@ namespace my_app
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
-
     struct VulkanContext
     {
-        VulkanContext(GLFWwindow* window);
+        explicit VulkanContext(GLFWwindow* window);
         VulkanContext(VulkanContext& other) = delete;
         ~VulkanContext();
 
@@ -33,17 +34,21 @@ namespace my_app
         vk::UniqueSurfaceKHR create_surface(GLFWwindow* window);
         vk::PhysicalDevice pick_physical_device();
         vk::UniqueDevice create_logical_device();
-        VmaAllocator init_allocator();
+        VmaAllocator init_allocator() const;
 
         // Utility
         vk::Queue get_graphics_queue() const;
         vk::Queue get_present_queue() const;
 
-        void transition_layout(vk::PipelineStageFlagBits src, vk::PipelineStageFlagBits dst, vk::ImageMemoryBarrier barrier) const;
+        // Ressources
         vk::UniqueShaderModule create_shader_module(std::vector<char> code) const;
         vk::UniqueDescriptorSetLayout create_descriptor_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) const;
-        void CopyDataToImage(void const* data, size_t data_size, Image& target_image, uint32_t width, uint32_t height, vk::ImageSubresourceRange const& image_subresource_range, vk::ImageLayout current_image_layout, vk::AccessFlags current_image_access, vk::PipelineStageFlags generating_stages, vk::ImageLayout new_image_layout, vk::AccessFlags new_image_access, vk::PipelineStageFlags consuming_stages) const;
-        void CopyDataToBuffer(void const* data, size_t data_size, Buffer buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const;
+
+        void transition_layout_cmd(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access, ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range) const;
+        void transition_layout(vk::Image image, ThsvsAccessType prev_access, ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range) const;
+
+        void CopyDataToImage(void const* data, size_t data_size, Image& target_image, uint32_t width, uint32_t height, const vk::ImageSubresourceRange &subresource_range, ThsvsAccessType current_image_access, ThsvsAccessType next_image_access) const;
+        void CopyDataToBuffer(void const* data, size_t data_size, const Buffer &buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const;
 
         uint32_t graphics_family_idx;
         uint32_t present_family_idx;
@@ -56,6 +61,7 @@ namespace my_app
         vk::UniqueDevice device;
         VmaAllocator allocator;
         vk::UniqueCommandPool command_pool;
+        vk::UniqueCommandBuffer texture_command_buffer;
     };
 
 }    // namespace my_app

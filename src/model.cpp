@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <tinygltf/tiny_gltf.h>
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 
 #include "buffer.hpp"
 #include "image.hpp"
@@ -15,7 +16,7 @@
 namespace my_app
 {
 
-    Texture::Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& texture_sampler)
+    Texture::Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler)
     {
         auto& pixels = gltf_image.image;
 
@@ -38,8 +39,7 @@ namespace my_app
         width = static_cast<uint32_t>(gltf_image.width);
         height = static_cast<uint32_t>(gltf_image.height);
         mip_levels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height))) + 1.0);
-
-        auto copy_queue = ctx.get_graphics_queue();
+        layer_count = 0;
 
         // Create the image that will contain the texture
         vk::ImageCreateInfo ci{};
@@ -60,19 +60,27 @@ namespace my_app
         texture_name += gltf_image.name;
         image = Image{ texture_name, ctx.allocator, ci };
 
-        vk::ImageSubresourceRange subresource_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        vk::ImageSubresourceRange subresource_range;
+        subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;
+        subresource_range.baseArrayLayer = 0;
+        subresource_range.layerCount = 1;
+        subresource_range.baseMipLevel = 0;
+        subresource_range.levelCount = 1;
 
-        ctx.CopyDataToImage(pixels.data(), pixels.size(), image, width, height, subresource_range,
-                            vk::ImageLayout::eUndefined, {}, vk::PipelineStageFlagBits::eAllCommands,
-                            vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits::eTransferRead, vk::PipelineStageFlagBits::eAllCommands);
+        ctx.CopyDataToImage(pixels.data(), pixels.size(), image, width, height, subresource_range, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_READ);
 
         // Generate the mipchain (because glTF's textures are regular images)
+        auto& cmd = ctx.texture_command_buffer;
 
-        auto bcmd = std::move(ctx.device->allocateCommandBuffersUnique({ ctx.command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
-        bcmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
         for (uint32_t i = 1; i < mip_levels; i++)
         {
+            subresource_range.baseMipLevel = i;
+
+            // We are going to write to this mip level
+            ctx.transition_layout_cmd(*cmd, image.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE, subresource_range);
+
             auto src_width = width >> (i - 1);
             auto src_height = height >> (i - 1);
             auto dst_width = width >> i;
@@ -91,76 +99,38 @@ namespace my_app
             blit.dstOffsets[1].y = static_cast<int32_t>(dst_height);
             blit.dstOffsets[1].z = 1;
 
-            vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
+            cmd->blitImage(image.get_image(), vk::ImageLayout::eTransferSrcOptimal, image.get_image(), vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
 
-            {
-                vk::ImageMemoryBarrier b{};
-                b.oldLayout = vk::ImageLayout::eUndefined;
-                b.newLayout = vk::ImageLayout::eTransferDstOptimal;
-                b.srcAccessMask = vk::AccessFlags();
-                b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-                b.image = image.get_image();
-                b.subresourceRange = mip_sub_range;
-                bcmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, b);
-            }
-
-            bcmd->blitImage(image.get_image(), vk::ImageLayout::eTransferSrcOptimal, image.get_image(), vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
-
-            {
-                vk::ImageMemoryBarrier b{};
-                b.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-                b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-                b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-                b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-                b.image = image.get_image();
-                b.subresourceRange = mip_sub_range;
-                bcmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), nullptr, nullptr, b);
-            }
+            // This mip level will be read to create the next one
+            ctx.transition_layout_cmd(*cmd, image.get_image(), THSVS_ACCESS_TRANSFER_WRITE, THSVS_ACCESS_TRANSFER_READ, subresource_range);
         }
 
-        bcmd->end();
+        // Set the range to all the mip levels
+        subresource_range.baseMipLevel = 0;
+        subresource_range.levelCount = mip_levels;
+
+        // Set the final layout to shader read
+        ctx.transition_layout_cmd(*cmd, image.get_image(), THSVS_ACCESS_TRANSFER_READ, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, subresource_range);
+        desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+        cmd->end();
 
         auto fence = ctx.device->createFenceUnique({});
         vk::SubmitInfo submit{};
         submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &bcmd.get();
+        submit.pCommandBuffers = &cmd.get();
+        ctx.get_graphics_queue().submit(submit, fence.get());
 
-        copy_queue.submit(submit, fence.get());
-        ctx.device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
-
-        subresource_range.levelCount = mip_levels;
-        desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-
-        bcmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-
-        {
-            vk::ImageMemoryBarrier b{};
-            b.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-            b.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-            b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-            b.image = image.get_image();
-            b.subresourceRange = subresource_range;
-            bcmd->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), nullptr, nullptr, b);
-        }
-
-        bcmd->end();
-
-        fence = ctx.device->createFenceUnique({});
-        submit.commandBufferCount = 1;
-        submit.pCommandBuffers = &bcmd.get();
-
-        copy_queue.submit(submit, fence.get());
         ctx.device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
 
         // Create the sampler for the texture
         vk::SamplerCreateInfo sci{};
-        sci.magFilter = texture_sampler.mag_filter;
-        sci.minFilter = texture_sampler.min_filter;
+        sci.magFilter = sampler.mag_filter;
+        sci.minFilter = sampler.min_filter;
         sci.mipmapMode = vk::SamplerMipmapMode::eLinear;
-        sci.addressModeU = texture_sampler.address_mode_u;
-        sci.addressModeV = texture_sampler.address_mode_v;
-        sci.addressModeW = texture_sampler.address_mode_w;
+        sci.addressModeU = sampler.address_mode_u;
+        sci.addressModeV = sampler.address_mode_v;
+        sci.addressModeW = sampler.address_mode_w;
         sci.compareOp = vk::CompareOp::eNever;
         sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
         sci.minLod = 0;
@@ -175,11 +145,7 @@ namespace my_app
         vci.image = image.get_image();
         vci.format = format;
         vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        vci.subresourceRange.baseMipLevel = 0;
-        vci.subresourceRange.levelCount = mip_levels;
-        vci.subresourceRange.baseArrayLayer = 0;
-        vci.subresourceRange.layerCount = 1;
+        vci.subresourceRange = subresource_range;
         vci.viewType = vk::ImageViewType::e2D;
         desc_info.imageView = ctx.device->createImageView(vci);
     }
@@ -299,11 +265,6 @@ namespace my_app
     Model::Model(std::string path, VulkanContext& _ctx)
         : ctx(_ctx)
     {
-        std::string message = "[MODEL] Opening and parsing ";
-        message += path;
-        tools::start_log(message.c_str());
-        auto start = clock_t::now();
-
         std::string err, warn;
         if (!loader.LoadASCIIFromFile(&model, &err, &warn, path) || !err.empty() || !warn.empty())
         {
@@ -314,22 +275,14 @@ namespace my_app
             throw std::runtime_error("Failed to load model.");
         }
 
-        tools::log(start, "[MODEL] Loading samplers");
         load_samplers();
-        tools::log(start, "[MODEL] Loading textures");
         load_textures();
-        tools::log(start, "[MODEL] Loading materials");
         load_materials();
-        tools::log(start, "[MODEL] Loading meshes");
         load_meshes();
-        tools::log(start, "[MODEL] Loading nodes");
         load_nodes();
 
-        tools::log(start, "[MODEL] Updating nodes");
         for (auto& node : scene_nodes)
             node.update();
-
-        tools::end_log(start, "[MODEL] Done!");
     }
 
     void Model::free()

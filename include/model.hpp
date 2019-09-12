@@ -211,8 +211,8 @@ namespace my_app
             glm::mat4 matrix;
         } uniform_block;
 
-        Mesh(VulkanContext& ctx);
-        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const;
+        explicit Mesh(VulkanContext& ctx);
+        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene, vk::UniqueDescriptorSet& other) const;
 
         std::vector<Primitive> primitives;
         Buffer uniform;
@@ -249,13 +249,13 @@ namespace my_app
         }
 
         void update();
-        void setup_node_descriptor_set(vk::UniqueDescriptorPool& desc_pool, vk::UniqueDescriptorSetLayout& desc_set_layout, vk::UniqueDevice& device);
+        void setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::UniqueDevice& device);
         void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const;
     };
 
     struct Model
     {
-        Model(std::string path, VulkanContext& ctx);
+        Model(std::string path, VulkanContext& _ctx);
         ~Model() = default;
 
         void load_textures();
