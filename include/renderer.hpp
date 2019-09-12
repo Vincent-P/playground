@@ -14,11 +14,11 @@ struct GLFWwindow;
 
 namespace my_app
 {
-    constexpr int WIDTH = 1920;
-    constexpr int HEIGHT = 1080;
-    constexpr int NUM_VIRTUAL_FRAME = 2;
-    constexpr vk::SampleCountFlagBits MSAA_SAMPLES = vk::SampleCountFlagBits::e2;
-    constexpr unsigned VOXEL_GRID_SIZE = 256;
+    constexpr inline int WIDTH = 1920;
+    constexpr inline int HEIGHT = 1080;
+    constexpr inline int NUM_VIRTUAL_FRAME = 2;
+    constexpr inline vk::SampleCountFlagBits MSAA_SAMPLES = vk::SampleCountFlagBits::e2;
+    constexpr inline unsigned VOXEL_GRID_SIZE = 256;
 
     struct Camera
     {

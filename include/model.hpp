@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <optional>
 #include <string>
-#include <tiny_gltf.h>
+#include <tinygltf/tiny_gltf.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 

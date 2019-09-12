@@ -8,4 +8,4 @@
 #include <nlohmann/json.hpp>
 #include <stb_image.h>
 #include <stb_image_write.h>
-#include <tiny_gltf.h>
+#include <tinygltf/tiny_gltf.h>

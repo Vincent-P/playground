@@ -4,7 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
-#include <tiny_gltf.h>
+#include <tinygltf/tiny_gltf.h>
 
 #include "buffer.hpp"
 #include "image.hpp"

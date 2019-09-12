@@ -36,7 +36,16 @@ add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat 
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
 
   # static analysis tools
-  set(CMAKE_CXX_CPPCHECK "cppcheck")
+  find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
+  if (CMAKE_CXX_CPPCHECK)
+    list(
+      APPEND CMAKE_CXX_CPPCHECK
+      "--std=c++17"
+      "--enable=all"
+      "--force"
+      "--inconclusive"
+      )
+  endif()
 
   # Too many warnings for now...
   # set(CMAKE_CXX_CLANG_TIDY
@@ -64,6 +73,7 @@ set(TEST_VULKAN_FILES
   src/main.cpp
   src/model.cpp
   src/renderer.cpp
+  src/thsvs.cpp
   src/timer.cpp
   src/tiny_gltf.cpp
   src/tools.cpp
@@ -110,7 +120,7 @@ target_include_directories(test-vulkan
   )
 
 target_include_directories(test-vulkan
-  SYSTEM PUBLIC third_party/tinygltf
+  SYSTEM PUBLIC third_party/
   )
 
 # Add a run target to launch the executable
