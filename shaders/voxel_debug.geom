@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) uniform UBO {
     float debugViewInput;
     float debugViewEquation;
     float ambient;
-    float dummy;
+    float cube_scale;
 } ubo;
 
 layout (location = 0) in vec3 inColor[];
@@ -22,10 +22,8 @@ layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec3 outOffset;
 
-#define cubeScale 1.0
-
 #define MAKE_VERTEX(offset) \
-        vertex = centerPos + cubeScale * vec4(offset, 0.0); \
+        vertex = centerPos + ubo.cube_scale * vec4(offset, 0.0); \
         gl_Position =  ubo.clip * ubo.proj * ubo.view * vertex; \
         outOffset = offset; \
         outColor = inColor[0]; \

@@ -11,6 +11,7 @@
 #include "renderer.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
+#include "model.hpp"
 
 namespace my_app
 {
@@ -285,7 +286,7 @@ namespace my_app
     };
 }    // namespace my_app
 
-int main(int, char* argv[])
+int main(int, char** argv)
 {
     try
     {

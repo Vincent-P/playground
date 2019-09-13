@@ -10,8 +10,7 @@ namespace my_app
         , image()
         , mem_usage()
         , allocation()
-    {
-    }
+    {}
 
 
     Image::Image(std::string name, const VmaAllocator& _allocator, vk::ImageCreateInfo _image_info, VmaMemoryUsage _mem_usage)

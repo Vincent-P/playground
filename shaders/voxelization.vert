@@ -5,18 +5,6 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 
-layout(set = 0, binding = 0) uniform UBO {
-    mat4 view;
-    mat4 proj;
-    mat4 clip;
-    vec4 cam_pos;
-    vec4 light_dir;
-    float debugViewInput;
-    float debugViewEquation;
-    float ambient;
-    float dummy;
-} ubo;
-
 layout (set = 2, binding = 0) uniform UBONode {
     mat4 matrix;
 } node;

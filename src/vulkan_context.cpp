@@ -95,7 +95,7 @@ namespace my_app
                           << to_string(object.objectType)
                           << " "
                           << (object.pObjectName ? object.pObjectName : "NoName")
-                          << "\n";
+                          << std::endl;
             }
         }
 
@@ -377,113 +377,137 @@ namespace my_app
         return device->createDescriptorSetLayoutUnique(dslci);
     }
 
-    void VulkanContext::CopyDataToImage(void const* data, size_t data_size, Image& target_image, uint32_t width, uint32_t height, const vk::ImageSubresourceRange &subresource_range, ThsvsAccessType current_image_access, ThsvsAccessType next_image_access) const
+    void VulkanContext::submit_and_wait_cmd(vk::CommandBuffer cmd) const
+    {
+        // Submit
+        vk::UniqueFence fence = device->createFenceUnique({});
+
+        vk::SubmitInfo si{};
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &cmd;
+        get_graphics_queue().submit({ si }, fence.get());
+        device->waitForFences({ fence.get() }, VK_FALSE, UINT64_MAX);
+    }
+
+    Buffer VulkanContext::copy_data_to_image_cmd(vk::CommandBuffer cmd, CopyDataToImageParams params) const
     {
         // Create a staging buffer
         std::string name = "Staging buffer CopyDataToImage for size ";
-        name += std::to_string(data_size);
-        Buffer staging_buffer{ name, allocator, data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        name += std::to_string(params.data_size);
+        Buffer staging_buffer{ name, allocator, params.data_size, vk::BufferUsageFlagBits::eTransferSrc };
         void* mapped = staging_buffer.map();
-        std::memcpy(mapped, data, data_size);
-
-        // Record command buffer which copies data from the staging buffer to the destination buffer
-        texture_command_buffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        std::memcpy(mapped, params.data, params.data_size);
 
         // Set the image as a transfer destination
-        transition_layout_cmd(*texture_command_buffer, target_image.get_image(), current_image_access, THSVS_ACCESS_TRANSFER_WRITE, subresource_range);
+        transition_layout_cmd(cmd, params.target_image.get_image(), params.current_image_access, THSVS_ACCESS_TRANSFER_WRITE, params.subresource_range);
 
         std::vector<vk::BufferImageCopy> buffer_image_copy;
-        buffer_image_copy.reserve(subresource_range.levelCount);
-        for (uint32_t i = subresource_range.baseMipLevel; i < subresource_range.baseMipLevel + subresource_range.levelCount; ++i)
+        buffer_image_copy.reserve(params.subresource_range.levelCount);
+        for (uint32_t i = params.subresource_range.baseMipLevel; i < params.subresource_range.baseMipLevel + params.subresource_range.levelCount; ++i)
         {
             buffer_image_copy.emplace_back(
                 0,                                             // VkDeviceSize                           bufferOffset
                 0,                                             // uint32_t                               bufferRowLength
                 0,                                             // uint32_t                               bufferImageHeight
                 vk::ImageSubresourceLayers(                    // VkImageSubresourceLayers               imageSubresource
-                    subresource_range.aspectMask,              // VkImageAspectFlags                     aspectMask
+                    params.subresource_range.aspectMask,              // VkImageAspectFlags                     aspectMask
                     i,                                         // uint32_t                               mipLevel
-                    subresource_range.baseArrayLayer,          // uint32_t                               baseArrayLayer
-                    subresource_range.layerCount               // uint32_t                               layerCount
+                    params.subresource_range.baseArrayLayer,          // uint32_t                               baseArrayLayer
+                    params.subresource_range.layerCount               // uint32_t                               layerCount
                     ),
                 vk::Offset3D(),    // VkOffset3D                             imageOffset
                 vk::Extent3D(      // VkExtent3D                             imageExtent
-                    width,         // uint32_t                               width
-                    height,        // uint32_t                               height
+                    params.width,         // uint32_t                               width
+                    params.height,        // uint32_t                               height
                     1              // uint32_t                               depth
                     ));
         }
 
-        texture_command_buffer->copyBufferToImage(staging_buffer.get_buffer(), target_image.get_image(), vk::ImageLayout::eTransferDstOptimal, buffer_image_copy);
+        cmd.copyBufferToImage(staging_buffer.get_buffer(), params.target_image.get_image(), vk::ImageLayout::eTransferDstOptimal, buffer_image_copy);
 
         // Set the image to its new layout
-        transition_layout_cmd(*texture_command_buffer, target_image.get_image(), THSVS_ACCESS_TRANSFER_WRITE, next_image_access, subresource_range);
+        transition_layout_cmd(cmd, params.target_image.get_image(), THSVS_ACCESS_TRANSFER_WRITE, params.next_image_access, params.subresource_range);
 
+        return staging_buffer;
+    }
+
+    void VulkanContext::copy_data_to_image(CopyDataToImageParams params) const
+    {
+        if (!params.data || !params.data_size)
+            return;
+
+        texture_command_buffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        auto staging_buffer = copy_data_to_image_cmd(texture_command_buffer.get(), params);
         texture_command_buffer->end();
-
-        // Submit
-        vk::UniqueFence fence = device->createFenceUnique({});
-
-        vk::SubmitInfo si{};
-        si.commandBufferCount = 1;
-        si.pCommandBuffers = &texture_command_buffer.get();
-        get_graphics_queue().submit({ si }, fence.get());
-        device->waitForFences({ fence.get() }, VK_FALSE, UINT64_MAX);
+        submit_and_wait_cmd(texture_command_buffer.get());
 
         staging_buffer.free();
     }
 
-    void VulkanContext::CopyDataToBuffer(void const* data, size_t data_size, const Buffer &buffer, vk::AccessFlags current_buffer_access, vk::PipelineStageFlags generating_stages, vk::AccessFlags new_buffer_access, vk::PipelineStageFlags consuming_stages) const
+    Buffer VulkanContext::copy_data_to_buffer_cmd(vk::CommandBuffer cmd, CopyDataToBufferParams params) const
     {
         // Create staging buffer and map it's memory to copy data from the CPU
         std::string name = "Staging buffer CopyDataToBuffer for size ";
-        name += std::to_string(data_size);
-        Buffer staging_buffer{ name, allocator, data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        name += std::to_string(params.data_size);
+        Buffer staging_buffer{ name, allocator, params.data_size, vk::BufferUsageFlagBits::eTransferSrc };
         void* mapped = staging_buffer.map();
-        std::memcpy(mapped, data, data_size);
-
-        // Allocate temporary command buffer from a temporary command pool
-        vk::UniqueCommandBuffer cmd = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
-
-        // Record command buffer which copies data from the staging buffer to the destination buffer
-        cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        std::memcpy(mapped, params.data, params.data_size);
 
         vk::BufferMemoryBarrier bmb_pre{};
-        bmb_pre.srcAccessMask = current_buffer_access;
+        bmb_pre.srcAccessMask = params.current_buffer_access;
         bmb_pre.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
         bmb_pre.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         bmb_pre.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bmb_pre.buffer = buffer.get_buffer();
+        bmb_pre.buffer = params.buffer.get_buffer();
         bmb_pre.offset = 0;
-        bmb_pre.size = static_cast<uint32_t>(data_size);
-        cmd->pipelineBarrier(generating_stages, vk::PipelineStageFlagBits::eTransfer, {}, {}, { bmb_pre }, {});
+        bmb_pre.size = static_cast<uint32_t>(params.data_size);
+        cmd.pipelineBarrier(params.generating_stages, vk::PipelineStageFlagBits::eTransfer, {}, {}, { bmb_pre }, {});
 
         vk::BufferCopy bcp{};
         bcp.srcOffset = 0;
         bcp.dstOffset = 0;
-        bcp.size = static_cast<uint32_t>(data_size);
-        cmd->copyBuffer(staging_buffer.get_buffer(), buffer.get_buffer(), { bcp });
+        bcp.size = static_cast<uint32_t>(params.data_size);
+        cmd.copyBuffer(staging_buffer.get_buffer(), params.buffer.get_buffer(), { bcp });
 
         vk::BufferMemoryBarrier bmb_post{};
         bmb_post.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        bmb_post.dstAccessMask = new_buffer_access;
+        bmb_post.dstAccessMask = params.new_buffer_access;
         bmb_post.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         bmb_post.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bmb_post.buffer = buffer.get_buffer();
+        bmb_post.buffer = params.buffer.get_buffer();
         bmb_post.offset = 0;
-        bmb_post.size = static_cast<uint32_t>(data_size);
-        cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, consuming_stages, {}, {}, { bmb_post }, {});
-        cmd->end();
+        bmb_post.size = static_cast<uint32_t>(params.data_size);
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, params.consuming_stages, {}, {}, { bmb_post }, {});
 
-        // Submit
-        vk::UniqueFence fence = device->createFenceUnique({});
+        return staging_buffer;
+    }
 
-        vk::SubmitInfo si{};
-        si.commandBufferCount = 1;
-        si.pCommandBuffers = &cmd.get();
-        get_graphics_queue().submit({ si }, fence.get());
-        device->waitForFences({ fence.get() }, VK_FALSE, UINT64_MAX);
+    void VulkanContext::copy_data_to_buffer(CopyDataToBufferParams params) const
+    {
+        if (!params.data || !params.data_size)
+            return;
+
+        // Record command buffer which copies data from the staging buffer to the destination buffer
+        texture_command_buffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        auto staging_buffer = copy_data_to_buffer_cmd(texture_command_buffer.get(), params);
+        texture_command_buffer->end();
+        submit_and_wait_cmd(texture_command_buffer.get());
 
         staging_buffer.free();
+    }
+
+    void VulkanContext::clear_buffer_cmd(vk::CommandBuffer cmd, const Buffer& buffer, uint32_t data) const
+    {
+        cmd.fillBuffer(buffer.get_buffer(), 0, buffer.get_size(), data);
+    }
+
+    void VulkanContext::clear_buffer(const Buffer& buffer, uint32_t data) const
+    {
+        texture_command_buffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+
+        texture_command_buffer->fillBuffer(buffer.get_buffer(), 0, buffer.get_size(), data);
+
+        texture_command_buffer->end();
+        submit_and_wait_cmd(texture_command_buffer.get());
     }
 }    // namespace my_app

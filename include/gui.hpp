@@ -7,6 +7,7 @@
 
 namespace my_app
 {
+    struct VulkanContext;
     class Renderer;
     class TimerData;
 
@@ -19,24 +20,24 @@ namespace my_app
     class GUI
     {
         public:
-        explicit GUI(const Renderer& renderer);
+        explicit GUI(Renderer&, uint32_t _subpass);
         ~GUI();
 
         void init();
+        void do_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
         void start_frame(const TimerData& timer) const;
-        void draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd);
 
         private:
-        void draw_frame_data(vk::UniqueCommandBuffer& cmd, uint32_t resource_index);
+        void draw_frame_data(uint32_t resource_index, vk::CommandBuffer cmd);
         void create_texture();
         void create_descriptors();
         void create_render_pass();
         void create_pipeline_layout();
         void create_graphics_pipeline();
 
-        const Renderer& parent;
-
-        vk::UniqueRenderPass render_pass;
+        Renderer& renderer;
+        const VulkanContext& vulkan;
+        uint32_t subpass;
 
         vk::UniquePipeline pipeline;
         vk::UniquePipelineCache pipeline_cache;

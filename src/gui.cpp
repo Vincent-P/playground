@@ -10,15 +10,16 @@
 
 namespace my_app
 {
-    GUI::GUI(const Renderer& renderer)
-        : parent(renderer)
-    {
-    }
+    GUI::GUI(Renderer& _renderer, uint32_t _subpass)
+        : renderer{ _renderer }
+        , vulkan{renderer.get_vulkan()}
+        , subpass{_subpass}
+    {}
 
     GUI::~GUI()
     {
-        parent.get_vulkan().device->destroy(texture_desc_info.imageView);
-        parent.get_vulkan().device->destroy(texture_desc_info.sampler);
+        vulkan.device->destroy(texture_desc_info.imageView);
+        vulkan.device->destroy(texture_desc_info.sampler);
         texture.free();
 
         for (auto& resource : resources)
@@ -44,8 +45,8 @@ namespace my_app
 
 
         ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize.x = float(parent.get_swapchain().extent.width);
-        io.DisplaySize.y = float(parent.get_swapchain().extent.height);
+        io.DisplaySize.x = float(renderer.get_swapchain().extent.width);
+        io.DisplaySize.y = float(renderer.get_swapchain().extent.height);
 
         resources.resize(NUM_VIRTUAL_FRAME);
 
@@ -61,8 +62,8 @@ namespace my_app
         io.DeltaTime = timer.get_delta_time();
         io.Framerate = timer.get_average_fps();
 
-        io.DisplaySize.x = float(parent.get_swapchain().extent.width);
-        io.DisplaySize.y = float(parent.get_swapchain().extent.height);
+        io.DisplaySize.x = float(renderer.get_swapchain().extent.width);
+        io.DisplaySize.y = float(renderer.get_swapchain().extent.height);
 
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 120.0f, 20.0f));
         ImGui::SetNextWindowSize(ImVec2(100.0f, 100.0));
@@ -102,11 +103,11 @@ namespace my_app
         ImGui::End();
     }
 
-    void GUI::draw(uint32_t resource_index, vk::UniqueCommandBuffer& cmd)
+    void GUI::do_subpass(uint32_t resource_index, vk::CommandBuffer cmd)
     {
         // Bind pipeline and set pipeline state
-        cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
-        cmd->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, { desc_set.get() }, {});
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, { desc_set.get() }, {});
 
         vk::Viewport viewport(
             0.0f,                            // float                                  x
@@ -116,14 +117,14 @@ namespace my_app
             0.0f,                            // float                                  minDepth
             1.0f                             // float                                  maxDepth
         );
-        cmd->setViewport(0, { viewport });
+        cmd.setViewport(0, { viewport });
 
         // Draw
-        draw_frame_data(cmd, resource_index);
+        draw_frame_data(resource_index, cmd);
     }
 
 
-    void GUI::draw_frame_data(vk::UniqueCommandBuffer& cmd, uint32_t resource_index)
+    void GUI::draw_frame_data(uint32_t resource_index, vk::CommandBuffer cmd)
     {
         ImGui::Render();
         auto& resource = resources[resource_index];
@@ -137,7 +138,7 @@ namespace my_app
         if (resource.vertex_buffer.get_size() < vertex_buffer_size)
         {
             resource.vertex_buffer.free();
-            resource.vertex_buffer = Buffer{ "GUI Vertex buffer", parent.get_vulkan().allocator, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer };
+            resource.vertex_buffer = Buffer{ "GUI Vertex buffer", vulkan.allocator, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer };
         }
 
         // Check that there is enough space for the indices
@@ -145,7 +146,7 @@ namespace my_app
         if (resource.index_buffer.get_size() < index_buffer_size)
         {
             resource.index_buffer.free();
-            resource.index_buffer = Buffer{ "GUI Index buffer", parent.get_vulkan().allocator, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer };
+            resource.index_buffer = Buffer{ "GUI Index buffer", vulkan.allocator, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer };
         }
 
         // Upload vertex and index data
@@ -167,8 +168,8 @@ namespace my_app
         resource.index_buffer.flush();
 
         // Bind vertex and index buffers
-        cmd->bindVertexBuffers(0, { resource.vertex_buffer.get_buffer() }, { 0 });
-        cmd->bindIndexBuffer(resource.index_buffer.get_buffer(), 0, vk::IndexType::eUint16);
+        cmd.bindVertexBuffers(0, { resource.vertex_buffer.get_buffer() }, { 0 });
+        cmd.bindIndexBuffer(resource.index_buffer.get_buffer(), 0, vk::IndexType::eUint16);
 
         // Setup scale and translation:
         std::vector<float> scale_and_translation = {
@@ -178,7 +179,7 @@ namespace my_app
             -1.0f                                   // Y translation
         };
 
-        cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<uint32_t>(scale_and_translation.size()), scale_and_translation.data());
+        cmd.pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<uint32_t>(scale_and_translation.size()), scale_and_translation.data());
 
         // Render GUI
         int32_t vertex_offset = 0;
@@ -199,8 +200,8 @@ namespace my_app
                         uint32_t(draw_command->ClipRect.z - draw_command->ClipRect.x),
                         uint32_t(draw_command->ClipRect.w - draw_command->ClipRect.y)));
 
-                cmd->setScissor(0, { scissor });
-                cmd->drawIndexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
+                cmd.setScissor(0, { scissor });
+                cmd.drawIndexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
 
                 index_offset += draw_command->ElemCount;
             }
@@ -242,7 +243,7 @@ namespace my_app
         ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        texture = Image{ "GUI Texture", parent.get_vulkan().allocator, ci };
+        texture = Image{ "GUI Texture", vulkan.allocator, ci };
 
 
         vk::ImageViewCreateInfo vci{};
@@ -257,7 +258,7 @@ namespace my_app
         vci.subresourceRange.layerCount = 1;
         vci.viewType = vk::ImageViewType::e2D;
 
-        texture_desc_info.imageView = parent.get_vulkan().device->createImageView(vci);
+        texture_desc_info.imageView = vulkan.device->createImageView(vci);
 
         vk::SamplerCreateInfo sci{};
         sci.magFilter = vk::Filter::eNearest;
@@ -272,7 +273,7 @@ namespace my_app
         sci.maxLod = 0;
         sci.maxAnisotropy = 8.0f;
         sci.anisotropyEnable = VK_TRUE;
-        texture_desc_info.sampler = parent.get_vulkan().device->createSampler(sci);
+        texture_desc_info.sampler = vulkan.device->createSampler(sci);
 
         // Copy data to image's memory
         vk::ImageSubresourceRange isr{};
@@ -282,15 +283,15 @@ namespace my_app
         isr.baseArrayLayer = 0;
         isr.layerCount = 1;
 
-        parent.get_vulkan().CopyDataToImage(
-            pixels,
-            data_size,
-            texture,
-            width,
-            height,
-            isr,
-            THSVS_ACCESS_NONE,
-            THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER);
+        VulkanContext::CopyDataToImageParams params(texture, isr);
+        params.data = pixels;
+        params.data_size = data_size;
+        params.current_image_access = THSVS_ACCESS_NONE;
+        params.height = height;
+        params.width = width;
+        params.next_image_access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
+        vulkan.copy_data_to_image(params);
+
 
         texture_desc_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
@@ -306,19 +307,19 @@ namespace my_app
         dpci.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
         dpci.pPoolSizes = pool_sizes.data();
         dpci.maxSets = NUM_VIRTUAL_FRAME;
-        desc_pool = parent.get_vulkan().device->createDescriptorPoolUnique(dpci);
+        desc_pool = vulkan.device->createDescriptorPoolUnique(dpci);
 
         std::vector<vk::DescriptorSetLayoutBinding> bindings = {
             vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
         };
 
-        desc_layout = parent.get_vulkan().create_descriptor_layout(bindings);
+        desc_layout = vulkan.create_descriptor_layout(bindings);
 
         vk::DescriptorSetAllocateInfo dsai{};
         dsai.descriptorPool = desc_pool.get();
         dsai.pSetLayouts = &desc_layout.get();
         dsai.descriptorSetCount = 1;
-        desc_set = std::move(parent.get_vulkan().device->allocateDescriptorSetsUnique(dsai)[0]);
+        desc_set = std::move(vulkan.device->allocateDescriptorSetsUnique(dsai)[0]);
 
         vk::WriteDescriptorSet write;
         write.descriptorType = vk::DescriptorType::eCombinedImageSampler;
@@ -327,7 +328,7 @@ namespace my_app
         write.dstBinding = 0;
         write.pImageInfo = &texture_desc_info;
 
-        parent.get_vulkan().device->updateDescriptorSets({ write }, nullptr);
+        vulkan.device->updateDescriptorSets({ write }, nullptr);
     }
 
     void GUI::create_pipeline_layout()
@@ -340,7 +341,7 @@ namespace my_app
         ci.pushConstantRangeCount = 1;
         ci.pPushConstantRanges = &pcr;
 
-        pipeline_layout = parent.get_vulkan().device->createPipelineLayoutUnique(ci);
+        pipeline_layout = vulkan.device->createPipelineLayoutUnique(ci);
     }
 
 
@@ -349,8 +350,8 @@ namespace my_app
         auto vert_code = tools::readFile("build/shaders/gui.vert.spv");
         auto frag_code = tools::readFile("build/shaders/gui.frag.spv");
 
-        auto vert_module = parent.get_vulkan().create_shader_module(vert_code);
-        auto frag_module = parent.get_vulkan().create_shader_module(frag_code);
+        auto vert_module = vulkan.create_shader_module(vert_code);
+        auto frag_module = vulkan.create_shader_module(frag_code);
 
         std::vector<vk::DynamicState> dynamic_states = {
             vk::DynamicState::eViewport,
@@ -484,11 +485,11 @@ namespace my_app
         pipe_i.pDepthStencilState = &ds_i;
         pipe_i.pStages = shader_stages.data();
         pipe_i.stageCount = static_cast<uint32_t>(shader_stages.size());
-        pipe_i.renderPass = parent.get_render_pass();
-        pipe_i.subpass = 2;
+        pipe_i.renderPass = renderer.get_render_pass();
+        pipe_i.subpass = subpass;
 
-        pipeline_cache = parent.get_vulkan().device->createPipelineCacheUnique({});
-        pipeline = parent.get_vulkan().device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);
+        pipeline_cache = vulkan.device->createPipelineCacheUnique({});
+        pipeline = vulkan.device->createGraphicsPipelineUnique(pipeline_cache.get(), pipe_i);
     }
 
 }    // namespace my_app

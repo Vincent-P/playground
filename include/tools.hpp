@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "timer.hpp"
-
 #define VK_CHECK(x)                                         \
     do                                                      \
     {                                                       \
@@ -20,6 +18,31 @@
     } while (0)
 
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
+
+struct Handle
+{
+    Handle()
+    {
+        index = ~0U;
+    }
+
+    Handle(uint32_t _index)
+        : index{_index}
+    {}
+
+    Handle(int _index)
+        : index{static_cast<uint32_t>(_index)}
+    {}
+
+    constexpr inline bool is_valid() const
+    {
+        return index != ~0U;
+    }
+    uint32_t index;
+
+    static constexpr uint32_t h_null = ~0U;
+};
+
 
 namespace my_app::tools
 {

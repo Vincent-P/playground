@@ -5,31 +5,25 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 
-layout(set = 0, binding = 0) uniform UBO {
-    mat4 view;
-    mat4 proj;
-    mat4 clip;
-    vec4 cam_pos;
-    vec4 light_dir;
-    float debugViewInput;
-    float debugViewEquation;
-    float ambient;
-    float dummy;
-} ubo;
-
-layout (set = 1, binding = 0) uniform sampler2D colorMap;
-layout (set = 1, binding = 1) uniform sampler2D physicalDescriptorMap;
-layout (set = 1, binding = 2) uniform sampler2D normalMap;
-layout (set = 1, binding = 3) uniform sampler2D aoMap;
-layout (set = 1, binding = 4) uniform sampler2D emissiveMap;
-
 struct VoxelData
 {
     vec4 color;
     vec4 normal;
 };
 
-layout(set = 3, binding = 0) buffer VoxelsBuffer { VoxelData data[]; } voxels;
+layout(set = 0, binding = 0) buffer VoxelsBuffer { VoxelData data[]; } voxels;
+
+layout(set = 1, binding = 0) uniform UBO {
+    vec3 center;
+    float size;
+    uint res;
+} debug_options;
+
+layout (set = 3, binding = 0) uniform sampler2D colorMap;
+layout (set = 3, binding = 1) uniform sampler2D physicalDescriptorMap;
+layout (set = 3, binding = 2) uniform sampler2D normalMap;
+layout (set = 3, binding = 3) uniform sampler2D aoMap;
+layout (set = 3, binding = 4) uniform sampler2D emissiveMap;
 
 layout (push_constant) uniform Material
 {
@@ -48,10 +42,6 @@ layout (push_constant) uniform Material
     float alphaMask;
     float alphaMaskCutoff;
 } material;
-
-#define VOXEL_DATA_CENTER vec3(0.0, 0.0, 0.0)
-#define VOXEL_DATA_SIZE 0.25
-#define VOXEL_DATA_RES 256
 
 // Find the normal for this fragment, pulling either from a predefined normal map
 // or from the interpolated mesh normal and tangent attributes.
@@ -97,7 +87,7 @@ uvec3 unflatten3D(uint idx, uvec3 dim)
 
 void main()
 {
-    vec3 diff = (inWorldPos - VOXEL_DATA_CENTER) / (VOXEL_DATA_RES * VOXEL_DATA_SIZE);
+    vec3 diff = (inWorldPos - debug_options.center) / (debug_options.res * debug_options.size);
     vec3 uvw = diff * vec3(0.5f, 0.5f, 0.5f) + 0.5f;
 
     if (is_saturated(uvw))
@@ -112,9 +102,9 @@ void main()
         }
 
         // output:
-        vec3 writecoord_f = floor(uvw * VOXEL_DATA_RES);
+        vec3 writecoord_f = floor(uvw * debug_options.res);
         uvec3 writecoord = uvec3(writecoord_f);
-        uint id = flatten3D(writecoord, uvec3(VOXEL_DATA_RES));
+        uint id = flatten3D(writecoord, uvec3(debug_options.res));
         voxels.data[id].color = color;
         voxels.data[id].normal = normal;
     }

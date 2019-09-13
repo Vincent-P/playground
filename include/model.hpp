@@ -11,10 +11,12 @@
 
 #include "buffer.hpp"
 #include "image.hpp"
+#include "tools.hpp"
 
 namespace my_app
 {
     struct VulkanContext;
+    struct MultipleDescriptorSet;
 
     constexpr float global_scale = 5.;
     inline tinygltf::TinyGLTF loader;
@@ -70,7 +72,7 @@ namespace my_app
         uint32_t mip_levels;
         uint32_t layer_count;
 
-        Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler);
+        Texture(const VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler);
     };
 
     struct Vertex
@@ -149,11 +151,11 @@ namespace my_app
         glm::vec4 base_color_factor = glm::vec4(1.0f);
         glm::vec4 emissive_factor = glm::vec4(1.0f);
 
-        Texture* base_color;
-        Texture* metallic_roughness;
-        Texture* normal;
-        Texture* occlusion;
-        Texture* emissive;
+        Handle base_color;
+        Handle metallic_roughness;
+        Handle normal;
+        Handle occlusion;
+        Handle emissive;
 
         struct TexCoordSets
         {
@@ -167,15 +169,13 @@ namespace my_app
 
         struct Extension
         {
-            Texture* specular_glosiness;
-            Texture* diffuse;
+            Handle specular_glosiness;
+            Handle diffuse;
             glm::vec4 diffuse_factor = glm::vec4(1.0f);
             glm::vec3 specular_factor = glm::vec3(0.0f);
         } extension;
 
         PbrWorkflow workflow = PbrWorkflow::MetallicRoughness;
-
-        vk::DescriptorSet desc_set;
     };
 
     struct PushConstBlockMaterial
@@ -198,25 +198,15 @@ namespace my_app
 
     struct Primitive
     {
-        std::uint32_t first_vertex;
-        std::uint32_t first_index;
-        std::uint32_t index_count;
-        Material& material;
+        uint32_t first_vertex;
+        uint32_t first_index;
+        uint32_t index_count;
+        uint32_t material;
     };
 
     struct Mesh
     {
-        struct UniformBlock
-        {
-            glm::mat4 matrix;
-        } uniform_block;
-
-        explicit Mesh(VulkanContext& ctx);
-        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene, vk::UniqueDescriptorSet& other) const;
-
         std::vector<Primitive> primitives;
-        Buffer uniform;
-        vk::DescriptorSet uniform_desc;
     };
 
     struct Node
@@ -224,19 +214,19 @@ namespace my_app
         Node* parent = nullptr;
         std::vector<Node> children;
 
-        Mesh* mesh = nullptr;
+        Handle mesh;
 
         glm::mat4 matrix{ 1.0f };
         glm::vec3 translation;
         glm::vec3 scale{ 1.0f };
         glm::mat4 rotation{ 1.0f };
 
-        glm::mat4 local_matrix()
+        glm::mat4 local_matrix() const
         {
             return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
         }
 
-        glm::mat4 get_matrix()
+        glm::mat4 get_matrix() const
         {
             glm::mat4 m = local_matrix();
             auto p = parent;
@@ -247,35 +237,31 @@ namespace my_app
             }
             return m;
         }
-
-        void update();
-        void setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::UniqueDevice& device);
-        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const;
     };
 
     struct Model
     {
-        Model(std::string path, VulkanContext& _ctx);
-        ~Model() = default;
+        Model() = default;
+        Model(std::string path, const VulkanContext& ctx);
+        Model(const Model& other);
 
-        void load_textures();
-        void load_samplers();
-        void load_materials();
-        void load_meshes();
-        Node load_node(size_t i);
-        void load_nodes();
-        void free();
+        void load_textures(tinygltf::Model& model, const VulkanContext& ctx);
+        void load_samplers(tinygltf::Model& model);
+        void load_materials(tinygltf::Model& model);
+        void load_meshes(tinygltf::Model& model);
+        Node load_node(tinygltf::Model& model, size_t i);
+        void load_nodes(tinygltf::Model& model);
+        void free(const VulkanContext& ctx);
 
-        void draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const;
-
-        VulkanContext& ctx;
-        tinygltf::Model model;
         std::vector<TextureSampler> text_samplers;
         std::vector<Texture> textures;
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
         std::vector<Node> scene_nodes;
+
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
+
+        void draw(vk::CommandBuffer cmd, vk::PipelineLayout pipeline_layout, const MultipleDescriptorSet& transforms_set, const MultipleDescriptorSet& materials_set) const;
     };
 }    // namespace my_app

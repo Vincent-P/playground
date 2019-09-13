@@ -16,7 +16,7 @@
 namespace my_app
 {
 
-    Texture::Texture(VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler)
+    Texture::Texture(const VulkanContext& ctx, tinygltf::Image& gltf_image, TextureSampler& sampler)
     {
         auto& pixels = gltf_image.image;
 
@@ -67,12 +67,19 @@ namespace my_app
         subresource_range.baseMipLevel = 0;
         subresource_range.levelCount = 1;
 
-        ctx.CopyDataToImage(pixels.data(), pixels.size(), image, width, height, subresource_range, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_READ);
-
         // Generate the mipchain (because glTF's textures are regular images)
         auto& cmd = ctx.texture_command_buffer;
 
         cmd->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+
+        VulkanContext::CopyDataToImageParams params(image, subresource_range);
+        params.data = pixels.data();
+        params.data_size = pixels.size();
+        params.current_image_access = THSVS_ACCESS_NONE;
+        params.height = height;
+        params.width = width;
+        params.next_image_access = THSVS_ACCESS_TRANSFER_READ;
+        auto staging1 = ctx.copy_data_to_image_cmd(cmd.get(), params);
 
         for (uint32_t i = 1; i < mip_levels; i++)
         {
@@ -123,6 +130,8 @@ namespace my_app
 
         ctx.device->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
 
+        staging1.free();
+
         // Create the sampler for the texture
         vk::SamplerCreateInfo sci{};
         sci.magFilter = sampler.mag_filter;
@@ -150,122 +159,11 @@ namespace my_app
         desc_info.imageView = ctx.device->createImageView(vci);
     }
 
-    Mesh::Mesh(VulkanContext& ctx)
-        : uniform("Mesh uniform", ctx.allocator, sizeof(UniformBlock), vk::BufferUsageFlagBits::eUniformBuffer)
-    {
-    }
 
-    void Mesh::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& scene, vk::UniqueDescriptorSet& other) const
-    {
-        for (const auto& primitive : primitives)
-        {
-            const std::vector<vk::DescriptorSet> sets = {
-                scene.get(),
-                primitive.material.desc_set,
-                uniform_desc,
-                other.get()
-            };
-
-            cmd->bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                pipeline_layout.get(),
-                0,
-                sets,
-                nullptr);
-
-            // Pass material parameters as push constants
-            PushConstBlockMaterial material{};
-            material.emissive_facotr = primitive.material.emissive_factor;
-            material.color_texture_set = primitive.material.base_color != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
-            material.normal_texture_set = primitive.material.normal != nullptr ? primitive.material.tex_coord_sets.normal : -1;
-            material.occlusion_texture_set = primitive.material.occlusion != nullptr ? primitive.material.tex_coord_sets.occlusion : -1;
-            material.emissive_texture_set = primitive.material.emissive != nullptr ? primitive.material.tex_coord_sets.emissive : -1;
-            material.alpha_mask = static_cast<float>(primitive.material.alpha_mode == Material::AlphaMode::Mask);
-            material.alpha_mask_cutoff = primitive.material.alpha_cutoff;
-
-            // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
-
-            if (primitive.material.workflow == Material::PbrWorkflow::MetallicRoughness)
-            {
-                material.base_color_factor = primitive.material.base_color_factor;
-                material.metallic_factor = primitive.material.metallic_factor;
-                material.roughness_factor = primitive.material.roughness_factor;
-
-                material.physical_descriptor_texture_set = primitive.material.metallic_roughness != nullptr ? primitive.material.tex_coord_sets.metallic_roughness : -1;
-                material.color_texture_set = primitive.material.base_color != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
-            }
-
-            if (primitive.material.workflow == Material::PbrWorkflow::SpecularGlossiness)
-            {
-                material.diffuse_factor = primitive.material.extension.diffuse_factor;
-                material.specular_factor = glm::vec4(primitive.material.extension.specular_factor, 1.0f);
-
-                material.physical_descriptor_texture_set = primitive.material.extension.specular_glosiness != nullptr ? primitive.material.tex_coord_sets.specular_glosiness : -1;
-                material.color_texture_set = primitive.material.extension.diffuse != nullptr ? primitive.material.tex_coord_sets.base_color : -1;
-            }
-
-            cmd->pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &material);
-
-            cmd->drawIndexed(primitive.index_count,
-                             1,
-                             primitive.first_index,
-                             static_cast<int32_t>(primitive.first_vertex),
-                             0);
-        }
-    }
-
-    void Node::setup_node_descriptor_set(vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& layout, vk::UniqueDevice& device)
-    {
-        if (mesh)
-        {
-            vk::DescriptorSetAllocateInfo allocInfo{};
-            allocInfo.descriptorPool = pool.get();
-            allocInfo.pSetLayouts = &layout.get();
-            allocInfo.descriptorSetCount = 1;
-            mesh->uniform_desc = device->allocateDescriptorSets(allocInfo)[0];
-
-            vk::WriteDescriptorSet write{};
-            auto bdi = mesh->uniform.get_desc_info();
-            write.descriptorType = vk::DescriptorType::eUniformBuffer;
-            write.descriptorCount = 1;
-            write.dstSet = mesh->uniform_desc;
-            write.dstBinding = 0;
-            write.pBufferInfo = &bdi;
-
-            device->updateDescriptorSets(write, nullptr);
-        }
-
-        for (auto& child : children)
-            child.setup_node_descriptor_set(pool, layout, device);
-    }
-
-    void Node::update()
-    {
-        if (mesh)
-        {
-            auto m = get_matrix();
-            void* mapped = mesh->uniform.map();
-            memcpy(mapped, &m, sizeof(m));
-        }
-
-        for (auto& child : children)
-            child.update();
-    }
-
-
-    void Node::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const
-    {
-        if (mesh)
-            mesh->draw(cmd, pipeline_layout, desc_set, other);
-
-        for (const auto& node : children)
-            node.draw(cmd, pipeline_layout, desc_set, other);
-    }
-
-    Model::Model(std::string path, VulkanContext& _ctx)
-        : ctx(_ctx)
+    Model::Model(std::string path, const VulkanContext& ctx)
     {
         std::string err, warn;
+        tinygltf::Model model;
         if (!loader.LoadASCIIFromFile(&model, &err, &warn, path) || !err.empty() || !warn.empty())
         {
             if (!err.empty())
@@ -275,21 +173,15 @@ namespace my_app
             throw std::runtime_error("Failed to load model.");
         }
 
-        load_samplers();
-        load_textures();
-        load_materials();
-        load_meshes();
-        load_nodes();
-
-        for (auto& node : scene_nodes)
-            node.update();
+        load_samplers(model);
+        load_textures(model, ctx);
+        load_materials(model);
+        load_meshes(model);
+        load_nodes(model);
     }
 
-    void Model::free()
+    void Model::free(const VulkanContext& ctx)
     {
-        for (auto& mesh : meshes)
-            mesh.uniform.free();
-
         for (auto& text : textures)
         {
             text.image.free();
@@ -298,11 +190,11 @@ namespace my_app
         }
     }
 
-    void Model::load_textures()
+    void Model::load_textures(tinygltf::Model& model, const VulkanContext& ctx)
     {
         for (auto& texture : model.textures)
         {
-             auto source_idx = static_cast<size_t>(texture.source);
+            auto source_idx = static_cast<size_t>(texture.source);
             auto image = model.images[source_idx];
             TextureSampler texture_sampler{};
             if (texture.sampler > -1)
@@ -314,7 +206,7 @@ namespace my_app
         }
     }
 
-    void Model::load_samplers()
+    void Model::load_samplers(tinygltf::Model& model)
     {
         for (auto& sampler : model.samplers)
         {
@@ -328,7 +220,7 @@ namespace my_app
         }
     }
 
-    void Model::load_materials()
+    void Model::load_materials(tinygltf::Model& model)
     {
         for (auto& material : model.materials)
         {
@@ -345,31 +237,31 @@ namespace my_app
 
             if (material.values.count("baseColorTexture"))
             {
-                new_mat.base_color = &textures[static_cast<size_t>(material.values["baseColorTexture"].TextureIndex())];
+                new_mat.base_color = material.values["baseColorTexture"].TextureIndex();
                 new_mat.tex_coord_sets.base_color = static_cast<uint8_t>(material.values["baseColorTexture"].TextureTexCoord());
             }
 
             if (material.values.count("metallicRoughnessTexture"))
             {
-                new_mat.metallic_roughness = &textures[static_cast<size_t>(material.values["metallicRoughnessTexture"].TextureIndex())];
+                new_mat.metallic_roughness = material.values["metallicRoughnessTexture"].TextureIndex();
                 new_mat.tex_coord_sets.metallic_roughness = static_cast<uint8_t>(material.values["metallicRoughnessTexture"].TextureTexCoord());
             }
 
             if (material.additionalValues.count("normalTexture"))
             {
-                new_mat.normal = &textures[static_cast<size_t>(material.additionalValues["normalTexture"].TextureIndex())];
+                new_mat.normal = material.additionalValues["normalTexture"].TextureIndex();
                 new_mat.tex_coord_sets.normal = static_cast<uint8_t>(material.additionalValues["normalTexture"].TextureTexCoord());
             }
 
             if (material.additionalValues.count("emissiveTexture"))
             {
-                new_mat.emissive = &textures[static_cast<size_t>(material.additionalValues["emissiveTexture"].TextureIndex())];
+                new_mat.emissive = material.additionalValues["emissiveTexture"].TextureIndex();
                 new_mat.tex_coord_sets.emissive = static_cast<uint8_t>(material.additionalValues["emissiveTexture"].TextureTexCoord());
             }
 
             if (material.additionalValues.count("occlusionTexture"))
             {
-                new_mat.occlusion = &textures[static_cast<size_t>(material.additionalValues["occlusionTexture"].TextureIndex())];
+                new_mat.occlusion = material.additionalValues["occlusionTexture"].TextureIndex();
                 new_mat.tex_coord_sets.occlusion = static_cast<uint8_t>(material.additionalValues["occlusionTexture"].TextureTexCoord());
             }
 
@@ -400,7 +292,7 @@ namespace my_app
                 if (extension.Has("specularGlossinessTexture"))
                 {
                     auto index = extension.Get("specularGlossinessTexture").Get("index");
-                    new_mat.extension.specular_glosiness = &textures[static_cast<size_t>(index.Get<int>())];
+                    new_mat.extension.specular_glosiness = index.Get<int>();
                     auto texCoordSet = extension.Get("specularGlossinessTexture").Get("texCoord");
                     new_mat.tex_coord_sets.specular_glosiness = static_cast<uint8_t>(texCoordSet.Get<int>());
                     new_mat.workflow = Material::PbrWorkflow::SpecularGlossiness;
@@ -408,7 +300,7 @@ namespace my_app
                 if (extension.Has("diffuseTexture"))
                 {
                     auto index = extension.Get("diffuseTexture").Get("index");
-                    new_mat.extension.diffuse = &textures[static_cast<size_t>(index.Get<int>())];
+                    new_mat.extension.diffuse = index.Get<int>();
                 }
                 if (extension.Has("diffuseFactor"))
                 {
@@ -437,11 +329,11 @@ namespace my_app
         materials.emplace_back();
     }
 
-    void Model::load_meshes()
+    void Model::load_meshes(tinygltf::Model& model)
     {
         for (const auto& mesh : model.meshes)
         {
-            Mesh m{ ctx };
+            Mesh m;
 
             for (const auto& primitive : mesh.primitives)
             {
@@ -485,7 +377,7 @@ namespace my_app
                         vertices[first_vertex + i].normal = glm::make_vec3(&data[i * 3]);
                 }
 
-
+
                 auto texcoord0 = attrs.find("TEXCOORD_0");
                 if (texcoord0 != attrs.end())
                 {
@@ -550,7 +442,7 @@ namespace my_app
                     }
                 }
 
-                auto& prim_mat = primitive.material > -1 ? materials[static_cast<size_t>(primitive.material)] : materials.back();
+                auto prim_mat = primitive.material > -1 ? static_cast<uint32_t>(primitive.material) : static_cast<uint32_t>(materials.size() - 1);
                 Primitive p{ first_vertex, first_index, index_count, prim_mat };
                 m.primitives.push_back(std::move(p));
             }
@@ -559,7 +451,7 @@ namespace my_app
         }
     }
 
-    Node Model::load_node(size_t i)
+    Node Model::load_node(tinygltf::Model& model, size_t i)
     {
         auto& node = model.nodes[i];
         Node n{};
@@ -583,31 +475,92 @@ namespace my_app
             n.matrix = glm::make_mat4x4(node.matrix.data());
 
         if (node.mesh > -1)
-            n.mesh = &meshes[static_cast<size_t>(node.mesh)];
+            n.mesh = static_cast<uint32_t>(node.mesh);
+        else
+            n.mesh = Handle::h_null;
 
         n.children.resize(node.children.size());
         for (size_t j = 0; j < node.children.size(); j++)
         {
             n.children[j].parent = &n;
-            n.children[j] = load_node(static_cast<size_t>(node.children[j]));
+            n.children[j] = load_node(model, static_cast<size_t>(node.children[j]));
         }
 
         return n;
     }
 
-    void Model::load_nodes()
+    void Model::load_nodes(tinygltf::Model& model)
     {
         const auto& scene = model.scenes[model.defaultScene > -1 ? static_cast<size_t>(model.defaultScene) : 0];
         scene_nodes.resize(scene.nodes.size());
 
         for (size_t i = 0; i < scene.nodes.size(); i++)
-            scene_nodes[i] = load_node(static_cast<size_t>(scene.nodes[i]));
+            scene_nodes[i] = load_node(model, static_cast<size_t>(scene.nodes[i]));
     }
 
-    void Model::draw(vk::UniqueCommandBuffer& cmd, vk::UniquePipelineLayout& pipeline_layout, vk::UniqueDescriptorSet& desc_set, vk::UniqueDescriptorSet& other) const
+    static void draw_rec(const Model& model, const Node& node, vk::CommandBuffer cmd, vk::PipelineLayout pipeline_layout, const MultipleDescriptorSet& transforms_set, const MultipleDescriptorSet& materials_set)
     {
-        // TODO(vincent): bind vertex and index buffer of the model
-        for (const auto& node : scene_nodes)
-            node.draw(cmd, pipeline_layout, desc_set, other);
+        if (node.mesh.is_valid())
+        {
+            // bind mesh descriptor
+            const auto& mesh = model.meshes[node.mesh.index];
+
+            cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 2, transforms_set.descriptors[node.mesh.index].get(), nullptr);
+
+            for (const auto& primitive : mesh.primitives)
+            {
+                // bind material descriptor
+                const auto& material = model.materials[primitive.material];
+
+                cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 3, materials_set.descriptors[primitive.material].get(), nullptr);
+
+                // Pass material parameters as push constants
+                PushConstBlockMaterial csts{};
+                csts.emissive_facotr = material.emissive_factor;
+                csts.color_texture_set = material.base_color.is_valid() ? material.tex_coord_sets.base_color : -1;
+                csts.normal_texture_set = material.normal.is_valid() ? material.tex_coord_sets.normal : -1;
+                csts.occlusion_texture_set = material.occlusion.is_valid() ? material.tex_coord_sets.occlusion : -1;
+                csts.emissive_texture_set = material.emissive.is_valid() ? material.tex_coord_sets.emissive : -1;
+                csts.alpha_mask = static_cast<float>(material.alpha_mode == Material::AlphaMode::Mask);
+                csts.alpha_mask_cutoff = material.alpha_cutoff;
+
+                // TODO: glTF specs states that metallic roughness should be preferred, even if specular glosiness is present
+
+                if (material.workflow == Material::PbrWorkflow::MetallicRoughness)
+                {
+                    csts.base_color_factor = material.base_color_factor;
+                    csts.metallic_factor = material.metallic_factor;
+                    csts.roughness_factor = material.roughness_factor;
+
+                    csts.physical_descriptor_texture_set = material.metallic_roughness.is_valid() ? material.tex_coord_sets.metallic_roughness : -1;
+                    csts.color_texture_set = material.base_color.is_valid() ? material.tex_coord_sets.base_color : -1;
+                }
+
+                if (material.workflow == Material::PbrWorkflow::SpecularGlossiness)
+                {
+                    csts.diffuse_factor = material.extension.diffuse_factor;
+                    csts.specular_factor = glm::vec4(material.extension.specular_factor, 1.0f);
+
+                    csts.physical_descriptor_texture_set = material.extension.specular_glosiness.is_valid() ? material.tex_coord_sets.specular_glosiness : -1;
+                    csts.color_texture_set = material.extension.diffuse.is_valid() ? material.tex_coord_sets.base_color : -1;
+                }
+
+                cmd.pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstBlockMaterial), &csts);
+
+                cmd.drawIndexed(primitive.index_count, 1, primitive.first_index, static_cast<int32_t>(primitive.first_vertex), 0);
+            }
+        }
+
+        for (const auto& child : node.children) {
+            draw_rec(model, child, cmd, pipeline_layout, transforms_set, materials_set);
+        }
+    }
+
+    void Model::draw(vk::CommandBuffer cmd, vk::PipelineLayout pipeline_layout, const MultipleDescriptorSet& transforms_set, const MultipleDescriptorSet& materials_set) const
+    {
+        for (auto& node: scene_nodes)
+        {
+            draw_rec(*this, node, cmd, pipeline_layout, transforms_set, materials_set);
+        }
     }
 }    // namespace my_app
