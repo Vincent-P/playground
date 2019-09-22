@@ -30,7 +30,7 @@ namespace my_app
         create_render_pass();
 
         voxelization.init(model_path);
-        voxel_visualization.init();
+        voxel_visualization.init(voxelization.get_voxels_texture_layout());
         gui.init();
     }
 
@@ -46,8 +46,6 @@ namespace my_app
             vulkan.device->destroy(o);
 
         vulkan.device->destroy(depth_image_view);
-        vulkan.device->destroy(color_image_view);
-
         depth_image.free();
         color_image.free();
     }
@@ -180,25 +178,8 @@ namespace my_app
         ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        color_image = Image{ "Color image", vulkan.allocator, ci };
-
-        vk::ImageSubresourceRange subresource_range;
-        subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;
-        subresource_range.baseMipLevel = 0;
-        subresource_range.levelCount = 1;
-        subresource_range.baseArrayLayer = 0;
-        subresource_range.layerCount = 1;
-
-        vk::ImageViewCreateInfo vci{};
-        vci.flags = {};
-        vci.image = color_image.get_image();
-        vci.format = swapchain.format.format;
-        vci.components = { vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA };
-        vci.subresourceRange = subresource_range;
-        vci.viewType = vk::ImageViewType::e2D;
-
-        color_image_view = vulkan.device->createImageView(vci);
-        vulkan.transition_layout(color_image.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_COLOR_ATTACHMENT_WRITE, subresource_range);
+        color_image = Image{vulkan, ci, "Color image"};
+        vulkan.transition_layout(color_image.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_COLOR_ATTACHMENT_WRITE, color_image.get_range(vk::ImageAspectFlagBits::eColor));
     }
 
 
@@ -237,7 +218,7 @@ namespace my_app
         ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        depth_image = Image{ "Depth image", vulkan.allocator, ci };
+        depth_image = Image{vulkan, ci, "Depth image"};
 
         vk::ImageViewCreateInfo vci{};
         vci.flags = {};
@@ -330,13 +311,39 @@ namespace my_app
         subpasses[2].preserveAttachmentCount = 0;
         subpasses[2].pPreserveAttachments = nullptr;
 
+        std::array<vk::SubpassDependency, 3> dependencies{};
+        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[0].dstSubpass = 0;
+        dependencies[0].srcStageMask = vk::PipelineStageFlagBits::eBottomOfPipe;
+        dependencies[0].dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
+        dependencies[0].srcAccessMask = vk::AccessFlagBits::eMemoryWrite;
+        dependencies[0].dstAccessMask = vk::AccessFlagBits::eMemoryRead;
+        dependencies[0].dependencyFlags = vk::DependencyFlagBits::eByRegion;
+
+        dependencies[1].srcSubpass = 0;
+        dependencies[1].dstSubpass = 1;
+        dependencies[1].srcStageMask = vk::PipelineStageFlagBits::eFragmentShader;
+        dependencies[1].dstStageMask = vk::PipelineStageFlagBits::eVertexInput;
+        dependencies[1].srcAccessMask = vk::AccessFlagBits::eMemoryWrite;
+        dependencies[1].dstAccessMask = vk::AccessFlagBits::eVertexAttributeRead;
+        dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
+
+        dependencies[2].srcSubpass = 1;
+        dependencies[2].dstSubpass = 2;
+        dependencies[2].srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        dependencies[2].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+        dependencies[2].srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        dependencies[2].dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        dependencies[2].dependencyFlags = vk::DependencyFlagBits::eByRegion;
+
+
         vk::RenderPassCreateInfo rp_info{};
         rp_info.attachmentCount = attachments.size();
         rp_info.pAttachments = attachments.data();
         rp_info.subpassCount = subpasses.size();
         rp_info.pSubpasses = subpasses.data();
-        rp_info.dependencyCount = 0;
-        rp_info.pDependencies = nullptr;
+        rp_info.dependencyCount = dependencies.size();
+        rp_info.pDependencies = dependencies.data();
         render_pass = vulkan.device->createRenderPassUnique(rp_info);
     }
 
@@ -372,10 +379,10 @@ namespace my_app
         auto graphics_queue = vulkan.get_graphics_queue();
         auto frame_resource = frame_resources.data() + virtual_frame_idx;
 
-        auto wait_result = device->waitForFences(frame_resource->fence.get(), VK_TRUE, 1000000000);
+        auto wait_result = device->waitForFences(frame_resource->fence.get(), VK_TRUE, 10000000000);
         if (wait_result == vk::Result::eTimeout)
         {
-            throw std::runtime_error("Submitted the frame more than 1 second ago.");
+            throw std::runtime_error("Submitted the frame more than 10 second ago.");
         }
 
         device->resetFences(frame_resource->fence.get());
@@ -397,7 +404,7 @@ namespace my_app
         // Create the framebuffer for the frame
         {
             std::array<vk::ImageView, 3> attachments = {
-                color_image_view,
+                color_image.get_default_view(),
                 depth_image_view,
                 swapchain.image_views[image_index]
             };
@@ -426,6 +433,8 @@ namespace my_app
 
             frame_resource->commandbuffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
+            voxelization.before_subpass(virtual_frame_idx, frame_resource->commandbuffer.get());
+
             vk::RenderPassBeginInfo rpbi{};
             rpbi.renderArea = render_area;
             rpbi.renderPass = render_pass.get();
@@ -435,26 +444,27 @@ namespace my_app
 
             frame_resource->commandbuffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
 
-            std::vector<vk::Viewport> viewports;
-            viewports.emplace_back(
-                0,
-                0,
-                swapchain.extent.width,
-                swapchain.extent.height,
-                0,
-                1.0f);
+            std::array<vk::Viewport, 2> viewports;
+            viewports[0].width = static_cast<float>(swapchain.extent.width);
+            viewports[0].height = static_cast<float>(swapchain.extent.height);
+            viewports[0].maxDepth = 1.0f;
+            viewports[1].width = VOXEL_GRID_SIZE;
+            viewports[1].height = VOXEL_GRID_SIZE;
+            viewports[1].maxDepth = 1.0f;
 
-            frame_resource->commandbuffer->setViewport(0, viewports);
+
 
             std::vector<vk::Rect2D> scissors = { render_area };
 
             frame_resource->commandbuffer->setScissor(0, scissors);
 
+            frame_resource->commandbuffer->setViewport(0, viewports[1]);
             voxelization.do_subpass(virtual_frame_idx, frame_resource->commandbuffer.get());
 
             frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
-            auto& voxels_buffer = voxelization.get_voxels_buffer();
-            voxel_visualization.do_subpass(virtual_frame_idx, frame_resource->commandbuffer.get(), voxels_buffer);
+
+            frame_resource->commandbuffer->setViewport(0, viewports[0]);
+            voxel_visualization.do_subpass(virtual_frame_idx, frame_resource->commandbuffer.get());
 
             frame_resource->commandbuffer->nextSubpass(vk::SubpassContents::eInline);
             gui.do_subpass(virtual_frame_idx, frame_resource->commandbuffer.get());

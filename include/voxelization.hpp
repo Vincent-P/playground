@@ -26,12 +26,13 @@ namespace my_app
         ~VoxelizationSubpass();
 
         void init(const std::string& model_path);
+        void before_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
         void do_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
         void update_uniform_buffer(uint32_t frame_idx);
 
-        const Buffer& get_voxels_buffer() const
+        vk::DescriptorSetLayout get_voxels_texture_layout() const
         {
-            return voxels_buffer;
+            return voxels.layout.get();
         }
 
     private:
@@ -56,7 +57,7 @@ namespace my_app
         vk::UniqueDescriptorPool desc_pool;
 
         // Global descriptor
-        Buffer voxels_buffer;
+        Image voxels_texture;
         DescriptorSet voxels;
 
         // Per frame descriptor

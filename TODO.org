@@ -24,6 +24,20 @@ The renderer will have:
 * glTF
 - Maybe move the index and vertex buffer from the renderer to the model as each model has a different set of vertices.
 
+* Clipmap
+
+Clip maps are similar to mip maps. The difference is that finer details level keep the same dimensions.
+So if the 3rd level's dimensions are 64x64.
+Mip map: 256x256 -> 128x128 -> 64x64 -> 32x32 -> 16x16 -> 8x8 -> 4x4 -> 2x2 -> 1x1
+Clip map: 64x64 -> 64x64 -> 64x64 -> 32x32 -> 16x16 -> 8x8 -> 4x4 -> 2x2 -> 1x1
+
+We consider that the dimension of the finer level is the same but the real size is / 2, the size of a texel in the first level of the mip map and clip map is the same.
+The first clip map level is just the 64x64 square at the center of the first mip map level.
+
+It make sense when voxelizing or making terrain, because we dont need to keep the same details for the level close to the camera and the level far away.
+
+3D clipmaps are clipmaps with 3d texture instead of 2d.
+
 * Voxel Cone Tracing
 
 Everything has to be done in the GPU in order to have real-time performance.
@@ -35,15 +49,16 @@ Technique:
 - Vertex input is the geometry
 
 - Vertex shader ::
-     - Do a orthogonal projection of the size of the voxels grid
-     - Pass data to the geometry shader
+  - Do a orthogonal projection of the size of the voxels grid
+  - Pass data to the geometry shader
 
 - Geometry shader ::
-     - Find the best orientation for the voxel
+  - Find the best orientation for the voxel
+  - Can simulate conservative rasterization
 
 - Fragment shader ::
-     - Convert the fragment to a voxel
-     - Add it to the voxel list which is a atomic storage buffer
+  - Convert the fragment to a voxel
+  - Add it to the voxel list which is a atomic storage buffer
 
 Debug:
 - Vertex input is the voxels

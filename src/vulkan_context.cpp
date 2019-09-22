@@ -81,7 +81,7 @@ namespace my_app
         if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
             type += "[VALIDATION]";
         if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
-            type += "[PERFORMANCE]";
+            return VK_FALSE;
 
         std::cerr << severity << type << " " << pCallbackData->pMessage << "\n";
 
@@ -394,7 +394,7 @@ namespace my_app
         // Create a staging buffer
         std::string name = "Staging buffer CopyDataToImage for size ";
         name += std::to_string(params.data_size);
-        Buffer staging_buffer{ name, allocator, params.data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        Buffer staging_buffer{*this, params.data_size, vk::BufferUsageFlagBits::eTransferSrc, name.data()};
         void* mapped = staging_buffer.map();
         std::memcpy(mapped, params.data, params.data_size);
 
@@ -449,7 +449,7 @@ namespace my_app
         // Create staging buffer and map it's memory to copy data from the CPU
         std::string name = "Staging buffer CopyDataToBuffer for size ";
         name += std::to_string(params.data_size);
-        Buffer staging_buffer{ name, allocator, params.data_size, vk::BufferUsageFlagBits::eTransferSrc };
+        Buffer staging_buffer{*this, params.data_size, vk::BufferUsageFlagBits::eTransferSrc, name.data()};
         void* mapped = staging_buffer.map();
         std::memcpy(mapped, params.data, params.data_size);
 
@@ -498,14 +498,14 @@ namespace my_app
 
     void VulkanContext::clear_buffer_cmd(vk::CommandBuffer cmd, const Buffer& buffer, uint32_t data) const
     {
-        cmd.fillBuffer(buffer.get_buffer(), 0, buffer.get_size(), data);
+        cmd.fillBuffer(buffer.get_buffer(), 0, VK_WHOLE_SIZE, data);
     }
 
     void VulkanContext::clear_buffer(const Buffer& buffer, uint32_t data) const
     {
         texture_command_buffer->begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-        texture_command_buffer->fillBuffer(buffer.get_buffer(), 0, buffer.get_size(), data);
+        texture_command_buffer->fillBuffer(buffer.get_buffer(), 0, VK_WHOLE_SIZE, data);
 
         texture_command_buffer->end();
         submit_and_wait_cmd(texture_command_buffer.get());

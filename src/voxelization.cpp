@@ -19,7 +19,7 @@ namespace my_app
         empty_image.free();
         index_buffer.free();
         vertex_buffer.free();
-        voxels_buffer.free();
+        voxels_texture.free();
         model.free(vulkan);
 
         for (size_t i = 0; i < model.meshes.size(); i++)
@@ -46,7 +46,7 @@ namespace my_app
 
             std::string name = "Mesh buffer ";
             name += std::to_string(node.mesh.index);
-            buffer = Buffer{name, vulkan.allocator, sizeof(glm::mat4), vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY};
+            buffer = Buffer{vulkan, sizeof(glm::mat4), vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, name.data(),  VMA_MEMORY_USAGE_GPU_ONLY};
 
             auto matrix = node.get_matrix();
 
@@ -74,7 +74,7 @@ namespace my_app
         cmd.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
         auto size = model.indices.size() * sizeof(uint32_t);
-        index_buffer = Buffer("Voxelization Index buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+        index_buffer = Buffer(vulkan, size, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, "Voxelization Index buffer", VMA_MEMORY_USAGE_GPU_ONLY);
 
         VulkanContext::CopyDataToBufferParams i_params(index_buffer);
         i_params.data = model.indices.data();
@@ -85,7 +85,7 @@ namespace my_app
         auto staging1 = vulkan.copy_data_to_buffer_cmd(cmd, i_params);
 
         size = model.vertices.size() * sizeof(Vertex);
-        vertex_buffer = Buffer("Voxelization Vertex buffer", vulkan.allocator, size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+        vertex_buffer = Buffer(vulkan, size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, "Voxelization Vertex buffer", VMA_MEMORY_USAGE_GPU_ONLY);
         VulkanContext::CopyDataToBufferParams v_params(vertex_buffer);
         v_params.data = model.vertices.data();
         v_params.data_size = size;
@@ -94,16 +94,26 @@ namespace my_app
         v_params.consuming_stages = vk::PipelineStageFlagBits::eVertexInput;
         auto staging2 = vulkan.copy_data_to_buffer_cmd(cmd, v_params);
 
-        size = VOXEL_GRID_SIZE * VOXEL_GRID_SIZE * VOXEL_GRID_SIZE * sizeof(Voxel);
-        auto usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
-        voxels_buffer = Buffer("Voxels buffer", vulkan.allocator, size, usage, VMA_MEMORY_USAGE_GPU_ONLY);
-        vulkan.clear_buffer_cmd(cmd, voxels_buffer, 0);
-
         mesh_buffers.resize(model.meshes.size());
         std::vector<Buffer> stagings;
         for (auto& node: model.scene_nodes) {
             fill_mesh_uniform(cmd, vulkan, model, mesh_buffers, node, stagings);
         }
+
+        vk::ImageCreateInfo ci;
+        ci.imageType = vk::ImageType::e3D;
+        ci.format = vk::Format::eR8G8B8A8Unorm;
+        ci.mipLevels = 1;
+        ci.arrayLayers = 1;
+        ci.samples = vk::SampleCountFlagBits::e1;
+        ci.tiling = vk::ImageTiling::eOptimal;
+        ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
+        ci.sharingMode = vk::SharingMode::eExclusive;
+        ci.initialLayout = vk::ImageLayout::eUndefined;
+        ci.extent = vk::Extent3D{VOXEL_GRID_SIZE, VOXEL_GRID_SIZE, VOXEL_GRID_SIZE};
+
+        voxels_texture = Image{vulkan, ci, "Voxels 3D texture"};
+        vulkan.transition_layout_cmd(cmd, voxels_texture.get_image(), THSVS_ACCESS_NONE, THSVS_ACCESS_ANY_SHADER_READ_OTHER, voxels_texture.get_range(vk::ImageAspectFlagBits::eColor));
 
         cmd.end();
         vulkan.submit_and_wait_cmd(cmd);
@@ -119,7 +129,7 @@ namespace my_app
 
             std::string name = "Voxelization debug options ";
             name += std::to_string(i);
-            buffer = Buffer{name, vulkan.allocator, sizeof(VoxelizationOptions), vk::BufferUsageFlagBits::eUniformBuffer};
+            buffer = Buffer{vulkan, sizeof(VoxelizationOptions), vk::BufferUsageFlagBits::eUniformBuffer, name.c_str()};
         }
 
         create_empty();
@@ -148,7 +158,7 @@ namespace my_app
         ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
         ci.flags = {};
-        empty_image = Image{ "Empty image", vulkan.allocator, ci };
+        empty_image = Image{vulkan, ci, "Empty image"};
 
         // Create the sampler for the texture
         TextureSampler texture_sampler;
@@ -216,7 +226,7 @@ namespace my_app
             bindings.resize(1);
 
             bindings[0].binding = 0;
-            bindings[0].descriptorType = vk::DescriptorType::eStorageBuffer;
+            bindings[0].descriptorType = vk::DescriptorType::eStorageImage;
             bindings[0].descriptorCount = 1;
             bindings[0].stageFlags = vk::ShaderStageFlagBits::eFragment;
 
@@ -302,16 +312,18 @@ namespace my_app
     void VoxelizationSubpass::update_descriptors()
     {
         {
-            std::vector<vk::WriteDescriptorSet> writes;
-            // Update voxels descriptors
-            auto bi = voxels_buffer.get_desc_info();
-            vk::WriteDescriptorSet write{};
-            write.descriptorType = vk::DescriptorType::eStorageBuffer;
-            write.descriptorCount = 1;
-            write.dstSet = voxels.descriptor.get();
-            write.dstBinding = 0;
-            write.pBufferInfo = &bi;
-            writes.push_back(std::move(write));
+            vk::DescriptorImageInfo ii;
+            ii.sampler = voxels_texture.get_default_sampler();
+            ii.imageLayout = vk::ImageLayout::eGeneral;
+            ii.imageView = voxels_texture.get_default_view();
+
+            std::array<vk::WriteDescriptorSet, 1> writes;
+            writes[0].descriptorType = vk::DescriptorType::eStorageImage;
+            writes[0].descriptorCount = 1;
+            writes[0].dstSet = voxels.descriptor.get();
+            writes[0].dstBinding = 0;
+            writes[0].pImageInfo = &ii;
+
             vulkan.device->updateDescriptorSets(writes, nullptr);
         }
         {
@@ -403,9 +415,6 @@ namespace my_app
         ImGui::SetNextWindowPos(ImVec2(600.f, 20.0f));
         ImGui::Begin("Voxelization options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        options.res = VOXEL_GRID_SIZE;
-        ImGui::Text("Voxel res: %u", options.res);
-
         ImGui::Separator();
         static float voxel_size = 1.f;
         ImGui::DragFloat("Voxel size", &voxel_size, 0.1f, 0.1f, 2.f);
@@ -419,13 +428,18 @@ namespace my_app
         options.center.y = center[1];
         options.center.z = center[2];
 
-        ImGui::End();
+        static int voxel_res = 256;
+        ImGui::DragInt("Voxel res", &voxel_res, 128.f, 128, 256);
+        options.res = static_cast<uint32_t>(voxel_res);
+
+        ImGui::Separator();
 
         void* uniform_data = debug_options[frame_idx].map();
         memcpy(uniform_data, &options, sizeof(options));
 
-        vulkan.clear_buffer(voxels_buffer, 0);
+        ImGui::End();
     }
+
     void VoxelizationSubpass::create_pipeline()
     {
         auto bindings = Vertex::get_binding_description();
@@ -562,6 +576,12 @@ namespace my_app
 
         graphics_pipeline.cache = vulkan.device->createPipelineCacheUnique({});
         graphics_pipeline.handle = vulkan.device->createGraphicsPipelineUnique(graphics_pipeline.cache.get(), pipe_i);
+    }
+
+    void VoxelizationSubpass::before_subpass(uint32_t, vk::CommandBuffer cmd)
+    {
+        vk::ClearColorValue clear;
+        cmd.clearColorImage(voxels_texture.get_image(), vk::ImageLayout::eGeneral, clear, voxels_texture.get_range(vk::ImageAspectFlagBits::eColor));
     }
 
     void VoxelizationSubpass::do_subpass(uint32_t frame_idx, vk::CommandBuffer cmd)

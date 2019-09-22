@@ -166,6 +166,15 @@ namespace my_app
                 ImGui::SetCursorPosX(20.0f);
                 ImGui::Text("Z: %.2f", double(camera.position.z));
 
+                ImGui::SetCursorPosX(10.0f);
+                ImGui::Text("Front");
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("X: %.2f", double(camera.front.x));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Y: %.2f", double(camera.front.y));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Z: %.2f", double(camera.front.z));
+
 
                 if (camera.pitch > 89.0f)
                     camera.pitch = 89.0f;
@@ -288,19 +297,11 @@ namespace my_app
 
 int main(int, char** argv)
 {
-    try
-    {
-        std::string model = "models/Sponza/glTF/Sponza.gltf";
-        if (argv[1])
-            model = argv[1];
+    std::string model = "models/Sponza/glTF/Sponza.gltf";
+    if (argv[1])
+        model = argv[1];
 
-        my_app::App app(model);
-        app.run();
-    }
-    catch (std::exception const& e)
-    {
-        std::cerr << "Exception :" << e.what() << std::endl;
-        return 1;
-    }
+    my_app::App app(model);
+    app.run();
     return 0;
 }

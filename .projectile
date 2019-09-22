@@ -1,4 +1,9 @@
 build
-lib
 models
+!models/Sponza
+lib
 *.spv
+.ccls-cache
+*.cap
+*.debugtarget
+.vs

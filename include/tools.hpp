@@ -13,6 +13,7 @@
         {                                                   \
             std::string error("Vulkan error");              \
             error = std::to_string(err) + std::string("."); \
+            std::cerr << error << std::endl;                \
             throw std::runtime_error(error);                \
         }                                                   \
     } while (0)

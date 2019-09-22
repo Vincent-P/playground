@@ -58,7 +58,7 @@ namespace my_app
 
         std::string texture_name = "Texture ";
         texture_name += gltf_image.name;
-        image = Image{ texture_name, ctx.allocator, ci };
+        image = Image{ctx, ci, texture_name.c_str()};
 
         vk::ImageSubresourceRange subresource_range;
         subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;

@@ -15,46 +15,9 @@ namespace my_app
 
     struct SceneUniform
     {
-        glm::mat4 view;
-        glm::mat4 proj;
-        glm::mat4 clip;
         glm::vec4 cam_pos;
-        glm::vec4 light_dir;
-        float debug_view_input;
-        float debug_view_equation;
-        float ambient;
-        float cube_scale;
-    };
-
-    struct Voxel
-    {
-        glm::vec4 color;
-        glm::vec4 normal;
-
-
-        static std::array<vk::VertexInputBindingDescription, 1> get_binding_description()
-        {
-            std::array<vk::VertexInputBindingDescription, 1> bindings;
-            bindings[0].binding = 0;
-            bindings[0].stride = sizeof(Voxel);
-            bindings[0].inputRate = vk::VertexInputRate::eVertex;
-            return bindings;
-        }
-
-        static std::array<vk::VertexInputAttributeDescription, 2> get_attribute_description()
-        {
-            std::array<vk::VertexInputAttributeDescription, 2> descs;
-            descs[0].binding = 0;
-            descs[0].location = 0;
-            descs[0].format = vk::Format::eR32G32B32A32Sfloat;
-            descs[0].offset = offsetof(Voxel, color);
-
-            descs[1].binding = 0;
-            descs[1].location = 1;
-            descs[1].format = vk::Format::eR32G32B32A32Sfloat;
-            descs[1].offset = offsetof(Voxel, normal);
-            return descs;
-        }
+        glm::vec4 cam_front;
+        glm::vec4 cam_up;
     };
 
     class VoxelVisualization
@@ -63,15 +26,15 @@ namespace my_app
         explicit VoxelVisualization(Renderer&, uint32_t _subpass);
         ~VoxelVisualization();
 
-        void init();
-        void do_subpass(uint32_t resource_index, vk::CommandBuffer cmd, const Buffer& voxels_buffer);
+        void init(vk::DescriptorSetLayout _voxels_texture_layout);
+        void do_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
 
         void update_uniform_buffer(uint32_t frame_idx, Camera& camera);
 
     private:
         void create_descriptors();
         void update_descriptors();
-        void create_pipeline();
+        void create_pipeline(vk::DescriptorSetLayout _voxels_texture_layout);
 
         Renderer& renderer;
         const VulkanContext& vulkan;

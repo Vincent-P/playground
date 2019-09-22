@@ -14,7 +14,7 @@ namespace my_app
 {
     constexpr inline int WIDTH = 1920;
     constexpr inline int HEIGHT = 1080;
-    constexpr inline int NUM_VIRTUAL_FRAME = 2;
+    constexpr inline int NUM_VIRTUAL_FRAME = 1;
     constexpr inline vk::SampleCountFlagBits MSAA_SAMPLES = vk::SampleCountFlagBits::e2;
     constexpr inline unsigned VOXEL_GRID_SIZE = 256;
     constexpr bool ENABLE_VALIDATION_LAYERS = true;
@@ -45,6 +45,11 @@ namespace my_app
         vk::UniquePipelineCache cache;
         vk::UniquePipelineLayout layout;
     };
+
+    template <typename T>
+    inline uint64_t get_raw_vulkan_handle(T const &cpp_handle) {
+      return uint64_t(static_cast<typename T::CType>(cpp_handle));
+    }
 
     struct VulkanContext
     {

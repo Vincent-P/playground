@@ -5,11 +5,14 @@
 
 namespace my_app
 {
+    struct VulkanContext;
+
     class Buffer
     {
         public:
         Buffer();
-        Buffer(std::string name, const VmaAllocator& _allocator, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
+        Buffer(const VulkanContext& vulkan, size_t _size, vk::BufferUsageFlags _buf_usage, const char* name, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
+        Buffer(const VulkanContext& vulkan, size_t _size, vk::BufferUsageFlags _buf_usage, VmaMemoryUsage _mem_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         void free();
         void* map();

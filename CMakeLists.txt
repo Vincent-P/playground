@@ -30,7 +30,7 @@ ELSE()
 ENDIF()
 
 # Treat warnings as error
-add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-exit-time-destructors -Wno-global-constructors)
 
 # Debug specific config
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -146,7 +146,6 @@ add_custom_target(run
    set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
    add_custom_command(
      OUTPUT ${SPIRV}
-     COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/shaders/"
      COMMAND glslc ${GLSL} -o ${SPIRV}
      DEPENDS ${GLSL})
    list(APPEND SPIRV_BINARY_FILES ${SPIRV})
@@ -158,12 +157,4 @@ add_custom_target(run
    )
 
  add_dependencies(test-vulkan shaders)
-
- add_custom_command(TARGET test-vulkan
-   POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:test-vulkan>/shaders/"
-   COMMAND ${CMAKE_COMMAND} -E copy_directory
-   "${PROJECT_BINARY_DIR}/shaders"
-   "$<TARGET_FILE_DIR:test-vulkan>/shaders"
-   )
 # =============================================================

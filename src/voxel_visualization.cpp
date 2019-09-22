@@ -22,7 +22,7 @@ namespace my_app
         }
     }
 
-    void VoxelVisualization::init()
+    void VoxelVisualization::init(vk::DescriptorSetLayout _voxels_texture_layout)
     {
         for (size_t i = 0; i < NUM_VIRTUAL_FRAME; i++)
         {
@@ -30,19 +30,19 @@ namespace my_app
 
             std::string name = "VoxelVisualization Uniform buffer ";
             name += std::to_string(i);
-            buffer = Buffer{name, vulkan.allocator, sizeof(SceneUniform), vk::BufferUsageFlagBits::eUniformBuffer};
+            buffer = Buffer{vulkan, sizeof(SceneUniform), vk::BufferUsageFlagBits::eUniformBuffer, name.data()};
         }
 
         create_descriptors();
         update_descriptors();
-        create_pipeline();
+        create_pipeline(_voxels_texture_layout);
     }
 
     void VoxelVisualization::create_descriptors()
     {
         std::array<vk::DescriptorPoolSize, 1> pool_sizes;
         pool_sizes[0].type = vk::DescriptorType::eUniformBuffer;
-        pool_sizes[0].descriptorCount = 2;
+        pool_sizes[0].descriptorCount = NUM_VIRTUAL_FRAME;
 
 
         vk::DescriptorPoolCreateInfo dpci{};
@@ -60,7 +60,7 @@ namespace my_app
             bindings[0].binding = 0;
             bindings[0].descriptorType = vk::DescriptorType::eUniformBuffer;
             bindings[0].descriptorCount = 1;
-            bindings[0].stageFlags = vk::ShaderStageFlagBits::eGeometry;
+            bindings[0].stageFlags = vk::ShaderStageFlagBits::eFragment;
 
             scenes.layout = vulkan.create_descriptor_layout(bindings);
 
@@ -99,91 +99,23 @@ namespace my_app
 
     void VoxelVisualization::update_uniform_buffer(uint32_t frame_idx, Camera& camera)
     {
-        ImGui::SetNextWindowPos(ImVec2(200.f, 20.0f));
-        ImGui::Begin("Uniform buffer", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        SceneUniform ubo{};
-        ubo.view = glm::lookAt(
-            camera.position,                   // origin of camera
-            camera.position + camera.front,    // where to look
-            camera.up);
-
-        static float fov = 45.0f;
-        ImGui::DragFloat("FOV", &fov, 1.0f, 20.f, 90.f);
-        float aspect_ratio = static_cast<float>(renderer.get_swapchain().extent.width) / static_cast<float>(renderer.get_swapchain().extent.height);
-
-        ubo.proj = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 500.0f);
-
-        // Vulkan clip space has inverted Y and half Z.
-        ubo.clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-                             0.0f, -1.0f, 0.0f, 0.0f,
-                             0.0f, 0.0f, 0.5f, 0.0f,
-                             0.0f, 0.0f, 0.5f, 1.0f);
-
+        SceneUniform ubo = {};
         ubo.cam_pos = glm::vec4(camera.position, 0.f);
-
-        ImGui::Separator();
-
-        static float light_dir[3] = { 1.0f, 1.0f, 1.0f };
-        static bool animate_light = false;
-
-        ImGui::SliderFloat3("Light direction", light_dir, -40.0f, 40.0f);
-        ImGui::Checkbox("Rotate", &animate_light);
-        if (animate_light)
-        {
-            light_dir[0] += 0.01f;
-            if (light_dir[0] > 45.f)
-                light_dir[0] = -45.f;
-        }
-
-        ubo.light_dir.x = light_dir[0];
-        ubo.light_dir.y = light_dir[1];
-        ubo.light_dir.z = light_dir[2];
-
-        ImGui::Separator();
-
-        static float ambient = 0.1f;
-        ImGui::DragFloat("Ambient light", &ambient, 0.01f, 0.f, 1.f);
-        ubo.ambient = ambient;
-
-        ImGui::Separator();
-
-        static size_t debug_view_input = 0;
-        const char* input_items[] = { "Disabled", "Base color", "normal", "occlusion", "emissive", "physical 1", "physical 2" };
-        tools::imgui_select("Debug inputs", input_items, ARRAY_SIZE(input_items), debug_view_input);
-        ubo.debug_view_input = float(debug_view_input);
-
-        ImGui::Separator();
-
-        static size_t debug_view_equation = 0;
-        const char* equation_items[] = { "Disabled", "Diff (l,n)", "F (l,h)", "G (l,v,h)", "D (h)", "Specular" };
-        tools::imgui_select("Debug Equations", equation_items, ARRAY_SIZE(equation_items), debug_view_equation);
-        ubo.debug_view_equation = float(debug_view_equation);
-
-        ImGui::Separator();
-
-        static float cube_scale = 0.5f;
-        ImGui::DragFloat("Voxel cube scale", &cube_scale, 0.1f, 0.1f, 1.f);
-        ubo.cube_scale = cube_scale;
-
-
-        ImGui::End();
+        ubo.cam_front = glm::vec4(camera.front, 0.f);
+        ubo.cam_up = glm::vec4(camera.up, 0.f);
 
         void* uniform_data = uniform_buffers[frame_idx].map();
         memcpy(uniform_data, &ubo, sizeof(ubo));
     }
 
-    void VoxelVisualization::create_pipeline()
+    void VoxelVisualization::create_pipeline(vk::DescriptorSetLayout _voxels_texture_layout)
     {
-        auto bindings = Voxel::get_binding_description();
-        auto attributes = Voxel::get_attribute_description();
-
         vk::PipelineVertexInputStateCreateInfo vert_i{};
         vert_i.flags = vk::PipelineVertexInputStateCreateFlags(0);
-        vert_i.vertexBindingDescriptionCount = bindings.size();
-        vert_i.pVertexBindingDescriptions = bindings.data();
-        vert_i.vertexAttributeDescriptionCount = attributes.size();
-        vert_i.pVertexAttributeDescriptions = attributes.data();
+        vert_i.vertexBindingDescriptionCount = 0;
+        vert_i.pVertexBindingDescriptions = nullptr;
+        vert_i.vertexAttributeDescriptionCount = 0;
+        vert_i.pVertexAttributeDescriptions = nullptr;
 
         vk::PipelineInputAssemblyStateCreateInfo asm_i{};
         asm_i.flags = vk::PipelineInputAssemblyStateCreateFlags(0);
@@ -193,7 +125,7 @@ namespace my_app
         vk::PipelineRasterizationStateCreateInfo rast_i{};
         rast_i.flags = vk::PipelineRasterizationStateCreateFlags(0);
         rast_i.polygonMode = vk::PolygonMode::eFill;
-        rast_i.cullMode = vk::CullModeFlagBits::eBack;
+        rast_i.cullMode = vk::CullModeFlagBits::eNone;
         rast_i.frontFace = vk::FrontFace::eCounterClockwise;
         rast_i.depthClampEnable = VK_FALSE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
@@ -258,7 +190,8 @@ namespace my_app
         ms_i.alphaToOneEnable = VK_FALSE;
         ms_i.minSampleShading = .2f;
 
-        std::array<vk::DescriptorSetLayout, 1> layouts = {
+        std::array<vk::DescriptorSetLayout, 2> layouts = {
+            _voxels_texture_layout,
             scenes.layout.get()
         };
 
@@ -272,24 +205,19 @@ namespace my_app
 
         graphics_pipeline.layout = vulkan.device->createPipelineLayoutUnique(ci);
 
-        auto vert_code = tools::readFile("build/shaders/shader.vert.spv");
-        auto frag_code = tools::readFile("build/shaders/shader.frag.spv");
-        auto geom_code = tools::readFile("build/shaders/voxel_debug.geom.spv");
+        auto vert_code = tools::readFile("build/shaders/voxel_visualization.vert.spv");
+        auto frag_code = tools::readFile("build/shaders/voxel_visualization.frag.spv");
 
         auto vert_module = vulkan.create_shader_module(vert_code);
         auto frag_module = vulkan.create_shader_module(frag_code);
-        auto geom_module = vulkan.create_shader_module(geom_code);
 
-        std::array<vk::PipelineShaderStageCreateInfo, 3> shader_stages;
+        std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
         shader_stages[0].stage = vk::ShaderStageFlagBits::eVertex;
         shader_stages[0].module = vert_module.get();
         shader_stages[0].pName = "main";
         shader_stages[1].stage = vk::ShaderStageFlagBits::eFragment;
         shader_stages[1].module = frag_module.get();
         shader_stages[1].pName = "main";
-        shader_stages[2].stage = vk::ShaderStageFlagBits::eGeometry;
-        shader_stages[2].module = geom_module.get();
-        shader_stages[2].pName = "main";
 
         std::vector<vk::DynamicState> dynamic_states =
         {
@@ -321,11 +249,11 @@ namespace my_app
         graphics_pipeline.handle = vulkan.device->createGraphicsPipelineUnique(graphics_pipeline.cache.get(), pipe_i);
     }
 
-    void VoxelVisualization::do_subpass(uint32_t frame_idx, vk::CommandBuffer cmd, const Buffer& voxels_buffer)
+    void VoxelVisualization::do_subpass(uint32_t frame_idx, vk::CommandBuffer cmd)
     {
         cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, graphics_pipeline.handle.get());
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphics_pipeline.layout.get(), 0, scenes.descriptors[frame_idx].get(), nullptr);
-        cmd.bindVertexBuffers(0, voxels_buffer.get_buffer(), {0});
-        cmd.draw(VOXEL_GRID_SIZE*VOXEL_GRID_SIZE*VOXEL_GRID_SIZE, 1, 0, 0);
+        // hopeofully it will keep the descriptor 0 from the voxelization pipeline
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphics_pipeline.layout.get(), 1, scenes.descriptors[frame_idx].get(), nullptr);
+        cmd.draw(6, 1, 0, 0);
     }
 }

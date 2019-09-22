@@ -14,7 +14,8 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 
-void main() {
+void main()
+{
     vec4 locPos = node.matrix * vec4(inPosition, 1.0);
     outNormal = normalize(transpose(inverse(mat3(node.matrix))) * inNormal);
     outWorldPos = locPos.xyz / locPos.w;

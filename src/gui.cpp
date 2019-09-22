@@ -138,7 +138,7 @@ namespace my_app
         if (resource.vertex_buffer.get_size() < vertex_buffer_size)
         {
             resource.vertex_buffer.free();
-            resource.vertex_buffer = Buffer{ "GUI Vertex buffer", vulkan.allocator, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer };
+            resource.vertex_buffer = Buffer{vulkan, vertex_buffer_size, vk::BufferUsageFlagBits::eVertexBuffer,  "GUI Vertex buffer"};
         }
 
         // Check that there is enough space for the indices
@@ -146,7 +146,7 @@ namespace my_app
         if (resource.index_buffer.get_size() < index_buffer_size)
         {
             resource.index_buffer.free();
-            resource.index_buffer = Buffer{ "GUI Index buffer", vulkan.allocator, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer };
+            resource.index_buffer = Buffer{vulkan, index_buffer_size, vk::BufferUsageFlagBits::eIndexBuffer,  "GUI Index buffer"};
         }
 
         // Upload vertex and index data
@@ -243,7 +243,7 @@ namespace my_app
         ci.pQueueFamilyIndices = nullptr;
         ci.sharingMode = vk::SharingMode::eExclusive;
 
-        texture = Image{ "GUI Texture", vulkan.allocator, ci };
+        texture = Image{vulkan, ci, "GUI Texture"};
 
 
         vk::ImageViewCreateInfo vci{};
