@@ -11,6 +11,7 @@
 namespace my_app
 {
     class Renderer;
+    struct Camera;
 
     struct VoxelizationOptions
     {
@@ -28,7 +29,7 @@ namespace my_app
         void init(const std::string& model_path);
         void before_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
         void do_subpass(uint32_t resource_index, vk::CommandBuffer cmd);
-        void update_uniform_buffer(uint32_t frame_idx);
+        void update_uniform_buffer(uint32_t frame_idx, Camera& camera);
 
         vk::DescriptorSetLayout get_voxels_texture_layout() const
         {

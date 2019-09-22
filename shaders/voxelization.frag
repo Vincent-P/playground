@@ -45,7 +45,8 @@ layout (push_constant) uniform Material
 
 void main()
 {
-    vec3 diff = (inWorldPos - debug_options.center) / (debug_options.res * debug_options.size);
+    vec3 center = floor(debug_options.center);
+    vec3 diff = (inWorldPos - center) / (debug_options.res * debug_options.size);
     vec3 uvw = diff * vec3(0.5f, 0.5f, 0.5f) + 0.5f;
 
     vec4 color;

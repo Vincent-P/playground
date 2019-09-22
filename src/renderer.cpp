@@ -421,7 +421,7 @@ namespace my_app
 
         // Update and Draw!!!
         {
-            voxelization.update_uniform_buffer(virtual_frame_idx);
+            voxelization.update_uniform_buffer(virtual_frame_idx, camera);
             voxel_visualization.update_uniform_buffer(virtual_frame_idx, camera);
 
             vk::Rect2D render_area{ vk::Offset2D(), swapchain.extent };

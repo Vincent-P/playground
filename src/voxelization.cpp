@@ -408,7 +408,7 @@ namespace my_app
 
     }
 
-    void VoxelizationSubpass::update_uniform_buffer(uint32_t frame_idx)
+    void VoxelizationSubpass::update_uniform_buffer(uint32_t frame_idx, Camera& camera)
     {
         VoxelizationOptions options;
 
@@ -422,15 +422,19 @@ namespace my_app
 
         ImGui::Separator();
 
+        static int voxel_res = 256;
+        ImGui::DragInt("Voxel res", &voxel_res, 128.f, 128, 256);
+        options.res = static_cast<uint32_t>(voxel_res);
+
         static float center[3] = { 0.0f, 0.0f, 0.0f };
         ImGui::SliderFloat3("Voxel center", center, -40.0f, 40.0f);
+        center[0] = camera.position.x;
+        center[1] = camera.position.y;
+        center[2] = camera.position.z;
         options.center.x = center[0];
         options.center.y = center[1];
         options.center.z = center[2];
 
-        static int voxel_res = 256;
-        ImGui::DragInt("Voxel res", &voxel_res, 128.f, 128, 256);
-        options.res = static_cast<uint32_t>(voxel_res);
 
         ImGui::Separator();
 

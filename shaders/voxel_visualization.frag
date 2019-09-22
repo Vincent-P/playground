@@ -38,7 +38,8 @@ vec4 PlaneMarch(vec3 p0, vec3 d) {
 
 void main()
 {
-    vec3 p0 = cam.position.xyz;
+    // Center of the voxel cube
+    vec3 p0 = vec3(GRID_SIZE * 0.5, GRID_SIZE * 0.5, GRID_SIZE * 0.5);
 
     vec3 cam_right = cross(cam.front.xyz, cam.up.xyz);
     float x = inUV.x;
