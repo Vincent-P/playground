@@ -175,17 +175,24 @@ namespace my_app
                 ImGui::SetCursorPosX(20.0f);
                 ImGui::Text("Z: %.2f", double(camera.front.z));
 
+                ImGui::SetCursorPosX(10.0f);
+                ImGui::Text("Up");
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("X: %.2f", double(camera.up.x));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Y: %.2f", double(camera.up.y));
+                ImGui::SetCursorPosX(20.0f);
+                ImGui::Text("Z: %.2f", double(camera.up.z));
 
                 if (camera.pitch > 89.0f)
                     camera.pitch = 89.0f;
                 if (camera.pitch < -89.0f)
                     camera.pitch = -89.0f;
 
-                glm::vec3 front;
-                front.x = cos(glm::radians(camera.pitch)) * cos(glm::radians(camera.yaw));
-                front.y = sin(glm::radians(camera.pitch));
-                front.z = cos(glm::radians(camera.pitch)) * sin(glm::radians(camera.yaw));
-                camera.front = glm::normalize(front);
+                glm::vec3 angles = glm::vec3(glm::radians(camera.pitch), glm::radians(-camera.yaw), 0);
+                glm::quat orientation = angles;
+                camera.front = orientation * glm::vec3(0, 0, -1);
+                camera.up = orientation * glm::vec3(0, 1, 0);
 
                 last_xpos = float(mouse_x);
                 last_ypos = float(mouse_y);
