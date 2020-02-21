@@ -7,6 +7,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif(NOT CMAKE_BUILD_TYPE)
 
+# Export compile commands for the lsp
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # =============================================================
 # Setup C++
 
@@ -15,9 +17,6 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
     CACHE STRING "")
 endif()
-
-# Export compile commands for the lsp
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Use c++ 17 flags and fix system includes with clang-cl.exe
 IF (WIN32)
@@ -30,34 +29,34 @@ ELSE()
 ENDIF()
 
 # Treat warnings as error
-add_compile_options(-fcolor-diagnostics -Werror -Wall -Wextra -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-exit-time-destructors -Wno-global-constructors)
+add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
 
 # Debug specific config
-IF(CMAKE_BUILD_TYPE MATCHES Debug)
+# IF(CMAKE_BUILD_TYPE MATCHES Debug)
+#
+#   # static analysis tools
+#   find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
+#   if (CMAKE_CXX_CPPCHECK)
+#     list(
+#       APPEND CMAKE_CXX_CPPCHECK
+#       "--suppress=missingIncludeSystem"
+#       "--std=c++17"
+#       "--enable=all"
+#       )
+#   endif()
+#
+#   # Too many warnings for now...
+#   # set(CMAKE_CXX_CLANG_TIDY
+#   #   clang-tidy;
+#   #   -header-filter=.;
+#   #   -checks=*;
+#   #   -warnings-as-errors=*;)
+#
+#
+# # Release specific config
+# ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
 
-  # static analysis tools
-  find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
-  if (CMAKE_CXX_CPPCHECK)
-    list(
-      APPEND CMAKE_CXX_CPPCHECK
-      "--suppress=missingIncludeSystem"
-      "--std=c++17"
-      "--enable=all"
-      )
-  endif()
-
-  # Too many warnings for now...
-  # set(CMAKE_CXX_CLANG_TIDY
-  #   clang-tidy;
-  #   -header-filter=.;
-  #   -checks=*;
-  #   -warnings-as-errors=*;)
-
-
-# Release specific config
-ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
-
-ENDIF()
+# ENDIF()
 
 
 # =============================================================
@@ -88,6 +87,7 @@ add_executable(test-vulkan ${TEST_VULKAN_FILES})
 # --------------
 # Setup libraries
 add_definitions(
+  -DNOMINMAX #ty windows....
   -DGLFW_INCLUDE_VULKAN
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
