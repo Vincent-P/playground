@@ -36,6 +36,7 @@ SpacesInCStyleCastParentheses: 'false'
 SpacesInContainerLiterals: 'false'
 SpacesInParentheses: 'false'
 Standard: Cpp11
+SortIncludes: 'true'
 TabWidth: '4'
 UseTab: Never
 

@@ -1,0 +1,14 @@
+#include "renderer/hl_api.hpp"
+
+namespace my_app::vulkan
+{
+    RenderTargetH API::create_rendertarget(const RTInfo& /*info*/)
+    {
+	return {};
+    }
+
+    RenderTarget& API::get_rendertarget(RenderTargetH H)
+    {
+	return rendertargets[H.value()];
+    }
+}

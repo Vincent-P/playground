@@ -1,18 +1,20 @@
 #include <GLFW/glfw3.h>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <imgui.h>
 #include <iostream>
-#include <math.h>
 #include <string>
 #include <thread>
 
+#include "app.hpp"
+
+#if 0
 #include "renderer.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
 #include "model.hpp"
-
 namespace my_app
 {
     constexpr float MOUSE_SENSITIVITY = 0.3f;
@@ -20,295 +22,294 @@ namespace my_app
 
     class App
     {
-        public:
-        explicit App(const std::string &model_path)
-            : window(create_glfw_window())
-            , renderer(window, model_path)
-            , camera()
-            , timer()
-            , is_focused(true)
-            , is_ui(false)
-            , stop(false)
-            , last_xpos(0.f)
-            , last_ypos(0.f)
-        {
-            glfwSetWindowUserPointer(window, this);
+    public:
+	explicit App(const std::string &model_path)
+	    : window(create_glfw_window())
+	    , renderer(window, model_path)
+	    , camera()
+	    , timer()
+	    , is_focused(true)
+	    , is_ui(false)
+	    , stop(false)
+	    , last_xpos(0.f)
+	    , last_ypos(0.f)
+	{
+	    glfwSetWindowUserPointer(window, this);
 
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            glfwSetFramebufferSizeCallback(window, resize_callback);
-            glfwSetMouseButtonCallback(window, click_callback);
-        }
+	    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	    glfwSetFramebufferSizeCallback(window, resize_callback);
+	    glfwSetMouseButtonCallback(window, click_callback);
+	}
 
-        ~App()
-        {
-            glfwTerminate();
-        }
+	~App()
+	{
+	    glfwTerminate();
+	}
 
-        GLFWwindow* create_glfw_window()
-        {
-            glfwInit();
+	GLFWwindow* create_glfw_window()
+	{
+	    glfwInit();
 
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-            return glfwCreateWindow(WIDTH, HEIGHT, "Test vulkan", nullptr, nullptr);
-        }
+	    return glfwCreateWindow(WIDTH, HEIGHT, "Test vulkan", nullptr, nullptr);
+	}
 
-        static void resize_callback(GLFWwindow* window, int width, int height)
-        {
-            if (!width || !height)
-                return;
+	static void resize_callback(GLFWwindow* window, int width, int height)
+	{
+	    if (!width || !height)
+		return;
 
-            auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
-            app->renderer.resize(width, height);
-        }
-
-
-        static void click_callback(GLFWwindow* window, int button, int action, int)
-        {
-            auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
-            if (action == GLFW_PRESS && button >= 0 && button < int(ARRAY_SIZE(mouse_just_pressed)))
-                app->mouse_just_pressed[button] = true;
-        }
-
-        void update_mouse()
-        {
-            ImGuiIO& io = ImGui::GetIO();
+	    auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+	    app->renderer.resize(width, height);
+	}
 
 
-            ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
-            ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	static void click_callback(GLFWwindow* window, int button, int action, int)
+	{
+	    auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+	    if (action == GLFW_PRESS && button >= 0 && button < int(ARRAY_SIZE(mouse_just_pressed)))
+		app->mouse_just_pressed[button] = true;
+	}
 
-            // UI Mode cursor
-            if (is_ui)
-            {
-                // Update the mouse position for ImGui
-                if (io.WantSetMousePos)
-                {
-                    glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
-                }
-                else
-                {
-                    double mouse_x, mouse_y;
-                    glfwGetCursorPos(window, &mouse_x, &mouse_y);
-                    io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
-                }
+	void update_mouse()
+	{
+	    ImGuiIO& io = ImGui::GetIO();
 
 
-                // Update the mouse buttons
-                for (int i = 0; i < int(ARRAY_SIZE(io.MouseDown)); i++)
-                {
-                    // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-                    io.MouseDown[i] = mouse_just_pressed[i] || glfwGetMouseButton(window, i) != 0;
-                    mouse_just_pressed[i] = false;
-                }
+	    ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
+	    ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+	    // UI Mode cursor
+	    if (is_ui)
+	    {
+		// Update the mouse position for ImGui
+		if (io.WantSetMousePos)
+		{
+		    glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
+		}
+		else
+		{
+		    double mouse_x, mouse_y;
+		    glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		    io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
+		}
 
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("GUI Mouse position:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.1f", double(io.MousePos.x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.1f", double(io.MousePos.y));
+		// Update the mouse buttons
+		for (int i = 0; i < int(ARRAY_SIZE(io.MouseDown)); i++)
+		{
+		    // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
+		    io.MouseDown[i] = mouse_just_pressed[i] || glfwGetMouseButton(window, i) != 0;
+		    mouse_just_pressed[i] = false;
+		}
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Last Mouse position:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.1f", double(last_xpos));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.1f", double(last_ypos));
-            }
-            // Game mode
-            else
-            {
-                double mouse_x, mouse_y;
-                glfwGetCursorPos(window, &mouse_x, &mouse_y);
 
-                float yaw_increment = (float(mouse_x) - last_xpos) * MOUSE_SENSITIVITY;
-                float pitch_increment = (last_ypos - float(mouse_y)) * MOUSE_SENSITIVITY;
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("GUI Mouse position:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.1f", double(io.MousePos.x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.1f", double(io.MousePos.y));
 
-                camera.yaw += yaw_increment;
-                camera.pitch += pitch_increment;
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Last Mouse position:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.1f", double(last_xpos));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.1f", double(last_ypos));
+	    }
+	    // Game mode
+	    else
+	    {
+		double mouse_x, mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
 
-                ImGui::Text("GUI Mouse position:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.1f", double(io.MousePos.x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.1f", double(io.MousePos.y));
+		float yaw_increment = (float(mouse_x) - last_xpos) * MOUSE_SENSITIVITY;
+		float pitch_increment = (last_ypos - float(mouse_y)) * MOUSE_SENSITIVITY;
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Mouse position:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.1f", double(mouse_x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.1f", double(mouse_y));
+		camera.yaw += yaw_increment;
+		camera.pitch += pitch_increment;
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Last Mouse position:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.1f", double(last_xpos));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.1f", double(last_ypos));
+		ImGui::Text("GUI Mouse position:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.1f", double(io.MousePos.x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.1f", double(io.MousePos.y));
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Camera:");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Pitch: %.1f", double(camera.pitch));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Yaw: %.1f", double(camera.yaw));
-                ImGui::SetCursorPosX(20.0f);
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Mouse position:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.1f", double(mouse_x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.1f", double(mouse_y));
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Position");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.2f", double(camera.position.x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.2f", double(camera.position.y));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Z: %.2f", double(camera.position.z));
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Last Mouse position:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.1f", double(last_xpos));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.1f", double(last_ypos));
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Front");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.2f", double(camera.front.x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.2f", double(camera.front.y));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Z: %.2f", double(camera.front.z));
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Camera:");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Pitch: %.1f", double(camera.pitch));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Yaw: %.1f", double(camera.yaw));
+		ImGui::SetCursorPosX(20.0f);
 
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::Text("Up");
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("X: %.2f", double(camera.up.x));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Y: %.2f", double(camera.up.y));
-                ImGui::SetCursorPosX(20.0f);
-                ImGui::Text("Z: %.2f", double(camera.up.z));
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Position");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.2f", double(camera.position.x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.2f", double(camera.position.y));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Z: %.2f", double(camera.position.z));
 
-                if (camera.pitch > 89.0f)
-                    camera.pitch = 89.0f;
-                if (camera.pitch < -89.0f)
-                    camera.pitch = -89.0f;
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Front");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.2f", double(camera.front.x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.2f", double(camera.front.y));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Z: %.2f", double(camera.front.z));
 
-                glm::vec3 angles = glm::vec3(glm::radians(camera.pitch), glm::radians(-camera.yaw), 0);
-                glm::quat orientation = angles;
-                camera.front = orientation * glm::vec3(0, 0, -1);
-                camera.up = orientation * glm::vec3(0, 1, 0);
+		ImGui::SetCursorPosX(10.0f);
+		ImGui::Text("Up");
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("X: %.2f", double(camera.up.x));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Y: %.2f", double(camera.up.y));
+		ImGui::SetCursorPosX(20.0f);
+		ImGui::Text("Z: %.2f", double(camera.up.z));
 
-                last_xpos = float(mouse_x);
-                last_ypos = float(mouse_y);
-            }
+		if (camera.pitch > 89.0f)
+		    camera.pitch = 89.0f;
+		if (camera.pitch < -89.0f)
+		    camera.pitch = -89.0f;
 
-            ImGui::End();
-        }
+		glm::vec3 angles = glm::vec3(glm::radians(camera.pitch), glm::radians(-camera.yaw), 0);
+		glm::quat orientation = angles;
+		camera.front = orientation * glm::vec3(0, 0, -1);
+		camera.up = orientation * glm::vec3(0, 1, 0);
 
-        void update_keyboard(float delta_t)
-        {
-            int forward = 0;
-            int right = 0;
+		last_xpos = float(mouse_x);
+		last_ypos = float(mouse_y);
+	    }
 
-            if (glfwGetKey(window, GLFW_KEY_W))
-                forward++;
-            if (glfwGetKey(window, GLFW_KEY_A))
-                right--;
-            if (glfwGetKey(window, GLFW_KEY_S))
-                forward--;
-            if (glfwGetKey(window, GLFW_KEY_D))
-                right++;
+	    ImGui::End();
+	}
 
-            if (forward)
-                camera.position += (CAMERA_SPEED * float(forward) * delta_t) * camera.front;
+	void update_keyboard(float delta_t)
+	{
+	    int forward = 0;
+	    int right = 0;
 
-            if (right)
-                camera.position += (CAMERA_SPEED * float(right) * delta_t) * glm::normalize(glm::cross(camera.front, camera.up));
-        }
+	    if (glfwGetKey(window, GLFW_KEY_W))
+		forward++;
+	    if (glfwGetKey(window, GLFW_KEY_A))
+		right--;
+	    if (glfwGetKey(window, GLFW_KEY_S))
+		forward--;
+	    if (glfwGetKey(window, GLFW_KEY_D))
+		right++;
 
-        void update_input(float delta_t)
-        {
-            // Quit when escape is pressed
-            if (glfwGetKey(window, GLFW_KEY_ESCAPE))
-            {
-                stop = true;
-                return;
-            }
+	    if (forward)
+		camera.position += (CAMERA_SPEED * float(forward) * delta_t) * camera.front;
 
-            // Update cursor with ALT
-            auto cursor_mode = glfwGetInputMode(window, GLFW_CURSOR);
+	    if (right)
+		camera.position += (CAMERA_SPEED * float(right) * delta_t) * glm::normalize(glm::cross(camera.front, camera.up));
+	}
 
-            // Free the cursor to with ALT
-            if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_NORMAL)
-            {
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	void update_input(float delta_t)
+	{
+	    // Quit when escape is pressed
+	    if (glfwGetKey(window, GLFW_KEY_ESCAPE))
+	    {
+		stop = true;
+		return;
+	    }
 
-                // I need this to prevent cursor jumping for some reasons
-                double mouse_x, mouse_y;
-                glfwGetCursorPos(window, &mouse_x, &mouse_y);
-                last_xpos = float(mouse_x);
-                last_ypos = float(mouse_y);
-            }
-            // If ALT isn't pressed the mouse input is raw
-            else if (!glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_DISABLED)
-            {
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                if (glfwRawMouseMotionSupported())
-                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+	    // Update cursor with ALT
+	    auto cursor_mode = glfwGetInputMode(window, GLFW_CURSOR);
 
-                // I need this to prevent cursor jumping for some reasons
-                double mouse_x, mouse_y;
-                glfwGetCursorPos(window, &mouse_x, &mouse_y);
-                last_xpos = float(mouse_x);
-                last_ypos = float(mouse_y);
-            }
+	    // Free the cursor to with ALT
+	    if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_NORMAL)
+	    {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-            is_ui = cursor_mode == GLFW_CURSOR_NORMAL;
+		// I need this to prevent cursor jumping for some reasons
+		double mouse_x, mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		last_xpos = float(mouse_x);
+		last_ypos = float(mouse_y);
+	    }
+	    // If ALT isn't pressed the mouse input is raw
+	    else if (!glfwGetKey(window, GLFW_KEY_LEFT_ALT) && cursor_mode != GLFW_CURSOR_DISABLED)
+	    {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		if (glfwRawMouseMotionSupported())
+		    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-            update_mouse();
-            update_keyboard(delta_t);
-        }
+		// I need this to prevent cursor jumping for some reasons
+		double mouse_x, mouse_y;
+		glfwGetCursorPos(window, &mouse_x, &mouse_y);
+		last_xpos = float(mouse_x);
+		last_ypos = float(mouse_y);
+	    }
 
-        void run()
-        {
-            std::cout << "Start running\n";
-            while (not glfwWindowShouldClose(window) and not stop)
-            {
-                glfwPollEvents();
+	    is_ui = cursor_mode == GLFW_CURSOR_NORMAL;
 
-                is_focused = glfwGetWindowAttrib(window, GLFW_VISIBLE) && glfwGetWindowAttrib(window, GLFW_FOCUSED);
+	    update_mouse();
+	    update_keyboard(delta_t);
+	}
 
-                if (!is_focused)
-                    continue;
+	void run()
+	{
+	    while (not glfwWindowShouldClose(window) and not stop)
+	    {
+		glfwPollEvents();
 
-                ImGui::NewFrame();
+		is_focused = glfwGetWindowAttrib(window, GLFW_VISIBLE) && glfwGetWindowAttrib(window, GLFW_FOCUSED);
 
-                timer.update();
-                update_input(timer.get_delta_time());
+		if (!is_focused)
+		    continue;
 
-                renderer.draw_frame(camera, timer);
-            }
+		ImGui::NewFrame();
 
-            std::cout << "Stopped running, waiting for device...\n";
-            renderer.wait_idle();
-        }
+		timer.update();
+		update_input(timer.get_delta_time());
 
-        GLFWwindow* window;
-        Renderer renderer;
-        Camera camera;
-        TimerData timer;
-        bool is_focused;
-        bool is_ui;
-        bool stop;
-        float last_xpos;
-        float last_ypos;
-        bool mouse_just_pressed[5] = { false, false, false, false, false };
+		renderer.draw_frame(camera, timer);
+	    }
+
+	    std::cout << "Stopped running, waiting for device...\n";
+	    renderer.wait_idle();
+	}
+
+	GLFWwindow* window;
+	Renderer renderer;
+	Camera camera;
+	TimerData timer;
+	bool is_focused;
+	bool is_ui;
+	bool stop;
+	float last_xpos;
+	float last_ypos;
+	bool mouse_just_pressed[5] = { false, false, false, false, false };
     };
 }    // namespace my_app
+#endif
 
-int main(int, char** argv)
+int main(int argc, char** argv)
 {
-    std::string model = "models/Sponza/glTF/Sponza.gltf";
-    if (argv[1])
-        model = argv[1];
+    (void)argc;
+    (void)argv;
 
-    my_app::App app(model);
+    my_app::App app;
     app.run();
     return 0;
 }

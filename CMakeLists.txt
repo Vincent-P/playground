@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Debug)
 endif(NOT CMAKE_BUILD_TYPE)
 
 # Export compile commands for the lsp
@@ -29,34 +29,34 @@ ELSE()
 ENDIF()
 
 # Treat warnings as error
-add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors -GX)
 
 # Debug specific config
-# IF(CMAKE_BUILD_TYPE MATCHES Debug)
-#
-#   # static analysis tools
-#   find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
-#   if (CMAKE_CXX_CPPCHECK)
-#     list(
-#       APPEND CMAKE_CXX_CPPCHECK
-#       "--suppress=missingIncludeSystem"
-#       "--std=c++17"
-#       "--enable=all"
-#       )
-#   endif()
-#
-#   # Too many warnings for now...
-#   # set(CMAKE_CXX_CLANG_TIDY
-#   #   clang-tidy;
-#   #   -header-filter=.;
-#   #   -checks=*;
-#   #   -warnings-as-errors=*;)
-#
-#
-# # Release specific config
-# ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
 
-# ENDIF()
+  # static analysis tools
+  # find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
+  # if (CMAKE_CXX_CPPCHECK)
+  #   list(
+  #     APPEND CMAKE_CXX_CPPCHECK
+  #     "--std=c++17"
+  #     "--enable=all"
+  #     )
+  # endif()
+
+  # Too many warnings for now...
+  # set(CMAKE_CXX_CLANG_TIDY
+  #   clang-tidy;
+  #   -header-filter=.;
+  #   -checks=*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-convert-member-functions-to-static;
+  #   )
+  #   #-warnings-as-errors=*;)
+
+
+# Release specific config
+ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
+
+ENDIF()
 
 
 # =============================================================
@@ -65,20 +65,28 @@ project(test-vulkan LANGUAGES CXX)
 
 # List the source files
 set(TEST_VULKAN_FILES
-  src/buffer.cpp
-  src/gui.cpp
-  src/image.cpp
   src/main.cpp
-  src/model.cpp
-  src/renderer.cpp
-  src/thsvs.cpp
-  src/timer.cpp
-  src/tiny_gltf.cpp
-  src/tools.cpp
-  src/vk_mem_alloc.cpp
-  src/voxelization.cpp
-  src/voxel_visualization.cpp
-  src/vulkan_context.cpp
+  src/window.cpp
+  src/app.cpp
+  src/renderer/vlk_context.cpp
+  src/renderer/renderer.cpp
+  src/renderer/hl_api.cpp
+  src/renderer/hl_api_resources.cpp
+  src/renderer/hl_api_draw.cpp
+  # src/buffer.cpp
+  # src/gui.cpp
+  # src/image.cpp
+  # src/main.cpp
+  # src/model.cpp
+  # src/renderer.cpp
+  # src/thsvs.cpp
+  # src/timer.cpp
+  # src/tiny_gltf.cpp
+  # src/tools.cpp
+  # src/vk_mem_alloc.cpp
+  # src/voxelization.cpp
+  # src/voxel_visualization.cpp
+  # src/vulkan_context.cpp
   )
 
 # And add the main executable
@@ -88,9 +96,13 @@ add_executable(test-vulkan ${TEST_VULKAN_FILES})
 # Setup libraries
 add_definitions(
   -DNOMINMAX #ty windows....
+
+  -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+
   -DGLFW_INCLUDE_VULKAN
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
+
   -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
   -DVMA_DEBUG_MARGIN=16
   -DVMA_DEBUG_DETECT_CORRUPTION=1
