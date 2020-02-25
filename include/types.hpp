@@ -33,6 +33,12 @@ namespace my_app
     static constexpr u32 u32_invalid = ~0lu;
 
     template<typename T>
+    inline T* ptr_offset(T* ptr, usize offset)
+    {
+        return reinterpret_cast<char*>(ptr) + offset;
+    }
+
+    template<typename T>
     struct Handle
     {
 	static Handle invalid() { return u32_invalid; }

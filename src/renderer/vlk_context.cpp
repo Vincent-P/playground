@@ -1,9 +1,11 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VMA_IMPLEMENTATION
+#define THSVS_SIMPLER_VULKAN_SYNCHRONIZATION_IMPLEMENTATION
 
 #include "renderer/vlk_context.hpp"
 #include "window.hpp"
 
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <vk_mem_alloc.h>
 #include <vector>
 #include <iostream>
@@ -59,72 +61,72 @@ namespace my_app::vulkan
 
     Context Context::create(const Window& window)
     {
-	Context ctx;
+    Context ctx;
 
-	// the default dispatcher needs to be initialized with this first so that enumarateInstanceLayerProperties work
-	vk::DynamicLoader dl;
-	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+    // the default dispatcher needs to be initialized with this first so that enumarateInstanceLayerProperties work
+    vk::DynamicLoader dl;
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-	/// --- Create Instance
-	std::vector<const char*> instance_extensions;
+    /// --- Create Instance
+    std::vector<const char*> instance_extensions;
 
-	uint32_t required_count;
-	const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_count);
-	for (size_t i = 0; i < required_count; i++) {
-	    instance_extensions.push_back(required_extensions[i]);
-	}
+    uint32_t required_count;
+    const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_count);
+    for (size_t i = 0; i < required_count; i++) {
+        instance_extensions.push_back(required_extensions[i]);
+    }
 
-	if (ENABLE_VALIDATION_LAYERS) {
-	    instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
+    if (ENABLE_VALIDATION_LAYERS) {
+        instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
 
-	auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
-	std::vector<const char*> instance_layers;
-	instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+    auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
+    std::vector<const char*> instance_layers;
+    instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
 
 
-	vk::ApplicationInfo app_info;
-	app_info.pApplicationName = "Test Vulkan";
-	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	app_info.pEngineName = "GoodEngine";
-	app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
+    vk::ApplicationInfo app_info;
+    app_info.pApplicationName = "Test Vulkan";
+    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.pEngineName = "GoodEngine";
+    app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
 
-	vk::InstanceCreateInfo create_info;
-	create_info.flags = {};
-	create_info.pApplicationInfo = &app_info;
-	create_info.enabledLayerCount = static_cast<uint32_t>(instance_layers.size());
-	create_info.ppEnabledLayerNames = instance_layers.data();
-	create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
-	create_info.ppEnabledExtensionNames = instance_extensions.data();
+    vk::InstanceCreateInfo create_info;
+    create_info.flags = {};
+    create_info.pApplicationInfo = &app_info;
+    create_info.enabledLayerCount = static_cast<uint32_t>(instance_layers.size());
+    create_info.ppEnabledLayerNames = instance_layers.data();
+    create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
+    create_info.ppEnabledExtensionNames = instance_extensions.data();
 
-	ctx.instance = vk::createInstanceUnique(create_info);
+    ctx.instance = vk::createInstanceUnique(create_info);
 
-	VULKAN_HPP_DEFAULT_DISPATCHER.init(*ctx.instance);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(*ctx.instance);
 
-	/// --- Init debug layers
-	if (ENABLE_VALIDATION_LAYERS)
-	{
-	    vk::DebugUtilsMessengerCreateInfoEXT ci;
-	    ci.flags = {};
-	    ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
-		| vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
-		| vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-	    ci.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
-		| vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
-		| vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-	    ci.pfnUserCallback = debug_callback;
+    /// --- Init debug layers
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        vk::DebugUtilsMessengerCreateInfoEXT ci;
+        ci.flags = {};
+        ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
+        | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
+        | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+        ci.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
+        | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
+        | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+        ci.pfnUserCallback = debug_callback;
 
-	    ctx.debug_messenger = ctx.instance->createDebugUtilsMessengerEXT(ci, nullptr);
-	}
+        ctx.debug_messenger = ctx.instance->createDebugUtilsMessengerEXT(ci, nullptr);
+    }
 
-	/// --- Create the surface
+    /// --- Create the surface
 
         VkSurfaceKHR surfaceTmp;
         glfwCreateWindowSurface(static_cast<VkInstance>(*ctx.instance), window.get_handle(), nullptr, &surfaceTmp);
         ctx.surface = vk::UniqueSurfaceKHR(surfaceTmp, *ctx.instance);
 
-	/// --- Pick a physical device
+    /// --- Pick a physical device
         auto physical_devices = ctx.instance->enumeratePhysicalDevices();
         ctx.physical_device = physical_devices[0];
         for (const auto& d : physical_devices)
@@ -138,10 +140,10 @@ namespace my_app::vulkan
             }
         }
 
-	/// --- Create the logical device
+    /// --- Create the logical device
         auto installed_extensions = ctx.physical_device.enumerateDeviceExtensionProperties();
         std::vector<const char*> device_extensions;
-	device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
         std::vector<const char*> device_layers;
 
@@ -174,11 +176,11 @@ namespace my_app::vulkan
 
         if (!has_present || !has_graphics) {
             throw std::runtime_error("failed to find a graphics and present queue.");
-	}
+    }
 
         if (ctx.present_family_idx == ctx.graphics_family_idx) {
             queue_create_infos.pop_back();
-	}
+    }
 
         vk::DeviceCreateInfo dci;
         dci.flags = {};
@@ -192,33 +194,30 @@ namespace my_app::vulkan
 
         ctx.device = ctx.physical_device.createDeviceUnique(dci);
 
-	/// --- Init VMA allocator
+    /// --- Init VMA allocator
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.physicalDevice = ctx.physical_device;
         allocatorInfo.device = *ctx.device;
         vmaCreateAllocator(&allocatorInfo, &ctx.allocator);
 
-	/// --- Create the swapchain
-	ctx.create_swapchain();
+    /// --- Create the swapchain
+    ctx.create_swapchain();
 
-	/// --- Create the command pool to create a command buffer for each frame
-	ctx.command_pool = ctx.device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, static_cast<uint32_t>(ctx.graphics_family_idx) });
+    ctx.create_frame_resources();
 
-	ctx.create_frame_resources();
-
-	return ctx;
+    return ctx;
     }
 
     void Context::create_swapchain()
     {
-	auto& ctx = *this;
+    auto& ctx = *this;
 
         // Use default extent for the swapchain
         auto capabilities = ctx.physical_device.getSurfaceCapabilitiesKHR(*ctx.surface);
         ctx.swapchain.extent = capabilities.currentExtent;
 
 #if 0
-	std::cout << "Create SwapChain with extent: " << ctx.swapchain.extent.width << "x" << ctx.swapchain.extent.height << "\n";
+    std::cout << "Create SwapChain with extent: " << ctx.swapchain.extent.width << "x" << ctx.swapchain.extent.height << "\n";
 #endif
 
         // Find a good present mode (by priority Mailbox then Immediate then FIFO)
@@ -230,7 +229,7 @@ namespace my_app::vulkan
                 ctx.swapchain.present_mode = vk::PresentModeKHR::eMailbox;
                 break;
             }
-	}
+    }
 
         if (ctx.swapchain.present_mode == vk::PresentModeKHR::eFifo) {
             for (auto& pm : present_modes) {
@@ -238,8 +237,8 @@ namespace my_app::vulkan
                     ctx.swapchain.present_mode = vk::PresentModeKHR::eImmediate;
                     break;
                 }
-	    }
-	}
+        }
+    }
 
         // Find the best format
         auto formats = ctx.physical_device.getSurfaceFormatsKHR(*ctx.surface);
@@ -256,7 +255,7 @@ namespace my_app::vulkan
                     ctx.swapchain.format = f;
                     break;
                 }
-	    }
+        }
         }
 
         vk::SwapchainCreateInfoKHR ci{};
@@ -310,7 +309,7 @@ namespace my_app::vulkan
 
     void Context::destroy_swapchain()
     {
-	device->waitIdle();
+    device->waitIdle();
 
         for (auto& o : swapchain.image_views)
             device->destroy(o);
@@ -318,7 +317,7 @@ namespace my_app::vulkan
 
     void Context::create_frame_resources(usize count)
     {
-	frame_resources.current = 0;
+    frame_resources.current = 0;
         frame_resources.data.resize(count);
 
         for (usize i = 0; i < count; i++)
@@ -328,17 +327,19 @@ namespace my_app::vulkan
             frame_resource.fence = device->createFenceUnique({ vk::FenceCreateFlagBits::eSignaled });
             frame_resource.image_available = device->createSemaphoreUnique({});
             frame_resource.rendering_finished = device->createSemaphoreUnique({});
-            frame_resource.commandbuffer = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
+
+            /// --- Create the command pool to create a command buffer for each frame
+            frame_resource.command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
         }
     }
 
     void Context::destroy()
     {
-	if (ENABLE_VALIDATION_LAYERS) {
-	    instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr);
-	}
+    if (ENABLE_VALIDATION_LAYERS) {
+        instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr);
+    }
 
-	destroy_swapchain();
+    destroy_swapchain();
 
         char* dump;
         vmaBuildStatsString(allocator, &dump, VK_TRUE);
@@ -350,7 +351,7 @@ namespace my_app::vulkan
 
     void Context::on_resize(int /*width*/, int /*height*/)
     {
-	destroy_swapchain();
-	create_swapchain();
+    destroy_swapchain();
+    create_swapchain();
     }
 }    // namespace my_app

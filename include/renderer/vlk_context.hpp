@@ -48,7 +48,10 @@ namespace my_app
 	    vk::UniqueSemaphore image_available;
 	    vk::UniqueSemaphore rendering_finished;
 	    vk::UniqueFramebuffer framebuffer;
-	    vk::UniqueCommandBuffer commandbuffer;
+
+	    vk::UniqueCommandPool command_pool;
+
+	    vk::UniqueCommandBuffer command_buffer;
 	};
 
 	struct FrameResources
@@ -73,7 +76,6 @@ namespace my_app
 	    u32 graphics_family_idx;
 	    u32 present_family_idx;
 
-	    vk::UniqueCommandPool command_pool;
 	    SwapChain swapchain;
 	    FrameResources frame_resources;
 	    usize frame_count;

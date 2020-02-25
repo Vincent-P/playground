@@ -98,12 +98,12 @@ namespace my_app::vulkan
 	rpbi.clearValueCount = info.clear ? 1 : 0;
 	rpbi.pClearValues = clear_values.data();
 
-	frame_resource.commandbuffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
+	frame_resource.command_buffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
     }
 
     void API::end_pass()
     {
 	auto& frame_resource = ctx.frame_resources.get_current();
-	frame_resource.commandbuffer->endRenderPass();
+	frame_resource.command_buffer->endRenderPass();
     }
 }
