@@ -69,6 +69,7 @@ namespace my_app
 	    std::optional<vk::DebugUtilsMessengerEXT> debug_messenger;
 	    vk::UniqueSurfaceKHR surface;
 	    vk::PhysicalDevice physical_device;
+            vk::PhysicalDeviceProperties  physical_props;
 	    // gpu props?
 	    // surface caps?
 	    vk::UniqueDevice device;

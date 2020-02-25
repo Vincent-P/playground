@@ -3,6 +3,7 @@
 
 namespace my_app::vulkan
 {
+    // TODO: "find"
     static RenderPass& find_or_create_render_pass(API& api, PassInfo&& info)
     {
 	RenderPass rp;
@@ -55,6 +56,7 @@ namespace my_app::vulkan
 	return api.renderpasses.back();
     }
 
+    // TODO: "find"
     static FrameBuffer& find_or_create_frame_buffer(API& api, const PassInfo& info, const RenderPass& render_pass)
     {
 	FrameBuffer fb;
@@ -110,15 +112,31 @@ namespace my_app::vulkan
 	frame_resource.command_buffer->endRenderPass();
     }
 
+    vk::Pipeline find_or_create_pipeline(API& api, Program& program, RenderPass& render_pass)
+    {
+        vk::Pipeline pipeline;
+
+        return pipeline;
+    }
+
+    vk::DescriptorSet find_or_create_descriptor_sets(API& api, Program& program)
+    {
+        vk::DescriptorSet set;
+
+        return set;
+    }
+
     void API::bind_program(ProgramH H)
     {
         assert(current_render_pass != nullptr);
+	auto& frame_resource = ctx.frame_resources.get_current();
         auto& program = get_program(H);
         auto& render_pass = *current_render_pass;
 
+        auto pipeline = find_or_create_pipeline(*this, program, render_pass);
+        frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-        // find or create pipeline...
-        // bind pipeline!
-        // bind descriptor sets
+        auto descriptor_sets = find_or_create_descriptor_sets(*this, program);
+        frame_resource.command_buffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, 0, descriptor_sets, {});
     }
 }

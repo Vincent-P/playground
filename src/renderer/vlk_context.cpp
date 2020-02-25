@@ -91,6 +91,7 @@ namespace my_app::vulkan
         app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         app_info.pEngineName = "GoodEngine";
         app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
+        app_info.apiVersion = VK_API_VERSION_1_2;
 
         vk::InstanceCreateInfo create_info;
         create_info.flags = {};
@@ -147,7 +148,9 @@ namespace my_app::vulkan
 
         std::vector<const char*> device_layers;
 
-        auto features = ctx.physical_device.getFeatures();
+        vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
+        ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
+
         auto queue_families = ctx.physical_device.getQueueFamilyProperties();
 
         std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
@@ -183,6 +186,7 @@ namespace my_app::vulkan
         }
 
         vk::DeviceCreateInfo dci;
+        dci.pNext = &all_features.get<vk::PhysicalDeviceFeatures2>();
         dci.flags = {};
         dci.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
         dci.pQueueCreateInfos = queue_create_infos.data();
@@ -190,9 +194,11 @@ namespace my_app::vulkan
         dci.ppEnabledLayerNames = device_layers.data();
         dci.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
         dci.ppEnabledExtensionNames = device_extensions.data();
-        dci.pEnabledFeatures = &features;
+        dci.pEnabledFeatures = nullptr;
 
         ctx.device = ctx.physical_device.createDeviceUnique(dci);
+
+        ctx.physical_props = ctx.physical_device.getProperties();
 
         /// --- Init VMA allocator
         VmaAllocatorCreateInfo allocatorInfo = {};

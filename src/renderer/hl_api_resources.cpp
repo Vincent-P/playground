@@ -325,6 +325,7 @@ namespace my_app::vulkan
     {
         Shader shader;
 
+        shader.name = path;
         auto code = tools::readFile(path);
         // keep code for reflection?
 
@@ -378,10 +379,18 @@ namespace my_app::vulkan
                        }
             );
 
-        vk::DescriptorSetLayoutCreateInfo dslci{};
-        dslci.bindingCount = static_cast<u32>(bindings.size());
-        dslci.pBindings = bindings.data();
-        program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(dslci);
+        vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
+        std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{vk::DescriptorBindingFlagBits::eUpdateAfterBind}};
+        auto& flags_info = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+        flags_info.bindingCount = static_cast<u32>(bindings.size());
+        flags_info.pBindingFlags = flags.data();
+
+        auto& layout_info = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+        layout_info.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+        layout_info.bindingCount = static_cast<u32>(bindings.size());
+        layout_info.pBindings = bindings.data();
+
+        program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(layout_info);
 
         /// --- Create pipeline layout
 
