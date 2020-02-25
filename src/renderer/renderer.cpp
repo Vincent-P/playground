@@ -82,16 +82,74 @@ namespace my_app
         pass.present = true;
         pass.rt = rt;
 
-        api.begin_pass(pass);
-
 #if 0
+        ImDrawData* data = ImGui::GetDrawData();
+
+        u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
+        u32 ibuffer_len = sizeof(ImDrawIdx)  * static_cast<u32>(data->TotalIdxCount);
+
+        auto v_pos = api.dynamic_vertex_buffer(vbuffer_len); // (len) -> map | (data, len) -> memcpy
+        auto i_pos = api.dynamic_index_buffer(ibuffer_len);
+
+        ImDrawVert* vertices = v_pos.mapped;
+        ImDrawIdx* indices = v_pos.mapped;
+
+        for (int i = 0; i < data->CmdListsCount; i++)
+        {
+            const ImDrawList* cmd_list = data->CmdLists[i];
+
+            std::memcpy(vertices, cmd_list->VtxBuffer.Data, sizeof(ImDrawVert) * size_t(cmd_list->VtxBuffer.Size));
+            std::memcpy(indices, cmd_list->IdxBuffer.Data, sizeof(ImDrawIdx) * size_t(cmd_list->IdxBuffer.Size));
+
+            vertices += cmd_list->VtxBuffer.Size;
+            indices += cmd_list->IdxBuffer.Size;
+        }
+
+        api.begin_pass(pass);
         api.bind_program(gui_program);
-        // make dynamic vertex buffer
-        // make dynamic index buffer
-        // push constants
-        // bind texture (should be done in create)
-        // foreach (imguicommand) draw
+        api.bind_vertex_buffer(v_pos);
+        api.bind_index_buffer(i_pos);
+
+        std::vector<float> scale_and_translation = {
+            2.0f / ImGui::GetIO().DisplaySize.x,    // X scale
+            2.0f / ImGui::GetIO().DisplaySize.y,    // Y scale
+            -1.0f,                                  // X translation
+            -1.0f                                   // Y translation
+        };
+
+        cmd.pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
+        api.push_constant(scale_and_translation);
+
+        api.bind_image(gui_program, 0, gui_texture);
+
+        // Render GUI
+        i32 vertex_offset = 0;
+        u32 index_offset = 0;
+        for (int list = 0; list < data->CmdListsCount; list++)
+        {
+            const ImDrawList* cmd_list = data->CmdLists[list];
+
+            for (int command_index = 0; command_index < cmd_list->CmdBuffer.Size; command_index++)
+            {
+                const ImDrawCmd* draw_command = &cmd_list->CmdBuffer[command_index];
+
+                vk::Rect2D scissor;
+                scissor.offset.x = i32(draw_command->ClipRect.x) > 0 ? i32(draw_command->ClipRect.x) : 0;
+                scissor.offset.y = i32(draw_command->ClipRect.y) > 0 ? i32(draw_command->ClipRect.y) : 0;
+                scissor.extent.width  = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
+                scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
+
+                api.set_scissor(scissor);
+                api.drawIndexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
+
+                index_offset += draw_command->ElemCount;
+            }
+            vertex_offset += cmd_list->VtxBuffer.Size;
+        }
+#else
+        api.begin_pass(pass);
 #endif
+
 
         api.end_pass();
 

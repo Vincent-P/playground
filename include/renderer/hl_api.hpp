@@ -132,6 +132,7 @@ namespace my_app
             BufferH buffer_h;
             usize offset;
             usize length;
+            void* mapped;
         };
 
         struct API

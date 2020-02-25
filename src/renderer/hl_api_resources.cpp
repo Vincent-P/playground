@@ -287,8 +287,8 @@ namespace my_app::vulkan
         pos.length = len;
 
         buffer_map_internal(*this, staging);
-        std::memcpy(staging.mapped, data, len);
-        //std::memcpy(ptr_offset(staging.mapped, current_offset), data, len);
+
+        std::memcpy(ptr_offset(staging.mapped, current_offset), data, len);
 
         return pos;
     }
