@@ -6,6 +6,9 @@ namespace my_app::vulkan
     // TODO: "find"
     static RenderPass& find_or_create_render_pass(API& api, PassInfo&& info)
     {
+        if (api.renderpasses.size()) {
+            return api.renderpasses.front();
+        }
         RenderPass rp;
 
         assert(info.clear);
@@ -59,10 +62,20 @@ namespace my_app::vulkan
     // TODO: "find"
     static FrameBuffer& find_or_create_frame_buffer(API& api, const PassInfo& info, const RenderPass& render_pass)
     {
-        FrameBuffer fb;
-
         assert(api.get_rendertarget(info.rt).is_swapchain);
 
+        FrameBufferInfo fb_info;
+        fb_info.image_view = api.ctx.swapchain.get_current_image_view();
+        fb_info.render_pass = *render_pass.vkhandle;
+
+        for (auto& framebuffer : api.framebuffers) {
+            if (framebuffer.info == fb_info) {
+                return framebuffer;
+            }
+        }
+
+        FrameBuffer fb;
+        fb.info = fb_info;
         std::array<vk::ImageView, 1> attachments = {
             api.ctx.swapchain.get_current_image_view()
         };

@@ -85,9 +85,18 @@ namespace my_app
 
         using RenderTargetH = Handle<RenderTarget>;
 
+        struct FrameBufferInfo
+        {
+            vk::ImageView image_view;
+            vk::RenderPass render_pass;
+        };
+        inline bool operator==(const FrameBufferInfo& a, const FrameBufferInfo& b) {
+            return a.image_view == b.image_view && a.render_pass == b.render_pass;
+        }
 
         struct FrameBuffer
         {
+            FrameBufferInfo info;
             vk::UniqueFramebuffer vkhandle;
         };
 
@@ -181,7 +190,7 @@ namespace my_app
 
         inline bool operator==(const ProgramInfo& a, const ProgramInfo& b) {
             return a.vertex_shader == b.vertex_shader
-                && a.fragment_shader == b.vertex_shader
+                && a.fragment_shader == b.fragment_shader
                 && a.push_constants == b.push_constants
                 && a.bindings == b.bindings
                 && a.vertex_buffer_info == b.vertex_buffer_info;

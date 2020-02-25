@@ -71,7 +71,9 @@ namespace my_app::vulkan
                                 &img.allocation,
                                 nullptr));
 
-        ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
+        if (ENABLE_VALIDATION_LAYERS) {
+            ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
+        }
 
         img.access = THSVS_ACCESS_NONE;
 
@@ -225,7 +227,9 @@ namespace my_app::vulkan
                                  &buf.allocation,
                                  nullptr));
 
-        ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
+        if (ENABLE_VALIDATION_LAYERS) {
+            ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
+        }
 
         buffers.push_back(std::move(buf));
         return BufferH(static_cast<u32>(buffers.size()) - 1);

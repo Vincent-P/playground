@@ -14,8 +14,6 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 namespace my_app::vulkan
 {
-    constexpr auto ENABLE_VALIDATION_LAYERS = true;
-
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                    VkDebugUtilsMessageTypeFlagsEXT message_type,
@@ -83,7 +81,9 @@ namespace my_app::vulkan
 
         auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
         std::vector<const char*> instance_layers;
-        instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+        if (ENABLE_VALIDATION_LAYERS) {
+            instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+        }
 
 
         vk::ApplicationInfo app_info;

@@ -17,6 +17,9 @@ namespace my_app
 
     namespace vulkan
     {
+        constexpr inline auto ENABLE_VALIDATION_LAYERS = true;
+
+
 	template <typename T>
 	inline u64 get_raw_vulkan_handle(T const &cpp_handle) {
 	    return u64(static_cast<typename T::CType>(cpp_handle));
