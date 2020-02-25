@@ -50,8 +50,9 @@ namespace my_app
 	    vk::UniqueFramebuffer framebuffer;
 
 	    vk::UniqueCommandPool command_pool;
+	    vk::UniqueCommandBuffer command_buffer; // main command buffer
 
-	    vk::UniqueCommandBuffer command_buffer;
+            vk::UniqueDescriptorPool descriptor_pool;
 	};
 
 	struct FrameResources

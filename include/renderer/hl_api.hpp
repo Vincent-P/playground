@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.hpp>
 #include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <vector>
+#include <unordered_map>
+#include <optional>
 #include "renderer/vlk_context.hpp"
 #include "types.hpp"
 
@@ -33,6 +35,7 @@ namespace my_app
 
         struct Image
         {
+            const char* name;
             vk::Image vkhandle;
             vk::ImageCreateInfo image_info;
             VmaAllocation allocation;
@@ -58,6 +61,7 @@ namespace my_app
 
         struct Buffer
         {
+            const char* name;
             vk::Buffer vkhandle;
             VmaAllocation allocation;
             VmaMemoryUsage memory_usage;
@@ -95,28 +99,68 @@ namespace my_app
 
         struct RenderPass
         {
+            PassInfo info;
             vk::UniqueRenderPass vkhandle;
         };
+        using RenderPassH = Handle<RenderPass>;
 
         // Idea: Program contains different "configurations" coresponding to pipelines so that
         // the HL API has a VkPipeline equivalent used to make sure they are created only during load time?
         // maybe it is possible to deduce these configurations automatically from render graph, but render graph is
         // created every frame
 
-        struct Program
-        {
-            // descriptor layouts
-            //
-        };
-
-        using ProgramH = Handle<Program>;
-
         struct Shader
         {
+            const char* name;
             vk::UniqueShaderModule vkhandle;
         };
 
         using ShaderH = Handle<Shader>;
+
+        struct PipelineInfo
+        {
+            uint mdr;
+        };
+
+        // replace with vk::PushConstantRange?
+        // i like the name of this members as params
+        struct PushConstantInfo
+        {
+            vk::ShaderStageFlags stages;
+            u32 offset;
+            u32 size;
+        };
+
+        // replace with vk::DescriptorSetLayoutBinding?
+        // i like the name of this members as params
+        struct BindingInfo
+        {
+            u32 slot;
+            vk::ShaderStageFlags stages;
+            vk::DescriptorType type;
+            u32 count;
+        };
+
+        struct ProgramInfo
+        {
+            ShaderH vertex_shader;
+            ShaderH fragment_shader;
+            std::vector<PushConstantInfo> push_constants;
+            std::vector<BindingInfo> bindings;
+
+            void push_constant(PushConstantInfo&&);
+            void binding(BindingInfo&&);
+        };
+
+        struct Program
+        {
+            vk::UniqueDescriptorSetLayout descriptor_layout;
+            vk::UniquePipelineLayout pipeline_layout; // layoutS??
+            std::vector<std::pair<PipelineInfo, vk::Pipeline>> pipelines;
+            ProgramInfo info;
+        };
+
+        using ProgramH = Handle<Program>;
 
         // temporary command buffer for the frame
         struct CommandBuffer
@@ -135,6 +179,12 @@ namespace my_app
             void* mapped;
         };
 
+        struct CircularBuffer
+        {
+            BufferH buffer_h;
+            usize offset;
+        };
+
         struct API
         {
             Context ctx;
@@ -149,8 +199,13 @@ namespace my_app
             std::vector<Program> programs;
             std::vector<Shader> shaders;
 
-            BufferH staging_buffer_h;
-            usize   staging_buffer_offset;
+            CircularBuffer staging_buffer;
+            CircularBuffer vertex_buffer;
+            CircularBuffer index_buffer;
+
+            // render context
+            RenderPass* current_render_pass;
+
 
             static API create(const Window& window);
             void destroy();
@@ -163,13 +218,15 @@ namespace my_app
             void wait_idle();
 
             /// --- Drawing
-            void begin_pass(const PassInfo&);
+            void begin_pass(PassInfo&&);
             void end_pass();
+            void bind_program(ProgramH);
 
 
             /// ---
-
             CircularBufferPosition copy_to_staging_buffer(void* data, usize len);
+            CircularBufferPosition dynamic_vertex_buffer(usize len);
+            CircularBufferPosition dynamic_index_buffer(usize len);
 
             /// --- Resources
             ImageH create_image(const ImageInfo&);
@@ -183,6 +240,14 @@ namespace my_app
             BufferH create_buffer(const BufferInfo&);
             Buffer& get_buffer(BufferH);
             void destroy_buffer(BufferH);
+
+            ShaderH create_shader(const char* path);
+            Shader& get_shader(ShaderH);
+            void destroy_shader(ShaderH);
+
+            ProgramH create_program(ProgramInfo&&);
+            Program& get_program(ProgramH);
+            void destroy_program(ProgramH);
 
             CommandBuffer get_temp_cmd_buffer();
         };

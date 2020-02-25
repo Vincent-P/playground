@@ -20,6 +20,7 @@ namespace my_app
 	void on_resize(int width, int height);
 	void wait_idle();
 
+	void imgui_draw();
 	void draw();
 
 	vulkan::ProgramH gui_program;

@@ -32,6 +32,7 @@ namespace my_app
     using u64 = uint64_t;
     using usize = size_t;
     using uchar = unsigned char;
+    using uint = unsigned int;
 
     static constexpr u32 u32_invalid = ~0lu;
 
@@ -49,6 +50,7 @@ namespace my_app
 	explicit Handle(u32 i) : index(i) {}
 
 	u32 value() { return index; }
+        bool is_valid() { return *this != invalid() }
 
 	friend bool operator==(Handle a, Handle b) { return a.index == b.index; }
 	friend bool operator!=(Handle a, Handle b) { return a.index != b.index; }

@@ -8,19 +8,41 @@ namespace my_app::vulkan
         API api;
         api.ctx = Context::create(window);
 
-        BufferInfo binfo;
-        binfo.name = "Staging Buffer";
-        binfo.size = 16*1024*1024;
-        binfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
-        binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        api.staging_buffer_h = api.create_buffer(binfo);
+        {
+            BufferInfo binfo;
+            binfo.name = "Staging Buffer";
+            binfo.size = 16*1024*1024;
+            binfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
+            binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            api.staging_buffer.buffer_h = api.create_buffer(binfo);
+        }
+
+        {
+            BufferInfo binfo;
+            binfo.name = "Dynamic Vertex Buffer";
+            binfo.size = 16*1024*1024;
+            binfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+            binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            api.vertex_buffer.buffer_h = api.create_buffer(binfo);
+        }
+
+        {
+            BufferInfo binfo;
+            binfo.name = "Dynamic Index Buffer";
+            binfo.size = 16*1024*1024;
+            binfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
+            binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+            api.index_buffer.buffer_h = api.create_buffer(binfo);
+        }
 
         return api;
     }
 
     void API::destroy()
     {
-        destroy_buffer(staging_buffer_h);
+        destroy_buffer(staging_buffer.buffer_h);
+        destroy_buffer(vertex_buffer.buffer_h);
+        destroy_buffer(index_buffer.buffer_h);
 
         ctx.destroy();
     }

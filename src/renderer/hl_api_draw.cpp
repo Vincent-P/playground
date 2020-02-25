@@ -3,13 +3,15 @@
 
 namespace my_app::vulkan
 {
-    static RenderPass& find_or_create_render_pass(API& api, const PassInfo& info)
+    static RenderPass& find_or_create_render_pass(API& api, PassInfo&& info)
     {
 	RenderPass rp;
 
 	assert(info.clear);
 	assert(info.present);
 	assert(api.get_rendertarget(info.rt).is_swapchain);
+
+        rp.info = info;
 
 	std::array<vk::AttachmentDescription, 1> attachments;
 
@@ -49,7 +51,6 @@ namespace my_app::vulkan
 	rp_info.pDependencies = dependencies.data();
 	rp.vkhandle = api.ctx.device->createRenderPassUnique(rp_info);
 
-
 	api.renderpasses.push_back(std::move(rp));
 	return api.renderpasses.back();
     }
@@ -77,10 +78,10 @@ namespace my_app::vulkan
 	return api.framebuffers.back();
     }
 
-    void API::begin_pass(const PassInfo& info)
+    void API::begin_pass(PassInfo&& info)
     {
-	auto& render_pass = find_or_create_render_pass(*this, info);
-	auto& frame_buffer = find_or_create_frame_buffer(*this, info, render_pass);
+	auto& render_pass = find_or_create_render_pass(*this, std::move(info));
+	auto& frame_buffer = find_or_create_frame_buffer(*this, render_pass.info, render_pass);
 
 	auto& frame_resource = ctx.frame_resources.get_current();
 
@@ -95,8 +96,10 @@ namespace my_app::vulkan
 	rpbi.renderArea = render_area;
 	rpbi.renderPass = *render_pass.vkhandle;
 	rpbi.framebuffer = *frame_buffer.vkhandle;
-	rpbi.clearValueCount = info.clear ? 1 : 0;
+	rpbi.clearValueCount = render_pass.info.clear ? 1 : 0;
 	rpbi.pClearValues = clear_values.data();
+
+        current_render_pass = &render_pass;
 
 	frame_resource.command_buffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
     }
@@ -105,5 +108,17 @@ namespace my_app::vulkan
     {
 	auto& frame_resource = ctx.frame_resources.get_current();
 	frame_resource.command_buffer->endRenderPass();
+    }
+
+    void API::bind_program(ProgramH H)
+    {
+        assert(current_render_pass != nullptr);
+        auto& program = get_program(H);
+        auto& render_pass = *current_render_pass;
+
+
+        // find or create pipeline...
+        // bind pipeline!
+        // bind descriptor sets
     }
 }

@@ -68,11 +68,13 @@ set(TEST_VULKAN_FILES
   src/main.cpp
   src/window.cpp
   src/app.cpp
+  src/tools.cpp
   src/renderer/vlk_context.cpp
   src/renderer/renderer.cpp
   src/renderer/hl_api.cpp
   src/renderer/hl_api_resources.cpp
   src/renderer/hl_api_draw.cpp
+
   # src/buffer.cpp
   # src/gui.cpp
   # src/image.cpp
@@ -82,7 +84,6 @@ set(TEST_VULKAN_FILES
   # src/thsvs.cpp
   # src/timer.cpp
   # src/tiny_gltf.cpp
-  # src/tools.cpp
   # src/vk_mem_alloc.cpp
   # src/voxelization.cpp
   # src/voxel_visualization.cpp

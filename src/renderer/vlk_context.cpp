@@ -330,6 +330,18 @@ namespace my_app::vulkan
 
             /// --- Create the command pool to create a command buffer for each frame
             frame_resource.command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
+
+            /// --- Each frame contains its own descriptor pool that can be resetted during start frame to free all descriptors
+            vk::DescriptorPoolSize pool_sizes[] = {
+                vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
+            };
+
+            vk::DescriptorPoolCreateInfo dpci{};
+            dpci.flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
+            dpci.poolSizeCount = ARRAY_SIZE(pool_sizes);
+            dpci.pPoolSizes = pool_sizes;
+            dpci.maxSets = 256;
+            frame_resource.descriptor_pool = device->createDescriptorPoolUnique(dpci);
         }
     }
 

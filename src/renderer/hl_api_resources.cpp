@@ -1,6 +1,8 @@
 #include <vulkan/vulkan.hpp>
 #include "renderer/hl_api.hpp"
+#include "tools.hpp"
 #include <iostream>
+#include <algorithm>
 
 namespace my_app::vulkan
 {
@@ -40,6 +42,7 @@ namespace my_app::vulkan
     {
         Image img;
 
+        img.name = info.name;
         img.memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
         img.image_info.imageType = info.type;
@@ -144,7 +147,7 @@ namespace my_app::vulkan
     {
         auto cmd_buffer = get_temp_cmd_buffer();
 
-        const auto& staging = get_buffer(staging_buffer_h);
+        const auto& staging = get_buffer(staging_buffer.buffer_h);
         auto staging_position = copy_to_staging_buffer(data, len);
 
         auto& image = get_image(H);
@@ -184,6 +187,7 @@ namespace my_app::vulkan
     {
         Buffer buf;
 
+        buf.name = info.name;
         buf.memory_usage = info.memory_usage;
         buf.usage = info.usage;
         buf.mapped = nullptr;
@@ -272,24 +276,148 @@ namespace my_app::vulkan
 
     /// --- Circular buffers
 
-    CircularBufferPosition API::copy_to_staging_buffer(void* data, usize len)
+    static CircularBufferPosition map_circular_buffer_internal(API& api, CircularBuffer& circular, usize len)
     {
-        Buffer& staging = get_buffer(staging_buffer_h);
-        usize& current_offset = staging_buffer_offset;
+        Buffer& buffer = api.get_buffer(circular.buffer_h);
+        usize& current_offset = circular.offset;
 
-        if (current_offset + len > staging.size) {
+        if (current_offset + len > buffer.size) {
             current_offset = 0;
         }
 
+        buffer_map_internal(api, buffer);
+
         CircularBufferPosition pos;
-        pos.buffer_h = staging_buffer_h;
+        pos.buffer_h = circular.buffer_h;
         pos.offset = current_offset;
         pos.length = len;
-
-        buffer_map_internal(*this, staging);
-
-        std::memcpy(ptr_offset(staging.mapped, current_offset), data, len);
+        pos.mapped = ptr_offset(buffer.mapped, current_offset);
 
         return pos;
+    }
+
+    static CircularBufferPosition copy_circular_buffer_internal(API& api, CircularBuffer& circular, void* data, usize len)
+    {
+        CircularBufferPosition pos = map_circular_buffer_internal(api, circular, len);
+        std::memcpy(pos.mapped, data, len);
+        pos.mapped = nullptr;
+        return pos;
+    }
+
+    CircularBufferPosition API::copy_to_staging_buffer(void* data, usize len)
+    {
+        return copy_circular_buffer_internal(*this, staging_buffer, data, len);
+    }
+
+    CircularBufferPosition API::dynamic_vertex_buffer(usize len)
+    {
+        return map_circular_buffer_internal(*this, vertex_buffer, len);
+    }
+
+    CircularBufferPosition API::dynamic_index_buffer(usize len)
+    {
+        return map_circular_buffer_internal(*this, index_buffer, len);
+    }
+
+    /// --- Shaders
+
+    ShaderH API::create_shader(const char* path)
+    {
+        Shader shader;
+
+        auto code = tools::readFile(path);
+        // keep code for reflection?
+
+        vk::ShaderModuleCreateInfo info{};
+        info.codeSize = code.size();
+        info.pCode = reinterpret_cast<const u32*>(code.data());
+        shader.vkhandle = ctx.device->createShaderModuleUnique(info);
+
+        shaders.push_back(std::move(shader));
+        return ShaderH(static_cast<u32>(shaders.size()) - 1);
+    }
+
+    Shader& API::get_shader(ShaderH H)
+    {
+        return shaders[H.value()];
+    }
+
+    void API::destroy_shader(ShaderH)
+    {
+    }
+
+    /// --- Programs
+
+    void ProgramInfo::push_constant(PushConstantInfo&& push_constant)
+    {
+        push_constants.push_back(std::move(push_constant));
+    }
+
+    void ProgramInfo::binding(BindingInfo&& binding)
+    {
+        bindings.push_back(std::move(binding));
+    }
+
+    ProgramH API::create_program(ProgramInfo&& info)
+    {
+        Program program;
+
+        /// --- Create descriptor set layout
+
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        bindings.reserve(info.bindings.size());
+
+        std::transform(info.bindings.begin(), info.bindings.end(), std::back_inserter(bindings),
+                       [](const auto& info_binding) {
+                           vk::DescriptorSetLayoutBinding binding;
+                           binding.binding = info_binding.slot;
+                           binding.stageFlags = info_binding.stages;
+                           binding.descriptorType = info_binding.type;
+                           binding.descriptorCount = info_binding.count;
+                           return binding;
+                       }
+            );
+
+        vk::DescriptorSetLayoutCreateInfo dslci{};
+        dslci.bindingCount = static_cast<u32>(bindings.size());
+        dslci.pBindings = bindings.data();
+        program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(dslci);
+
+        /// --- Create pipeline layout
+
+        std::vector<vk::PushConstantRange> pc_ranges;
+        pc_ranges.reserve(info.push_constants.size());
+
+        std::transform(info.push_constants.begin(), info.push_constants.end(), std::back_inserter(pc_ranges),
+                       [](const auto& push_constant) {
+                           vk::PushConstantRange range;
+                           range.stageFlags = push_constant.stages;
+                           range.offset = push_constant.offset;
+                           range.size = push_constant.size;
+                           return range;
+                       }
+            );
+
+        vk::PipelineLayoutCreateInfo ci{};
+        ci.pSetLayouts = &program.descriptor_layout.get();
+        ci.setLayoutCount = 1;
+        ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
+        ci.pPushConstantRanges = pc_ranges.data();
+
+        program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
+        program.info = std::move(info);
+
+        programs.push_back(std::move(program));
+        return ProgramH(static_cast<u32>(programs.size()) - 1);
+    }
+
+    Program& API::get_program(ProgramH H)
+    {
+        return programs[H.value()];
+    }
+
+    void API::destroy_program(ProgramH)
+    {
+
     }
 }
