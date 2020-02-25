@@ -1,6 +1,6 @@
 #pragma once
-#include "renderer/vlk_context.hpp"
 #include "renderer/hl_api.hpp"
+#include "renderer/vlk_context.hpp"
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -12,20 +12,20 @@ namespace my_app
 {
     struct Renderer
     {
-	vulkan::API api;
+        vulkan::API api;
 
-	static Renderer create(const Window& window);
-	void destroy();
+        static Renderer create(const Window& window);
+        void destroy();
 
-	void on_resize(int width, int height);
-	void wait_idle();
+        void on_resize(int width, int height);
+        void wait_idle();
 
-	void imgui_draw();
-	void draw();
+        void imgui_draw();
+        void draw();
 
-	vulkan::ProgramH gui_program;
-	vulkan::ImageH gui_texture;
+        vulkan::ProgramH gui_program;
+        vulkan::ImageH gui_texture;
 
-	vulkan::RenderTargetH rt;
+        vulkan::RenderTargetH rt;
     };
-}
+}    // namespace my_app

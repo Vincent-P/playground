@@ -11,7 +11,7 @@ namespace my_app::vulkan
         {
             BufferInfo binfo;
             binfo.name = "Staging Buffer";
-            binfo.size = 16*1024*1024;
+            binfo.size = 16 * 1024 * 1024;
             binfo.usage = vk::BufferUsageFlagBits::eTransferSrc;
             binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
             api.staging_buffer.buffer_h = api.create_buffer(binfo);
@@ -20,7 +20,7 @@ namespace my_app::vulkan
         {
             BufferInfo binfo;
             binfo.name = "Dynamic Vertex Buffer";
-            binfo.size = 16*1024*1024;
+            binfo.size = 16 * 1024 * 1024;
             binfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
             binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
             api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
@@ -29,7 +29,7 @@ namespace my_app::vulkan
         {
             BufferInfo binfo;
             binfo.name = "Dynamic Index Buffer";
-            binfo.size = 16*1024*1024;
+            binfo.size = 16 * 1024 * 1024;
             binfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
             binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
             api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);
@@ -58,7 +58,7 @@ namespace my_app::vulkan
         auto& frame_resource = ctx.frame_resources.get_current();
 
         // TODO: user defined unit?
-        auto wait_result = ctx.device->waitForFences(*frame_resource.fence, VK_TRUE, 10lu*1000lu*1000lu*1000lu);
+        auto wait_result = ctx.device->waitForFences(*frame_resource.fence, VK_TRUE, 10lu * 1000lu * 1000lu * 1000lu);
         if (wait_result == vk::Result::eTimeout)
         {
             throw std::runtime_error("Submitted the frame more than 10 second ago.");
@@ -66,7 +66,7 @@ namespace my_app::vulkan
 
         // Reset the current frame
         ctx.device->resetFences(frame_resource.fence.get());
-        ctx.device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
+        ctx.device->resetCommandPool(*frame_resource.command_pool, { vk::CommandPoolResetFlagBits::eReleaseResources });
         frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique({ *frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
         ctx.device->resetDescriptorPool(*frame_resource.descriptor_pool);
 
@@ -123,4 +123,4 @@ namespace my_app::vulkan
     {
         ctx.device->waitIdle();
     }
-}
+}    // namespace my_app::vulkan

@@ -1,21 +1,21 @@
 #pragma once
-#include "window.hpp"
 #include "renderer/renderer.hpp"
+#include "window.hpp"
 
 namespace my_app
 {
     class App
     {
-	public:
-	App();
-	~App();
+        public:
+        App();
+        ~App();
 
-	NO_COPY_NO_MOVE(App)
+        NO_COPY_NO_MOVE(App)
 
-	void run();
+        void run();
 
-	private:
-	Window window;
-	Renderer renderer;
+        private:
+        Window window;
+        Renderer renderer;
     };
 }    // namespace my_app

@@ -1,6 +1,6 @@
 #include "renderer/renderer.hpp"
-#include <iostream>
 #include <imgui.h>
+#include <iostream>
 
 namespace my_app
 {
@@ -32,12 +32,12 @@ namespace my_app
         vulkan::ProgramInfo pinfo{};
         pinfo.vertex_shader = r.api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
-        pinfo.push_constant({/*.stages = */vk::ShaderStageFlagBits::eVertex, /*.offset = */0, /*.size = */4 * sizeof(float)});
-        pinfo.binding({/*.slot = */0, /*.stages = */vk::ShaderStageFlagBits::eFragment, /*.type = */vk::DescriptorType::eCombinedImageSampler, /*.count = */1});
+        pinfo.push_constant({ /*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float) });
+        pinfo.binding({ /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1 });
         pinfo.vertex_stride(sizeof(ImDrawVert));
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->pos)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->uv)});
-        pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, reinterpret_cast<u32>(&((ImDrawVert*)0)->col)});
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->pos) });
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->uv) });
+        pinfo.vertex_info({ vk::Format::eR8G8B8A8Unorm, reinterpret_cast<u32>(&((ImDrawVert*)0)->col) });
 
         r.gui_program = r.api.create_program(std::move(pinfo));
 
@@ -93,9 +93,9 @@ namespace my_app
         {
 
             u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
-            u32 ibuffer_len = sizeof(ImDrawIdx)  * static_cast<u32>(data->TotalIdxCount);
+            u32 ibuffer_len = sizeof(ImDrawIdx) * static_cast<u32>(data->TotalIdxCount);
 
-            auto v_pos = api.dynamic_vertex_buffer(vbuffer_len); // (len) -> map | (data, len) -> memcpy
+            auto v_pos = api.dynamic_vertex_buffer(vbuffer_len);    // (len) -> map | (data, len) -> memcpy
             auto i_pos = api.dynamic_index_buffer(ibuffer_len);
 
             ImDrawVert* vertices = reinterpret_cast<ImDrawVert*>(v_pos.mapped);
@@ -113,7 +113,7 @@ namespace my_app
             }
 
             vk::Viewport viewport{};
-            viewport.width  = ImGui::GetIO().DisplaySize.x;
+            viewport.width = ImGui::GetIO().DisplaySize.x;
             viewport.height = ImGui::GetIO().DisplaySize.y;
             viewport.minDepth = 1.0f;
             viewport.maxDepth = 1.0f;
@@ -148,7 +148,7 @@ namespace my_app
                     vk::Rect2D scissor;
                     scissor.offset.x = i32(draw_command->ClipRect.x) > 0 ? i32(draw_command->ClipRect.x) : 0;
                     scissor.offset.y = i32(draw_command->ClipRect.y) > 0 ? i32(draw_command->ClipRect.y) : 0;
-                    scissor.extent.width  = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
+                    scissor.extent.width = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
                     scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
 
                     api.set_scissor(scissor);
@@ -158,9 +158,9 @@ namespace my_app
                 }
                 vertex_offset += cmd_list->VtxBuffer.Size;
             }
-
         }
-        else {
+        else
+        {
             api.begin_pass(std::move(pass));
         }
 
@@ -173,4 +173,4 @@ namespace my_app
         imgui_draw();
         api.end_frame();
     }
-}
+}    // namespace my_app
