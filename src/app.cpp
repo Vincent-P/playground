@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include <imgui.h>
 
 namespace my_app
 {
@@ -24,6 +25,7 @@ namespace my_app
     {
 	while (!window.should_close())
 	{
+            ImGui::NewFrame();
 	    window.update();
 	    renderer.draw();
 	}

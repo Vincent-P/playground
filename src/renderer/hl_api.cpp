@@ -23,7 +23,7 @@ namespace my_app::vulkan
             binfo.size = 16*1024*1024;
             binfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
             binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            api.vertex_buffer.buffer_h = api.create_buffer(binfo);
+            api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
         }
 
         {
@@ -32,7 +32,7 @@ namespace my_app::vulkan
             binfo.size = 16*1024*1024;
             binfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
             binfo.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-            api.index_buffer.buffer_h = api.create_buffer(binfo);
+            api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);
         }
 
         return api;
@@ -41,8 +41,8 @@ namespace my_app::vulkan
     void API::destroy()
     {
         destroy_buffer(staging_buffer.buffer_h);
-        destroy_buffer(vertex_buffer.buffer_h);
-        destroy_buffer(index_buffer.buffer_h);
+        destroy_buffer(dyn_vertex_buffer.buffer_h);
+        destroy_buffer(dyn_index_buffer.buffer_h);
 
         ctx.destroy();
     }
@@ -68,6 +68,7 @@ namespace my_app::vulkan
         ctx.device->resetFences(frame_resource.fence.get());
         ctx.device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
         frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique({ *frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
+        ctx.device->resetDescriptorPool(*frame_resource.descriptor_pool);
 
         auto result = ctx.device->acquireNextImageKHR(*ctx.swapchain.handle,
                                                       std::numeric_limits<uint64_t>::max(),

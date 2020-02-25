@@ -148,8 +148,9 @@ namespace my_app::vulkan
 
         std::vector<const char*> device_layers;
 
-        vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
-        ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
+        // vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
+        // ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
+        vk::PhysicalDeviceFeatures2 all_features = ctx.physical_device.getFeatures2();
 
         auto queue_families = ctx.physical_device.getQueueFamilyProperties();
 
@@ -186,7 +187,8 @@ namespace my_app::vulkan
         }
 
         vk::DeviceCreateInfo dci;
-        dci.pNext = &all_features.get<vk::PhysicalDeviceFeatures2>();
+        //dci.pNext = &all_features.get<vk::PhysicalDeviceFeatures2>();
+        dci.pNext = &all_features;
         dci.flags = {};
         dci.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
         dci.pQueueCreateInfos = queue_create_infos.data();

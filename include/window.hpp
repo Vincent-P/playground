@@ -31,5 +31,7 @@ namespace my_app
 	std::vector<std::function<void(int, int)>> resize_callbacks;
 
         GLFWwindow* window;
+        double last_xpos, last_ypos;
+	bool mouse_just_pressed[5] = { false, false, false, false, false };
     };
 }    // namespace my_app

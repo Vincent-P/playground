@@ -89,12 +89,27 @@ namespace my_app::vulkan
         vci.subresourceRange = img.full_range;
         vci.viewType = view_type_from(img.image_info.imageType);
 
-        if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment)
-        {
+        if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
             vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
         }
 
         img.default_view = ctx.device->createImageView(vci);
+
+
+        vk::SamplerCreateInfo sci{};
+        sci.magFilter = vk::Filter::eNearest;
+        sci.minFilter = vk::Filter::eLinear;
+        sci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        sci.addressModeU = vk::SamplerAddressMode::eRepeat;
+        sci.addressModeV = vk::SamplerAddressMode::eRepeat;
+        sci.addressModeW = vk::SamplerAddressMode::eRepeat;
+        sci.compareOp = vk::CompareOp::eNever;
+        sci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+        sci.minLod = 0;
+        sci.maxLod = 0;
+        sci.maxAnisotropy = 8.0f;
+        sci.anisotropyEnable = VK_TRUE;
+        img.default_sampler = ctx.device->createSampler(sci);
 
 
         images.push_back(std::move(img));
@@ -110,6 +125,7 @@ namespace my_app::vulkan
     {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
         api.ctx.device->destroy(img.default_view);
+        api.ctx.device->destroy(img.default_sampler);
     }
 
     void API::destroy_image(ImageH H)
@@ -293,6 +309,8 @@ namespace my_app::vulkan
         pos.length = len;
         pos.mapped = ptr_offset(buffer.mapped, current_offset);
 
+        current_offset += len;
+
         return pos;
     }
 
@@ -311,12 +329,12 @@ namespace my_app::vulkan
 
     CircularBufferPosition API::dynamic_vertex_buffer(usize len)
     {
-        return map_circular_buffer_internal(*this, vertex_buffer, len);
+        return map_circular_buffer_internal(*this, dyn_vertex_buffer, len);
     }
 
     CircularBufferPosition API::dynamic_index_buffer(usize len)
     {
-        return map_circular_buffer_internal(*this, index_buffer, len);
+        return map_circular_buffer_internal(*this, dyn_index_buffer, len);
     }
 
     /// --- Shaders
@@ -357,6 +375,16 @@ namespace my_app::vulkan
     void ProgramInfo::binding(BindingInfo&& binding)
     {
         bindings.push_back(std::move(binding));
+    }
+
+    void ProgramInfo::vertex_stride(u32 value)
+    {
+        vertex_buffer_info.stride = value;
+    }
+
+    void ProgramInfo::vertex_info(VertexInfo&& info)
+    {
+        vertex_buffer_info.vertices_info.push_back(std::move(info));
     }
 
     ProgramH API::create_program(ProgramInfo&& info)

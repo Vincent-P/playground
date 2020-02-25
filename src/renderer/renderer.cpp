@@ -29,11 +29,16 @@ namespace my_app
         io.DisplaySize.x = float(r.api.ctx.swapchain.extent.width);
         io.DisplaySize.y = float(r.api.ctx.swapchain.extent.height);
 
-        vulkan::ProgramInfo pinfo;
+        vulkan::ProgramInfo pinfo{};
         pinfo.vertex_shader = r.api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
         pinfo.push_constant({/*.stages = */vk::ShaderStageFlagBits::eVertex, /*.offset = */0, /*.size = */4 * sizeof(float)});
         pinfo.binding({/*.slot = */0, /*.stages = */vk::ShaderStageFlagBits::eFragment, /*.type = */vk::DescriptorType::eCombinedImageSampler, /*.count = */1});
+        pinfo.vertex_stride(sizeof(ImDrawVert));
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->pos)});
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->uv)});
+        pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, reinterpret_cast<u32>(&((ImDrawVert*)0)->col)});
+
         r.gui_program = r.api.create_program(std::move(pinfo));
 
         vulkan::ImageInfo iinfo;
@@ -51,10 +56,6 @@ namespace my_app
 
         r.gui_texture = r.api.create_image(iinfo);
         r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
-
-#if 0
-        r.api.bind_image(r.gui_program, 0, r.gui_texture);
-#endif
 
         return r;
     }
@@ -111,8 +112,15 @@ namespace my_app
                 indices += cmd_list->IdxBuffer.Size;
             }
 
-    #if 0
+            vk::Viewport viewport{};
+            viewport.width  = ImGui::GetIO().DisplaySize.x;
+            viewport.height = ImGui::GetIO().DisplaySize.y;
+            viewport.minDepth = 1.0f;
+            viewport.maxDepth = 1.0f;
+            api.set_viewport(viewport);
+
             api.begin_pass(std::move(pass));
+            api.bind_image(gui_program, 0, gui_texture);
             api.bind_program(gui_program);
             api.bind_vertex_buffer(v_pos);
             api.bind_index_buffer(i_pos);
@@ -124,8 +132,7 @@ namespace my_app
                 -1.0f                                   // Y translation
             };
 
-            cmd.pushConstants(pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
-            api.push_constant(scale_and_translation);
+            api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
 
             // Render GUI
             i32 vertex_offset = 0;
@@ -145,16 +152,12 @@ namespace my_app
                     scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
 
                     api.set_scissor(scissor);
-                    api.drawIndexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
+                    api.draw_indexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
 
                     index_offset += draw_command->ElemCount;
                 }
                 vertex_offset += cmd_list->VtxBuffer.Size;
             }
-    #else
-            api.begin_pass(std::move(pass));
-            api.bind_program(gui_program);
-    #endif
 
         }
         else {
@@ -166,7 +169,6 @@ namespace my_app
 
     void Renderer::draw()
     {
-        ImGui::NewFrame();
         api.start_frame();
         imgui_draw();
         api.end_frame();

@@ -43,6 +43,7 @@ namespace my_app
             ThsvsAccessType access;
             vk::ImageSubresourceRange full_range;
             vk::ImageView default_view;
+            vk::Sampler default_sampler;
         };
         using ImageH = Handle<Image>;
 
@@ -117,11 +118,6 @@ namespace my_app
 
         using ShaderH = Handle<Shader>;
 
-        struct PipelineInfo
-        {
-            uint mdr;
-        };
-
         // replace with vk::PushConstantRange?
         // i like the name of this members as params
         struct PushConstantInfo
@@ -130,6 +126,10 @@ namespace my_app
             u32 offset;
             u32 size;
         };
+
+        inline bool operator==(const PushConstantInfo& a, const PushConstantInfo& b) {
+            return a.stages == b.stages && a.offset == b.offset && a.size == b.size;
+        }
 
         // replace with vk::DescriptorSetLayoutBinding?
         // i like the name of this members as params
@@ -141,22 +141,75 @@ namespace my_app
             u32 count;
         };
 
+        inline bool operator==(const BindingInfo& a, const BindingInfo& b) {
+            return a.slot == b.slot && a.stages == b.stages && a.type == b.type && a.count == b.count;
+        }
+
+        struct VertexInfo
+        {
+            vk::Format format;
+            u32 offset;
+        };
+
+        inline bool operator==(const VertexInfo& a, const VertexInfo& b) {
+            return a.format == b.format && a.offset == b.offset;
+        }
+
+        struct VertexBufferInfo
+        {
+            u32 stride;
+            std::vector<VertexInfo> vertices_info;
+        };
+
+        inline bool operator==(const VertexBufferInfo& a, const VertexBufferInfo& b) {
+            return a.stride == b.stride && a.vertices_info == b.vertices_info;
+        }
+
         struct ProgramInfo
         {
             ShaderH vertex_shader;
             ShaderH fragment_shader;
             std::vector<PushConstantInfo> push_constants;
             std::vector<BindingInfo> bindings;
+            VertexBufferInfo vertex_buffer_info;
 
             void push_constant(PushConstantInfo&&);
             void binding(BindingInfo&&);
+            void vertex_stride(u32);
+            void vertex_info(VertexInfo&&);
+        };
+
+        inline bool operator==(const ProgramInfo& a, const ProgramInfo& b) {
+            return a.vertex_shader == b.vertex_shader
+                && a.fragment_shader == b.vertex_shader
+                && a.push_constants == b.push_constants
+                && a.bindings == b.bindings
+                && a.vertex_buffer_info == b.vertex_buffer_info;
+        }
+
+
+        // TODO: smart fields
+        struct PipelineInfo
+        {
+            ProgramInfo program_info;
+            vk::PipelineLayout pipeline_layout;
+            vk::RenderPass vk_render_pass;
+
+            bool operator==(const PipelineInfo& other) {
+                return program_info == other.program_info;
+            }
         };
 
         struct Program
         {
             vk::UniqueDescriptorSetLayout descriptor_layout;
             vk::UniquePipelineLayout pipeline_layout; // layoutS??
-            std::vector<std::pair<PipelineInfo, vk::Pipeline>> pipelines;
+
+            vk::DescriptorSet descriptor_set;
+            //TODO: hashmap
+            std::vector<PipelineInfo> pipelines_info;
+            std::vector<vk::UniquePipeline> pipelines_vk;
+
             ProgramInfo info;
         };
 
@@ -200,11 +253,12 @@ namespace my_app
             std::vector<Shader> shaders;
 
             CircularBuffer staging_buffer;
-            CircularBuffer vertex_buffer;
-            CircularBuffer index_buffer;
+            CircularBuffer dyn_vertex_buffer;
+            CircularBuffer dyn_index_buffer;
 
             // render context
             RenderPass* current_render_pass;
+            Program* current_program;
 
 
             static API create(const Window& window);
@@ -221,6 +275,15 @@ namespace my_app
             void begin_pass(PassInfo&&);
             void end_pass();
             void bind_program(ProgramH);
+            void bind_image(ProgramH, uint, ImageH);
+
+            void bind_vertex_buffer(CircularBufferPosition);
+            void bind_index_buffer(CircularBufferPosition);
+            void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void* data);
+
+            void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
+            void set_scissor(vk::Rect2D scissor);
+            void set_viewport(vk::Viewport viewport);
 
 
             /// ---
