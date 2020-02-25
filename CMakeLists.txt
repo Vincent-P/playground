@@ -29,7 +29,7 @@ ELSE()
 ENDIF()
 
 # Treat warnings as error
-add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors -GX)
+add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
 
 # Debug specific config
 IF(CMAKE_BUILD_TYPE MATCHES Debug)

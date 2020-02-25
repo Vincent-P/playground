@@ -17,95 +17,125 @@ namespace my_app
 {
     namespace vulkan
     {
-    struct Image
-    {
-	vk::UniqueImage vkhandle;
-    };
-    using ImageH = Handle<Image>;
+	struct ImageInfo
+	{
+	    const char* name;
+	    vk::ImageType type = vk::ImageType::e2D;
+	    vk::Format format = vk::Format::eR8G8B8A8Unorm;
+	    u32 width;
+	    u32 height;
+	    u32 depth;
+	    u32 mip_levels = 1;
+	    u32 layers = 1;
+	    vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
+	};
 
-    struct Sampler
-    {
-    };
+	struct Image
+	{
+	    vk::Image vkhandle;
+	    vk::ImageCreateInfo image_info;
+	    VmaAllocation allocation;
+	    VmaMemoryUsage mem_usage;
+	    vk::ImageView default_view;
+	};
+	using ImageH = Handle<Image>;
 
-    struct Buffer
-    {
-    };
+	struct Sampler
+	{
+	    vk::UniqueSampler vkhandle;
+	};
 
-    struct RTInfo
-    {
-        bool is_swapchain;
-    };
+	struct Buffer
+	{
+	    vk::UniqueBuffer vkhandle;
+	};
 
-    struct RenderTarget
-    {
-        bool is_swapchain;
-	ImageH image;
-    };
+	struct RTInfo
+	{
+	    bool is_swapchain;
+	};
 
-    using RenderTargetH = Handle<RenderTarget>;
+	struct RenderTarget
+	{
+	    bool is_swapchain;
+	    ImageH image;
+	};
+
+	using RenderTargetH = Handle<RenderTarget>;
 
 
-    struct FrameBuffer
-    {
-        vk::UniqueFramebuffer vkhandle;
-    };
+	struct FrameBuffer
+	{
+	    vk::UniqueFramebuffer vkhandle;
+	};
 
-    struct PassInfo
-    {
-        bool clear; // if the pass should clear the rt or not
-        bool present; // if it is the last pass and it should transition to present
-        RenderTargetH rt;
-    };
+	struct PassInfo
+	{
+	    bool clear; // if the pass should clear the rt or not
+	    bool present; // if it is the last pass and it should transition to present
+	    RenderTargetH rt;
+	};
 
-    struct RenderPass
-    {
-        vk::UniqueRenderPass vkhandle;
-    };
+	struct RenderPass
+	{
+	    vk::UniqueRenderPass vkhandle;
+	};
 
-    // Idea: Program contains different "configurations" coresponding to pipelines so that
-    // the HL API has a VkPipeline equivalent used to make sure they are created only during load time?
-    // maybe it is possible to deduce these configurations automatically from render graph, but render graph is
-    // created every frame
+	// Idea: Program contains different "configurations" coresponding to pipelines so that
+	// the HL API has a VkPipeline equivalent used to make sure they are created only during load time?
+	// maybe it is possible to deduce these configurations automatically from render graph, but render graph is
+	// created every frame
 
-    struct Program
-    {
-    };
+	struct Program
+	{
+	    // descriptor layouts
+	    //
+	};
 
-    struct Shader
-    {
-    };
+	using ProgramH = Handle<Program>;
 
-    struct API
-    {
-        Context ctx;
+	struct Shader
+	{
+	    vk::UniqueShaderModule vkhandle;
+	};
 
-        // todo: pool/arena data structure
-        std::vector<Image> images;
-        std::vector<RenderTarget> rendertargets;
-        std::vector<Sampler> samplers;
-        std::vector<Buffer> buffers;
-        std::vector<FrameBuffer> framebuffers;
-        std::vector<RenderPass> renderpasses;
-        std::vector<Program> programs;
-        std::vector<Shader> shaders;
+	using ShaderH = Handle<Shader>;
 
-        static API create(const Window& window);
-        void destroy();
+	struct API
+	{
+	    Context ctx;
 
-        void draw(); // TODO: used to make the HL API before the RenderGraph, remove once it's done
+	    // todo: pool/arena data structure
+	    std::vector<Image> images;
+	    std::vector<RenderTarget> rendertargets;
+	    std::vector<Sampler> samplers;
+	    std::vector<Buffer> buffers;
+	    std::vector<FrameBuffer> framebuffers;
+	    std::vector<RenderPass> renderpasses;
+	    std::vector<Program> programs;
+	    std::vector<Shader> shaders;
 
-        void on_resize(int width, int height);
-        void start_frame();
-        void end_frame();
-        void wait_idle();
+	    static API create(const Window& window);
+	    void destroy();
 
-        /// --- Drawing
-        void begin_pass(const PassInfo&);
-        void end_pass();
+	    void draw(); // TODO: used to make the HL API before the RenderGraph, remove once it's done
 
-        /// --- Resources
-        RenderTargetH create_rendertarget(const RTInfo&);
-        RenderTarget& get_rendertarget(RenderTargetH);
-    };
+	    void on_resize(int width, int height);
+	    void start_frame();
+	    void end_frame();
+	    void wait_idle();
+
+	    /// --- Drawing
+	    void begin_pass(const PassInfo&);
+	    void end_pass();
+
+	    /// --- Resources
+	    ImageH create_image(const ImageInfo&);
+	    Image& get_image(ImageH);
+	    void destroy_image(ImageH);
+
+	    RenderTargetH create_rendertarget(const RTInfo&);
+	    RenderTarget& get_rendertarget(RenderTargetH);
+	};
     }
 }

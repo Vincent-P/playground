@@ -328,7 +328,6 @@ namespace my_app::vulkan
             frame_resource.fence = device->createFenceUnique({ vk::FenceCreateFlagBits::eSignaled });
             frame_resource.image_available = device->createSemaphoreUnique({});
             frame_resource.rendering_finished = device->createSemaphoreUnique({});
-
             frame_resource.commandbuffer = std::move(device->allocateCommandBuffersUnique({ command_pool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
         }
     }

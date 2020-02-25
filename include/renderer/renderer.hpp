@@ -22,6 +22,9 @@ namespace my_app
 
 	void draw();
 
+	vulkan::ProgramH gui_program;
+	vulkan::ImageH gui_texture;
+
 	vulkan::RenderTargetH rt;
     };
 }

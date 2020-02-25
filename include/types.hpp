@@ -7,12 +7,28 @@
 	name operator =(const name& other) = delete; \
 	name operator =(const name&& other) = delete;
 
+#define VK_CHECK(x)                                         \
+    do                                                      \
+    {                                                       \
+        VkResult err = x;                                   \
+        if (err)                                            \
+        {                                                   \
+            std::string error("Vulkan error");              \
+            error = std::to_string(err) + std::string("."); \
+            std::cerr << error << std::endl;                \
+            throw std::runtime_error(error);                \
+        }                                                   \
+    } while (0)
+
+#define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
+
 namespace my_app
 {
     using u8 = uint8_t;
     using u32 = uint32_t;
     using u64 = uint64_t;
     using usize = size_t;
+    using uchar = unsigned char;
 
     static constexpr u32 u32_invalid = ~0lu;
 

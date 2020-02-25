@@ -17,6 +17,15 @@ namespace my_app
 
     namespace vulkan
     {
+	template <typename T>
+	inline u64 get_raw_vulkan_handle(T const &cpp_handle) {
+	    return u64(static_cast<typename T::CType>(cpp_handle));
+	}
+
+	template <typename T>
+	inline auto get_c_vulkan_handle(T const &cpp_handle) {
+	    return static_cast<typename T::CType>(cpp_handle);
+	}
 
 	struct SwapChain
 	{
