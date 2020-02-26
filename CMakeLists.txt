@@ -53,6 +53,7 @@ set(TEST_VULKAN_FILES
   src/app.cpp
   src/tools.cpp
   src/timer.cpp
+  src/gltf.cpp
   src/renderer/vlk_context.cpp
   src/renderer/renderer.cpp
   src/renderer/hl_api.cpp

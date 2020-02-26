@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <glm/glm.hpp>
 
 #define NO_COPY_NO_MOVE(name)                                                                                          \
     name(const name &other)  = delete;                                                                                 \
@@ -25,7 +26,7 @@
 
 namespace my_app
 {
-
+/// --- Numeric Types
 using i8    = std::int8_t;
 using i32   = std::int32_t;
 using i64   = std::int64_t;
@@ -38,8 +39,21 @@ using uint  = unsigned int;
 
 static constexpr u32 u32_invalid = ~0u;
 
-template <typename T> inline T *ptr_offset(T *ptr, usize offset) { return reinterpret_cast<char *>(ptr) + offset; }
+/// --- Vector types
+using float2 = glm::vec2;
+using float3 = glm::vec3;
+using float4 = glm::vec4;
+using int2 = glm::ivec2;
+using int3 = glm::ivec3;
+using int4 = glm::ivec4;
 
+/// --- Utility functions
+
+template<typename T>
+inline T *ptr_offset(T *ptr, usize offset)
+{
+    return reinterpret_cast<char *>(ptr) + offset;
+}
 
 template< typename vector_source, typename vector_dest, typename transform_function>
 inline void map_transform(const vector_source& src, vector_dest& dst, transform_function f)
@@ -54,7 +68,7 @@ inline usize round_up_to_alignment(usize alignment, usize bytes)
     return (bytes + mask) & ~mask;
 }
 
-
+/// --- Handle type (Typed index that can be invalid)
 template <typename T> struct Handle
 {
     static Handle invalid() { return Handle(u32_invalid); }
