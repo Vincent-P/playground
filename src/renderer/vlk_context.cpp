@@ -63,7 +63,7 @@ namespace my_app::vulkan
 
         // the default dispatcher needs to be initialized with this first so that enumarateInstanceLayerProperties work
         vk::DynamicLoader dl;
-        PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+        auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
         VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
         /// --- Create Instance
@@ -164,7 +164,7 @@ namespace my_app::vulkan
             if (!has_graphics && queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics)
             {
                 // Create a single graphics queue.
-                queue_create_infos.push_back(vk::DeviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), i, 1, &priority));
+                queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), i, 1, &priority);
                 has_graphics = true;
                 ctx.graphics_family_idx = i;
             }
@@ -172,7 +172,7 @@ namespace my_app::vulkan
             if (!has_present && ctx.physical_device.getSurfaceSupportKHR(i, *ctx.surface))
             {
                 // Create a single graphics queue.
-                queue_create_infos.push_back(vk::DeviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), i, 1, &priority));
+                queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), i, 1, &priority);
                 has_present = true;
                 ctx.present_family_idx = i;
             }
@@ -277,13 +277,13 @@ namespace my_app::vulkan
 
         if (ctx.graphics_family_idx != ctx.present_family_idx)
         {
-            uint32_t indices[] = {
+            std::array indices {
                 ctx.graphics_family_idx,
                 ctx.present_family_idx
             };
             ci.imageSharingMode = vk::SharingMode::eConcurrent;
-            ci.queueFamilyIndexCount = 2;
-            ci.pQueueFamilyIndices = indices;
+            ci.queueFamilyIndexCount = indices.size();
+            ci.pQueueFamilyIndices = indices.data();
         }
         else
         {
@@ -340,14 +340,14 @@ namespace my_app::vulkan
             frame_resource.command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
 
             /// --- Each frame contains its own descriptor pool that can be resetted during start frame to free all descriptors
-            vk::DescriptorPoolSize pool_sizes[] = {
+            std::array pool_sizes {
                 vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
             };
 
             vk::DescriptorPoolCreateInfo dpci{};
             dpci.flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
-            dpci.poolSizeCount = ARRAY_SIZE(pool_sizes);
-            dpci.pPoolSizes = pool_sizes;
+            dpci.poolSizeCount = pool_sizes.size();
+            dpci.pPoolSizes = pool_sizes.data();
             dpci.maxSets = 256;
             frame_resource.descriptor_pool = device->createDescriptorPoolUnique(dpci);
         }

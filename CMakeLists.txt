@@ -33,7 +33,6 @@ add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c
 
 # Debug specific config
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
-
   # static analysis tools
   # find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
   # if (CMAKE_CXX_CPPCHECK)
@@ -45,12 +44,12 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   # endif()
 
   # Too many warnings for now...
-  # set(CMAKE_CXX_CLANG_TIDY
-  #   clang-tidy;
-  #   -header-filter=.;
-  #   -checks=*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-convert-member-functions-to-static;
-  #   )
-  #   #-warnings-as-errors=*;)
+  set(CMAKE_CXX_CLANG_TIDY
+    clang-tidy;
+    -header-filter=.;
+    -checks=modernize-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-convert-member-functions-to-static;
+    )
+    #-warnings-as-errors=*;)
 
 
 # Release specific config
@@ -74,20 +73,6 @@ set(TEST_VULKAN_FILES
   src/renderer/hl_api.cpp
   src/renderer/hl_api_resources.cpp
   src/renderer/hl_api_draw.cpp
-
-  # src/buffer.cpp
-  # src/gui.cpp
-  # src/image.cpp
-  # src/main.cpp
-  # src/model.cpp
-  # src/renderer.cpp
-  # src/thsvs.cpp
-  # src/timer.cpp
-  # src/tiny_gltf.cpp
-  # src/vk_mem_alloc.cpp
-  # src/voxelization.cpp
-  # src/voxel_visualization.cpp
-  # src/vulkan_context.cpp
   )
 
 # And add the main executable

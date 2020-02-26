@@ -14,7 +14,6 @@ namespace my_app
         r.rt = r.api.create_rendertarget(info);
 
         /// --- Init ImGui
-
         ImGui::CreateContext();
         auto& style = ImGui::GetStyle();
         style.FrameRounding = 0.f;
@@ -35,9 +34,10 @@ namespace my_app
         pinfo.push_constant({ /*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float) });
         pinfo.binding({ /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1 });
         pinfo.vertex_stride(sizeof(ImDrawVert));
-        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->pos)) });
-        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->uv)) });
-        pinfo.vertex_info({ vk::Format::eR8G8B8A8Unorm, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->col)) });
+
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat,  MEMBER_OFFSET(ImDrawVert, pos) });
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat,  MEMBER_OFFSET(ImDrawVert, uv)  });
+        pinfo.vertex_info({ vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col) });
 
         r.gui_program = r.api.create_program(std::move(pinfo));
 
@@ -98,8 +98,8 @@ namespace my_app
             auto v_pos = api.dynamic_vertex_buffer(vbuffer_len);    // (len) -> map | (data, len) -> memcpy
             auto i_pos = api.dynamic_index_buffer(ibuffer_len);
 
-            ImDrawVert* vertices = reinterpret_cast<ImDrawVert*>(v_pos.mapped);
-            ImDrawIdx* indices = reinterpret_cast<ImDrawIdx*>(i_pos.mapped);
+            auto* vertices = reinterpret_cast<ImDrawVert*>(v_pos.mapped);
+            auto* indices = reinterpret_cast<ImDrawIdx*>(i_pos.mapped);
 
             for (int i = 0; i < data->CmdListsCount; i++)
             {

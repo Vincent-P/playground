@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cstddef>
 
 #define NO_COPY_NO_MOVE(name)                   \
     name(const name& other) = delete;           \
@@ -21,6 +22,8 @@
     } while (0)
 
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
+
+#define MEMBER_OFFSET(type, member) (static_cast<u32>(reinterpret_cast<u64>(&reinterpret_cast<type*>(0)->member)))
 
 namespace my_app
 {
@@ -55,8 +58,8 @@ namespace my_app
         {
         }
 
-        u32 value() const { return index; }
-        bool is_valid() const { return *this != invalid(); }
+        [[nodiscard]] u32 value() const { return index; }
+        [[nodiscard]] bool is_valid() const { return *this != invalid(); }
 
         friend bool operator==(Handle a, Handle b) { return a.index == b.index; }
         friend bool operator!=(Handle a, Handle b) { return a.index != b.index; }

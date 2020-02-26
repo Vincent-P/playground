@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <vector>
+#include <array>
 
 namespace my_app
 {
@@ -15,7 +16,7 @@ namespace my_app
         NO_COPY_NO_MOVE(Window)
 
         void run();
-        GLFWwindow* get_handle() const { return window; }
+        [[nodiscard]] GLFWwindow* get_handle() const { return window; }
 
         bool should_close();
         void update();
@@ -32,6 +33,6 @@ namespace my_app
 
         GLFWwindow* window;
         double last_xpos, last_ypos;
-        bool mouse_just_pressed[5] = { false, false, false, false, false };
+        std::array<bool, 5> mouse_just_pressed = { false, false, false, false, false };
     };
 }    // namespace my_app

@@ -25,7 +25,7 @@ namespace my_app
 
     void Window::glfw_resize_callback(GLFWwindow* window, int width, int height)
     {
-        Window* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+        auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
         self->resize_callback(width, height);
     }
 
@@ -44,9 +44,14 @@ namespace my_app
 
     void Window::glfw_click_callback(GLFWwindow* window, int button, int action, int /*thing*/)
     {
-        Window* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-        if (action == GLFW_PRESS && button >= 0 && button < int(ARRAY_SIZE(mouse_just_pressed)))
-            self->mouse_just_pressed[button] = true;
+        auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+        if (action == GLFW_PRESS && button >= 0)
+        {
+            auto ibutton = static_cast<usize>(button);
+            if (ibutton < self->mouse_just_pressed.size()) {
+                self->mouse_just_pressed[ibutton] = true;
+            }
+        }
     }
 
     bool Window::should_close()
@@ -71,15 +76,15 @@ namespace my_app
             glfwGetCursorPos(window, &mouse_x, &mouse_y);
             io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
 
-            last_xpos = float(mouse_x);
-            last_ypos = float(mouse_y);
+            last_xpos = mouse_x;
+            last_ypos = mouse_y;
         }
 
         // Update the mouse buttons
-        for (int i = 0; i < int(ARRAY_SIZE(io.MouseDown)); i++)
+        for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++)
         {
             // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-            io.MouseDown[i] = mouse_just_pressed[i] || glfwGetMouseButton(window, i) != 0;
+            io.MouseDown[i] = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
             mouse_just_pressed[i] = false;
         }
 

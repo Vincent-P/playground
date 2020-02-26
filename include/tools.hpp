@@ -18,6 +18,7 @@ namespace my_app::tools
 
     std::vector<char> readFile(const std::string& filename);
 
+#if 0
     inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t& current_item)
     {
         std::string id("##custom combo");
@@ -37,4 +38,5 @@ namespace my_app::tools
             ImGui::EndCombo();
         }
     }
+#endif
 }    // namespace my_app::tools

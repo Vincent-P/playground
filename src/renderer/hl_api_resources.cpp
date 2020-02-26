@@ -266,7 +266,7 @@ namespace my_app::vulkan
 
     CommandBuffer API::get_temp_cmd_buffer()
     {
-        CommandBuffer cmd{ctx};
+        CommandBuffer cmd{ctx, {}};
         auto& frame_resource = ctx.frame_resources.get_current();
 
         cmd.vkhandle = std::move(ctx.device->allocateCommandBuffersUnique({ *frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1 })[0]);
