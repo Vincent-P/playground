@@ -35,9 +35,9 @@ namespace my_app
         pinfo.push_constant({ /*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float) });
         pinfo.binding({ /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1 });
         pinfo.vertex_stride(sizeof(ImDrawVert));
-        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->pos) });
-        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, reinterpret_cast<u32>(&((ImDrawVert*)0)->uv) });
-        pinfo.vertex_info({ vk::Format::eR8G8B8A8Unorm, reinterpret_cast<u32>(&((ImDrawVert*)0)->col) });
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->pos)) });
+        pinfo.vertex_info({ vk::Format::eR32G32Sfloat, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->uv)) });
+        pinfo.vertex_info({ vk::Format::eR8G8B8A8Unorm, static_cast<u32>(reinterpret_cast<u64>(&((ImDrawVert*)0)->col)) });
 
         r.gui_program = r.api.create_program(std::move(pinfo));
 
