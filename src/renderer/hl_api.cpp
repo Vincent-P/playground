@@ -79,7 +79,8 @@ void API::start_frame()
 	std::cerr << "The swapchain is out of date. Recreating it...\n";
 	ctx.destroy_swapchain();
 	ctx.create_swapchain();
-	return;
+        start_frame();
+        return;
     }
 
     frame_resource.command_buffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
@@ -110,7 +111,13 @@ void API::end_frame()
     present_i.swapchainCount     = 1;
     present_i.pSwapchains        = &ctx.swapchain.handle.get();
     present_i.pImageIndices      = &ctx.swapchain.current_image;
-    graphics_queue.presentKHR(present_i);
+
+    auto result = graphics_queue.presentKHR(present_i);
+    if (result == vk::Result::eErrorOutOfDateKHR) {
+	std::cerr << "The swapchain is out of date. Recreating it...\n";
+	ctx.destroy_swapchain();
+	ctx.create_swapchain();
+    }
 
     ctx.frame_count += 1;
     ctx.frame_resources.current = ctx.frame_count % ctx.frame_resources.data.size();
