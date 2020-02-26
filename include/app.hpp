@@ -4,18 +4,20 @@
 
 namespace my_app
 {
-    class App
-    {
-        public:
-        App();
-        ~App();
 
-        NO_COPY_NO_MOVE(App)
+class App
+{
+  public:
+    App();
+    ~App();
 
-        void run();
+    NO_COPY_NO_MOVE(App)
 
-        private:
-        Window window;
-        Renderer renderer;
-    };
-}    // namespace my_app
+    void run();
+
+  private:
+    Window window;
+    Renderer renderer;
+};
+
+} // namespace my_app

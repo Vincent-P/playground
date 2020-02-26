@@ -5,106 +5,98 @@
 
 namespace my_app
 {
-    Window::Window(int width, int height)
-    {
-        glfwInit();
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        this->window = glfwCreateWindow(width, height, "Test vulkan", nullptr, nullptr);
+Window::Window(int width, int height)
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        glfwSetWindowUserPointer(this->window, this);
+    this->window = glfwCreateWindow(width, height, "Test vulkan", nullptr, nullptr);
 
-        glfwSetFramebufferSizeCallback(this->window, glfw_resize_callback);
-        glfwSetMouseButtonCallback(this->window, glfw_click_callback);
+    glfwSetWindowUserPointer(this->window, this);
+
+    glfwSetFramebufferSizeCallback(this->window, glfw_resize_callback);
+    glfwSetMouseButtonCallback(this->window, glfw_click_callback);
+}
+
+Window::~Window() { glfwTerminate(); }
+
+void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
+{
+    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    self->resize_callback(width, height);
+}
+
+void Window::resize_callback(int width, int height)
+{
+    for (const auto &cb : resize_callbacks) {
+	cb(width, height);
+    }
+}
+
+void Window::register_resize_callback(const std::function<void(int, int)> &callback)
+{
+    resize_callbacks.push_back(callback);
+}
+
+void Window::glfw_click_callback(GLFWwindow *window, int button, int action, int /*thing*/)
+{
+    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    if (action == GLFW_PRESS && button >= 0) {
+	auto ibutton = static_cast<usize>(button);
+	if (ibutton < self->mouse_just_pressed.size()) {
+	    self->mouse_just_pressed[ibutton] = true;
+	}
+    }
+}
+
+bool Window::should_close() { return glfwWindowShouldClose(window) != 0; }
+
+void Window::update()
+{
+    glfwPollEvents();
+
+    ImGuiIO &io = ImGui::GetIO();
+
+    // Update the mouse position for ImGui
+    if (io.WantSetMousePos) {
+	glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
+    }
+    else {
+	double mouse_x;
+	double mouse_y;
+	glfwGetCursorPos(window, &mouse_x, &mouse_y);
+	io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
+
+	last_xpos = mouse_x;
+	last_ypos = mouse_y;
     }
 
-    Window::~Window()
-    {
-        glfwTerminate();
+    // Update the mouse buttons
+    for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++) {
+	// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events
+	// that are shorter than 1 frame.
+	io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
+	mouse_just_pressed[i] = false;
     }
 
-    void Window::glfw_resize_callback(GLFWwindow* window, int width, int height)
-    {
-        auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-        self->resize_callback(width, height);
-    }
+    ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
+    ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    void Window::resize_callback(int width, int height)
-    {
-        for (const auto& cb : resize_callbacks)
-        {
-            cb(width, height);
-        }
-    }
+    ImGui::SetCursorPosX(10.0f);
+    ImGui::Text("GUI Mouse position:");
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("X: %.1f", double(io.MousePos.x));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Y: %.1f", double(io.MousePos.y));
 
-    void Window::register_resize_callback(const std::function<void(int, int)>& callback)
-    {
-        resize_callbacks.push_back(callback);
-    }
+    ImGui::SetCursorPosX(10.0f);
+    ImGui::Text("Last Mouse position:");
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("X: %.1f", double(last_xpos));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Y: %.1f", double(last_ypos));
+    ImGui::End();
+}
 
-    void Window::glfw_click_callback(GLFWwindow* window, int button, int action, int /*thing*/)
-    {
-        auto* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-        if (action == GLFW_PRESS && button >= 0)
-        {
-            auto ibutton = static_cast<usize>(button);
-            if (ibutton < self->mouse_just_pressed.size()) {
-                self->mouse_just_pressed[ibutton] = true;
-            }
-        }
-    }
-
-    bool Window::should_close()
-    {
-        return glfwWindowShouldClose(window) != 0;
-    }
-
-    void Window::update()
-    {
-        glfwPollEvents();
-
-        ImGuiIO& io = ImGui::GetIO();
-
-        // Update the mouse position for ImGui
-        if (io.WantSetMousePos)
-        {
-            glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
-        }
-        else
-        {
-            double mouse_x;
-            double mouse_y;
-            glfwGetCursorPos(window, &mouse_x, &mouse_y);
-            io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
-
-            last_xpos = mouse_x;
-            last_ypos = mouse_y;
-        }
-
-        // Update the mouse buttons
-        for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++)
-        {
-            // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-            io.MouseDown[i] = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
-            mouse_just_pressed[i] = false;
-        }
-
-        ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
-        ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        ImGui::SetCursorPosX(10.0f);
-        ImGui::Text("GUI Mouse position:");
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("X: %.1f", double(io.MousePos.x));
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("Y: %.1f", double(io.MousePos.y));
-
-        ImGui::SetCursorPosX(10.0f);
-        ImGui::Text("Last Mouse position:");
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("X: %.1f", double(last_xpos));
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("Y: %.1f", double(last_ypos));
-        ImGui::End();
-    }
-}    // namespace my_app
+} // namespace my_app

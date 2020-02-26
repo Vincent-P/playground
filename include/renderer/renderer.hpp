@@ -10,22 +10,24 @@
 
 namespace my_app
 {
-    struct Renderer
-    {
-        vulkan::API api;
 
-        static Renderer create(const Window& window);
-        void destroy();
+struct Renderer
+{
+    vulkan::API api;
 
-        void on_resize(int width, int height);
-        void wait_idle();
+    static Renderer create(const Window &window);
+    void destroy();
 
-        void imgui_draw();
-        void draw();
+    void on_resize(int width, int height);
+    void wait_idle();
 
-        vulkan::ProgramH gui_program;
-        vulkan::ImageH gui_texture;
+    void imgui_draw();
+    void draw();
 
-        vulkan::RenderTargetH rt;
-    };
-}    // namespace my_app
+    vulkan::ProgramH gui_program;
+    vulkan::ImageH gui_texture;
+
+    vulkan::RenderTargetH rt;
+};
+
+} // namespace my_app
