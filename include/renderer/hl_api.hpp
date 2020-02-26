@@ -331,7 +331,9 @@ struct API
     void bind_program(ProgramH H);
     void bind_image(ProgramH program_h, uint slot, ImageH image_h);
 
+    void bind_vertex_buffer(BufferH H);
     void bind_vertex_buffer(CircularBufferPosition v_pos);
+    void bind_index_buffer(BufferH H);
     void bind_index_buffer(CircularBufferPosition i_pos);
     void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data);
 
@@ -356,6 +358,7 @@ struct API
     BufferH create_buffer(const BufferInfo &info);
     Buffer &get_buffer(BufferH H);
     void destroy_buffer(BufferH H);
+    void upload_buffer(BufferH H, void *data, usize len);
 
     ShaderH create_shader(const char *path);
     Shader &get_shader(ShaderH H);

@@ -243,6 +243,26 @@ void API::destroy_buffer(BufferH H)
     destroy_buffer_internal(*this, buf);
 }
 
+void API::upload_buffer(BufferH H, void *data, usize len)
+{
+    auto cmd_buffer = get_temp_cmd_buffer();
+
+    const auto &staging   = get_buffer(staging_buffer.buffer_h);
+    auto staging_position = copy_to_staging_buffer(data, len);
+
+    auto &buffer       = get_buffer(H);
+
+    cmd_buffer.begin();
+
+    vk::BufferCopy copy;
+    copy.srcOffset = staging_position.offset;
+    copy.dstOffset = 0;
+    copy.size      = len;
+    cmd_buffer.vkhandle->copyBuffer(staging.vkhandle, buffer.vkhandle, copy);
+
+    cmd_buffer.submit_and_wait();
+}
+
 /// --- Command buffer
 
 CommandBuffer API::get_temp_cmd_buffer()
