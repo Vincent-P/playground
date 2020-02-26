@@ -40,6 +40,14 @@ static constexpr u32 u32_invalid = ~0u;
 
 template <typename T> inline T *ptr_offset(T *ptr, usize offset) { return reinterpret_cast<char *>(ptr) + offset; }
 
+
+template< typename vector_source, typename vector_dest, typename transform_function>
+inline void map_transform(const vector_source& src, vector_dest& dst, transform_function f)
+{
+    dst.reserve(src.size());
+    std::transform(src.begin(), src.end(), std::back_inserter(dst), f);
+}
+
 template <typename T> struct Handle
 {
     static Handle invalid() { return Handle(u32_invalid); }

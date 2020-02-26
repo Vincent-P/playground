@@ -89,7 +89,8 @@ using RenderTargetH = Handle<RenderTarget>;
 struct FrameBufferInfo
 {
     vk::ImageView image_view;
-    vk::RenderPass render_pass;
+
+    vk::RenderPass render_pass; // renderpass info instead?
 };
 inline bool operator==(const FrameBufferInfo &a, const FrameBufferInfo &b)
 {
@@ -102,12 +103,27 @@ struct FrameBuffer
     vk::UniqueFramebuffer vkhandle;
 };
 
-struct PassInfo
+struct AttachmentInfo
 {
-    bool clear;   // if the pass should clear the rt or not
-    bool present; // if it is the last pass and it should transition to present
+    vk::AttachmentLoadOp load_op = vk::AttachmentLoadOp::eDontCare;
     RenderTargetH rt;
 };
+
+inline bool operator==(const AttachmentInfo &a, const AttachmentInfo &b)
+{
+    return a.load_op == b.load_op && a.rt == b.rt;
+}
+
+struct PassInfo
+{
+    bool present; // if it is the last pass and it should transition to present
+    AttachmentInfo attachment;
+};
+
+inline bool operator==(const PassInfo &a, const PassInfo &b)
+{
+    return a.present == b.present && a.attachment == b.attachment;
+}
 
 struct RenderPass
 {
@@ -211,12 +227,47 @@ struct PipelineInfo
     bool operator==(const PipelineInfo &other) { return program_info == other.program_info; }
 };
 
+struct DescriptorSet
+{
+    vk::DescriptorSet set;
+    usize frame_used;
+};
+
+struct ShaderBinding
+{
+    u32 binding;
+    vk::DescriptorType type;
+    vk::DescriptorImageInfo image_info;
+    vk::BufferView buffer_view;
+    vk::DescriptorBufferInfo buffer_info;
+};
+
+inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
+{
+    return a.binding == b.binding
+        && a.type == b.type
+        && a.image_info == b.image_info
+        && a.buffer_view == b.buffer_view
+        && a.buffer_info == b.buffer_info;
+}
+
+inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b)
+{
+    return !(a == b);
+}
+
+
 struct Program
 {
     vk::UniqueDescriptorSetLayout descriptor_layout;
     vk::UniquePipelineLayout pipeline_layout; // layoutS??
 
-    vk::DescriptorSet descriptor_set;
+    std::vector<std::optional<ShaderBinding>> binded_data;
+    bool data_dirty{true};
+
+    std::vector<DescriptorSet> descriptor_sets;
+    usize current_descriptor_set;
+
     // TODO: hashmap
     std::vector<PipelineInfo> pipelines_info;
     std::vector<vk::UniquePipeline> pipelines_vk;

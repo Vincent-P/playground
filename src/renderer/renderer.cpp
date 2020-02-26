@@ -32,9 +32,9 @@ Renderer Renderer::create(const Window &window)
     pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
     pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
     pinfo.push_constant(
-	{/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
+        {/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
     pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-		   /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+                   /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
     pinfo.vertex_stride(sizeof(ImDrawVert));
 
     pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
@@ -76,9 +76,9 @@ void Renderer::wait_idle() { api.wait_idle(); }
 void Renderer::imgui_draw()
 {
     vulkan::PassInfo pass;
-    pass.clear   = true;
-    pass.present = true;
-    pass.rt      = rt;
+    pass.present            = true;
+    pass.attachment.load_op = vk::AttachmentLoadOp::eClear;
+    pass.attachment.rt      = rt;
 
     ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar);
     ImGui::End();
@@ -88,73 +88,73 @@ void Renderer::imgui_draw()
     ImDrawData *data = ImGui::GetDrawData();
     if (data != nullptr && data->TotalVtxCount != 0) {
 
-	u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
-	u32 ibuffer_len = sizeof(ImDrawIdx) * static_cast<u32>(data->TotalIdxCount);
+        u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
+        u32 ibuffer_len = sizeof(ImDrawIdx) * static_cast<u32>(data->TotalIdxCount);
 
-	auto v_pos = api.dynamic_vertex_buffer(vbuffer_len); // (len) -> map | (data, len) -> memcpy
-	auto i_pos = api.dynamic_index_buffer(ibuffer_len);
+        auto v_pos = api.dynamic_vertex_buffer(vbuffer_len); // (len) -> map | (data, len) -> memcpy
+        auto i_pos = api.dynamic_index_buffer(ibuffer_len);
 
-	auto *vertices = reinterpret_cast<ImDrawVert *>(v_pos.mapped);
-	auto *indices  = reinterpret_cast<ImDrawIdx *>(i_pos.mapped);
+        auto *vertices = reinterpret_cast<ImDrawVert *>(v_pos.mapped);
+        auto *indices  = reinterpret_cast<ImDrawIdx *>(i_pos.mapped);
 
-	for (int i = 0; i < data->CmdListsCount; i++) {
-	    const ImDrawList *cmd_list = data->CmdLists[i];
+        for (int i = 0; i < data->CmdListsCount; i++) {
+            const ImDrawList *cmd_list = data->CmdLists[i];
 
-	    std::memcpy(vertices, cmd_list->VtxBuffer.Data, sizeof(ImDrawVert) * size_t(cmd_list->VtxBuffer.Size));
-	    std::memcpy(indices, cmd_list->IdxBuffer.Data, sizeof(ImDrawIdx) * size_t(cmd_list->IdxBuffer.Size));
+            std::memcpy(vertices, cmd_list->VtxBuffer.Data, sizeof(ImDrawVert) * size_t(cmd_list->VtxBuffer.Size));
+            std::memcpy(indices, cmd_list->IdxBuffer.Data, sizeof(ImDrawIdx) * size_t(cmd_list->IdxBuffer.Size));
 
-	    vertices += cmd_list->VtxBuffer.Size;
-	    indices += cmd_list->IdxBuffer.Size;
-	}
+            vertices += cmd_list->VtxBuffer.Size;
+            indices += cmd_list->IdxBuffer.Size;
+        }
 
-	vk::Viewport viewport{};
-	viewport.width    = ImGui::GetIO().DisplaySize.x;
-	viewport.height   = ImGui::GetIO().DisplaySize.y;
-	viewport.minDepth = 1.0f;
-	viewport.maxDepth = 1.0f;
-	api.set_viewport(viewport);
+        vk::Viewport viewport{};
+        viewport.width    = ImGui::GetIO().DisplaySize.x;
+        viewport.height   = ImGui::GetIO().DisplaySize.y;
+        viewport.minDepth = 1.0f;
+        viewport.maxDepth = 1.0f;
+        api.set_viewport(viewport);
 
-	api.begin_pass(std::move(pass));
-	api.bind_image(gui_program, 0, gui_texture);
-	api.bind_program(gui_program);
-	api.bind_vertex_buffer(v_pos);
-	api.bind_index_buffer(i_pos);
+        api.begin_pass(std::move(pass));
+        api.bind_image(gui_program, 0, gui_texture);
+        api.bind_program(gui_program);
+        api.bind_vertex_buffer(v_pos);
+        api.bind_index_buffer(i_pos);
 
-	std::vector<float> scale_and_translation = {
-	    2.0f / ImGui::GetIO().DisplaySize.x, // X scale
-	    2.0f / ImGui::GetIO().DisplaySize.y, // Y scale
-	    -1.0f,                               // X translation
-	    -1.0f                                // Y translation
-	};
+        std::vector<float> scale_and_translation = {
+            2.0f / ImGui::GetIO().DisplaySize.x, // X scale
+            2.0f / ImGui::GetIO().DisplaySize.y, // Y scale
+            -1.0f,                               // X translation
+            -1.0f                                // Y translation
+        };
 
-	api.push_constant(vk::ShaderStageFlagBits::eVertex, 0,
-			  sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
+        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0,
+                          sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
 
-	// Render GUI
-	i32 vertex_offset = 0;
-	u32 index_offset  = 0;
-	for (int list = 0; list < data->CmdListsCount; list++) {
-	    const ImDrawList *cmd_list = data->CmdLists[list];
+        // Render GUI
+        i32 vertex_offset = 0;
+        u32 index_offset  = 0;
+        for (int list = 0; list < data->CmdListsCount; list++) {
+            const ImDrawList *cmd_list = data->CmdLists[list];
 
-	    for (int command_index = 0; command_index < cmd_list->CmdBuffer.Size; command_index++) {
-		const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
+            for (int command_index = 0; command_index < cmd_list->CmdBuffer.Size; command_index++) {
+                const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
 
-		vk::Rect2D scissor;
-		scissor.offset.x      = i32(draw_command->ClipRect.x) > 0 ? i32(draw_command->ClipRect.x) : 0;
-		scissor.offset.y      = i32(draw_command->ClipRect.y) > 0 ? i32(draw_command->ClipRect.y) : 0;
-		scissor.extent.width  = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
-		scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
+                vk::Rect2D scissor;
+                scissor.offset.x      = i32(draw_command->ClipRect.x) > 0 ? i32(draw_command->ClipRect.x) : 0;
+                scissor.offset.y      = i32(draw_command->ClipRect.y) > 0 ? i32(draw_command->ClipRect.y) : 0;
+                scissor.extent.width  = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
+                scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
 
-		api.set_scissor(scissor);
-		api.draw_indexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
+                api.set_scissor(scissor);
+                api.draw_indexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
 
-		index_offset += draw_command->ElemCount;
-	    }
-	    vertex_offset += cmd_list->VtxBuffer.Size;
-	}
+                index_offset += draw_command->ElemCount;
+            }
+            vertex_offset += cmd_list->VtxBuffer.Size;
+        }
     }
     else {
-	api.begin_pass(std::move(pass));
+        api.begin_pass(std::move(pass));
     }
 
     api.end_pass();

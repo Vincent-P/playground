@@ -44,7 +44,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   # endif()
 
   # Too many warnings for now...
-  set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+  # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 
 # Release specific config
@@ -123,6 +123,17 @@ add_custom_target(run
   DEPENDS test-vulkan
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   )
+
+# =============================================================
+# Sample
+project(sample LANGUAGES CXX)
+
+# And add the main executable
+add_executable(sample src/sample.cpp)
+
+# --------------
+# Setup libraries
+target_link_libraries(sample PRIVATE Vulkan::Vulkan glfw)
 
 # =============================================================
 

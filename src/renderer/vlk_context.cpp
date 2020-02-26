@@ -149,9 +149,8 @@ Context Context::create(const Window &window)
 
     std::vector<const char *> device_layers;
 
-    // vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
-    // ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
-    vk::PhysicalDeviceFeatures2 all_features = ctx.physical_device.getFeatures2();
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
+    ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
 
     auto queue_families = ctx.physical_device.getQueueFamilyProperties();
 
@@ -185,8 +184,7 @@ Context Context::create(const Window &window)
     }
 
     vk::DeviceCreateInfo dci;
-    // dci.pNext = &all_features.get<vk::PhysicalDeviceFeatures2>();
-    dci.pNext                   = &all_features;
+    dci.pNext                   = &all_features.get<vk::PhysicalDeviceFeatures2>();
     dci.flags                   = {};
     dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
     dci.pQueueCreateInfos       = queue_create_infos.data();
@@ -210,6 +208,19 @@ Context Context::create(const Window &window)
     ctx.create_swapchain();
 
     ctx.create_frame_resources();
+
+
+    /// --- The descriptor sets of the pool are recycled manually
+    std::array pool_sizes{
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
+    };
+
+    vk::DescriptorPoolCreateInfo dpci{};
+    dpci.flags                     = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
+    dpci.poolSizeCount             = pool_sizes.size();
+    dpci.pPoolSizes                = pool_sizes.data();
+    dpci.maxSets                   = 256;
+    ctx.descriptor_pool            = ctx.device->createDescriptorPoolUnique(dpci);
 
     return ctx;
 }
@@ -330,19 +341,6 @@ void Context::create_frame_resources(usize count)
 	/// --- Create the command pool to create a command buffer for each frame
 	frame_resource.command_pool = device->createCommandPoolUnique(
 	    {{vk::CommandPoolCreateFlagBits::eTransient}, static_cast<uint32_t>(graphics_family_idx)});
-
-	/// --- Each frame contains its own descriptor pool that can be resetted during start frame to free all
-	/// descriptors
-	std::array pool_sizes{
-	    vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
-	};
-
-	vk::DescriptorPoolCreateInfo dpci{};
-	dpci.flags                     = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
-        dpci.poolSizeCount             = pool_sizes.size();
-        dpci.pPoolSizes                = pool_sizes.data();
-        dpci.maxSets                   = 256;
-        frame_resource.descriptor_pool = device->createDescriptorPoolUnique(dpci);
     }
 }
 

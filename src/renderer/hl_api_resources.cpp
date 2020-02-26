@@ -363,17 +363,15 @@ ProgramH API::create_program(ProgramInfo &&info)
     /// --- Create descriptor set layout
 
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    bindings.reserve(info.bindings.size());
-
-    std::transform(info.bindings.begin(), info.bindings.end(), std::back_inserter(bindings),
-		   [](const auto &info_binding) {
-		       vk::DescriptorSetLayoutBinding binding;
-		       binding.binding         = info_binding.slot;
-		       binding.stageFlags      = info_binding.stages;
-		       binding.descriptorType  = info_binding.type;
-		       binding.descriptorCount = info_binding.count;
-		       return binding;
-		   });
+    map_transform(info.bindings, bindings,
+                  [](const auto &info_binding) {
+                      vk::DescriptorSetLayoutBinding binding;
+                      binding.binding         = info_binding.slot;
+                      binding.stageFlags      = info_binding.stages;
+                      binding.descriptorType  = info_binding.type;
+                      binding.descriptorCount = info_binding.count;
+                      return binding;
+                  });
 
     vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
     std::vector<vk::DescriptorBindingFlags> flags{
@@ -392,16 +390,14 @@ ProgramH API::create_program(ProgramInfo &&info)
     /// --- Create pipeline layout
 
     std::vector<vk::PushConstantRange> pc_ranges;
-    pc_ranges.reserve(info.push_constants.size());
-
-    std::transform(info.push_constants.begin(), info.push_constants.end(), std::back_inserter(pc_ranges),
-		   [](const auto &push_constant) {
-		       vk::PushConstantRange range;
-		       range.stageFlags = push_constant.stages;
-		       range.offset     = push_constant.offset;
-		       range.size       = push_constant.size;
-		       return range;
-		   });
+    map_transform(info.push_constants, pc_ranges,
+                  [](const auto &push_constant) {
+                      vk::PushConstantRange range;
+                      range.stageFlags = push_constant.stages;
+                      range.offset     = push_constant.offset;
+                      range.size       = push_constant.size;
+                      return range;
+                  });
 
     vk::PipelineLayoutCreateInfo ci{};
     ci.pSetLayouts            = &program.descriptor_layout.get();

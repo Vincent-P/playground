@@ -54,8 +54,6 @@ struct FrameResource
 
     vk::UniqueCommandPool command_pool;
     vk::UniqueCommandBuffer command_buffer; // main command buffer
-
-    vk::UniqueDescriptorPool descriptor_pool;
 };
 
 struct FrameResources
@@ -80,6 +78,8 @@ struct Context
 
     u32 graphics_family_idx;
     u32 present_family_idx;
+
+    vk::UniqueDescriptorPool descriptor_pool;
 
     SwapChain swapchain;
     FrameResources frame_resources;
