@@ -48,6 +48,13 @@ inline void map_transform(const vector_source& src, vector_dest& dst, transform_
     std::transform(src.begin(), src.end(), std::back_inserter(dst), f);
 }
 
+inline usize round_up_to_alignment(usize alignment, usize bytes)
+{
+    const usize mask = alignment - 1;
+    return (bytes + mask) & ~mask;
+}
+
+
 template <typename T> struct Handle
 {
     static Handle invalid() { return Handle(u32_invalid); }

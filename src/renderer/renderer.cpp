@@ -91,7 +91,7 @@ void Renderer::imgui_draw()
         u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
         u32 ibuffer_len = sizeof(ImDrawIdx) * static_cast<u32>(data->TotalIdxCount);
 
-        auto v_pos = api.dynamic_vertex_buffer(vbuffer_len); // (len) -> map | (data, len) -> memcpy
+        auto v_pos = api.dynamic_vertex_buffer(vbuffer_len);
         auto i_pos = api.dynamic_index_buffer(ibuffer_len);
 
         auto *vertices = reinterpret_cast<ImDrawVert *>(v_pos.mapped);
@@ -127,8 +127,7 @@ void Renderer::imgui_draw()
             -1.0f                                // Y translation
         };
 
-        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0,
-                          sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
+        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
 
         // Render GUI
         i32 vertex_offset = 0;

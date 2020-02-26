@@ -16,15 +16,17 @@ API API::create(const Window &window)
         binfo.usage                 = vk::BufferUsageFlagBits::eTransferSrc;
         binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_TO_GPU;
         api.staging_buffer.buffer_h = api.create_buffer(binfo);
+        api.staging_buffer.offset   = 0;
     }
 
     {
         BufferInfo binfo;
         binfo.name                     = "Dynamic Vertex Buffer";
-        binfo.size                     = 16 * 1024 * 1024;
+        binfo.size                     = 64 * 1024 * 1024;
         binfo.usage                    = vk::BufferUsageFlagBits::eVertexBuffer;
         binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
         api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
+        api.dyn_vertex_buffer.offset   = 0;
     }
 
     {
@@ -34,6 +36,7 @@ API API::create(const Window &window)
         binfo.usage                   = vk::BufferUsageFlagBits::eIndexBuffer;
         binfo.memory_usage            = VMA_MEMORY_USAGE_CPU_TO_GPU;
         api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);
+        api.dyn_index_buffer.offset   = 0;
     }
 
     return api;

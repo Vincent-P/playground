@@ -280,6 +280,9 @@ static CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuf
     Buffer &buffer        = api.get_buffer(circular.buffer_h);
     usize &current_offset = circular.offset;
 
+    constexpr uint min_uniform_buffer_alignment = 256u;
+    len = round_up_to_alignment(min_uniform_buffer_alignment, len);
+
     if (current_offset + len > buffer.size) {
 	current_offset = 0;
     }
