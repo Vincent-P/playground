@@ -293,6 +293,10 @@ struct CircularBuffer
     usize offset;
 };
 
+struct API;
+
+CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &circular, usize len);
+
 struct API
 {
     Context ctx;
@@ -330,6 +334,13 @@ struct API
     void end_pass();
     void bind_program(ProgramH H);
     void bind_image(ProgramH program_h, uint slot, ImageH image_h);
+
+    template<typename T>
+    T* bind_uniform()
+    {
+        auto pos = map_circular_buffer_internal(*this, staging_buffer, sizeof(T));
+        return pos.mapped;
+    }
 
     void bind_vertex_buffer(BufferH H);
     void bind_vertex_buffer(CircularBufferPosition v_pos);

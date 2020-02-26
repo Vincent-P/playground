@@ -295,7 +295,7 @@ void CommandBuffer::submit_and_wait()
 
 /// --- Circular buffers
 
-static CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &circular, usize len)
+CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &circular, usize len)
 {
     Buffer &buffer        = api.get_buffer(circular.buffer_h);
     usize &current_offset = circular.offset;
