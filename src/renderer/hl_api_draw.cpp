@@ -6,7 +6,7 @@ namespace my_app::vulkan
     // TODO: "find"
     static RenderPass& find_or_create_render_pass(API& api, PassInfo&& info)
     {
-        if (api.renderpasses.size()) {
+        if (!api.renderpasses.empty()) {
             return api.renderpasses.front();
         }
         RenderPass rp;

@@ -72,7 +72,8 @@ namespace my_app
         }
         else
         {
-            double mouse_x, mouse_y;
+            double mouse_x;
+            double mouse_y;
             glfwGetCursorPos(window, &mouse_x, &mouse_y);
             io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
 

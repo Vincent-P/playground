@@ -47,7 +47,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_CLANG_TIDY
     clang-tidy;
     -header-filter=.;
-    -checks=modernize-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-convert-member-functions-to-static;
+    -checks=modernize-*,performance-*,readability-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-magic-numbers,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion;
     )
     #-warnings-as-errors=*;)
 

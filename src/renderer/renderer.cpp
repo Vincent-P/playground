@@ -47,7 +47,8 @@ namespace my_app
         uchar* pixels = nullptr;
 
         // Get image data
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
 
         iinfo.width = static_cast<u32>(w);

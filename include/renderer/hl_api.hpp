@@ -182,10 +182,10 @@ namespace my_app
             std::vector<BindingInfo> bindings;
             VertexBufferInfo vertex_buffer_info;
 
-            void push_constant(PushConstantInfo&&);
-            void binding(BindingInfo&&);
-            void vertex_stride(u32);
-            void vertex_info(VertexInfo&&);
+            void push_constant(PushConstantInfo&& push_constant);
+            void binding(BindingInfo&& binding);
+            void vertex_stride(u32 value);
+            void vertex_info(VertexInfo&& info);
         };
 
         inline bool operator==(const ProgramInfo& a, const ProgramInfo& b) {
@@ -281,13 +281,13 @@ namespace my_app
             void wait_idle();
 
             /// --- Drawing
-            void begin_pass(PassInfo&&);
+            void begin_pass(PassInfo&& info);
             void end_pass();
-            void bind_program(ProgramH);
-            void bind_image(ProgramH, uint, ImageH);
+            void bind_program(ProgramH H);
+            void bind_image(ProgramH program_h, uint slot, ImageH image_h);
 
-            void bind_vertex_buffer(CircularBufferPosition);
-            void bind_index_buffer(CircularBufferPosition);
+            void bind_vertex_buffer(CircularBufferPosition v_pos);
+            void bind_index_buffer(CircularBufferPosition i_pos);
             void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void* data);
 
             void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
@@ -301,25 +301,25 @@ namespace my_app
             CircularBufferPosition dynamic_index_buffer(usize len);
 
             /// --- Resources
-            ImageH create_image(const ImageInfo&);
-            Image& get_image(ImageH);
-            void destroy_image(ImageH);
-            void upload_image(ImageH, void* data, usize len);
+            ImageH create_image(const ImageInfo& info);
+            Image& get_image(ImageH H);
+            void destroy_image(ImageH H);
+            void upload_image(ImageH H, void* data, usize len);
 
-            RenderTargetH create_rendertarget(const RTInfo&);
-            RenderTarget& get_rendertarget(RenderTargetH);
+            RenderTargetH create_rendertarget(const RTInfo& info);
+            RenderTarget& get_rendertarget(RenderTargetH H);
 
-            BufferH create_buffer(const BufferInfo&);
-            Buffer& get_buffer(BufferH);
-            void destroy_buffer(BufferH);
+            BufferH create_buffer(const BufferInfo& info);
+            Buffer& get_buffer(BufferH H);
+            void destroy_buffer(BufferH H);
 
             ShaderH create_shader(const char* path);
-            Shader& get_shader(ShaderH);
-            void destroy_shader(ShaderH);
+            Shader& get_shader(ShaderH H);
+            void destroy_shader(ShaderH H);
 
-            ProgramH create_program(ProgramInfo&&);
-            Program& get_program(ProgramH);
-            void destroy_program(ProgramH);
+            ProgramH create_program(ProgramInfo&& info);
+            Program& get_program(ProgramH H);
+            void destroy_program(ProgramH H);
 
             CommandBuffer get_temp_cmd_buffer();
         };

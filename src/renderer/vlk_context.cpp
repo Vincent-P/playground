@@ -5,10 +5,10 @@
 #include "renderer/vlk_context.hpp"
 #include "window.hpp"
 
-#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
-#include <vk_mem_alloc.h>
-#include <vector>
 #include <iostream>
+#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
+#include <vector>
+#include <vk_mem_alloc.h>
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
@@ -17,25 +17,37 @@ namespace my_app::vulkan
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                    VkDebugUtilsMessageTypeFlagsEXT message_type,
-                   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void*)
+                   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* /*unused*/)
     {
         std::string severity{};
         switch (message_severity)
         {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severity = "[INFO]"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severity = "[ERROR]"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severity = "[VERBOSE]"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severity = "[WARNING]"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT: break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+                severity = "[INFO]";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                severity = "[ERROR]";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+                severity = "[VERBOSE]";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                severity = "[WARNING]";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+                break;
         }
 
         std::string type{};
-        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
             type += "[GENERAL]";
-        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+        }
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
             type += "[VALIDATION]";
-        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+        }
+        if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
             return VK_FALSE;
+        }
 
         std::cerr << severity << type << " " << pCallbackData->pMessage << "\n";
 
@@ -44,7 +56,7 @@ namespace my_app::vulkan
             std::cerr << "Objects: \n";
             for (size_t i = 0; i < pCallbackData->objectCount; i++)
             {
-                auto &object = pCallbackData->pObjects[i];
+                auto& object = pCallbackData->pObjects[i];
                 std::cerr << "\t [" << i << "] "
                           << vk::to_string(static_cast<vk::ObjectType>(object.objectType))
                           << " "
@@ -71,17 +83,20 @@ namespace my_app::vulkan
 
         uint32_t required_count;
         const char** required_extensions = glfwGetRequiredInstanceExtensions(&required_count);
-        for (size_t i = 0; i < required_count; i++) {
+        for (size_t i = 0; i < required_count; i++)
+        {
             instance_extensions.push_back(required_extensions[i]);
         }
 
-        if (ENABLE_VALIDATION_LAYERS) {
+        if (ENABLE_VALIDATION_LAYERS)
+        {
             instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
         auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
         std::vector<const char*> instance_layers;
-        if (ENABLE_VALIDATION_LAYERS) {
+        if (ENABLE_VALIDATION_LAYERS)
+        {
             instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
         }
 
@@ -111,11 +126,11 @@ namespace my_app::vulkan
             vk::DebugUtilsMessengerCreateInfoEXT ci;
             ci.flags = {};
             ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
-                | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
-                | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+                                 | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
+                                 | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
             ci.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
-                | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
-                | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+                             | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
+                             | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
             ci.pfnUserCallback = debug_callback;
 
             ctx.debug_messenger = ctx.instance->createDebugUtilsMessengerEXT(ci, nullptr);
@@ -178,11 +193,13 @@ namespace my_app::vulkan
             }
         }
 
-        if (!has_present || !has_graphics) {
+        if (!has_present || !has_graphics)
+        {
             throw std::runtime_error("failed to find a graphics and present queue.");
         }
 
-        if (ctx.present_family_idx == ctx.graphics_family_idx) {
+        if (ctx.present_family_idx == ctx.graphics_family_idx)
+        {
             queue_create_infos.pop_back();
         }
 
@@ -232,16 +249,21 @@ namespace my_app::vulkan
         auto present_modes = ctx.physical_device.getSurfacePresentModesKHR(*ctx.surface);
         ctx.swapchain.present_mode = vk::PresentModeKHR::eFifo;
 
-        for (auto& pm : present_modes) {
-            if (pm == vk::PresentModeKHR::eMailbox) {
+        for (auto& pm : present_modes)
+        {
+            if (pm == vk::PresentModeKHR::eMailbox)
+            {
                 ctx.swapchain.present_mode = vk::PresentModeKHR::eMailbox;
                 break;
             }
         }
 
-        if (ctx.swapchain.present_mode == vk::PresentModeKHR::eFifo) {
-            for (auto& pm : present_modes) {
-                if (pm == vk::PresentModeKHR::eImmediate){
+        if (ctx.swapchain.present_mode == vk::PresentModeKHR::eFifo)
+        {
+            for (auto& pm : present_modes)
+            {
+                if (pm == vk::PresentModeKHR::eImmediate)
+                {
                     ctx.swapchain.present_mode = vk::PresentModeKHR::eImmediate;
                     break;
                 }
@@ -258,8 +280,10 @@ namespace my_app::vulkan
         }
         else
         {
-            for (const auto& f : formats) {
-                if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            for (const auto& f : formats)
+            {
+                if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+                {
                     ctx.swapchain.format = f;
                     break;
                 }
@@ -277,7 +301,7 @@ namespace my_app::vulkan
 
         if (ctx.graphics_family_idx != ctx.present_family_idx)
         {
-            std::array indices {
+            std::array indices{
                 ctx.graphics_family_idx,
                 ctx.present_family_idx
             };
@@ -319,8 +343,9 @@ namespace my_app::vulkan
     {
         device->waitIdle();
 
-        for (auto& o : swapchain.image_views)
+        for (auto& o : swapchain.image_views) {
             device->destroy(o);
+        }
     }
 
     void Context::create_frame_resources(usize count)
@@ -340,7 +365,7 @@ namespace my_app::vulkan
             frame_resource.command_pool = device->createCommandPoolUnique({ { vk::CommandPoolCreateFlagBits::eTransient }, static_cast<uint32_t>(graphics_family_idx) });
 
             /// --- Each frame contains its own descriptor pool that can be resetted during start frame to free all descriptors
-            std::array pool_sizes {
+            std::array pool_sizes{
                 vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
             };
 
@@ -355,7 +380,8 @@ namespace my_app::vulkan
 
     void Context::destroy()
     {
-        if (ENABLE_VALIDATION_LAYERS) {
+        if (ENABLE_VALIDATION_LAYERS)
+        {
             instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr);
         }
 
@@ -363,7 +389,8 @@ namespace my_app::vulkan
 
         char* dump;
         vmaBuildStatsString(allocator, &dump, VK_TRUE);
-        std::cout << "Vulkan memory dump:\n" << dump << "\n";
+        std::cout << "Vulkan memory dump:\n"
+                  << dump << "\n";
         vmaFreeStatsString(allocator, dump);
 
         vmaDestroyAllocator(allocator);
@@ -374,4 +401,4 @@ namespace my_app::vulkan
         destroy_swapchain();
         create_swapchain();
     }
-}    // namespace my_app
+}    // namespace my_app::vulkan

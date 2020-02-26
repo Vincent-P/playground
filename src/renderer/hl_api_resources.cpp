@@ -365,7 +365,7 @@ namespace my_app::vulkan
         return shaders[H.value()];
     }
 
-    void API::destroy_shader(ShaderH)
+    void API::destroy_shader(ShaderH /*unused*/)
     {
     }
 
@@ -457,7 +457,7 @@ namespace my_app::vulkan
         return programs[H.value()];
     }
 
-    void API::destroy_program(ProgramH)
+    void API::destroy_program(ProgramH /*unused*/)
     {
 
     }
