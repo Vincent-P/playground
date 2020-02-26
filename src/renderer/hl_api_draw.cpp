@@ -326,7 +326,7 @@ void API::bind_image(ProgramH program_h, uint slot, ImageH image_h)
     if (program.binded_data.size() <= slot) {
         usize missing = slot - program.binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            program.binded_data.push_back(std::nullopt);
+            program.binded_data.emplace_back(std::nullopt);
         }
     }
 

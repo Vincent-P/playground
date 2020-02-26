@@ -33,19 +33,8 @@ add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c
 
 # Debug specific config
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
-  # static analysis tools
-  # find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
-  # if (CMAKE_CXX_CPPCHECK)
-  #   list(
-  #     APPEND CMAKE_CXX_CPPCHECK
-  #     "--std=c++17"
-  #     "--enable=all"
-  #     )
-  # endif()
 
-  # Too many warnings for now...
-  # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
-
+  set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 # Release specific config
 ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
@@ -124,17 +113,6 @@ add_custom_target(run
   DEPENDS test-vulkan
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   )
-
-# =============================================================
-# Sample
-project(sample LANGUAGES CXX)
-
-# And add the main executable
-add_executable(sample src/sample.cpp)
-
-# --------------
-# Setup libraries
-target_link_libraries(sample PRIVATE Vulkan::Vulkan glfw)
 
 # =============================================================
 

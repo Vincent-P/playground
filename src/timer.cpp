@@ -50,8 +50,7 @@ void TimerData::update()
 }
 
 TimerData::TimerData()
-    : time(clock_t::now()), delta_time(clock_t::now() - clock_t::now()), float_delta_time(10.0f),
-      average_delta_time(10.0f), average_fps(10.0f), current_second_fps(10.0f)
+    : time(clock_t::now()), delta_time(clock_t::now() - clock_t::now()) 
 {
 
     for (size_t i = 0; i < fps_histogram.size(); ++i) {
@@ -62,6 +61,6 @@ TimerData::TimerData()
     update();
 }
 
-TimerData::~TimerData() {}
+TimerData::~TimerData() = default;
 
 } // namespace my_app
