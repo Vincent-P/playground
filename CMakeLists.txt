@@ -44,12 +44,7 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   # endif()
 
   # Too many warnings for now...
-  set(CMAKE_CXX_CLANG_TIDY
-    clang-tidy;
-    -header-filter=.;
-    -checks=modernize-*,performance-*,readability-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-magic-numbers,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion;
-    )
-    #-warnings-as-errors=*;)
+  set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 
 # Release specific config

@@ -126,7 +126,7 @@ namespace my_app::vulkan
         current_render_pass = nullptr;
     }
 
-    static vk::Pipeline find_or_create_pipeline(API& api, Program& program, const PipelineInfo& pipeline_info)
+    static vk::Pipeline find_or_create_pipeline(API& api, Program& program, PipelineInfo&& pipeline_info)
     {
 
         u32 pipeline_i = u32_invalid;
@@ -308,7 +308,7 @@ namespace my_app::vulkan
 
         PipelineInfo pipeline_info{program.info, *program.pipeline_layout, *render_pass.vkhandle};
 
-        auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
+        auto pipeline = find_or_create_pipeline(*this, program, std::move(pipeline_info));
         frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
         auto descriptor_sets = find_or_create_descriptor_sets(*this, program);
