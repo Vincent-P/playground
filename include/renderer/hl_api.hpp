@@ -213,8 +213,8 @@ struct ProgramInfo
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
     return a.vertex_shader == b.vertex_shader && a.fragment_shader == b.fragment_shader
-	   && a.push_constants == b.push_constants && a.bindings == b.bindings
-	   && a.vertex_buffer_info == b.vertex_buffer_info;
+           && a.push_constants == b.push_constants && a.bindings == b.bindings
+           && a.vertex_buffer_info == b.vertex_buffer_info;
 }
 
 // TODO: smart fields
@@ -244,18 +244,11 @@ struct ShaderBinding
 
 inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
 {
-    return a.binding == b.binding
-        && a.type == b.type
-        && a.image_info == b.image_info
-        && a.buffer_view == b.buffer_view
-        && a.buffer_info == b.buffer_info;
+    return a.binding == b.binding && a.type == b.type && a.image_info == b.image_info && a.buffer_view == b.buffer_view
+           && a.buffer_info == b.buffer_info;
 }
 
-inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b)
-{
-    return !(a == b);
-}
-
+inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b) { return !(a == b); }
 
 struct Program
 {

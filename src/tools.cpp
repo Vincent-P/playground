@@ -10,7 +10,7 @@ std::vector<char> readFile(const std::string &filename)
 {
     std::ifstream file{filename, std::ios::binary};
     if (file.fail()) {
-	throw std::runtime_error(std::string("Could not open \"" + filename + "\" file!").c_str());
+        throw std::runtime_error(std::string("Could not open \"" + filename + "\" file!").c_str());
     }
 
     std::streampos begin;
@@ -21,7 +21,7 @@ std::vector<char> readFile(const std::string &filename)
 
     std::vector<char> result(static_cast<size_t>(end - begin));
     if (result.empty()) {
-	throw std::runtime_error(std::string("\"" + filename + "\" has a size of 0!").c_str());
+        throw std::runtime_error(std::string("\"" + filename + "\" has a size of 0!").c_str());
     }
 
     file.seekg(0, std::ios::beg);

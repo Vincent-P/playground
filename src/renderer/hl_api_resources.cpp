@@ -28,11 +28,11 @@ static vk::ImageViewType view_type_from(vk::ImageType _type)
 {
     switch (_type) {
     case vk::ImageType::e1D:
-	return vk::ImageViewType::e1D;
+        return vk::ImageViewType::e1D;
     case vk::ImageType::e2D:
-	return vk::ImageViewType::e2D;
+        return vk::ImageViewType::e2D;
     case vk::ImageType::e3D:
-	return vk::ImageViewType::e3D;
+        return vk::ImageViewType::e3D;
     }
     return vk::ImageViewType::e2D;
 }
@@ -64,11 +64,11 @@ ImageH API::create_image(const ImageInfo &info)
     alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
     VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
-			    reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
+                            reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
 
     if (ENABLE_VALIDATION_LAYERS) {
-	ctx.device->setDebugUtilsObjectNameEXT(
-	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
+        ctx.device->setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
     }
 
     img.access = THSVS_ACCESS_NONE;
@@ -84,12 +84,12 @@ ImageH API::create_image(const ImageInfo &info)
     vci.image  = img.vkhandle;
     vci.format = img.image_info.format;
     vci.components
-	= {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+        = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
     vci.subresourceRange = img.full_range;
     vci.viewType         = view_type_from(img.image_info.imageType);
 
     if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-	vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
     }
 
     img.default_view = ctx.device->createImageView(vci);
@@ -129,7 +129,7 @@ void API::destroy_image(ImageH H)
 }
 
 static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access,
-				       ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
+                                       ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
 {
     ThsvsImageBarrier image_barrier;
     image_barrier.prevAccessCount     = 1;
@@ -163,21 +163,21 @@ void API::upload_image(ImageH H, void *data, usize len)
     copies.reserve(range.levelCount);
 
     transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE,
-			       range);
+                               range);
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++) {
-	vk::BufferImageCopy copy;
-	copy.bufferOffset                    = staging_position.offset;
-	copy.imageSubresource.aspectMask     = range.aspectMask;
-	copy.imageSubresource.mipLevel       = i;
-	copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
-	copy.imageSubresource.layerCount     = range.layerCount;
-	copy.imageExtent                     = image.image_info.extent;
-	copies.push_back(std::move(copy));
+        vk::BufferImageCopy copy;
+        copy.bufferOffset                    = staging_position.offset;
+        copy.imageSubresource.aspectMask     = range.aspectMask;
+        copy.imageSubresource.mipLevel       = i;
+        copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
+        copy.imageSubresource.layerCount     = range.layerCount;
+        copy.imageExtent                     = image.image_info.extent;
+        copies.push_back(std::move(copy));
     }
 
     cmd_buffer.vkhandle->copyBufferToImage(staging.vkhandle, image.vkhandle, vk::ImageLayout::eTransferDstOptimal,
-					   copies);
+                                           copies);
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
 
@@ -208,11 +208,11 @@ BufferH API::create_buffer(const BufferInfo &info)
     alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
     VK_CHECK(vmaCreateBuffer(ctx.allocator, reinterpret_cast<VkBufferCreateInfo *>(&ci), &alloc_info,
-			     reinterpret_cast<VkBuffer *>(&buf.vkhandle), &buf.allocation, nullptr));
+                             reinterpret_cast<VkBuffer *>(&buf.vkhandle), &buf.allocation, nullptr));
 
     if (ENABLE_VALIDATION_LAYERS) {
-	ctx.device->setDebugUtilsObjectNameEXT(
-	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
+        ctx.device->setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
     }
 
     buffers.push_back(std::move(buf));
@@ -224,7 +224,7 @@ Buffer &API::get_buffer(BufferH H) { return buffers[H.value()]; }
 static void destroy_buffer_internal(API &api, Buffer &buf)
 {
     if (buf.mapped) {
-	vmaUnmapMemory(api.ctx.allocator, buf.allocation);
+        vmaUnmapMemory(api.ctx.allocator, buf.allocation);
     }
     vmaDestroyBuffer(api.ctx.allocator, buf.vkhandle, buf.allocation);
 }
@@ -232,7 +232,7 @@ static void destroy_buffer_internal(API &api, Buffer &buf)
 static void *buffer_map_internal(API &api, Buffer &buf)
 {
     if (buf.mapped == nullptr) {
-	vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
+        vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
     }
     return buf.mapped;
 }
@@ -251,7 +251,7 @@ CommandBuffer API::get_temp_cmd_buffer()
     auto &frame_resource = ctx.frame_resources.get_current();
 
     cmd.vkhandle = std::move(ctx.device->allocateCommandBuffersUnique(
-	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+        {*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
 
     return cmd;
 }
@@ -281,10 +281,10 @@ static CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuf
     usize &current_offset = circular.offset;
 
     constexpr uint min_uniform_buffer_alignment = 256u;
-    len = round_up_to_alignment(min_uniform_buffer_alignment, len);
+    len                                         = round_up_to_alignment(min_uniform_buffer_alignment, len);
 
     if (current_offset + len > buffer.size) {
-	current_offset = 0;
+        current_offset = 0;
     }
 
     buffer_map_internal(api, buffer);
@@ -366,19 +366,18 @@ ProgramH API::create_program(ProgramInfo &&info)
     /// --- Create descriptor set layout
 
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    map_transform(info.bindings, bindings,
-                  [](const auto &info_binding) {
-                      vk::DescriptorSetLayoutBinding binding;
-                      binding.binding         = info_binding.slot;
-                      binding.stageFlags      = info_binding.stages;
-                      binding.descriptorType  = info_binding.type;
-                      binding.descriptorCount = info_binding.count;
-                      return binding;
-                  });
+    map_transform(info.bindings, bindings, [](const auto &info_binding) {
+        vk::DescriptorSetLayoutBinding binding;
+        binding.binding         = info_binding.slot;
+        binding.stageFlags      = info_binding.stages;
+        binding.descriptorType  = info_binding.type;
+        binding.descriptorCount = info_binding.count;
+        return binding;
+    });
 
     vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
     std::vector<vk::DescriptorBindingFlags> flags{
-	info.bindings.size(), vk::DescriptorBindingFlags{vk::DescriptorBindingFlagBits::eUpdateAfterBind}};
+        info.bindings.size(), vk::DescriptorBindingFlags{vk::DescriptorBindingFlagBits::eUpdateAfterBind}};
     auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
@@ -393,14 +392,13 @@ ProgramH API::create_program(ProgramInfo &&info)
     /// --- Create pipeline layout
 
     std::vector<vk::PushConstantRange> pc_ranges;
-    map_transform(info.push_constants, pc_ranges,
-                  [](const auto &push_constant) {
-                      vk::PushConstantRange range;
-                      range.stageFlags = push_constant.stages;
-                      range.offset     = push_constant.offset;
-                      range.size       = push_constant.size;
-                      return range;
-                  });
+    map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
+        vk::PushConstantRange range;
+        range.stageFlags = push_constant.stages;
+        range.offset     = push_constant.offset;
+        range.size       = push_constant.size;
+        return range;
+    });
 
     vk::PipelineLayoutCreateInfo ci{};
     ci.pSetLayouts            = &program.descriptor_layout.get();

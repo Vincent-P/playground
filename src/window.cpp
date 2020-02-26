@@ -30,7 +30,7 @@ void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
 void Window::resize_callback(int width, int height)
 {
     for (const auto &cb : resize_callbacks) {
-	cb(width, height);
+        cb(width, height);
     }
 }
 
@@ -43,10 +43,10 @@ void Window::glfw_click_callback(GLFWwindow *window, int button, int action, int
 {
     auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
     if (action == GLFW_PRESS && button >= 0) {
-	auto ibutton = static_cast<usize>(button);
-	if (ibutton < self->mouse_just_pressed.size()) {
-	    self->mouse_just_pressed[ibutton] = true;
-	}
+        auto ibutton = static_cast<usize>(button);
+        if (ibutton < self->mouse_just_pressed.size()) {
+            self->mouse_just_pressed[ibutton] = true;
+        }
     }
 }
 
@@ -60,24 +60,24 @@ void Window::update()
 
     // Update the mouse position for ImGui
     if (io.WantSetMousePos) {
-	glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
+        glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
     }
     else {
-	double mouse_x;
-	double mouse_y;
-	glfwGetCursorPos(window, &mouse_x, &mouse_y);
-	io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
+        double mouse_x;
+        double mouse_y;
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
 
-	last_xpos = mouse_x;
-	last_ypos = mouse_y;
+        last_xpos = mouse_x;
+        last_ypos = mouse_y;
     }
 
     // Update the mouse buttons
     for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++) {
-	// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events
-	// that are shorter than 1 frame.
-	io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
-	mouse_just_pressed[i] = false;
+        // If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events
+        // that are shorter than 1 frame.
+        io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
+        mouse_just_pressed[i] = false;
     }
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));

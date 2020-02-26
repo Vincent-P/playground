@@ -17,7 +17,7 @@ App::~App() { renderer.destroy(); }
 
 void App::draw_fps()
 {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io  = ImGui::GetIO();
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
 
@@ -30,33 +30,31 @@ void App::draw_fps()
 
     static bool show_fps = false;
 
-    if (ImGui::RadioButton("FPS", show_fps))
-    {
+    if (ImGui::RadioButton("FPS", show_fps)) {
         show_fps = true;
     }
 
     ImGui::SameLine();
 
-    if (ImGui::RadioButton("ms", !show_fps))
-    {
+    if (ImGui::RadioButton("ms", !show_fps)) {
         show_fps = false;
     }
 
-    if (show_fps)
-    {
+    if (show_fps) {
         ImGui::SetCursorPosX(20.0f);
         ImGui::Text("%7.1f", double(timer.get_average_fps()));
 
-        auto& histogram = timer.get_fps_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+        auto &histogram = timer.get_fps_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX,
+                             ImVec2(85.0f, 30.0f));
     }
-    else
-    {
+    else {
         ImGui::SetCursorPosX(20.0f);
         ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
 
-        auto& histogram = timer.get_delta_time_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+        auto &histogram = timer.get_delta_time_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX,
+                             ImVec2(85.0f, 30.0f));
     }
 
     ImGui::End();
@@ -65,11 +63,11 @@ void App::draw_fps()
 void App::run()
 {
     while (!window.should_close()) {
-	ImGui::NewFrame();
-	window.update();
+        ImGui::NewFrame();
+        window.update();
         draw_fps();
         timer.update();
-	renderer.draw();
+        renderer.draw();
     }
 
     renderer.wait_idle();

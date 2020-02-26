@@ -127,7 +127,8 @@ void Renderer::imgui_draw()
             -1.0f                                // Y translation
         };
 
-        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
+        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0,
+                          sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
 
         // Render GUI
         i32 vertex_offset = 0;
