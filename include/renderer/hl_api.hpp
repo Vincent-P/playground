@@ -292,8 +292,8 @@ struct API
     void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data);
 
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
-    void set_scissor(vk::Rect2D scissor);
-    void set_viewport(vk::Viewport viewport);
+    void set_scissor(const vk::Rect2D &scissor);
+    void set_viewport(const vk::Viewport &viewport);
 
     /// ---
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);

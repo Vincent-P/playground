@@ -367,13 +367,13 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
     frame_resource.command_buffer->drawIndexed(index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
-void API::set_scissor(vk::Rect2D scissor)
+void API::set_scissor(const vk::Rect2D &scissor)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->setScissor(0, scissor);
 }
 
-void API::set_viewport(vk::Viewport viewport)
+void API::set_viewport(const vk::Viewport &viewport)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->setViewport(0, viewport);
