@@ -10,6 +10,7 @@
 
 namespace my_app
 {
+struct Model;
 
 struct Renderer
 {
@@ -20,6 +21,9 @@ struct Renderer
 
     void on_resize(int width, int height);
     void wait_idle();
+
+    void load_model(Model& model);
+    void draw_model(Model& model);
 
     void imgui_draw();
     void draw();

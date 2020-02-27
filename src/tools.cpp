@@ -1,16 +1,17 @@
 #include "tools.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
 namespace my_app::tools
 {
-
-std::vector<char> readFile(const std::string &filename)
+namespace fs = std::filesystem;
+std::vector<u8> read_file(const std::filesystem::path &filename)
 {
     std::ifstream file{filename, std::ios::binary};
     if (file.fail()) {
-        throw std::runtime_error(std::string("Could not open \"" + filename + "\" file!").c_str());
+        throw std::runtime_error(std::string("Could not open \"" + filename.string() + "\" file!").c_str());
     }
 
     std::streampos begin;
@@ -19,13 +20,13 @@ std::vector<char> readFile(const std::string &filename)
     file.seekg(0, std::ios::end);
     end = file.tellg();
 
-    std::vector<char> result(static_cast<size_t>(end - begin));
+    std::vector<u8> result(static_cast<usize>(end - begin));
     if (result.empty()) {
-        throw std::runtime_error(std::string("\"" + filename + "\" has a size of 0!").c_str());
+        throw std::runtime_error(std::string("\"" + filename.string() + "\" has a size of 0!").c_str());
     }
 
     file.seekg(0, std::ios::beg);
-    file.read(&result[0], end - begin);
+    file.read(reinterpret_cast<char*>(result.data()), end - begin);
     file.close();
 
     return result;

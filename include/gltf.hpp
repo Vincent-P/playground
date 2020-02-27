@@ -1,6 +1,8 @@
 #pragma once
 #include "types.hpp"
 #include <vector>
+#include <optional>
+#include "renderer/hl_api.hpp"
 
 namespace my_app
 {
@@ -26,6 +28,7 @@ struct Buffer
 {
     u32             byte_length;
     std::vector<u8> data;
+    vulkan::BufferH buffer_h;
 };
 
 struct BufferView
@@ -33,6 +36,7 @@ struct BufferView
     u32 buffer;
     u32 byte_offset;
     u32 byte_length;
+
     u32 byte_stride;
     u32 target;
 };
@@ -41,8 +45,12 @@ enum class AccessorType
 {
     Scalar,
     Vec3,
-    Mat4
+    Vec4,
+    Mat4,
+    Unkown
 };
+
+std::optional<AccessorType> accessor_type_from_str(const std::string& string);
 
 // https://gist.github.com/szimek/763999
 enum class ComponentType
@@ -58,10 +66,11 @@ enum class ComponentType
 
 struct Accessor
 {
-    u32           buffer_view;
-    u32           byte_offset;
+    u32 buffer_view;
+    u32 byte_offset;
+    u32 count;
     ComponentType component_type;
-    AccessorType  type;
+    AccessorType type;
 };
 
 struct Primitive

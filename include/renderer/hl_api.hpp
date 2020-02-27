@@ -342,9 +342,9 @@ struct API
         return pos.mapped;
     }
 
-    void bind_vertex_buffer(BufferH H);
+    void bind_vertex_buffer(BufferH H, u32 offset = 0);
     void bind_vertex_buffer(CircularBufferPosition v_pos);
-    void bind_index_buffer(BufferH H);
+    void bind_index_buffer(BufferH H, u32 offset = 0);
     void bind_index_buffer(CircularBufferPosition i_pos);
     void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data);
 

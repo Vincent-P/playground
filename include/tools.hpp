@@ -4,9 +4,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <filesystem>
+
+#include "types.hpp"
 
 namespace my_app::tools
 {
+namespace fs = std::filesystem;
 
 struct MouseState
 {
@@ -16,7 +20,7 @@ struct MouseState
     double ypos;
 };
 
-std::vector<char> readFile(const std::string &filename);
+    std::vector<u8> read_file(const fs::path &path);
 
 #if 0
     inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t& current_item)

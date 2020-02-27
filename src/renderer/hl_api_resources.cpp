@@ -350,7 +350,7 @@ ShaderH API::create_shader(const char *path)
     Shader shader;
 
     shader.name = path;
-    auto code   = tools::readFile(path);
+    auto code   = tools::read_file(path);
     // keep code for reflection?
 
     vk::ShaderModuleCreateInfo info{};
@@ -397,13 +397,13 @@ ProgramH API::create_program(ProgramInfo &&info)
 
     vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
     std::vector<vk::DescriptorBindingFlags> flags{
-        info.bindings.size(), vk::DescriptorBindingFlags{vk::DescriptorBindingFlagBits::eUpdateAfterBind}};
+        info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
     auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
     auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
-    layout_info.flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+    layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
     layout_info.bindingCount = static_cast<u32>(bindings.size());
     layout_info.pBindings    = bindings.data();
 

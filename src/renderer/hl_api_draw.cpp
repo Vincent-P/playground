@@ -343,11 +343,11 @@ void API::bind_image(ProgramH program_h, uint slot, ImageH image_h)
     }
 }
 
-void API::bind_vertex_buffer(BufferH H)
+void API::bind_vertex_buffer(BufferH H, u32 offset)
 {
     const auto &vertex_buffer = get_buffer(H);
     auto &frame_resource      = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindVertexBuffers(0, {vertex_buffer.vkhandle}, {0});
+    frame_resource.command_buffer->bindVertexBuffers(0, {vertex_buffer.vkhandle}, {offset});
 }
 
 void API::bind_vertex_buffer(CircularBufferPosition v_pos)
@@ -357,11 +357,11 @@ void API::bind_vertex_buffer(CircularBufferPosition v_pos)
     frame_resource.command_buffer->bindVertexBuffers(0, {vertex_buffer.vkhandle}, {v_pos.offset});
 }
 
-void API::bind_index_buffer(BufferH H)
+void API::bind_index_buffer(BufferH H, u32 offset)
 {
     const auto &index_buffer = get_buffer(H);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindIndexBuffer(index_buffer.vkhandle, 0, vk::IndexType::eUint16);
+    frame_resource.command_buffer->bindIndexBuffer(index_buffer.vkhandle, offset, vk::IndexType::eUint16);
 }
 
 void API::bind_index_buffer(CircularBufferPosition i_pos)

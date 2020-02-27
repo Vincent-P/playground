@@ -215,7 +215,7 @@ Context Context::create(const Window &window)
     };
 
     vk::DescriptorPoolCreateInfo dpci{};
-    dpci.flags          = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
+    dpci.flags = {/*vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind*/};
     dpci.poolSizeCount  = pool_sizes.size();
     dpci.pPoolSizes     = pool_sizes.data();
     dpci.maxSets        = 256;

@@ -9,10 +9,10 @@
 #include <thread>
 
 #include "app.hpp"
+#include "gltf.hpp"
 
-int main(int /*argc*/, char ** /*argv*/)
+int main(int /*argc*/, char ** argv)
 {
-    my_app::App app;
-    app.run();
+    my_app::load_model(argv[1]);
     return 0;
 }
