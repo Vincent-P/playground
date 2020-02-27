@@ -107,7 +107,6 @@ void Renderer::imgui_draw()
             indices += cmd_list->IdxBuffer.Size;
         }
 
-	auto dpi_scale = p_window->get_dpi_scale();
         vk::Viewport viewport{};
         viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
         viewport.height   = data->DisplaySize.y * data->FramebufferScale.y;
@@ -152,10 +151,10 @@ void Renderer::imgui_draw()
                 // Apply scissor/clipping rectangle
                 // FIXME: We could clamp width/height based on clamped min/max values.
 		vk::Rect2D scissor;
-                scissor.offset.x = ((int32_t)clip_rect.x > 0) ? (int32_t)(clip_rect.x) : 0;
-                scissor.offset.y = ((int32_t)clip_rect.y > 0) ? (int32_t)(clip_rect.y) : 0;
-                scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
-                scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y + 1); // FIXME: Why +1 here?
+                scissor.offset.x = (static_cast<i32>(clip_rect.x) > 0) ? static_cast<i32>(clip_rect.x) : 0;
+                scissor.offset.y = (static_cast<i32>(clip_rect.y) > 0) ? static_cast<i32>(clip_rect.y) : 0;
+                scissor.extent.width = static_cast<u32>(clip_rect.z - clip_rect.x);
+                scissor.extent.height = static_cast<u32>(clip_rect.w - clip_rect.y + 1); // FIXME: Why +1 here?
 
                 api.set_scissor(scissor);
 

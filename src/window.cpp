@@ -93,9 +93,9 @@ void Window::update()
     }
     init = false;
 
-    ImGui::Text("DisplaySize = %f,%f", io.DisplaySize.x, io.DisplaySize.y);
+    ImGui::Text("DisplaySize = %f,%f", static_cast<double>(io.DisplaySize.x), static_cast<double>(io.DisplaySize.y));
 
-    ImGui::Text("Dpi scale = %f,%f", dpi_scale.x, dpi_scale.y);
+    ImGui::Text("Dpi scale = %f,%f", static_cast<double>(dpi_scale.x), static_cast<double>(dpi_scale.y));
 
     ImGui::SetCursorPosX(10.0f);
     ImGui::Text("GUI Mouse position:");

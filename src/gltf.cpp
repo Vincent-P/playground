@@ -68,7 +68,7 @@ void Renderer::load_model(Model &model)
     pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
     pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
 
-    vulkan::ProgramH program = api.create_program(std::move(pinfo));
+    model.program = api.create_program(std::move(pinfo));
 }
 
 std::optional<AccessorType> accessor_type_from_str(const std::string& string);

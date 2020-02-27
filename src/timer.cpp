@@ -1,4 +1,5 @@
 #include "timer.hpp"
+#include "types.hpp"
 
 namespace my_app
 {
@@ -28,12 +29,12 @@ void TimerData::update()
         float_delta_time  = delta_time.count();
     }
     {
-        static size_t previous_second = 0;
-        size_t current_second         = std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count();
+        static usize previous_second = 0;
+        usize current_second         = static_cast<usize>(std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count());
 
         if (current_second != previous_second) {
             average_fps = current_second_fps;
-            for (size_t i = 1; i < fps_histogram.size(); ++i) {
+            for (usize i = 1; i < fps_histogram.size(); ++i) {
                 average_fps += fps_histogram[i];
                 fps_histogram[i - 1]        = fps_histogram[i];
                 delta_time_histogram[i - 1] = delta_time_histogram[i];
@@ -52,7 +53,7 @@ void TimerData::update()
 TimerData::TimerData() : time(clock_t::now()), delta_time(clock_t::now() - clock_t::now())
 {
 
-    for (size_t i = 0; i < fps_histogram.size(); ++i) {
+    for (usize i = 0; i < fps_histogram.size(); ++i) {
         fps_histogram[i]        = 10.0f;
         delta_time_histogram[i] = 10.0f;
     }
