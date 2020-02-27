@@ -28,7 +28,7 @@ void App::draw_fps()
 
     static bool init = true;
     if (init) {
-	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 120.0f, 20.0f));
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / window.get_dpi_scale().x - 120.0f, 10.0f * window.get_dpi_scale().y));
 	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
     }
     else {

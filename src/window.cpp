@@ -63,7 +63,7 @@ void Window::update()
 
     // Update the mouse position for ImGui
     if (io.WantSetMousePos) {
-        glfwSetCursorPos(window, double(io.MousePos.x * dpi_scale.x), double(io.MousePos.y * dpi_scale.y));
+        glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
     }
     else {
         double mouse_x;
@@ -85,7 +85,7 @@ void Window::update()
 
     static bool init = true;
     if (init) {
-        ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
+        ImGui::SetNextWindowPos(ImVec2(10.f * dpi_scale.x, 10.0f * dpi_scale.y));
         ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     }
     else {
