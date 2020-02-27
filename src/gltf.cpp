@@ -71,8 +71,6 @@ void Renderer::load_model(Model &model)
     model.program = api.create_program(std::move(pinfo));
 }
 
-std::optional<AccessorType> accessor_type_from_str(const std::string& string);
-
 struct GltfPrimitiveAttribute
 {
     void* data;

@@ -44,13 +44,13 @@ inline std::optional<AccessorType> accessor_type_from_str(const std::string& str
     if (string == "SCALAR") {
         return AccessorType::Scalar;
     }
-    else if (string == "VEC3") {
+    if (string == "VEC3") {
         return AccessorType::Vec3;
     }
-    else if (string == "VEC4") {
+    if (string == "VEC4") {
         return AccessorType::Vec4;
     }
-    else if (string == "MAT4") {
+    if (string == "MAT4") {
         return AccessorType::Mat4;
     }
 

@@ -34,7 +34,7 @@ add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c
 # Debug specific config
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
 
-  # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+  set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 # Release specific config
 ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
