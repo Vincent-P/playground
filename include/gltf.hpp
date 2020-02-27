@@ -31,26 +31,31 @@ struct Buffer
     vulkan::BufferH buffer_h;
 };
 
-struct BufferView
-{
-    u32 buffer;
-    u32 byte_offset;
-    u32 byte_length;
-
-    u32 byte_stride;
-    u32 target;
-};
-
 enum class AccessorType
 {
     Scalar,
     Vec3,
     Vec4,
-    Mat4,
-    Unkown
+    Mat4
 };
 
-std::optional<AccessorType> accessor_type_from_str(const std::string& string);
+inline std::optional<AccessorType> accessor_type_from_str(const std::string& string)
+{
+    if (string == "SCALAR") {
+        return AccessorType::Scalar;
+    }
+    else if (string == "VEC3") {
+        return AccessorType::Vec3;
+    }
+    else if (string == "VEC4") {
+        return AccessorType::Vec4;
+    }
+    else if (string == "MAT4") {
+        return AccessorType::Mat4;
+    }
+
+    return std::nullopt;
+}
 
 // https://gist.github.com/szimek/763999
 enum class ComponentType
@@ -61,27 +66,17 @@ enum class ComponentType
     UnsignedShort = 5123,
     Int = 5124,
     UnsignedInt = 5125,
-    Float = 5126,
-};
-
-struct Accessor
-{
-    u32 buffer_view;
-    u32 byte_offset;
-    u32 count;
-    ComponentType component_type;
-    AccessorType type;
+    Float = 5126
 };
 
 struct Primitive
 {
-    u32           position_accessor;
-    u32           normal_accessor;
-    u32           indices_accessor;
-    u32           uv0_accessor;
-    u32           uv1_accessor;
     RenderingMode mode;
     u32           material;
+
+    u32 first_index;
+    u32 first_vertex;
+    u32 index_count;
 };
 
 struct Mesh
@@ -90,14 +85,28 @@ struct Mesh
     std::vector<Primitive> primitives;
 };
 
+struct GltfVertex
+{
+    float3 position;
+    float3 normal;
+    float2 uv0;
+    float2 uv1;
+    float4 joint0;
+    float4 weight0;
+};
+
 struct Model
 {
     std::vector<Mesh>       meshes;
     std::vector<Primitive>  primitives;
-    std::vector<Accessor>   accessors;
     std::vector<Material>   materials;
-    std::vector<BufferView> buffer_views;
     std::vector<Buffer>     buffers;
+
+    std::vector<GltfVertex> vertices;
+    std::vector<u16>        indices;
+
+    vulkan::BufferH vertex_buffer;
+    vulkan::BufferH index_buffer;
 };
 
 Model load_model(const char *path);
