@@ -17,6 +17,9 @@ Window::Window(int width, int height)
 
     glfwSetFramebufferSizeCallback(this->window, glfw_resize_callback);
     glfwSetMouseButtonCallback(this->window, glfw_click_callback);
+
+    GLFWmonitor* primary = glfwGetPrimaryMonitor();
+    glfwGetMonitorContentScale(primary, &dpi_scale.x, &dpi_scale.y);
 }
 
 Window::~Window() { glfwTerminate(); }
@@ -60,13 +63,13 @@ void Window::update()
 
     // Update the mouse position for ImGui
     if (io.WantSetMousePos) {
-        glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
+        glfwSetCursorPos(window, double(io.MousePos.x * dpi_scale.x), double(io.MousePos.y * dpi_scale.y));
     }
     else {
         double mouse_x;
         double mouse_y;
         glfwGetCursorPos(window, &mouse_x, &mouse_y);
-        io.MousePos = ImVec2(float(mouse_x), float(mouse_y));
+        io.MousePos = ImVec2(float(mouse_x) / dpi_scale.x, float(mouse_y) / dpi_scale.y);
 
         last_xpos = mouse_x;
         last_ypos = mouse_y;
@@ -80,8 +83,19 @@ void Window::update()
         mouse_just_pressed[i] = false;
     }
 
-    ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
-    ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    static bool init = true;
+    if (init) {
+        ImGui::SetNextWindowPos(ImVec2(20.f, 20.0f));
+        ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    }
+    else {
+        ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_NoScrollbar);
+    }
+    init = false;
+
+    ImGui::Text("DisplaySize = %f,%f", io.DisplaySize.x, io.DisplaySize.y);
+
+    ImGui::Text("Dpi scale = %f,%f", dpi_scale.x, dpi_scale.y);
 
     ImGui::SetCursorPosX(10.0f);
     ImGui::Text("GUI Mouse position:");

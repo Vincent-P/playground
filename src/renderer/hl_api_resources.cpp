@@ -96,7 +96,7 @@ ImageH API::create_image(const ImageInfo &info)
 
     vk::SamplerCreateInfo sci{};
     sci.magFilter        = vk::Filter::eNearest;
-    sci.minFilter        = vk::Filter::eLinear;
+    sci.minFilter        = vk::Filter::eNearest;
     sci.mipmapMode       = vk::SamplerMipmapMode::eLinear;
     sci.addressModeU     = vk::SamplerAddressMode::eRepeat;
     sci.addressModeV     = vk::SamplerAddressMode::eRepeat;

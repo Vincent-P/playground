@@ -28,6 +28,7 @@ struct Renderer
     vulkan::ImageH gui_texture;
 
     vulkan::RenderTargetH rt;
+    const Window *p_window;
 };
 
 } // namespace my_app

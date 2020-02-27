@@ -23,10 +23,19 @@ void App::draw_fps()
 
     io.DisplaySize.x = float(renderer.api.ctx.swapchain.extent.width);
     io.DisplaySize.y = float(renderer.api.ctx.swapchain.extent.height);
+    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 120.0f, 20.0f));
-    ImGui::SetNextWindowSize(ImVec2(100.0f, 100.0));
-    ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar);
+    static bool init = true;
+    if (init) {
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 120.0f, 20.0f));
+	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+    }
+    else {
+	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
+    }
+    init = false;
+
 
     static bool show_fps = false;
 

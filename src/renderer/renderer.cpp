@@ -1,6 +1,7 @@
 #include "renderer/renderer.hpp"
 #include <imgui.h>
 #include <iostream>
+#include "window.hpp"
 
 namespace my_app
 {
@@ -8,6 +9,7 @@ namespace my_app
 Renderer Renderer::create(const Window &window)
 {
     Renderer r;
+    r.p_window = &window;
     r.api = vulkan::API::create(window);
 
     vulkan::RTInfo info;
@@ -25,16 +27,17 @@ Renderer Renderer::create(const Window &window)
     style.TabRounding       = 0.f;
 
     ImGuiIO &io      = ImGui::GetIO();
+
     io.DisplaySize.x = float(r.api.ctx.swapchain.extent.width);
     io.DisplaySize.y = float(r.api.ctx.swapchain.extent.height);
+    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
     vulkan::ProgramInfo pinfo{};
     pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
     pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
-    pinfo.push_constant(
-        {/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
-    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                   /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+    pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
+    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,/*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
     pinfo.vertex_stride(sizeof(ImDrawVert));
 
     pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
@@ -80,9 +83,6 @@ void Renderer::imgui_draw()
     pass.attachment.load_op = vk::AttachmentLoadOp::eClear;
     pass.attachment.rt      = rt;
 
-    ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar);
-    ImGui::End();
-
     ImGui::Render();
 
     ImDrawData *data = ImGui::GetDrawData();
@@ -107,9 +107,10 @@ void Renderer::imgui_draw()
             indices += cmd_list->IdxBuffer.Size;
         }
 
+	auto dpi_scale = p_window->get_dpi_scale();
         vk::Viewport viewport{};
-        viewport.width    = ImGui::GetIO().DisplaySize.x;
-        viewport.height   = ImGui::GetIO().DisplaySize.y;
+        viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
+        viewport.height   = data->DisplaySize.y * data->FramebufferScale.y;
         viewport.minDepth = 1.0f;
         viewport.maxDepth = 1.0f;
         api.set_viewport(viewport);
@@ -120,15 +121,17 @@ void Renderer::imgui_draw()
         api.bind_vertex_buffer(v_pos);
         api.bind_index_buffer(i_pos);
 
-        std::vector<float> scale_and_translation = {
-            2.0f / ImGui::GetIO().DisplaySize.x, // X scale
-            2.0f / ImGui::GetIO().DisplaySize.y, // Y scale
-            -1.0f,                               // X translation
-            -1.0f                                // Y translation
-        };
+	float4 scale_and_translation;
+	scale_and_translation[0] = 2.0f / data->DisplaySize.x; // X Scale
+	scale_and_translation[1] = 2.0f / data->DisplaySize.y; // Y Scale
+	scale_and_translation[2] = -1.0f - data->DisplayPos.x * scale_and_translation[0]; // X Translation
+	scale_and_translation[3] = -1.0f - data->DisplayPos.y * scale_and_translation[1]; // Y Translation
 
-        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0,
-                          sizeof(float) * static_cast<u32>(scale_and_translation.size()), scale_and_translation.data());
+        api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float4), &scale_and_translation);
+
+	// Will project scissor/clipping rectangles into framebuffer space
+	ImVec2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
+	ImVec2 clip_scale = data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
         // Render GUI
         i32 vertex_offset = 0;
@@ -139,13 +142,23 @@ void Renderer::imgui_draw()
             for (int command_index = 0; command_index < cmd_list->CmdBuffer.Size; command_index++) {
                 const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
 
-                vk::Rect2D scissor;
-                scissor.offset.x      = i32(draw_command->ClipRect.x) > 0 ? i32(draw_command->ClipRect.x) : 0;
-                scissor.offset.y      = i32(draw_command->ClipRect.y) > 0 ? i32(draw_command->ClipRect.y) : 0;
-                scissor.extent.width  = u32(draw_command->ClipRect.z - draw_command->ClipRect.x);
-                scissor.extent.height = u32(draw_command->ClipRect.w - draw_command->ClipRect.y);
+                // Project scissor/clipping rectangles into framebuffer space
+                ImVec4 clip_rect;
+                clip_rect.x = (draw_command->ClipRect.x - clip_off.x) * clip_scale.x;
+                clip_rect.y = (draw_command->ClipRect.y - clip_off.y) * clip_scale.y;
+                clip_rect.z = (draw_command->ClipRect.z - clip_off.x) * clip_scale.x;
+                clip_rect.w = (draw_command->ClipRect.w - clip_off.y) * clip_scale.y;
+
+                // Apply scissor/clipping rectangle
+                // FIXME: We could clamp width/height based on clamped min/max values.
+		vk::Rect2D scissor;
+                scissor.offset.x = ((int32_t)clip_rect.x > 0) ? (int32_t)(clip_rect.x) : 0;
+                scissor.offset.y = ((int32_t)clip_rect.y > 0) ? (int32_t)(clip_rect.y) : 0;
+                scissor.extent.width = (uint32_t)(clip_rect.z - clip_rect.x);
+                scissor.extent.height = (uint32_t)(clip_rect.w - clip_rect.y + 1); // FIXME: Why +1 here?
 
                 api.set_scissor(scissor);
+
                 api.draw_indexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
 
                 index_offset += draw_command->ElemCount;

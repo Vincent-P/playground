@@ -18,6 +18,7 @@ class Window
 
     void run();
     [[nodiscard]] GLFWwindow *get_handle() const { return window; }
+    [[nodiscard]] float2 get_dpi_scale() const { return dpi_scale; }
 
     bool should_close();
     void update();
@@ -34,6 +35,7 @@ class Window
 
     GLFWwindow *window;
     double last_xpos, last_ypos;
+    float2 dpi_scale;
     std::array<bool, 5> mouse_just_pressed = {false, false, false, false, false};
 };
 
