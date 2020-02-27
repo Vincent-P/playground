@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <algorithm>
 
 #define NO_COPY_NO_MOVE(name)                                                                                          \
     name(const name &other)  = delete;                                                                                 \
