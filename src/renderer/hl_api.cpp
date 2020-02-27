@@ -57,7 +57,7 @@ void API::on_resize(int width, int height)
     ctx.on_resize(width, height);
 }
 
-void API::start_frame()
+bool API::start_frame()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
 
@@ -78,14 +78,18 @@ void API::start_frame()
                                           *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
 
     if (result == vk::Result::eErrorOutOfDateKHR) {
+#if 0
         std::cerr << "The swapchain is out of date. Recreating it...\n";
         ctx.destroy_swapchain();
         ctx.create_swapchain();
         start_frame();
         return;
+#endif
+	return false;
     }
 
     frame_resource.command_buffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    return true;
 }
 
 void API::end_frame()
@@ -114,13 +118,12 @@ void API::end_frame()
     present_i.pSwapchains        = &ctx.swapchain.handle.get();
     present_i.pImageIndices      = &ctx.swapchain.current_image;
 
-    auto result = graphics_queue.presentKHR(present_i);
-    if (result == vk::Result::eErrorOutOfDateKHR) {
-        std::cerr << "The swapchain is out of date. Recreating it...\n";
-        ctx.destroy_swapchain();
-        ctx.create_swapchain();
+    try {
+        graphics_queue.presentKHR(present_i);
     }
-
+    catch(const std::exception&) {
+	return;
+    }
     ctx.frame_count += 1;
     ctx.frame_resources.current = ctx.frame_count % ctx.frame_resources.data.size();
 }

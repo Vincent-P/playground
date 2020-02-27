@@ -162,9 +162,14 @@ void Renderer::imgui_draw()
 
 void Renderer::draw()
 {
-    api.start_frame();
-    imgui_draw();
-    api.end_frame();
+    bool is_ok = api.start_frame();
+    if (is_ok) {
+        imgui_draw();
+        api.end_frame();
+    }
+    else {
+	ImGui::EndFrame();
+    }
 }
 
 } // namespace my_app

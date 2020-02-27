@@ -24,12 +24,12 @@ void TimerData::update()
     }
     {
         auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
-        float_time        = static_cast<float>(milliseconds * 0.001f);
+        float_time        = static_cast<float>(milliseconds);
         float_delta_time  = delta_time.count();
     }
     {
         static size_t previous_second = 0;
-        size_t current_second         = static_cast<size_t>(float_time) % (2);
+        size_t current_second         = std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count();
 
         if (current_second != previous_second) {
             average_fps = current_second_fps;

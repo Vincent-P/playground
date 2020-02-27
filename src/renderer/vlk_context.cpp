@@ -363,6 +363,13 @@ void Context::on_resize(int /*width*/, int /*height*/)
 {
     destroy_swapchain();
     create_swapchain();
+
+    for (auto& frame_resource : frame_resources.data)
+    {
+        frame_resource.fence = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
+	device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
+	frame_resource.command_buffer = std::move(device->allocateCommandBuffersUnique({*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+    }
 }
 
 } // namespace my_app::vulkan

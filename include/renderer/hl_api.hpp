@@ -325,7 +325,7 @@ struct API
     void draw(); // TODO: used to make the HL API before the RenderGraph, remove once it's done
 
     void on_resize(int width, int height);
-    void start_frame();
+    bool start_frame();
     void end_frame();
     void wait_idle();
 
