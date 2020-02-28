@@ -6,10 +6,6 @@
 namespace my_app
 {
 
-static void create_depth()
-{
-}
-
 Renderer Renderer::create(const Window &window)
 {
     Renderer r;

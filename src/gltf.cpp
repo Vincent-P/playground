@@ -62,24 +62,6 @@ void Renderer::draw_model()
 			 0.0f, 0.0f, 0.5f, 0.0f,
 			 0.0f, 0.0f, 0.5f, 1.0f);
 
-    ImGui::Text("View:");
-    ImGui::Text("%.1f", double(view[0][0]));
-    ImGui::Text("%.1f", double(view[0][1]));
-    ImGui::Text("%.1f", double(view[0][2]));
-    ImGui::Text("%.1f", double(view[0][3]));
-    ImGui::Text("%.1f", double(view[1][0]));
-    ImGui::Text("%.1f", double(view[1][1]));
-    ImGui::Text("%.1f", double(view[1][2]));
-    ImGui::Text("%.1f", double(view[1][3]));
-    ImGui::Text("%.1f", double(view[2][0]));
-    ImGui::Text("%.1f", double(view[2][1]));
-    ImGui::Text("%.1f", double(view[2][2]));
-    ImGui::Text("%.1f", double(view[2][3]));
-    ImGui::Text("%.1f", double(view[3][0]));
-    ImGui::Text("%.1f", double(view[3][1]));
-    ImGui::Text("%.1f", double(view[3][2]));
-    ImGui::Text("%.1f", double(view[3][3]));
-
     // clang-format on
     ImGui::End();
 
@@ -109,7 +91,9 @@ void Renderer::draw_model()
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
 
-    for (const auto &mesh : model.meshes) {
+    for (usize node_i : model.scene) {
+	const auto& node = model.nodes[node_i];
+	const auto& mesh = model.meshes[node.mesh];
         for (const auto& primitive : mesh.primitives) {
             // if program != last program then bind program
             api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
@@ -288,6 +272,33 @@ Model load_model(const char *path)
             mesh.primitives.push_back(std::move(primitive));
         }
         model.meshes.push_back(std::move(mesh));
+    }
+
+    for (const auto &json_node : j["nodes"]) {
+	Node node;
+
+	node.mesh = json_node["mesh"];
+
+	if (json_node.count("matrix")) {
+	}
+	if (json_node.count("translation")) {
+	}
+	if (json_node.count("rotation")) {
+	}
+	if (json_node.count("scale")) {
+	    auto scale_factors = json_node["scale"];
+	    node.scale.x = scale_factors[0];
+	    node.scale.y = scale_factors[1];
+	    node.scale.z = scale_factors[2];
+	}
+
+	model.nodes.push_back(std::move(node));
+    }
+
+    usize scene_i = j["scene"];
+    const auto& scene_json = j["scenes"][scene_i];
+    for (usize node_i : scene_json["nodes"]) {
+	model.scene.push_back(node_i);
     }
 
     return model;

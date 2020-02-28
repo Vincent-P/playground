@@ -85,6 +85,12 @@ struct Mesh
     std::vector<Primitive> primitives;
 };
 
+struct Node
+{
+    usize  mesh;
+    float3 scale;
+};
+
 struct GltfVertex
 {
     float3 position;
@@ -97,6 +103,8 @@ struct GltfVertex
 
 struct Model
 {
+    std::vector<usize>      scene;
+    std::vector<Node>       nodes;
     std::vector<Mesh>       meshes;
     std::vector<Primitive>  primitives;
     std::vector<Material>   materials;
