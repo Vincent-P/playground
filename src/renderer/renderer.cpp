@@ -6,78 +6,127 @@
 namespace my_app
 {
 
+static void create_depth()
+{
+}
+
 Renderer Renderer::create(const Window &window)
 {
     Renderer r;
     r.p_window = &window;
     r.api = vulkan::API::create(window);
 
-    vulkan::RTInfo info;
-    info.is_swapchain = true;
-    r.rt              = r.api.create_rendertarget(info);
-
     /// --- Init ImGui
-    ImGui::CreateContext();
-    auto &style             = ImGui::GetStyle();
-    style.FrameRounding     = 0.f;
-    style.GrabRounding      = 0.f;
-    style.WindowRounding    = 0.f;
-    style.ScrollbarRounding = 0.f;
-    style.GrabRounding      = 0.f;
-    style.TabRounding       = 0.f;
+    {
+        ImGui::CreateContext();
+        auto &style             = ImGui::GetStyle();
+        style.FrameRounding     = 0.f;
+        style.GrabRounding      = 0.f;
+        style.WindowRounding    = 0.f;
+        style.ScrollbarRounding = 0.f;
+        style.GrabRounding      = 0.f;
+        style.TabRounding       = 0.f;
 
-    ImGuiIO &io      = ImGui::GetIO();
+        ImGuiIO &io = ImGui::GetIO();
 
-    io.DisplaySize.x = float(r.api.ctx.swapchain.extent.width);
-    io.DisplaySize.y = float(r.api.ctx.swapchain.extent.height);
-    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
-    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+        io.DisplaySize.x             = float(r.api.ctx.swapchain.extent.width);
+        io.DisplaySize.y             = float(r.api.ctx.swapchain.extent.height);
+        io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+        io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+    }
 
-    vulkan::ProgramInfo pinfo{};
-    pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
-    pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
-    pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
-    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,/*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
-    pinfo.vertex_stride(sizeof(ImDrawVert));
+    {
+	vulkan::ProgramInfo pinfo{};
+	pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
+	pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
+	pinfo.push_constant(
+	    {/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
+	pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+		       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+	pinfo.vertex_stride(sizeof(ImDrawVert));
 
-    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
-    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
-    pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
+	pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
+	pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
+	pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
+	pinfo.enable_depth = false;
 
-    r.gui_program = r.api.create_program(std::move(pinfo));
+        r.gui_program = r.api.create_program(std::move(pinfo));
+    }
 
-    vulkan::ImageInfo iinfo;
-    iinfo.name = "ImGui texture";
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name = "ImGui texture";
 
-    uchar *pixels = nullptr;
+        uchar *pixels = nullptr;
 
-    // Get image data
-    int w = 0;
-    int h = 0;
-    ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+        // Get image data
+        int w = 0;
+        int h = 0;
+        ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
 
-    iinfo.width  = static_cast<u32>(w);
-    iinfo.height = static_cast<u32>(h);
-    iinfo.depth  = 1;
+        iinfo.width  = static_cast<u32>(w);
+        iinfo.height = static_cast<u32>(h);
+        iinfo.depth  = 1;
 
-    r.gui_texture = r.api.create_image(iinfo);
-    r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
+        r.gui_texture = r.api.create_image(iinfo);
+        r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
+    }
 
-    r.model = load_model("../models/Sponza/glTF/Sponza.gltf");
-    r.load_model_data();
+    {
+        r.model = load_model("../models/Sponza/glTF/Sponza.gltf");
+        r.load_model_data();
+    }
+
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name    = "Depth texture";
+	iinfo.format = vk::Format::eD32Sfloat;
+        iinfo.width   = r.api.ctx.swapchain.extent.width;
+        iinfo.height  = r.api.ctx.swapchain.extent.height;
+        iinfo.depth   = 1;
+	iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        auto depth_h = r.api.create_image(iinfo);
+
+	vulkan::RTInfo dinfo;
+	dinfo.is_swapchain = false;
+	dinfo.image_h = depth_h;
+	r.depth_rt              = r.api.create_rendertarget(dinfo);
+
+	vulkan::RTInfo cinfo;
+	cinfo.is_swapchain = true;
+	r.color_rt              = r.api.create_rendertarget(cinfo);
+    }
 
     return r;
 }
 
 void Renderer::destroy()
 {
+    auto& depth = api.get_rendertarget(depth_rt);
+    api.destroy_image(depth.image_h);
+
     api.destroy_buffer(model.vertex_buffer);
     api.destroy_buffer(model.index_buffer);
     api.destroy_image(gui_texture);
     api.destroy();
 }
 
-void Renderer::on_resize(int width, int height) { api.on_resize(width, height); }
+void Renderer::on_resize(int width, int height)
+{
+    api.on_resize(width, height);
+
+    auto& depth = api.get_rendertarget(depth_rt);
+    api.destroy_image(depth.image_h);
+
+    vulkan::ImageInfo iinfo;
+    iinfo.name   = "Depth texture";
+    iinfo.format = vk::Format::eD32Sfloat;
+    iinfo.width  = api.ctx.swapchain.extent.width;
+    iinfo.height = api.ctx.swapchain.extent.height;
+    iinfo.depth  = 1;
+    iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    depth.image_h = api.create_image(iinfo);
+}
 
 void Renderer::wait_idle() { api.wait_idle(); }
 
@@ -175,9 +224,14 @@ void Renderer::draw()
     }
 
     vulkan::PassInfo pass;
-    pass.present            = true;
-    pass.attachment.load_op = vk::AttachmentLoadOp::eClear;
-    pass.attachment.rt      = rt;
+    pass.present       = true;
+    pass.color.load_op = vk::AttachmentLoadOp::eClear;
+    pass.color.rt      = color_rt;
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = depth_rt;
+    pass.depth = std::make_optional(depth_info);
 
     api.begin_pass(std::move(pass));
 

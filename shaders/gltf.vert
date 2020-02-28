@@ -14,6 +14,12 @@ layout (location = 3) out vec2 outUV1;
 layout (location = 4) out vec4 outJoint0;
 layout (location = 5) out vec4 outWeight0;
 
+layout (set = 0, binding = 0) uniform UBONode {
+    mat4 view;
+    mat4 proj;
+    mat4 clip;
+} node;
+
 void main()
 {
     vec4 locPos = vec4(inPosition, 1.0);
@@ -24,5 +30,6 @@ void main()
     outJoint0 = inJoint0;
     outWeight0 = inWeight0;
 
-    gl_Position = vec4(outPosition, 1.0);
+    outPosition.z *= -1;
+    gl_Position = node.clip * node.proj * node.view * vec4(outPosition, 1.0);
 }

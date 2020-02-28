@@ -4,8 +4,8 @@
 namespace my_app
 {
 
-constexpr auto DEFAULT_WIDTH  = 1280;
-constexpr auto DEFAULT_HEIGHT = 720;
+constexpr auto DEFAULT_WIDTH  = 1920;
+constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 {

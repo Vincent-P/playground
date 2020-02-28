@@ -7,7 +7,10 @@ namespace my_app::vulkan
 // TODO: multiple render targets, multisampling, depth
 static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    assert(api.get_rendertarget(info.attachment.rt).is_swapchain);
+    assert(api.get_rendertarget(info.color.rt).is_swapchain);
+    if (info.depth) {
+        assert(!api.get_rendertarget(info.depth->rt).is_swapchain);
+    }
 
     for (auto &render_pass : api.renderpasses) {
         if (render_pass.info == info) {
@@ -18,20 +21,44 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
     RenderPass rp;
     rp.info = std::move(info);
 
-    auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+    std::vector<vk::AttachmentDescription> attachments;
 
-    std::array<vk::AttachmentDescription, 1> attachments;
-    attachments[0].format         = api.ctx.swapchain.format.format;
-    attachments[0].samples        = vk::SampleCountFlagBits::e1;
-    attachments[0].loadOp         = rp.info.attachment.load_op;
-    attachments[0].storeOp        = vk::AttachmentStoreOp::eStore;
-    attachments[0].stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
-    attachments[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-    attachments[0].initialLayout  = vk::ImageLayout::eUndefined;
-    attachments[0].finalLayout    = final_layout;
-    attachments[0].flags          = {};
+    {
+	auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+
+	vk::AttachmentDescription attachment;
+	attachment.format         = api.ctx.swapchain.format.format;
+	attachment.samples        = vk::SampleCountFlagBits::e1;
+	attachment.loadOp         = rp.info.color.load_op;
+	attachment.storeOp        = vk::AttachmentStoreOp::eStore;
+	attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	attachment.initialLayout  = vk::ImageLayout::eUndefined;
+	attachment.finalLayout    = final_layout;
+	attachment.flags          = {};
+	attachments.push_back(std::move(attachment));
+    }
+
+    if (rp.info.depth)
+    {
+	const auto& depth_rt = api.get_rendertarget(rp.info.depth->rt);
+	const auto& depth_image = api.get_image(depth_rt.image_h);
+
+	vk::AttachmentDescription attachment;
+	attachment.format         = depth_image.image_info.format;
+	attachment.samples        = vk::SampleCountFlagBits::e1;
+	attachment.loadOp         = rp.info.depth->load_op;
+	attachment.storeOp        = vk::AttachmentStoreOp::eStore;
+	attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	attachment.initialLayout  = vk::ImageLayout::eUndefined;
+	attachment.finalLayout    = vk::ImageLayout::eDepthAttachmentOptimal;
+	attachment.flags          = {};
+	attachments.push_back(std::move(attachment));
+    }
 
     vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+    vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthAttachmentOptimal);
 
     std::array<vk::SubpassDescription, 1> subpasses{};
     subpasses[0].flags                   = vk::SubpassDescriptionFlags(0);
@@ -41,7 +68,9 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].colorAttachmentCount    = 1;
     subpasses[0].pColorAttachments       = &color_ref;
     subpasses[0].pResolveAttachments     = nullptr;
-    subpasses[0].pDepthStencilAttachment = nullptr;
+
+    subpasses[0].pDepthStencilAttachment = rp.info.depth ? &depth_ref : nullptr;
+
     subpasses[0].preserveAttachmentCount = 0;
     subpasses[0].pPreserveAttachments    = nullptr;
 
@@ -63,10 +92,20 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 // TODO: render targets other than one swapchain image
 static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, const RenderPass &render_pass)
 {
-    assert(api.get_rendertarget(info.attachment.rt).is_swapchain);
+    assert(api.get_rendertarget(info.color.rt).is_swapchain);
+    if (info.depth) {
+        assert(!api.get_rendertarget(info.depth->rt).is_swapchain);
+    }
 
     FrameBufferInfo fb_info;
     fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
+
+    if (info.depth) {
+	const auto& depth_rt = api.get_rendertarget(info.depth->rt);
+	const auto& depth_image = api.get_image(depth_rt.image_h);
+	fb_info.depth_view = depth_image.default_view;
+    }
+
     fb_info.render_pass = *render_pass.vkhandle;
 
     for (auto &framebuffer : api.framebuffers) {
@@ -77,7 +116,13 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, 
 
     FrameBuffer fb;
     fb.info                                  = fb_info;
-    std::array<vk::ImageView, 1> attachments = {api.ctx.swapchain.get_current_image_view()};
+
+    std::vector<vk::ImageView> attachments;
+    attachments.push_back(api.ctx.swapchain.get_current_image_view());
+
+    if (info.depth) {
+        attachments.push_back(fb.info.depth_view);
+    }
 
     vk::FramebufferCreateInfo ci{};
     ci.renderPass      = *render_pass.vkhandle;
@@ -101,16 +146,23 @@ void API::begin_pass(PassInfo &&info)
 
     vk::Rect2D render_area{vk::Offset2D(), ctx.swapchain.extent};
 
-    std::array<vk::ClearValue, 3> clear_values;
-    clear_values[0].color        = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
-    clear_values[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-    clear_values[2].color        = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
+    std::vector<vk::ClearValue> clear_values;
+    if (info.color.load_op == vk::AttachmentLoadOp::eClear) {
+	vk::ClearValue clear;
+        clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
+	clear_values.push_back(std::move(clear));
+    }
+    if (info.depth && info.depth->load_op == vk::AttachmentLoadOp::eClear) {
+	vk::ClearValue clear;
+	clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+	clear_values.push_back(std::move(clear));
+    }
 
     vk::RenderPassBeginInfo rpbi{};
     rpbi.renderArea      = render_area;
     rpbi.renderPass      = *render_pass.vkhandle;
     rpbi.framebuffer     = *frame_buffer.vkhandle;
-    rpbi.clearValueCount = render_pass.info.attachment.load_op == vk::AttachmentLoadOp::eClear ? 1 : 0;
+    rpbi.clearValueCount = static_cast<u32>(clear_values.size());
     rpbi.pClearValues    = clear_values.data();
 
     current_render_pass = &render_pass;
@@ -220,10 +272,23 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
         vp_i.pViewports    = nullptr;
 
         vk::PipelineDepthStencilStateCreateInfo ds_i{};
-        ds_i.flags            = {};
-        ds_i.depthTestEnable  = VK_FALSE;
-        ds_i.depthWriteEnable = VK_FALSE;
-        ds_i.depthCompareOp   = vk::CompareOp::eAlways;
+        ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
+
+        ds_i.depthTestEnable = pipeline_info.program_info.enable_depth ? VK_TRUE : VK_FALSE;
+        ds_i.depthWriteEnable = pipeline_info.program_info.enable_depth ? VK_TRUE : VK_FALSE;
+        ds_i.depthCompareOp = vk::CompareOp::eLessOrEqual;
+        ds_i.depthBoundsTestEnable = VK_FALSE;
+        ds_i.minDepthBounds = 0.0f;
+        ds_i.maxDepthBounds = 0.0f;
+        ds_i.stencilTestEnable = VK_FALSE;
+        ds_i.back.failOp = vk::StencilOp::eKeep;
+        ds_i.back.passOp = vk::StencilOp::eKeep;
+        ds_i.back.compareOp = vk::CompareOp::eAlways;
+        ds_i.back.compareMask = 0;
+        ds_i.back.reference = 0;
+        ds_i.back.depthFailOp = vk::StencilOp::eKeep;
+        ds_i.back.writeMask = 0;
+        ds_i.front = ds_i.back;
 
         vk::PipelineMultisampleStateCreateInfo ms_i{};
         ms_i.flags                 = {};
@@ -278,8 +343,10 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
 
 static DescriptorSet &find_or_create_descriptor_sets(API &api, Program &program)
 {
-    for (auto &descriptor_set : program.descriptor_sets) {
+    for (usize i = 0; i < program.descriptor_sets.size(); i++) {
+	auto& descriptor_set = program.descriptor_sets[i];
         if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
+	    program.current_descriptor_set = i;
             return descriptor_set;
         }
     }
@@ -341,6 +408,29 @@ void API::bind_image(ProgramH program_h, uint slot, ImageH image_h)
         program.binded_data[slot] = std::move(data);
         program.data_dirty        = true;
     }
+}
+
+void API::bind_buffer(ProgramH program_h, uint slot, CircularBufferPosition buffer_pos)
+{
+    auto &program = get_program(program_h);
+    auto &buffer   = get_buffer(buffer_pos.buffer_h);
+
+    if (program.binded_data.size() <= slot) {
+        usize missing = slot - program.binded_data.size() + 1;
+        for (usize i = 0; i < missing; i++) {
+            program.binded_data.emplace_back(std::nullopt);
+        }
+    }
+
+    ShaderBinding data;
+    data.binding            = slot;
+    data.type               = program.info.bindings[slot].type;
+    data.buffer_info.buffer = buffer.vkhandle;
+    data.buffer_info.offset = buffer_pos.offset;
+    data.buffer_info.range  = buffer_pos.length;
+
+    program.binded_data[slot] = std::move(data);
+    program.data_dirty        = true;
 }
 
 void API::bind_vertex_buffer(BufferH H, u32 offset)

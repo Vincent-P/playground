@@ -89,7 +89,7 @@ struct Context
 
     static Context create(const Window &window);
     void create_swapchain();
-    void create_frame_resources(usize count = 2);
+    void create_frame_resources(usize count = 1);
     void destroy_swapchain();
     void on_resize(int width, int height);
     void destroy();

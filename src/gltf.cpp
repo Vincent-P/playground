@@ -3,6 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <glm/glm.hpp>
+
+#include <glm/gtc/matrix_transform.hpp> // lookAt perspective
 
 #include "tools.hpp"
 #include "renderer/renderer.hpp"
@@ -14,6 +17,78 @@ namespace fs = std::filesystem;
 
 void Renderer::draw_model()
 {
+    float3 cam_up = float3(0, 1, 0);
+
+
+    ImGui::Begin("Camera");
+    static float s_camera_pos[3] = {0.0f, 0.0f, 10.0f};
+    ImGui::SliderFloat3("Camera position", s_camera_pos, -300.0f, 300.0f);
+    static float s_target_pos[3] = {10.0f, 10.0f, 10.0f};
+    ImGui::SliderFloat3("Camera target", s_target_pos, -90.0f, 90.0f);
+
+    float3 target_pos;
+    target_pos.x = s_target_pos[0];
+    target_pos.y = s_target_pos[1];
+    target_pos.z = s_target_pos[2];
+
+    float3 camera_pos;
+    camera_pos.x = s_camera_pos[0];
+    camera_pos.y = s_camera_pos[1];
+    camera_pos.z = s_camera_pos[2];
+
+    float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
+    float fov          = 45.0f;
+    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 5000.0f);
+
+    ImGui::SetCursorPosX(10.0f);
+    ImGui::Text("Target position:");
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("X: %.1f", double(target_pos.x));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Y: %.1f", double(target_pos.y));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Z: %.1f", double(target_pos.z));
+
+
+    // clang-format off
+    float4x4 view = glm::lookAt(
+	camera_pos,       // origin of camera
+	camera_pos + target_pos,    // where to look
+	cam_up);
+
+    // Vulkan clip space has inverted Y and half Z.
+    float4x4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+			 0.0f, -1.0f, 0.0f, 0.0f,
+			 0.0f, 0.0f, 0.5f, 0.0f,
+			 0.0f, 0.0f, 0.5f, 1.0f);
+
+    ImGui::Text("View:");
+    ImGui::Text("%.1f", double(view[0][0]));
+    ImGui::Text("%.1f", double(view[0][1]));
+    ImGui::Text("%.1f", double(view[0][2]));
+    ImGui::Text("%.1f", double(view[0][3]));
+    ImGui::Text("%.1f", double(view[1][0]));
+    ImGui::Text("%.1f", double(view[1][1]));
+    ImGui::Text("%.1f", double(view[1][2]));
+    ImGui::Text("%.1f", double(view[1][3]));
+    ImGui::Text("%.1f", double(view[2][0]));
+    ImGui::Text("%.1f", double(view[2][1]));
+    ImGui::Text("%.1f", double(view[2][2]));
+    ImGui::Text("%.1f", double(view[2][3]));
+    ImGui::Text("%.1f", double(view[3][0]));
+    ImGui::Text("%.1f", double(view[3][1]));
+    ImGui::Text("%.1f", double(view[3][2]));
+    ImGui::Text("%.1f", double(view[3][3]));
+
+    // clang-format on
+    ImGui::End();
+
+    auto u_pos = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+    auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
+    buffer[0] = view;
+    buffer[1] = proj;
+    buffer[2] = clip;
+
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
     viewport.height   = api.ctx.swapchain.extent.height;
@@ -28,6 +103,8 @@ void Renderer::draw_model()
     // last program
     // bind program
     api.bind_program(model.program);
+
+    api.bind_buffer(model.program, 0, u_pos);
 
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
@@ -70,6 +147,7 @@ void Renderer::load_model_data()
     pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
+    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBuffer, /*.count = */ 1});
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
@@ -77,6 +155,7 @@ void Renderer::load_model_data()
     pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
     pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
     pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
+    pinfo.enable_depth = true;
 
     model.program = api.create_program(std::move(pinfo));
 }

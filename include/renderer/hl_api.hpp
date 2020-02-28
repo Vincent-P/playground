@@ -32,6 +32,7 @@ struct ImageInfo
     u32 mip_levels                  = 1;
     u32 layers                      = 1;
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
+    vk::ImageUsageFlags usages = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
 };
 
 struct Image
@@ -76,12 +77,13 @@ using BufferH = Handle<Buffer>;
 struct RTInfo
 {
     bool is_swapchain;
+    ImageH image_h;
 };
 
 struct RenderTarget
 {
     bool is_swapchain;
-    ImageH image;
+    ImageH image_h;
 };
 
 using RenderTargetH = Handle<RenderTarget>;
@@ -89,6 +91,7 @@ using RenderTargetH = Handle<RenderTarget>;
 struct FrameBufferInfo
 {
     vk::ImageView image_view;
+    vk::ImageView depth_view;
 
     vk::RenderPass render_pass; // renderpass info instead?
 };
@@ -117,12 +120,13 @@ inline bool operator==(const AttachmentInfo &a, const AttachmentInfo &b)
 struct PassInfo
 {
     bool present; // if it is the last pass and it should transition to present
-    AttachmentInfo attachment;
+    AttachmentInfo color;
+    std::optional<AttachmentInfo> depth;
 };
 
 inline bool operator==(const PassInfo &a, const PassInfo &b)
 {
-    return a.present == b.present && a.attachment == b.attachment;
+    return a.present == b.present && a.color == b.color && a.depth == b.depth;
 }
 
 struct RenderPass
@@ -203,6 +207,7 @@ struct ProgramInfo
     std::vector<PushConstantInfo> push_constants;
     std::vector<BindingInfo> bindings;
     VertexBufferInfo vertex_buffer_info;
+    bool enable_depth;
 
     void push_constant(PushConstantInfo &&push_constant);
     void binding(BindingInfo &&binding);
@@ -312,6 +317,7 @@ struct API
     std::vector<Shader> shaders;
 
     CircularBuffer staging_buffer;
+    CircularBuffer dyn_uniform_buffer;
     CircularBuffer dyn_vertex_buffer;
     CircularBuffer dyn_index_buffer;
 
@@ -334,6 +340,7 @@ struct API
     void end_pass();
     void bind_program(ProgramH H);
     void bind_image(ProgramH program_h, uint slot, ImageH image_h);
+    void bind_buffer(ProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
 
     template<typename T>
     T* bind_uniform()
@@ -356,6 +363,7 @@ struct API
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);
     CircularBufferPosition dynamic_vertex_buffer(usize len);
     CircularBufferPosition dynamic_index_buffer(usize len);
+    CircularBufferPosition dynamic_uniform_buffer(usize len);
 
     /// --- Resources
     ImageH create_image(const ImageInfo &info);

@@ -13,6 +13,7 @@ RenderTargetH API::create_rendertarget(const RTInfo &info)
 {
     RenderTarget rt;
     rt.is_swapchain = info.is_swapchain;
+    rt.image_h = info.image_h;
 
     rendertargets.push_back(std::move(rt));
 
@@ -53,7 +54,7 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.arrayLayers           = info.layers;
     img.image_info.samples               = info.samples;
     img.image_info.initialLayout         = vk::ImageLayout::eUndefined;
-    img.image_info.usage                 = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    img.image_info.usage                 = info.usages;
     img.image_info.queueFamilyIndexCount = 0;
     img.image_info.pQueueFamilyIndices   = nullptr;
     img.image_info.sharingMode           = vk::SharingMode::eExclusive;
@@ -338,6 +339,11 @@ CircularBufferPosition API::dynamic_vertex_buffer(usize len)
     return map_circular_buffer_internal(*this, dyn_vertex_buffer, len);
 }
 
+CircularBufferPosition API::dynamic_uniform_buffer(usize len)
+{
+    return map_circular_buffer_internal(*this, dyn_uniform_buffer, len);
+}
+
 CircularBufferPosition API::dynamic_index_buffer(usize len)
 {
     return map_circular_buffer_internal(*this, dyn_index_buffer, len);
@@ -396,8 +402,9 @@ ProgramH API::create_program(ProgramInfo &&info)
     });
 
     vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
-    std::vector<vk::DescriptorBindingFlags> flags{
-        info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+    // clang-format off
+    std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+    // clang-format on
     auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();

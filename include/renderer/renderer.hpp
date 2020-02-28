@@ -34,10 +34,12 @@ struct Renderer
     // ImGui
     vulkan::ProgramH gui_program;
     vulkan::ImageH gui_texture;
+
     // glTF
     Model model;
 
-    vulkan::RenderTargetH rt;
+    vulkan::RenderTargetH depth_rt;
+    vulkan::RenderTargetH color_rt;
     const Window *p_window;
 };
 

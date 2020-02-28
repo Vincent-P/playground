@@ -31,6 +31,16 @@ API API::create(const Window &window)
 
     {
         BufferInfo binfo;
+        binfo.name                     = "Dynamic Uniform Buffer";
+        binfo.size                     = 64 * 1024 * 1024;
+        binfo.usage                    = vk::BufferUsageFlagBits::eUniformBuffer;
+        binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        api.dyn_uniform_buffer.buffer_h = api.create_buffer(binfo);
+        api.dyn_uniform_buffer.offset   = 0;
+    }
+
+    {
+        BufferInfo binfo;
         binfo.name                    = "Dynamic Index Buffer";
         binfo.size                    = 16 * 1024 * 1024;
         binfo.usage                   = vk::BufferUsageFlagBits::eIndexBuffer;
@@ -45,6 +55,7 @@ API API::create(const Window &window)
 void API::destroy()
 {
     destroy_buffer(staging_buffer.buffer_h);
+    destroy_buffer(dyn_uniform_buffer.buffer_h);
     destroy_buffer(dyn_vertex_buffer.buffer_h);
     destroy_buffer(dyn_index_buffer.buffer_h);
 

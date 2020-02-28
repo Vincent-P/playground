@@ -49,6 +49,7 @@ using float4 = glm::vec4;
 using int2 = glm::ivec2;
 using int3 = glm::ivec3;
 using int4 = glm::ivec4;
+using float4x4 = glm::mat4;
 
 /// --- Utility functions
 
