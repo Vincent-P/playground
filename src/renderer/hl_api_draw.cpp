@@ -177,7 +177,7 @@ void API::end_pass()
     current_render_pass = nullptr;
 }
 
-static vk::Pipeline find_or_create_pipeline(API &api, Program &program, PipelineInfo &&pipeline_info)
+static vk::Pipeline find_or_create_pipeline(API &api, Program &program, PipelineInfo &pipeline_info)
 {
 
     u32 pipeline_i = u32_invalid;
@@ -333,7 +333,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
         pipe_i.renderPass          = pipeline_info.vk_render_pass;
         pipe_i.subpass             = 0; // TODO: subpasses
 
-        program.pipelines_info.push_back(std::move(pipeline_info));
+        program.pipelines_info.push_back(pipeline_info);
         program.pipelines_vk.push_back(api.ctx.device->createGraphicsPipelineUnique(nullptr, pipe_i));
         pipeline_i = static_cast<u32>(program.pipelines_vk.size()) - 1;
     }
@@ -377,7 +377,7 @@ void API::bind_program(ProgramH H)
 
     /// --- Find and bind graphics pipeline
     PipelineInfo pipeline_info{program.info, *program.pipeline_layout, *render_pass.vkhandle};
-    auto pipeline = find_or_create_pipeline(*this, program, std::move(pipeline_info));
+    auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
     /// --- TODO: multiple descriptor set, bind shader set here
@@ -497,7 +497,9 @@ static void pre_draw(API &api, Program &program)
     }
 
     const auto &descriptor_set = program.descriptor_sets[program.current_descriptor_set].set;
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, 0, descriptor_set, {});
+    std::vector<u32> offsets;
+    offsets.resize(program.dynamic_count);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, 0, descriptor_set, offsets);
 }
 
 void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance)

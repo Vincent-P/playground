@@ -82,35 +82,6 @@ void Window::update()
         io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
         mouse_just_pressed[i] = false;
     }
-
-    static bool init = true;
-    if (init) {
-        ImGui::SetNextWindowPos(ImVec2(10.f * dpi_scale.x, 10.0f * dpi_scale.y));
-        ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-    }
-    else {
-        ImGui::Begin("Mouse Internals", nullptr, ImGuiWindowFlags_NoScrollbar);
-    }
-    init = false;
-
-    ImGui::Text("DisplaySize = %f,%f", static_cast<double>(io.DisplaySize.x), static_cast<double>(io.DisplaySize.y));
-
-    ImGui::Text("Dpi scale = %f,%f", static_cast<double>(dpi_scale.x), static_cast<double>(dpi_scale.y));
-
-    ImGui::SetCursorPosX(10.0f);
-    ImGui::Text("GUI Mouse position:");
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("X: %.1f", double(io.MousePos.x));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Y: %.1f", double(io.MousePos.y));
-
-    ImGui::SetCursorPosX(10.0f);
-    ImGui::Text("Last Mouse position:");
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("X: %.1f", double(last_xpos));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Y: %.1f", double(last_ypos));
-    ImGui::End();
 }
 
 } // namespace my_app

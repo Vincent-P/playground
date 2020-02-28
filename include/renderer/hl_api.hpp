@@ -271,6 +271,7 @@ struct Program
     std::vector<vk::UniquePipeline> pipelines_vk;
 
     ProgramInfo info;
+    usize dynamic_count;
 };
 
 using ProgramH = Handle<Program>;

@@ -14,22 +14,25 @@ layout (location = 3) out vec2 outUV1;
 layout (location = 4) out vec4 outJoint0;
 layout (location = 5) out vec4 outWeight0;
 
-layout (set = 0, binding = 0) uniform UBONode {
+layout (set = 0, binding = 0) uniform UBOCam {
     mat4 view;
     mat4 proj;
     mat4 clip;
+} cam;
+
+layout (set = 0, binding = 1) uniform UBONode {
+    mat4 transform;
 } node;
 
 void main()
 {
-    vec4 locPos = vec4(inPosition, 1.0);
-    outNormal = inNormal;
+    vec4 locPos = node.transform * vec4(inPosition, 1.0);
+    outNormal = normalize(transpose(inverse(mat3(node.transform))) * inNormal);
     outPosition = locPos.xyz / locPos.w;
     outUV0 = inUV0;
     outUV1 = inUV1;
     outJoint0 = inJoint0;
     outWeight0 = inWeight0;
 
-    outPosition.z *= -1;
-    gl_Position = node.clip * node.proj * node.view * vec4(outPosition, 1.0);
+    gl_Position = cam.clip * cam.proj * cam.view * vec4(outPosition, 1.0);
 }

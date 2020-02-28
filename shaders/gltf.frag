@@ -12,5 +12,5 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-    outColor = vec4(inNormal, 1);
+    outColor = vec4(abs(inNormal), 1);
 }

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <glm/glm.hpp>
-
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp> // lookAt perspective
 
 #include "tools.hpp"
@@ -15,16 +15,42 @@ namespace my_app
 using json   = nlohmann::json;
 namespace fs = std::filesystem;
 
+static void draw_node(Renderer& r, Node& node)
+{
+    if (node.dirty) {
+        node.dirty = false;
+        auto translation = glm::translate(glm::mat4(1.0f), node.translation);
+        auto rotation = glm::mat4(node.rotation);
+        auto scale = glm::scale(glm::mat4(1.0f), node.scale);
+        node.cached_transform =  translation * rotation * scale;
+    }
+
+    auto u_pos = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
+    *buffer = node.cached_transform;
+    r.api.bind_buffer(r.model.program, 1, u_pos);
+
+    const auto& mesh = r.model.meshes[node.mesh];
+    for (const auto& primitive : mesh.primitives) {
+        // if program != last program then bind program
+        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+    }
+
+    for (auto child_i : node.children) {
+        draw_node(r, r.model.nodes[child_i]);
+    }
+}
+
 void Renderer::draw_model()
 {
     float3 cam_up = float3(0, 1, 0);
 
 
     ImGui::Begin("Camera");
-    static float s_camera_pos[3] = {0.0f, 0.0f, 10.0f};
-    ImGui::SliderFloat3("Camera position", s_camera_pos, -300.0f, 300.0f);
-    static float s_target_pos[3] = {10.0f, 10.0f, 10.0f};
-    ImGui::SliderFloat3("Camera target", s_target_pos, -90.0f, 90.0f);
+    static float s_camera_pos[3] = {2.0f, 0.5f, 0.5f};
+    ImGui::SliderFloat3("Camera position", s_camera_pos, -25.0f, 25.0f);
+    static float s_target_pos[3] = {1.0f, 0.0f, 0.0f};
+    ImGui::SliderFloat3("Camera target", s_target_pos, -1.0f, 1.0f);
 
     float3 target_pos;
     target_pos.x = s_target_pos[0];
@@ -37,7 +63,10 @@ void Renderer::draw_model()
     camera_pos.z = s_camera_pos[2];
 
     float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
-    float fov          = 45.0f;
+
+    static float fov          = 45.0f;
+    ImGui::SliderFloat("FOV", &fov, 30.f, 90.f);
+
     float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 5000.0f);
 
     ImGui::SetCursorPosX(10.0f);
@@ -48,7 +77,6 @@ void Renderer::draw_model()
     ImGui::Text("Y: %.1f", double(target_pos.y));
     ImGui::SetCursorPosX(20.0f);
     ImGui::Text("Z: %.1f", double(target_pos.z));
-
 
     // clang-format off
     float4x4 view = glm::lookAt(
@@ -92,12 +120,7 @@ void Renderer::draw_model()
     api.bind_vertex_buffer(model.vertex_buffer);
 
     for (usize node_i : model.scene) {
-	const auto& node = model.nodes[node_i];
-	const auto& mesh = model.meshes[node.mesh];
-        for (const auto& primitive : mesh.primitives) {
-            // if program != last program then bind program
-            api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
-        }
+        draw_node(*this, model.nodes[node_i]);
     }
 }
 
@@ -131,7 +154,8 @@ void Renderer::load_model_data()
     pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBuffer, /*.count = */ 1});
+    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    pinfo.binding({/*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
@@ -281,16 +305,33 @@ Model load_model(const char *path)
 
 	if (json_node.count("matrix")) {
 	}
+
 	if (json_node.count("translation")) {
+	    auto translation_factors = json_node["translation"];
+	    node.translation.x = translation_factors[0];
+	    node.translation.y = translation_factors[1];
+	    node.translation.z = translation_factors[2];
 	}
+
 	if (json_node.count("rotation")) {
+            const auto& rotation = json_node["rotation"];
+            node.rotation = glm::quat(rotation[0], rotation[1], rotation[2], rotation[3]);
 	}
+
 	if (json_node.count("scale")) {
 	    auto scale_factors = json_node["scale"];
 	    node.scale.x = scale_factors[0];
 	    node.scale.y = scale_factors[1];
 	    node.scale.z = scale_factors[2];
 	}
+
+        if (json_node.count("children")) {
+            const auto& children =  json_node["children"];
+            node.children.reserve(children.size());
+            for (usize child_i : children) {
+                node.children.push_back(child_i);
+            }
+        }
 
 	model.nodes.push_back(std::move(node));
     }

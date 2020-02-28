@@ -392,11 +392,18 @@ ProgramH API::create_program(ProgramInfo &&info)
     /// --- Create descriptor set layout
 
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    map_transform(info.bindings, bindings, [](const auto &info_binding) {
+    program.dynamic_count = 0;
+
+    map_transform(info.bindings, bindings, [&](const auto &info_binding) {
         vk::DescriptorSetLayoutBinding binding;
         binding.binding         = info_binding.slot;
         binding.stageFlags      = info_binding.stages;
         binding.descriptorType  = info_binding.type;
+
+        if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+            program.dynamic_count++;
+        }
+
         binding.descriptorCount = info_binding.count;
         return binding;
     });

@@ -2,6 +2,7 @@
 #include "types.hpp"
 #include <vector>
 #include <optional>
+#include <glm/gtc/quaternion.hpp>
 #include "renderer/hl_api.hpp"
 
 namespace my_app
@@ -87,8 +88,16 @@ struct Mesh
 
 struct Node
 {
-    usize  mesh;
-    float3 scale;
+    usize    mesh;
+
+    bool     dirty{ true };
+    float4x4 cached_transform;
+
+    float3   translation{};
+    float3   scale{ 1.0f };
+    glm::quat rotation{};
+
+    std::vector<u32> children;
 };
 
 struct GltfVertex
