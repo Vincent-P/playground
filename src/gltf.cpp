@@ -12,10 +12,22 @@ namespace my_app
 using json   = nlohmann::json;
 namespace fs = std::filesystem;
 
-void Renderer::draw_model(Model &model)
+void Renderer::draw_model()
 {
+    vk::Viewport viewport{};
+    viewport.width    = api.ctx.swapchain.extent.width;
+    viewport.height   = api.ctx.swapchain.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent = api.ctx.swapchain.extent;
+    api.set_scissor(scissor);
+
     // last program
     // bind program
+    api.bind_program(model.program);
 
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
@@ -28,7 +40,7 @@ void Renderer::draw_model(Model &model)
     }
 }
 
-void Renderer::load_model(Model &model)
+void Renderer::load_model_data()
 {
     {
         usize              buffer_size = model.vertices.size() * sizeof(GltfVertex);
@@ -55,21 +67,20 @@ void Renderer::load_model(Model &model)
     }
 
     vulkan::ProgramInfo pinfo{};
-    pinfo.vertex_shader = api.create_shader("shaders/sponza.vert.spv");
-    pinfo.fragment_shader = api.create_shader("shaders/sponza.frag.spv");
-    pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
-    pinfo.binding({/*.slot = */ 0,
-                   /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                   /*.type = */ vk::DescriptorType::eCombinedImageSampler,
-                   /*.count = */ 1});
+    pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
+    pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-    pinfo.vertex_stride(sizeof(ImDrawVert));
-    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
-    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
-    pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
+    pinfo.vertex_stride(sizeof(GltfVertex));
+    pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
+    pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
+    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv0)});
+    pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
+    pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
+    pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
 
     model.program = api.create_program(std::move(pinfo));
 }
+
 
 struct GltfPrimitiveAttribute
 {
@@ -175,13 +186,24 @@ Model load_model(const char *path)
                 }
             }
 
-            auto indices_attribute = gltf_primitive_attribute(model, j, json_primitive, "indices");
-            if (indices_attribute)
             {
-                auto *indices = reinterpret_cast<u16*>(indices_attribute->data);
-                for (usize i = 0; i < indices_attribute->len; i++) {
+                uint accessor_i = json_primitive["indices"];
+                auto accessor = j["accessors"][accessor_i];
+                uint view_i = accessor["bufferView"];
+                auto view = j["bufferViews"][view_i];
+                auto &buffer = model.buffers[view["buffer"]];
+
+                usize count = accessor["count"];
+                usize acc_offset = accessor["byteOffset"];
+                usize view_offset = view["byteOffset"];
+                usize offset = acc_offset + view_offset;
+
+                auto *indices = reinterpret_cast<u16*>(&buffer.data[offset]);
+                for (usize i = 0; i < count; i++) {
                     model.indices.push_back(indices[i]);
                 }
+
+                primitive.index_count = count;
             }
 
             mesh.primitives.push_back(std::move(primitive));

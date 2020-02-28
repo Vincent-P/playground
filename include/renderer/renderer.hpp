@@ -1,6 +1,7 @@
 #pragma once
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
+#include "gltf.hpp"
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -19,17 +20,22 @@ struct Renderer
     static Renderer create(const Window &window);
     void destroy();
 
+    void draw();
     void on_resize(int width, int height);
     void wait_idle();
 
-    void load_model(Model& model);
-    void draw_model(Model& model);
+    // glTF
+    void load_model_data();
+    void draw_model();
 
+    // ImGui
     void imgui_draw();
-    void draw();
 
+    // ImGui
     vulkan::ProgramH gui_program;
     vulkan::ImageH gui_texture;
+    // glTF
+    Model model;
 
     vulkan::RenderTargetH rt;
     const Window *p_window;
