@@ -50,7 +50,7 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.extent.width          = info.width;
     img.image_info.extent.height         = info.height;
     img.image_info.extent.depth          = info.depth;
-    img.image_info.mipLevels             = info.mip_levels;
+    img.image_info.mipLevels             = 1;
     img.image_info.arrayLayers           = info.layers;
     img.image_info.samples               = info.samples;
     img.image_info.initialLayout         = vk::ImageLayout::eUndefined;
@@ -58,6 +58,11 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.queueFamilyIndexCount = 0;
     img.image_info.pQueueFamilyIndices   = nullptr;
     img.image_info.sharingMode           = vk::SharingMode::eExclusive;
+
+    if (info.generate_mip_levels) {
+        img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
+        img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
+    }
 
     VmaAllocationCreateInfo alloc_info{};
     alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
@@ -156,15 +161,14 @@ void API::upload_image(ImageH H, void *data, usize len)
     auto staging_position = copy_to_staging_buffer(data, len);
 
     auto &image       = get_image(H);
-    const auto &range = image.full_range;
+    auto range = image.full_range;
+    range.levelCount = 1; // TODO: mips?
 
     cmd_buffer.begin();
 
     std::vector<vk::BufferImageCopy> copies;
     copies.reserve(range.levelCount);
-
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE,
-                               range);
+    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE, range);
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++) {
         vk::BufferImageCopy copy;
@@ -183,6 +187,90 @@ void API::upload_image(ImageH H, void *data, usize len)
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
 
     transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
+
+    cmd_buffer.submit_and_wait();
+}
+
+void API::generate_mipmaps(ImageH h)
+{
+    auto cmd_buffer = get_temp_cmd_buffer();
+    auto &image       = get_image(h);
+
+    u32 width = image.image_info.extent.width;
+    u32 height = image.image_info.extent.height;
+    u32 mip_levels = image.image_info.mipLevels;
+
+    if (mip_levels == 1) {
+        return;
+    }
+
+    cmd_buffer.begin();
+
+
+    auto& cmd = cmd_buffer.vkhandle;
+
+    {
+        vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+        vk::ImageMemoryBarrier b{};
+        b.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+        b.srcAccessMask = vk::AccessFlags();
+        b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+        b.image = image.vkhandle;
+        b.subresourceRange = mip_sub_range;
+        cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+    }
+
+    for (u32 i = 1; i < mip_levels; i++)
+    {
+        auto src_width = width >> (i - 1);
+        auto src_height = height >> (i - 1);
+        auto dst_width = width >> i;
+        auto dst_height = height >> i;
+
+        vk::ImageBlit blit{};
+        blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blit.srcSubresource.layerCount = 1;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcOffsets[1].x = static_cast<i32>(src_width);
+        blit.srcOffsets[1].y = static_cast<i32>(src_height);
+        blit.srcOffsets[1].z = 1;
+        blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        blit.dstSubresource.layerCount = 1;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstOffsets[1].x = static_cast<i32>(dst_width);
+        blit.dstOffsets[1].y = static_cast<i32>(dst_height);
+        blit.dstOffsets[1].z = 1;
+
+        vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
+
+        {
+            vk::ImageMemoryBarrier b{};
+            b.oldLayout = vk::ImageLayout::eUndefined;
+            b.newLayout = vk::ImageLayout::eTransferDstOptimal;
+            b.srcAccessMask = vk::AccessFlags();
+            b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+            b.image = image.vkhandle;
+            b.subresourceRange = mip_sub_range;
+            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+        }
+
+        cmd->blitImage(image.vkhandle, vk::ImageLayout::eTransferSrcOptimal, image.vkhandle, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+
+        {
+            vk::ImageMemoryBarrier b{};
+            b.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+            b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+            b.image = image.vkhandle;
+            b.subresourceRange = mip_sub_range;
+            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+        }
+    }
+
+    image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
+    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_READ, image.access, image.full_range);
 
     cmd_buffer.submit_and_wait();
 }

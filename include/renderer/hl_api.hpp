@@ -34,7 +34,7 @@ struct ImageInfo
     u32 width;
     u32 height;
     u32 depth;
-    u32 mip_levels                  = 1;
+    bool generate_mip_levels = false;
     u32 layers                      = 1;
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
     vk::ImageUsageFlags usages = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
@@ -378,6 +378,7 @@ struct API
     Image &get_image(ImageH H);
     void destroy_image(ImageH H);
     void upload_image(ImageH H, void *data, usize len);
+    void generate_mipmaps(ImageH H);
 
     RenderTargetH create_rendertarget(const RTInfo &info);
     RenderTarget &get_rendertarget(RenderTargetH H);

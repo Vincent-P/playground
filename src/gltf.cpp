@@ -191,6 +191,8 @@ void Renderer::load_model_data()
             iinfo.width  = static_cast<u32>(width);
             iinfo.height = static_cast<u32>(height);
             iinfo.depth  = 1;
+            iinfo.generate_mip_levels = true;
+
             if (nb_comp == 1) {
                 iinfo.format = vk::Format::eR8Unorm;
             }
@@ -210,6 +212,7 @@ void Renderer::load_model_data()
 
             image.image_h = api.create_image(iinfo);
             api.upload_image(image.image_h, pixels, static_cast<usize>(width * height * nb_comp));
+            api.generate_mipmaps(image.image_h);
 
 //       n
 //       1           grey
