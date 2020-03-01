@@ -135,7 +135,7 @@ inline bool operator==(const AttachmentInfo &a, const AttachmentInfo &b)
 struct PassInfo
 {
     bool present; // if it is the last pass and it should transition to present
-    AttachmentInfo color;
+    std::optional<AttachmentInfo> color;
     std::optional<AttachmentInfo> depth;
 };
 

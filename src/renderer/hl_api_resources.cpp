@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <iostream>
 #include <vulkan/vulkan.hpp>
+#include <cassert>
+#include "types.hpp"
 
 namespace my_app::vulkan
 {
@@ -21,7 +23,11 @@ RenderTargetH API::create_rendertarget(const RTInfo &info)
     return RenderTargetH(h);
 }
 
-RenderTarget &API::get_rendertarget(RenderTargetH H) { return rendertargets[H.value()]; }
+RenderTarget &API::get_rendertarget(RenderTargetH H)
+{
+    assert(H.is_valid());
+    return rendertargets[H.value()];
+}
 
 /// --- Images
 
@@ -119,7 +125,11 @@ ImageH API::create_image(const ImageInfo &info)
     return ImageH(static_cast<u32>(images.size()) - 1);
 }
 
-Image &API::get_image(ImageH H) { return images[H.value()]; }
+Image &API::get_image(ImageH H)
+{
+    assert(H.is_valid());
+    return images[H.value()];
+}
 
 static void destroy_image_internal(API &api, Image &img)
 {
@@ -304,6 +314,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
 
 Sampler &API::get_sampler(SamplerH H)
 {
+    assert(H.is_valid());
     return samplers[H.value()];
 }
 
@@ -344,7 +355,11 @@ BufferH API::create_buffer(const BufferInfo &info)
     return BufferH(static_cast<u32>(buffers.size()) - 1);
 }
 
-Buffer &API::get_buffer(BufferH H) { return buffers[H.value()]; }
+Buffer &API::get_buffer(BufferH H)
+{
+    assert(H.is_valid());
+    return buffers[H.value()];
+}
 
 static void destroy_buffer_internal(API &api, Buffer &buf)
 {
@@ -492,7 +507,11 @@ ShaderH API::create_shader(const char *path)
     return ShaderH(static_cast<u32>(shaders.size()) - 1);
 }
 
-Shader &API::get_shader(ShaderH H) { return shaders[H.value()]; }
+Shader &API::get_shader(ShaderH H)
+{
+    assert(H.is_valid());
+    return shaders[H.value()];
+}
 
 void API::destroy_shader(ShaderH /*unused*/) {}
 
@@ -588,7 +607,11 @@ ProgramH API::create_program(ProgramInfo &&info)
     return ProgramH(static_cast<u32>(programs.size()) - 1);
 }
 
-Program &API::get_program(ProgramH H) { return programs[H.value()]; }
+Program &API::get_program(ProgramH H)
+{
+    assert(H.is_valid());
+    return programs[H.value()];
+}
 
 void API::destroy_program(ProgramH /*unused*/) {}
 

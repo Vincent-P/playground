@@ -18,13 +18,18 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 
     std::vector<vk::AttachmentDescription> attachments;
 
-    {
-	auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+    vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+    vk::AttachmentReference depth_ref(0, vk::ImageLayout::eDepthAttachmentOptimal);
 
+    if (rp.info.color)
+    {
+        color_ref.attachment = static_cast<u32>(attachments.size());
+
+	auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
 	vk::AttachmentDescription attachment;
 	attachment.format         = api.ctx.swapchain.format.format;
 	attachment.samples        = vk::SampleCountFlagBits::e1;
-	attachment.loadOp         = rp.info.color.load_op;
+	attachment.loadOp         = rp.info.color->load_op;
 	attachment.storeOp        = vk::AttachmentStoreOp::eStore;
 	attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
 	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
@@ -36,6 +41,8 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 
     if (rp.info.depth)
     {
+        depth_ref.attachment = static_cast<u32>(attachments.size());
+
 	const auto& depth_rt = api.get_rendertarget(rp.info.depth->rt);
 	const auto& depth_image = api.get_image(depth_rt.image_h);
 
@@ -52,16 +59,14 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 	attachments.push_back(std::move(attachment));
     }
 
-    vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-    vk::AttachmentReference depth_ref(1, vk::ImageLayout::eDepthAttachmentOptimal);
 
     std::array<vk::SubpassDescription, 1> subpasses{};
     subpasses[0].flags                   = vk::SubpassDescriptionFlags(0);
     subpasses[0].pipelineBindPoint       = vk::PipelineBindPoint::eGraphics;
     subpasses[0].inputAttachmentCount    = 0;
     subpasses[0].pInputAttachments       = nullptr;
-    subpasses[0].colorAttachmentCount    = 1;
-    subpasses[0].pColorAttachments       = &color_ref;
+    subpasses[0].colorAttachmentCount    = rp.info.color ? 1 : 0;
+    subpasses[0].pColorAttachments       = rp.info.color ? &color_ref : nullptr;
     subpasses[0].pResolveAttachments     = nullptr;
 
     subpasses[0].pDepthStencilAttachment = rp.info.depth ? &depth_ref : nullptr;
@@ -87,17 +92,21 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 // TODO: render targets other than one swapchain image
 static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, const RenderPass &render_pass)
 {
-    bool is_swapchain = api.get_rendertarget(info.color.rt).is_swapchain;
 
     FrameBufferInfo fb_info;
 
-    if (!is_swapchain) {
-	const auto& rt = api.get_rendertarget(info.color.rt);
-	const auto& image = api.get_image(rt.image_h);
-        fb_info.image_view = image.default_view;
-    }
-    else {
-        fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
+    bool is_swapchain = false;
+    if (info.color)
+    {
+        bool is_swapchain = info.color && api.get_rendertarget(info.color->rt).is_swapchain;
+        if (!is_swapchain) {
+            const auto& rt = api.get_rendertarget(info.color->rt);
+            const auto& image = api.get_image(rt.image_h);
+            fb_info.image_view = image.default_view;
+        }
+        else {
+            fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
+        }
     }
 
     if (info.depth) {
@@ -118,7 +127,9 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, 
     fb.info                                  = fb_info;
 
     std::vector<vk::ImageView> attachments;
-    attachments.push_back(api.ctx.swapchain.get_current_image_view());
+    if (info.color) {
+        attachments.push_back(fb.info.image_view);
+    }
 
     if (info.depth) {
         attachments.push_back(fb.info.depth_view);
@@ -147,7 +158,7 @@ void API::begin_pass(PassInfo &&info)
     vk::Rect2D render_area{vk::Offset2D(), ctx.swapchain.extent};
 
     std::vector<vk::ClearValue> clear_values;
-    if (info.color.load_op == vk::AttachmentLoadOp::eClear) {
+    if (info.color && info.color->load_op == vk::AttachmentLoadOp::eClear) {
 	vk::ClearValue clear;
         clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
 	clear_values.push_back(std::move(clear));

@@ -39,6 +39,8 @@ struct Renderer
     // glTF
     Model model;
 
+    vulkan::RenderTargetH shadow_map_depth_rt;
+
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
     const Window *p_window;

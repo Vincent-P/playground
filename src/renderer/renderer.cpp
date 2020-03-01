@@ -94,6 +94,22 @@ Renderer Renderer::create(const Window &window)
 	r.color_rt              = r.api.create_rendertarget(cinfo);
     }
 
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name    = "Shadow Map Depth";
+	iinfo.format  = vk::Format::eD32Sfloat;
+        iinfo.width   = 2048;
+        iinfo.height  = 2048;
+        iinfo.depth   = 1;
+	iinfo.usages  = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        auto depth_h  = r.api.create_image(iinfo);
+
+	vulkan::RTInfo dinfo;
+	dinfo.is_swapchain = false;
+	dinfo.image_h = depth_h;
+	r.shadow_map_depth_rt    = r.api.create_rendertarget(dinfo);
+    }
+
     return r;
 }
 
@@ -101,8 +117,15 @@ void Renderer::destroy()
 {
     destroy_model();
 
+    {
+    auto& depth = api.get_rendertarget(shadow_map_depth_rt);
+    api.destroy_image(depth.image_h);
+    }
+
+    {
     auto& depth = api.get_rendertarget(depth_rt);
     api.destroy_image(depth.image_h);
+    }
 
     api.destroy_image(gui_texture);
     api.destroy();
@@ -367,6 +390,23 @@ void Renderer::draw_model()
     }
 }
 
+static void shadow_map(Renderer& r)
+{
+    vulkan::PassInfo pass;
+    pass.present       = false;
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = r.shadow_map_depth_rt;
+    pass.depth = std::make_optional(depth_info);
+
+    r.api.begin_pass(std::move(pass));
+
+
+
+    r.api.end_pass();
+}
+
 void Renderer::draw()
 {
     bool is_ok = api.start_frame();
@@ -375,10 +415,15 @@ void Renderer::draw()
         return;
     }
 
+    shadow_map(*this);
+
     vulkan::PassInfo pass;
     pass.present       = true;
-    pass.color.load_op = vk::AttachmentLoadOp::eClear;
-    pass.color.rt      = color_rt;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.rt      = color_rt;
+    pass.color = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
     depth_info.load_op = vk::AttachmentLoadOp::eClear;
