@@ -14,13 +14,13 @@ layout (location = 3) out vec2 outUV1;
 layout (location = 4) out vec4 outJoint0;
 layout (location = 5) out vec4 outWeight0;
 
-layout (set = 0, binding = 0) uniform UBOCam {
+layout (set = 1, binding = 0) uniform UBOCam {
     mat4 view;
     mat4 proj;
     mat4 clip;
 } cam;
 
-layout (set = 0, binding = 1) uniform UBONode {
+layout (set = 2, binding = 0) uniform UBONode {
     mat4 transform;
 } node;
 

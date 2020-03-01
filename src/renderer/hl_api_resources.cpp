@@ -379,7 +379,7 @@ void ProgramInfo::push_constant(PushConstantInfo &&push_constant)
     push_constants.push_back(std::move(push_constant));
 }
 
-void ProgramInfo::binding(BindingInfo &&binding) { bindings.push_back(std::move(binding)); }
+void ProgramInfo::binding(BindingInfo &&binding) { bindings_by_set[binding.set].push_back(std::move(binding)); }
 
 void ProgramInfo::vertex_stride(u32 value) { vertex_buffer_info.stride = value; }
 
@@ -391,37 +391,40 @@ ProgramH API::create_program(ProgramInfo &&info)
 
     /// --- Create descriptor set layout
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    program.dynamic_count = 0;
+    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
+    {
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        program.dynamic_count_by_set[i] = 0;
 
-    map_transform(info.bindings, bindings, [&](const auto &info_binding) {
-        vk::DescriptorSetLayoutBinding binding;
-        binding.binding         = info_binding.slot;
-        binding.stageFlags      = info_binding.stages;
-        binding.descriptorType  = info_binding.type;
+        map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
+            vk::DescriptorSetLayoutBinding binding;
+            binding.binding         = info_binding.slot;
+            binding.stageFlags      = info_binding.stages;
+            binding.descriptorType  = info_binding.type;
 
-        if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
-            program.dynamic_count++;
-        }
+            if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+                program.dynamic_count_by_set[i]++;
+            }
 
-        binding.descriptorCount = info_binding.count;
-        return binding;
-    });
+            binding.descriptorCount = info_binding.count;
+            return binding;
+        });
 
-    vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
-    // clang-format off
-    std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
-    // clang-format on
-    auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
-    flags_info.bindingCount  = static_cast<u32>(bindings.size());
-    flags_info.pBindingFlags = flags.data();
+        vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
+        // clang-format off
+        std::vector<vk::DescriptorBindingFlags> flags{info.bindings_by_set[i].size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+        // clang-format on
+        auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+        flags_info.bindingCount  = static_cast<u32>(bindings.size());
+        flags_info.pBindingFlags = flags.data();
 
-    auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
-    layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-    layout_info.bindingCount = static_cast<u32>(bindings.size());
-    layout_info.pBindings    = bindings.data();
+        auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+        layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+        layout_info.bindingCount = static_cast<u32>(bindings.size());
+        layout_info.pBindings    = bindings.data();
 
-    program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+        program.descriptor_layouts[i] = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+    }
 
     /// --- Create pipeline layout
 
@@ -434,14 +437,28 @@ ProgramH API::create_program(ProgramInfo &&info)
         return range;
     });
 
+    std::vector<vk::DescriptorSetLayout> layouts;
+
+    for (const auto& unique_layout: program.descriptor_layouts) {
+        if (unique_layout) {
+            layouts.push_back(*unique_layout);
+        }
+    }
+
+
     vk::PipelineLayoutCreateInfo ci{};
-    ci.pSetLayouts            = &program.descriptor_layout.get();
-    ci.setLayoutCount         = 1;
-    ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
+    ci.pSetLayouts            = layouts.data();
+    ci.setLayoutCount         = static_cast<u32>(layouts.size());
     ci.pPushConstantRanges    = pc_ranges.data();
+    ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
 
     program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
     program.info            = std::move(info);
+
+    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++) {
+        program.data_dirty_by_set[i] = true;
+    }
+
 
     programs.push_back(std::move(program));
     return ProgramH(static_cast<u32>(programs.size()) - 1);

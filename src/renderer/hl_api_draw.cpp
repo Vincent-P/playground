@@ -4,7 +4,7 @@
 namespace my_app::vulkan
 {
 
-// TODO: multiple render targets, multisampling, depth
+// TODO: multiple render targets, multisampling
 static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 {
     assert(api.get_rendertarget(info.color.rt).is_swapchain);
@@ -77,7 +77,7 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
     std::array<vk::SubpassDependency, 0> dependencies{};
 
     vk::RenderPassCreateInfo rp_info{};
-    rp_info.attachmentCount = attachments.size();
+    rp_info.attachmentCount = static_cast<u32>(attachments.size());
     rp_info.pAttachments    = attachments.data();
     rp_info.subpassCount    = subpasses.size();
     rp_info.pSubpasses      = subpasses.data();
@@ -126,7 +126,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, 
 
     vk::FramebufferCreateInfo ci{};
     ci.renderPass      = *render_pass.vkhandle;
-    ci.attachmentCount = attachments.size();
+    ci.attachmentCount = static_cast<u32>(attachments.size());
     ci.pAttachments    = attachments.data();
     ci.width           = api.ctx.swapchain.extent.width;
     ci.height          = api.ctx.swapchain.extent.height;
@@ -341,12 +341,12 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
     return *program.pipelines_vk[pipeline_i];
 }
 
-static DescriptorSet &find_or_create_descriptor_sets(API &api, Program &program)
+static DescriptorSet &find_or_create_descriptor_set(API &api, Program &program, uint freq)
 {
-    for (usize i = 0; i < program.descriptor_sets.size(); i++) {
-	auto& descriptor_set = program.descriptor_sets[i];
+    for (usize i = 0; i < program.descriptor_sets[freq].size(); i++) {
+	auto& descriptor_set = program.descriptor_sets[freq][i];
         if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
-	    program.current_descriptor_set = i;
+	    program.current_descriptor_set[freq] = i;
             return descriptor_set;
         }
     }
@@ -355,17 +355,57 @@ static DescriptorSet &find_or_create_descriptor_sets(API &api, Program &program)
 
     vk::DescriptorSetAllocateInfo dsai{};
     dsai.descriptorPool     = *api.ctx.descriptor_pool;
-    dsai.pSetLayouts        = &program.descriptor_layout.get();
+    dsai.pSetLayouts        = &program.descriptor_layouts[freq].get();
     dsai.descriptorSetCount = 1;
 
     descriptor_set.set        = std::move(api.ctx.device->allocateDescriptorSets(dsai)[0]);
     descriptor_set.frame_used = api.ctx.frame_count;
 
-    program.descriptor_sets.push_back(std::move(descriptor_set));
+    program.descriptor_sets[freq].push_back(std::move(descriptor_set));
 
-    program.current_descriptor_set = program.descriptor_sets.size() - 1;
+    program.current_descriptor_set[freq] = program.descriptor_sets[freq].size() - 1;
 
-    return program.descriptor_sets.back();
+    return program.descriptor_sets[freq].back();
+}
+
+static void undirty_descriptor_set(API &api, Program &program, uint i_set)
+{
+    if (program.data_dirty_by_set[i_set])
+    {
+        auto &descriptor_set = find_or_create_descriptor_set(api, program, i_set);
+
+        std::vector<vk::WriteDescriptorSet> writes;
+        map_transform(program.binded_data_by_set[i_set], writes, [&](const auto &binded_data) {
+            vk::WriteDescriptorSet write;
+            write.dstSet           = descriptor_set.set;
+            write.dstBinding       = binded_data->binding;
+            write.descriptorCount  = 1;
+            write.descriptorType   = binded_data->type;
+            write.pImageInfo       = &binded_data->image_info;
+            write.pBufferInfo      = &binded_data->buffer_info;
+            write.pTexelBufferView = &binded_data->buffer_view;
+            return write;
+        });
+
+        api.ctx.device->updateDescriptorSets(writes, nullptr);
+
+        program.data_dirty_by_set[i_set] = false;
+    }
+}
+
+static void bind_descriptor_set(API &api, Program &program, uint i_set)
+{
+    auto &frame_resource = api.ctx.frame_resources.get_current();
+    auto cmd             = *frame_resource.command_buffer;
+
+    /// --- Find and bind descriptor set
+    undirty_descriptor_set(api, program, i_set);
+    auto &descriptor_set = program.descriptor_sets[i_set][program.current_descriptor_set[i_set]];
+    descriptor_set.frame_used = api.ctx.frame_count;
+
+    std::vector<u32> offsets;
+    offsets.resize(program.dynamic_count_by_set[i_set]);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, i_set, descriptor_set.set, offsets);
 }
 
 void API::bind_program(ProgramH H)
@@ -380,57 +420,57 @@ void API::bind_program(ProgramH H)
     auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-    /// --- TODO: multiple descriptor set, bind shader set here
+    bind_descriptor_set(*this, program, SHADER_DESCRIPTOR_SET);
 
     current_program = &program;
 }
 
-void API::bind_image(ProgramH program_h, uint slot, ImageH image_h)
+void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
 {
     auto &program = get_program(program_h);
     auto &image   = get_image(image_h);
 
-    if (program.binded_data.size() <= slot) {
-        usize missing = slot - program.binded_data.size() + 1;
+    if (program.binded_data_by_set[set].size() <= slot) {
+        usize missing = slot - program.binded_data_by_set[set].size() + 1;
         for (usize i = 0; i < missing; i++) {
-            program.binded_data.emplace_back(std::nullopt);
+            program.binded_data_by_set[set].emplace_back(std::nullopt);
         }
     }
 
     ShaderBinding data;
     data.binding                = slot;
-    data.type                   = program.info.bindings[slot].type;
+    data.type                   = program.info.bindings_by_set[set][slot].type;
     data.image_info.imageView   = image.default_view;
     data.image_info.sampler     = image.default_sampler;
     data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    if (!program.binded_data[slot].has_value() || *program.binded_data[slot] != data) {
-        program.binded_data[slot] = std::move(data);
-        program.data_dirty        = true;
+    if (!program.binded_data_by_set[set][slot].has_value() || *program.binded_data_by_set[set][slot] != data) {
+        program.binded_data_by_set[set][slot] = std::move(data);
+        program.data_dirty_by_set[set]        = true;
     }
 }
 
-void API::bind_buffer(ProgramH program_h, uint slot, CircularBufferPosition buffer_pos)
+void API::bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
 {
     auto &program = get_program(program_h);
     auto &buffer   = get_buffer(buffer_pos.buffer_h);
 
-    if (program.binded_data.size() <= slot) {
-        usize missing = slot - program.binded_data.size() + 1;
+    if (program.binded_data_by_set[set].size() <= slot) {
+        usize missing = slot - program.binded_data_by_set[set].size() + 1;
         for (usize i = 0; i < missing; i++) {
-            program.binded_data.emplace_back(std::nullopt);
+            program.binded_data_by_set[set].emplace_back(std::nullopt);
         }
     }
 
     ShaderBinding data;
     data.binding            = slot;
-    data.type               = program.info.bindings[slot].type;
+    data.type               = program.info.bindings_by_set[set][slot].type;
     data.buffer_info.buffer = buffer.vkhandle;
     data.buffer_info.offset = buffer_pos.offset;
     data.buffer_info.range  = buffer_pos.length;
 
-    program.binded_data[slot] = std::move(data);
-    program.data_dirty        = true;
+    program.binded_data_by_set[set][slot] = std::move(data);
+    program.data_dirty_by_set[set]        = true;
 }
 
 void API::bind_vertex_buffer(BufferH H, u32 offset)
@@ -471,35 +511,7 @@ void API::push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, voi
 
 static void pre_draw(API &api, Program &program)
 {
-    auto &frame_resource = api.ctx.frame_resources.get_current();
-    auto cmd             = *frame_resource.command_buffer;
-
-    /// --- Find and bind descriptor set
-    if (program.data_dirty) {
-        auto &descriptor_set = find_or_create_descriptor_sets(api, program);
-
-        std::vector<vk::WriteDescriptorSet> writes;
-        map_transform(program.binded_data, writes, [&](const auto &binded_data) {
-            vk::WriteDescriptorSet write;
-            write.dstSet           = descriptor_set.set;
-            write.dstBinding       = binded_data->binding;
-            write.descriptorCount  = 1;
-            write.descriptorType   = binded_data->type;
-            write.pImageInfo       = &binded_data->image_info;
-            write.pBufferInfo      = &binded_data->buffer_info;
-            write.pTexelBufferView = &binded_data->buffer_view;
-            return write;
-        });
-
-        api.ctx.device->updateDescriptorSets(writes, nullptr);
-
-        program.data_dirty = false;
-    }
-
-    const auto &descriptor_set = program.descriptor_sets[program.current_descriptor_set].set;
-    std::vector<u32> offsets;
-    offsets.resize(program.dynamic_count);
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, 0, descriptor_set, offsets);
+    bind_descriptor_set(api, program , DRAW_DESCRIPTOR_SET);
 }
 
 void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance)

@@ -35,10 +35,10 @@ Renderer Renderer::create(const Window &window)
 	vulkan::ProgramInfo pinfo{};
 	pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
 	pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
-	pinfo.push_constant(
-	    {/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
-	pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-		       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        // clang-format off
+	pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
+	pinfo.binding({/* .set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        // clang-format on
 	pinfo.vertex_stride(sizeof(ImDrawVert));
 
 	pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
@@ -160,7 +160,7 @@ void Renderer::imgui_draw()
     viewport.maxDepth = 1.0f;
     api.set_viewport(viewport);
 
-    api.bind_image(gui_program, 0, gui_texture);
+    api.bind_image(gui_program, vulkan::SHADER_DESCRIPTOR_SET, 0, gui_texture);
     api.bind_program(gui_program);
     api.bind_vertex_buffer(v_pos);
     api.bind_index_buffer(i_pos);

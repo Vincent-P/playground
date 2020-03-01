@@ -21,6 +21,11 @@ namespace my_app
 namespace vulkan
 {
 
+inline constexpr u32 MAX_DESCRIPTOR_SET = 3;
+inline constexpr u32 GLOBAL_DESCRIPTOR_SET = 0;
+inline constexpr u32 SHADER_DESCRIPTOR_SET = 1;
+inline constexpr u32 DRAW_DESCRIPTOR_SET = 2;
+
 struct ImageInfo
 {
     const char *name;
@@ -167,6 +172,7 @@ inline bool operator==(const PushConstantInfo &a, const PushConstantInfo &b)
 // i like the name of this members as params
 struct BindingInfo
 {
+    u32 set;
     u32 slot;
     vk::ShaderStageFlags stages;
     vk::DescriptorType type;
@@ -175,7 +181,7 @@ struct BindingInfo
 
 inline bool operator==(const BindingInfo &a, const BindingInfo &b)
 {
-    return a.slot == b.slot && a.stages == b.stages && a.type == b.type && a.count == b.count;
+    return a.set == b.set && a.slot == b.slot && a.stages == b.stages && a.type == b.type && a.count == b.count;
 }
 
 struct VertexInfo
@@ -205,7 +211,7 @@ struct ProgramInfo
     ShaderH vertex_shader;
     ShaderH fragment_shader;
     std::vector<PushConstantInfo> push_constants;
-    std::vector<BindingInfo> bindings;
+    std::array<std::vector<BindingInfo>, MAX_DESCRIPTOR_SET> bindings_by_set;
     VertexBufferInfo vertex_buffer_info;
     bool enable_depth;
 
@@ -218,7 +224,7 @@ struct ProgramInfo
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
     return a.vertex_shader == b.vertex_shader && a.fragment_shader == b.fragment_shader
-           && a.push_constants == b.push_constants && a.bindings == b.bindings
+           && a.push_constants == b.push_constants && a.bindings_by_set == b.bindings_by_set
            && a.vertex_buffer_info == b.vertex_buffer_info;
 }
 
@@ -257,21 +263,21 @@ inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b) { return 
 
 struct Program
 {
-    vk::UniqueDescriptorSetLayout descriptor_layout;
+    std::array<vk::UniqueDescriptorSetLayout, MAX_DESCRIPTOR_SET> descriptor_layouts;
     vk::UniquePipelineLayout pipeline_layout; // layoutS??
 
-    std::vector<std::optional<ShaderBinding>> binded_data;
-    bool data_dirty{true};
+    std::array<std::vector<std::optional<ShaderBinding>>, MAX_DESCRIPTOR_SET> binded_data_by_set;
+    std::array<bool, MAX_DESCRIPTOR_SET> data_dirty_by_set;
 
-    std::vector<DescriptorSet> descriptor_sets;
-    usize current_descriptor_set;
+    std::array<std::vector<DescriptorSet>, MAX_DESCRIPTOR_SET> descriptor_sets;
+    std::array<usize, MAX_DESCRIPTOR_SET> current_descriptor_set;
 
     // TODO: hashmap
     std::vector<PipelineInfo> pipelines_info;
     std::vector<vk::UniquePipeline> pipelines_vk;
 
     ProgramInfo info;
-    usize dynamic_count;
+    std::array<usize, MAX_DESCRIPTOR_SET> dynamic_count_by_set;
 };
 
 using ProgramH = Handle<Program>;
@@ -340,8 +346,8 @@ struct API
     void begin_pass(PassInfo &&info);
     void end_pass();
     void bind_program(ProgramH H);
-    void bind_image(ProgramH program_h, uint slot, ImageH image_h);
-    void bind_buffer(ProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
+    void bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h);
+    void bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
 
     template<typename T>
     T* bind_uniform()

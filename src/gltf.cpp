@@ -28,7 +28,7 @@ static void draw_node(Renderer& r, Node& node)
     auto u_pos = r.api.dynamic_uniform_buffer(sizeof(float4x4));
     auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
     *buffer = node.cached_transform;
-    r.api.bind_buffer(r.model.program, 1, u_pos);
+    r.api.bind_buffer(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto& mesh = r.model.meshes[node.mesh];
     for (const auto& primitive : mesh.primitives) {
@@ -112,10 +112,8 @@ void Renderer::draw_model()
 
     // last program
     // bind program
+    api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     api.bind_program(model.program);
-
-    api.bind_buffer(model.program, 0, u_pos);
-
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
 
@@ -154,8 +152,8 @@ void Renderer::load_model_data()
     pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-    pinfo.binding({/*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
-    pinfo.binding({/*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
@@ -280,13 +278,13 @@ Model load_model(const char *path)
                 auto view = j["bufferViews"][view_i];
                 auto &buffer = model.buffers[view["buffer"]];
 
-                usize count = accessor["count"];
+                u32 count = accessor["count"];
                 usize acc_offset = accessor["byteOffset"];
                 usize view_offset = view["byteOffset"];
                 usize offset = acc_offset + view_offset;
 
                 auto *indices = reinterpret_cast<u16*>(&buffer.data[offset]);
-                for (usize i = 0; i < count; i++) {
+                for (u32 i = 0; i < count; i++) {
                     model.indices.push_back(indices[i]);
                 }
 
@@ -328,7 +326,7 @@ Model load_model(const char *path)
         if (json_node.count("children")) {
             const auto& children =  json_node["children"];
             node.children.reserve(children.size());
-            for (usize child_i : children) {
+            for (u32 child_i : children) {
                 node.children.push_back(child_i);
             }
         }
