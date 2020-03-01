@@ -98,11 +98,11 @@ Renderer Renderer::create(const Window &window)
 
 void Renderer::destroy()
 {
+    destroy_model();
+
     auto& depth = api.get_rendertarget(depth_rt);
     api.destroy_image(depth.image_h);
 
-    api.destroy_buffer(model.vertex_buffer);
-    api.destroy_buffer(model.index_buffer);
     api.destroy_image(gui_texture);
     api.destroy();
 }

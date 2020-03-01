@@ -211,7 +211,7 @@ Context Context::create(const Window &window)
 
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{
-        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 128),
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256),
     };
 
     vk::DescriptorPoolCreateInfo dpci{};

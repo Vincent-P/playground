@@ -58,6 +58,7 @@ struct Sampler
 {
     vk::UniqueSampler vkhandle;
 };
+    using SamplerH = Handle<Sampler>;
 
 struct BufferInfo
 {

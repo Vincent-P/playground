@@ -27,6 +27,7 @@ struct Renderer
     // glTF
     void load_model_data();
     void draw_model();
+    void destroy_model();
 
     // ImGui
     void imgui_draw();

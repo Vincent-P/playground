@@ -1,6 +1,7 @@
 #pragma once
 #include "types.hpp"
 #include <vector>
+#include <string>
 #include <optional>
 #include <glm/gtc/quaternion.hpp>
 #include "renderer/hl_api.hpp"
@@ -18,11 +19,68 @@ enum class RenderingMode : u8
     TriangleFan = 6
 };
 
+// https://gist.github.com/szimek/763999
+enum class ComponentType
+{
+    Byte = 5120,
+    UnsignedByte = 5121,
+    Short = 5122,
+    UnsignedShort = 5123,
+    Int = 5124,
+    UnsignedInt = 5125,
+    Float = 5126,
+    Double = 5130
+};
+
+enum class Filter
+{
+    Nearest = 9728,
+    Linear = 9729,
+    NearestMipMapNearest = 9984,
+    LinearMipMapNearest = 9985,
+    NearestMiMapLinear = 9986,
+    LinearMipMapLinear = 9987
+};
+
+enum class Wrap
+{
+    Repeat = 10497,
+    ClampToEdge = 33071,
+    MirroredRepeat = 33648
+};
+
 struct Material
 {
-    float3      base_color_factor;
-    float       metallic_factor;
-    const char *name;
+    float4      base_color_factor;
+    std::optional<u32> base_color_texture;
+};
+
+struct Image
+{
+    vulkan::ImageH image_h;
+    std::vector<u8> data;
+};
+
+struct Sampler
+{
+    vulkan::SamplerH sampler_h;
+    Filter mag_filter;
+    Filter min_filter;
+    Wrap wrap_s;
+    Wrap wrap_t;
+};
+
+struct Texture
+{
+    u32 image;
+    u32 sampler;
+};
+
+struct MaterialPushConstant
+{
+    float4      base_color_factor;
+
+    static MaterialPushConstant from(const Material& material);
 };
 
 struct Buffer
@@ -57,18 +115,6 @@ inline std::optional<AccessorType> accessor_type_from_str(const std::string& str
 
     return std::nullopt;
 }
-
-// https://gist.github.com/szimek/763999
-enum class ComponentType
-{
-    Byte = 5120,
-    UnsignedByte = 5121,
-    Short = 5122,
-    UnsignedShort = 5123,
-    Int = 5124,
-    UnsignedInt = 5125,
-    Float = 5126
-};
 
 struct Primitive
 {
@@ -112,12 +158,16 @@ struct GltfVertex
 
 struct Model
 {
+
     std::vector<usize>      scene;
     std::vector<Node>       nodes;
     std::vector<Mesh>       meshes;
     std::vector<Primitive>  primitives;
-    std::vector<Material>   materials;
     std::vector<Buffer>     buffers;
+    std::vector<Material>   materials;
+    std::vector<Texture> textures;
+    std::vector<Sampler> samplers;
+    std::vector<Image> images;
 
     std::vector<GltfVertex> vertices;
     std::vector<u16>        indices;

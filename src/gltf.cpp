@@ -7,6 +7,12 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp> // lookAt perspective
 
+#include <intrin.h>
+
+#define STBI_NO_SIMD // doesnt compile on windows
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include "tools.hpp"
 #include "renderer/renderer.hpp"
 
@@ -14,6 +20,13 @@ namespace my_app
 {
 using json   = nlohmann::json;
 namespace fs = std::filesystem;
+
+MaterialPushConstant MaterialPushConstant::from(const Material& material)
+{
+    MaterialPushConstant result;
+    result.base_color_factor = material.base_color_factor;
+    return result;
+}
 
 static void draw_node(Renderer& r, Node& node)
 {
@@ -33,6 +46,21 @@ static void draw_node(Renderer& r, Node& node)
     const auto& mesh = r.model.meshes[node.mesh];
     for (const auto& primitive : mesh.primitives) {
         // if program != last program then bind program
+
+        const auto& material = r.model.materials[primitive.material];
+
+        MaterialPushConstant material_pc = MaterialPushConstant::from(material);
+        r.api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
+
+        if (material.base_color_texture) {
+            auto base_color_texture = r.model.textures[*material.base_color_texture];
+            auto base_color_image = r.model.images[base_color_texture.image];
+            r.api.bind_image(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, base_color_image.image_h);
+        }
+        else {
+            // bind empty texture
+        }
+
         r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
@@ -148,12 +176,61 @@ void Renderer::load_model_data()
         api.upload_buffer(model.index_buffer, model.indices.data(), buffer_size);
     }
 
+    // send images data to gpu
+    {
+        for (auto& image : model.images)
+        {
+            int width = 0;
+            int height = 0;
+            int nb_comp = 0;
+            u8 *pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()), &width, &height, &nb_comp, 0);
+
+
+            vulkan::ImageInfo iinfo;
+            iinfo.name = "glTF image";
+            iinfo.width  = static_cast<u32>(width);
+            iinfo.height = static_cast<u32>(height);
+            iinfo.depth  = 1;
+            if (nb_comp == 1) {
+                iinfo.format = vk::Format::eR8Unorm;
+            }
+            else if (nb_comp == 2) {
+                iinfo.format = vk::Format::eR8G8Unorm;
+            }
+            else if (nb_comp == 3) {
+                stbi_image_free(pixels);
+                int wanted_nb_comp = 4;
+                pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()), &width, &height, &nb_comp, wanted_nb_comp);
+                iinfo.format = vk::Format::eR8G8B8A8Unorm;
+                nb_comp = wanted_nb_comp;
+            }
+            else if (nb_comp == 4) {
+                iinfo.format = vk::Format::eR8G8B8A8Unorm;
+            }
+
+            image.image_h = api.create_image(iinfo);
+            api.upload_image(image.image_h, pixels, static_cast<usize>(width * height * nb_comp));
+
+//       n
+//       1           grey
+//       2           grey, alpha
+//       3           red, green, blue
+//       4           red, green, blue, alpha
+
+            stbi_image_free(pixels);
+        }
+    }
+
     vulkan::ProgramInfo pinfo{};
     pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
+    pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.offset = */ 0, /*.size = */ sizeof(MaterialPushConstant)});
+
     pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
     pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
@@ -164,6 +241,15 @@ void Renderer::load_model_data()
     pinfo.enable_depth = true;
 
     model.program = api.create_program(std::move(pinfo));
+}
+
+void Renderer::destroy_model()
+{
+    for (auto& image: model.images) {
+        api.destroy_image(image.image_h);
+    }
+    api.destroy_buffer(model.vertex_buffer);
+    api.destroy_buffer(model.index_buffer);
 }
 
 
@@ -197,11 +283,11 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model& mod
     return std::nullopt;
 }
 
-Model load_model(const char *path)
+Model load_model(const char *c_path)
 {
-    fs::path gltf_path{path};
-
     Model model;
+    fs::path path{c_path};
+
 
     std::ifstream f{path};
     json j;
@@ -213,7 +299,7 @@ Model load_model(const char *path)
         buf.byte_length = json_buffer["byteLength"];
 
         const std::string buffer_name = json_buffer["uri"];
-        fs::path buffer_path = gltf_path.replace_filename(buffer_name);
+        fs::path buffer_path = path.replace_filename(buffer_name);
         buf.data = tools::read_file(buffer_path);
 
         model.buffers.push_back(std::move(buf));
@@ -332,6 +418,62 @@ Model load_model(const char *path)
         }
 
 	model.nodes.push_back(std::move(node));
+    }
+
+    for (const auto& json_sampler : j["samplers"]) {
+        Sampler sampler;
+        sampler.mag_filter = json_sampler["magFilter"];
+        sampler.min_filter = json_sampler["minFilter"];
+        sampler.wrap_s = json_sampler["wrapS"];
+        sampler.wrap_t = json_sampler["wrapT"];
+        model.samplers.push_back(std::move(sampler));
+    }
+
+    // Load images file into memory
+    for (const auto& json_image : j["images"]) {
+        Image image;
+
+        std::string type = json_image["mimeType"];
+        if (type == "image/jpeg") {
+        }
+        else if (type == "image/png") {
+        }
+        else {
+            throw std::runtime_error("unsupported image type: " + type);
+        }
+
+        const std::string image_name = json_image["uri"];
+        fs::path image_path = path.replace_filename(image_name);
+        image.data = tools::read_file(image_path);
+
+        model.images.push_back(std::move(image));
+    }
+
+    for (const auto& json_texture : j["textures"]) {
+        Texture texture;
+        texture.sampler = json_texture["sampler"];
+        texture.image = json_texture["source"];
+        model.textures.push_back(std::move(texture));
+    }
+
+    for (const auto& json_material : j["materials"]) {
+        Material material;
+
+        if (json_material.count("pbrMetallicRoughness")) {
+            const auto& json_pbr = json_material["pbrMetallicRoughness"];
+            auto base_color_factors = json_pbr["baseColorFactor"];
+            material.base_color_factor.r = base_color_factors[0];
+            material.base_color_factor.g = base_color_factors[1];
+            material.base_color_factor.b = base_color_factors[2];
+            material.base_color_factor.a = base_color_factors[3];
+
+            if (json_pbr.count("baseColorTexture")) {
+                u32 i_texture = json_pbr["baseColorTexture"]["index"];
+                material.base_color_texture = i_texture;
+            }
+        }
+
+        model.materials.push_back(std::move(material));
     }
 
     usize scene_i = j["scene"];
