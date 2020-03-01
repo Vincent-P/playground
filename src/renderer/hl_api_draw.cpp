@@ -7,11 +7,6 @@ namespace my_app::vulkan
 // TODO: multiple render targets, multisampling
 static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    assert(api.get_rendertarget(info.color.rt).is_swapchain);
-    if (info.depth) {
-        assert(!api.get_rendertarget(info.depth->rt).is_swapchain);
-    }
-
     for (auto &render_pass : api.renderpasses) {
         if (render_pass.info == info) {
             return render_pass;
@@ -92,13 +87,18 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 // TODO: render targets other than one swapchain image
 static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, const RenderPass &render_pass)
 {
-    assert(api.get_rendertarget(info.color.rt).is_swapchain);
-    if (info.depth) {
-        assert(!api.get_rendertarget(info.depth->rt).is_swapchain);
-    }
+    bool is_swapchain = api.get_rendertarget(info.color.rt).is_swapchain;
 
     FrameBufferInfo fb_info;
-    fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
+
+    if (!is_swapchain) {
+	const auto& rt = api.get_rendertarget(info.color.rt);
+	const auto& image = api.get_image(rt.image_h);
+        fb_info.image_view = image.default_view;
+    }
+    else {
+        fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
+    }
 
     if (info.depth) {
 	const auto& depth_rt = api.get_rendertarget(info.depth->rt);
