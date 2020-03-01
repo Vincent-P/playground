@@ -12,8 +12,15 @@ layout (push_constant) uniform Material
     vec4 baseColorFactor;
 } material;
 
+
+layout (set = 1, binding = 1) uniform UBODebug {
+    uint selected;
+} debug;
+
+
 layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
 layout(set = 2, binding = 2) uniform sampler2D normalTexture;
+layout(set = 2, binding = 3) uniform sampler2D metallicRoughnessTexture;
 
 layout (location = 0) out vec4 outColor;
 
@@ -46,5 +53,11 @@ void main()
     float diffuse = max(dot(normal, light_dir), 0.0f);
     vec3 color = (ambient + diffuse) * texture(baseColorTexture, inUV0).xyz;
 
-    outColor = vec4(color, 1);
+    switch (debug.selected)
+    {
+        case 0: outColor = vec4(color, 1); break;
+        case 1: outColor = vec4(texture(baseColorTexture, inUV0).xyz, 1); break;
+        case 2: outColor = vec4(texture(normalTexture, inUV0).xyz, 1); break;
+        case 3: outColor = vec4(texture(metallicRoughnessTexture, inUV0).xyz, 1); break;
+    }
 }

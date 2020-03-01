@@ -20,28 +20,26 @@ struct MouseState
     double ypos;
 };
 
-    std::vector<u8> read_file(const fs::path &path);
+std::vector<u8> read_file(const fs::path &path);
 
-#if 0
-    inline void imgui_select(const char* title, const char* items[], size_t items_size, size_t& current_item)
+inline void imgui_select(const char* title, const char** items, usize items_size, usize& current_item)
+{
+    std::string id("##custom combo");
+    id += title;
+
+    ImGui::Text("%s", title);
+    if (ImGui::BeginCombo(id.c_str(), items[current_item], ImGuiComboFlags_NoArrowButton))
     {
-	std::string id("##custom combo");
-	id += title;
-
-	ImGui::Text("%s", title);
-	if (ImGui::BeginCombo(id.c_str(), items[current_item], ImGuiComboFlags_NoArrowButton))
-	{
-	    for (size_t n = 0; n < items_size; n++)
-	    {
-		bool is_selected = (current_item == n);
-		if (ImGui::Selectable(items[n], is_selected))
-		    current_item = n;
-		if (is_selected)
-		    ImGui::SetItemDefaultFocus();
-	    }
-	    ImGui::EndCombo();
-	}
+        for (size_t n = 0; n < items_size; n++)
+        {
+            bool is_selected = (current_item == n);
+            if (ImGui::Selectable(items[n], is_selected))
+                current_item = n;
+            if (is_selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
     }
-#endif
+}
 
 } // namespace my_app::tools

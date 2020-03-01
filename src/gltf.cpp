@@ -28,6 +28,20 @@ MaterialPushConstant MaterialPushConstant::from(const Material& material)
     return result;
 }
 
+static void bind_texture(Renderer& r, uint slot, std::optional<u32> i_texture)
+{
+    if (i_texture) {
+        auto texture = r.model.textures[*i_texture];
+        auto image   = r.model.images[texture.image];
+        auto sampler = r.model.samplers[texture.sampler];
+
+        r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
+    }
+    else {
+        // bind empty texture
+    }
+}
+
 static void draw_node(Renderer& r, Node& node)
 {
     if (node.dirty) {
@@ -52,31 +66,14 @@ static void draw_node(Renderer& r, Node& node)
         MaterialPushConstant material_pc = MaterialPushConstant::from(material);
         r.api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
 
-        if (material.base_color_texture) {
-            auto texture = r.model.textures[*material.base_color_texture];
-            auto image = r.model.images[texture.image];
-            auto sampler = r.model.samplers[texture.sampler];
-
-            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, image.image_h, sampler.sampler_h);
-        }
-        else {
-            // bind empty texture
-        }
-
-        if (material.normal_texture) {
-            auto texture = r.model.textures[*material.normal_texture];
-            auto image = r.model.images[texture.image];
-            auto sampler = r.model.samplers[texture.sampler];
-
-            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 2, image.image_h, sampler.sampler_h);
-        }
-        else {
-            // bind empty texture
-        }
+        bind_texture(r, 1, material.base_color_texture);
+        bind_texture(r, 2, material.normal_texture);
+        bind_texture(r, 3, material.metallic_roughness_texture);
 
         r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
+    // TODO: transform relative to parent
     for (auto child_i : node.children) {
         draw_node(r, r.model.nodes[child_i]);
     }
@@ -85,7 +82,6 @@ static void draw_node(Renderer& r, Node& node)
 void Renderer::draw_model()
 {
     float3 cam_up = float3(0, 1, 0);
-
 
     ImGui::Begin("Camera");
     static float s_camera_pos[3] = {2.0f, 0.5f, 0.5f};
@@ -119,6 +115,8 @@ void Renderer::draw_model()
     ImGui::SetCursorPosX(20.0f);
     ImGui::Text("Z: %.1f", double(target_pos.z));
 
+
+    ImGui::End();
     // clang-format off
     float4x4 view = glm::lookAt(
 	camera_pos,       // origin of camera
@@ -132,13 +130,6 @@ void Renderer::draw_model()
 			 0.0f, 0.0f, 0.5f, 1.0f);
 
     // clang-format on
-    ImGui::End();
-
-    auto u_pos = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
-    auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
-    buffer[0] = view;
-    buffer[1] = proj;
-    buffer[2] = clip;
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -153,7 +144,36 @@ void Renderer::draw_model()
 
     // last program
     // bind program
-    api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+
+    {
+        auto u_pos = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+        auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
+        buffer[0] = view;
+        buffer[1] = proj;
+        buffer[2] = clip;
+        api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+    }
+
+    {
+        ImGui::Begin("glTF Shader");
+        static const char* options[] = {
+            "Nothing",
+            "BaseColor",
+            "Normal",
+            "MetallicRoughness"
+            };
+        static usize selected = 0;
+        tools::imgui_select("Debug output", options, ARRAY_SIZE(options), selected);
+        ImGui::End();
+
+        auto u_pos = api.dynamic_uniform_buffer(sizeof(uint));
+        auto* buffer = reinterpret_cast<uint*>(u_pos.mapped);
+        *buffer = static_cast<uint>(selected);
+        api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
+    }
+
+
+
     api.bind_program(model.program);
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
@@ -166,7 +186,7 @@ void Renderer::draw_model()
 void Renderer::load_model_data()
 {
     {
-        usize              buffer_size = model.vertices.size() * sizeof(GltfVertex);
+        usize buffer_size = model.vertices.size() * sizeof(GltfVertex);
 
         vulkan::BufferInfo info;
         info.name = "glTF Vertex Buffer";
@@ -178,7 +198,7 @@ void Renderer::load_model_data()
     }
 
     {
-        usize              buffer_size = model.indices.size() * sizeof(u16);
+        usize buffer_size = model.indices.size() * sizeof(u16);
 
         vulkan::BufferInfo info;
         info.name = "glTF Index Buffer";
@@ -264,6 +284,8 @@ void Renderer::load_model_data()
 
     // camera uniform buffer
     pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    // debug shader output
+    pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eFragment,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
     // node transform
     pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
@@ -271,6 +293,8 @@ void Renderer::load_model_data()
     pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
     // normal map texture
     pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 2, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+    // metallic roughness texture
+    pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 3, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
 
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
@@ -511,6 +535,11 @@ Model load_model(const char *c_path)
             if (json_pbr.count("baseColorTexture")) {
                 u32 i_texture = json_pbr["baseColorTexture"]["index"];
                 material.base_color_texture = i_texture;
+            }
+
+            if (json_pbr.count("metallicRoughnessTexture")) {
+                u32 i_texture = json_pbr["metallicRoughnessTexture"]["index"];
+                material.metallic_roughness_texture = i_texture;
             }
         }
 
