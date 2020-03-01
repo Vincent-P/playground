@@ -54,11 +54,20 @@ struct Image
 };
 using ImageH = Handle<Image>;
 
+struct SamplerInfo
+{
+    vk::Filter mag_filter = vk::Filter::eNearest;
+    vk::Filter min_filter = vk::Filter::eNearest;
+    vk::SamplerMipmapMode mip_map_mode = vk::SamplerMipmapMode::eLinear;
+    vk::SamplerAddressMode address_mode = vk::SamplerAddressMode::eRepeat;
+};
+
 struct Sampler
 {
     vk::UniqueSampler vkhandle;
+    SamplerInfo info;
 };
-    using SamplerH = Handle<Sampler>;
+using SamplerH = Handle<Sampler>;
 
 struct BufferInfo
 {
@@ -348,6 +357,7 @@ struct API
     void end_pass();
     void bind_program(ProgramH H);
     void bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h);
+    void bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
 
     template<typename T>
@@ -379,6 +389,10 @@ struct API
     void destroy_image(ImageH H);
     void upload_image(ImageH H, void *data, usize len);
     void generate_mipmaps(ImageH H);
+
+    SamplerH create_sampler(const SamplerInfo &info);
+    Sampler &get_sampler(SamplerH H);
+    void destroy_sampler(SamplerH H);
 
     RenderTargetH create_rendertarget(const RTInfo &info);
     RenderTarget &get_rendertarget(RenderTargetH H);

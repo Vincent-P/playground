@@ -275,6 +275,42 @@ void API::generate_mipmaps(ImageH h)
     cmd_buffer.submit_and_wait();
 }
 
+/// --- Samplers
+
+
+SamplerH API::create_sampler(const SamplerInfo &info)
+{
+    Sampler sampler;
+
+    vk::SamplerCreateInfo sci{};
+    sci.magFilter        = info.mag_filter;
+    sci.minFilter        = info.min_filter;
+    sci.mipmapMode       = info.mip_map_mode;
+    sci.addressModeU     = info.address_mode;
+    sci.addressModeV     = info.address_mode;
+    sci.addressModeW     = info.address_mode;
+    sci.compareOp        = vk::CompareOp::eNever;
+    sci.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
+    sci.minLod           = 0;
+    sci.maxLod           = 0;
+    sci.maxAnisotropy    = 8.0f;
+    sci.anisotropyEnable = VK_TRUE;
+    sampler.vkhandle     = ctx.device->createSamplerUnique(sci);
+    sampler.info = info;
+
+    samplers.push_back(std::move(sampler));
+    return SamplerH(static_cast<u32>(samplers.size()) - 1);
+}
+
+Sampler &API::get_sampler(SamplerH H)
+{
+    return samplers[H.value()];
+}
+
+void API::destroy_sampler(SamplerH H)
+{
+}
+
 /// --- Buffers
 
 BufferH API::create_buffer(const BufferInfo &info)

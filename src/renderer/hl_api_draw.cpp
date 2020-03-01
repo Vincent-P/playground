@@ -450,6 +450,32 @@ void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
     }
 }
 
+void API::bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h)
+{
+    auto &program = get_program(program_h);
+    auto &image   = get_image(image_h);
+    auto &sampler = get_sampler(sampler_h);
+
+    if (program.binded_data_by_set[set].size() <= slot) {
+        usize missing = slot - program.binded_data_by_set[set].size() + 1;
+        for (usize i = 0; i < missing; i++) {
+            program.binded_data_by_set[set].emplace_back(std::nullopt);
+        }
+    }
+
+    ShaderBinding data;
+    data.binding                = slot;
+    data.type                   = program.info.bindings_by_set[set][slot].type;
+    data.image_info.imageView   = image.default_view;
+    data.image_info.sampler     = *sampler.vkhandle;
+    data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    if (!program.binded_data_by_set[set][slot].has_value() || *program.binded_data_by_set[set][slot] != data) {
+        program.binded_data_by_set[set][slot] = std::move(data);
+        program.data_dirty_by_set[set]        = true;
+    }
+}
+
 void API::bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
 {
     auto &program = get_program(program_h);

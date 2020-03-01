@@ -55,7 +55,9 @@ static void draw_node(Renderer& r, Node& node)
         if (material.base_color_texture) {
             auto base_color_texture = r.model.textures[*material.base_color_texture];
             auto base_color_image = r.model.images[base_color_texture.image];
-            r.api.bind_image(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, base_color_image.image_h);
+            auto base_color_sampler = r.model.samplers[base_color_texture.sampler];
+
+            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, base_color_image.image_h, base_color_sampler.sampler_h);
         }
         else {
             // bind empty texture
@@ -178,13 +180,38 @@ void Renderer::load_model_data()
 
     // send images data to gpu
     {
+        for (auto& sampler: model.samplers)
+        {
+            vulkan::SamplerInfo sinfo;
+
+            switch (sampler.mag_filter) {
+            case Filter::Nearest: sinfo.mag_filter = vk::Filter::eNearest; break;
+            case Filter::Linear: sinfo.mag_filter = vk::Filter::eLinear; break;
+            default: break;
+            }
+
+            switch (sampler.min_filter) {
+            case Filter::Nearest: sinfo.min_filter = vk::Filter::eNearest; break;
+            case Filter::Linear: sinfo.min_filter = vk::Filter::eLinear; break;
+            default: break;
+            }
+
+            switch (sampler.wrap_s) {
+            case Wrap::Repeat: sinfo.address_mode = vk::SamplerAddressMode::eRepeat; break;
+            case Wrap::ClampToEdge: sinfo.address_mode = vk::SamplerAddressMode::eClampToEdge; break;
+            case Wrap::MirroredRepeat: sinfo.address_mode = vk::SamplerAddressMode::eMirroredRepeat; break;
+            default: break;
+            }
+
+            sampler.sampler_h = api.create_sampler(sinfo);
+        }
+
         for (auto& image : model.images)
         {
             int width = 0;
             int height = 0;
             int nb_comp = 0;
             u8 *pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()), &width, &height, &nb_comp, 0);
-
 
             vulkan::ImageInfo iinfo;
             iinfo.name = "glTF image";
@@ -213,12 +240,6 @@ void Renderer::load_model_data()
             image.image_h = api.create_image(iinfo);
             api.upload_image(image.image_h, pixels, static_cast<usize>(width * height * nb_comp));
             api.generate_mipmaps(image.image_h);
-
-//       n
-//       1           grey
-//       2           grey, alpha
-//       3           red, green, blue
-//       4           red, green, blue, alpha
 
             stbi_image_free(pixels);
         }
