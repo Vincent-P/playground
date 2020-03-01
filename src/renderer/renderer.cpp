@@ -333,7 +333,7 @@ void Renderer::draw_model()
     static float fov          = 45.0f;
     ImGui::SliderFloat("FOV", &fov, 30.f, 90.f);
 
-    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 5000.0f);
+    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 2.f, 30.f);
 
     ImGui::SetCursorPosX(10.0f);
     ImGui::Text("Target position:");
@@ -412,6 +412,33 @@ void Renderer::draw_model()
     }
 }
 
+
+static void draw_node_shadow(Renderer& r, Node& node)
+{
+    if (node.dirty) {
+        node.dirty = false;
+        auto translation = glm::translate(glm::mat4(1.0f), node.translation);
+        auto rotation = glm::mat4(node.rotation);
+        auto scale = glm::scale(glm::mat4(1.0f), node.scale);
+        node.cached_transform =  translation * rotation * scale;
+    }
+
+    auto u_pos = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
+    *buffer = node.cached_transform;
+    r.api.bind_buffer(r.model_vertex_only, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+
+    const auto& mesh = r.model.meshes[node.mesh];
+    for (const auto& primitive : mesh.primitives) {
+        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+    }
+
+    // TODO: transform relative to parent
+    for (auto child_i : node.children) {
+        draw_node(r, r.model.nodes[child_i]);
+    }
+}
+
 static void shadow_map(Renderer& r)
 {
     vulkan::PassInfo pass;
@@ -425,6 +452,55 @@ static void shadow_map(Renderer& r)
     r.api.begin_pass(std::move(pass));
 
 
+    float3 cam_up = float3(0, 1, 0);
+    float3 cam_pos = float3(5, 50, 10);
+    float3 target_pos = float3(0, 0, 0);
+    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
+    float4x4 proj      = glm::ortho(-20.f, 20.f, -20.f, 20.f, 30.f, 75.f);
+
+    // clang-format off
+    float4x4 view = glm::lookAt(
+	cam_pos,       // origin of camera
+	target_pos,       // where to look
+	cam_up);
+
+    // Vulkan clip space has inverted Y and half Z.
+    float4x4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+			 0.0f, -1.0f, 0.0f, 0.0f,
+			 0.0f, 0.0f, 0.5f, 0.0f,
+			 0.0f, 0.0f, 0.5f, 1.0f);
+
+    // clang-format on
+
+    vk::Viewport viewport{};
+    viewport.width    = 2048;
+    viewport.height   = 2048;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    r.api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent.width = 2048;
+    scissor.extent.height = 2048;
+    r.api.set_scissor(scissor);
+
+
+    {
+        auto u_pos = r.api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+        auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
+        buffer[0] = view;
+        buffer[1] = proj;
+        buffer[2] = clip;
+        r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+    }
+
+    r.api.bind_program(r.model_vertex_only);
+    r.api.bind_index_buffer(r.model.index_buffer);
+    r.api.bind_vertex_buffer(r.model.vertex_buffer);
+
+    for (usize node_i : r.model.scene) {
+        draw_node_shadow(r, r.model.nodes[node_i]);
+    }
 
     r.api.end_pass();
 }
