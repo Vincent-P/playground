@@ -39,6 +39,8 @@ struct Renderer
     // glTF
     Model model;
 
+    // Shadow Map
+    vulkan::ProgramH model_vertex_only;
     vulkan::RenderTargetH shadow_map_depth_rt;
 
     vulkan::RenderTargetH depth_rt;

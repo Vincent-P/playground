@@ -90,48 +90,24 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 }
 
 // TODO: render targets other than one swapchain image
-static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, const RenderPass &render_pass)
+static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo &info, const RenderPass &render_pass)
 {
 
-    FrameBufferInfo fb_info;
-
-    bool is_swapchain = false;
-    if (info.color)
-    {
-        bool is_swapchain = info.color && api.get_rendertarget(info.color->rt).is_swapchain;
-        if (!is_swapchain) {
-            const auto& rt = api.get_rendertarget(info.color->rt);
-            const auto& image = api.get_image(rt.image_h);
-            fb_info.image_view = image.default_view;
-        }
-        else {
-            fb_info.image_view  = api.ctx.swapchain.get_current_image_view();
-        }
-    }
-
-    if (info.depth) {
-	const auto& depth_rt = api.get_rendertarget(info.depth->rt);
-	const auto& depth_image = api.get_image(depth_rt.image_h);
-	fb_info.depth_view = depth_image.default_view;
-    }
-
-    fb_info.render_pass = *render_pass.vkhandle;
-
     for (auto &framebuffer : api.framebuffers) {
-        if (framebuffer.info == fb_info) {
+        if (framebuffer.info == info) {
             return framebuffer;
         }
     }
 
     FrameBuffer fb;
-    fb.info                                  = fb_info;
+    fb.info                                  = info;
 
     std::vector<vk::ImageView> attachments;
-    if (info.color) {
+    if (render_pass.info.color) {
         attachments.push_back(fb.info.image_view);
     }
 
-    if (info.depth) {
+    if (render_pass.info.depth) {
         attachments.push_back(fb.info.depth_view);
     }
 
@@ -139,9 +115,9 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, 
     ci.renderPass      = *render_pass.vkhandle;
     ci.attachmentCount = static_cast<u32>(attachments.size());
     ci.pAttachments    = attachments.data();
-    ci.width           = api.ctx.swapchain.extent.width;
-    ci.height          = api.ctx.swapchain.extent.height;
     ci.layers          = 1;
+    ci.width           = fb.info.width;
+    ci.height          = fb.info.height;
     fb.vkhandle        = api.ctx.device->createFramebufferUnique(ci);
 
     api.framebuffers.push_back(std::move(fb));
@@ -151,38 +127,62 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const PassInfo &info, 
 void API::begin_pass(PassInfo &&info)
 {
     auto &render_pass  = find_or_create_render_pass(*this, std::move(info));
-    auto &frame_buffer = find_or_create_frame_buffer(*this, render_pass.info, render_pass);
 
-    auto &frame_resource = ctx.frame_resources.get_current();
+    FrameBufferInfo fb_info;
 
-    vk::Extent2D extent;
+    if (render_pass.info.color)
+    {
+        bool is_swapchain = render_pass.info.color && get_rendertarget(render_pass.info.color->rt).is_swapchain;
+        if (!is_swapchain) {
+            const auto& rt = get_rendertarget(render_pass.info.color->rt);
+            const auto& image = get_image(rt.image_h);
+            fb_info.image_view = image.default_view;
+        }
+        else {
+            fb_info.image_view  = ctx.swapchain.get_current_image_view();
+        }
+    }
+
+    if (render_pass.info.depth) {
+	const auto& depth_rt = get_rendertarget(render_pass.info.depth->rt);
+	const auto& depth_image = get_image(depth_rt.image_h);
+	fb_info.depth_view = depth_image.default_view;
+    }
+
+    fb_info.render_pass = *render_pass.vkhandle;
 
     if (render_pass.info.color)
     {
         const auto& rt = get_rendertarget(render_pass.info.color->rt);
         if (rt.is_swapchain) {
-            extent = ctx.swapchain.extent;
+            fb_info.width = ctx.swapchain.extent.width;
+            fb_info.height = ctx.swapchain.extent.height;
         }
         else {
             const auto& image = get_image(rt.image_h);
-            extent.width = image.image_info.extent.width;
-            extent.height = image.image_info.extent.height;
+            fb_info.width = image.image_info.extent.width;
+            fb_info.height = image.image_info.extent.height;
         }
     }
     else if (render_pass.info.depth)
     {
         const auto& rt = get_rendertarget(render_pass.info.depth->rt);
         const auto& image = get_image(rt.image_h);
-        extent.width = image.image_info.extent.width;
-        extent.height = image.image_info.extent.height;
+        fb_info.width = image.image_info.extent.width;
+        fb_info.height = image.image_info.extent.height;
     }
     else
     {
-        extent.width = 4096;
-        extent.height = 4096;
+        fb_info.width = 4096;
+        fb_info.height = 4096;
     }
 
-    vk::Rect2D render_area{vk::Offset2D(), extent};
+    auto &frame_buffer = find_or_create_frame_buffer(*this, fb_info, render_pass);
+
+    auto &frame_resource = ctx.frame_resources.get_current();
+
+
+    vk::Rect2D render_area{vk::Offset2D(), {frame_buffer.info.width, frame_buffer.info.height}};
 
     std::vector<vk::ClearValue> clear_values;
     if (render_pass.info.color && render_pass.info.color->load_op == vk::AttachmentLoadOp::eClear) {

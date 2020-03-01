@@ -108,11 +108,13 @@ struct FrameBufferInfo
     vk::ImageView image_view;
     vk::ImageView depth_view;
 
+    u32 width;
+    u32 height;
     vk::RenderPass render_pass; // renderpass info instead?
 };
 inline bool operator==(const FrameBufferInfo &a, const FrameBufferInfo &b)
 {
-    return a.image_view == b.image_view && a.render_pass == b.render_pass;
+    return a.image_view == b.image_view && a.render_pass == b.render_pass && a.width == b.width && a.height == b.height;
 }
 
 struct FrameBuffer

@@ -110,6 +110,28 @@ Renderer Renderer::create(const Window &window)
 	r.shadow_map_depth_rt    = r.api.create_rendertarget(dinfo);
     }
 
+    {
+        vulkan::ProgramInfo pinfo{};
+        pinfo.vertex_shader = r.api.create_shader("shaders/gltf.vert.spv");
+
+        // camera uniform buffer
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // node transform
+        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        pinfo.vertex_stride(sizeof(GltfVertex));
+        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.enable_depth = true;
+
+        r.model_vertex_only = r.api.create_program(std::move(pinfo));
+    }
+
     return r;
 }
 
