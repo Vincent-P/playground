@@ -53,6 +53,7 @@ struct Material
 {
     float4      base_color_factor;
     std::optional<u32> base_color_texture;
+    std::optional<u32> normal_texture;
 };
 
 struct Image

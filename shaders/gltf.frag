@@ -1,6 +1,6 @@
 #version 450
 
-layout (location = 0) in vec3 inPosition;
+layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
@@ -13,16 +13,38 @@ layout (push_constant) uniform Material
 } material;
 
 layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
+layout(set = 2, binding = 2) uniform sampler2D normalTexture;
 
 layout (location = 0) out vec4 outColor;
+
+vec3 getNormal()
+{
+    // Perturb normal, see http://www.thetenthplanet.de/archives/1180
+    vec3 tangentNormal = texture(normalTexture, inUV0).xyz * 2.0 - 1.0;
+
+    vec3 q1 = dFdx(inWorldPos);
+    vec3 q2 = dFdy(inWorldPos);
+    vec2 st1 = dFdx(inUV0);
+    vec2 st2 = dFdy(inUV0);
+
+    vec3 N = normalize(inNormal);
+    vec3 T = normalize(q1 * st2.t - q2 * st1.t);
+    vec3 B = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    return normalize(TBN * tangentNormal);
+}
 
 void main()
 {
     vec3 light_dir = normalize(vec3(1, 2, 1));
 
-    float ambient = 0.5;
-    float diffuse = max(dot(inNormal, light_dir), 0.0f);
+    vec3 normal = getNormal();
+    outColor = vec4(normal, 1);
 
+    float ambient = 0.5;
+    float diffuse = max(dot(normal, light_dir), 0.0f);
     vec3 color = (ambient + diffuse) * texture(baseColorTexture, inUV0).xyz;
+
     outColor = vec4(color, 1);
 }

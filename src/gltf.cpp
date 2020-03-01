@@ -53,11 +53,22 @@ static void draw_node(Renderer& r, Node& node)
         r.api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
 
         if (material.base_color_texture) {
-            auto base_color_texture = r.model.textures[*material.base_color_texture];
-            auto base_color_image = r.model.images[base_color_texture.image];
-            auto base_color_sampler = r.model.samplers[base_color_texture.sampler];
+            auto texture = r.model.textures[*material.base_color_texture];
+            auto image = r.model.images[texture.image];
+            auto sampler = r.model.samplers[texture.sampler];
 
-            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, base_color_image.image_h, base_color_sampler.sampler_h);
+            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 1, image.image_h, sampler.sampler_h);
+        }
+        else {
+            // bind empty texture
+        }
+
+        if (material.normal_texture) {
+            auto texture = r.model.textures[*material.normal_texture];
+            auto image = r.model.images[texture.image];
+            auto sampler = r.model.samplers[texture.sampler];
+
+            r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 2, image.image_h, sampler.sampler_h);
         }
         else {
             // bind empty texture
@@ -251,9 +262,15 @@ void Renderer::load_model_data()
 
     pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.offset = */ 0, /*.size = */ sizeof(MaterialPushConstant)});
 
+    // camera uniform buffer
     pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+    // node transform
     pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eVertex,/*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+    // base color texture
     pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+    // normal map texture
+    pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 2, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
 
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
@@ -495,6 +512,11 @@ Model load_model(const char *c_path)
                 u32 i_texture = json_pbr["baseColorTexture"]["index"];
                 material.base_color_texture = i_texture;
             }
+        }
+
+        if (json_material.count("normalTexture")) {
+            u32 i_texture = json_material["normalTexture"]["index"];
+            material.normal_texture = i_texture;
         }
 
         model.materials.push_back(std::move(material));
