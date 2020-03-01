@@ -155,15 +155,42 @@ void API::begin_pass(PassInfo &&info)
 
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    vk::Rect2D render_area{vk::Offset2D(), ctx.swapchain.extent};
+    vk::Extent2D extent;
+
+    if (render_pass.info.color)
+    {
+        const auto& rt = get_rendertarget(render_pass.info.color->rt);
+        if (rt.is_swapchain) {
+            extent = ctx.swapchain.extent;
+        }
+        else {
+            const auto& image = get_image(rt.image_h);
+            extent.width = image.image_info.extent.width;
+            extent.height = image.image_info.extent.height;
+        }
+    }
+    else if (render_pass.info.depth)
+    {
+        const auto& rt = get_rendertarget(render_pass.info.depth->rt);
+        const auto& image = get_image(rt.image_h);
+        extent.width = image.image_info.extent.width;
+        extent.height = image.image_info.extent.height;
+    }
+    else
+    {
+        extent.width = 4096;
+        extent.height = 4096;
+    }
+
+    vk::Rect2D render_area{vk::Offset2D(), extent};
 
     std::vector<vk::ClearValue> clear_values;
-    if (info.color && info.color->load_op == vk::AttachmentLoadOp::eClear) {
+    if (render_pass.info.color && render_pass.info.color->load_op == vk::AttachmentLoadOp::eClear) {
 	vk::ClearValue clear;
         clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
 	clear_values.push_back(std::move(clear));
     }
-    if (info.depth && info.depth->load_op == vk::AttachmentLoadOp::eClear) {
+    if (render_pass.info.depth && render_pass.info.depth->load_op == vk::AttachmentLoadOp::eClear) {
 	vk::ClearValue clear;
 	clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 	clear_values.push_back(std::move(clear));
