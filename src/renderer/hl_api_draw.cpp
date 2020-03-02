@@ -54,7 +54,7 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
 	attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
 	attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
 	attachment.initialLayout  = vk::ImageLayout::eUndefined;
-	attachment.finalLayout    = vk::ImageLayout::eDepthAttachmentOptimal;
+	attachment.finalLayout    = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 	attachment.flags          = {};
 	attachments.push_back(std::move(attachment));
     }
@@ -212,6 +212,16 @@ void API::end_pass()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->endRenderPass();
+
+    auto& render_pass = *current_render_pass;
+
+    if (render_pass.info.depth)
+    {
+	auto& depth_rt = get_rendertarget(render_pass.info.depth->rt);
+	auto& depth_image = get_image(depth_rt.image_h);
+        depth_image.layout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+    }
+
     current_render_pass = nullptr;
 }
 
@@ -475,12 +485,14 @@ void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
         }
     }
 
+    assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+
     ShaderBinding data;
     data.binding                = slot;
     data.type                   = program.info.bindings_by_set[set][slot].type;
     data.image_info.imageView   = image.default_view;
     data.image_info.sampler     = image.default_sampler;
-    data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    data.image_info.imageLayout = image.layout;
 
     if (!program.binded_data_by_set[set][slot].has_value() || *program.binded_data_by_set[set][slot] != data) {
         program.binded_data_by_set[set][slot] = std::move(data);

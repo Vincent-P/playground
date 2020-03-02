@@ -48,6 +48,7 @@ struct Image
     VmaAllocation allocation;
     VmaMemoryUsage memory_usage;
     ThsvsAccessType access;
+    vk::ImageLayout layout;
     vk::ImageSubresourceRange full_range;
     vk::ImageView default_view;
     vk::Sampler default_sampler;

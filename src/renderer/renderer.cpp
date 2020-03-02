@@ -101,7 +101,7 @@ Renderer Renderer::create(const Window &window)
         iinfo.width   = 2048;
         iinfo.height  = 2048;
         iinfo.depth   = 1;
-	iinfo.usages  = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+	iinfo.usages  = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
         auto depth_h  = r.api.create_image(iinfo);
 
 	vulkan::RTInfo dinfo;
@@ -333,7 +333,8 @@ void Renderer::draw_model()
     static float fov          = 45.0f;
     ImGui::SliderFloat("FOV", &fov, 30.f, 90.f);
 
-    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 2.f, 30.f);
+    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 1.f, 30.f);
+    proj[1][1] *= -1;
 
     ImGui::SetCursorPosX(10.0f);
     ImGui::Text("Target position:");
@@ -346,19 +347,12 @@ void Renderer::draw_model()
 
 
     ImGui::End();
-    // clang-format off
+
     float4x4 view = glm::lookAt(
 	camera_pos,       // origin of camera
 	camera_pos + target_pos,    // where to look
 	cam_up);
 
-    // Vulkan clip space has inverted Y and half Z.
-    float4x4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-			 0.0f, -1.0f, 0.0f, 0.0f,
-			 0.0f, 0.0f, 0.5f, 0.0f,
-			 0.0f, 0.0f, 0.5f, 1.0f);
-
-    // clang-format on
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -375,11 +369,12 @@ void Renderer::draw_model()
     // bind program
 
     {
-        auto u_pos = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+        auto u_pos = api.dynamic_uniform_buffer(2 * sizeof(float4x4));
         auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
         buffer[0] = view;
         buffer[1] = proj;
-        buffer[2] = clip;
+        buffer[2] = light_view;
+        buffer[3] = light_proj;
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 
@@ -389,7 +384,10 @@ void Renderer::draw_model()
             "Nothing",
             "BaseColor",
             "Normal",
-            "MetallicRoughness"
+            "MetallicRoughness",
+            "ShadowMap",
+            "LightPosition",
+            "LightPos <= ShadowMap"
             };
         static usize selected = 0;
         tools::imgui_select("Debug output", options, ARRAY_SIZE(options), selected);
@@ -401,7 +399,10 @@ void Renderer::draw_model()
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
-
+    {
+        auto& shadow_map = api.get_rendertarget(shadow_map_depth_rt);
+        api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, shadow_map.image_h);
+    }
 
     api.bind_program(model.program);
     api.bind_index_buffer(model.index_buffer);
@@ -451,26 +452,17 @@ static void shadow_map(Renderer& r)
 
     r.api.begin_pass(std::move(pass));
 
-
     float3 cam_up = float3(0, 1, 0);
-    float3 cam_pos = float3(5, 50, 10);
+    float3 cam_pos = float3(5, 20, 2);
     float3 target_pos = float3(0, 0, 0);
-    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
-    float4x4 proj      = glm::ortho(-20.f, 20.f, -20.f, 20.f, 30.f, 75.f);
 
-    // clang-format off
-    float4x4 view = glm::lookAt(
+    r.light_proj = glm::ortho(-20.f, 20.f, -20.f, 20.f, 5.f, 30.f);
+    r.light_proj[1][1] *= -1;
+
+    r.light_view = glm::lookAt(
 	cam_pos,       // origin of camera
 	target_pos,       // where to look
 	cam_up);
-
-    // Vulkan clip space has inverted Y and half Z.
-    float4x4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-			 0.0f, -1.0f, 0.0f, 0.0f,
-			 0.0f, 0.0f, 0.5f, 0.0f,
-			 0.0f, 0.0f, 0.5f, 1.0f);
-
-    // clang-format on
 
     vk::Viewport viewport{};
     viewport.width    = 2048;
@@ -486,11 +478,10 @@ static void shadow_map(Renderer& r)
 
 
     {
-        auto u_pos = r.api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+        auto u_pos = r.api.dynamic_uniform_buffer(4 * sizeof(float4x4));
         auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
-        buffer[0] = view;
-        buffer[1] = proj;
-        buffer[2] = clip;
+        buffer[0] = r.light_view; // camera view
+        buffer[1] = r.light_proj; // camera proj
         r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 

@@ -38,6 +38,8 @@ struct Renderer
 
     // glTF
     Model model;
+    float4x4 light_view;
+    float4x4 light_proj;
 
     // Shadow Map
     vulkan::ProgramH model_vertex_only;

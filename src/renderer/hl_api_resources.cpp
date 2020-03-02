@@ -84,6 +84,7 @@ ImageH API::create_image(const ImageInfo &info)
     }
 
     img.access = THSVS_ACCESS_NONE;
+    img.layout = vk::ImageLayout::eUndefined;
 
     img.full_range.aspectMask     = vk::ImageAspectFlagBits::eColor;
     img.full_range.baseMipLevel   = 0;
@@ -195,8 +196,8 @@ void API::upload_image(ImageH H, void *data, usize len)
                                            copies);
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-
     transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
+    image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     cmd_buffer.submit_and_wait();
 }
@@ -281,6 +282,7 @@ void API::generate_mipmaps(ImageH h)
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
     transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_READ, image.access, image.full_range);
+    image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     cmd_buffer.submit_and_wait();
 }
