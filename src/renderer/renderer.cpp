@@ -2,16 +2,17 @@
 #include <imgui.h>
 #include <iostream>
 #include "window.hpp"
+#include "camera.hpp"
 #include "tools.hpp"
 
 namespace my_app
 {
 
-Renderer Renderer::create(const Window &window)
+Renderer Renderer::create(const Window &window, const Camera& camera)
 {
     Renderer r;
-    r.p_window = &window;
     r.api = vulkan::API::create(window);
+    r.p_camera = &camera;
 
     /// --- Init ImGui
     {
@@ -23,13 +24,6 @@ Renderer Renderer::create(const Window &window)
         style.ScrollbarRounding = 0.f;
         style.GrabRounding      = 0.f;
         style.TabRounding       = 0.f;
-
-        ImGuiIO &io = ImGui::GetIO();
-
-        io.DisplaySize.x             = float(r.api.ctx.swapchain.extent.width);
-        io.DisplaySize.y             = float(r.api.ctx.swapchain.extent.height);
-        io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
-        io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
     }
 
     {
@@ -313,8 +307,15 @@ void Renderer::draw_model()
     float3 cam_up = float3(0, 1, 0);
 
     ImGui::Begin("Camera");
-    static float s_camera_pos[3] = {2.0f, 0.5f, 0.5f};
-    ImGui::SliderFloat3("Camera position", s_camera_pos, -25.0f, 25.0f);
+
+    ImGui::Text("Camera position:");
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("X: %.1f", double(p_camera->position.x));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Y: %.1f", double(p_camera->position.y));
+    ImGui::SetCursorPosX(20.0f);
+    ImGui::Text("Z: %.1f", double(p_camera->position.z));
+
     static float s_target_pos[3] = {1.0f, 0.0f, 0.0f};
     ImGui::SliderFloat3("Camera target", s_target_pos, -1.0f, 1.0f);
 
@@ -323,17 +324,12 @@ void Renderer::draw_model()
     target_pos.y = s_target_pos[1];
     target_pos.z = s_target_pos[2];
 
-    float3 camera_pos;
-    camera_pos.x = s_camera_pos[0];
-    camera_pos.y = s_camera_pos[1];
-    camera_pos.z = s_camera_pos[2];
-
     float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
 
     static float fov          = 45.0f;
     ImGui::SliderFloat("FOV", &fov, 30.f, 90.f);
 
-    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 1.f, 30.f);
+    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 30.f);
     proj[1][1] *= -1;
 
     ImGui::SetCursorPosX(10.0f);
@@ -349,9 +345,9 @@ void Renderer::draw_model()
     ImGui::End();
 
     float4x4 view = glm::lookAt(
-	camera_pos,       // origin of camera
-	camera_pos + target_pos,    // where to look
-	cam_up);
+	p_camera->position,       // origin of camera
+	p_camera->position + p_camera->front,    // where to look
+	p_camera->up);
 
 
     vk::Viewport viewport{};

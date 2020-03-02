@@ -24,14 +24,15 @@ class Window
     void update();
 
     void register_resize_callback(const std::function<void(int, int)> &callback);
+    void register_mouse_callback(const std::function<void(double, double)> &callback);
 
   private:
     static void glfw_resize_callback(GLFWwindow *window, int width, int height);
     static void glfw_click_callback(GLFWwindow *window, int button, int action, int thing);
-
-    void resize_callback(int width, int height);
+    static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 
     std::vector<std::function<void(int, int)>> resize_callbacks;
+    std::vector<std::function<void(double, double)>> mouse_callbacks;
 
     GLFWwindow *window;
     double last_xpos, last_ypos;

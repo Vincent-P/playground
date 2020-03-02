@@ -17,6 +17,7 @@ Window::Window(int width, int height)
 
     glfwSetFramebufferSizeCallback(this->window, glfw_resize_callback);
     glfwSetMouseButtonCallback(this->window, glfw_click_callback);
+    glfwSetCursorPosCallback(this->window, glfw_cursor_position_callback);
 
     GLFWmonitor* primary = glfwGetPrimaryMonitor();
     glfwGetMonitorContentScale(primary, &dpi_scale.x, &dpi_scale.y);
@@ -24,22 +25,22 @@ Window::Window(int width, int height)
 
 Window::~Window() { glfwTerminate(); }
 
-void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
-{
-    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
-    self->resize_callback(width, height);
-}
-
-void Window::resize_callback(int width, int height)
-{
-    for (const auto &cb : resize_callbacks) {
-        cb(width, height);
-    }
-}
-
 void Window::register_resize_callback(const std::function<void(int, int)> &callback)
 {
     resize_callbacks.push_back(callback);
+}
+
+void Window::register_mouse_callback(const std::function<void(double, double)> &callback)
+{
+    mouse_callbacks.push_back(callback);
+}
+
+void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
+{
+    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    for (const auto &cb : self->resize_callbacks) {
+        cb(width, height);
+    }
 }
 
 void Window::glfw_click_callback(GLFWwindow *window, int button, int action, int /*thing*/)
@@ -50,6 +51,14 @@ void Window::glfw_click_callback(GLFWwindow *window, int button, int action, int
         if (ibutton < self->mouse_just_pressed.size()) {
             self->mouse_just_pressed[ibutton] = true;
         }
+    }
+}
+
+void Window::glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    for (const auto &cb : self->mouse_callbacks) {
+        cb(xpos, ypos);
     }
 }
 

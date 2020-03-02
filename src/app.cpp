@@ -9,8 +9,21 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 {
-    renderer = Renderer::create(window);
+    camera = InputCamera::create(window, float3(0, 10, 0));
+    renderer = Renderer::create(window, camera._internal);
+
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
+    window.register_mouse_callback([this](double xpos, double ypos) {this->camera.on_mouse_movement(xpos, ypos); });
+
+    ImGuiIO &io  = ImGui::GetIO();
+    io.DeltaTime = timer.get_delta_time();
+    io.Framerate = timer.get_average_fps();
+
+    io.DisplaySize.x = float(renderer.api.ctx.swapchain.extent.width);
+    io.DisplaySize.y = float(renderer.api.ctx.swapchain.extent.height);
+    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+
 }
 
 App::~App() { renderer.destroy(); }
@@ -69,12 +82,18 @@ void App::draw_fps()
     ImGui::End();
 }
 
+void App::update()
+{
+    draw_fps();
+    camera.update();
+}
+
 void App::run()
 {
     while (!window.should_close()) {
         ImGui::NewFrame();
         window.update();
-        draw_fps();
+        update();
         timer.update();
         renderer.draw();
     }

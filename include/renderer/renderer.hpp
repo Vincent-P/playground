@@ -12,12 +12,13 @@
 namespace my_app
 {
 struct Model;
+struct Camera;
 
 struct Renderer
 {
     vulkan::API api;
 
-    static Renderer create(const Window &window);
+    static Renderer create(const Window &window, const Camera& camera);
     void destroy();
 
     void draw();
@@ -47,7 +48,7 @@ struct Renderer
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
-    const Window *p_window;
+    const Camera* p_camera;
 };
 
 } // namespace my_app

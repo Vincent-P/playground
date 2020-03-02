@@ -50,6 +50,7 @@ project(test-vulkan LANGUAGES CXX)
 set(TEST_VULKAN_FILES
   src/main.cpp
   src/window.cpp
+  src/camera.cpp
   src/app.cpp
   src/tools.cpp
   src/timer.cpp
@@ -74,7 +75,6 @@ add_definitions(
   -DGLFW_INCLUDE_VULKAN
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
-  -DGLM_FORCE_LEFT_HANDED
 
   -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
   -DVMA_DEBUG_MARGIN=16
