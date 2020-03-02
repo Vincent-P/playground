@@ -5,15 +5,18 @@
 namespace my_app
 {
 
-static float CAMERA_SPEED = 0.5f;
+static float CAMERA_SPEED = 0.02f;
 static float MOUSE_SENSITIVITY = 0.5f;
+
+    static constexpr float3 UP = float3(0, 1, 0);
+    static constexpr float3 FRONT = float3(0, 0, 1);
 
 Camera Camera::create(float3 position)
 {
     Camera camera{};
     camera.position = position;
-    camera.front = float3(0, 0, 1);
-    camera.up = float3(0, 1, 0);
+    camera.front = FRONT;
+    camera.up = UP;
     return camera;
 }
 
@@ -27,24 +30,32 @@ InputCamera InputCamera::create(Window& window, float3 position)
 
 void InputCamera::on_mouse_movement(double xpos, double ypos)
 {
+    bool pressed = glfwGetKey(p_window->get_handle(), GLFW_KEY_LEFT_ALT);
+    if (!pressed) {
+        return;
+    }
+
+    if (last_xpos == 0.0) {
+        last_xpos = xpos;
+    }
+    if (last_ypos == 0.0) {
+        last_ypos = ypos;
+    }
+
     float yaw_increment = (float(xpos) - last_xpos) * MOUSE_SENSITIVITY;
     float pitch_increment = (float(ypos) - last_ypos) * MOUSE_SENSITIVITY;
 
-    yaw += yaw_increment;
-    pitch += pitch_increment;
+    _internal.yaw += yaw_increment;
+    _internal.pitch += pitch_increment;
 
-    if (pitch > 89.0f) {
-        pitch = 89.0f;
+    if (_internal.pitch > 89.0f) {
+        _internal.pitch = 89.0f;
     }
-    if (pitch < -89.0f) {
-        pitch = -89.0f;
+    if (_internal.pitch < -89.0f) {
+        _internal.pitch = -89.0f;
     }
 
-    float3 angles = float3(glm::radians(pitch), glm::radians(-yaw), 0);
-
-    glm::quat orientation = angles;
-    _internal.front = orientation * glm::vec3(0, 0, 1);
-    _internal.up = orientation * glm::vec3(0, 1, 0);
+    _internal.update_view();
 
     last_xpos = xpos;
     last_ypos = ypos;
@@ -56,7 +67,7 @@ void InputCamera::update()
 
 
     ImGui::Begin("Camera");
-    ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 1.f);
+    ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 0.25f);
     ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
     ImGui::End();
 
@@ -85,6 +96,35 @@ void InputCamera::update()
         auto camera_right = glm::normalize(glm::cross(_internal.front, _internal.up));
         _internal.position += (CAMERA_SPEED * float(right) * delta_t) * camera_right;
     }
+
+    if (forward || right) {
+        _internal.update_view();
+    }
+}
+
+float4x4 Camera::update_view()
+{
+    // make quaternion from euler angles
+    rotation = float3(glm::radians(pitch), glm::radians(-yaw), 0);
+
+    front = rotation * FRONT;
+    up = rotation * UP;
+    view = glm::lookAt(position, position + front, up);
+
+    return view;
+}
+
+float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, float far_plane)
+{
+    projection = glm::perspective(glm::radians(fov), aspect_ratio, near_plane, far_plane);
+    projection[1][1] *= -1;
+    return projection;
+}
+float4x4 Camera::ortho_square(float size, float near_plane, float far_plane)
+{
+    projection = glm::ortho(-size, size, -size, size, near_plane, far_plane);
+    projection[1][1] *= -1;
+    return projection;
 }
 
 }

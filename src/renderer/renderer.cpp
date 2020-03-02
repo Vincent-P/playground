@@ -8,13 +8,14 @@
 namespace my_app
 {
 
-Renderer Renderer::create(const Window &window, const Camera& camera)
+Renderer Renderer::create(const Window &window, Camera& camera)
 {
     Renderer r;
     r.api = vulkan::API::create(window);
     r.p_camera = &camera;
 
     /// --- Init ImGui
+
     {
         ImGui::CreateContext();
         auto &style             = ImGui::GetStyle();
@@ -46,7 +47,7 @@ Renderer Renderer::create(const Window &window, const Camera& camera)
 
     {
         vulkan::ImageInfo iinfo;
-        iinfo.name = "ImGui texture";
+        iinfo.name = "ImGui font texture";
 
         uchar *pixels = nullptr;
 
@@ -62,6 +63,8 @@ Renderer Renderer::create(const Window &window, const Camera& camera)
         r.gui_texture = r.api.create_image(iinfo);
         r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
     }
+
+    /// --- glTF Model
 
     {
         r.model = load_model("../models/Sponza/glTF/Sponza.gltf");
@@ -88,6 +91,11 @@ Renderer Renderer::create(const Window &window, const Camera& camera)
 	r.color_rt              = r.api.create_rendertarget(cinfo);
     }
 
+    /// --- Shadow map
+
+    {
+        r.sun = Camera::create(float3(5, 20, 2));
+    }
     {
         vulkan::ImageInfo iinfo;
         iinfo.name    = "Shadow Map Depth";
@@ -134,13 +142,13 @@ void Renderer::destroy()
     destroy_model();
 
     {
-    auto& depth = api.get_rendertarget(shadow_map_depth_rt);
-    api.destroy_image(depth.image_h);
+        auto& depth = api.get_rendertarget(shadow_map_depth_rt);
+        api.destroy_image(depth.image_h);
     }
 
     {
-    auto& depth = api.get_rendertarget(depth_rt);
-    api.destroy_image(depth.image_h);
+        auto& depth = api.get_rendertarget(depth_rt);
+        api.destroy_image(depth.image_h);
     }
 
     api.destroy_image(gui_texture);
@@ -304,52 +312,6 @@ static void draw_node(Renderer& r, Node& node)
 
 void Renderer::draw_model()
 {
-    float3 cam_up = float3(0, 1, 0);
-
-    ImGui::Begin("Camera");
-
-    ImGui::Text("Camera position:");
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("X: %.1f", double(p_camera->position.x));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Y: %.1f", double(p_camera->position.y));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Z: %.1f", double(p_camera->position.z));
-
-    static float s_target_pos[3] = {1.0f, 0.0f, 0.0f};
-    ImGui::SliderFloat3("Camera target", s_target_pos, -1.0f, 1.0f);
-
-    float3 target_pos;
-    target_pos.x = s_target_pos[0];
-    target_pos.y = s_target_pos[1];
-    target_pos.z = s_target_pos[2];
-
-    float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
-
-    static float fov          = 45.0f;
-    ImGui::SliderFloat("FOV", &fov, 30.f, 90.f);
-
-    float4x4 proj      = glm::perspective(glm::radians(fov), aspect_ratio, 0.1f, 30.f);
-    proj[1][1] *= -1;
-
-    ImGui::SetCursorPosX(10.0f);
-    ImGui::Text("Target position:");
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("X: %.1f", double(target_pos.x));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Y: %.1f", double(target_pos.y));
-    ImGui::SetCursorPosX(20.0f);
-    ImGui::Text("Z: %.1f", double(target_pos.z));
-
-
-    ImGui::End();
-
-    float4x4 view = glm::lookAt(
-	p_camera->position,       // origin of camera
-	p_camera->position + p_camera->front,    // where to look
-	p_camera->up);
-
-
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
     viewport.height   = api.ctx.swapchain.extent.height;
@@ -361,19 +323,23 @@ void Renderer::draw_model()
     scissor.extent = api.ctx.swapchain.extent;
     api.set_scissor(scissor);
 
-    // last program
-    // bind program
-
+    // Bind camera uniform buffer
     {
+        float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
+        static float fov = 60.0f;
+
         auto u_pos = api.dynamic_uniform_buffer(2 * sizeof(float4x4));
         auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
-        buffer[0] = view;
-        buffer[1] = proj;
-        buffer[2] = light_view;
-        buffer[3] = light_proj;
+        buffer[0] = p_camera->get_view();
+        buffer[1] = p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
+        buffer[2] = sun.get_view();
+        buffer[3] = sun.get_projection();
+
+
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 
+    // Make a shader debugging window and its own uniform buffer
     {
         ImGui::Begin("glTF Shader");
         static const char* options[] = {
@@ -395,6 +361,7 @@ void Renderer::draw_model()
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
+    // Bind the shadow map the shader
     {
         auto& shadow_map = api.get_rendertarget(shadow_map_depth_rt);
         api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, shadow_map.image_h);
@@ -448,18 +415,6 @@ static void shadow_map(Renderer& r)
 
     r.api.begin_pass(std::move(pass));
 
-    float3 cam_up = float3(0, 1, 0);
-    float3 cam_pos = float3(5, 20, 2);
-    float3 target_pos = float3(0, 0, 0);
-
-    r.light_proj = glm::ortho(-20.f, 20.f, -20.f, 20.f, 5.f, 30.f);
-    r.light_proj[1][1] *= -1;
-
-    r.light_view = glm::lookAt(
-	cam_pos,       // origin of camera
-	target_pos,       // where to look
-	cam_up);
-
     vk::Viewport viewport{};
     viewport.width    = 2048;
     viewport.height   = 2048;
@@ -473,11 +428,36 @@ static void shadow_map(Renderer& r)
     r.api.set_scissor(scissor);
 
 
+
     {
+        ImGui::Begin("Sun");
+
+        static float s_sun_angles[3] = {80.0f, 0.0f, 0.0f};
+        ImGui::SliderFloat3("Rotation", s_sun_angles, -180.0f, 180.0f);
+
+        bool dirty = false;
+        if (s_sun_angles[0] != r.sun.pitch) {
+            r.sun.pitch = s_sun_angles[0];
+            dirty = true;
+        }
+        if (s_sun_angles[1] != r.sun.yaw) {
+            r.sun.yaw = s_sun_angles[1];
+            dirty = true;
+        }
+        if (s_sun_angles[2] != r.sun.roll) {
+            r.sun.roll = s_sun_angles[2];
+            dirty = true;
+        }
+        if (dirty) {
+            r.sun.update_view();
+        }
+
+        ImGui::End();
+
         auto u_pos = r.api.dynamic_uniform_buffer(4 * sizeof(float4x4));
         auto* buffer = reinterpret_cast<float4x4*>(u_pos.mapped);
-        buffer[0] = r.light_view; // camera view
-        buffer[1] = r.light_proj; // camera proj
+        buffer[0] = r.sun.get_view();
+        buffer[1] = r.sun.ortho_square(20.f, 5.f, 30.f);
         r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 

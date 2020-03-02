@@ -2,6 +2,7 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
 #include "gltf.hpp"
+#include "camera.hpp"
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -12,13 +13,11 @@
 namespace my_app
 {
 struct Model;
-struct Camera;
-
 struct Renderer
 {
     vulkan::API api;
 
-    static Renderer create(const Window &window, const Camera& camera);
+    static Renderer create(const Window &window, Camera& camera);
     void destroy();
 
     void draw();
@@ -39,8 +38,8 @@ struct Renderer
 
     // glTF
     Model model;
-    float4x4 light_view;
-    float4x4 light_proj;
+
+    Camera sun;
 
     // Shadow Map
     vulkan::ProgramH model_vertex_only;
@@ -48,7 +47,7 @@ struct Renderer
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
-    const Camera* p_camera;
+    Camera* p_camera;
 };
 
 } // namespace my_app

@@ -34,6 +34,7 @@ class Window
     std::vector<std::function<void(int, int)>> resize_callbacks;
     std::vector<std::function<void(double, double)>> mouse_callbacks;
 
+    bool force_close;
     GLFWwindow *window;
     double last_xpos, last_ypos;
     float2 dpi_scale;

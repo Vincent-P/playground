@@ -62,17 +62,21 @@ void Window::glfw_cursor_position_callback(GLFWwindow* window, double xpos, doub
     }
 }
 
-bool Window::should_close() { return glfwWindowShouldClose(window) != 0; }
+bool Window::should_close() { return force_close || glfwWindowShouldClose(window) != 0; }
 
 void Window::update()
 {
     glfwPollEvents();
 
+    if(glfwGetKey(window, GLFW_KEY_ESCAPE)) {
+        force_close = true;
+    }
+
     ImGuiIO &io = ImGui::GetIO();
 
     // Update the mouse position for ImGui
     if (io.WantSetMousePos) {
-        glfwSetCursorPos(window, double(io.MousePos.x), double(io.MousePos.y));
+        glfwSetCursorPos(this->window, double(io.MousePos.x), double(io.MousePos.y));
     }
     else {
         double mouse_x;
