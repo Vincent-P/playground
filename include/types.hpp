@@ -53,7 +53,7 @@ using float4x4 = glm::mat4;
 
 /// --- Utility functions
 
-template <typename T> inline T *ptr_offset(T *ptr, usize offset) { return reinterpret_cast<char *>(ptr) + offset; }
+template <typename T> inline T *ptr_offset(T *ptr, usize offset) { return reinterpret_cast<T*>(reinterpret_cast<char *>(ptr) + offset); }
 
 template <typename vector_source, typename vector_dest, typename transform_function>
 inline void map_transform(const vector_source &src, vector_dest &dst, transform_function f)

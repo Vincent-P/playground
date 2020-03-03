@@ -3,6 +3,7 @@
 #include "renderer/renderer.hpp"
 #include "timer.hpp"
 #include "window.hpp"
+#include "file_watcher.hpp"
 
 namespace my_app
 {
@@ -26,6 +27,9 @@ class App
     InputCamera camera;
     Renderer renderer;
     TimerData timer;
+
+    FileWatcher watcher;
+    Watch shaders_watch;
 };
 
 } // namespace my_app

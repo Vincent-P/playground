@@ -55,6 +55,7 @@ set(TEST_VULKAN_FILES
   src/tools.cpp
   src/timer.cpp
   src/gltf.cpp
+  src/file_watcher.cpp
   src/renderer/vlk_context.cpp
   src/renderer/renderer.cpp
   src/renderer/hl_api.cpp
