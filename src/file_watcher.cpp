@@ -19,7 +19,7 @@ namespace my_app
 {
 
 /// --- Linux
-#ifdef __linux__
+#if defined(__linux__)
 
 static FileWatcher create_internal()
 {
@@ -85,6 +85,39 @@ static const Watch& watch_from_event_internal(const FileWatcher &fw, const Event
     return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
 }
 
+#elif defined(_WIN64)
+
+static FileWatcher create_internal()
+{
+    FileWatcher fw{};
+
+    fw.current_events.reserve(10);
+    return fw;
+}
+
+static void destroy_internal(FileWatcher& fw)
+{
+}
+
+static Watch add_watch_internal(FileWatcher &fw, const char* path)
+{
+    Watch watch;
+    watch.path = path;
+
+
+    fw.watches.push_back(std::move(watch));
+    return fw.watches.back();
+}
+
+static void fetch_events_internal(FileWatcher &fw)
+{
+    // add change events to current_events
+}
+
+static const Watch& watch_from_event_internal(const FileWatcher &fw, const Event &event)
+{
+    return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
+}
 #endif
 
 FileWatcher FileWatcher::create()
