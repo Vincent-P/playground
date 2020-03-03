@@ -2,11 +2,13 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp> // lookAt perspective
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <vector>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -370,10 +372,15 @@ Model load_model(const char *c_path)
     }
 
     // Load images file into memory
-    for (const auto &json_image : j["images"]) {
-	Image image;
+    std::vector<std::future<Image>> images_data;
+    images_data.resize(j["images"].size());
 
-	std::string type = json_image["mimeType"];
+    for (uint i = 0; i < images_data.size(); i++) {
+	const auto &json_image = j["images"][i];
+	std::string type       = json_image["mimeType"];
+	std::string image_name = json_image["uri"];
+	fs::path image_path    = path.replace_filename(image_name);
+
 	if (type == "image/jpeg") {
 	}
 	else if (type == "image/png") {
@@ -382,11 +389,16 @@ Model load_model(const char *c_path)
 	    throw std::runtime_error("unsupported image type: " + type);
 	}
 
-	const std::string image_name = json_image["uri"];
-	fs::path image_path          = path.replace_filename(image_name);
-	image.data                   = tools::read_file(image_path);
+	images_data[i] = std::async(std::launch::async, [=]() {
+	    Image image;
+	    image.data = tools::read_file(image_path);
+            return image;
+        });
+    }
 
-	model.images.push_back(std::move(image));
+    model.images.resize(images_data.size());
+    for (uint i = 0; i < images_data.size(); i++) {
+        model.images[i] = images_data[i].get();
     }
 
     for (const auto &json_texture : j["textures"]) {
