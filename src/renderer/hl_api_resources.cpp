@@ -92,12 +92,15 @@ ImageH API::create_image(const ImageInfo &info)
     img.full_range.baseArrayLayer = 0;
     img.full_range.layerCount     = img.image_info.arrayLayers;
 
+    if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
+        img.full_range.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    }
+
     vk::ImageViewCreateInfo vci{};
     vci.flags  = {};
     vci.image  = img.vkhandle;
     vci.format = img.image_info.format;
-    vci.components
-        = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+    vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
     vci.subresourceRange = img.full_range;
     vci.viewType         = view_type_from(img.image_info.imageType);
 

@@ -149,8 +149,11 @@ Context Context::create(const Window &window)
 
     std::vector<const char *> device_layers;
 
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features> all_features;
-    ctx.physical_device.getFeatures2(&all_features.get<vk::PhysicalDeviceFeatures2>());
+    ctx.physical_device_features = vk::PhysicalDeviceFeatures2{};
+    ctx.vulkan12_features = vk::PhysicalDeviceVulkan12Features{};
+    ctx.physical_device_features.pNext = &ctx.vulkan12_features;
+
+    ctx.physical_device.getFeatures2(&ctx.physical_device_features);
 
     auto queue_families = ctx.physical_device.getQueueFamilyProperties();
 
@@ -184,7 +187,7 @@ Context Context::create(const Window &window)
     }
 
     vk::DeviceCreateInfo dci;
-    dci.pNext                   = &all_features.get<vk::PhysicalDeviceFeatures2>();
+    dci.pNext                   = &ctx.physical_device_features;
     dci.flags                   = {};
     dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
     dci.pQueueCreateInfos       = queue_create_infos.data();

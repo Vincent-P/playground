@@ -19,7 +19,9 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
     std::vector<vk::AttachmentDescription> attachments;
 
     vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-    vk::AttachmentReference depth_ref(0, vk::ImageLayout::eDepthAttachmentOptimal);
+
+    bool separateDepthStencilLayouts = api.ctx.vulkan12_features.separateDepthStencilLayouts;
+    vk::AttachmentReference depth_ref(0, separateDepthStencilLayouts ? vk::ImageLayout::eDepthAttachmentOptimal : vk::ImageLayout::eGeneral);
 
     if (rp.info.color)
     {

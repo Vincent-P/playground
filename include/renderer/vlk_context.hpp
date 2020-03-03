@@ -71,6 +71,10 @@ struct Context
     vk::UniqueSurfaceKHR surface;
     vk::PhysicalDevice physical_device;
     vk::PhysicalDeviceProperties physical_props;
+
+    vk::PhysicalDeviceVulkan12Features vulkan12_features;
+    vk::PhysicalDeviceFeatures2 physical_device_features;
+
     // gpu props?
     // surface caps?
     vk::UniqueDevice device;
