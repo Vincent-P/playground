@@ -21,10 +21,10 @@ namespace my_app
 namespace vulkan
 {
 
-inline constexpr u32 MAX_DESCRIPTOR_SET = 3;
+inline constexpr u32 MAX_DESCRIPTOR_SET    = 3;
 inline constexpr u32 GLOBAL_DESCRIPTOR_SET = 0;
 inline constexpr u32 SHADER_DESCRIPTOR_SET = 1;
-inline constexpr u32 DRAW_DESCRIPTOR_SET = 2;
+inline constexpr u32 DRAW_DESCRIPTOR_SET   = 2;
 
 struct ImageInfo
 {
@@ -34,10 +34,10 @@ struct ImageInfo
     u32 width;
     u32 height;
     u32 depth;
-    bool generate_mip_levels = false;
+    bool generate_mip_levels        = false;
     u32 layers                      = 1;
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
-    vk::ImageUsageFlags usages = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    vk::ImageUsageFlags usages      = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
 };
 
 struct Image
@@ -57,9 +57,9 @@ using ImageH = Handle<Image>;
 
 struct SamplerInfo
 {
-    vk::Filter mag_filter = vk::Filter::eNearest;
-    vk::Filter min_filter = vk::Filter::eNearest;
-    vk::SamplerMipmapMode mip_map_mode = vk::SamplerMipmapMode::eLinear;
+    vk::Filter mag_filter               = vk::Filter::eNearest;
+    vk::Filter min_filter               = vk::Filter::eNearest;
+    vk::SamplerMipmapMode mip_map_mode  = vk::SamplerMipmapMode::eLinear;
     vk::SamplerAddressMode address_mode = vk::SamplerAddressMode::eRepeat;
 };
 
@@ -237,8 +237,8 @@ struct ProgramInfo
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
     return a.vertex_shader == b.vertex_shader && a.fragment_shader == b.fragment_shader
-           && a.push_constants == b.push_constants && a.bindings_by_set == b.bindings_by_set
-           && a.vertex_buffer_info == b.vertex_buffer_info;
+	   && a.push_constants == b.push_constants && a.bindings_by_set == b.bindings_by_set
+	   && a.vertex_buffer_info == b.vertex_buffer_info;
 }
 
 // TODO: smart fields
@@ -269,7 +269,7 @@ struct ShaderBinding
 inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
 {
     return a.binding == b.binding && a.type == b.type && a.image_info == b.image_info && a.buffer_view == b.buffer_view
-           && a.buffer_info == b.buffer_info;
+	   && a.buffer_info == b.buffer_info;
 }
 
 inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b) { return !(a == b); }
@@ -363,11 +363,10 @@ struct API
     void bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
 
-    template<typename T>
-    T* bind_uniform()
+    template <typename T> T *bind_uniform()
     {
-        auto pos = map_circular_buffer_internal(*this, staging_buffer, sizeof(T));
-        return pos.mapped;
+	auto pos = map_circular_buffer_internal(*this, staging_buffer, sizeof(T));
+	return pos.mapped;
     }
 
     void bind_vertex_buffer(BufferH H, u32 offset = 0);

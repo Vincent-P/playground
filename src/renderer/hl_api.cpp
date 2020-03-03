@@ -10,43 +10,43 @@ API API::create(const Window &window)
     api.ctx = Context::create(window);
 
     {
-        BufferInfo binfo;
-        binfo.name                  = "Staging Buffer";
-        binfo.size                  = 16 * 1024 * 1024;
-        binfo.usage                 = vk::BufferUsageFlagBits::eTransferSrc;
-        binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        api.staging_buffer.buffer_h = api.create_buffer(binfo);
-        api.staging_buffer.offset   = 0;
+	BufferInfo binfo;
+	binfo.name                  = "Staging Buffer";
+	binfo.size                  = 16 * 1024 * 1024;
+	binfo.usage                 = vk::BufferUsageFlagBits::eTransferSrc;
+	binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	api.staging_buffer.buffer_h = api.create_buffer(binfo);
+	api.staging_buffer.offset   = 0;
     }
 
     {
-        BufferInfo binfo;
-        binfo.name                     = "Dynamic Vertex Buffer";
-        binfo.size                     = 64 * 1024 * 1024;
-        binfo.usage                    = vk::BufferUsageFlagBits::eVertexBuffer;
-        binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
-        api.dyn_vertex_buffer.offset   = 0;
+	BufferInfo binfo;
+	binfo.name                     = "Dynamic Vertex Buffer";
+	binfo.size                     = 64 * 1024 * 1024;
+	binfo.usage                    = vk::BufferUsageFlagBits::eVertexBuffer;
+	binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
+	api.dyn_vertex_buffer.offset   = 0;
     }
 
     {
-        BufferInfo binfo;
-        binfo.name                     = "Dynamic Uniform Buffer";
-        binfo.size                     = 64 * 1024 * 1024;
-        binfo.usage                    = vk::BufferUsageFlagBits::eUniformBuffer;
-        binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        api.dyn_uniform_buffer.buffer_h = api.create_buffer(binfo);
-        api.dyn_uniform_buffer.offset   = 0;
+	BufferInfo binfo;
+	binfo.name                      = "Dynamic Uniform Buffer";
+	binfo.size                      = 64 * 1024 * 1024;
+	binfo.usage                     = vk::BufferUsageFlagBits::eUniformBuffer;
+	binfo.memory_usage              = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	api.dyn_uniform_buffer.buffer_h = api.create_buffer(binfo);
+	api.dyn_uniform_buffer.offset   = 0;
     }
 
     {
-        BufferInfo binfo;
-        binfo.name                    = "Dynamic Index Buffer";
-        binfo.size                    = 16 * 1024 * 1024;
-        binfo.usage                   = vk::BufferUsageFlagBits::eIndexBuffer;
-        binfo.memory_usage            = VMA_MEMORY_USAGE_CPU_TO_GPU;
-        api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);
-        api.dyn_index_buffer.offset   = 0;
+	BufferInfo binfo;
+	binfo.name                    = "Dynamic Index Buffer";
+	binfo.size                    = 16 * 1024 * 1024;
+	binfo.usage                   = vk::BufferUsageFlagBits::eIndexBuffer;
+	binfo.memory_usage            = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);
+	api.dyn_index_buffer.offset   = 0;
     }
 
     return api;
@@ -75,26 +75,26 @@ bool API::start_frame()
     // TODO: user defined unit?
     auto wait_result = ctx.device->waitForFences(*frame_resource.fence, VK_TRUE, 10lu * 1000lu * 1000lu * 1000lu);
     if (wait_result == vk::Result::eTimeout) {
-        throw std::runtime_error("Submitted the frame more than 10 second ago.");
+	throw std::runtime_error("Submitted the frame more than 10 second ago.");
     }
 
     // Reset the current frame
     ctx.device->resetFences(frame_resource.fence.get());
     ctx.device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
     frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique(
-        {*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
 
     auto result
-        = ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
-                                          *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
+	= ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
+					  *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
 
     if (result == vk::Result::eErrorOutOfDateKHR) {
 #if 0
-        std::cerr << "The swapchain is out of date. Recreating it...\n";
-        ctx.destroy_swapchain();
-        ctx.create_swapchain();
-        start_frame();
-        return;
+	std::cerr << "The swapchain is out of date. Recreating it...\n";
+	ctx.destroy_swapchain();
+	ctx.create_swapchain();
+	start_frame();
+	return;
 #endif
 	return false;
     }
@@ -130,9 +130,9 @@ void API::end_frame()
     present_i.pImageIndices      = &ctx.swapchain.current_image;
 
     try {
-        graphics_queue.presentKHR(present_i);
+	graphics_queue.presentKHR(present_i);
     }
-    catch(const std::exception&) {
+    catch (const std::exception &) {
 	return;
     }
     ctx.frame_count += 1;

@@ -29,7 +29,7 @@ class Window
   private:
     static void glfw_resize_callback(GLFWwindow *window, int width, int height);
     static void glfw_click_callback(GLFWwindow *window, int button, int action, int thing);
-    static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
+    static void glfw_cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
 
     std::vector<std::function<void(int, int)>> resize_callbacks;
     std::vector<std::function<void(double, double)>> mouse_callbacks;

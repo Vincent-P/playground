@@ -1,8 +1,8 @@
 #pragma once
+#include "camera.hpp"
+#include "gltf.hpp"
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
-#include "gltf.hpp"
-#include "camera.hpp"
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -17,7 +17,7 @@ struct Renderer
 {
     vulkan::API api;
 
-    static Renderer create(const Window &window, Camera& camera);
+    static Renderer create(const Window &window, Camera &camera);
     void destroy();
 
     void draw();
@@ -47,7 +47,7 @@ struct Renderer
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
-    Camera* p_camera;
+    Camera *p_camera;
 };
 
 } // namespace my_app

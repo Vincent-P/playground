@@ -1,8 +1,8 @@
 #pragma once
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <algorithm>
 
 #define NO_COPY_NO_MOVE(name)                                                                                          \
     name(const name &other)  = delete;                                                                                 \
@@ -29,11 +29,11 @@ namespace my_app
 {
 /// --- Numeric Types
 using i8    = std::int8_t;
-using i16    = std::int16_t;
+using i16   = std::int16_t;
 using i32   = std::int32_t;
 using i64   = std::int64_t;
 using u8    = std::uint8_t;
-using u16    = std::uint16_t;
+using u16   = std::uint16_t;
 using u32   = std::uint32_t;
 using u64   = std::uint64_t;
 using usize = std::size_t;
@@ -43,24 +43,20 @@ using uint  = unsigned int;
 static constexpr u32 u32_invalid = ~0u;
 
 /// --- Vector types
-using float2 = glm::vec2;
-using float3 = glm::vec3;
-using float4 = glm::vec4;
-using int2 = glm::ivec2;
-using int3 = glm::ivec3;
-using int4 = glm::ivec4;
+using float2   = glm::vec2;
+using float3   = glm::vec3;
+using float4   = glm::vec4;
+using int2     = glm::ivec2;
+using int3     = glm::ivec3;
+using int4     = glm::ivec4;
 using float4x4 = glm::mat4;
 
 /// --- Utility functions
 
-template<typename T>
-inline T *ptr_offset(T *ptr, usize offset)
-{
-    return reinterpret_cast<char *>(ptr) + offset;
-}
+template <typename T> inline T *ptr_offset(T *ptr, usize offset) { return reinterpret_cast<char *>(ptr) + offset; }
 
-template< typename vector_source, typename vector_dest, typename transform_function>
-inline void map_transform(const vector_source& src, vector_dest& dst, transform_function f)
+template <typename vector_source, typename vector_dest, typename transform_function>
+inline void map_transform(const vector_source &src, vector_dest &dst, transform_function f)
 {
     dst.reserve(src.size());
     std::transform(src.begin(), src.end(), std::back_inserter(dst), f);

@@ -1,6 +1,5 @@
 ---
 Checks: 'modernize-*,performance-*,readability-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-magic-numbers,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion'
-HeaderFilterRegex: '.'
 CheckOptions:
   - key: performance-move-const-arg.CheckTriviallyCopyableMove
     value: '0'

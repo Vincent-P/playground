@@ -1,10 +1,10 @@
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
+#include "types.hpp"
 #include <algorithm>
+#include <cassert>
 #include <iostream>
 #include <vulkan/vulkan.hpp>
-#include <cassert>
-#include "types.hpp"
 
 namespace my_app::vulkan
 {
@@ -15,7 +15,7 @@ RenderTargetH API::create_rendertarget(const RTInfo &info)
 {
     RenderTarget rt;
     rt.is_swapchain = info.is_swapchain;
-    rt.image_h = info.image_h;
+    rt.image_h      = info.image_h;
 
     rendertargets.push_back(std::move(rt));
 
@@ -35,11 +35,11 @@ static vk::ImageViewType view_type_from(vk::ImageType _type)
 {
     switch (_type) {
     case vk::ImageType::e1D:
-        return vk::ImageViewType::e1D;
+	return vk::ImageViewType::e1D;
     case vk::ImageType::e2D:
-        return vk::ImageViewType::e2D;
+	return vk::ImageViewType::e2D;
     case vk::ImageType::e3D:
-        return vk::ImageViewType::e3D;
+	return vk::ImageViewType::e3D;
     }
     return vk::ImageViewType::e2D;
 }
@@ -66,8 +66,8 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.sharingMode           = vk::SharingMode::eExclusive;
 
     if (info.generate_mip_levels) {
-        img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
-        img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
+	img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
+	img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
     }
 
     VmaAllocationCreateInfo alloc_info{};
@@ -76,11 +76,11 @@ ImageH API::create_image(const ImageInfo &info)
     alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
     VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
-                            reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
+			    reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
 
     if (ENABLE_VALIDATION_LAYERS) {
-        ctx.device->setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
+	ctx.device->setDebugUtilsObjectNameEXT(
+	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
     }
 
     img.access = THSVS_ACCESS_NONE;
@@ -93,19 +93,20 @@ ImageH API::create_image(const ImageInfo &info)
     img.full_range.layerCount     = img.image_info.arrayLayers;
 
     if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-        img.full_range.aspectMask = vk::ImageAspectFlagBits::eDepth;
+	img.full_range.aspectMask = vk::ImageAspectFlagBits::eDepth;
     }
 
     vk::ImageViewCreateInfo vci{};
     vci.flags  = {};
     vci.image  = img.vkhandle;
     vci.format = img.image_info.format;
-    vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+    vci.components
+	= {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
     vci.subresourceRange = img.full_range;
     vci.viewType         = view_type_from(img.image_info.imageType);
 
     if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-        vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+	vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
     }
 
     img.default_view = ctx.device->createImageView(vci);
@@ -149,7 +150,7 @@ void API::destroy_image(ImageH H)
 }
 
 static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access,
-                                       ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
+				       ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
 {
     ThsvsImageBarrier image_barrier;
     image_barrier.prevAccessCount     = 1;
@@ -174,29 +175,30 @@ void API::upload_image(ImageH H, void *data, usize len)
     const auto &staging   = get_buffer(staging_buffer.buffer_h);
     auto staging_position = copy_to_staging_buffer(data, len);
 
-    auto &image       = get_image(H);
-    auto range = image.full_range;
+    auto &image      = get_image(H);
+    auto range       = image.full_range;
     range.levelCount = 1; // TODO: mips?
 
     cmd_buffer.begin();
 
     std::vector<vk::BufferImageCopy> copies;
     copies.reserve(range.levelCount);
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE, range);
+    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE,
+			       range);
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++) {
-        vk::BufferImageCopy copy;
-        copy.bufferOffset                    = staging_position.offset;
-        copy.imageSubresource.aspectMask     = range.aspectMask;
-        copy.imageSubresource.mipLevel       = i;
-        copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
-        copy.imageSubresource.layerCount     = range.layerCount;
-        copy.imageExtent                     = image.image_info.extent;
-        copies.push_back(std::move(copy));
+	vk::BufferImageCopy copy;
+	copy.bufferOffset                    = staging_position.offset;
+	copy.imageSubresource.aspectMask     = range.aspectMask;
+	copy.imageSubresource.mipLevel       = i;
+	copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
+	copy.imageSubresource.layerCount     = range.layerCount;
+	copy.imageExtent                     = image.image_info.extent;
+	copies.push_back(std::move(copy));
     }
 
     cmd_buffer.vkhandle->copyBufferToImage(staging.vkhandle, image.vkhandle, vk::ImageLayout::eTransferDstOptimal,
-                                           copies);
+					   copies);
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
     transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
@@ -208,90 +210,92 @@ void API::upload_image(ImageH H, void *data, usize len)
 void API::generate_mipmaps(ImageH h)
 {
     auto cmd_buffer = get_temp_cmd_buffer();
-    auto &image       = get_image(h);
+    auto &image     = get_image(h);
 
-    u32 width = image.image_info.extent.width;
-    u32 height = image.image_info.extent.height;
+    u32 width      = image.image_info.extent.width;
+    u32 height     = image.image_info.extent.height;
     u32 mip_levels = image.image_info.mipLevels;
 
     if (mip_levels == 1) {
-        return;
+	return;
     }
 
     cmd_buffer.begin();
 
-
-    auto& cmd = cmd_buffer.vkhandle;
+    auto &cmd = cmd_buffer.vkhandle;
 
     {
-        vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-        vk::ImageMemoryBarrier b{};
-        b.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        b.srcAccessMask = vk::AccessFlags();
-        b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-        b.image = image.vkhandle;
-        b.subresourceRange = mip_sub_range;
-        cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
+	vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+	vk::ImageMemoryBarrier b{};
+	b.oldLayout        = vk::ImageLayout::eShaderReadOnlyOptimal;
+	b.newLayout        = vk::ImageLayout::eTransferSrcOptimal;
+	b.srcAccessMask    = vk::AccessFlags();
+	b.dstAccessMask    = vk::AccessFlagBits::eTransferRead;
+	b.image            = image.vkhandle;
+	b.subresourceRange = mip_sub_range;
+	cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr,
+			     nullptr, b);
     }
 
-    for (u32 i = 1; i < mip_levels; i++)
-    {
-        auto src_width = width >> (i - 1);
-        auto src_height = height >> (i - 1);
-        auto dst_width = width >> i;
-        auto dst_height = height >> i;
+    for (u32 i = 1; i < mip_levels; i++) {
+	auto src_width  = width >> (i - 1);
+	auto src_height = height >> (i - 1);
+	auto dst_width  = width >> i;
+	auto dst_height = height >> i;
 
-        vk::ImageBlit blit{};
-        blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-        blit.srcSubresource.layerCount = 1;
-        blit.srcSubresource.mipLevel = i - 1;
-        blit.srcOffsets[1].x = static_cast<i32>(src_width);
-        blit.srcOffsets[1].y = static_cast<i32>(src_height);
-        blit.srcOffsets[1].z = 1;
-        blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-        blit.dstSubresource.layerCount = 1;
-        blit.dstSubresource.mipLevel = i;
-        blit.dstOffsets[1].x = static_cast<i32>(dst_width);
-        blit.dstOffsets[1].y = static_cast<i32>(dst_height);
-        blit.dstOffsets[1].z = 1;
+	vk::ImageBlit blit{};
+	blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+	blit.srcSubresource.layerCount = 1;
+	blit.srcSubresource.mipLevel   = i - 1;
+	blit.srcOffsets[1].x           = static_cast<i32>(src_width);
+	blit.srcOffsets[1].y           = static_cast<i32>(src_height);
+	blit.srcOffsets[1].z           = 1;
+	blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+	blit.dstSubresource.layerCount = 1;
+	blit.dstSubresource.mipLevel   = i;
+	blit.dstOffsets[1].x           = static_cast<i32>(dst_width);
+	blit.dstOffsets[1].y           = static_cast<i32>(dst_height);
+	blit.dstOffsets[1].z           = 1;
 
-        vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
+	vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
 
-        {
-            vk::ImageMemoryBarrier b{};
-            b.oldLayout = vk::ImageLayout::eUndefined;
-            b.newLayout = vk::ImageLayout::eTransferDstOptimal;
-            b.srcAccessMask = vk::AccessFlags();
-            b.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b.image = image.vkhandle;
-            b.subresourceRange = mip_sub_range;
-            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
-        }
+	{
+	    vk::ImageMemoryBarrier b{};
+	    b.oldLayout        = vk::ImageLayout::eUndefined;
+	    b.newLayout        = vk::ImageLayout::eTransferDstOptimal;
+	    b.srcAccessMask    = vk::AccessFlags();
+	    b.dstAccessMask    = vk::AccessFlagBits::eTransferWrite;
+	    b.image            = image.vkhandle;
+	    b.subresourceRange = mip_sub_range;
+	    cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
+				 nullptr, nullptr, b);
+	}
 
-        cmd->blitImage(image.vkhandle, vk::ImageLayout::eTransferSrcOptimal, image.vkhandle, vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+	cmd->blitImage(image.vkhandle, vk::ImageLayout::eTransferSrcOptimal, image.vkhandle,
+		       vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
 
-        {
-            vk::ImageMemoryBarrier b{};
-            b.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-            b.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-            b.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-            b.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-            b.image = image.vkhandle;
-            b.subresourceRange = mip_sub_range;
-            cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr, b);
-        }
+	{
+	    vk::ImageMemoryBarrier b{};
+	    b.oldLayout        = vk::ImageLayout::eTransferDstOptimal;
+	    b.newLayout        = vk::ImageLayout::eTransferSrcOptimal;
+	    b.srcAccessMask    = vk::AccessFlagBits::eTransferWrite;
+	    b.dstAccessMask    = vk::AccessFlagBits::eTransferRead;
+	    b.image            = image.vkhandle;
+	    b.subresourceRange = mip_sub_range;
+	    cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
+				 nullptr, nullptr, b);
+	}
     }
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_READ, image.access, image.full_range);
+    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_READ, image.access,
+			       image.full_range);
     image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     cmd_buffer.submit_and_wait();
 }
 
 /// --- Samplers
-
 
 SamplerH API::create_sampler(const SamplerInfo &info)
 {
@@ -311,7 +315,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     sci.maxAnisotropy    = 8.0f;
     sci.anisotropyEnable = VK_TRUE;
     sampler.vkhandle     = ctx.device->createSamplerUnique(sci);
-    sampler.info = info;
+    sampler.info         = info;
 
     samplers.push_back(std::move(sampler));
     return SamplerH(static_cast<u32>(samplers.size()) - 1);
@@ -323,9 +327,7 @@ Sampler &API::get_sampler(SamplerH H)
     return samplers[H.value()];
 }
 
-void API::destroy_sampler(SamplerH H)
-{
-}
+void API::destroy_sampler(SamplerH H) {}
 
 /// --- Buffers
 
@@ -349,11 +351,11 @@ BufferH API::create_buffer(const BufferInfo &info)
     alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
     VK_CHECK(vmaCreateBuffer(ctx.allocator, reinterpret_cast<VkBufferCreateInfo *>(&ci), &alloc_info,
-                             reinterpret_cast<VkBuffer *>(&buf.vkhandle), &buf.allocation, nullptr));
+			     reinterpret_cast<VkBuffer *>(&buf.vkhandle), &buf.allocation, nullptr));
 
     if (ENABLE_VALIDATION_LAYERS) {
-        ctx.device->setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
+	ctx.device->setDebugUtilsObjectNameEXT(
+	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
     }
 
     buffers.push_back(std::move(buf));
@@ -369,7 +371,7 @@ Buffer &API::get_buffer(BufferH H)
 static void destroy_buffer_internal(API &api, Buffer &buf)
 {
     if (buf.mapped) {
-        vmaUnmapMemory(api.ctx.allocator, buf.allocation);
+	vmaUnmapMemory(api.ctx.allocator, buf.allocation);
     }
     vmaDestroyBuffer(api.ctx.allocator, buf.vkhandle, buf.allocation);
 }
@@ -377,7 +379,7 @@ static void destroy_buffer_internal(API &api, Buffer &buf)
 static void *buffer_map_internal(API &api, Buffer &buf)
 {
     if (buf.mapped == nullptr) {
-        vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
+	vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
     }
     return buf.mapped;
 }
@@ -395,7 +397,7 @@ void API::upload_buffer(BufferH H, void *data, usize len)
     const auto &staging   = get_buffer(staging_buffer.buffer_h);
     auto staging_position = copy_to_staging_buffer(data, len);
 
-    auto &buffer       = get_buffer(H);
+    auto &buffer = get_buffer(H);
 
     cmd_buffer.begin();
 
@@ -416,7 +418,7 @@ CommandBuffer API::get_temp_cmd_buffer()
     auto &frame_resource = ctx.frame_resources.get_current();
 
     cmd.vkhandle = std::move(ctx.device->allocateCommandBuffersUnique(
-        {*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
 
     return cmd;
 }
@@ -449,7 +451,7 @@ CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &ci
     len                                         = round_up_to_alignment(min_uniform_buffer_alignment, len);
 
     if (current_offset + len > buffer.size) {
-        current_offset = 0;
+	current_offset = 0;
     }
 
     buffer_map_internal(api, buffer);
@@ -539,60 +541,59 @@ ProgramH API::create_program(ProgramInfo &&info)
 
     /// --- Create descriptor set layout
 
-    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
-    {
-        std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        program.dynamic_count_by_set[i] = 0;
+    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++) {
+	std::vector<vk::DescriptorSetLayoutBinding> bindings;
+	program.dynamic_count_by_set[i] = 0;
 
-        map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
-            vk::DescriptorSetLayoutBinding binding;
-            binding.binding         = info_binding.slot;
-            binding.stageFlags      = info_binding.stages;
-            binding.descriptorType  = info_binding.type;
+	map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
+	    vk::DescriptorSetLayoutBinding binding;
+	    binding.binding        = info_binding.slot;
+	    binding.stageFlags     = info_binding.stages;
+	    binding.descriptorType = info_binding.type;
 
-            if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
-                program.dynamic_count_by_set[i]++;
-            }
+	    if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+		program.dynamic_count_by_set[i]++;
+	    }
 
-            binding.descriptorCount = info_binding.count;
-            return binding;
-        });
+	    binding.descriptorCount = info_binding.count;
+	    return binding;
+	});
 
-        vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
-        // clang-format off
-        std::vector<vk::DescriptorBindingFlags> flags{info.bindings_by_set[i].size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
-        // clang-format on
-        auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
-        flags_info.bindingCount  = static_cast<u32>(bindings.size());
-        flags_info.pBindingFlags = flags.data();
+	vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+	    create_info;
+	// clang-format off
+	std::vector<vk::DescriptorBindingFlags> flags{info.bindings_by_set[i].size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+	// clang-format on
+	auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+	flags_info.bindingCount  = static_cast<u32>(bindings.size());
+	flags_info.pBindingFlags = flags.data();
 
-        auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
-        layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-        layout_info.bindingCount = static_cast<u32>(bindings.size());
-        layout_info.pBindings    = bindings.data();
+	auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+	layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+	layout_info.bindingCount = static_cast<u32>(bindings.size());
+	layout_info.pBindings    = bindings.data();
 
-        program.descriptor_layouts[i] = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+	program.descriptor_layouts[i] = ctx.device->createDescriptorSetLayoutUnique(layout_info);
     }
 
     /// --- Create pipeline layout
 
     std::vector<vk::PushConstantRange> pc_ranges;
     map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
-        vk::PushConstantRange range;
-        range.stageFlags = push_constant.stages;
-        range.offset     = push_constant.offset;
-        range.size       = push_constant.size;
-        return range;
+	vk::PushConstantRange range;
+	range.stageFlags = push_constant.stages;
+	range.offset     = push_constant.offset;
+	range.size       = push_constant.size;
+	return range;
     });
 
     std::vector<vk::DescriptorSetLayout> layouts;
 
-    for (const auto& unique_layout: program.descriptor_layouts) {
-        if (unique_layout) {
-            layouts.push_back(*unique_layout);
-        }
+    for (const auto &unique_layout : program.descriptor_layouts) {
+	if (unique_layout) {
+	    layouts.push_back(*unique_layout);
+	}
     }
-
 
     vk::PipelineLayoutCreateInfo ci{};
     ci.pSetLayouts            = layouts.data();
@@ -606,7 +607,6 @@ ProgramH API::create_program(ProgramInfo &&info)
     for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++) {
         program.data_dirty_by_set[i] = true;
     }
-
 
     programs.push_back(std::move(program));
     return ProgramH(static_cast<u32>(programs.size()) - 1);

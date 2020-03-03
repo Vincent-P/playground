@@ -1,8 +1,8 @@
 #pragma once
-#include "renderer/renderer.hpp"
-#include "window.hpp"
 #include "camera.hpp"
+#include "renderer/renderer.hpp"
 #include "timer.hpp"
+#include "window.hpp"
 
 namespace my_app
 {
