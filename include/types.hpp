@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
+#include <variant>
 #include <glm/glm.hpp>
 
 #define NO_COPY_NO_MOVE(name)                                                                                          \
@@ -69,7 +71,8 @@ inline usize round_up_to_alignment(usize alignment, usize bytes)
 }
 
 /// --- Handle type (Typed index that can be invalid)
-template <typename T> struct Handle
+template <typename T>
+struct Handle
 {
     static Handle invalid() { return Handle(u32_invalid); }
     Handle() : index(u32_invalid) {}
@@ -83,6 +86,75 @@ template <typename T> struct Handle
 
   private:
     u32 index;
+};
+
+/// --- Arena allocator
+// TODO: iterator type to be able to use ranged-based for loops, the iterator should only return values not handles...
+template <typename T>
+class Arena
+{
+    using handle_type = Handle<T>;
+    using element_type = std::variant<handle_type, T>;
+
+    handle_type& get_handle_internal(handle_type handle)
+    {
+        return std::get<handle_type>(data[handle.value()]);
+    }
+
+    T& get_value_internal(handle_type handle)
+    {
+        return std::get<T>(data[handle.value()]);
+    }
+
+public:
+    Arena() = default;
+    Arena(usize capacity)
+    {
+        data.reserve(capacity);
+    }
+
+    handle_type add(T&& value)
+    {
+        if (!first_free.is_valid())
+        {
+            data.push_back(std::move(value));
+            return handle_type(data.size() - 1);
+        }
+
+        // Pop the free list
+        handle_type old_first_free = first_free;
+        first_free = get_handle_internal(old_first_free);
+
+        //
+        element_type new_elem = std::move(value);
+        data[old_first_free.value()] = std::move(new_elem);
+
+        return old_first_free;
+    }
+
+    T* get(handle_type handle)
+    {
+        if (!handle.is_valid()) {
+            return nullptr;
+        }
+
+        return &get_value_internal(handle);
+    }
+
+    void remove(handle_type handle)
+    {
+        if (!handle.is_valid()) {
+            return;
+        }
+
+        auto& element = data[handle.value()];
+        element = first_free;
+        first_free = handle;
+    }
+
+private:
+    handle_type first_free;
+    std::vector<element_type> data;
 };
 
 } // namespace my_app

@@ -326,15 +326,16 @@ struct API
 {
     Context ctx;
 
-    // todo: pool/arena data structure
-    std::vector<Image> images;
-    std::vector<RenderTarget> rendertargets;
-    std::vector<Sampler> samplers;
-    std::vector<Buffer> buffers;
+    Arena<Image> images;
+    Arena<RenderTarget> rendertargets;
+    Arena<Sampler> samplers;
+    Arena<Buffer> buffers;
+    Arena<Program> programs;
+    Arena<Shader> shaders;
+
+    // TODO: arena?
     std::vector<FrameBuffer> framebuffers;
     std::vector<RenderPass> renderpasses;
-    std::vector<Program> programs;
-    std::vector<Shader> shaders;
 
     CircularBuffer staging_buffer;
     CircularBuffer dyn_uniform_buffer;
@@ -398,6 +399,7 @@ struct API
 
     RenderTargetH create_rendertarget(const RTInfo &info);
     RenderTarget &get_rendertarget(RenderTargetH H);
+    void destroy_rendertarget(RenderTargetH H);
 
     BufferH create_buffer(const BufferInfo &info);
     Buffer &get_buffer(BufferH H);

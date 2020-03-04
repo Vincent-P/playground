@@ -17,16 +17,19 @@ RenderTargetH API::create_rendertarget(const RTInfo &info)
     rt.is_swapchain = info.is_swapchain;
     rt.image_h      = info.image_h;
 
-    rendertargets.push_back(std::move(rt));
-
-    u32 h = static_cast<u32>(rendertargets.size()) - 1;
-    return RenderTargetH(h);
+    return rendertargets.add(std::move(rt));
 }
 
 RenderTarget &API::get_rendertarget(RenderTargetH H)
 {
     assert(H.is_valid());
-    return rendertargets[H.value()];
+    return *rendertargets.get(H);
+}
+
+void API::destroy_rendertarget(RenderTargetH H)
+{
+    assert(H.is_valid());
+    rendertargets.remove(H);
 }
 
 /// --- Images
@@ -126,14 +129,13 @@ ImageH API::create_image(const ImageInfo &info)
     sci.anisotropyEnable = VK_TRUE;
     img.default_sampler  = ctx.device->createSampler(sci);
 
-    images.push_back(std::move(img));
-    return ImageH(static_cast<u32>(images.size()) - 1);
+    return images.add(std::move(img));
 }
 
 Image &API::get_image(ImageH H)
 {
     assert(H.is_valid());
-    return images[H.value()];
+    return *images.get(H);
 }
 
 static void destroy_image_internal(API &api, Image &img)
@@ -147,6 +149,7 @@ void API::destroy_image(ImageH H)
 {
     Image &img = get_image(H);
     destroy_image_internal(*this, img);
+    images.remove(H);
 }
 
 static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access,
@@ -317,17 +320,21 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     sampler.vkhandle     = ctx.device->createSamplerUnique(sci);
     sampler.info         = info;
 
-    samplers.push_back(std::move(sampler));
-    return SamplerH(static_cast<u32>(samplers.size()) - 1);
+
+    return samplers.add(std::move(sampler));
 }
 
 Sampler &API::get_sampler(SamplerH H)
 {
     assert(H.is_valid());
-    return samplers[H.value()];
+    return *samplers.get(H);
 }
 
-void API::destroy_sampler(SamplerH H) {}
+void API::destroy_sampler(SamplerH H)
+{
+    assert(H.is_valid());
+    samplers.remove(H);
+}
 
 /// --- Buffers
 
@@ -358,14 +365,13 @@ BufferH API::create_buffer(const BufferInfo &info)
 	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
     }
 
-    buffers.push_back(std::move(buf));
-    return BufferH(static_cast<u32>(buffers.size()) - 1);
+    return buffers.add(std::move(buf));
 }
 
 Buffer &API::get_buffer(BufferH H)
 {
     assert(H.is_valid());
-    return buffers[H.value()];
+    return *buffers.get(H);
 }
 
 static void destroy_buffer_internal(API &api, Buffer &buf)
@@ -386,8 +392,10 @@ static void *buffer_map_internal(API &api, Buffer &buf)
 
 void API::destroy_buffer(BufferH H)
 {
+    assert(H.is_valid());
     Buffer &buf = get_buffer(H);
     destroy_buffer_internal(*this, buf);
+    buffers.remove(H);
 }
 
 void API::upload_buffer(BufferH H, void *data, usize len)
@@ -510,17 +518,21 @@ ShaderH API::create_shader(const char *path)
     info.pCode      = reinterpret_cast<const u32 *>(code.data());
     shader.vkhandle = ctx.device->createShaderModuleUnique(info);
 
-    shaders.push_back(std::move(shader));
-    return ShaderH(static_cast<u32>(shaders.size()) - 1);
+    return shaders.add(std::move(shader));
+
 }
 
 Shader &API::get_shader(ShaderH H)
 {
     assert(H.is_valid());
-    return shaders[H.value()];
+    return *shaders.get(H);
 }
 
-void API::destroy_shader(ShaderH /*unused*/) {}
+void API::destroy_shader(ShaderH H)
+{
+    assert(H.is_valid());
+    shaders.remove(H);
+}
 
 /// --- Programs
 
@@ -608,16 +620,19 @@ ProgramH API::create_program(ProgramInfo &&info)
         program.data_dirty_by_set[i] = true;
     }
 
-    programs.push_back(std::move(program));
-    return ProgramH(static_cast<u32>(programs.size()) - 1);
+    return programs.add(std::move(program));
 }
 
 Program &API::get_program(ProgramH H)
 {
     assert(H.is_valid());
-    return programs[H.value()];
+    return *programs.get(H);
 }
 
-void API::destroy_program(ProgramH /*unused*/) {}
+void API::destroy_program(ProgramH H)
+{
+    assert(H.is_valid());
+    programs.remove(H);
+}
 
 } // namespace my_app::vulkan
