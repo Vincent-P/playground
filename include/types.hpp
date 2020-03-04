@@ -93,6 +93,31 @@ struct Handle
 template <typename T>
 class Arena
 {
+    class Iterator
+    {
+        using difference_type = void;
+        using value_type = T;
+        using pointer = T*;
+        using reference = T&;
+        using iterator_category = std::input_iterator_tag;
+
+    public:
+      Iterator(Arena &_arena, usize _index = 0)
+          : arena{_arena}
+          , current_index{_index}
+      {}
+
+      value_type operator*() const { return std::get<value_type>(arena.data[current_index]); }
+
+      Iterator &operator++() {}
+
+      Iterator operator++(int n) {}
+
+    private:
+      Arena &arena;
+      usize current_index;
+    };
+
     using handle_type = Handle<T>;
     using element_type = std::variant<handle_type, T>;
 

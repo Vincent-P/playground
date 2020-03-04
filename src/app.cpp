@@ -36,6 +36,13 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
         }
 
         std::cout << "shaders/" << event.name << " changed!\n";
+        /*
+          - Find the shader with name == "shaders/{event.name}"
+          - Find programs using this shader
+          - Create a new shader module module with updated code
+          - Recreate pipelines of the programs using the shader with the new shader module
+          - Remove the old shader
+         */
     });
 }
 
