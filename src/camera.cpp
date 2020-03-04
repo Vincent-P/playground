@@ -103,7 +103,7 @@ void InputCamera::update()
 float4x4 Camera::update_view()
 {
     // make quaternion from euler angles
-    rotation = float3(glm::radians(pitch), glm::radians(-yaw), 0);
+    rotation = float3(glm::radians(pitch), glm::radians(-yaw), glm::radians(roll));
 
     front = rotation * FRONT;
     up    = rotation * UP;
