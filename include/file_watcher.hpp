@@ -12,7 +12,7 @@ struct Watch
 #ifdef __linux__
     int wd; /* Watch descriptor.  */
 #elif defined(_WIN64)
-
+    int wd;     /* Watch descriptor.  */
 #endif
 
     std::string path;
@@ -26,7 +26,7 @@ struct Event
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
 #elif defined(_WIN64)
-
+    int wd;     /* Watch descriptor.  */
 #endif
 
     std::string name; /* filename. */
