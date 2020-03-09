@@ -71,6 +71,10 @@ float currentDepthDebug(vec4 fragPosLightSpace)
 
 void main()
 {
+    /*
+    outColor = vec4(1, 1, 1, 1);
+    return;
+    */
     vec3 light_dir = normalize(vec3(5, 20, 2));
     vec3 normal = getNormal();
     vec3 base_color = texture(baseColorTexture, inUV0).xyz;

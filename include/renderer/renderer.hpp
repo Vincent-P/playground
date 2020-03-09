@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "camera.hpp"
 #include "gltf.hpp"
 #include "renderer/hl_api.hpp"
@@ -13,6 +14,8 @@
 namespace my_app
 {
 struct Model;
+struct Event;
+
 struct Renderer
 {
     vulkan::API api;
@@ -23,6 +26,8 @@ struct Renderer
     void draw();
     void on_resize(int width, int height);
     void wait_idle();
+
+    void reload_shader(const char* prefix_path, const Event& shader_event);
 
     // glTF
     void load_model_data();

@@ -172,6 +172,12 @@ struct Shader
 
 using ShaderH = Handle<Shader>;
 
+inline bool operator==(const Shader &a, const Shader &b)
+{
+    return a.name == b.name && *a.vkhandle == *b.vkhandle;
+}
+
+
 // replace with vk::PushConstantRange?
 // i like the name of this members as params
 struct PushConstantInfo
@@ -299,6 +305,12 @@ struct Program
 };
 
 using ProgramH = Handle<Program>;
+
+inline bool operator==(const Program &a, const Program &b)
+{
+    return a.info == b.info;
+}
+
 
 // temporary command buffer for the frame
 struct CommandBuffer

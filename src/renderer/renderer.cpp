@@ -4,6 +4,8 @@
 #include "window.hpp"
 #include <imgui.h>
 #include <iostream>
+#include <sstream>
+#include "file_watcher.hpp"
 
 namespace my_app
 {
@@ -177,6 +179,67 @@ void Renderer::on_resize(int width, int height)
 }
 
 void Renderer::wait_idle() { api.wait_idle(); }
+
+void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
+{
+    std::stringstream shader_name_stream;
+    shader_name_stream << prefix_path << '/' << shader_event.name;
+    std::string shader_name = shader_name_stream.str();
+
+    std::cout << shader_name << " changed!\n";
+
+    // Find the shader that needs to be updated
+    vulkan::Shader* found = nullptr;
+    for (auto& shader : api.shaders)
+    {
+        int compared = shader_name.compare(0, strlen(shader.name), shader.name);
+        if (compared == 0)
+        {
+            found = &shader;
+            break;
+        }
+    }
+    if (!found)
+    {
+        assert(false);
+        return;
+    }
+
+    vulkan::Shader& shader = *found;
+
+    // Create a new shader module
+    vulkan::ShaderH new_shader = api.create_shader(shader_name.c_str());
+
+    std::vector<vulkan::ShaderH> to_remove;
+
+    // Update programs using this shader to the new shader
+    for (auto& program : api.programs)
+    {
+        if (program.info.vertex_shader.is_valid())
+        {
+            auto &vertex_shader = api.get_shader(program.info.vertex_shader);
+            if (vertex_shader.name == shader.name) {
+                to_remove.push_back(program.info.vertex_shader);
+                program.info.vertex_shader = new_shader;
+            }
+        }
+
+        if (program.info.fragment_shader.is_valid())
+        {
+            auto &fragment_shader = api.get_shader(program.info.fragment_shader);
+            if (fragment_shader.name == shader.name) {
+                to_remove.push_back(program.info.fragment_shader);
+                program.info.fragment_shader = new_shader;
+            }
+        }
+    }
+
+    // Destroy the old shaders
+    for (vulkan::ShaderH shader_h : to_remove)
+    {
+        api.destroy_shader(shader_h);
+    }
+}
 
 void Renderer::imgui_draw()
 {
