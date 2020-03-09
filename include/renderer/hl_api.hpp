@@ -90,6 +90,11 @@ struct Buffer
 };
 using BufferH = Handle<Buffer>;
 
+inline bool operator==(const Buffer &a, const Buffer &b)
+{
+    return a.vkhandle == b.vkhandle;
+}
+
 struct RTInfo
 {
     bool is_swapchain;
@@ -416,6 +421,8 @@ struct API
 
     CommandBuffer get_temp_cmd_buffer();
 };
+
+void destroy_buffer_internal(API &api, Buffer &buffer);
 
 } // namespace vulkan
 } // namespace my_app

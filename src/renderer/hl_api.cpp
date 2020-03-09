@@ -54,10 +54,10 @@ API API::create(const Window &window)
 
 void API::destroy()
 {
-    destroy_buffer(staging_buffer.buffer_h);
-    destroy_buffer(dyn_uniform_buffer.buffer_h);
-    destroy_buffer(dyn_vertex_buffer.buffer_h);
-    destroy_buffer(dyn_index_buffer.buffer_h);
+    for (auto& buffer : buffers)
+    {
+        destroy_buffer_internal(*this, buffer);
+    }
 
     ctx.destroy();
 }

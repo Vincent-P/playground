@@ -4,6 +4,7 @@ ColumnLimit: 200
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: false
+AllowShortFunctionsOnASingleLine: false
 PointerAlignment: Right
 BreakBeforeBinaryOperators: true
 BreakBeforeBraces: Custom

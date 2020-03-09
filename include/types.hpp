@@ -27,6 +27,8 @@
 
 #define MEMBER_OFFSET(type, member) (static_cast<u32>(reinterpret_cast<u64>(&reinterpret_cast<type *>(0)->member)))
 
+#define not_implemented() {assert(false);}
+
 namespace my_app
 {
 /// --- Numeric Types
@@ -105,13 +107,102 @@ class Arena
       Iterator(Arena &_arena, usize _index = 0)
           : arena{_arena}
           , current_index{_index}
-      {}
+      {
+          for (; current_index < arena.data.size(); current_index++)
+          {
+              // index() returns a zero-based index of the type
+              // 0: handle_type
+              // 1: T
+              if (arena.data[current_index].index() == 1)
+              {
+                  break;
+              }
+          }
+      }
 
-      value_type operator*() const { return std::get<value_type>(arena.data[current_index]); }
+      Iterator(const Iterator &rhs)
+      {
+          this->arena         = rhs.arena;
+          this->current_index = rhs.current_index;
+      }
 
-      Iterator &operator++() {}
+      Iterator(Iterator &&rhs)
+      {
+          this->arena         = rhs.arena;
+          this->current_index = rhs.current_index;
+      }
 
-      Iterator operator++(int n) {}
+      Iterator &operator=(const Iterator &rhs)
+      {
+          this->arena         = rhs.arena;
+          this->current_index = rhs.current_index;
+          return *this;
+      }
+
+      Iterator &operator=(Iterator &&rhs)
+      {
+          this->arena         = rhs.arena;
+          this->current_index = rhs.current_index;
+          return *this;
+      }
+
+      bool operator==(const Iterator &rhs)
+      {
+          return arena == rhs.arena && current_index == rhs.current_index;
+      }
+
+      bool operator!=(const Iterator &rhs)
+      {
+          return !(*this == rhs);
+      }
+
+      void swap(Iterator &)
+      {
+          not_implemented();
+      }
+
+      reference operator*()
+      {
+          assert(current_index < arena.data.size());
+          return std::get<value_type>(arena.data[current_index]);
+      }
+
+      pointer operator->()
+      {
+          return nullptr;
+      }
+
+      Iterator &operator++()
+      {
+          current_index++;
+          for (; current_index < arena.data.size(); current_index++)
+          {
+              // index() returns a zero-based index of the type
+              // 0: handle_type
+              // 1: T
+              if (arena.data[current_index].index() == 1)
+              {
+                  break;
+              }
+          }
+          return *this;
+      }
+
+      Iterator &operator++(int n)
+      {
+          assert(n > 0);
+          for (int i = 0; i < n; i++) {
+              for (; current_index < arena.data.size(); current_index++) {
+                  // index() returns a zero-based index of the type
+                  // 0: handle_type
+                  // 1: T
+                  if (arena.data[current_index].index() == 1) {
+                      break;
+                  }
+              }
+          }
+          return *this;
+      }
 
     private:
       Arena &arena;
@@ -177,7 +268,22 @@ public:
         first_free = handle;
     }
 
-private:
+    Iterator begin()
+    {
+        return Iterator(*this);
+    }
+
+    Iterator end()
+    {
+        return Iterator(*this, data.size());
+    }
+
+    bool operator==(const Arena &rhs)
+    {
+        return data == rhs.data;
+    }
+
+  private:
     handle_type first_free;
     std::vector<element_type> data;
 };

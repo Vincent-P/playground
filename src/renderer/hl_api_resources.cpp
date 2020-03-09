@@ -374,7 +374,7 @@ Buffer &API::get_buffer(BufferH H)
     return *buffers.get(H);
 }
 
-static void destroy_buffer_internal(API &api, Buffer &buf)
+void destroy_buffer_internal(API &api, Buffer &buf)
 {
     if (buf.mapped) {
 	vmaUnmapMemory(api.ctx.allocator, buf.allocation);
