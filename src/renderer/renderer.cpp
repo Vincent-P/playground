@@ -216,7 +216,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     {
         if (program.info.vertex_shader.is_valid())
         {
-            auto &vertex_shader = api.get_shader();
+            auto &vertex_shader = api.get_shader(program.info.vertex_shader);
             if (vertex_shader.name == shader.name) {
                 to_remove.push_back(program.info.vertex_shader);
                 program.info.vertex_shader = new_shader;
