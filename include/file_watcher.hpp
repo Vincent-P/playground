@@ -3,6 +3,12 @@
 #include <functional>
 #include <vector>
 
+#if defined (_WIN64)
+#include <array>
+#include <basetsd.h> // win32 types
+#include <wtypes.h> // HANDLE type
+#endif
+
 namespace my_app
 {
 
@@ -10,11 +16,15 @@ struct Watch
 {
 
 #ifdef __linux__
-    int wd; /* Watch descriptor.  */
+
 #elif defined(_WIN64)
-    int wd;     /* Watch descriptor.  */
+    HANDLE directory_handle;
+    OVERLAPPED overlapped;
+
+    std::array<u8, 2048> buffer;
 #endif
 
+    int wd; /* Watch descriptor.  */
     std::string path;
 };
 
@@ -22,13 +32,13 @@ struct Event
 {
 
 #ifdef __linux__
-    int wd;     /* Watch descriptor.  */
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
 #elif defined(_WIN64)
-    int wd;     /* Watch descriptor.  */
+
 #endif
 
+    int wd;     /* Watch descriptor.  */
     std::string name; /* filename. */
 };
 

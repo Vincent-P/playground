@@ -3,9 +3,15 @@
 #include "file_watcher.hpp"
 
 #ifdef __linux__
+
 #include <fcntl.h>
 #include <sys/inotify.h>
 #include <unistd.h>
+
+#elif defined (_WIN64)
+
+#include <Windows.h>
+
 #endif
 
 #include <array>
@@ -80,30 +86,55 @@ static void fetch_events_internal(FileWatcher &fw)
     }
 }
 
-static const Watch& watch_from_event_internal(const FileWatcher &fw, const Event &event)
-{
-    return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
-}
-
 #elif defined(_WIN64)
 
 static FileWatcher create_internal()
 {
     FileWatcher fw{};
-
     fw.current_events.reserve(10);
     return fw;
 }
 
 static void destroy_internal(FileWatcher& fw)
 {
+    for (auto& watch: fw.watches)
+    {
+        assert(CloseHandle(watch.directory_handle));
+    }
 }
 
 static Watch add_watch_internal(FileWatcher &fw, const char* path)
 {
+    static int last_wd = 0;
     Watch watch;
     watch.path = path;
+    watch.wd = last_wd++;
 
+    watch.directory_handle = CreateFileA(
+        path,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED , // needed to get changes
+        NULL
+        );
+
+    watch.overlapped = {};
+    watch.buffer = {};
+
+    assert(
+        ReadDirectoryChangesW(
+            watch.directory_handle,
+            watch.buffer.data(),
+            watch.buffer.size(),
+            true,
+            FILE_NOTIFY_CHANGE_LAST_WRITE,
+            NULL,
+            &watch.overlapped,
+            NULL
+            )
+        );
 
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
@@ -111,14 +142,56 @@ static Watch add_watch_internal(FileWatcher &fw, const char* path)
 
 static void fetch_events_internal(FileWatcher &fw)
 {
-    // add change events to current_events
+    for (auto& watch : fw.watches)
+    {
+
+        DWORD bread = 0;
+        auto res = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
+        if (!res)
+        {
+            auto error = GetLastError();
+            assert(error == ERROR_IO_INCOMPLETE);
+        }
+
+        u8 *p_buffer = watch.buffer.data();
+        usize offset = 0;
+
+        while (offset + sizeof(FILE_NOTIFY_INFORMATION) < bread) {
+            auto *p_event    = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(ptr_offset(p_buffer, offset));
+
+            Event event;
+            event.wd     = watch.wd;
+
+            std::wstring wname{p_event->FileName};
+            event.name   = std::string{wname.begin(), wname.end()};
+            fw.current_events.push_back(std::move(event));
+
+            if (p_event->NextEntryOffset == 0) {
+                break;
+            }
+            offset += p_event->NextEntryOffset;
+        }
+
+        assert(
+            ReadDirectoryChangesW(
+                watch.directory_handle,
+                watch.buffer.data(),
+                watch.buffer.size(),
+                true,
+                FILE_NOTIFY_CHANGE_LAST_WRITE,
+                NULL,
+                &watch.overlapped,
+                NULL
+                )
+            );
+    }
 }
+#endif
 
 static const Watch& watch_from_event_internal(const FileWatcher &fw, const Event &event)
 {
     return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
 }
-#endif
 
 FileWatcher FileWatcher::create()
 {
