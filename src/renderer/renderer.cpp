@@ -192,12 +192,15 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     vulkan::Shader* found = nullptr;
     for (auto& shader : api.shaders)
     {
+        std::cerr << shader_name << " == " << shader.name << "\n";
+
         if (shader_name == shader.name)
         {
+            assert(found == nullptr);
             found = &shader;
-            break;
         }
     }
+
     if (!found)
     {
         assert(false);
@@ -205,6 +208,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     }
 
     vulkan::Shader& shader = *found;
+    std::cerr << "Found " << shader.name << "\n";
 
     // Create a new shader module
     vulkan::ShaderH new_shader = api.create_shader(shader_name);
