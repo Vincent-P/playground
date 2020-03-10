@@ -4,13 +4,11 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE Debug)
 endif(NOT CMAKE_BUILD_TYPE)
 
 # Export compile commands for the lsp
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# =============================================================
-# Setup C++
 
 # Setup the vcpkg toolchain to get packages
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
@@ -36,14 +34,13 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
 
   # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
-# Release specific config
+  # Release specific config
 ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
 
 ENDIF()
 
 
-# =============================================================
-# MAIN TARGET
+# MAIN EXECUTABLE TARGET
 project(test-vulkan LANGUAGES CXX)
 
 # List the source files
@@ -66,7 +63,6 @@ set(TEST_VULKAN_FILES
 # And add the main executable
 add_executable(test-vulkan ${TEST_VULKAN_FILES})
 
-# --------------
 # Setup libraries
 add_definitions(
   -DNOMINMAX #ty windows....
@@ -99,7 +95,6 @@ target_link_libraries(test-vulkan
   unofficial::vulkan-memory-allocator::vulkan-memory-allocator
   imgui::imgui
   )
-# --------------
 
 # Setup the include directories
 target_include_directories(test-vulkan
@@ -110,37 +105,52 @@ target_include_directories(test-vulkan
   SYSTEM PUBLIC third_party/
   )
 
-# Add a run target to launch the executable
-add_custom_target(run
-  COMMAND test-vulkan
-  DEPENDS test-vulkan
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+# SHADERS
+file(GLOB_RECURSE GLSL_SOURCE_FILES
+  "shaders/*.frag"
+  "shaders/*.vert"
+  "shaders/*.geom"
   )
 
-# =============================================================
+foreach(GLSL ${GLSL_SOURCE_FILES})
+  get_filename_component(FILE_NAME ${GLSL} NAME)
+  set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
+  add_custom_command(
+    OUTPUT ${SPIRV}
+    COMMAND glslc ${GLSL} -o ${SPIRV}
+    DEPENDS ${GLSL})
+  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endforeach(GLSL)
 
-# =============================================================
-# SHADERS
- file(GLOB_RECURSE GLSL_SOURCE_FILES
-   "shaders/*.frag"
-   "shaders/*.vert"
-   "shaders/*.geom"
-   )
+add_custom_target(
+  shaders
+  DEPENDS ${SPIRV_BINARY_FILES}
+  )
 
- foreach(GLSL ${GLSL_SOURCE_FILES})
-   get_filename_component(FILE_NAME ${GLSL} NAME)
-   set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
-   add_custom_command(
-     OUTPUT ${SPIRV}
-     COMMAND glslc ${GLSL} -o ${SPIRV}
-     DEPENDS ${GLSL})
-   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
- endforeach(GLSL)
+add_dependencies(test-vulkan shaders)
 
- add_custom_target(
-   shaders
-   DEPENDS ${SPIRV_BINARY_FILES}
-   )
+# Unit tests
+enable_testing()
 
- add_dependencies(test-vulkan shaders)
-# =============================================================
+project(tests LANGUAGES CXX)
+
+# List the source files
+set(TESTS_FILES
+  tests/main.cpp
+  )
+
+add_executable(tests ${TESTS_FILES})
+
+find_package(GTest CONFIG REQUIRED)
+target_link_libraries(tests GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main)
+
+target_include_directories(tests
+  PUBLIC include/
+  )
+
+target_include_directories(tests
+  SYSTEM PUBLIC third_party/
+  )
+
+
+add_test(AllTestsInMain tests)

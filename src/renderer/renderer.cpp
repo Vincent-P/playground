@@ -192,8 +192,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     vulkan::Shader* found = nullptr;
     for (auto& shader : api.shaders)
     {
-        int compared = shader_name.compare(0, strlen(shader.name), shader.name);
-        if (compared == 0)
+        if (shader_name == shader.name)
         {
             found = &shader;
             break;
@@ -208,7 +207,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     vulkan::Shader& shader = *found;
 
     // Create a new shader module
-    vulkan::ShaderH new_shader = api.create_shader(shader_name.c_str());
+    vulkan::ShaderH new_shader = api.create_shader(shader_name);
 
     std::vector<vulkan::ShaderH> to_remove;
 
@@ -217,7 +216,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     {
         if (program.info.vertex_shader.is_valid())
         {
-            auto &vertex_shader = api.get_shader(program.info.vertex_shader);
+            auto &vertex_shader = api.get_shader();
             if (vertex_shader.name == shader.name) {
                 to_remove.push_back(program.info.vertex_shader);
                 program.info.vertex_shader = new_shader;
@@ -233,6 +232,8 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
             }
         }
     }
+
+    assert(to_remove.size() > 0);
 
     // Destroy the old shaders
     for (vulkan::ShaderH shader_h : to_remove)

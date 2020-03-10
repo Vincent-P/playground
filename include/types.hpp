@@ -231,6 +231,8 @@ public:
 
     handle_type add(T&& value)
     {
+        size += 1;
+
         if (!first_free.is_valid())
         {
             data.push_back(std::move(value));
@@ -251,6 +253,7 @@ public:
     T* get(handle_type handle)
     {
         if (!handle.is_valid()) {
+            assert(false);
             return nullptr;
         }
 
@@ -259,10 +262,12 @@ public:
 
     void remove(handle_type handle)
     {
+        assert(size != 0);
         if (!handle.is_valid()) {
-            return;
+            assert(false);
         }
 
+        size -= 1;
         auto& element = data[handle.value()];
         element = first_free;
         first_free = handle;
@@ -283,9 +288,15 @@ public:
         return data == rhs.data;
     }
 
+    usize get_size() const
+    {
+        return size;
+    }
+
   private:
     handle_type first_free;
     std::vector<element_type> data;
+    usize size{0};
 };
 
 } // namespace my_app

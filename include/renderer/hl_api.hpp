@@ -6,6 +6,7 @@
 #include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <unordered_map>
 #include <vector>
+#include <string>
 #include <vulkan/vulkan.hpp>
 
 /***
@@ -166,7 +167,7 @@ using RenderPassH = Handle<RenderPass>;
 
 struct Shader
 {
-    const char *name;
+    std::string name;
     vk::UniqueShaderModule vkhandle;
 };
 
@@ -423,7 +424,7 @@ struct API
     void destroy_buffer(BufferH H);
     void upload_buffer(BufferH H, void *data, usize len);
 
-    ShaderH create_shader(const char *path);
+    ShaderH create_shader(const std::string &path);
     Shader &get_shader(ShaderH H);
     void destroy_shader(ShaderH H);
 

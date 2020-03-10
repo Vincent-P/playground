@@ -505,12 +505,12 @@ CircularBufferPosition API::dynamic_index_buffer(usize len)
 
 /// --- Shaders
 
-ShaderH API::create_shader(const char *path)
+ShaderH API::create_shader(const std::string &path)
 {
     Shader shader;
 
     shader.name = path;
-    auto code   = tools::read_file(path);
+    auto code   = tools::read_file(path.c_str());
     // keep code for reflection?
 
     vk::ShaderModuleCreateInfo info{};
