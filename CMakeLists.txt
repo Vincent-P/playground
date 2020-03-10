@@ -132,7 +132,7 @@ add_dependencies(test-vulkan shaders)
 # Unit tests
 # List the source files
 set(TESTS_FILES
-  tests/main.cpp
+  tests/arena.cpp
   )
 
 add_executable(tests ${TESTS_FILES})
