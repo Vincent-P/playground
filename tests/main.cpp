@@ -3,7 +3,7 @@
 
 using namespace my_app;
 
-TEST(ArenaTest, True)
+TEST(ArenaTest, Size)
 {
     Arena<uint> numbers;
     auto h1 = numbers.add(1);

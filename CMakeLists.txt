@@ -130,10 +130,6 @@ add_custom_target(
 add_dependencies(test-vulkan shaders)
 
 # Unit tests
-enable_testing()
-
-project(tests LANGUAGES CXX)
-
 # List the source files
 set(TESTS_FILES
   tests/main.cpp
@@ -152,5 +148,6 @@ target_include_directories(tests
   SYSTEM PUBLIC third_party/
   )
 
-
-add_test(AllTestsInMain tests)
+enable_testing()
+include(GoogleTest)
+gtest_discover_tests(tests)
