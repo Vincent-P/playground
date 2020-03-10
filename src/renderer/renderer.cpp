@@ -212,6 +212,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
 
     // Create a new shader module
     vulkan::ShaderH new_shader = api.create_shader(shader_name);
+    std::cerr << "New shader's handle: " << new_shader.value() << "\n";
 
     std::vector<vulkan::ShaderH> to_remove;
 
@@ -242,6 +243,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     // Destroy the old shaders
     for (vulkan::ShaderH shader_h : to_remove)
     {
+        std::cerr << "Removing handle: " << shader_h.value() << "\n";
         api.destroy_shader(shader_h);
     }
 }

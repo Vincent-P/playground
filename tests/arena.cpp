@@ -40,3 +40,17 @@ TEST(ArenaTest, ForLoop)
 
     EXPECT_EQ(nb, 0);
 }
+
+
+TEST(ArenaTest, RecycleCells)
+{
+    Arena<uint> numbers;
+    auto h1 = numbers.add(1); // go to cell 0
+    numbers.add(2); // go to cell 1
+
+    numbers.remove(h1); // free cell 0
+    auto h3 = numbers.add(3); // should go to cell 0
+
+    EXPECT_EQ(h3.value(), 0);
+    EXPECT_EQ(*numbers.get(h3), 3u);
+}
