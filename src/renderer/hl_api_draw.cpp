@@ -221,13 +221,30 @@ void API::end_pass()
 
 static vk::Pipeline find_or_create_pipeline(API &api, Program &program, PipelineInfo &pipeline_info)
 {
-
+    const auto& program_info = pipeline_info.program_info;
     u32 pipeline_i = u32_invalid;
 
     for (u32 i = 0; i < program.pipelines_info.size(); i++) {
-	if (program.pipelines_info[i] == pipeline_info) {
-	    pipeline_i = i;
-	    break;
+        const auto& cur_pipeline_info = program.pipelines_info[i];
+	if (cur_pipeline_info == pipeline_info) {
+
+            // A deep comparison is needed since the operator== only check if handles are the same index
+            bool same = false;
+
+            const auto& cur_program_info = cur_pipeline_info.program_info;
+
+            if (program_info.vertex_shader.is_valid()) {
+                same &= api.get_shader(program_info.vertex_shader) == api.get_shader(cur_program_info.vertex_shader);
+            }
+
+            if (program_info.fragment_shader.is_valid()) {
+                same &= api.get_shader(program_info.fragment_shader) == api.get_shader(cur_program_info.fragment_shader);
+            }
+
+            if (same) {
+                pipeline_i = i;
+                break;
+            }
 	}
     }
 

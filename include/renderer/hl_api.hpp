@@ -235,6 +235,7 @@ struct ProgramInfo
 {
     ShaderH vertex_shader;
     ShaderH fragment_shader;
+
     std::vector<PushConstantInfo> push_constants;
     std::array<std::vector<BindingInfo>, MAX_DESCRIPTOR_SET> bindings_by_set;
     VertexBufferInfo vertex_buffer_info;
@@ -248,7 +249,8 @@ struct ProgramInfo
 
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
-    return a.vertex_shader == b.vertex_shader && a.fragment_shader == b.fragment_shader
+    return a.vertex_shader == b.vertex_shader
+        && a.fragment_shader == b.fragment_shader
 	   && a.push_constants == b.push_constants && a.bindings_by_set == b.bindings_by_set
 	   && a.vertex_buffer_info == b.vertex_buffer_info;
 }
@@ -260,7 +262,7 @@ struct PipelineInfo
     vk::PipelineLayout pipeline_layout;
     vk::RenderPass vk_render_pass;
 
-    bool operator==(const PipelineInfo &other) { return program_info == other.program_info; }
+    bool operator==(const PipelineInfo &other) const { return program_info == other.program_info; }
 };
 
 struct DescriptorSet
