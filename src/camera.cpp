@@ -1,6 +1,8 @@
 #include "camera.hpp"
 #include "window.hpp"
+#if defined(ENABLE_IMGUI)
 #include <imgui.h>
+#endif
 
 namespace my_app
 {
@@ -65,10 +67,12 @@ void InputCamera::update()
 {
     static constexpr auto delta_t = 16.f;
 
+#if defined(ENABLE_IMGUI)
     ImGui::Begin("Camera");
     ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 0.25f);
     ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
     ImGui::End();
+#endif
 
     int forward = 0;
     int right   = 0;

@@ -2,7 +2,9 @@
 #include "camera.hpp"
 #include "tools.hpp"
 #include "window.hpp"
+#if defined(ENABLE_IMGUI)
 #include <imgui.h>
+#endif
 #include <iostream>
 #include <sstream>
 #include "file_watcher.hpp"
@@ -18,6 +20,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     /// --- Init ImGui
 
+#if defined(ENABLE_IMGUI)
     {
         ImGui::CreateContext();
         auto &style             = ImGui::GetStyle();
@@ -65,6 +68,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.gui_texture = r.api.create_image(iinfo);
         r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
     }
+#endif
 
     /// --- glTF Model
 
@@ -250,6 +254,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
 
 void Renderer::imgui_draw()
 {
+#if defined(ENABLE_IMGUI)
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
     if (data == nullptr || data->TotalVtxCount == 0) {
@@ -331,6 +336,7 @@ void Renderer::imgui_draw()
         }
         vertex_offset += cmd_list->VtxBuffer.Size;
     }
+#endif
 }
 
 static void bind_texture(Renderer &r, uint slot, std::optional<u32> i_texture)
@@ -414,11 +420,13 @@ void Renderer::draw_model()
 
     // Make a shader debugging window and its own uniform buffer
     {
+        static usize selected = 0;
+#if defined(ENABLE_IMGUI)
         ImGui::Begin("glTF Shader");
         static std::array options{"Nothing", "BaseColor", "Normal", "MetallicRoughness", "ShadowMap", "LightPosition", "LightPos <= ShadowMap"};
-        static usize selected = 0;
         tools::imgui_select("Debug output", options.data(), options.size(), selected);
         ImGui::End();
+#endif
 
         auto u_pos   = api.dynamic_uniform_buffer(sizeof(uint));
         auto *buffer = reinterpret_cast<uint *>(u_pos.mapped);
@@ -492,10 +500,13 @@ static void shadow_map(Renderer &r)
     r.api.set_scissor(scissor);
 
     {
+#if defined(ENABLE_IMGUI)
         ImGui::Begin("Sun");
-
+#endif
         static float3 s_sun_angles = {90.0f, 0.0f, 0.0f};
+#if defined(ENABLE_IMGUI)
         ImGui::SliderFloat3("Rotation", &s_sun_angles[0], -180.0f, 180.0f);
+#endif
 
         bool dirty = false;
         if (s_sun_angles[0] != r.sun.pitch) {
@@ -514,7 +525,9 @@ static void shadow_map(Renderer &r)
             r.sun.update_view();
         }
 
+#if defined(ENABLE_IMGUI)
         ImGui::End();
+#endif
 
         auto u_pos   = r.api.dynamic_uniform_buffer(4 * sizeof(float4x4));
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
@@ -538,7 +551,9 @@ void Renderer::draw()
 {
     bool is_ok = api.start_frame();
     if (!is_ok) {
+#if defined(ENABLE_IMGUI)
         ImGui::EndFrame();
+#endif
         return;
     }
 

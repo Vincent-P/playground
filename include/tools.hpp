@@ -1,7 +1,9 @@
 #pragma once
 
 #include <filesystem>
+#if defined(ENABLE_IMGUI)
 #include <imgui.h>
+#endif
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,6 +24,7 @@ struct MouseState
 
 std::vector<u8> read_file(const fs::path &path);
 
+#if defined(ENABLE_IMGUI)
 inline void imgui_select(const char *title, const char **items, usize items_size, usize &current_item)
 {
     std::string id("##custom combo");
@@ -41,5 +44,6 @@ inline void imgui_select(const char *title, const char **items, usize items_size
         ImGui::EndCombo();
     }
 }
+#endif
 
 } // namespace my_app::tools

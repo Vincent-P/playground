@@ -1,5 +1,7 @@
 #include "app.hpp"
+#if defined(ENABLE_IMGUI)
 #include <imgui.h>
+#endif
 #include <iostream>
 #include "file_watcher.hpp"
 
@@ -17,6 +19,7 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
     window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); });
 
+#if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
@@ -25,6 +28,7 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     io.DisplaySize.y             = float(renderer.api.ctx.swapchain.extent.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+#endif
 
     watcher = FileWatcher::create();
 
@@ -43,6 +47,7 @@ App::~App() { renderer.destroy(); }
 
 void App::draw_fps()
 {
+#if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
@@ -90,6 +95,7 @@ void App::draw_fps()
     }
 
     ImGui::End();
+#endif
 }
 
 void App::update()
@@ -101,7 +107,9 @@ void App::update()
 void App::run()
 {
     while (!window.should_close()) {
+#if defined(ENABLE_IMGUI)
         ImGui::NewFrame();
+#endif
         window.update();
         update();
         timer.update();

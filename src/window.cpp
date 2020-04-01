@@ -1,7 +1,9 @@
 #include "window.hpp"
 #include "types.hpp"
 #include <GLFW/glfw3.h>
+#if defined(ENABLE_IMGUI)
 #include <imgui.h>
+#endif
 
 namespace my_app
 {
@@ -72,6 +74,7 @@ void Window::update()
 	force_close = true;
     }
 
+#if defined(ENABLE_IMGUI)
     ImGuiIO &io = ImGui::GetIO();
 
     // Update the mouse position for ImGui
@@ -95,6 +98,7 @@ void Window::update()
 	io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
 	mouse_just_pressed[i] = false;
     }
+#endif
 }
 
 } // namespace my_app

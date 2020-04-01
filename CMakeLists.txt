@@ -1,50 +1,58 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.17)
 
-# Put binaries at the root of the build folder
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
-endif(NOT CMAKE_BUILD_TYPE)
-
-# Export compile commands for the lsp
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+cmake_policy(SET CMP0091 NEW) # makes MSVC_RUNTIME_LIBRARY variable work
 
 # Setup the vcpkg toolchain to get packages
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-    CACHE STRING "")
+if(DEFINED ENV{VCPKG_ROOT})
+  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
 
-# Use c++ 17 flags and fix system includes with clang-cl.exe
-IF (WIN32)
-  # Use clang-cl.exe MSVC-like flags
-  add_compile_options(--driver-mode=cl)
-  add_compile_options(/std:c++17)
-  set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-imsvc ")
-ELSE()
-  add_compile_options(-std=c++17)
-ENDIF()
 
-# Treat warnings as error
-add_compile_options(-fcolor-diagnostics -fansi-escape-codes -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # Put binaries at the root of the build folder
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# Debug specific config
-IF(CMAKE_BUILD_TYPE MATCHES Debug)
-
-  # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
-
-  # Release specific config
-ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
-
-ENDIF()
-
-
-# MAIN EXECUTABLE TARGET
 project(test-vulkan LANGUAGES CXX)
 
-# List the source files
-set(TEST_VULKAN_FILES
+add_compile_options(
+  -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
+  -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
+  )
+
+# Enable ASAN
+if(NOT WIN32 OR CMAKE_BUILD_TYPE MATCHES Release)
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fsanitize=address")
+endif ()
+
+add_definitions(
+  -DNOMINMAX #ty windows....
+  -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+  -DGLFW_INCLUDE_VULKAN
+  -DGLM_FORCE_RADIANS
+  -DGLM_FORCE_DEPTH_ZERO_TO_ONE
+  -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
+  -DVMA_DEBUG_MARGIN=16
+  -DVMA_DEBUG_DETECT_CORRUPTION=1
+
+#  -DENABLE_IMGUI
+  )
+
+# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+
+# C++ Libraires, need to be installed with vcpkg
+find_package(Vulkan REQUIRED)
+find_package(glm REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+
+# Main executable
+add_executable(test-vulkan
   src/main.cpp
   src/window.cpp
   src/camera.cpp
@@ -60,31 +68,6 @@ set(TEST_VULKAN_FILES
   src/renderer/hl_api_draw.cpp
   )
 
-# And add the main executable
-add_executable(test-vulkan ${TEST_VULKAN_FILES})
-
-# Setup libraries
-add_definitions(
-  -DNOMINMAX #ty windows....
-
-  -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
-
-  -DGLFW_INCLUDE_VULKAN
-  -DGLM_FORCE_RADIANS
-  -DGLM_FORCE_DEPTH_ZERO_TO_ONE
-
-  -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
-  -DVMA_DEBUG_MARGIN=16
-  -DVMA_DEBUG_DETECT_CORRUPTION=1
-  )
-
-find_package(Vulkan REQUIRED)
-find_package(glm REQUIRED)
-find_package(glfw3 CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-
 target_link_libraries(test-vulkan
   PRIVATE
   Vulkan::Vulkan
@@ -96,12 +79,8 @@ target_link_libraries(test-vulkan
   imgui::imgui
   )
 
-# Setup the include directories
 target_include_directories(test-vulkan
   PUBLIC include/
-  )
-
-target_include_directories(test-vulkan
   SYSTEM PUBLIC third_party/
   )
 
@@ -129,25 +108,21 @@ add_custom_target(
 
 add_dependencies(test-vulkan shaders)
 
-# Unit tests
-# List the source files
-set(TESTS_FILES
-  tests/arena.cpp
-  )
-
-add_executable(tests ${TESTS_FILES})
-
-find_package(GTest CONFIG REQUIRED)
-target_link_libraries(tests GTest::gtest GTest::gtest_main)
-
-target_include_directories(tests
-  PUBLIC include/
-  )
-
-target_include_directories(tests
-  SYSTEM PUBLIC third_party/
-  )
-
-enable_testing()
-include(GoogleTest)
-gtest_discover_tests(tests)
+# GTest executable
+# add_executable(tests
+#   tests/arena.cpp
+#   )
+#
+# target_link_libraries(tests
+#   GTest::gtest
+#   GTest::gtest_main
+#   )
+#
+# target_include_directories(tests
+#   PUBLIC include/
+#   SYSTEM PUBLIC third_party/
+#   )
+#
+# enable_testing()
+# include(GoogleTest)
+# gtest_discover_tests(tests)
