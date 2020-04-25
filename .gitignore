@@ -7,3 +7,5 @@ lib
 .ccls-cache
 *.cap
 *.debugtarget
+.clangd
+.log

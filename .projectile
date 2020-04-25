@@ -4,6 +4,8 @@ models
 lib
 *.spv
 .ccls-cache
+.clangd
+.log
 *.cap
 *.debugtarget
 .vs
