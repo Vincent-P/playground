@@ -18,5 +18,5 @@ layout(location = 1) in vec4 v_Color;
 layout(location = 0) out vec4 o_Color;
 
 void main() {
-  o_Color = texture( u_Texture, v_Texcoord ) * v_Color;
+    o_Color = texture( u_Texture, v_Texcoord ) * v_Color;
 }

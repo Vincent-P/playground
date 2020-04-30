@@ -19,6 +19,7 @@ Camera Camera::create(float3 position)
     camera.position = position;
     camera.front    = FRONT;
     camera.up       = UP;
+    camera.update_view();
     return camera;
 }
 

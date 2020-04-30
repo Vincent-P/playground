@@ -208,7 +208,7 @@ void FileWatcher::update()
     fetch_events_internal(*this);
 
     for (const auto &event : current_events) {
-        auto &watch = watch_from_event_internal(*this, event);
+        const auto &watch = watch_from_event_internal(*this, event);
         for (const auto &cb : callbacks) {
             cb(watch, event);
         }

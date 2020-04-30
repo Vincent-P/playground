@@ -73,12 +73,15 @@ void main()
 {
     vec3 light_dir = normalize(vec3(5, 20, 2));
     vec3 normal = getNormal();
-    vec3 base_color = texture(baseColorTexture, inUV0).xyz;
-    vec3 ambient = 0.2 * base_color;
+    vec4 base_color = texture(baseColorTexture, inUV0);
+    if (base_color.a < 0.5) {
+        discard;
+    }
+    vec3 ambient = 0.2 * base_color.rgb;
     float diffuse = max(dot(normal, light_dir), 0.0f);
     float is_in_shadow = ShadowCalculation(inLightPosition);
 
-    vec3 color = (ambient + (1.0 - is_in_shadow) * diffuse) * base_color;
+    vec3 color = (ambient + (1.0 - is_in_shadow) * diffuse) * base_color.rgb;
 
     switch (debug.selected)
     {

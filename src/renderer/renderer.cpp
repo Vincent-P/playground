@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include "file_watcher.hpp"
+#include "types.hpp"
 
 namespace my_app
 {
@@ -287,8 +288,6 @@ void Renderer::imgui_draw()
     viewport.maxDepth = 1.0f;
     api.set_viewport(viewport);
 
-    api.bind_image(gui_program, vulkan::SHADER_DESCRIPTOR_SET, 0, gui_texture);
-    api.bind_program(gui_program);
     api.bind_vertex_buffer(v_pos);
     api.bind_index_buffer(i_pos);
 
@@ -297,8 +296,6 @@ void Renderer::imgui_draw()
     scale_and_translation[1] = 2.0f / data->DisplaySize.y;                            // Y Scale
     scale_and_translation[2] = -1.0f - data->DisplayPos.x * scale_and_translation[0]; // X Translation
     scale_and_translation[3] = -1.0f - data->DisplayPos.y * scale_and_translation[1]; // Y Translation
-
-    api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float4), &scale_and_translation);
 
     // Will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
@@ -312,6 +309,17 @@ void Renderer::imgui_draw()
 
         for (int command_index = 0; command_index < cmd_list->CmdBuffer.Size; command_index++) {
             const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
+
+            if (draw_command->TextureId) {
+                auto texture = vulkan::ImageH(reinterpret_cast<u32>(draw_command->TextureId));
+                api.bind_image(gui_program, vulkan::SHADER_DESCRIPTOR_SET, 0, texture);
+            }
+            else {
+                api.bind_image(gui_program, vulkan::SHADER_DESCRIPTOR_SET, 0, gui_texture);
+            }
+
+            api.bind_program(gui_program);
+            api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float4), &scale_and_translation);
 
             // Project scissor/clipping rectangles into framebuffer space
             ImVec4 clip_rect;
@@ -504,8 +512,14 @@ static void shadow_map(Renderer &r)
         ImGui::Begin("Sun");
 #endif
         static float3 s_sun_angles = {90.0f, 0.0f, 0.0f};
+        static float s_size = 40.f;
+        static float s_near = 1.f;
+        static float s_far = 30.f;
 #if defined(ENABLE_IMGUI)
         ImGui::SliderFloat3("Rotation", &s_sun_angles[0], -180.0f, 180.0f);
+        ImGui::SliderFloat("Size", &s_size, 5.0f, 50.0f);
+        ImGui::SliderFloat("Near", &s_near, 1.0f, 50.0f);
+        ImGui::SliderFloat("Far", &s_far, 1.0f, 50.0f);
 #endif
 
         bool dirty = false;
@@ -532,8 +546,9 @@ static void shadow_map(Renderer &r)
         auto u_pos   = r.api.dynamic_uniform_buffer(4 * sizeof(float4x4));
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = r.sun.get_view();
-        buffer[1]    = r.sun.ortho_square(40.f, 1.f, 30.f);
+        buffer[1]    = r.sun.ortho_square(s_size, s_near, s_far);
         r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+
     }
 
     r.api.bind_program(r.model_vertex_only);
@@ -545,6 +560,13 @@ static void shadow_map(Renderer &r)
     }
 
     r.api.end_pass();
+
+#if defined(ENABLE_IMGUI)
+    auto &depth = r.api.get_rendertarget(r.shadow_map_depth_rt);
+    ImGui::Begin("Shadow map");
+    ImGui::Image(reinterpret_cast<void*>(depth.image_h.value()), ImVec2(256, 256));
+    ImGui::End();
+#endif
 }
 
 void Renderer::draw()
