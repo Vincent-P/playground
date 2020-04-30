@@ -101,14 +101,14 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     /// --- Shadow map
 
     {
-        r.sun = Camera::create(float3(5, 20, 2));
+        r.sun = Camera::create(float3(0, 20, 0));
     }
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Shadow Map Depth";
         iinfo.format = vk::Format::eD32Sfloat;
-        iinfo.width  = 2048;
-        iinfo.height = 2048;
+        iinfo.width  = 4 * 1024;
+        iinfo.height = 4 * 1024;
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
         auto depth_h = r.api.create_image(iinfo);
@@ -495,16 +495,19 @@ static void shadow_map(Renderer &r)
 
     r.api.begin_pass(std::move(pass));
 
+    auto shadow_map_rt = r.api.get_rendertarget(r.shadow_map_depth_rt);
+    auto shadow_map_img = r.api.get_image(shadow_map_rt.image_h);
+
     vk::Viewport viewport{};
-    viewport.width    = 2048;
-    viewport.height   = 2048;
+    viewport.width    = shadow_map_img.image_info.extent.width;
+    viewport.height   = shadow_map_img.image_info.extent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     r.api.set_viewport(viewport);
 
     vk::Rect2D scissor{};
-    scissor.extent.width  = 2048;
-    scissor.extent.height = 2048;
+    scissor.extent.width  = shadow_map_img.image_info.extent.width;
+    scissor.extent.height = shadow_map_img.image_info.extent.height;
     r.api.set_scissor(scissor);
 
     {

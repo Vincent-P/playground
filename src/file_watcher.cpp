@@ -114,10 +114,10 @@ static Watch add_watch_internal(FileWatcher &fw, const char* path)
         path,
         GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        NULL,
+        nullptr,
         OPEN_EXISTING,
         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED , // needed to get changes
-        NULL
+        nullptr
         );
 
     watch.overlapped = {};
