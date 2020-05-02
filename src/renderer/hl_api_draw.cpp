@@ -615,4 +615,22 @@ void API::set_viewport(const vk::Viewport &viewport)
     frame_resource.command_buffer->setViewport(0, viewport);
 }
 
+void API::begin_label(std::string_view name, float4 color)
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+    vk::DebugUtilsLabelEXT info{};
+    info.pLabelName = name.data();
+    info.color[0] = color[0];
+    info.color[1] = color[1];
+    info.color[2] = color[2];
+    info.color[3] = color[3];
+    frame_resource.command_buffer->beginDebugUtilsLabelEXT(&info);
+}
+
+void API::end_label()
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+    frame_resource.command_buffer->endDebugUtilsLabelEXT();
+}
+
 } // namespace my_app::vulkan

@@ -255,6 +255,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
 
 void Renderer::imgui_draw()
 {
+    api.begin_label("ImGui");
 #if defined(ENABLE_IMGUI)
     ImGui::ShowStyleEditor() ;
     ImGui::Render();
@@ -346,6 +347,7 @@ void Renderer::imgui_draw()
         vertex_offset += cmd_list->VtxBuffer.Size;
     }
 #endif
+    api.end_label();
 }
 
 static void bind_texture(Renderer &r, uint slot, std::optional<u32> i_texture)
@@ -401,6 +403,8 @@ static void draw_node(Renderer &r, Node &node)
 
 void Renderer::draw_model()
 {
+    api.begin_label("Model");
+
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
     viewport.height   = api.ctx.swapchain.extent.height;
@@ -456,6 +460,8 @@ void Renderer::draw_model()
     for (usize node_i : model.scene) {
         draw_node(*this, model.nodes[node_i]);
     }
+
+    api.end_label();
 }
 
 static void draw_node_shadow(Renderer &r, Node &node)
@@ -486,6 +492,7 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
 static void shadow_map(Renderer &r)
 {
+    r.api.begin_label("Shadow Map");
     vulkan::PassInfo pass;
     pass.present = false;
 
@@ -564,6 +571,7 @@ static void shadow_map(Renderer &r)
     }
 
     r.api.end_pass();
+    r.api.end_label();
 
 #if defined(ENABLE_IMGUI)
     auto &depth = r.api.get_rendertarget(r.shadow_map_depth_rt);

@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <vulkan/vulkan.hpp>
 
 /***
@@ -384,6 +385,10 @@ struct API
     void bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h);
     void bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
+
+    /// --- Debug
+    void begin_label(std::string_view name, float4 color = {1, 1, 1, 1});
+    void end_label();
 
     template <typename T> T *bind_uniform()
     {

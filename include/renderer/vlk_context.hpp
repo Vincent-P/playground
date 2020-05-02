@@ -67,7 +67,9 @@ struct FrameResources
 struct Context
 {
     vk::UniqueInstance instance;
+
     std::optional<vk::DebugUtilsMessengerEXT> debug_messenger;
+
     vk::UniqueSurfaceKHR surface;
     vk::PhysicalDevice physical_device;
     vk::PhysicalDeviceProperties physical_props;

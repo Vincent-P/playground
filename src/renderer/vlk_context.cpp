@@ -84,9 +84,7 @@ Context Context::create(const Window &window)
         instance_extensions.push_back(required_extensions[i]);
     }
 
-    if (ENABLE_VALIDATION_LAYERS) {
-        instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    }
+    instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
     std::vector<const char *> instance_layers;
