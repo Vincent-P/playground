@@ -249,10 +249,11 @@ struct ProgramInfo
 
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
-    return a.vertex_shader == b.vertex_shader
-        && a.fragment_shader == b.fragment_shader
-	   && a.push_constants == b.push_constants && a.bindings_by_set == b.bindings_by_set
-	   && a.vertex_buffer_info == b.vertex_buffer_info;
+    return    a.vertex_shader == b.vertex_shader
+           && a.fragment_shader == b.fragment_shader
+           && a.push_constants == b.push_constants
+           && a.bindings_by_set == b.bindings_by_set
+           && a.vertex_buffer_info == b.vertex_buffer_info;
 }
 
 // TODO: smart fields

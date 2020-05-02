@@ -256,6 +256,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
 void Renderer::imgui_draw()
 {
 #if defined(ENABLE_IMGUI)
+    ImGui::ShowStyleEditor() ;
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
     if (data == nullptr || data->TotalVtxCount == 0) {
@@ -350,9 +351,9 @@ void Renderer::imgui_draw()
 static void bind_texture(Renderer &r, uint slot, std::optional<u32> i_texture)
 {
     if (i_texture) {
-        auto texture = r.model.textures[*i_texture];
-        auto image   = r.model.images[texture.image];
-        auto sampler = r.model.samplers[texture.sampler];
+        auto &texture = r.model.textures[*i_texture];
+        auto &image   = r.model.images[texture.image];
+        auto &sampler = r.model.samplers[texture.sampler];
 
         r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
     }
