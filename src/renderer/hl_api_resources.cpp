@@ -103,8 +103,7 @@ ImageH API::create_image(const ImageInfo &info)
     vci.flags  = {};
     vci.image  = img.vkhandle;
     vci.format = img.image_info.format;
-    vci.components
-	= {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+    vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
     vci.subresourceRange = img.full_range;
     vci.viewType         = view_type_from(img.image_info.imageType);
 
@@ -634,5 +633,29 @@ void API::destroy_program(ProgramH H)
     assert(H.is_valid());
     programs.remove(H);
 }
+
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout)
+{
+    if (image.access != next_access)
+    {
+        auto &frame_resource = api.ctx.frame_resources.get_current();
+        transition_layout_internal(*frame_resource.command_buffer,
+                                   image.vkhandle,
+                                   image.access,
+                                   next_access,
+                                   image.full_range);
+        image.access = next_access;
+        image.layout = next_layout;
+    }
+}
+
+void API::clear_image(ImageH H, const vk::ClearColorValue &clear_color)
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+    auto &image = get_image(H);
+    transition_if_needed_internal(*this, image, THSVS_ACCESS_TRANSFER_WRITE, vk::ImageLayout::eTransferDstOptimal);
+    frame_resource.command_buffer->clearColorImage(image.vkhandle, image.layout, clear_color, image.full_range);
+}
+
 
 } // namespace my_app::vulkan

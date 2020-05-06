@@ -13,7 +13,7 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 
-layout(set = 1, binding = 0) uniform UBO {
+layout(set = 1, binding = 1) uniform UBO {
     vec3 center;
     float size;
     uint res;

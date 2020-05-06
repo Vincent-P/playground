@@ -5,11 +5,12 @@ namespace my_app::vulkan
 {
 
 // TODO: multiple render targets, multisampling
-static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
+static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    for (auto &render_pass : api.renderpasses) {
+    for (auto it = api.renderpasses.begin(); it != api.renderpasses.end(); ++it) {
+        const auto &render_pass = *it;
         if (render_pass.info == info) {
-            return render_pass;
+            return RenderPassH(it.index());
         }
     }
 
@@ -84,8 +85,7 @@ static RenderPass &find_or_create_render_pass(API &api, PassInfo &&info)
     rp_info.pDependencies   = dependencies.data();
     rp.vkhandle             = api.ctx.device->createRenderPassUnique(rp_info);
 
-    api.renderpasses.push_back(std::move(rp));
-    return api.renderpasses.back();
+    return api.renderpasses.add(std::move(rp));
 }
 
 // TODO: render targets other than one swapchain image
@@ -125,7 +125,8 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
 
 void API::begin_pass(PassInfo &&info)
 {
-    auto &render_pass = find_or_create_render_pass(*this, std::move(info));
+    auto render_pass_h = find_or_create_render_pass(*this, std::move(info));
+    auto &render_pass = *renderpasses.get(render_pass_h);
 
     FrameBufferInfo fb_info;
 
@@ -197,7 +198,7 @@ void API::begin_pass(PassInfo &&info)
     rpbi.clearValueCount = static_cast<u32>(clear_values.size());
     rpbi.pClearValues    = clear_values.data();
 
-    current_render_pass = &render_pass;
+    current_render_pass = render_pass_h;
 
     frame_resource.command_buffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
 }
@@ -207,7 +208,9 @@ void API::end_pass()
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->endRenderPass();
 
-    auto &render_pass = *current_render_pass;
+    auto *maybe_render_pass = renderpasses.get(current_render_pass);
+    assert(maybe_render_pass);
+    auto &render_pass = *maybe_render_pass;
 
     if (render_pass.info.depth) {
         auto &depth_rt     = get_rendertarget(render_pass.info.depth->rt);
@@ -215,7 +218,7 @@ void API::end_pass()
         depth_image.layout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
     }
 
-    current_render_pass = nullptr;
+    current_render_pass = RenderPassH::invalid();
 }
 
 static vk::Pipeline find_or_create_pipeline(API &api, Program &program, PipelineInfo &pipeline_info)
@@ -236,6 +239,10 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
                 same &= api.get_shader(program_info.vertex_shader) == api.get_shader(cur_program_info.vertex_shader);
             }
 
+            if (program_info.geom_shader.is_valid()) {
+                same &= api.get_shader(program_info.geom_shader) == api.get_shader(cur_program_info.geom_shader);
+            }
+
             if (program_info.fragment_shader.is_valid()) {
                 same &= api.get_shader(program_info.fragment_shader) == api.get_shader(cur_program_info.fragment_shader);
             }
@@ -254,6 +261,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
 
         const auto &program_info       = pipeline_info.program_info;
         const auto &vertex_buffer_info = program_info.vertex_buffer_info;
+        const auto &render_pass        = *api.renderpasses.get(pipeline_info.render_pass);
 
         // TODO: support 0 or more than 1 vertex buffer
         std::array<vk::VertexInputBindingDescription, 1> bindings;
@@ -350,17 +358,24 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
         vk::PipelineMultisampleStateCreateInfo ms_i{};
         ms_i.flags                 = {};
         ms_i.pSampleMask           = nullptr;
-        ms_i.rasterizationSamples  = vk::SampleCountFlagBits::e1;
+        ms_i.rasterizationSamples  = render_pass.info.samples;
         ms_i.sampleShadingEnable   = VK_FALSE;
         ms_i.alphaToCoverageEnable = VK_FALSE;
         ms_i.alphaToOneEnable      = VK_FALSE;
         ms_i.minSampleShading      = .2f;
 
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+        shader_stages.reserve(3);
 
         if (program_info.vertex_shader.is_valid()) {
             const auto &shader = api.get_shader(program_info.vertex_shader);
             vk::PipelineShaderStageCreateInfo create_info{{}, vk::ShaderStageFlagBits::eVertex, *shader.vkhandle, "main"};
+            shader_stages.push_back(std::move(create_info));
+        }
+
+        if (program_info.geom_shader.is_valid()) {
+            const auto &shader = api.get_shader(program_info.geom_shader);
+            vk::PipelineShaderStageCreateInfo create_info{{}, vk::ShaderStageFlagBits::eGeometry, *shader.vkhandle, "main"};
             shader_stages.push_back(std::move(create_info));
         }
 
@@ -385,7 +400,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
         pipe_i.pDepthStencilState  = &ds_i;
         pipe_i.pStages             = shader_stages.data();
         pipe_i.stageCount          = static_cast<u32>(shader_stages.size());
-        pipe_i.renderPass          = pipeline_info.vk_render_pass;
+        pipe_i.renderPass          = *render_pass.vkhandle;
         pipe_i.subpass             = 0; // TODO: subpasses
 
         program.pipelines_info.push_back(pipeline_info);
@@ -430,6 +445,7 @@ static void undirty_descriptor_set(API &api, Program &program, uint i_set)
 
         std::vector<vk::WriteDescriptorSet> writes;
         map_transform(program.binded_data_by_set[i_set], writes, [&](const auto &binded_data) {
+            assert(binded_data.has_value());
             vk::WriteDescriptorSet write;
             write.dstSet           = descriptor_set.set;
             write.dstBinding       = binded_data->binding;
@@ -464,13 +480,12 @@ static void bind_descriptor_set(API &api, Program &program, uint i_set)
 
 void API::bind_program(ProgramH H)
 {
-    assert(current_render_pass != nullptr);
+    assert(current_render_pass.is_valid());
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &program        = get_program(H);
-    auto &render_pass    = *current_render_pass;
 
     /// --- Find and bind graphics pipeline
-    PipelineInfo pipeline_info{program.info, *program.pipeline_layout, *render_pass.vkhandle};
+    PipelineInfo pipeline_info{program.info, *program.pipeline_layout, current_render_pass};
     auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
@@ -491,11 +506,17 @@ void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
         }
     }
 
-    assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+    auto descriptor_type = program.info.bindings_by_set[set][slot].type;
+    if (descriptor_type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
+    {
+        transition_if_needed_internal(*this, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
+
+    assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
 
     ShaderBinding data;
     data.binding                = slot;
-    data.type                   = program.info.bindings_by_set[set][slot].type;
+    data.type                   = descriptor_type;
     data.image_info.imageView   = image.default_view;
     data.image_info.sampler     = image.default_sampler;
     data.image_info.imageLayout = image.layout;
@@ -603,6 +624,13 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
     frame_resource.command_buffer->drawIndexed(index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
+void API::draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance)
+{
+    pre_draw(*this, *current_program);
+    auto &frame_resource = ctx.frame_resources.get_current();
+    frame_resource.command_buffer->draw(vertex_count, instance_count, first_vertex, first_instance);
+}
+
 void API::set_scissor(const vk::Rect2D &scissor)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
@@ -632,5 +660,4 @@ void API::end_label()
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->endDebugUtilsLabelEXT();
 }
-
 } // namespace my_app::vulkan

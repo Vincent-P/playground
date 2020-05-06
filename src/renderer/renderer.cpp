@@ -1,14 +1,16 @@
 #include "renderer/renderer.hpp"
 #include "camera.hpp"
+#include "renderer/hl_api.hpp"
 #include "tools.hpp"
 #include "window.hpp"
+#include <vulkan/vulkan.hpp>
 #if defined(ENABLE_IMGUI)
 #include <imgui.h>
 #endif
-#include <iostream>
-#include <sstream>
 #include "file_watcher.hpp"
 #include "types.hpp"
+#include <iostream>
+#include <sstream>
 
 namespace my_app
 {
@@ -99,7 +101,6 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     }
 
     /// --- Shadow map
-
     {
         r.sun = Camera::create(float3(0, 20, 0));
     }
@@ -145,11 +146,89 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.model_vertex_only = r.api.create_program(std::move(pinfo));
     }
 
+    /// --- Voxelization
+    {
+        r.voxels_resolution = 512;
+
+        vulkan::ImageInfo iinfo;
+        iinfo.name       = "Voxels";
+        iinfo.type       = vk::ImageType::e3D;
+        iinfo.format     = vk::Format::eR32Uint;
+        iinfo.width      = r.voxels_resolution;
+        iinfo.height     = r.voxels_resolution;
+        iinfo.depth      = r.voxels_resolution;
+        iinfo.usages     = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
+        r.voxels_texture = r.api.create_image(iinfo);
+    }
+
+    {
+        vulkan::ProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/voxelization.vert.spv");
+        pinfo.geom_shader     = r.api.create_shader("shaders/voxelization.geom.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/voxelization.frag.spv");
+
+        // voxels texture
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+
+        // voxel debug
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // node transform
+        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eVertex,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // color texture
+        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+
+        // normal texture
+        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 2,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+
+        pinfo.vertex_stride(sizeof(GltfVertex));
+        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.enable_depth = false;
+
+        r.voxelization = r.api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/voxel_visualization.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
+
+        // voxels texture
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+
+        // camera
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.enable_depth = false;
+
+        r.visualization = r.api.create_program(std::move(pinfo));
+    }
+
     return r;
 }
 
 void Renderer::destroy()
 {
+    api.wait_idle();
     destroy_model();
 
     {
@@ -161,6 +240,8 @@ void Renderer::destroy()
         auto &depth = api.get_rendertarget(depth_rt);
         api.destroy_image(depth.image_h);
     }
+
+    api.destroy_image(voxels_texture);
 
     api.destroy_image(gui_texture);
     api.destroy();
@@ -183,9 +264,12 @@ void Renderer::on_resize(int width, int height)
     depth.image_h = api.create_image(iinfo);
 }
 
-void Renderer::wait_idle() { api.wait_idle(); }
+void Renderer::wait_idle()
+{
+    api.wait_idle();
+}
 
-void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
+void Renderer::reload_shader(const char *prefix_path, const Event &shader_event)
 {
     std::stringstream shader_name_stream;
     shader_name_stream << prefix_path << '/' << shader_event.name;
@@ -194,25 +278,22 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     std::cout << shader_name << " changed!\n";
 
     // Find the shader that needs to be updated
-    vulkan::Shader* found = nullptr;
-    for (auto& shader : api.shaders)
-    {
+    vulkan::Shader *found = nullptr;
+    for (auto &shader : api.shaders) {
         std::cerr << shader_name << " == " << shader.name << "\n";
 
-        if (shader_name == shader.name)
-        {
+        if (shader_name == shader.name) {
             assert(found == nullptr);
             found = &shader;
         }
     }
 
-    if (!found)
-    {
+    if (!found) {
         assert(false);
         return;
     }
 
-    vulkan::Shader& shader = *found;
+    vulkan::Shader &shader = *found;
     std::cerr << "Found " << shader.name << "\n";
 
     // Create a new shader module
@@ -222,10 +303,8 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     std::vector<vulkan::ShaderH> to_remove;
 
     // Update programs using this shader to the new shader
-    for (auto& program : api.programs)
-    {
-        if (program.info.vertex_shader.is_valid())
-        {
+    for (auto &program : api.programs) {
+        if (program.info.vertex_shader.is_valid()) {
             auto &vertex_shader = api.get_shader(program.info.vertex_shader);
             if (vertex_shader.name == shader.name) {
                 to_remove.push_back(program.info.vertex_shader);
@@ -233,8 +312,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
             }
         }
 
-        if (program.info.fragment_shader.is_valid())
-        {
+        if (program.info.fragment_shader.is_valid()) {
             auto &fragment_shader = api.get_shader(program.info.fragment_shader);
             if (fragment_shader.name == shader.name) {
                 to_remove.push_back(program.info.fragment_shader);
@@ -246,8 +324,7 @@ void Renderer::reload_shader(const char* prefix_path, const Event &shader_event)
     assert(to_remove.size() > 0);
 
     // Destroy the old shaders
-    for (vulkan::ShaderH shader_h : to_remove)
-    {
+    for (vulkan::ShaderH shader_h : to_remove) {
         std::cerr << "Removing handle: " << shader_h.value() << "\n";
         api.destroy_shader(shader_h);
     }
@@ -257,7 +334,7 @@ void Renderer::imgui_draw()
 {
     api.begin_label("ImGui");
 #if defined(ENABLE_IMGUI)
-    ImGui::ShowStyleEditor() ;
+    ImGui::ShowStyleEditor();
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
     if (data == nullptr || data->TotalVtxCount == 0) {
@@ -350,14 +427,14 @@ void Renderer::imgui_draw()
     api.end_label();
 }
 
-static void bind_texture(Renderer &r, uint slot, std::optional<u32> i_texture)
+static void bind_texture(Renderer &r, vulkan::ProgramH program_h, uint slot, std::optional<u32> i_texture)
 {
     if (i_texture) {
         auto &texture = r.model.textures[*i_texture];
         auto &image   = r.model.images[texture.image];
         auto &sampler = r.model.samplers[texture.sampler];
 
-        r.api.bind_combined_image_sampler(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
+        r.api.bind_combined_image_sampler(program_h, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
     }
     else {
         // bind empty texture
@@ -388,9 +465,9 @@ static void draw_node(Renderer &r, Node &node)
         MaterialPushConstant material_pc = MaterialPushConstant::from(material);
         r.api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
 
-        bind_texture(r, 1, material.base_color_texture);
-        bind_texture(r, 2, material.normal_texture);
-        bind_texture(r, 3, material.metallic_roughness_texture);
+        bind_texture(r, r.model.program, 1, material.base_color_texture);
+        bind_texture(r, r.model.program, 2, material.normal_texture);
+        bind_texture(r, r.model.program, 3, material.metallic_roughness_texture);
 
         r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
@@ -503,7 +580,7 @@ static void shadow_map(Renderer &r)
 
     r.api.begin_pass(std::move(pass));
 
-    auto shadow_map_rt = r.api.get_rendertarget(r.shadow_map_depth_rt);
+    auto shadow_map_rt  = r.api.get_rendertarget(r.shadow_map_depth_rt);
     auto shadow_map_img = r.api.get_image(shadow_map_rt.image_h);
 
     vk::Viewport viewport{};
@@ -523,9 +600,9 @@ static void shadow_map(Renderer &r)
         ImGui::Begin("Sun");
 #endif
         static float3 s_sun_angles = {90.0f, 0.0f, 0.0f};
-        static float s_size = 40.f;
-        static float s_near = 1.f;
-        static float s_far = 30.f;
+        static float s_size        = 40.f;
+        static float s_near        = 1.f;
+        static float s_far         = 30.f;
 #if defined(ENABLE_IMGUI)
         ImGui::SliderFloat3("Rotation", &s_sun_angles[0], -180.0f, 180.0f);
         ImGui::SliderFloat("Size", &s_size, 5.0f, 50.0f);
@@ -559,7 +636,6 @@ static void shadow_map(Renderer &r)
         buffer[0]    = r.sun.get_view();
         buffer[1]    = r.sun.ortho_square(s_size, s_near, s_far);
         r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
-
     }
 
     r.api.bind_program(r.model_vertex_only);
@@ -576,9 +652,137 @@ static void shadow_map(Renderer &r)
 #if defined(ENABLE_IMGUI)
     auto &depth = r.api.get_rendertarget(r.shadow_map_depth_rt);
     ImGui::Begin("Shadow map");
-    ImGui::Image(reinterpret_cast<void*>(depth.image_h.value()), ImVec2(256, 256));
+    ImGui::Image(reinterpret_cast<void *>(depth.image_h.value()), ImVec2(256, 256));
     ImGui::End();
 #endif
+}
+
+static void voxelize_node(Renderer &r, Node &node)
+{
+    if (node.dirty) {
+        node.dirty            = false;
+        auto translation      = glm::translate(glm::mat4(1.0f), node.translation);
+        auto rotation         = glm::mat4(node.rotation);
+        auto scale            = glm::scale(glm::mat4(1.0f), node.scale);
+        node.cached_transform = translation * rotation * scale;
+    }
+
+    auto u_pos   = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
+    *buffer      = node.cached_transform;
+    r.api.bind_buffer(r.voxelization, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+
+    const auto &mesh = r.model.meshes[node.mesh];
+    for (const auto &primitive : mesh.primitives) {
+        // if program != last program then bind program
+
+        const auto &material = r.model.materials[primitive.material];
+
+        bind_texture(r, r.voxelization, 1, material.base_color_texture);
+        bind_texture(r, r.voxelization, 2, material.normal_texture);
+
+        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+    }
+
+    // TODO: transform relative to parent
+    for (auto child_i : node.children) {
+        draw_node(r, r.model.nodes[child_i]);
+    }
+}
+
+struct VoxelDebug
+{
+    float3 center;
+    float size;
+    uint res;
+};
+
+void Renderer::voxelize_scene()
+{
+    api.begin_label("Voxelization");
+
+    vk::Viewport viewport{};
+    viewport.width    = voxels_resolution;
+    viewport.height   = voxels_resolution;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent.width  = voxels_resolution;
+    scissor.extent.height = voxels_resolution;
+    api.set_scissor(scissor);
+
+    // Bind voxel texture
+    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 0, voxels_texture);
+
+    // Bind voxel debug
+    {
+        static float3 s_voxelization_center = {0.f, 0.f, 0.f};
+        static float s_voxelization_size    = 0.01f;
+
+#if defined(ENABLE_IMGUI)
+        ImGui::Begin("Voxelization");
+        ImGui::SliderFloat3("Center", &s_voxelization_center[0], 0, voxels_resolution);
+        ImGui::SliderFloat("Size", &s_voxelization_size, 0.f, 1.f);
+        ImGui::End();
+#endif
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        buffer->center = s_voxelization_center;
+        buffer->size   = s_voxelization_size;
+        buffer->res    = voxels_resolution;
+
+        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
+    }
+
+    vulkan::PassInfo pass{};
+    pass.samples = vk::SampleCountFlagBits::e4;
+    api.begin_pass(std::move(pass));
+
+    api.bind_program(voxelization);
+    api.bind_index_buffer(model.index_buffer);
+    api.bind_vertex_buffer(model.vertex_buffer);
+
+    for (usize node_i : model.scene) {
+        voxelize_node(*this, model.nodes[node_i]);
+    }
+
+    api.end_pass();
+    api.end_label();
+}
+
+void Renderer::visualize_voxels()
+{
+    api.begin_label("Voxel visualization");
+
+    vk::Viewport viewport{};
+    viewport.width    = api.ctx.swapchain.extent.width;
+    viewport.height   = api.ctx.swapchain.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent = api.ctx.swapchain.extent;
+    api.set_scissor(scissor);
+
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 0, voxels_texture);
+
+    // Bind camera uniform buffer
+    {
+        auto u_pos   = api.dynamic_uniform_buffer(3 * sizeof(float3));
+        auto *buffer = reinterpret_cast<float4 *>(u_pos.mapped);
+        buffer[0]    = float4(p_camera->position, 0.0f);
+        buffer[1]    = float4(p_camera->front, 0.0f);
+        buffer[2]    = float4(p_camera->up, 0.0f);
+
+        api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
+    }
+
+    api.bind_program(visualization);
+    api.draw(6, 1, 0, 0);
+    api.end_label();
 }
 
 void Renderer::draw()
@@ -591,7 +795,16 @@ void Renderer::draw()
         return;
     }
 
-    shadow_map(*this);
+    // shadow_map(*this);
+
+    vk::ClearColorValue clear{};
+    clear.float32[0] = 0.f;
+    clear.float32[1] = 0.f;
+    clear.float32[2] = 0.f;
+    clear.float32[3] = 0.f;
+    api.clear_image(voxels_texture, clear);
+
+    voxelize_scene();
 
     vulkan::PassInfo pass;
     pass.present = true;
@@ -601,14 +814,17 @@ void Renderer::draw()
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
+    /*
     vulkan::AttachmentInfo depth_info;
     depth_info.load_op = vk::AttachmentLoadOp::eClear;
     depth_info.rt      = depth_rt;
     pass.depth         = std::make_optional(depth_info);
+    */
 
     api.begin_pass(std::move(pass));
 
-    draw_model();
+    // draw_model();
+    visualize_voxels();
     imgui_draw();
 
     api.end_pass();

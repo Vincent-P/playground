@@ -132,6 +132,11 @@ class Arena
           this->current_index = rhs.current_index;
       }
 
+        [[nodiscard]] usize index() const
+        {
+            return current_index;
+        }
+
       Iterator &operator=(const Iterator &rhs)
       {
           this->arena         = rhs.arena;

@@ -144,14 +144,19 @@ inline bool operator==(const AttachmentInfo &a, const AttachmentInfo &b)
 
 struct PassInfo
 {
+    // param for vk::RenderPass
     bool present; // if it is the last pass and it should transition to present
+    vk::SampleCountFlagBits samples{vk::SampleCountFlagBits::e1};
+
+    // param for vk::FrameBuffer
     std::optional<AttachmentInfo> color;
     std::optional<AttachmentInfo> depth;
 };
 
+// compatible passes
 inline bool operator==(const PassInfo &a, const PassInfo &b)
 {
-    return a.present == b.present && a.color == b.color && a.depth == b.depth;
+    return a.present == b.present && a.samples == b.samples;
 }
 
 struct RenderPass
@@ -159,6 +164,12 @@ struct RenderPass
     PassInfo info;
     vk::UniqueRenderPass vkhandle;
 };
+
+inline bool operator==(const RenderPass &a, const RenderPass &b)
+{
+    return a.info == b.info && *a.vkhandle == *b.vkhandle;
+}
+
 using RenderPassH = Handle<RenderPass>;
 
 // Idea: Program contains different "configurations" coresponding to pipelines so that
@@ -235,6 +246,7 @@ inline bool operator==(const VertexBufferInfo &a, const VertexBufferInfo &b)
 struct ProgramInfo
 {
     ShaderH vertex_shader;
+    ShaderH geom_shader;
     ShaderH fragment_shader;
 
     std::vector<PushConstantInfo> push_constants;
@@ -251,6 +263,7 @@ struct ProgramInfo
 inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
 {
     return    a.vertex_shader == b.vertex_shader
+           && a.geom_shader == b.geom_shader
            && a.fragment_shader == b.fragment_shader
            && a.push_constants == b.push_constants
            && a.bindings_by_set == b.bindings_by_set
@@ -262,9 +275,9 @@ struct PipelineInfo
 {
     ProgramInfo program_info;
     vk::PipelineLayout pipeline_layout;
-    vk::RenderPass vk_render_pass;
+    RenderPassH render_pass;
 
-    bool operator==(const PipelineInfo &other) const { return program_info == other.program_info; }
+    bool operator==(const PipelineInfo &other) const { return program_info == other.program_info && render_pass == other.render_pass; }
 };
 
 struct DescriptorSet
@@ -357,7 +370,7 @@ struct API
 
     // TODO: arena?
     std::vector<FrameBuffer> framebuffers;
-    std::vector<RenderPass> renderpasses;
+    Arena<RenderPass> renderpasses;
 
     CircularBuffer staging_buffer;
     CircularBuffer dyn_uniform_buffer;
@@ -365,13 +378,11 @@ struct API
     CircularBuffer dyn_index_buffer;
 
     // render context
-    RenderPass *current_render_pass;
+    RenderPassH current_render_pass;
     Program *current_program;
 
     static API create(const Window &window);
     void destroy();
-
-    void draw(); // TODO: used to make the HL API before the RenderGraph, remove once it's done
 
     void on_resize(int width, int height);
     bool start_frame();
@@ -402,9 +413,11 @@ struct API
     void bind_index_buffer(CircularBufferPosition i_pos);
     void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data);
 
+    void draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance);
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
     void set_scissor(const vk::Rect2D &scissor);
     void set_viewport(const vk::Viewport &viewport);
+    void clear_image(ImageH H, const vk::ClearColorValue &clear_color);
 
     /// ---
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);
@@ -444,6 +457,7 @@ struct API
 };
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
 
 } // namespace vulkan
 } // namespace my_app

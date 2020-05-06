@@ -217,13 +217,15 @@ Context Context::create(const Window &window)
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1024),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, 1024),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBufferDynamic, 1024),
     };
 
     vk::DescriptorPoolCreateInfo dpci{};
     dpci.flags          = {/*vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind*/};
     dpci.poolSizeCount  = pool_sizes.size();
     dpci.pPoolSizes     = pool_sizes.data();
-    dpci.maxSets        = 512;
+    dpci.maxSets        = 1024;
     ctx.descriptor_pool = ctx.device->createDescriptorPoolUnique(dpci);
 
     return ctx;

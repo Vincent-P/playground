@@ -37,6 +37,9 @@ struct Renderer
     // ImGui
     void imgui_draw();
 
+    void voxelize_scene();
+    void visualize_voxels();
+
     // ImGui
     vulkan::ProgramH gui_program;
     vulkan::ImageH gui_texture;
@@ -49,6 +52,12 @@ struct Renderer
     // Shadow Map
     vulkan::ProgramH model_vertex_only;
     vulkan::RenderTargetH shadow_map_depth_rt;
+
+    // Voxelization
+    uint voxels_resolution{256};
+    vulkan::ProgramH voxelization;
+    vulkan::ProgramH visualization;
+    vulkan::ImageH voxels_texture;
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;

@@ -68,13 +68,6 @@ void InputCamera::update()
 {
     static constexpr auto delta_t = 16.f;
 
-#if defined(ENABLE_IMGUI)
-    ImGui::Begin("Camera");
-    ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 0.25f);
-    ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
-    ImGui::End();
-#endif
-
     int forward = 0;
     int right   = 0;
 
@@ -103,6 +96,17 @@ void InputCamera::update()
     if (forward || right) {
 	_internal.update_view();
     }
+
+#if defined(ENABLE_IMGUI)
+    ImGui::Begin("Camera");
+    ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 0.25f);
+    ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
+    ImGui::SliderFloat3("position", &_internal.position[0], -180.0f, 180.0f);
+    ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
+    ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
+    ImGui::End();
+#endif
+
 }
 
 float4x4 Camera::update_view()
