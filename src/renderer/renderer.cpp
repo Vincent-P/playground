@@ -724,7 +724,7 @@ void Renderer::voxelize_scene()
 #if defined(ENABLE_IMGUI)
         ImGui::Begin("Voxelization");
         ImGui::SliderFloat3("Center", &s_voxelization_center[0], 0, voxels_resolution);
-        ImGui::SliderFloat("Size", &s_voxelization_size, 0.f, 1.f);
+        ImGui::SliderFloat("Size", &s_voxelization_size, 0.f, 0.1f);
         ImGui::End();
 #endif
         auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
@@ -737,7 +737,7 @@ void Renderer::voxelize_scene()
     }
 
     vulkan::PassInfo pass{};
-    pass.samples = vk::SampleCountFlagBits::e4;
+    pass.samples = vk::SampleCountFlagBits::e8;
     api.begin_pass(std::move(pass));
 
     api.bind_program(voxelization);

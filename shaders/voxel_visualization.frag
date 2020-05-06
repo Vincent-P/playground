@@ -19,23 +19,21 @@ float mincomp(vec3 v) {
     return min(min(v.x, v.y), v.z);
 }
 
-vec3 PlaneMarch(vec3 p0, vec3 d) {
+vec4 PlaneMarch(vec3 p0, vec3 d) {
     float t = 0;
     while (t < MAX_DIST) {
         vec3 p = p0 + d * t;
         uint voxel = imageLoad(voxels_texture, ivec3(floor(p))).r;
         if (voxel != 0)
         {
-            vec4 c = unpackUnorm4x8(voxel);
-            return abs(c.xyz);
+            return vec4(abs(unpackUnorm4x8(voxel)).xyz, 1);
         }
 
         vec3 deltas = (step(0, d) - fract(p)) / d;
         t += max(mincomp(deltas), EPSILON);
     }
 
-    discard;
-    return vec3(1);
+    return vec4(0);
 }
 
 
@@ -43,10 +41,14 @@ void main()
 {
     vec3 p0 = cam.position.xyz;
 
-    vec3 cam_right = cross(cam.front.xyz, cam.up.xyz);
+    vec3 cam_right = cross(normalize(cam.front.xyz), normalize(cam.up.xyz));
     float x = inUV.x;
-    float y = - inUV.y;
-    vec3 d = cam.front.xyz + x * cam_right + y * cam.up.xyz;
+    float y = - inUV.y * 9 / 16;
+    vec3 d = cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz);
 
-    outColor = vec4(PlaneMarch(p0, d), 1);
+    vec4 color = PlaneMarch(p0, d);
+    if (color.a == 0) {
+        discard;
+    }
+    outColor = color;
 }

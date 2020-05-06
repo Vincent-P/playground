@@ -87,10 +87,13 @@ void main()
     vec3 diff = (inWorldPos - center) / (debug_options.res * debug_options.size);
     vec3 uvw = diff * vec3(0.5f, 0.5f, 0.5f) + 0.5f;
 
-    vec3 color = getNormal();
-    color = texture(baseColorTexture, inUV0).xyz;
+    vec4 color = vec4(getNormal(), 1);
+    color = texture(baseColorTexture, inUV0);
+    if (color.a < 0.1) {
+        discard;
+    }
 
     // output:
     vec3 pos = floor(uvw * debug_options.res);
-    imageAtomicAverageRGBA8(ivec3(pos), color);
+    imageAtomicAverageRGBA8(ivec3(pos), color.rgb);
 }
