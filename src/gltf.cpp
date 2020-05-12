@@ -98,46 +98,71 @@ void Renderer::load_model_data()
 	    sampler.sampler_h = api.create_sampler(sinfo);
 	}
 
-	for (auto &image : model.images) {
-	    int width   = 0;
-	    int height  = 0;
-	    int nb_comp = 0;
-	    u8 *pixels  = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()), &width, &height,
-					       &nb_comp, 0);
+        struct ImageInfo
+        {
+            int width;
+            int height;
+            u8 *pixels;
+            int nb_comp;
+            vk::Format format;
+        };
+        std::vector<std::future<ImageInfo>> images_pixels;
+        images_pixels.resize(model.images.size());
+
+        for (usize image_i = 0; image_i < model.images.size(); image_i++) {
+            const auto &image = model.images[image_i];
+            images_pixels[image_i] = std::async(std::launch::async, [&]() {
+                ImageInfo info;
+                info.width   = 0;
+                info.height  = 0;
+
+                info.nb_comp = 0;
+                info.pixels  = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()),
+                                                     &info.width, &info.height,
+                                                   &info.nb_comp, 0);
+
+                if (info.nb_comp == 1) {
+                    info.format = vk::Format::eR8Unorm;
+                }
+                else if (info.nb_comp == 2) {
+                    info.format = vk::Format::eR8G8Unorm;
+                }
+                else if (info.nb_comp == 3) {
+                    stbi_image_free(info.pixels);
+                    int wanted_nb_comp = 4;
+                    info.pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()),
+                                                        &info.width, &info.height,
+                                                   &info.nb_comp, wanted_nb_comp);
+                    info.format = vk::Format::eR8G8B8A8Unorm;
+                    info.nb_comp      = wanted_nb_comp;
+                }
+                else if (info.nb_comp == 4) {
+                    info.format = vk::Format::eR8G8B8A8Unorm;
+                }
+                else {
+                    assert(false);
+                }
+
+                return info;
+            });
+        }
+
+	for (usize image_i = 0; image_i < model.images.size(); image_i++) {
+            auto &image = model.images[image_i];
+            auto image_info = images_pixels[image_i].get();
 
 	    vulkan::ImageInfo iinfo;
 	    iinfo.name                = "glTF image";
-	    iinfo.width               = static_cast<u32>(width);
-	    iinfo.height              = static_cast<u32>(height);
+	    iinfo.width               = static_cast<u32>(image_info.width);
+	    iinfo.height              = static_cast<u32>(image_info.height);
 	    iinfo.depth               = 1;
 	    iinfo.generate_mip_levels = true;
-
-	    if (nb_comp == 1) {
-		iinfo.format = vk::Format::eR8Unorm;
-	    }
-	    else if (nb_comp == 2) {
-		iinfo.format = vk::Format::eR8G8Unorm;
-	    }
-	    else if (nb_comp == 3) {
-		stbi_image_free(pixels);
-		int wanted_nb_comp = 4;
-		pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()), &width, &height,
-					       &nb_comp, wanted_nb_comp);
-		iinfo.format = vk::Format::eR8G8B8A8Unorm;
-		nb_comp      = wanted_nb_comp;
-	    }
-	    else if (nb_comp == 4) {
-		iinfo.format = vk::Format::eR8G8B8A8Unorm;
-	    }
-	    else {
-		assert(false);
-	    }
-
 	    image.image_h = api.create_image(iinfo);
-	    api.upload_image(image.image_h, pixels, static_cast<usize>(width * height * nb_comp));
+            auto size = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
+	    api.upload_image(image.image_h, image_info.pixels, size);
 	    api.generate_mipmaps(image.image_h);
 
-	    stbi_image_free(pixels);
+	    stbi_image_free(image_info.pixels);
 	}
     }
 
