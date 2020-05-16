@@ -151,14 +151,20 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.voxel_options.res = 512;
 
         vulkan::ImageInfo iinfo;
-        iinfo.name       = "Voxels";
+        iinfo.name       = "Voxels albedo";
         iinfo.type       = vk::ImageType::e3D;
         iinfo.format     = vk::Format::eR32Uint;
         iinfo.width      = r.voxel_options.res;
         iinfo.height     = r.voxel_options.res;
         iinfo.depth      = r.voxel_options.res;
         iinfo.usages     = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
-        r.voxels_texture = r.api.create_image(iinfo);
+        r.voxels_albedo = r.api.create_image(iinfo);
+
+        iinfo.name = "Voxels normal";
+        r.voxels_normal = r.api.create_image(iinfo);
+
+        iinfo.name = "Voxels radiance";
+        r.voxels_radiance = r.api.create_image(iinfo);
     }
 
     {
@@ -167,20 +173,23 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.geom_shader     = r.api.create_shader("shaders/voxelization.geom.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/voxelization.frag.spv");
 
-        // voxels texture
+        // voxel options
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-
-        // voxel debug
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
         // projection cameras
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eGeometry,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // voxels textures
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
 
         // node transform
         pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0,
@@ -217,20 +226,23 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_shader   = r.api.create_shader("shaders/voxel_visualization.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
 
-        // voxels texture
+        // voxel options
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
         // camera
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
-        // voxel options
+        // voxels textures
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+
         pinfo.enable_depth = false;
 
         r.visualization = r.api.create_program(std::move(pinfo));
@@ -254,7 +266,9 @@ void Renderer::destroy()
         api.destroy_image(depth.image_h);
     }
 
-    api.destroy_image(voxels_texture);
+    api.destroy_image(voxels_albedo);
+    api.destroy_image(voxels_normal);
+    api.destroy_image(voxels_radiance);
 
     api.destroy_image(gui_texture);
     api.destroy();
@@ -720,9 +734,6 @@ void Renderer::voxelize_scene()
     scissor.extent.height = voxel_options.res;
     api.set_scissor(scissor);
 
-    // Bind voxel texture
-    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 0, voxels_texture);
-
     // Bind voxel debug
     {
 #if defined(ENABLE_IMGUI)
@@ -736,7 +747,7 @@ void Renderer::voxelize_scene()
         auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
         *buffer = voxel_options;
 
-        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
+        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 
     // Bind projection cameras
@@ -755,8 +766,13 @@ void Renderer::voxelize_scene()
         buffer[1] = projection * glm::lookAt(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
         buffer[2] = projection * glm::lookAt(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
-        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
+        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
+
+    // Bind voxel textures
+    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
+    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
+
 
     vulkan::PassInfo pass{};
     pass.samples = vk::SampleCountFlagBits::e16;
@@ -789,7 +805,14 @@ void Renderer::visualize_voxels()
     scissor.extent = api.ctx.swapchain.extent;
     api.set_scissor(scissor);
 
-    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 0, voxels_texture);
+    // Bind voxel options
+    {
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        *buffer = voxel_options;
+
+        api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+    }
 
     // Bind camera uniform buffer
     {
@@ -802,14 +825,9 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
-    // Bind voxel options
-    {
-        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
-        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
-        *buffer = voxel_options;
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
 
-        api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
-    }
 
     api.bind_program(visualization);
     api.draw(6, 1, 0, 0);
@@ -837,7 +855,8 @@ void Renderer::draw()
     clear.float32[1] = 0.f;
     clear.float32[2] = 0.f;
     clear.float32[3] = 0.f;
-    api.clear_image(voxels_texture, clear);
+    api.clear_image(voxels_albedo, clear);
+    api.clear_image(voxels_normal, clear);
 
     voxelize_scene();
 #endif

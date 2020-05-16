@@ -1,6 +1,10 @@
 #version 450
 
-layout(set = 1, binding = 0, r32ui) uniform uimage3D voxels_texture;
+layout(set = 1, binding = 0) uniform VoxelOptions {
+    vec3 center;
+    float size;
+    uint res;
+} debug_options;
 
 layout(set = 1, binding = 1) uniform UBO {
     vec4 position;
@@ -8,11 +12,9 @@ layout(set = 1, binding = 1) uniform UBO {
     vec4 up;
 } cam;
 
-layout(set = 1, binding = 2) uniform VoxelOptions {
-    vec3 center;
-    float size;
-    uint res;
-} debug_options;
+layout(set = 1, binding = 2, r32ui) uniform uimage3D voxels_albedo;
+layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_normal;
+
 
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
@@ -24,23 +26,24 @@ float mincomp(vec3 v) {
     return min(min(v.x, v.y), v.z);
 }
 
-vec4 PlaneMarch(vec3 p0, vec3 d) {
-    float t = 0;
-    while (t < MAX_DIST) {
-        vec3 p = p0 + d * t;
-        ivec3 voxel_pos = ivec3(floor(p));
-        uint voxel = imageLoad(voxels_texture, voxel_pos).r;
-        if (voxel != 0)
-        {
-            return vec4(abs(unpackUnorm4x8(voxel)).xyz, 0.5);
-        }
-
-        vec3 deltas = (step(0, d) - fract(p)) / d;
-        t += max(mincomp(deltas), EPSILON);
+/// vec4 PlaneMarch(uimage3D voxels, vec3 p0, vec3 d)
+#define PlaneMarch(ret, voxels, p0, d)                                  \
+    {                                                                   \
+        float t = 0;                                                    \
+        while (t < MAX_DIST) {                                          \
+            vec3 p = p0 + d * t;                                        \
+            ivec3 voxel_pos = ivec3(floor(p));                          \
+            uint voxel = imageLoad(voxels, voxel_pos).r;                \
+            if (voxel != 0)                                             \
+            {                                                           \
+                ret = vec4(abs(unpackUnorm4x8(voxel)).xyz, 0.5);        \
+                break;                                                  \
+            }                                                           \
+                                                                        \
+            vec3 deltas = (step(0, d) - fract(p)) / d;                  \
+            t += max(mincomp(deltas), EPSILON);                         \
+        }                                                               \
     }
-
-    return vec4(0);
-}
 
 
 void main()
@@ -52,7 +55,8 @@ void main()
     float y = - inUV.y * 9 / 16;
     vec3 d = normalize(cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz));
 
-    vec4 color = PlaneMarch(p0, d);
+    vec4 color = vec4(0);
+    PlaneMarch(color, voxels_albedo, p0, d);
     if (color.a == 0) {
         discard;
     }

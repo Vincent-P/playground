@@ -14,13 +14,13 @@ layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 layout (location = 4) out vec3 outVoxelPos;
 
-layout(set = 1, binding = 1) uniform VoxelOptions {
+layout(set = 1, binding = 0) uniform VoxelOptions {
     vec3 center;
     float size;
     uint res;
 } debug_options;
 
-layout(set = 1, binding = 2) uniform ProjectionMatrices {
+layout(set = 1, binding = 1) uniform ProjectionMatrices {
     mat4 matrices[3];
 } voxel_projections;
 

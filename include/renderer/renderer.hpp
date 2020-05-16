@@ -64,7 +64,10 @@ struct Renderer
     VoxelDebug voxel_options{};
     vulkan::ProgramH voxelization;
     vulkan::ProgramH visualization;
-    vulkan::ImageH voxels_texture;
+
+    vulkan::ImageH voxels_albedo;
+    vulkan::ImageH voxels_normal;
+    vulkan::ImageH voxels_radiance;
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
