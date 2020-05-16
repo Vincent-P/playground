@@ -16,6 +16,13 @@ namespace my_app
 struct Model;
 struct Event;
 
+struct VoxelDebug
+{
+    float3 center{-18.0f, -1.0f, -11.0f};
+    float size{0.1f};
+    uint res{256};
+};
+
 struct Renderer
 {
     vulkan::API api;
@@ -54,7 +61,7 @@ struct Renderer
     vulkan::RenderTargetH shadow_map_depth_rt;
 
     // Voxelization
-    uint voxels_resolution{256};
+    VoxelDebug voxel_options{};
     vulkan::ProgramH voxelization;
     vulkan::ProgramH visualization;
     vulkan::ImageH voxels_texture;

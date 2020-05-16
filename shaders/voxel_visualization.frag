@@ -8,12 +8,17 @@ layout(set = 1, binding = 1) uniform UBO {
     vec4 up;
 } cam;
 
+layout(set = 1, binding = 2) uniform VoxelOptions {
+    vec3 center;
+    float size;
+    uint res;
+} debug_options;
+
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
 
-#define GRID_SIZE 512
-#define MAX_DIST GRID_SIZE
-#define EPSILON 0.1
+#define MAX_DIST (debug_options.res * 2)
+#define EPSILON 0.001
 
 float mincomp(vec3 v) {
     return min(min(v.x, v.y), v.z);
@@ -23,10 +28,11 @@ vec4 PlaneMarch(vec3 p0, vec3 d) {
     float t = 0;
     while (t < MAX_DIST) {
         vec3 p = p0 + d * t;
-        uint voxel = imageLoad(voxels_texture, ivec3(floor(p))).r;
+        ivec3 voxel_pos = ivec3(floor(p));
+        uint voxel = imageLoad(voxels_texture, voxel_pos).r;
         if (voxel != 0)
         {
-            return vec4(abs(unpackUnorm4x8(voxel)).xyz, 1);
+            return vec4(abs(unpackUnorm4x8(voxel)).xyz, 0.5);
         }
 
         vec3 deltas = (step(0, d) - fract(p)) / d;
@@ -39,12 +45,12 @@ vec4 PlaneMarch(vec3 p0, vec3 d) {
 
 void main()
 {
-    vec3 p0 = cam.position.xyz;
+    vec3 p0 = (cam.position.xyz - debug_options.center) / (debug_options.size);
 
     vec3 cam_right = cross(normalize(cam.front.xyz), normalize(cam.up.xyz));
     float x = inUV.x;
     float y = - inUV.y * 9 / 16;
-    vec3 d = cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz);
+    vec3 d = normalize(cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz));
 
     vec4 color = PlaneMarch(p0, d);
     if (color.a == 0) {

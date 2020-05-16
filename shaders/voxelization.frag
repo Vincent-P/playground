@@ -4,6 +4,7 @@ layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
+layout (location = 4) in vec3 inVoxelPos;
 
 layout(set = 1, binding = 0, r32ui) uniform uimage3D voxels_texture;
 
@@ -83,10 +84,6 @@ vec3 getNormal()
 
 void main()
 {
-    vec3 center = floor(debug_options.center);
-    vec3 diff = (inWorldPos - center) / (debug_options.res * debug_options.size);
-    vec3 uvw = diff * vec3(0.5f, 0.5f, 0.5f) + 0.5f;
-
     vec4 color = vec4(getNormal(), 1);
     color = texture(baseColorTexture, inUV0);
     if (color.a < 0.1) {
@@ -94,6 +91,6 @@ void main()
     }
 
     // output:
-    vec3 pos = floor(uvw * debug_options.res);
-    imageAtomicAverageRGBA8(ivec3(pos), color.rgb);
+    ivec3 pos = ivec3(floor(inVoxelPos));
+    imageAtomicAverageRGBA8(pos, color.rgb);
 }

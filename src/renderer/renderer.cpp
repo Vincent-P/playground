@@ -148,15 +148,15 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     /// --- Voxelization
     {
-        r.voxels_resolution = 512;
+        r.voxel_options.res = 512;
 
         vulkan::ImageInfo iinfo;
         iinfo.name       = "Voxels";
         iinfo.type       = vk::ImageType::e3D;
         iinfo.format     = vk::Format::eR32Uint;
-        iinfo.width      = r.voxels_resolution;
-        iinfo.height     = r.voxels_resolution;
-        iinfo.depth      = r.voxels_resolution;
+        iinfo.width      = r.voxel_options.res;
+        iinfo.height     = r.voxel_options.res;
+        iinfo.depth      = r.voxel_options.res;
         iinfo.usages     = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
         r.voxels_texture = r.api.create_image(iinfo);
     }
@@ -175,6 +175,11 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         // voxel debug
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // projection cameras
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+                       /*.stages = */ vk::ShaderStageFlagBits::eGeometry,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
         // node transform
@@ -199,7 +204,10 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
+
+
         pinfo.enable_depth = false;
+        pinfo.enable_conservative_rasterization = false;
 
         r.voxelization = r.api.create_program(std::move(pinfo));
     }
@@ -216,6 +224,11 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
         // camera
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // voxel options
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
         pinfo.enable_depth = false;
@@ -690,27 +703,21 @@ static void voxelize_node(Renderer &r, Node &node)
     }
 }
 
-struct VoxelDebug
-{
-    float3 center;
-    float size;
-    uint res;
-};
 
 void Renderer::voxelize_scene()
 {
     api.begin_label("Voxelization");
 
     vk::Viewport viewport{};
-    viewport.width    = voxels_resolution;
-    viewport.height   = voxels_resolution;
+    viewport.width    = voxel_options.res;
+    viewport.height   = voxel_options.res;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     api.set_viewport(viewport);
 
     vk::Rect2D scissor{};
-    scissor.extent.width  = voxels_resolution;
-    scissor.extent.height = voxels_resolution;
+    scissor.extent.width  = voxel_options.res;
+    scissor.extent.height = voxel_options.res;
     api.set_scissor(scissor);
 
     // Bind voxel texture
@@ -718,26 +725,41 @@ void Renderer::voxelize_scene()
 
     // Bind voxel debug
     {
-        static float3 s_voxelization_center = {0.f, 0.f, 0.f};
-        static float s_voxelization_size    = 0.01f;
-
 #if defined(ENABLE_IMGUI)
         ImGui::Begin("Voxelization");
-        ImGui::SliderFloat3("Center", &s_voxelization_center[0], 0, voxels_resolution);
-        ImGui::SliderFloat("Size", &s_voxelization_size, 0.f, 0.1f);
+        ImGui::SliderFloat3("Center", &voxel_options.center[0], -40.f, 40.f);
+        voxel_options.center = glm::floor(voxel_options.center);
+        ImGui::SliderFloat("Voxel size (m)", &voxel_options.size, 0.01f, 0.1f);
         ImGui::End();
 #endif
         auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
         auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
-        buffer->center = s_voxelization_center;
-        buffer->size   = s_voxelization_size;
-        buffer->res    = voxels_resolution;
+        *buffer = voxel_options;
 
         api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
+    // Bind projection cameras
+    {
+        auto u_pos     = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+        auto *buffer   = reinterpret_cast<float4x4 *>(u_pos.mapped);
+
+        float res = voxel_options.res;
+        res *= voxel_options.size;
+        float halfsize = res / 2;
+
+        auto center = voxel_options.center + float3(halfsize);
+
+        auto projection = glm::ortho(-halfsize, halfsize, -halfsize, halfsize, 0.0f, res);
+        buffer[0] = projection * glm::lookAt(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
+        buffer[1] = projection * glm::lookAt(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
+        buffer[2] = projection * glm::lookAt(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
+
+        api.bind_buffer(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
+    }
+
     vulkan::PassInfo pass{};
-    pass.samples = vk::SampleCountFlagBits::e8;
+    pass.samples = vk::SampleCountFlagBits::e16;
     api.begin_pass(std::move(pass));
 
     api.bind_program(voxelization);
@@ -780,6 +802,15 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
+    // Bind voxel options
+    {
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        *buffer = voxel_options;
+
+        api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
+    }
+
     api.bind_program(visualization);
     api.draw(6, 1, 0, 0);
     api.end_label();
@@ -795,8 +826,12 @@ void Renderer::draw()
         return;
     }
 
-    // shadow_map(*this);
+#define VOXEL 1
 
+    shadow_map(*this);
+#if !VOXEL
+
+#else
     vk::ClearColorValue clear{};
     clear.float32[0] = 0.f;
     clear.float32[1] = 0.f;
@@ -805,6 +840,7 @@ void Renderer::draw()
     api.clear_image(voxels_texture, clear);
 
     voxelize_scene();
+#endif
 
     vulkan::PassInfo pass;
     pass.present = true;
@@ -814,17 +850,20 @@ void Renderer::draw()
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
-    /*
     vulkan::AttachmentInfo depth_info;
     depth_info.load_op = vk::AttachmentLoadOp::eClear;
     depth_info.rt      = depth_rt;
     pass.depth         = std::make_optional(depth_info);
-    */
+#if !VOXEL
+#endif
 
     api.begin_pass(std::move(pass));
 
-    // draw_model();
+    draw_model();
+#if !VOXEL
+#else
     visualize_voxels();
+#endif
     imgui_draw();
 
     api.end_pass();

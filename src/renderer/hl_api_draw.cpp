@@ -294,7 +294,17 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
         asm_i.primitiveRestartEnable = VK_FALSE;
         asm_i.topology               = vk::PrimitiveTopology::eTriangleList;
 
+
+        vk::PipelineRasterizationConservativeStateCreateInfoEXT conservative{};
         vk::PipelineRasterizationStateCreateInfo rast_i{};
+
+        if (program_info.enable_conservative_rasterization)
+        {
+            rast_i.pNext = &conservative;
+            conservative.conservativeRasterizationMode = vk::ConservativeRasterizationModeEXT::eOverestimate;
+            conservative.extraPrimitiveOverestimationSize = 1.f; // in pixels
+        }
+
         rast_i.flags                   = {};
         rast_i.polygonMode             = vk::PolygonMode::eFill;
         rast_i.cullMode                = vk::CullModeFlagBits::eNone;

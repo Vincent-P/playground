@@ -150,6 +150,7 @@ Context Context::create(const Window &window)
     auto installed_extensions = ctx.physical_device.enumerateDeviceExtensionProperties();
     std::vector<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
 
     ctx.physical_device_features       = vk::PhysicalDeviceFeatures2{};
     ctx.vulkan12_features              = vk::PhysicalDeviceVulkan12Features{};

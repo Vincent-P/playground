@@ -252,7 +252,10 @@ struct ProgramInfo
     std::vector<PushConstantInfo> push_constants;
     std::array<std::vector<BindingInfo>, MAX_DESCRIPTOR_SET> bindings_by_set;
     VertexBufferInfo vertex_buffer_info;
-    bool enable_depth;
+
+    // TODO: is it the right struct for this?
+    bool enable_depth{false};
+    bool enable_conservative_rasterization{false};
 
     void push_constant(PushConstantInfo &&push_constant);
     void binding(BindingInfo &&binding);
@@ -267,7 +270,9 @@ inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
            && a.fragment_shader == b.fragment_shader
            && a.push_constants == b.push_constants
            && a.bindings_by_set == b.bindings_by_set
-           && a.vertex_buffer_info == b.vertex_buffer_info;
+           && a.vertex_buffer_info == b.vertex_buffer_info
+           && a.enable_depth == b.enable_depth
+           && a.enable_conservative_rasterization == b.enable_conservative_rasterization;
 }
 
 // TODO: smart fields
