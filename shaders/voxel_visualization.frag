@@ -1,10 +1,10 @@
 #version 450
 
-layout(set = 1, binding = 0) uniform VoxelOptions {
-    vec3 center;
-    float size;
-    uint res;
-} debug_options;
+#include "voxels.h"
+
+layout(set = 1, binding = 0) uniform VO {
+    VoxelOptions voxel_options;
+};
 
 layout(set = 1, binding = 1) uniform UBO {
     vec4 position;
@@ -19,7 +19,7 @@ layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_normal;
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
 
-#define MAX_DIST (debug_options.res * 2)
+#define MAX_DIST (voxel_options.res * 2)
 #define EPSILON 0.001
 
 float mincomp(vec3 v) {
@@ -48,7 +48,7 @@ float mincomp(vec3 v) {
 
 void main()
 {
-    vec3 p0 = (cam.position.xyz - debug_options.center) / (debug_options.size);
+    vec3 p0 = (cam.position.xyz - voxel_options.center) / (voxel_options.size);
 
     vec3 cam_right = cross(normalize(cam.front.xyz), normalize(cam.up.xyz));
     float x = inUV.x;

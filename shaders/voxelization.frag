@@ -1,4 +1,6 @@
 #version 460
+#include "voxels.h"
+#include "pbr.h"
 
 layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
@@ -6,84 +8,19 @@ layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 layout (location = 4) in vec3 inVoxelPos;
 
-layout(set = 1, binding = 0) uniform UBO {
-    vec3 center;
-    float size;
-    uint res;
-} debug_options;
+layout(set = 1, binding = 0) uniform VO {
+    VoxelOptions voxel_options;
+};
 
 layout(set = 1, binding = 2, r32ui) uniform uimage3D voxels_albedo;
 layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_normal;
 
-
 layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
 layout(set = 2, binding = 2) uniform sampler2D normalTexture;
 
-layout (push_constant) uniform Material
-{
-    vec4 baseColorFactor;
-    vec4 emissiveFactor;
-    vec4 diffuseFactor;
-    vec4 specularFactor;
-    float workflow;
-    int baseColorTextureSet;
-    int physicalDescriptorTextureSet;
-    int normalTextureSet;
-    int occlusionTextureSet;
-    int emissiveTextureSet;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaMask;
-    float alphaMaskCutoff;
-} material;
-
-/// void imageAtomicAverageRGBA8(layout(r32ui) uimage3D voxels, ivec3 coord, vec3 value)
-#define imageAtomicAverageRGBA8(voxels, coord, value)                                          \
-    {                                                                                          \
-        uint nextUint = packUnorm4x8(vec4(value,1.0f/255.0f));                                 \
-        uint prevUint = 0;                                                                     \
-        uint currUint;                                                                         \
-                                                                                               \
-        vec4 currVec4;                                                                         \
-                                                                                               \
-        vec3 average;                                                                          \
-        uint count;                                                                            \
-                                                                                               \
-        /*"Spin" while threads are trying to change the voxel*/                                \
-        while((currUint = imageAtomicCompSwap(voxels, coord, prevUint, nextUint)) != prevUint) \
-        {                                                                                      \
-            prevUint = currUint;                   /*store packed rgb average and count*/      \
-            currVec4 = unpackUnorm4x8(currUint);   /*unpack stored rgb average and count*/     \
-                                                                                               \
-            average =      currVec4.rgb;        /*extract rgb average*/                        \
-            count   = uint(currVec4.a*255.0f);  /*extract count*/                              \
-                                                                                               \
-            /*Compute the running average*/                                                    \
-            average = (average*count + value) / (count+1);                                     \
-                                                                                               \
-            /*Pack new average and incremented count back into a uint*/                        \
-            nextUint = packUnorm4x8(vec4(average, (count+1)/255.0f));                          \
-        }                                                                                      \
-    }
-
-vec3 getNormal()
-{
-    // Perturb normal, see http://www.thetenthplanet.de/archives/1180
-    vec3 tangentNormal = texture(normalTexture, inUV0).xyz * 2.0 - 1.0;
-
-    vec3 q1 = dFdx(inWorldPos);
-    vec3 q2 = dFdy(inWorldPos);
-    vec2 st1 = dFdx(inUV0);
-    vec2 st2 = dFdy(inUV0);
-
-    vec3 N = normalize(inNormal);
-    vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-    vec3 B = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
-
-    return normalize(TBN * tangentNormal);
-}
-
+layout (push_constant) uniform MU {
+    MaterialUniform material;
+};
 
 void main()
 {
@@ -91,9 +28,10 @@ void main()
     if (color.a < 0.1) {
         discard;
     }
+    vec3 normal = getNormal(inWorldPos, inNormal, normalTexture, inUV0);
 
     // output:
-    ivec3 pos = ivec3(floor(inVoxelPos));
-    imageAtomicAverageRGBA8(voxels_albedo, pos, color.rgb);
-    imageAtomicAverageRGBA8(voxels_normal, pos, getNormal());
+    ivec3 voxel_pos = ivec3(inVoxelPos);
+    imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, color.rgb);
+    imageAtomicAverageRGBA8(voxels_normal, voxel_pos, normal);
 }

@@ -1,4 +1,5 @@
 #version 450
+#include "voxels.h"
 
 layout (triangles) in;
 layout (triangle_strip, max_vertices=3) out;
@@ -14,11 +15,9 @@ layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 layout (location = 4) out vec3 outVoxelPos;
 
-layout(set = 1, binding = 0) uniform VoxelOptions {
-    vec3 center;
-    float size;
-    uint res;
-} debug_options;
+layout(set = 1, binding = 0) uniform VO {
+    VoxelOptions voxel_options;
+};
 
 layout(set = 1, binding = 1) uniform ProjectionMatrices {
     mat4 matrices[3];
@@ -36,10 +35,7 @@ void main(void)
         // project based on dominant normal
         gl_Position = voxel_projections.matrices[maxi] * vec4(inWorldPos[i], 1);
 
-        // voxel space
-        vec3 voxel_center = floor(debug_options.center);
-        vec3 voxel_pos = (inWorldPos[i] - voxel_center) / debug_options.size;
-        outVoxelPos = voxel_pos;
+        outVoxelPos = WorldToVoxel(inWorldPos[i], voxel_options);
 
         outWorldPos = inWorldPos[i];
         outNormal = inNormal[i];
