@@ -10,10 +10,18 @@ layout(set = 1, binding = 1) uniform UBO {
     vec4 position;
     vec4 front;
     vec4 up;
+    float opacity;
 } cam;
 
-layout(set = 1, binding = 2, r32ui) uniform uimage3D voxels_albedo;
-layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_normal;
+layout (set = 1, binding = 2) uniform UBODebug {
+    uint selected;
+    float opacity;
+} debug;
+
+
+layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
+layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
+layout(set = 1, binding = 5, r32ui) uniform uimage3D voxels_radiance;
 
 
 layout (location = 0) in vec2 inUV;
@@ -36,7 +44,7 @@ float mincomp(vec3 v) {
             uint voxel = imageLoad(voxels, voxel_pos).r;                \
             if (voxel != 0)                                             \
             {                                                           \
-                ret = vec4(abs(unpackUnorm4x8(voxel)).xyz, 0.5);        \
+                ret = vec4(abs(unpackUnorm4x8(voxel)).xyz, debug.opacity);\
                 break;                                                  \
             }                                                           \
                                                                         \
@@ -56,7 +64,15 @@ void main()
     vec3 d = normalize(cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz));
 
     vec4 color = vec4(0);
-    PlaneMarch(color, voxels_albedo, p0, d);
+    if (debug.selected == 1) {
+        PlaneMarch(color, voxels_albedo, p0, d);
+    }
+    else if (debug.selected == 2) {
+        PlaneMarch(color, voxels_normal, p0, d);
+    }
+    else if (debug.selected == 3) {
+        PlaneMarch(color, voxels_radiance, p0, d);
+    }
     if (color.a == 0) {
         discard;
     }

@@ -16,6 +16,7 @@ layout (push_constant) uniform MU
 
 layout (set = 1, binding = 1) uniform UBODebug {
     uint selected;
+    float opacity;
 } debug;
 
 layout(set = 1, binding = 2) uniform sampler2D shadowMapTexture;
@@ -67,7 +68,7 @@ void main()
 
     switch (debug.selected)
     {
-        case 0: outColor = vec4(color, 1); break;
+        case 0: outColor = vec4(color, debug.opacity); break;
         case 1: outColor = vec4(texture(baseColorTexture, inUV0).xyz, 1); break;
         case 2: outColor = vec4(texture(normalTexture, inUV0).xyz, 1); break;
         case 3: outColor = vec4(texture(metallicRoughnessTexture, inUV0).xyz, 1); break;

@@ -12,8 +12,15 @@
 #include <iostream>
 #include <sstream>
 
+
 namespace my_app
 {
+
+struct ShaderDebug
+{
+    uint selected;
+    float opacity;
+};
 
 Renderer Renderer::create(const Window &window, Camera &camera)
 {
@@ -36,7 +43,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     }
 
     {
-        vulkan::ProgramInfo pinfo{};
+        vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
         // clang-format off
@@ -121,7 +128,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     }
 
     {
-        vulkan::ProgramInfo pinfo{};
+        vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader = r.api.create_shader("shaders/gltf.vert.spv");
 
         // camera uniform buffer
@@ -168,7 +175,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     }
 
     {
-        vulkan::ProgramInfo pinfo{};
+        vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = r.api.create_shader("shaders/voxelization.vert.spv");
         pinfo.geom_shader     = r.api.create_shader("shaders/voxelization.geom.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/voxelization.frag.spv");
@@ -222,7 +229,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     }
 
     {
-        vulkan::ProgramInfo pinfo{};
+        vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = r.api.create_shader("shaders/voxel_visualization.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
 
@@ -234,18 +241,53 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
-
-        // voxels textures
+        // debug
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // voxels textures
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 4,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 5,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
 
         pinfo.enable_depth = false;
 
         r.visualization = r.api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = r.api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+
+        // voxel options
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // directional light
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // voxels textures
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 4,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+
+        r.inject_direct_lighting = r.api.create_program(std::move(pinfo));
     }
 
     return r;
@@ -330,7 +372,7 @@ void Renderer::reload_shader(const char *prefix_path, const Event &shader_event)
     std::vector<vulkan::ShaderH> to_remove;
 
     // Update programs using this shader to the new shader
-    for (auto &program : api.programs) {
+    for (auto &program : api.graphics_programs) {
         if (program.info.vertex_shader.is_valid()) {
             auto &vertex_shader = api.get_shader(program.info.vertex_shader);
             if (vertex_shader.name == shader.name) {
@@ -454,7 +496,7 @@ void Renderer::imgui_draw()
     api.end_label();
 }
 
-static void bind_texture(Renderer &r, vulkan::ProgramH program_h, uint slot, std::optional<u32> i_texture)
+static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint slot, std::optional<u32> i_texture)
 {
     if (i_texture) {
         auto &texture = r.model.textures[*i_texture];
@@ -507,6 +549,19 @@ static void draw_node(Renderer &r, Node &node)
 
 void Renderer::draw_model()
 {
+    static usize s_selected = 0;
+    static float s_opacity = 0.5f;
+#if defined(ENABLE_IMGUI)
+    ImGui::Begin("glTF Shader");
+    ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
+    static std::array options{"Nothing", "BaseColor", "Normal", "MetallicRoughness", "ShadowMap", "LightPosition", "LightPos <= ShadowMap"};
+    tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+    ImGui::End();
+#endif
+    if (s_opacity == 0.0f) {
+        return;
+    }
+
     api.begin_label("Model");
 
     vk::Viewport viewport{};
@@ -537,17 +592,10 @@ void Renderer::draw_model()
 
     // Make a shader debugging window and its own uniform buffer
     {
-        static usize selected = 0;
-#if defined(ENABLE_IMGUI)
-        ImGui::Begin("glTF Shader");
-        static std::array options{"Nothing", "BaseColor", "Normal", "MetallicRoughness", "ShadowMap", "LightPosition", "LightPos <= ShadowMap"};
-        tools::imgui_select("Debug output", options.data(), options.size(), selected);
-        ImGui::End();
-#endif
-
-        auto u_pos   = api.dynamic_uniform_buffer(sizeof(uint));
-        auto *buffer = reinterpret_cast<uint *>(u_pos.mapped);
-        *buffer      = static_cast<uint>(selected);
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug));
+        auto *buffer = reinterpret_cast<ShaderDebug *>(u_pos.mapped);
+        buffer->selected = static_cast<uint>(s_selected);
+        buffer->opacity  = s_opacity;
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
@@ -773,6 +821,9 @@ void Renderer::voxelize_scene()
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
 
+    // TODO: triche
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
+
 
     vulkan::PassInfo pass{};
     pass.samples = vk::SampleCountFlagBits::e16;
@@ -792,6 +843,19 @@ void Renderer::voxelize_scene()
 
 void Renderer::visualize_voxels()
 {
+    static usize s_selected = 1;
+    static float s_opacity = 0.5f;
+#if defined(ENABLE_IMGUI)
+    ImGui::Begin("Voxels Shader");
+    ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
+    static std::array options{"Nothing", "Albedo", "Normal", "Radiance"};
+    tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+    ImGui::End();
+#endif
+    if (s_opacity == 0.0f || s_selected == 0) {
+        return;
+    }
+
     api.begin_label("Voxel visualization");
 
     vk::Viewport viewport{};
@@ -816,7 +880,7 @@ void Renderer::visualize_voxels()
 
     // Bind camera uniform buffer
     {
-        auto u_pos   = api.dynamic_uniform_buffer(3 * sizeof(float3));
+        auto u_pos   = api.dynamic_uniform_buffer(3 * sizeof(float3) + sizeof(float));
         auto *buffer = reinterpret_cast<float4 *>(u_pos.mapped);
         buffer[0]    = float4(p_camera->position, 0.0f);
         buffer[1]    = float4(p_camera->front, 0.0f);
@@ -825,8 +889,18 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
-    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
-    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
+    // Bind debug options
+    {
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug));
+        auto *buffer = reinterpret_cast<ShaderDebug *>(u_pos.mapped);
+        buffer->selected = static_cast<uint>(s_selected);
+        buffer->opacity  = s_opacity;
+        api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
+    }
+
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
+    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
 
     api.bind_program(visualization);
@@ -857,6 +931,7 @@ void Renderer::draw()
     clear.float32[3] = 0.f;
     api.clear_image(voxels_albedo, clear);
     api.clear_image(voxels_normal, clear);
+    api.clear_image(voxels_radiance, clear);
 
     voxelize_scene();
 #endif

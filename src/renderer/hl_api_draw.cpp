@@ -221,7 +221,7 @@ void API::end_pass()
     current_render_pass = RenderPassH::invalid();
 }
 
-static vk::Pipeline find_or_create_pipeline(API &api, Program &program, PipelineInfo &pipeline_info)
+static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
 {
     const auto &program_info = pipeline_info.program_info;
     u32 pipeline_i           = u32_invalid;
@@ -421,7 +421,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, Program &program, Pipeline
     return *program.pipelines_vk[pipeline_i];
 }
 
-static DescriptorSet &find_or_create_descriptor_set(API &api, Program &program, uint freq)
+static DescriptorSet &find_or_create_descriptor_set(API &api, GraphicsProgram &program, uint freq)
 {
     for (usize i = 0; i < program.descriptor_sets[freq].size(); i++) {
         auto &descriptor_set = program.descriptor_sets[freq][i];
@@ -448,7 +448,7 @@ static DescriptorSet &find_or_create_descriptor_set(API &api, Program &program, 
     return program.descriptor_sets[freq].back();
 }
 
-static void undirty_descriptor_set(API &api, Program &program, uint i_set)
+static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
 {
     if (program.data_dirty_by_set[i_set]) {
         auto &descriptor_set = find_or_create_descriptor_set(api, program, i_set);
@@ -473,7 +473,7 @@ static void undirty_descriptor_set(API &api, Program &program, uint i_set)
     }
 }
 
-static void bind_descriptor_set(API &api, Program &program, uint i_set)
+static void bind_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
 {
     auto &frame_resource = api.ctx.frame_resources.get_current();
     auto cmd             = *frame_resource.command_buffer;
@@ -488,7 +488,7 @@ static void bind_descriptor_set(API &api, Program &program, uint i_set)
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, i_set, descriptor_set.set, offsets);
 }
 
-void API::bind_program(ProgramH H)
+void API::bind_program(GraphicsProgramH H)
 {
     assert(current_render_pass.is_valid());
     auto &frame_resource = ctx.frame_resources.get_current();
@@ -504,7 +504,7 @@ void API::bind_program(ProgramH H)
     current_program = &program;
 }
 
-void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
+void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h)
 {
     auto &program = get_program(program_h);
     auto &image   = get_image(image_h);
@@ -537,7 +537,7 @@ void API::bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h)
     }
 }
 
-void API::bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h)
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h)
 {
     auto &program = get_program(program_h);
     auto &image   = get_image(image_h);
@@ -563,7 +563,7 @@ void API::bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, I
     }
 }
 
-void API::bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
+void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
 {
     auto &program = get_program(program_h);
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
@@ -622,7 +622,7 @@ void API::push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, voi
     frame_resource.command_buffer->pushConstants(*program.pipeline_layout, stage, offset, size, data);
 }
 
-static void pre_draw(API &api, Program &program)
+static void pre_draw(API &api, GraphicsProgram &program)
 {
     bind_descriptor_set(api, program, DRAW_DESCRIPTOR_SET);
 }

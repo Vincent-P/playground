@@ -166,7 +166,7 @@ void Renderer::load_model_data()
 	}
     }
 
-    vulkan::ProgramInfo pinfo{};
+    vulkan::GraphicsProgramInfo pinfo{};
     pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 

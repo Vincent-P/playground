@@ -176,7 +176,7 @@ struct Model
 
     vulkan::BufferH vertex_buffer;
     vulkan::BufferH index_buffer;
-    vulkan::ProgramH program; // TODO: vector? or multipe ones for double-sided, etc
+    vulkan::GraphicsProgramH program; // TODO: vector? or multipe ones for double-sided, etc
 };
 
 Model load_model(const char *path);

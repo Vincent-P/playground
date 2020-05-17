@@ -535,20 +535,29 @@ void API::destroy_shader(ShaderH H)
 
 /// --- Programs
 
-void ProgramInfo::push_constant(PushConstantInfo &&push_constant)
+void GraphicsProgramInfo::push_constant(PushConstantInfo &&push_constant)
 {
     push_constants.push_back(std::move(push_constant));
 }
 
-void ProgramInfo::binding(BindingInfo &&binding) { bindings_by_set[binding.set].push_back(std::move(binding)); }
-
-void ProgramInfo::vertex_stride(u32 value) { vertex_buffer_info.stride = value; }
-
-void ProgramInfo::vertex_info(VertexInfo &&info) { vertex_buffer_info.vertices_info.push_back(std::move(info)); }
-
-ProgramH API::create_program(ProgramInfo &&info)
+void GraphicsProgramInfo::binding(BindingInfo &&binding)
 {
-    Program program;
+    bindings_by_set[binding.set].push_back(std::move(binding));
+}
+
+void GraphicsProgramInfo::vertex_stride(u32 value)
+{
+    vertex_buffer_info.stride = value;
+}
+
+void GraphicsProgramInfo::vertex_info(VertexInfo &&info)
+{
+    vertex_buffer_info.vertices_info.push_back(std::move(info));
+}
+
+GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
+{
+    GraphicsProgram program;
 
     /// --- Create descriptor set layout
 
@@ -619,19 +628,112 @@ ProgramH API::create_program(ProgramInfo &&info)
         program.data_dirty_by_set[i] = true;
     }
 
-    return programs.add(std::move(program));
+    return graphics_programs.add(std::move(program));
 }
 
-Program &API::get_program(ProgramH H)
+ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 {
-    assert(H.is_valid());
-    return *programs.get(H);
+    ComputeProgram program;
+
+    /// --- Create descriptor set layout
+
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    program.dynamic_count = 0;
+
+    map_transform(info.bindings, bindings, [&](const auto &info_binding) {
+        vk::DescriptorSetLayoutBinding binding;
+        binding.binding        = info_binding.slot;
+        binding.stageFlags     = info_binding.stages;
+        binding.descriptorType = info_binding.type;
+
+        if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+            program.dynamic_count++;
+        }
+
+        binding.descriptorCount = info_binding.count;
+        return binding;
+    });
+
+    vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
+    // clang-format off
+    std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+    // clang-format on
+    auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+    flags_info.bindingCount  = static_cast<u32>(bindings.size());
+    flags_info.pBindingFlags = flags.data();
+
+    auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+    layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+    layout_info.bindingCount = static_cast<u32>(bindings.size());
+    layout_info.pBindings    = bindings.data();
+
+    program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+
+    /// --- Create pipeline layout
+
+    std::vector<vk::PushConstantRange> pc_ranges;
+    map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
+	vk::PushConstantRange range;
+	range.stageFlags = push_constant.stages;
+	range.offset     = push_constant.offset;
+	range.size       = push_constant.size;
+	return range;
+    });
+
+    const vk::DescriptorSetLayout *layout = &program.descriptor_layout.get();
+
+
+    vk::PipelineLayoutCreateInfo ci{};
+    ci.pSetLayouts            = layout;
+    ci.setLayoutCount         = layout ? 1 : 0;
+    ci.pPushConstantRanges    = pc_ranges.data();
+    ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
+
+    program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
+    program.info            = std::move(info);
+
+    program.data_dirty = true;
+
+    /// --- Create pipeline
+    const auto &compute_shader = get_shader(program.info.shader);
+
+    vk::ComputePipelineCreateInfo pinfo{};
+    pinfo.stage.stage  = vk::ShaderStageFlagBits::eCompute;
+    pinfo.stage.module = *compute_shader.vkhandle;
+    pinfo.stage.pName  = "main";
+    pinfo.layout       = *program.pipeline_layout;
+    program.vkpipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+
+    return compute_programs.add(std::move(program));
 }
 
-void API::destroy_program(ProgramH H)
+
+void ComputeProgramInfo::push_constant(PushConstantInfo &&push_constant)
+{
+    push_constants.push_back(std::move(push_constant));
+}
+
+void ComputeProgramInfo::binding(BindingInfo &&binding)
+{
+    bindings.push_back(std::move(binding));
+}
+
+GraphicsProgram &API::get_program(GraphicsProgramH H)
 {
     assert(H.is_valid());
-    programs.remove(H);
+    return *graphics_programs.get(H);
+}
+
+ComputeProgram &API::get_program(ComputeProgramH H)
+{
+    assert(H.is_valid());
+    return *compute_programs.get(H);
+}
+
+void API::destroy_program(GraphicsProgramH H)
+{
+    assert(H.is_valid());
+    graphics_programs.remove(H);
 }
 
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout)

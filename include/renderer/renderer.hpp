@@ -48,22 +48,23 @@ struct Renderer
     void visualize_voxels();
 
     // ImGui
-    vulkan::ProgramH gui_program;
+    vulkan::GraphicsProgramH gui_program;
     vulkan::ImageH gui_texture;
 
     // glTF
     Model model;
 
-    Camera sun;
-
     // Shadow Map
-    vulkan::ProgramH model_vertex_only;
+    Camera sun;
+    vulkan::GraphicsProgramH model_vertex_only;
     vulkan::RenderTargetH shadow_map_depth_rt;
 
     // Voxelization
     VoxelDebug voxel_options{};
-    vulkan::ProgramH voxelization;
-    vulkan::ProgramH visualization;
+    vulkan::GraphicsProgramH voxelization;
+    vulkan::GraphicsProgramH visualization;
+    vulkan::ComputeProgramH inject_direct_lighting;
+
 
     vulkan::ImageH voxels_albedo;
     vulkan::ImageH voxels_normal;

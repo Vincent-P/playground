@@ -243,7 +243,7 @@ inline bool operator==(const VertexBufferInfo &a, const VertexBufferInfo &b)
     return a.stride == b.stride && a.vertices_info == b.vertices_info;
 }
 
-struct ProgramInfo
+struct GraphicsProgramInfo
 {
     ShaderH vertex_shader;
     ShaderH geom_shader;
@@ -263,7 +263,7 @@ struct ProgramInfo
     void vertex_info(VertexInfo &&info);
 };
 
-inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
+inline bool operator==(const GraphicsProgramInfo &a, const GraphicsProgramInfo &b)
 {
     return    a.vertex_shader == b.vertex_shader
            && a.geom_shader == b.geom_shader
@@ -275,10 +275,28 @@ inline bool operator==(const ProgramInfo &a, const ProgramInfo &b)
            && a.enable_conservative_rasterization == b.enable_conservative_rasterization;
 }
 
+struct ComputeProgramInfo
+{
+    ShaderH shader;
+
+    std::vector<PushConstantInfo> push_constants;
+    std::vector<BindingInfo> bindings;
+
+    void push_constant(PushConstantInfo &&push_constant);
+    void binding(BindingInfo &&binding);
+};
+
+inline bool operator==(const ComputeProgramInfo &a, const ComputeProgramInfo &b)
+{
+    return a.shader == b.shader
+        && a.push_constants == b.push_constants
+        && a.bindings == b.bindings;
+}
+
 // TODO: smart fields
 struct PipelineInfo
 {
-    ProgramInfo program_info;
+    GraphicsProgramInfo program_info;
     vk::PipelineLayout pipeline_layout;
     RenderPassH render_pass;
 
@@ -308,7 +326,7 @@ inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
 
 inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b) { return !(a == b); }
 
-struct Program
+struct GraphicsProgram
 {
     std::array<vk::UniqueDescriptorSetLayout, MAX_DESCRIPTOR_SET> descriptor_layouts;
     vk::UniquePipelineLayout pipeline_layout; // layoutS??
@@ -323,17 +341,40 @@ struct Program
     std::vector<PipelineInfo> pipelines_info;
     std::vector<vk::UniquePipeline> pipelines_vk;
 
-    ProgramInfo info;
+    GraphicsProgramInfo info;
     std::array<usize, MAX_DESCRIPTOR_SET> dynamic_count_by_set;
 };
 
-using ProgramH = Handle<Program>;
-
-inline bool operator==(const Program &a, const Program &b)
+inline bool operator==(const GraphicsProgram &a, const GraphicsProgram &b)
 {
     return a.info == b.info;
 }
 
+using GraphicsProgramH = Handle<GraphicsProgram>;
+
+struct ComputeProgram
+{
+    vk::UniqueDescriptorSetLayout descriptor_layout;
+    vk::UniquePipelineLayout pipeline_layout; // layoutS??
+
+    std::vector<std::optional<ShaderBinding>> binded_data;
+    bool data_dirty;
+    usize dynamic_count;
+
+    std::vector<DescriptorSet> descriptor_sets;
+    usize current_descriptor_set;
+
+    vk::UniquePipeline vkpipeline;
+
+    ComputeProgramInfo info;
+};
+
+inline bool operator==(const ComputeProgram &a, const ComputeProgram &b)
+{
+    return a.info == b.info;
+}
+
+using ComputeProgramH = Handle<ComputeProgram>;
 
 // temporary command buffer for the frame
 struct CommandBuffer
@@ -370,7 +411,8 @@ struct API
     Arena<RenderTarget> rendertargets;
     Arena<Sampler> samplers;
     Arena<Buffer> buffers;
-    Arena<Program> programs;
+    Arena<GraphicsProgram> graphics_programs;
+    Arena<ComputeProgram> compute_programs;
     Arena<Shader> shaders;
 
     // TODO: arena?
@@ -384,7 +426,7 @@ struct API
 
     // render context
     RenderPassH current_render_pass;
-    Program *current_program;
+    GraphicsProgram *current_program;
 
     static API create(const Window &window);
     void destroy();
@@ -397,10 +439,10 @@ struct API
     /// --- Drawing
     void begin_pass(PassInfo &&info);
     void end_pass();
-    void bind_program(ProgramH H);
-    void bind_image(ProgramH program_h, uint set, uint slot, ImageH image_h);
-    void bind_combined_image_sampler(ProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
-    void bind_buffer(ProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
+    void bind_program(GraphicsProgramH H);
+    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h);
+    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
+    void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
 
     /// --- Debug
     void begin_label(std::string_view name, float4 color = {1, 1, 1, 1});
@@ -454,9 +496,11 @@ struct API
     Shader &get_shader(ShaderH H);
     void destroy_shader(ShaderH H);
 
-    ProgramH create_program(ProgramInfo &&info);
-    Program &get_program(ProgramH H);
-    void destroy_program(ProgramH H);
+    GraphicsProgramH create_program(GraphicsProgramInfo &&info);
+    ComputeProgramH create_program(ComputeProgramInfo &&info);
+    GraphicsProgram &get_program(GraphicsProgramH H);
+    ComputeProgram &get_program(ComputeProgramH H);
+    void destroy_program(GraphicsProgramH H);
 
     CommandBuffer get_temp_cmd_buffer();
 };
