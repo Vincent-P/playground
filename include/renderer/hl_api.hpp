@@ -33,6 +33,7 @@ struct ImageInfo
     const char *name;
     vk::ImageType type = vk::ImageType::e2D;
     vk::Format format  = vk::Format::eR8G8B8A8Unorm;
+    std::vector<vk::Format> view_formats;
     u32 width;
     u32 height;
     u32 depth;
@@ -52,7 +53,10 @@ struct Image
     ThsvsAccessType access;
     vk::ImageLayout layout;
     vk::ImageSubresourceRange full_range;
-    vk::ImageView default_view;
+    u32 current_view{u32_invalid};
+    vk::ImageView default_view;               // view with the default format (image_info.format)
+    std::vector<vk::Format> view_formats;
+    std::vector<vk::ImageView> views;         // extra views for each image_info.view_formats
     vk::Sampler default_sampler;
 };
 using ImageH = Handle<Image>;
@@ -156,7 +160,7 @@ struct PassInfo
 // compatible passes
 inline bool operator==(const PassInfo &a, const PassInfo &b)
 {
-    return a.present == b.present && a.samples == b.samples;
+    return a.present == b.present && a.samples == b.samples && a.color == b.color && a.depth == b.depth;
 }
 
 struct RenderPass
@@ -427,6 +431,7 @@ struct API
     // render context
     RenderPassH current_render_pass;
     GraphicsProgram *current_program;
+    bool first_swapchain_pass_of_frame{true};
 
     static API create(const Window &window);
     void destroy();
@@ -440,6 +445,11 @@ struct API
     void begin_pass(PassInfo &&info);
     void end_pass();
     void bind_program(GraphicsProgramH H);
+
+    // set the image view to use when binding the image, if 0 <= view_index <= image.view_formats then the view with a special format is used
+    // otherwise the default view is used
+    void image_set_view(ImageH image_h, u32 view_index);
+
     void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h);
     void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h);
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);

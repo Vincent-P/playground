@@ -54,6 +54,11 @@ ImageH API::create_image(const ImageInfo &info)
     img.name         = info.name;
     img.memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
+    img.view_formats = info.view_formats;
+    if (!info.view_formats.empty()) {
+        img.image_info.flags = vk::ImageCreateFlagBits::eMutableFormat;
+    }
+
     img.image_info.imageType             = info.type;
     img.image_info.format                = info.format;
     img.image_info.extent.width          = info.width;
@@ -113,6 +118,13 @@ ImageH API::create_image(const ImageInfo &info)
 
     img.default_view = ctx.device->createImageView(vci);
 
+    img.views.reserve(info.view_formats.size());
+    for (const auto &extra_format : info.view_formats)
+    {
+        vci.format = extra_format;
+        img.views.push_back(ctx.device->createImageView(vci));
+    }
+
     vk::SamplerCreateInfo sci{};
     sci.magFilter        = vk::Filter::eNearest;
     sci.minFilter        = vk::Filter::eNearest;
@@ -142,6 +154,11 @@ static void destroy_image_internal(API &api, Image &img)
     vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     api.ctx.device->destroy(img.default_view);
     api.ctx.device->destroy(img.default_sampler);
+
+    for (auto &image_view : img.views) {
+        api.ctx.device->destroy(image_view);
+    }
+    img.views.clear();
 }
 
 void API::destroy_image(ImageH H)

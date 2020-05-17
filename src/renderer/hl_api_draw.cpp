@@ -7,6 +7,18 @@ namespace my_app::vulkan
 // TODO: multiple render targets, multisampling
 static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
+    if (info.color) {
+        auto color_rt  = api.get_rendertarget(info.color->rt);
+        if (color_rt.is_swapchain)
+        {
+            if (api.first_swapchain_pass_of_frame)
+            {
+                info.color->load_op = vk::AttachmentLoadOp::eClear;
+                api.first_swapchain_pass_of_frame = false;
+            }
+        }
+    }
+
     for (auto it = api.renderpasses.begin(); it != api.renderpasses.end(); ++it) {
         const auto &render_pass = *it;
         if (render_pass.info == info) {
@@ -27,7 +39,18 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     if (rp.info.color) {
         color_ref.attachment = static_cast<u32>(attachments.size());
 
+        vk::ImageLayout initial_layout;
+        auto color_rt  = api.get_rendertarget(rp.info.color->rt);
+        if (color_rt.is_swapchain) {
+            initial_layout = rp.info.color->load_op == vk::AttachmentLoadOp::eClear ? vk::ImageLayout::eUndefined : vk::ImageLayout::ePresentSrcKHR;
+        }
+        else {
+            auto color_img = api.get_image(color_rt.image_h);
+            initial_layout = color_img.layout;
+        }
+
         auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+
         vk::AttachmentDescription attachment;
         attachment.format         = api.ctx.swapchain.format.format;
         attachment.samples        = vk::SampleCountFlagBits::e1;
@@ -35,7 +58,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = vk::AttachmentStoreOp::eStore;
         attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
         attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachment.initialLayout  = vk::ImageLayout::eUndefined;
+        attachment.initialLayout  = initial_layout;
         attachment.finalLayout    = final_layout;
         attachment.flags          = {};
         attachments.push_back(std::move(attachment));
@@ -180,12 +203,19 @@ void API::begin_pass(PassInfo &&info)
     vk::Rect2D render_area{vk::Offset2D(), {frame_buffer.info.width, frame_buffer.info.height}};
 
     std::vector<vk::ClearValue> clear_values;
+
     if (render_pass.info.color && render_pass.info.color->load_op == vk::AttachmentLoadOp::eClear) {
         vk::ClearValue clear;
         clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
         clear_values.push_back(std::move(clear));
     }
+
     if (render_pass.info.depth && render_pass.info.depth->load_op == vk::AttachmentLoadOp::eClear) {
+        if (render_pass.info.color && clear_values.empty()) {
+            vk::ClearValue clear;
+            clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
+            clear_values.push_back(std::move(clear));
+        }
         vk::ClearValue clear;
         clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
         clear_values.push_back(std::move(clear));
@@ -521,16 +551,35 @@ static void bind_image_internal(API &api, Image &image, std::vector<std::optiona
 
     assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
 
+    vk::ImageView image_view = image.default_view;
+    if (0 <= image.current_view && image.current_view < image.views.size()) {
+        image_view = image.views[image.current_view];
+    }
+
     ShaderBinding data;
     data.binding                = slot;
     data.type                   = descriptor_type;
-    data.image_info.imageView   = image.default_view;
+    data.image_info.imageView   = image_view;
     data.image_info.sampler     = image.default_sampler;
     data.image_info.imageLayout = image.layout;
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
         binded_data[slot] = std::move(data);
         data_dirty        = true;
+    }
+}
+
+// TODO: remove this hack and use something like ImageViewH?
+void API::image_set_view(ImageH image_h, u32 view_index)
+{
+    auto &image   = get_image(image_h);
+    if (0 <= view_index && view_index < image.views.size())
+    {
+        image.current_view = view_index;
+    }
+    else
+    {
+        image.current_view = u32_invalid;
     }
 }
 
@@ -559,10 +608,17 @@ static void bind_combined_image_sampler_internal(API& api, Image &image, Sampler
         }
     }
 
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    vk::ImageView image_view = image.default_view;
+    if (0 <= image.current_view && image.current_view < image.views.size()) {
+        image_view = image.views[image.current_view];
+    }
+
     ShaderBinding data;
     data.binding                = slot;
     data.type                   = bindings[slot].type;
-    data.image_info.imageView   = image.default_view;
+    data.image_info.imageView   = image_view;
     data.image_info.sampler     = *sampler.vkhandle;
     data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 

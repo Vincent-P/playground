@@ -71,6 +71,7 @@ void API::on_resize(int width, int height)
 bool API::start_frame()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
+    first_swapchain_pass_of_frame = true;
 
     // TODO: user defined unit?
     auto wait_result = ctx.device->waitForFences(*frame_resource.fence, VK_TRUE, 10lu * 1000lu * 1000lu * 1000lu);

@@ -155,23 +155,31 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     /// --- Voxelization
     {
-        r.voxel_options.res = 512;
+        r.voxel_options.res = 256;
 
         vulkan::ImageInfo iinfo;
-        iinfo.name       = "Voxels albedo";
-        iinfo.type       = vk::ImageType::e3D;
-        iinfo.format     = vk::Format::eR32Uint;
-        iinfo.width      = r.voxel_options.res;
-        iinfo.height     = r.voxel_options.res;
-        iinfo.depth      = r.voxel_options.res;
-        iinfo.usages     = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
-        r.voxels_albedo = r.api.create_image(iinfo);
+        iinfo.name         = "Voxels albedo";
+        iinfo.type         = vk::ImageType::e3D;
+        iinfo.format       = vk::Format::eR32Uint;
+        iinfo.view_formats = {vk::Format::eR8G8B8A8Unorm};
+        iinfo.width        = r.voxel_options.res;
+        iinfo.height       = r.voxel_options.res;
+        iinfo.depth        = r.voxel_options.res;
+        iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
+        r.voxels_albedo    = r.api.create_image(iinfo);
 
-        iinfo.name = "Voxels normal";
-        r.voxels_normal = r.api.create_image(iinfo);
+        iinfo.name         = "Voxels normal";
+        r.voxels_normal    = r.api.create_image(iinfo);
 
-        iinfo.name = "Voxels radiance";
-        r.voxels_radiance = r.api.create_image(iinfo);
+        iinfo.name         = "Voxels radiance";
+        r.voxels_radiance  = r.api.create_image(iinfo);
+
+        vulkan::SamplerInfo sinfo{};
+        sinfo.mag_filter   = vk::Filter::eNearest;
+        sinfo.min_filter   = vk::Filter::eNearest;
+        sinfo.mip_map_mode = vk::SamplerMipmapMode::eLinear;
+        sinfo.address_mode = vk::SamplerAddressMode::eRepeat;
+        r.voxels_sampler   = r.api.create_sampler(sinfo);
     }
 
     {
@@ -277,12 +285,15 @@ Renderer Renderer::create(const Window &window, Camera &camera)
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
         // voxels textures
+        // albedo
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        // normal
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        // radiance
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 4,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
@@ -449,6 +460,24 @@ void Renderer::imgui_draw()
     ImVec2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
     ImVec2 clip_scale = data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
+    // TODO: check if the textures are in the correct layout here before starting the render pass
+
+    vulkan::PassInfo pass;
+    pass.present = true;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.rt      = color_rt;
+    pass.color         = std::make_optional(color_info);
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = depth_rt;
+    pass.depth         = std::make_optional(depth_info);
+
+    api.begin_pass(std::move(pass));
+
+
     // Render GUI
     i32 vertex_offset = 0;
     u32 index_offset  = 0;
@@ -493,6 +522,7 @@ void Renderer::imgui_draw()
         vertex_offset += cmd_list->VtxBuffer.Size;
     }
 #endif
+    api.end_pass();
     api.end_label();
 }
 
@@ -605,6 +635,21 @@ void Renderer::draw_model()
         api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, shadow_map.image_h);
     }
 
+    vulkan::PassInfo pass;
+    pass.present = true;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.rt      = color_rt;
+    pass.color         = std::make_optional(color_info);
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = depth_rt;
+    pass.depth         = std::make_optional(depth_info);
+
+    api.begin_pass(std::move(pass));
+
     api.bind_program(model.program);
     api.bind_index_buffer(model.index_buffer);
     api.bind_vertex_buffer(model.vertex_buffer);
@@ -612,6 +657,8 @@ void Renderer::draw_model()
     for (usize node_i : model.scene) {
         draw_node(*this, model.nodes[node_i]);
     }
+
+    api.end_pass();
 
     api.end_label();
 }
@@ -818,6 +865,12 @@ void Renderer::voxelize_scene()
     }
 
     // Bind voxel textures
+
+    // use the default format
+    api.image_set_view(voxels_albedo, u32_invalid);
+    api.image_set_view(voxels_normal, u32_invalid);
+    api.image_set_view(voxels_radiance, u32_invalid);
+
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
 
@@ -898,13 +951,36 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
     }
 
+    // use the default format
+    api.image_set_view(voxels_albedo, u32_invalid);
+    api.image_set_view(voxels_normal, u32_invalid);
+    api.image_set_view(voxels_radiance, u32_invalid);
+
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
 
+    vulkan::PassInfo pass;
+    pass.present = true;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.rt      = color_rt;
+    pass.color         = std::make_optional(color_info);
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = depth_rt;
+    pass.depth         = std::make_optional(depth_info);
+
+    api.begin_pass(std::move(pass));
+
     api.bind_program(visualization);
+
     api.draw(6, 1, 0, 0);
+
+    api.end_pass();
     api.end_label();
 }
 
@@ -934,12 +1010,17 @@ void Renderer::inject_direct_lighting()
         api.bind_buffer(program, 1, u_pos);
     }
 
-    api.bind_image(program, 2, voxels_albedo);
-    api.bind_image(program, 3, voxels_normal);
+    // use the RGBA8 format defined at creation in view_formats
+    api.image_set_view(voxels_albedo, 0);
+    api.image_set_view(voxels_normal, 0);
+    api.image_set_view(voxels_radiance, 0);
+
+    api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler);
+    api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler);
     api.bind_image(program, 4, voxels_radiance);
 
 
-    api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
+    // api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
     api.end_label();
 }
 
@@ -953,12 +1034,9 @@ void Renderer::draw()
         return;
     }
 
-#define VOXEL 1
 
     shadow_map(*this);
-#if !VOXEL
 
-#else
     vk::ClearColorValue clear{};
     clear.float32[0] = 0.f;
     clear.float32[1] = 0.f;
@@ -971,33 +1049,10 @@ void Renderer::draw()
     voxelize_scene();
     inject_direct_lighting();
 
-#endif
-
-    vulkan::PassInfo pass;
-    pass.present = true;
-
-    vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
-    color_info.rt      = color_rt;
-    pass.color         = std::make_optional(color_info);
-
-    vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
-    depth_info.rt      = depth_rt;
-    pass.depth         = std::make_optional(depth_info);
-#if !VOXEL
-#endif
-
-    api.begin_pass(std::move(pass));
-
     draw_model();
-#if !VOXEL
-#else
     visualize_voxels();
-#endif
     imgui_draw();
 
-    api.end_pass();
     api.end_frame();
 }
 

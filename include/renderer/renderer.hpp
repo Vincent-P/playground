@@ -66,7 +66,7 @@ struct Renderer
     vulkan::GraphicsProgramH visualization;
     vulkan::ComputeProgramH inject_radiance;
 
-
+    vulkan::SamplerH voxels_sampler;
     vulkan::ImageH voxels_albedo;
     vulkan::ImageH voxels_normal;
     vulkan::ImageH voxels_radiance;
