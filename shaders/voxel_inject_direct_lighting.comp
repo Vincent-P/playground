@@ -7,12 +7,86 @@ layout(set = 0, binding = 0) uniform VO {
 
 layout(set = 0, binding = 1) uniform UBO {
     vec3 sun_direction;
-} cam;
+    float traceShadowHit;
+    float max_dist;
+};
 
-layout(set = 0, binding = 2, rgba8) uniform image3D voxels_albedo;
-layout(set = 0, binding = 3, rgba8) uniform image3D voxels_normal;
+layout(set = 0, binding = 2) uniform sampler3D voxels_albedo;
+layout(set = 0, binding = 3) uniform sampler3D voxels_normal;
 layout(set = 0, binding = 4, rgba8) uniform image3D voxels_radiance;
+
+#define EPSILON 0.001
+
+float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
+{
+    // scaling factor
+    float k = traceShadowHit * traceShadowHit;
+
+    float step = 1.0f / voxel_options.res;
+    float t = step * 2.0f;
+    vec3 p = position * step + direction * t;
+
+    float visibility = 0.0f;
+    float sampled = 0.0f;
+
+    while (visibility <= 1.0f && t <= maxTracingDistance)
+    {
+        if (p.x < 0.0f || p.y < 0.0f || p.z < 0.0f
+            || p.x > 1.0f || p.y > 1.0f || p.z > 1.0f)
+        {
+            break;
+        }
+
+        sampled = ceil(texture(voxels_albedo, p).a * 255.f) * k;
+
+        // hard shadows mode
+        if(sampled > 1.0f - EPSILON) { return 0.0f; }
+
+        // accumulate
+        visibility += (1.0f - visibility) * sampled / t;
+
+        // move further into volume
+        t += step;
+        p = position * step + direction * t;
+    }
+
+    return 1.0f - visibility;
+}
+
+vec3 BRDF(vec3 albedo, vec3 normal, vec3 direction)
+{
+    float nDotL = 0.0f;
+    vec3 weight = normal * normal;
+    // calculate directional normal attenuation
+    float rDotL = dot(vec3(1.0, 0.0, 0.0), direction);
+    float uDotL = dot(vec3(0.0, 1.0, 0.0), direction);
+    float fDotL = dot(vec3(0.0, 0.0, 1.0), direction);
+
+    rDotL = normal.x > 0.0 ? max(rDotL, 0.0) : max(-rDotL, 0.0);
+    uDotL = normal.y > 0.0 ? max(uDotL, 0.0) : max(-uDotL, 0.0);
+    fDotL = normal.z > 0.0 ? max(fDotL, 0.0) : max(-fDotL, 0.0);
+    // voxel shading average from all front sides
+    nDotL = rDotL * weight.x + uDotL * weight.y + fDotL * weight.z;
+    return albedo * vec3(nDotL);
+}
+
+vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal)
+{
+    vec3 direction = -normalize(sun_direction);
+    float visibility = TraceShadow(voxel_pos, direction, 1.0f);
+    return vec4(BRDF(albedo.rgb, normal, direction) * visibility, 1);
+}
 
 void main()
 {
+    ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
+    vec4 albedo = texelFetch(voxels_albedo, voxel_pos, 0);
+
+    if (albedo.a < EPSILON) return;
+
+    vec3 normal = texelFetch(voxels_normal, voxel_pos, 0).xyz;
+
+    vec4 lighting = DirectionalLighting(voxel_pos, albedo, normal);
+
+    imageStore(voxels_radiance, voxel_pos, lighting);
 }

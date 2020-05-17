@@ -159,7 +159,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     /// --- Voxelization
     {
-        r.voxel_options.res = 256;
+        r.voxel_options.res = 512;
 
         vulkan::ImageInfo iinfo;
         iinfo.name         = "Voxels albedo";
@@ -179,10 +179,10 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.voxels_radiance  = r.api.create_image(iinfo);
 
         vulkan::SamplerInfo sinfo{};
-        sinfo.mag_filter   = vk::Filter::eNearest;
-        sinfo.min_filter   = vk::Filter::eNearest;
+        sinfo.mag_filter   = vk::Filter::eLinear;
+        sinfo.min_filter   = vk::Filter::eLinear;
         sinfo.mip_map_mode = vk::SamplerMipmapMode::eLinear;
-        sinfo.address_mode = vk::SamplerAddressMode::eRepeat;
+        sinfo.address_mode = vk::SamplerAddressMode::eClampToBorder;
         r.voxels_sampler   = r.api.create_sampler(sinfo);
     }
 
@@ -583,7 +583,7 @@ static void draw_node(Renderer &r, Node &node)
 void Renderer::draw_model()
 {
     static usize s_selected = 0;
-    static float s_opacity = 0.5f;
+    static float s_opacity = 0.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
@@ -899,8 +899,8 @@ void Renderer::voxelize_scene()
 
 void Renderer::visualize_voxels()
 {
-    static usize s_selected = 1;
-    static float s_opacity = 0.5f;
+    static usize s_selected = 3;
+    static float s_opacity = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
@@ -987,8 +987,25 @@ void Renderer::visualize_voxels()
     api.end_label();
 }
 
+
+struct DirectLightingDebug
+{
+    float3 sun_direction;
+    float trace_shadow_hit;
+    float max_dist;
+};
+
 void Renderer::inject_direct_lighting()
 {
+    static float s_trace_shadow_hit = 0.5f;
+    static float s_max_dist         = static_cast<float>(voxel_options.res);
+#if defined(ENABLE_IMGUI)
+    ImGui::Begin("Voxels Direct Lighting");
+    ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
+    ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
+    ImGui::End();
+#endif
+
     api.begin_label("Inject direct lighting");
 
     auto &program = inject_radiance;
@@ -1004,11 +1021,12 @@ void Renderer::inject_direct_lighting()
 
     // Bind camera uniform buffer
     {
-        auto u_pos   = api.dynamic_uniform_buffer(3 * sizeof(float3) + sizeof(float));
-        auto *buffer = reinterpret_cast<float4 *>(u_pos.mapped);
-        buffer[0]    = float4(p_camera->position, 0.0f);
-        buffer[1]    = float4(p_camera->front, 0.0f);
-        buffer[2]    = float4(p_camera->up, 0.0f);
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
+        auto *buffer = reinterpret_cast<DirectLightingDebug *>(u_pos.mapped);
+
+        buffer->sun_direction    = sun.front;
+        buffer->trace_shadow_hit = s_trace_shadow_hit;
+        buffer->max_dist         = s_max_dist;
 
         api.bind_buffer(program, 1, u_pos);
     }
@@ -1023,7 +1041,7 @@ void Renderer::inject_direct_lighting()
     api.bind_image(program, 4, voxels_radiance);
 
 
-    // api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
+    api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
     api.end_label();
 }
 
