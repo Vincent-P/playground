@@ -40,6 +40,10 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         style.ScrollbarRounding = 0.f;
         style.GrabRounding      = 0.f;
         style.TabRounding       = 0.f;
+
+        auto &io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigDockingWithShift = false;
     }
 
     {
@@ -414,7 +418,6 @@ void Renderer::imgui_draw()
 {
     api.begin_label("ImGui");
 #if defined(ENABLE_IMGUI)
-    ImGui::ShowStyleEditor();
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
     if (data == nullptr || data->TotalVtxCount == 0) {
