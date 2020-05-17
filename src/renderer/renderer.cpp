@@ -159,7 +159,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     /// --- Voxelization
     {
-        r.voxel_options.res = 512;
+        r.voxel_options.res = 256;
 
         vulkan::ImageInfo iinfo;
         iinfo.name         = "Voxels albedo";
@@ -882,7 +882,7 @@ void Renderer::voxelize_scene()
 
 
     vulkan::PassInfo pass{};
-    pass.samples = vk::SampleCountFlagBits::e16;
+    pass.samples = vk::SampleCountFlagBits::e4;
     api.begin_pass(std::move(pass));
 
     api.bind_program(voxelization);

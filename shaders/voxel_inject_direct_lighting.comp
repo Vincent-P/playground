@@ -1,6 +1,8 @@
 #version 460
 #include "voxels.h"
 
+// layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
 layout(set = 0, binding = 0) uniform VO {
     VoxelOptions voxel_options;
 };
@@ -23,7 +25,7 @@ float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
     float k = traceShadowHit * traceShadowHit;
 
     float step = 1.0f / voxel_options.res;
-    float t = step * 2.0f;
+    float t = step * 10.0f;
     vec3 p = position * step + direction * t;
 
     float visibility = 0.0f;
@@ -37,10 +39,10 @@ float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
             break;
         }
 
-        sampled = ceil(texture(voxels_albedo, p).a * 255.f) * k;
+        sampled = ceil(texture(voxels_albedo, p).a) * k;
 
         // hard shadows mode
-        if(sampled > 1.0f - EPSILON) { return 0.0f; }
+        // if(sampled > 1.0f - EPSILON) { return 0.0f; }
 
         // accumulate
         visibility += (1.0f - visibility) * sampled / t;
@@ -74,7 +76,7 @@ vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal)
 {
     vec3 direction = -normalize(sun_direction);
     float visibility = TraceShadow(voxel_pos, direction, 1.0f);
-    return vec4(BRDF(albedo.rgb, normal, direction) * visibility, 1);
+    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, 1);
 }
 
 void main()
