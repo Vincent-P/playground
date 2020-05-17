@@ -45,6 +45,7 @@ struct Renderer
     void imgui_draw();
 
     void voxelize_scene();
+    void inject_direct_lighting();
     void visualize_voxels();
 
     // ImGui
@@ -63,7 +64,7 @@ struct Renderer
     VoxelDebug voxel_options{};
     vulkan::GraphicsProgramH voxelization;
     vulkan::GraphicsProgramH visualization;
-    vulkan::ComputeProgramH inject_direct_lighting;
+    vulkan::ComputeProgramH inject_radiance;
 
 
     vulkan::ImageH voxels_albedo;

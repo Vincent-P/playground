@@ -287,7 +287,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
 
-        r.inject_direct_lighting = r.api.create_program(std::move(pinfo));
+        r.inject_radiance = r.api.create_program(std::move(pinfo));
     }
 
     return r;
@@ -908,6 +908,41 @@ void Renderer::visualize_voxels()
     api.end_label();
 }
 
+void Renderer::inject_direct_lighting()
+{
+    api.begin_label("Inject direct lighting");
+
+    auto &program = inject_radiance;
+
+    // Bind voxel options
+    {
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        *buffer = voxel_options;
+
+        api.bind_buffer(program, 0, u_pos);
+    }
+
+    // Bind camera uniform buffer
+    {
+        auto u_pos   = api.dynamic_uniform_buffer(3 * sizeof(float3) + sizeof(float));
+        auto *buffer = reinterpret_cast<float4 *>(u_pos.mapped);
+        buffer[0]    = float4(p_camera->position, 0.0f);
+        buffer[1]    = float4(p_camera->front, 0.0f);
+        buffer[2]    = float4(p_camera->up, 0.0f);
+
+        api.bind_buffer(program, 1, u_pos);
+    }
+
+    api.bind_image(program, 2, voxels_albedo);
+    api.bind_image(program, 3, voxels_normal);
+    api.bind_image(program, 4, voxels_radiance);
+
+
+    api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
+    api.end_label();
+}
+
 void Renderer::draw()
 {
     bool is_ok = api.start_frame();
@@ -934,6 +969,8 @@ void Renderer::draw()
     api.clear_image(voxels_radiance, clear);
 
     voxelize_scene();
+    inject_direct_lighting();
+
 #endif
 
     vulkan::PassInfo pass;

@@ -1,5 +1,17 @@
 #version 460
 
+layout(set = 0, binding = 0) uniform VO {
+    VoxelOptions voxel_options;
+};
+
+layout(set = 0, binding = 1) uniform UBO {
+    vec3 sun_direction;
+} cam;
+
+layout(set = 0, binding = 2, rgba8) uniform uimage3D voxels_albedo;
+layout(set = 0, binding = 3, rgba8) uniform uimage3D voxels_normal;
+layout(set = 0, binding = 4, rgba8) uniform uimage3D voxels_radiance;
+
 void main()
 {
 }

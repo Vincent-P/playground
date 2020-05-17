@@ -504,22 +504,19 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h)
+static void bind_image_internal(API &api, Image &image, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
-    auto &program = get_program(program_h);
-    auto &image   = get_image(image_h);
-
-    if (program.binded_data_by_set[set].size() <= slot) {
-        usize missing = slot - program.binded_data_by_set[set].size() + 1;
+    if (binded_data.size() <= slot) {
+        usize missing = slot - binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            program.binded_data_by_set[set].emplace_back(std::nullopt);
+            binded_data.emplace_back(std::nullopt);
         }
     }
 
-    auto descriptor_type = program.info.bindings_by_set[set][slot].type;
+    auto descriptor_type = bindings[slot].type;
     if (descriptor_type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
     {
-        transition_if_needed_internal(*this, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+        transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     }
 
     assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
@@ -531,9 +528,47 @@ void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH ima
     data.image_info.sampler     = image.default_sampler;
     data.image_info.imageLayout = image.layout;
 
-    if (!program.binded_data_by_set[set][slot].has_value() || *program.binded_data_by_set[set][slot] != data) {
-        program.binded_data_by_set[set][slot] = std::move(data);
-        program.data_dirty_by_set[set]        = true;
+    if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
+        binded_data[slot] = std::move(data);
+        data_dirty        = true;
+    }
+}
+
+void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h)
+{
+    auto &program = get_program(program_h);
+    auto &image   = get_image(image_h);
+
+    bind_image_internal(*this, image, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+}
+
+void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h)
+{
+    auto &program = get_program(program_h);
+    auto &image   = get_image(image_h);
+
+    bind_image_internal(*this, image, program.binded_data, program.info.bindings, program.data_dirty, slot);
+}
+
+static void bind_combined_image_sampler_internal(API& api, Image &image, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+{
+    if (binded_data.size() <= slot) {
+        usize missing = slot - binded_data.size() + 1;
+        for (usize i = 0; i < missing; i++) {
+            binded_data.emplace_back(std::nullopt);
+        }
+    }
+
+    ShaderBinding data;
+    data.binding                = slot;
+    data.type                   = bindings[slot].type;
+    data.image_info.imageView   = image.default_view;
+    data.image_info.sampler     = *sampler.vkhandle;
+    data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
+        binded_data[slot] = std::move(data);
+        data_dirty        = true;
     }
 }
 
@@ -542,25 +577,36 @@ void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint
     auto &program = get_program(program_h);
     auto &image   = get_image(image_h);
     auto &sampler = get_sampler(sampler_h);
+    bind_combined_image_sampler_internal(*this, image, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+}
 
-    if (program.binded_data_by_set[set].size() <= slot) {
-        usize missing = slot - program.binded_data_by_set[set].size() + 1;
+
+void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h)
+{
+    auto &program = get_program(program_h);
+    auto &image   = get_image(image_h);
+    auto &sampler = get_sampler(sampler_h);
+    bind_combined_image_sampler_internal(*this, image, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
+}
+
+static void bind_buffer_internal(API& api, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+{
+    if (binded_data.size() <= slot) {
+        usize missing = slot - binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            program.binded_data_by_set[set].emplace_back(std::nullopt);
+            binded_data.emplace_back(std::nullopt);
         }
     }
 
     ShaderBinding data;
-    data.binding                = slot;
-    data.type                   = program.info.bindings_by_set[set][slot].type;
-    data.image_info.imageView   = image.default_view;
-    data.image_info.sampler     = *sampler.vkhandle;
-    data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    data.binding            = slot;
+    data.type               = bindings[slot].type;
+    data.buffer_info.buffer = buffer.vkhandle;
+    data.buffer_info.offset = buffer_pos.offset;
+    data.buffer_info.range  = buffer_pos.length;
 
-    if (!program.binded_data_by_set[set][slot].has_value() || *program.binded_data_by_set[set][slot] != data) {
-        program.binded_data_by_set[set][slot] = std::move(data);
-        program.data_dirty_by_set[set]        = true;
-    }
+    binded_data[slot] = std::move(data);
+    data_dirty        = true;
 }
 
 void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
@@ -568,22 +614,15 @@ void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularB
     auto &program = get_program(program_h);
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
 
-    if (program.binded_data_by_set[set].size() <= slot) {
-        usize missing = slot - program.binded_data_by_set[set].size() + 1;
-        for (usize i = 0; i < missing; i++) {
-            program.binded_data_by_set[set].emplace_back(std::nullopt);
-        }
-    }
+    bind_buffer_internal(*this, buffer, buffer_pos, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+}
 
-    ShaderBinding data;
-    data.binding            = slot;
-    data.type               = program.info.bindings_by_set[set][slot].type;
-    data.buffer_info.buffer = buffer.vkhandle;
-    data.buffer_info.offset = buffer_pos.offset;
-    data.buffer_info.range  = buffer_pos.length;
+void API::bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos)
+{
+    auto &program = get_program(program_h);
+    auto &buffer  = get_buffer(buffer_pos.buffer_h);
 
-    program.binded_data_by_set[set][slot] = std::move(data);
-    program.data_dirty_by_set[set]        = true;
+    bind_buffer_internal(*this, buffer, buffer_pos, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
 void API::bind_vertex_buffer(BufferH H, u32 offset)
@@ -669,5 +708,73 @@ void API::end_label()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->endDebugUtilsLabelEXT();
+}
+
+static DescriptorSet &find_or_create_descriptor_set(API &api, ComputeProgram &program)
+{
+    for (usize i = 0; i < program.descriptor_sets.size(); i++) {
+        auto &descriptor_set = program.descriptor_sets[i];
+        if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
+            program.current_descriptor_set = i;
+            return descriptor_set;
+        }
+    }
+
+    DescriptorSet descriptor_set;
+
+    vk::DescriptorSetAllocateInfo dsai{};
+    dsai.descriptorPool     = *api.ctx.descriptor_pool;
+    dsai.pSetLayouts        = &program.descriptor_layout.get();
+    dsai.descriptorSetCount = 1;
+
+    descriptor_set.set        = std::move(api.ctx.device->allocateDescriptorSets(dsai)[0]);
+    descriptor_set.frame_used = api.ctx.frame_count;
+
+    program.descriptor_sets.push_back(std::move(descriptor_set));
+
+    program.current_descriptor_set = program.descriptor_sets.size() - 1;
+
+    return program.descriptor_sets.back();
+}
+
+void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
+{
+    auto &program        = get_program(program_h);
+    auto &frame_resource = ctx.frame_resources.get_current();
+    auto &cmd            = *frame_resource.command_buffer;
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *program.vkpipeline);
+
+    /// --- Find and bind descriptor set
+    if (program.data_dirty) {
+        auto &descriptor_set = find_or_create_descriptor_set(*this, program);
+
+        std::vector<vk::WriteDescriptorSet> writes;
+        map_transform(program.binded_data, writes, [&](const auto &binded_data) {
+            assert(binded_data.has_value());
+            vk::WriteDescriptorSet write;
+            write.dstSet           = descriptor_set.set;
+            write.dstBinding       = binded_data->binding;
+            write.descriptorCount  = 1;
+            write.descriptorType   = binded_data->type;
+            write.pImageInfo       = &binded_data->image_info;
+            write.pBufferInfo      = &binded_data->buffer_info;
+            write.pTexelBufferView = &binded_data->buffer_view;
+            return write;
+        });
+
+        ctx.device->updateDescriptorSets(writes, nullptr);
+
+        program.data_dirty = false;
+    }
+
+    auto &descriptor_set      = program.descriptor_sets[program.current_descriptor_set];
+    descriptor_set.frame_used = ctx.frame_count;
+
+    std::vector<u32> offsets;
+    offsets.resize(program.dynamic_count);
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *program.pipeline_layout, 0, descriptor_set.set, offsets);
+
+    cmd.dispatch(x, y, z);
 }
 } // namespace my_app::vulkan

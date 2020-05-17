@@ -441,8 +441,12 @@ struct API
     void end_pass();
     void bind_program(GraphicsProgramH H);
     void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h);
+    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h);
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
+    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
+    void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
+    void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);
 
     /// --- Debug
     void begin_label(std::string_view name, float4 color = {1, 1, 1, 1});
