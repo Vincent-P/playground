@@ -18,7 +18,7 @@ struct Event;
 
 struct VoxelDebug
 {
-    float3 center{-18.0f, -1.0f, -11.0f};
+    float3 center{-13.0f, -1.0f, -11.0f};
     float size{0.1f};
     uint res{256};
 };

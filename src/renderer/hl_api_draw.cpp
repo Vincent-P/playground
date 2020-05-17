@@ -332,7 +332,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         {
             rast_i.pNext = &conservative;
             conservative.conservativeRasterizationMode = vk::ConservativeRasterizationModeEXT::eOverestimate;
-            conservative.extraPrimitiveOverestimationSize = 1.f; // in pixels
+            conservative.extraPrimitiveOverestimationSize = 0.1; // in pixels
         }
 
         rast_i.flags                   = {};

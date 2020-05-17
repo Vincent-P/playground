@@ -1,7 +1,7 @@
 #version 460
 #include "voxels.h"
 
-// layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+// layout(local_size_x = 2, local_size_y = 2, local_size_z = 2) in;
 
 layout(set = 0, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -69,7 +69,7 @@ vec3 BRDF(vec3 albedo, vec3 normal, vec3 direction)
     fDotL = normal.z > 0.0 ? max(fDotL, 0.0) : max(-fDotL, 0.0);
     // voxel shading average from all front sides
     nDotL = rDotL * weight.x + uDotL * weight.y + fDotL * weight.z;
-    return albedo * vec3(nDotL);
+    return 1.5f * albedo * vec3(nDotL);
 }
 
 vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal)
@@ -79,16 +79,22 @@ vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal)
     return vec4(BRDF(albedo.rgb, normal, direction)*visibility, 1);
 }
 
-void main()
+void InjectDirectLighting(ivec3 voxel_pos)
 {
-    ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
     vec4 albedo = texelFetch(voxels_albedo, voxel_pos, 0);
 
     if (albedo.a < EPSILON) return;
 
     vec3 normal = texelFetch(voxels_normal, voxel_pos, 0).xyz;
+    normal = DecodeNormal(normal);
 
     vec4 lighting = DirectionalLighting(voxel_pos, albedo, normal);
 
     imageStore(voxels_radiance, voxel_pos, lighting);
+}
+
+void main()
+{
+    ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
+    InjectDirectLighting(voxel_pos);
 }

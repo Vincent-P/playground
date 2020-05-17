@@ -882,7 +882,7 @@ void Renderer::voxelize_scene()
 
 
     vulkan::PassInfo pass{};
-    pass.samples = vk::SampleCountFlagBits::e4;
+    pass.samples = vk::SampleCountFlagBits::e16;
     api.begin_pass(std::move(pass));
 
     api.bind_program(voxelization);
@@ -899,7 +899,7 @@ void Renderer::voxelize_scene()
 
 void Renderer::visualize_voxels()
 {
-    static usize s_selected = 3;
+    static usize s_selected = 1;
     static float s_opacity = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Shader");
@@ -1041,7 +1041,8 @@ void Renderer::inject_direct_lighting()
     api.bind_image(program, 4, voxels_radiance);
 
 
-    api.dispatch(program, voxel_options.res, voxel_options.res, voxel_options.res);
+    auto count = voxel_options.res;
+    api.dispatch(program, count, count, count);
     api.end_label();
 }
 

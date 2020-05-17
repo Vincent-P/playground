@@ -6,7 +6,6 @@ layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
-layout (location = 4) in vec3 inVoxelPos;
 
 layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -31,7 +30,8 @@ void main()
     vec3 normal = getNormal(inWorldPos, inNormal, normalTexture, inUV0);
 
     // output:
-    ivec3 voxel_pos = ivec3(inVoxelPos);
+    ivec3 voxel_pos = WorldToVoxel(inWorldPos, voxel_options);
+
     imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, color.rgb);
-    imageAtomicAverageRGBA8(voxels_normal, voxel_pos, normal);
+    imageAtomicAverageRGBA8(voxels_normal, voxel_pos, EncodeNormal(normal));
 }

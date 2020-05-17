@@ -13,7 +13,6 @@ layout (location = 0) out vec3 outWorldPos;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
-layout (location = 4) out vec3 outVoxelPos;
 
 layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -34,8 +33,6 @@ void main(void)
     {
         // project based on dominant normal
         gl_Position = voxel_projections.matrices[maxi] * vec4(inWorldPos[i], 1);
-
-        outVoxelPos = WorldToVoxel(inWorldPos[i], voxel_options);
 
         outWorldPos = inWorldPos[i];
         outNormal = inNormal[i];

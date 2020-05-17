@@ -46,4 +46,14 @@ ivec3 WorldToVoxel(vec3 world_pos, VoxelOptions options)
     return ivec3(floor(voxel_pos));
 }
 
+vec3 EncodeNormal(vec3 normal)
+{
+    return normal * 0.5f + vec3(0.5f);
+}
+
+vec3 DecodeNormal(vec3 normal)
+{
+    return (normal - vec3(0.5f)) * 2.0f;
+}
+
 #endif
