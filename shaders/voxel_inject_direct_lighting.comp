@@ -8,7 +8,9 @@ layout(set = 0, binding = 0) uniform VO {
 };
 
 layout(set = 0, binding = 1) uniform UBO {
-    vec3 sun_direction;
+    vec4 sun_direction;
+    vec4 point_position;
+    float point_scale;
     float traceShadowHit;
     float max_dist;
 };
@@ -25,7 +27,7 @@ float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
     float k = traceShadowHit * traceShadowHit;
 
     float step = 1.0f / voxel_options.res;
-    float t = step * 10.0f;
+    float t = step * 2.0f; // avoid self shadowing
     vec3 p = position * step + direction * t;
 
     float visibility = 0.0f;
@@ -69,14 +71,36 @@ vec3 BRDF(vec3 albedo, vec3 normal, vec3 direction)
     fDotL = normal.z > 0.0 ? max(fDotL, 0.0) : max(-fDotL, 0.0);
     // voxel shading average from all front sides
     nDotL = rDotL * weight.x + uDotL * weight.y + fDotL * weight.z;
-    return 1.5f * albedo * vec3(nDotL);
+    return albedo * vec3(nDotL);
 }
 
-vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal)
+vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_direction)
 {
-    vec3 direction = -normalize(sun_direction);
-    float visibility = TraceShadow(voxel_pos, direction, 1.0f);
-    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, 1);
+    float visibility = TraceShadow(voxel_pos, light_direction, 1.0f);
+    if (visibility < 0) {
+        return vec4(0.0);
+    }
+    return vec4(BRDF(albedo.rgb, normal, light_direction)*visibility, visibility);
+}
+
+vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
+{
+    ivec3 light_pos = WorldToVoxel(light_center, voxel_options);
+    vec3 direction = light_pos - voxel_pos;
+    float distance = length(direction);
+    if (distance < EPSILON) {
+        return vec4(0.0);
+    }
+    direction = normalize(direction);
+    float falloff = 1 / (distance*distance);
+    falloff *= point_scale;
+
+    float visibility = TraceShadow(voxel_pos, direction, distance / voxel_options.res);
+    visibility *= falloff;
+    if (visibility < 0) {
+        return vec4(0.0);
+    }
+    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, visibility);
 }
 
 void InjectDirectLighting(ivec3 voxel_pos)
@@ -88,7 +112,10 @@ void InjectDirectLighting(ivec3 voxel_pos)
     vec3 normal = texelFetch(voxels_normal, voxel_pos, 0).xyz;
     normal = DecodeNormal(normal);
 
-    vec4 lighting = DirectionalLighting(voxel_pos, albedo, normal);
+    vec4 lighting = vec4(0.0);
+    lighting += DirectionalLighting(voxel_pos, albedo, normal, -sun_direction.xyz);
+    lighting += PointLight(voxel_pos, albedo, normal, point_position.xyz);
+    lighting.a = 1;
 
     imageStore(voxels_radiance, voxel_pos, lighting);
 }

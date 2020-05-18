@@ -899,7 +899,7 @@ void Renderer::voxelize_scene()
 
 void Renderer::visualize_voxels()
 {
-    static usize s_selected = 1;
+    static usize s_selected = 3;
     static float s_opacity = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Shader");
@@ -990,17 +990,23 @@ void Renderer::visualize_voxels()
 
 struct DirectLightingDebug
 {
-    float3 sun_direction;
+    float4 sun_direction;
+    float4 point_position;
+    float point_scale;
     float trace_shadow_hit;
     float max_dist;
 };
 
 void Renderer::inject_direct_lighting()
 {
+    static float s_position[] = {1.5f, 2.5f, 0.0f};
+    static float s_scale = 1000.0f;
     static float s_trace_shadow_hit = 0.5f;
     static float s_max_dist         = static_cast<float>(voxel_options.res);
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Direct Lighting");
+    ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
+    ImGui::SliderFloat("Point light scale", &s_scale, 0.0f, 1000.f);
     ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
     ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
     ImGui::End();
@@ -1024,7 +1030,9 @@ void Renderer::inject_direct_lighting()
         auto u_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
         auto *buffer = reinterpret_cast<DirectLightingDebug *>(u_pos.mapped);
 
-        buffer->sun_direction    = sun.front;
+        buffer->sun_direction    = float4(sun.front, 1);
+        buffer->point_position   = float4(s_position[0], s_position[1], s_position[2], 1);
+        buffer->point_scale      = s_scale;
         buffer->trace_shadow_hit = s_trace_shadow_hit;
         buffer->max_dist         = s_max_dist;
 
