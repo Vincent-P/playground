@@ -14,7 +14,7 @@ class TimerData
 {
   public:
     TimerData();
-    ~TimerData();
+    ~TimerData() = default;
 
     void update();
 

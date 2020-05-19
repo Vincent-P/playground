@@ -1,5 +1,3 @@
-#version 450
-
 #include "voxels.h"
 
 layout(set = 1, binding = 0) uniform VO {

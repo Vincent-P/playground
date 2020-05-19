@@ -1,4 +1,3 @@
-#version 450
 #include "voxels.h"
 
 layout (triangles) in;

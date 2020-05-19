@@ -130,9 +130,9 @@ static Watch add_watch_internal(FileWatcher &fw, const char* path)
             watch.buffer.size(),
             true,
             FILE_NOTIFY_CHANGE_LAST_WRITE,
-            NULL,
+            nullptr,
             &watch.overlapped,
-            NULL
+            nullptr
             )
         );
 
@@ -179,9 +179,9 @@ static void fetch_events_internal(FileWatcher &fw)
                 watch.buffer.size(),
                 true,
                 FILE_NOTIFY_CHANGE_LAST_WRITE,
-                NULL,
+                nullptr,
                 &watch.overlapped,
-                NULL
+                nullptr
                 )
             );
     }
@@ -217,7 +217,7 @@ void FileWatcher::update()
     current_events.clear();
 }
 
-void FileWatcher::on_file_change(FileEventF f)
+void FileWatcher::on_file_change(const FileEventF &f)
 {
     callbacks.push_back(f);
 }

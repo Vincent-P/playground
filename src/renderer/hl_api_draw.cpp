@@ -489,9 +489,9 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
             vk::WriteDescriptorSet write;
             write.dstSet           = descriptor_set.set;
             write.dstBinding       = binded_data->binding;
-            write.descriptorCount  = 1;
+            write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
             write.descriptorType   = binded_data->type;
-            write.pImageInfo       = &binded_data->image_info;
+            write.pImageInfo       = binded_data->images_info.data();
             write.pBufferInfo      = &binded_data->buffer_info;
             write.pTexelBufferView = &binded_data->buffer_view;
             return write;
@@ -534,7 +534,7 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-static void bind_image_internal(API &api, Image &image, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     if (binded_data.size() <= slot) {
         usize missing = slot - binded_data.size() + 1;
@@ -543,25 +543,32 @@ static void bind_image_internal(API &api, Image &image, std::vector<std::optiona
         }
     }
 
-    auto descriptor_type = bindings[slot].type;
-    if (descriptor_type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
-    {
-        transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
-    }
-
-    assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
-
-    vk::ImageView image_view = image.default_view;
-    if (0 <= image.current_view && image.current_view < image.views.size()) {
-        image_view = image.views[image.current_view];
-    }
-
     ShaderBinding data;
     data.binding                = slot;
-    data.type                   = descriptor_type;
-    data.image_info.imageView   = image_view;
-    data.image_info.sampler     = image.default_sampler;
-    data.image_info.imageLayout = image.layout;
+    data.type                   = bindings[slot].type;
+
+    for (auto image_h : images_h)
+    {
+        auto &image = api.get_image(image_h);
+        if (data.type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
+        {
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+        }
+
+        assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
+
+        vk::ImageView image_view = image.default_view;
+        if (0 <= image.current_view && image.current_view < image.views.size()) {
+            image_view = image.views[image.current_view];
+        }
+
+        data.images_info.push_back({});
+        auto &image_info = data.images_info.back();
+
+        image_info.imageView   = image_view;
+        image_info.sampler     = image.default_sampler;
+        image_info.imageLayout = image.layout;
+    }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
         binded_data[slot] = std::move(data);
@@ -586,20 +593,28 @@ void API::image_set_view(ImageH image_h, u32 view_index)
 void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h)
 {
     auto &program = get_program(program_h);
-    auto &image   = get_image(image_h);
-
-    bind_image_internal(*this, image, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+    bind_image_internal(*this, {image_h}, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
 void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h)
 {
     auto &program = get_program(program_h);
-    auto &image   = get_image(image_h);
-
-    bind_image_internal(*this, image, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    bind_image_internal(*this, {image_h}, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_combined_image_sampler_internal(API& api, Image &image, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h)
+{
+    auto &program = get_program(program_h);
+    bind_image_internal(*this, images_h, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+}
+
+void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h)
+{
+    auto &program = get_program(program_h);
+    bind_image_internal(*this, images_h, program.binded_data, program.info.bindings, program.data_dirty, slot);
+}
+
+static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     if (binded_data.size() <= slot) {
         usize missing = slot - binded_data.size() + 1;
@@ -608,19 +623,28 @@ static void bind_combined_image_sampler_internal(API& api, Image &image, Sampler
         }
     }
 
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
-
-    vk::ImageView image_view = image.default_view;
-    if (0 <= image.current_view && image.current_view < image.views.size()) {
-        image_view = image.views[image.current_view];
-    }
-
     ShaderBinding data;
     data.binding                = slot;
     data.type                   = bindings[slot].type;
-    data.image_info.imageView   = image_view;
-    data.image_info.sampler     = *sampler.vkhandle;
-    data.image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    for (auto image_h : images_h)
+    {
+        auto &image = api.get_image(image_h);
+
+        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        vk::ImageView image_view = image.default_view;
+        if (0 <= image.current_view && image.current_view < image.views.size()) {
+            image_view = image.views[image.current_view];
+        }
+
+        data.images_info.push_back({});
+        auto &image_info = data.images_info.back();
+
+        image_info.imageView   = image_view;
+        image_info.sampler     = *sampler.vkhandle;
+        image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
         binded_data[slot] = std::move(data);
@@ -631,21 +655,19 @@ static void bind_combined_image_sampler_internal(API& api, Image &image, Sampler
 void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h)
 {
     auto &program = get_program(program_h);
-    auto &image   = get_image(image_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, image, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+    bind_combined_image_sampler_internal(*this, {image_h}, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
 
 void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h)
 {
     auto &program = get_program(program_h);
-    auto &image   = get_image(image_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, image, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    bind_combined_image_sampler_internal(*this, {image_h}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_buffer_internal(API& api, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_buffer_internal(API& /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     if (binded_data.size() <= slot) {
         usize missing = slot - binded_data.size() + 1;
@@ -811,9 +833,9 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
             vk::WriteDescriptorSet write;
             write.dstSet           = descriptor_set.set;
             write.dstBinding       = binded_data->binding;
-            write.descriptorCount  = 1;
+            write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
             write.descriptorType   = binded_data->type;
-            write.pImageInfo       = &binded_data->image_info;
+            write.pImageInfo       = binded_data->images_info.data();
             write.pBufferInfo      = &binded_data->buffer_info;
             write.pTexelBufferView = &binded_data->buffer_view;
             return write;

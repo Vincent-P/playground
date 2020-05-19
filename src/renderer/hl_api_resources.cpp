@@ -59,12 +59,14 @@ ImageH API::create_image(const ImageInfo &info)
         img.image_info.flags = vk::ImageCreateFlagBits::eMutableFormat;
     }
 
+    assert(info.mip_levels == 1 || !info.generate_mip_levels);
+
     img.image_info.imageType             = info.type;
     img.image_info.format                = info.format;
     img.image_info.extent.width          = info.width;
     img.image_info.extent.height         = info.height;
     img.image_info.extent.depth          = info.depth;
-    img.image_info.mipLevels             = 1;
+    img.image_info.mipLevels             = info.mip_levels;
     img.image_info.arrayLayers           = info.layers;
     img.image_info.samples               = info.samples;
     img.image_info.initialLayout         = vk::ImageLayout::eUndefined;

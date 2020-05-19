@@ -62,6 +62,4 @@ TimerData::TimerData() : time(clock_t::now()), delta_time(clock_t::now() - clock
     update();
 }
 
-TimerData::~TimerData() = default;
-
 } // namespace my_app

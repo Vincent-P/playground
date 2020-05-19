@@ -40,7 +40,7 @@ add_definitions(
   -DENABLE_IMGUI
   )
 
-# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 # C++ Libraires, need to be installed with vcpkg
 find_package(Vulkan REQUIRED)
@@ -97,7 +97,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND glslc ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

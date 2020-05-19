@@ -37,6 +37,7 @@ struct ImageInfo
     u32 width;
     u32 height;
     u32 depth;
+    u32 mip_levels                  = 1;
     bool generate_mip_levels        = false;
     u32 layers                      = 1;
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
@@ -317,14 +318,14 @@ struct ShaderBinding
 {
     u32 binding;
     vk::DescriptorType type;
-    vk::DescriptorImageInfo image_info;
+    std::vector<vk::DescriptorImageInfo> images_info;
     vk::BufferView buffer_view;
     vk::DescriptorBufferInfo buffer_info;
 };
 
 inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
 {
-    return a.binding == b.binding && a.type == b.type && a.image_info == b.image_info && a.buffer_view == b.buffer_view
+    return a.binding == b.binding && a.type == b.type && a.images_info == b.images_info && a.buffer_view == b.buffer_view
 	   && a.buffer_info == b.buffer_info;
 }
 
@@ -452,6 +453,10 @@ struct API
 
     void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h);
     void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h);
+
+    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h);
+    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h);
+
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h);
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);

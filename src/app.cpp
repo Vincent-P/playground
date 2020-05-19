@@ -83,14 +83,14 @@ void App::draw_fps()
         ImGui::SetCursorPosX(20.0f);
         ImGui::Text("%7.1f", double(timer.get_average_fps()));
 
-        auto &histogram = timer.get_fps_histogram();
+        const auto &histogram = timer.get_fps_histogram();
         ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
     }
     else {
         ImGui::SetCursorPosX(20.0f);
         ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
 
-        auto &histogram = timer.get_delta_time_histogram();
+        const auto &histogram = timer.get_delta_time_histogram();
         ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
     }
 

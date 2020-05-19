@@ -56,4 +56,28 @@ vec3 DecodeNormal(vec3 normal)
     return (normal - vec3(0.5f)) * 2.0f;
 }
 
+const ivec3 g_aniso_offsets[] = ivec3[8]
+    (
+        ivec3(0, 0, 0),
+        ivec3(0, 0, 1),
+        ivec3(0, 1, 0),
+        ivec3(0, 1, 1),
+        ivec3(1, 0, 0),
+        ivec3(1, 0, 1),
+        ivec3(1, 1, 0),
+        ivec3(1, 1, 1)
+    );
+
+#define AnisoTexelFetch(texture, mip, pos)                                   \
+    {                                                                        \
+        values[0] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[0]);\
+        values[1] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[1]);\
+        values[2] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[2]);\
+        values[3] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[3]);\
+        values[4] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[4]);\
+        values[5] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[5]);\
+        values[6] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[6]);\
+        values[7] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[7]);\
+    }
+
 #endif

@@ -121,13 +121,13 @@ void Renderer::load_model_data()
                                                      &info.width, &info.height,
                                                    &info.nb_comp, 0);
 
-                if (info.nb_comp == 1) {
+                if (info.nb_comp == 1) {//NOLINT
                     info.format = vk::Format::eR8Unorm;
                 }
-                else if (info.nb_comp == 2) {
+                else if (info.nb_comp == 2) {//NOLINT
                     info.format = vk::Format::eR8G8Unorm;
                 }
-                else if (info.nb_comp == 3) {
+                else if (info.nb_comp == 3) {//NOLINT
                     stbi_image_free(info.pixels);
                     int wanted_nb_comp = 4;
                     info.pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()),
@@ -136,10 +136,10 @@ void Renderer::load_model_data()
                     info.format = vk::Format::eR8G8B8A8Unorm;
                     info.nb_comp      = wanted_nb_comp;
                 }
-                else if (info.nb_comp == 4) {
+                else if (info.nb_comp == 4) {//NOLINT
                     info.format = vk::Format::eR8G8B8A8Unorm;
                 }
-                else {
+                else {//NOLINT
                     assert(false);
                 }
 

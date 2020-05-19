@@ -6,7 +6,7 @@ struct MaterialUniform
     vec4 baseColorFactor;
 };
 
-vec3 getNormal(vec3 world_pos, vec3 vertex_normal, sampler2D normal_texture, vec2 uv)
+vec3 getNormal(vec3 world_pos, vec3 vertex_normal, in sampler2D normal_texture, vec2 uv)
 {
     // Perturb normal, see http://www.thetenthplanet.de/archives/1180
     vec3 tangentNormal = texture(normal_texture, uv).xyz * 2.0 - 1.0;

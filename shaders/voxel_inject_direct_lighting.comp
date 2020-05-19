@@ -1,7 +1,6 @@
-#version 460
 #include "voxels.h"
 
-// layout(local_size_x = 2, local_size_y = 2, local_size_z = 2) in;
+// layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -88,9 +87,6 @@ vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
     ivec3 light_pos = WorldToVoxel(light_center, voxel_options);
     vec3 direction = light_pos - voxel_pos;
     float distance = length(direction);
-    if (distance < EPSILON) {
-        return vec4(0.0);
-    }
     direction = normalize(direction);
     float falloff = 1 / (distance*distance);
     falloff *= point_scale;

@@ -1,5 +1,5 @@
 ---
-Checks: 'modernize-*,performance-*,readability-*,-llvm-header-guard,-modernize-use-trailing-return-type,-readability-magic-numbers,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion'
+Checks: 'modernize-*,performance-*,readability-*,-llvm-header-guard,-modernize-use-trailing-return-type,-modernize-use-emplace,-readability-magic-numbers,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion'
 CheckOptions:
   - key: performance-move-const-arg.CheckTriviallyCopyableMove
     value: '0'

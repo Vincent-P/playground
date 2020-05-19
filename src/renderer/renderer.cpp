@@ -185,6 +185,33 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         sinfo.address_mode = vk::SamplerAddressMode::eClampToBorder;
         r.voxels_sampler   = r.api.create_sampler(sinfo);
     }
+    // voxels directional volumes
+    {
+        r.voxels_directional_volumes.resize(6);
+
+        u32 size = r.voxel_options.res / 2;
+
+        vulkan::ImageInfo iinfo;
+        iinfo.type         = vk::ImageType::e3D;
+        iinfo.width        = size;
+        iinfo.height       = size;
+        iinfo.depth        = size;
+        iinfo.mip_levels   = static_cast<u32>(std::floor(std::log2(size)) + 1.0);
+        iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
+
+        iinfo.name                         = "Voxels directional volume -X";
+        r.voxels_directional_volumes[0]    = r.api.create_image(iinfo);
+        iinfo.name                         = "Voxels directional volume +X";
+        r.voxels_directional_volumes[1]    = r.api.create_image(iinfo);
+        iinfo.name                         = "Voxels directional volume -Y";
+        r.voxels_directional_volumes[2]    = r.api.create_image(iinfo);
+        iinfo.name                         = "Voxels directional volume +Y";
+        r.voxels_directional_volumes[3]    = r.api.create_image(iinfo);
+        iinfo.name                         = "Voxels directional volume -Z";
+        r.voxels_directional_volumes[4]    = r.api.create_image(iinfo);
+        iinfo.name                         = "Voxels directional volume +Z";
+        r.voxels_directional_volumes[5]    = r.api.create_image(iinfo);
+    }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
@@ -305,6 +332,22 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.inject_radiance = r.api.create_program(std::move(pinfo));
     }
 
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
+        // radiance
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+
+        // aniso volumes
+        u32 count = r.voxels_directional_volumes.size();
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+        r.generate_aniso_base = r.api.create_program(std::move(pinfo));
+    }
+
     return r;
 }
 
@@ -326,6 +369,10 @@ void Renderer::destroy()
     api.destroy_image(voxels_albedo);
     api.destroy_image(voxels_normal);
     api.destroy_image(voxels_radiance);
+    for (auto image_h : voxels_directional_volumes)
+    {
+        api.destroy_image(image_h);
+    }
 
     api.destroy_image(gui_texture);
     api.destroy();
@@ -405,7 +452,7 @@ void Renderer::reload_shader(const char *prefix_path, const Event &shader_event)
         }
     }
 
-    assert(to_remove.size() > 0);
+    assert(!to_remove.empty());
 
     // Destroy the old shaders
     for (vulkan::ShaderH shader_h : to_remove) {
@@ -999,10 +1046,10 @@ struct DirectLightingDebug
 
 void Renderer::inject_direct_lighting()
 {
-    static float s_position[] = {1.5f, 2.5f, 0.0f};
-    static float s_scale = 1000.0f;
+    static std::array s_position       = {1.5f, 2.5f, 0.0f};
+    static float s_scale            = 1000.0f;
     static float s_trace_shadow_hit = 0.5f;
-    static float s_max_dist         = static_cast<float>(voxel_options.res);
+    static auto s_max_dist          = static_cast<float>(voxel_options.res);
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Direct Lighting");
     ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
@@ -1054,6 +1101,24 @@ void Renderer::inject_direct_lighting()
     api.end_label();
 }
 
+void Renderer::generate_aniso_voxels()
+{
+    api.begin_label("Compute anisotropic voxels");
+
+    auto &program = generate_aniso_base;
+
+    // use the RGBA8 format defined at creation in view_formats
+    api.image_set_view(voxels_radiance, 0);
+    api.bind_combined_image_sampler(program, 0, voxels_radiance, voxels_sampler);
+
+    api.bind_images(program, 1, voxels_directional_volumes);
+
+    // the first directional volumes have 2 times less voxels
+    auto count = voxel_options.res / 2;
+    api.dispatch(program, count, count, count);
+    api.end_label();
+}
+
 void Renderer::draw()
 {
     bool is_ok = api.start_frame();
@@ -1078,6 +1143,7 @@ void Renderer::draw()
 
     voxelize_scene();
     inject_direct_lighting();
+    generate_aniso_voxels();
 
     draw_model();
     visualize_voxels();

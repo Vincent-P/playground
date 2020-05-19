@@ -1,4 +1,3 @@
-#version 460
 #include "voxels.h"
 #include "pbr.h"
 

@@ -59,7 +59,7 @@ struct FileWatcher
     static FileWatcher create();
 
     Watch add_watch(const char *path);
-    void on_file_change(FileEventF f);
+    void on_file_change(const FileEventF &f);
 
     void update();
     void destroy();

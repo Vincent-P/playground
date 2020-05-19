@@ -46,7 +46,9 @@ struct Renderer
 
     void voxelize_scene();
     void inject_direct_lighting();
+    void generate_aniso_voxels();
     void visualize_voxels();
+
 
     // ImGui
     vulkan::GraphicsProgramH gui_program;
@@ -65,11 +67,13 @@ struct Renderer
     vulkan::GraphicsProgramH voxelization;
     vulkan::GraphicsProgramH visualization;
     vulkan::ComputeProgramH inject_radiance;
+    vulkan::ComputeProgramH generate_aniso_base;
 
     vulkan::SamplerH voxels_sampler;
     vulkan::ImageH voxels_albedo;
     vulkan::ImageH voxels_normal;
     vulkan::ImageH voxels_radiance;
+    std::vector<vulkan::ImageH> voxels_directional_volumes;
 
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
