@@ -261,7 +261,8 @@ struct GraphicsProgramInfo
     VertexBufferInfo vertex_buffer_info;
 
     // TODO: is it the right struct for this?
-    bool enable_depth{false};
+    bool enable_depth_test{false};
+    bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
 
     void push_constant(PushConstantInfo &&push_constant);
@@ -278,7 +279,8 @@ inline bool operator==(const GraphicsProgramInfo &a, const GraphicsProgramInfo &
            && a.push_constants == b.push_constants
            && a.bindings_by_set == b.bindings_by_set
            && a.vertex_buffer_info == b.vertex_buffer_info
-           && a.enable_depth == b.enable_depth
+           && a.enable_depth_test == b.enable_depth_test
+           && a.enable_depth_write == b.enable_depth_write
            && a.enable_conservative_rasterization == b.enable_conservative_rasterization;
 }
 

@@ -210,7 +210,8 @@ void Renderer::load_model_data()
     pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
     pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
     pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
-    pinfo.enable_depth = true;
+    pinfo.enable_depth_test = true;
+    pinfo.enable_depth_write = false;
 
     model.program = api.create_program(std::move(pinfo));
 }

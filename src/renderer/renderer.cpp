@@ -59,7 +59,6 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
         pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
-        pinfo.enable_depth = false;
 
         r.gui_program = r.api.create_program(std::move(pinfo));
     }
@@ -152,7 +151,8 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
-        pinfo.enable_depth = true;
+        pinfo.enable_depth_test = true;
+        pinfo.enable_depth_write = true;
 
         r.model_vertex_only = r.api.create_program(std::move(pinfo));
     }
@@ -260,8 +260,6 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
 
-
-        pinfo.enable_depth = false;
         pinfo.enable_conservative_rasterization = false;
 
         r.voxelization = r.api.create_program(std::move(pinfo));
@@ -295,8 +293,6 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 5,
                        /*.stages = */ vk::ShaderStageFlagBits::eFragment,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-
-        pinfo.enable_depth = false;
 
         r.visualization = r.api.create_program(std::move(pinfo));
     }
@@ -653,7 +649,7 @@ static void draw_node(Renderer &r, Node &node)
 void Renderer::draw_model()
 {
     static usize s_selected = 0;
-    static float s_opacity = 0.0f;
+    static float s_opacity = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
@@ -720,7 +716,7 @@ void Renderer::draw_model()
     pass.color         = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.load_op = vk::AttachmentLoadOp::eLoad;
     depth_info.rt      = depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
@@ -854,6 +850,61 @@ static void shadow_map(Renderer &r)
     ImGui::End();
 #endif
 }
+
+static void depth_prepass(Renderer &r)
+{
+    r.api.begin_label("Depth prepass");
+    vulkan::PassInfo pass;
+    pass.present = false;
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.rt      = r.depth_rt;
+    pass.depth         = std::make_optional(depth_info);
+
+    r.api.begin_pass(std::move(pass));
+
+    auto depth_rt  = r.api.get_rendertarget(r.depth_rt);
+    auto depth_img = r.api.get_image(depth_rt.image_h);
+
+    vk::Viewport viewport{};
+    viewport.width    = depth_img.image_info.extent.width;
+    viewport.height   = depth_img.image_info.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    r.api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent.width  = depth_img.image_info.extent.width;
+    scissor.extent.height = depth_img.image_info.extent.height;
+    r.api.set_scissor(scissor);
+
+    {
+        float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
+        static float fov   = 60.0f;
+
+        auto u_pos   = r.api.dynamic_uniform_buffer(2 * sizeof(float4x4));
+        auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
+        buffer[0]    = r.p_camera->get_view();
+        buffer[1]    = r.p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
+        buffer[2]    = r.sun.get_view();
+        buffer[3]    = r.sun.get_projection();
+
+        r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+    }
+
+    r.api.bind_program(r.model_vertex_only);
+    r.api.bind_index_buffer(r.model.index_buffer);
+    r.api.bind_vertex_buffer(r.model.vertex_buffer);
+
+    for (usize node_i : r.model.scene) {
+        draw_node_shadow(r, r.model.nodes[node_i]);
+    }
+
+    r.api.end_pass();
+    r.api.end_label();
+}
+
 
 static void voxelize_node(Renderer &r, Node &node)
 {
@@ -1259,6 +1310,7 @@ void Renderer::draw()
 
 
     shadow_map(*this);
+    depth_prepass(*this);
 
     vk::ClearColorValue clear{};
     clear.float32[0] = 0.f;
@@ -1273,12 +1325,14 @@ void Renderer::draw()
         api.clear_image(image_h, clear);
     }
 
+    /*
     voxelize_scene();
     inject_direct_lighting();
     generate_aniso_voxels();
+    */
 
     draw_model();
-    visualize_voxels();
+    // visualize_voxels();
     imgui_draw();
 
     api.end_frame();

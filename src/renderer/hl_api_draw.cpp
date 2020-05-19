@@ -78,7 +78,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = vk::AttachmentStoreOp::eStore;
         attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
         attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachment.initialLayout  = vk::ImageLayout::eUndefined;
+        attachment.initialLayout  = rp.info.depth->load_op == vk::AttachmentLoadOp::eClear ? vk::ImageLayout::eUndefined : vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         attachment.finalLayout    = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         attachment.flags          = {};
         attachments.push_back(std::move(attachment));
@@ -380,8 +380,8 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         vk::PipelineDepthStencilStateCreateInfo ds_i{};
         ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
 
-        ds_i.depthTestEnable       = pipeline_info.program_info.enable_depth ? VK_TRUE : VK_FALSE;
-        ds_i.depthWriteEnable      = pipeline_info.program_info.enable_depth ? VK_TRUE : VK_FALSE;
+        ds_i.depthTestEnable       = pipeline_info.program_info.enable_depth_test ? VK_TRUE : VK_FALSE;
+        ds_i.depthWriteEnable      = pipeline_info.program_info.enable_depth_write ? VK_TRUE : VK_FALSE;
         ds_i.depthCompareOp        = vk::CompareOp::eLessOrEqual;
         ds_i.depthBoundsTestEnable = VK_FALSE;
         ds_i.minDepthBounds        = 0.0f;
