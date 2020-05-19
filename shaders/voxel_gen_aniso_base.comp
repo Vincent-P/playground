@@ -12,7 +12,7 @@ void main()
     ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
 
     vec4 values[8];
-    AnisoTexelFetch(voxels_radiance, 0, voxel_pos);
+    AnisoTexelFetch(voxels_radiance, 0, 2 * voxel_pos);
 
     // x -
     imageStore(voxels_directional_volumes[0], voxel_pos,

@@ -348,6 +348,29 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.generate_aniso_base = r.api.create_program(std::move(pinfo));
     }
 
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
+
+        // voxel options
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        u32 count = r.voxels_directional_volumes.size();
+
+        // radiance
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+
+        // aniso volumes
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+        r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
+    }
+
     return r;
 }
 
@@ -682,6 +705,9 @@ void Renderer::draw_model()
     // Bind the shadow map the shader
     {
         auto &shadow_map = api.get_rendertarget(shadow_map_depth_rt);
+
+        auto &image = api.get_image(shadow_map.image_h);
+        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
         api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, shadow_map.image_h);
     }
 
@@ -917,10 +943,24 @@ void Renderer::voxelize_scene()
     // Bind voxel textures
 
     // use the default format
+
+    {
+    auto &image = api.get_image(voxels_albedo);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
+
+    {
+    auto &image = api.get_image(voxels_normal);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
 
     // TODO: triche
+    {
+    auto &image = api.get_image(voxels_radiance);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
 
@@ -998,8 +1038,19 @@ void Renderer::visualize_voxels()
     }
 
     // use the default format
+
+    auto &image = api.get_image(voxels_albedo);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
+    {
+    auto &image = api.get_image(voxels_normal);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
+    {
+    auto &image = api.get_image(voxels_radiance);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
 
@@ -1083,8 +1134,22 @@ void Renderer::inject_direct_lighting()
     const auto& normal_rgba8 = api.get_image(voxels_normal).format_views[0];
     const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
 
+    {
+    auto &image = api.get_image(voxels_albedo);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
     api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler, albedo_rgba8);
+
+    {
+    auto &image = api.get_image(voxels_normal);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler, normal_rgba8);
+    }
+
+    {
+    auto &image = api.get_image(voxels_radiance);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    }
     api.bind_image(program, 4, voxels_radiance, radiance_rgba8);
 
 
@@ -1097,23 +1162,88 @@ void Renderer::generate_aniso_voxels()
 {
     api.begin_label("Compute anisotropic voxels");
 
-    auto &program = generate_aniso_base;
+    auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
     // use the RGBA8 format defined at creation in view_formats
     const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
-    api.bind_combined_image_sampler(program, 0, voxels_radiance, voxels_sampler, radiance_rgba8);
 
-    std::vector<vk::ImageView> views;
-    views.reserve(voxels_directional_volumes.size());
-    for (const auto& volume_h : voxels_directional_volumes)
     {
-        views.push_back(api.get_image(volume_h).mip_views[0]);
+    auto &image = api.get_image(voxels_radiance);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
-    api.bind_images(program, 1, voxels_directional_volumes, views);
+    api.bind_combined_image_sampler(generate_aniso_base, 0, voxels_radiance, voxels_sampler, radiance_rgba8);
+
+
+
+    std::vector<vk::ImageMemoryBarrier> barriers;
+
+    {
+        std::vector<vk::ImageView> views;
+        views.reserve(voxels_directional_volumes.size());
+        for (const auto& volume_h : voxels_directional_volumes)
+        {
+            auto &image = api.get_image(volume_h);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+
+            views.push_back(api.get_image(volume_h).mip_views[0]);
+
+            barriers.emplace_back();
+            auto &image_barrier = barriers.back();
+            image_barrier.srcAccessMask = vk::AccessFlagBits::eMemoryWrite;
+            image_barrier.dstAccessMask = vk::AccessFlagBits::eMemoryRead;
+            image_barrier.oldLayout = image.layout;
+            image_barrier.newLayout = image.layout;
+            image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            image_barrier.image = image.vkhandle;
+            image_barrier.subresourceRange = image.full_range;
+        }
+        api.bind_images(generate_aniso_base, 1, voxels_directional_volumes, views);
+    }
 
     // the first directional volumes have 2 times less voxels
     auto count = voxel_options.res / 2;
-    api.dispatch(program, count, count, count);
+    api.dispatch(generate_aniso_base, count, count, count);
+
+    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
+
+    for (uint mip_i = 0; count > 1; mip_i++)
+    {
+        count /= 2;
+        auto src = mip_i;
+        auto dst = mip_i + 1;
+
+        {
+            auto u_pos     = api.dynamic_uniform_buffer(sizeof(int));
+            auto *buffer   = reinterpret_cast<int*>(u_pos.mapped);
+            *buffer = static_cast<int>(src);
+            api.bind_buffer(generate_aniso_mipmap, 0, u_pos);
+        }
+
+        std::vector<vk::ImageView> src_views;
+        std::vector<vk::ImageView> dst_views;
+        src_views.reserve(voxels_directional_volumes.size());
+        dst_views.reserve(voxels_directional_volumes.size());
+
+        std::vector<vk::ImageMemoryBarrier> image_barriers;
+
+        for (const auto& volume_h : voxels_directional_volumes)
+        {
+            auto &image = api.get_image(volume_h);
+            src_views.push_back(image.mip_views[src]);
+            dst_views.push_back(image.mip_views[dst]);
+
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+        }
+
+        api.bind_images(generate_aniso_mipmap, 1, voxels_directional_volumes, src_views);
+        api.bind_images(generate_aniso_mipmap, 2, voxels_directional_volumes, dst_views);
+
+        api.dispatch(generate_aniso_mipmap, count, count, count);
+
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
+    }
+
     api.end_label();
 }
 
@@ -1138,6 +1268,10 @@ void Renderer::draw()
     api.clear_image(voxels_albedo, clear);
     api.clear_image(voxels_normal, clear);
     api.clear_image(voxels_radiance, clear);
+    for (auto image_h : voxels_directional_volumes)
+    {
+        api.clear_image(image_h, clear);
+    }
 
     voxelize_scene();
     inject_direct_lighting();

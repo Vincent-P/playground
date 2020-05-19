@@ -7,7 +7,7 @@ layout(set = 0, binding = 0) uniform AO
     int mip_src;
 };
 
-layout(set = 0, binding = 1) uniform sampler3D voxels_directional_volumes_src[6];
+layout(set = 0, binding = 1, rgba8) uniform image3D voxels_directional_volumes_src[6];
 layout(set = 0, binding = 2, rgba8) uniform image3D voxels_directional_volumes_dst[6];
 
 #define DirIntegration(from, to) (from + to * (1 - from.a))
@@ -19,7 +19,7 @@ void main()
     vec4 values[8];
 
     // x -
-    AnisoTexelFetch(voxels_directional_volumes_src[0], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[0], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[0], voxel_pos,
         (
           DirIntegration(values[4], values[0])
@@ -30,7 +30,7 @@ void main()
     );
 
     // x +
-    AnisoTexelFetch(voxels_directional_volumes_src[1], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[1], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[1], voxel_pos,
         (
           DirIntegration(values[0], values[4])
@@ -41,7 +41,7 @@ void main()
     );
 
     // y -
-    AnisoTexelFetch(voxels_directional_volumes_src[2], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[2], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[2], voxel_pos,
         (
           DirIntegration(values[2], values[0])
@@ -52,7 +52,7 @@ void main()
     );
 
     // y +
-    AnisoTexelFetch(voxels_directional_volumes_src[3], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[3], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[3], voxel_pos,
         (
           DirIntegration(values[0], values[2])
@@ -63,7 +63,7 @@ void main()
     );
 
     // z -
-    AnisoTexelFetch(voxels_directional_volumes_src[4], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[4], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[4], voxel_pos,
         (
           DirIntegration(values[1], values[0])
@@ -74,7 +74,7 @@ void main()
     );
 
     // z +
-    AnisoTexelFetch(voxels_directional_volumes_src[5], mip_src, voxel_pos);
+    AnisoImageLoad(voxels_directional_volumes_src[5], voxel_pos * 2);
     imageStore(voxels_directional_volumes_dst[5], voxel_pos,
         (
           DirIntegration(values[0], values[1])

@@ -68,6 +68,7 @@ struct Renderer
     vulkan::GraphicsProgramH visualization;
     vulkan::ComputeProgramH inject_radiance;
     vulkan::ComputeProgramH generate_aniso_base;
+    vulkan::ComputeProgramH generate_aniso_mipmap;
 
     vulkan::SamplerH voxels_sampler;
     vulkan::ImageH voxels_albedo;

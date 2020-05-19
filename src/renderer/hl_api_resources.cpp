@@ -181,8 +181,7 @@ void API::destroy_image(ImageH H)
     images.remove(H);
 }
 
-static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access,
-				       ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
+static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access, ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
 {
     ThsvsImageBarrier image_barrier;
     image_barrier.prevAccessCount     = 1;
@@ -341,7 +340,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     sci.addressModeV     = info.address_mode;
     sci.addressModeW     = info.address_mode;
     sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
+    sci.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
     sci.minLod           = 0;
     sci.maxLod           = 0;
     sci.maxAnisotropy    = 8.0f;
@@ -776,6 +775,21 @@ void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_
                                    image.access,
                                    next_access,
                                    image.full_range);
+        image.access = next_access;
+        image.layout = next_layout;
+    }
+}
+
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range)
+{
+    if (image.access != next_access)
+    {
+        auto &frame_resource = api.ctx.frame_resources.get_current();
+        transition_layout_internal(*frame_resource.command_buffer,
+                                   image.vkhandle,
+                                   image.access,
+                                   next_access,
+                                   range);
         image.access = next_access;
         image.layout = next_layout;
     }

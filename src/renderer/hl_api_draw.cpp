@@ -1,5 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
 {
@@ -554,7 +555,7 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
-        if (data.type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
+        if (false && data.type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
         {
             transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
         }
@@ -621,14 +622,16 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
-        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        if (false) {
+            transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        }
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
 
         image_info.imageView   = image_view;
         image_info.sampler     = *sampler.vkhandle;
-        image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        image_info.imageLayout = image.layout != vk::ImageLayout::eShaderReadOnlyOptimal ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
@@ -652,6 +655,14 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, Imag
     auto &sampler = get_sampler(sampler_h);
     auto view = image_view ? *image_view : get_image(image_h).default_view;
     bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
+}
+
+
+void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view)
+{
+    auto &program = get_program(program_h);
+    auto &sampler = get_sampler(sampler_h);
+    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
 static void bind_buffer_internal(API& /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
@@ -808,6 +819,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = *frame_resource.command_buffer;
 
+
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *program.vkpipeline);
 
     /// --- Find and bind descriptor set
@@ -815,9 +827,13 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
         auto &descriptor_set = find_or_create_descriptor_set(*this, program);
 
         std::vector<vk::WriteDescriptorSet> writes;
-        map_transform(program.binded_data, writes, [&](const auto &binded_data) {
+
+        for (const auto &binded_data : program.binded_data)
+        {
             assert(binded_data.has_value());
-            vk::WriteDescriptorSet write;
+
+            writes.emplace_back();
+            vk::WriteDescriptorSet &write = writes.back();
             write.dstSet           = descriptor_set.set;
             write.dstBinding       = binded_data->binding;
             write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
@@ -825,8 +841,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
             write.pImageInfo       = binded_data->images_info.data();
             write.pBufferInfo      = &binded_data->buffer_info;
             write.pTexelBufferView = &binded_data->buffer_view;
-            return write;
-        });
+        }
 
         ctx.device->updateDescriptorSets(writes, nullptr);
 

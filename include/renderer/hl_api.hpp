@@ -457,6 +457,9 @@ struct API
 
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
     void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
+
+    void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view);
+
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
     void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);
@@ -524,6 +527,7 @@ struct API
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range);
 
 } // namespace vulkan
 } // namespace my_app

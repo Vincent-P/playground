@@ -80,4 +80,16 @@ const ivec3 g_aniso_offsets[] = ivec3[8]
         values[7] = texelFetchOffset(texture, pos , mip, g_aniso_offsets[7]);\
     }
 
+#define AnisoImageLoad(texture, pos)                                    \
+    {                                                                   \
+        values[0] = imageLoad(texture, pos + g_aniso_offsets[0]);\
+        values[1] = imageLoad(texture, pos + g_aniso_offsets[1]);\
+        values[2] = imageLoad(texture, pos + g_aniso_offsets[2]);\
+        values[3] = imageLoad(texture, pos + g_aniso_offsets[3]);\
+        values[4] = imageLoad(texture, pos + g_aniso_offsets[4]);\
+        values[5] = imageLoad(texture, pos + g_aniso_offsets[5]);\
+        values[6] = imageLoad(texture, pos + g_aniso_offsets[6]);\
+        values[7] = imageLoad(texture, pos + g_aniso_offsets[7]);\
+    }
+
 #endif
