@@ -165,7 +165,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         iinfo.name         = "Voxels albedo";
         iinfo.type         = vk::ImageType::e3D;
         iinfo.format       = vk::Format::eR32Uint;
-        iinfo.view_formats = {vk::Format::eR8G8B8A8Unorm};
+        iinfo.extra_formats = {vk::Format::eR8G8B8A8Unorm};
         iinfo.width        = r.voxel_options.res;
         iinfo.height       = r.voxel_options.res;
         iinfo.depth        = r.voxel_options.res;
@@ -917,10 +917,6 @@ void Renderer::voxelize_scene()
     // Bind voxel textures
 
     // use the default format
-    api.image_set_view(voxels_albedo, u32_invalid);
-    api.image_set_view(voxels_normal, u32_invalid);
-    api.image_set_view(voxels_radiance, u32_invalid);
-
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
 
@@ -1002,10 +998,6 @@ void Renderer::visualize_voxels()
     }
 
     // use the default format
-    api.image_set_view(voxels_albedo, u32_invalid);
-    api.image_set_view(voxels_normal, u32_invalid);
-    api.image_set_view(voxels_radiance, u32_invalid);
-
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
@@ -1087,13 +1079,13 @@ void Renderer::inject_direct_lighting()
     }
 
     // use the RGBA8 format defined at creation in view_formats
-    api.image_set_view(voxels_albedo, 0);
-    api.image_set_view(voxels_normal, 0);
-    api.image_set_view(voxels_radiance, 0);
+    const auto& albedo_rgba8 = api.get_image(voxels_albedo).format_views[0];
+    const auto& normal_rgba8 = api.get_image(voxels_normal).format_views[0];
+    const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
 
-    api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler);
-    api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler);
-    api.bind_image(program, 4, voxels_radiance);
+    api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler, albedo_rgba8);
+    api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler, normal_rgba8);
+    api.bind_image(program, 4, voxels_radiance, radiance_rgba8);
 
 
     auto count = voxel_options.res;
@@ -1108,10 +1100,16 @@ void Renderer::generate_aniso_voxels()
     auto &program = generate_aniso_base;
 
     // use the RGBA8 format defined at creation in view_formats
-    api.image_set_view(voxels_radiance, 0);
-    api.bind_combined_image_sampler(program, 0, voxels_radiance, voxels_sampler);
+    const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
+    api.bind_combined_image_sampler(program, 0, voxels_radiance, voxels_sampler, radiance_rgba8);
 
-    api.bind_images(program, 1, voxels_directional_volumes);
+    std::vector<vk::ImageView> views;
+    views.reserve(voxels_directional_volumes.size());
+    for (const auto& volume_h : voxels_directional_volumes)
+    {
+        views.push_back(api.get_image(volume_h).mip_views[0]);
+    }
+    api.bind_images(program, 1, voxels_directional_volumes, views);
 
     // the first directional volumes have 2 times less voxels
     auto count = voxel_options.res / 2;

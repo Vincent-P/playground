@@ -33,7 +33,7 @@ struct ImageInfo
     const char *name;
     vk::ImageType type = vk::ImageType::e2D;
     vk::Format format  = vk::Format::eR8G8B8A8Unorm;
-    std::vector<vk::Format> view_formats;
+    std::vector<vk::Format> extra_formats;
     u32 width;
     u32 height;
     u32 depth;
@@ -54,10 +54,12 @@ struct Image
     ThsvsAccessType access;
     vk::ImageLayout layout;
     vk::ImageSubresourceRange full_range;
-    u32 current_view{u32_invalid};
-    vk::ImageView default_view;               // view with the default format (image_info.format)
-    std::vector<vk::Format> view_formats;
-    std::vector<vk::ImageView> views;         // extra views for each image_info.view_formats
+
+    vk::ImageView default_view;               // view with the default format (image_info.format) and full range
+    std::vector<vk::Format> extra_formats;
+    std::vector<vk::ImageView> format_views;  // extra views for each image_info.extra_formats
+    std::vector<vk::ImageView> mip_views;     // mip slices with defaut format
+
     vk::Sampler default_sampler;
 };
 using ImageH = Handle<Image>;
@@ -447,18 +449,14 @@ struct API
     void end_pass();
     void bind_program(GraphicsProgramH H);
 
-    // set the image view to use when binding the image, if 0 <= view_index <= image.view_formats then the view with a special format is used
-    // otherwise the default view is used
-    void image_set_view(ImageH image_h, u32 view_index);
+    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view = std::nullopt);
 
-    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h);
-    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h);
+    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view);
+    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view);
 
-    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h);
-    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h);
-
-    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h);
-    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h);
+    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
     void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);

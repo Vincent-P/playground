@@ -40,7 +40,7 @@ add_definitions(
   -DENABLE_IMGUI
   )
 
-set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 # C++ Libraires, need to be installed with vcpkg
 find_package(Vulkan REQUIRED)

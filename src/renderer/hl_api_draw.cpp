@@ -534,8 +534,10 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
+    assert(images_h.size() == images_view.size());
+
     if (binded_data.size() <= slot) {
         usize missing = slot - binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
@@ -547,20 +549,17 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, s
     data.binding                = slot;
     data.type                   = bindings[slot].type;
 
-    for (auto image_h : images_h)
+    for (usize i = 0; i < images_h.size(); i++)
     {
-        auto &image = api.get_image(image_h);
+        auto &image = api.get_image(images_h[i]);
+        const auto &image_view = images_view[i];
+
         if (data.type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
         {
             transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
         }
 
         assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
-
-        vk::ImageView image_view = image.default_view;
-        if (0 <= image.current_view && image.current_view < image.views.size()) {
-            image_view = image.views[image.current_view];
-        }
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
@@ -576,46 +575,36 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, s
     }
 }
 
-// TODO: remove this hack and use something like ImageViewH?
-void API::image_set_view(ImageH image_h, u32 view_index)
-{
-    auto &image   = get_image(image_h);
-    if (0 <= view_index && view_index < image.views.size())
-    {
-        image.current_view = view_index;
-    }
-    else
-    {
-        image.current_view = u32_invalid;
-    }
-}
-
-void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h)
+void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view)
 {
     auto &program = get_program(program_h);
-    bind_image_internal(*this, {image_h}, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_image_internal(*this, {image_h}, {view}, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
-void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h)
+void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view)
 {
     auto &program = get_program(program_h);
-    bind_image_internal(*this, {image_h}, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_image_internal(*this, {image_h}, {view}, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h)
+void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view)
 {
     auto &program = get_program(program_h);
-    bind_image_internal(*this, images_h, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+    bind_image_internal(*this, images_h, images_view, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
-void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h)
+void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view)
 {
     auto &program = get_program(program_h);
-    bind_image_internal(*this, images_h, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    bind_image_internal(*this, images_h, images_view, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
+    assert(images_h.size() == images_view.size());
+
     if (binded_data.size() <= slot) {
         usize missing = slot - binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
@@ -627,16 +616,12 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
     data.binding                = slot;
     data.type                   = bindings[slot].type;
 
-    for (auto image_h : images_h)
+    for (usize i = 0; i < images_h.size(); i++)
     {
-        auto &image = api.get_image(image_h);
+        auto &image = api.get_image(images_h[i]);
+        const auto &image_view = images_view[i];
 
         transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
-
-        vk::ImageView image_view = image.default_view;
-        if (0 <= image.current_view && image.current_view < image.views.size()) {
-            image_view = image.views[image.current_view];
-        }
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
@@ -652,19 +637,21 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
     }
 }
 
-void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h)
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, {image_h}, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
 
-void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h)
+void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, {image_h}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
 static void bind_buffer_internal(API& /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)

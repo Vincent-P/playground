@@ -54,8 +54,8 @@ ImageH API::create_image(const ImageInfo &info)
     img.name         = info.name;
     img.memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-    img.view_formats = info.view_formats;
-    if (!info.view_formats.empty()) {
+    img.extra_formats = info.extra_formats;
+    if (!info.extra_formats.empty()) {
         img.image_info.flags = vk::ImageCreateFlagBits::eMutableFormat;
     }
 
@@ -120,11 +120,19 @@ ImageH API::create_image(const ImageInfo &info)
 
     img.default_view = ctx.device->createImageView(vci);
 
-    img.views.reserve(info.view_formats.size());
-    for (const auto &extra_format : info.view_formats)
+    img.format_views.reserve(info.extra_formats.size());
+    for (const auto &extra_format : info.extra_formats)
     {
         vci.format = extra_format;
-        img.views.push_back(ctx.device->createImageView(vci));
+        img.format_views.push_back(ctx.device->createImageView(vci));
+    }
+
+    vci.format = img.image_info.format;
+    for (u32 i = 0; i < img.image_info.mipLevels; i++)
+    {
+        vci.subresourceRange.baseMipLevel = i;
+        vci.subresourceRange.levelCount = 1;
+        img.mip_views.push_back(ctx.device->createImageView(vci));
     }
 
     vk::SamplerCreateInfo sci{};
@@ -157,10 +165,13 @@ static void destroy_image_internal(API &api, Image &img)
     api.ctx.device->destroy(img.default_view);
     api.ctx.device->destroy(img.default_sampler);
 
-    for (auto &image_view : img.views) {
+    for (auto &image_view : img.format_views) {
         api.ctx.device->destroy(image_view);
     }
-    img.views.clear();
+    for (auto &image_view : img.mip_views) {
+        api.ctx.device->destroy(image_view);
+    }
+    img.format_views.clear();
 }
 
 void API::destroy_image(ImageH H)
