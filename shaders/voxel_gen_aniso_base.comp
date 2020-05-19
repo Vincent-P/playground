@@ -1,0 +1,76 @@
+#include "voxels.h"
+
+// layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout(set = 0, binding = 0) uniform sampler3D voxels_radiance;
+layout(set = 0, binding = 1, rgba8) uniform image3D voxels_directional_volumes[6];
+
+#define DirIntegration(from, to) (from + to * (1 - from.a))
+
+void main()
+{
+    ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
+
+    vec4 values[8];
+    AnisoTexelFetch(voxels_radiance, 0, voxel_pos);
+
+    // x -
+    imageStore(voxels_directional_volumes[0], voxel_pos,
+        (
+          DirIntegration(values[4], values[0])
+        + DirIntegration(values[5], values[1])
+        + DirIntegration(values[6], values[2])
+        + DirIntegration(values[7], values[3])
+        ) * 0.25f
+    );
+
+    // x +
+    imageStore(voxels_directional_volumes[1], voxel_pos,
+        (
+          DirIntegration(values[0], values[4])
+        + DirIntegration(values[1], values[5])
+        + DirIntegration(values[2], values[6])
+        + DirIntegration(values[3], values[7])
+        ) * 0.25f
+    );
+
+    // y -
+    imageStore(voxels_directional_volumes[2], voxel_pos,
+        (
+          DirIntegration(values[2], values[0])
+        + DirIntegration(values[3], values[1])
+        + DirIntegration(values[6], values[4])
+        + DirIntegration(values[7], values[5])
+        ) * 0.25f
+    );
+
+    // y +
+    imageStore(voxels_directional_volumes[3], voxel_pos,
+        (
+          DirIntegration(values[0], values[2])
+        + DirIntegration(values[1], values[3])
+        + DirIntegration(values[4], values[7])
+        + DirIntegration(values[5], values[6])
+        ) * 0.25f
+    );
+
+    // z -
+    imageStore(voxels_directional_volumes[4], voxel_pos,
+        (
+          DirIntegration(values[1], values[0])
+        + DirIntegration(values[3], values[2])
+        + DirIntegration(values[5], values[4])
+        + DirIntegration(values[7], values[6])
+        ) * 0.25f
+    );
+
+    // z +
+    imageStore(voxels_directional_volumes[5], voxel_pos,
+        (
+          DirIntegration(values[0], values[1])
+        + DirIntegration(values[2], values[3])
+        + DirIntegration(values[4], values[5])
+        + DirIntegration(values[6], values[7])
+        ) * 0.25f
+    );
+}
