@@ -46,6 +46,12 @@ ivec3 WorldToVoxel(vec3 world_pos, VoxelOptions options)
     return ivec3(floor(voxel_pos));
 }
 
+vec3 WorldToVoxelTex(vec3 world_pos, VoxelOptions options)
+{
+    vec3 voxel_pos = (world_pos - floor(options.center)) / options.size;
+    return voxel_pos / options.res;
+}
+
 vec3 EncodeNormal(vec3 normal)
 {
     return normal * 0.5f + vec3(0.5f);

@@ -59,8 +59,7 @@ struct Renderer
 
     // Shadow Map
     Camera sun;
-    vulkan::GraphicsProgramH model_vertex_only;
-    vulkan::RenderTargetH shadow_map_depth_rt;
+    vulkan::GraphicsProgramH model_depth_only;
 
     // Voxelization
     VoxelDebug voxel_options{};

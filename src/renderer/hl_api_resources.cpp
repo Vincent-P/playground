@@ -143,7 +143,7 @@ ImageH API::create_image(const ImageInfo &info)
     sci.addressModeV     = vk::SamplerAddressMode::eRepeat;
     sci.addressModeW     = vk::SamplerAddressMode::eRepeat;
     sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
+    sci.borderColor      = vk::BorderColor::eFloatOpaqueBlack;
     sci.minLod           = 0;
     sci.maxLod           = 0;
     sci.maxAnisotropy    = 8.0f;

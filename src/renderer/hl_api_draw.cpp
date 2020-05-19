@@ -468,6 +468,7 @@ static DescriptorSet &find_or_create_descriptor_set(API &api, GraphicsProgram &p
     dsai.descriptorPool     = *api.ctx.descriptor_pool;
     dsai.pSetLayouts        = &program.descriptor_layouts[freq].get();
     dsai.descriptorSetCount = 1;
+    api.ctx.descriptor_sets_count++;
 
     descriptor_set.set        = std::move(api.ctx.device->allocateDescriptorSets(dsai)[0]);
     descriptor_set.frame_used = api.ctx.frame_count;

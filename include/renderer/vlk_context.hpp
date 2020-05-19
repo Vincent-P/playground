@@ -89,7 +89,8 @@ struct Context
 
     SwapChain swapchain;
     FrameResources frame_resources;
-    usize frame_count;
+    usize frame_count{0};
+    usize descriptor_sets_count{0};
 
     // query pool for timestamps
 

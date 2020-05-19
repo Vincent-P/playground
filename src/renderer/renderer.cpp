@@ -110,26 +110,6 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.color_rt         = r.api.create_rendertarget(cinfo);
     }
 
-    /// --- Shadow map
-    {
-        r.sun = Camera::create(float3(0, 20, 0));
-    }
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Shadow Map Depth";
-        iinfo.format = vk::Format::eD32Sfloat;
-        iinfo.width  = 4 * 1024;
-        iinfo.height = 4 * 1024;
-        iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-        auto depth_h = r.api.create_image(iinfo);
-
-        vulkan::RTInfo dinfo;
-        dinfo.is_swapchain    = false;
-        dinfo.image_h         = depth_h;
-        r.shadow_map_depth_rt = r.api.create_rendertarget(dinfo);
-    }
-
     {
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader = r.api.create_shader("shaders/gltf.vert.spv");
@@ -160,7 +140,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.enable_depth_test = true;
         pinfo.enable_depth_write = true;
 
-        r.model_vertex_only = r.api.create_program(std::move(pinfo));
+        r.model_depth_only = r.api.create_program(std::move(pinfo));
     }
 
     /// --- Voxelization
@@ -380,11 +360,6 @@ void Renderer::destroy()
 {
     api.wait_idle();
     destroy_model();
-
-    {
-        auto &depth = api.get_rendertarget(shadow_map_depth_rt);
-        api.destroy_image(depth.image_h);
-    }
 
     {
         auto &depth = api.get_rendertarget(depth_rt);
@@ -631,7 +606,8 @@ static void draw_node(Renderer &r, Node &node)
     r.api.bind_buffer(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto &mesh = r.model.meshes[node.mesh];
-    for (const auto &primitive : mesh.primitives) {
+    for (const auto &primitive : mesh.primitives)
+    {
         // if program != last program then bind program
 
         const auto &material = r.model.materials[primitive.material];
@@ -659,7 +635,7 @@ void Renderer::draw_model()
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
-    static std::array options{"Nothing", "BaseColor", "Normal", "MetallicRoughness", "ShadowMap", "LightPosition", "LightPos <= ShadowMap"};
+    static std::array options{"Nothing", "BaseColor", "Normal", "World Pos"};
     tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
     ImGui::End();
 #endif
@@ -689,8 +665,6 @@ void Renderer::draw_model()
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = p_camera->get_view();
         buffer[1]    = p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
-        buffer[2]    = sun.get_view();
-        buffer[3]    = sun.get_projection();
 
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
@@ -704,13 +678,37 @@ void Renderer::draw_model()
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
-    // Bind the shadow map the shader
+    // voxel options
     {
-        auto &shadow_map = api.get_rendertarget(shadow_map_depth_rt);
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        *buffer = voxel_options;
 
-        auto &image = api.get_image(shadow_map.image_h);
-        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
-        api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, shadow_map.image_h);
+        api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
+    }
+
+    // voxel textures
+    {
+        {
+            auto &image = api.get_image(voxels_radiance);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+        }
+
+        const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
+        api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_radiance, radiance_rgba8);
+
+
+        {
+            std::vector<vk::ImageView> views;
+            views.reserve(voxels_directional_volumes.size());
+            for (const auto& volume_h : voxels_directional_volumes)
+            {
+                auto &image = api.get_image(volume_h);
+                transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+                views.push_back(api.get_image(volume_h).default_view);
+            }
+            api.bind_images(model.program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_directional_volumes, views);
+        }
     }
 
     vulkan::PassInfo pass;
@@ -754,12 +752,12 @@ static void draw_node_shadow(Renderer &r, Node &node)
     auto u_pos   = r.api.dynamic_uniform_buffer(sizeof(float4x4));
     auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
     *buffer      = node.cached_transform;
-    r.api.bind_buffer(r.model_vertex_only, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+    r.api.bind_buffer(r.model_depth_only, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto &mesh = r.model.meshes[node.mesh];
     for (const auto &primitive : mesh.primitives) {
         const auto &material = r.model.materials[primitive.material];
-        bind_texture(r, r.model_vertex_only, 1, material.base_color_texture);
+        bind_texture(r, r.model_depth_only, 1, material.base_color_texture);
         r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
@@ -767,96 +765,6 @@ static void draw_node_shadow(Renderer &r, Node &node)
     for (auto child_i : node.children) {
         draw_node(r, r.model.nodes[child_i]);
     }
-}
-
-static void shadow_map(Renderer &r)
-{
-    r.api.begin_label("Shadow Map");
-    vulkan::PassInfo pass;
-    pass.present = false;
-
-    vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
-    depth_info.rt      = r.shadow_map_depth_rt;
-    pass.depth         = std::make_optional(depth_info);
-
-    r.api.begin_pass(std::move(pass));
-
-    auto shadow_map_rt  = r.api.get_rendertarget(r.shadow_map_depth_rt);
-    auto shadow_map_img = r.api.get_image(shadow_map_rt.image_h);
-
-    vk::Viewport viewport{};
-    viewport.width    = shadow_map_img.image_info.extent.width;
-    viewport.height   = shadow_map_img.image_info.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    r.api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent.width  = shadow_map_img.image_info.extent.width;
-    scissor.extent.height = shadow_map_img.image_info.extent.height;
-    r.api.set_scissor(scissor);
-
-    {
-#if defined(ENABLE_IMGUI)
-        ImGui::Begin("Sun");
-#endif
-        static float3 s_sun_angles = {90.0f, 0.0f, 0.0f};
-        static float s_size        = 40.f;
-        static float s_near        = 1.f;
-        static float s_far         = 30.f;
-#if defined(ENABLE_IMGUI)
-        ImGui::SliderFloat3("Rotation", &s_sun_angles[0], -180.0f, 180.0f);
-        ImGui::SliderFloat("Size", &s_size, 5.0f, 50.0f);
-        ImGui::SliderFloat("Near", &s_near, 1.0f, 50.0f);
-        ImGui::SliderFloat("Far", &s_far, 1.0f, 50.0f);
-#endif
-
-        bool dirty = false;
-        if (s_sun_angles[0] != r.sun.pitch) {
-            r.sun.pitch = s_sun_angles[0];
-            dirty       = true;
-        }
-        if (s_sun_angles[1] != r.sun.yaw) {
-            r.sun.yaw = s_sun_angles[1];
-            dirty     = true;
-        }
-        if (s_sun_angles[2] != r.sun.roll) {
-            r.sun.roll = s_sun_angles[2];
-            dirty      = true;
-        }
-        if (dirty) {
-            r.sun.update_view();
-        }
-
-#if defined(ENABLE_IMGUI)
-        ImGui::End();
-#endif
-
-        auto u_pos   = r.api.dynamic_uniform_buffer(4 * sizeof(float4x4));
-        auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
-        buffer[0]    = r.sun.get_view();
-        buffer[1]    = r.sun.ortho_square(s_size, s_near, s_far);
-        r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
-    }
-
-    r.api.bind_program(r.model_vertex_only);
-    r.api.bind_index_buffer(r.model.index_buffer);
-    r.api.bind_vertex_buffer(r.model.vertex_buffer);
-
-    for (usize node_i : r.model.scene) {
-        draw_node_shadow(r, r.model.nodes[node_i]);
-    }
-
-    r.api.end_pass();
-    r.api.end_label();
-
-#if defined(ENABLE_IMGUI)
-    auto &depth = r.api.get_rendertarget(r.shadow_map_depth_rt);
-    ImGui::Begin("Shadow map");
-    ImGui::Image(reinterpret_cast<void *>(depth.image_h.value()), ImVec2(256, 256));
-    ImGui::End();
-#endif
 }
 
 static void depth_prepass(Renderer &r)
@@ -895,13 +803,11 @@ static void depth_prepass(Renderer &r)
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = r.p_camera->get_view();
         buffer[1]    = r.p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
-        buffer[2]    = r.sun.get_view();
-        buffer[3]    = r.sun.get_projection();
 
-        r.api.bind_buffer(r.model_vertex_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
+        r.api.bind_buffer(r.model_depth_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 
-    r.api.bind_program(r.model_vertex_only);
+    r.api.bind_program(r.model_depth_only);
     r.api.bind_index_buffer(r.model.index_buffer);
     r.api.bind_vertex_buffer(r.model.vertex_buffer);
 
@@ -1042,7 +948,7 @@ void Renderer::voxelize_scene()
 void Renderer::visualize_voxels()
 {
     static usize s_selected = 3;
-    static float s_opacity = 1.0f;
+    static float s_opacity = 0.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
@@ -1156,6 +1062,7 @@ void Renderer::inject_direct_lighting()
     ImGui::Begin("Voxels Direct Lighting");
     ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
     ImGui::SliderFloat("Point light scale", &s_scale, 0.0f, 1000.f);
+    ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
     ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
     ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
     ImGui::End();
@@ -1179,6 +1086,7 @@ void Renderer::inject_direct_lighting()
         auto u_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
         auto *buffer = reinterpret_cast<DirectLightingDebug *>(u_pos.mapped);
 
+        sun.update_view();
         buffer->sun_direction    = float4(sun.front, 1);
         buffer->point_position   = float4(s_position[0], s_position[1], s_position[2], 1);
         buffer->point_scale      = s_scale;
@@ -1316,8 +1224,6 @@ void Renderer::draw()
         return;
     }
 
-
-    shadow_map(*this);
     depth_prepass(*this);
 
     vk::ClearColorValue clear{};
@@ -1333,14 +1239,12 @@ void Renderer::draw()
         api.clear_image(image_h, clear);
     }
 
-    /*
     voxelize_scene();
     inject_direct_lighting();
     generate_aniso_voxels();
-    */
 
     draw_model();
-    // visualize_voxels();
+    visualize_voxels();
     imgui_draw();
 
     api.end_frame();
