@@ -133,6 +133,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     {
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader = r.api.create_shader("shaders/gltf.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/gltf_depth_only.frag.spv");
 
         // camera uniform buffer
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
@@ -143,6 +144,11 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0,
                        /*.stages = */ vk::ShaderStageFlagBits::eVertex,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // base color texture
+        pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
@@ -752,6 +758,8 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
     const auto &mesh = r.model.meshes[node.mesh];
     for (const auto &primitive : mesh.primitives) {
+        const auto &material = r.model.materials[primitive.material];
+        bind_texture(r, r.model_vertex_only, 1, material.base_color_texture);
         r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
