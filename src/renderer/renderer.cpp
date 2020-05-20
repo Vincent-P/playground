@@ -161,8 +161,10 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         iinfo.name         = "Voxels normal";
         r.voxels_normal    = r.api.create_image(iinfo);
 
-        iinfo.name         = "Voxels radiance";
-        r.voxels_radiance  = r.api.create_image(iinfo);
+        iinfo.name          = "Voxels radiance";
+        iinfo.format        = vk::Format::eR8G8B8A8Unorm;
+        iinfo.extra_formats = {};
+        r.voxels_radiance   = r.api.create_image(iinfo);
 
         vulkan::SamplerInfo sinfo{};
         sinfo.mag_filter   = vk::Filter::eLinear;
@@ -632,11 +634,17 @@ void Renderer::draw_model()
 {
     static usize s_selected = 0;
     static float s_opacity = 1.0f;
+    static float s_trace_dist = 2.0f;
+    static float s_occlusion = 1.0f;
+    static float s_exposure = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
     static std::array options{"Nothing", "BaseColor", "Normal", "World Pos"};
     tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+    ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 5.0f);
+    ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 2.0f);
+    ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
     ImGui::End();
 #endif
     if (s_opacity == 0.0f) {
@@ -664,17 +672,21 @@ void Renderer::draw_model()
         auto u_pos   = api.dynamic_uniform_buffer(2 * sizeof(float4x4));
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = p_camera->get_view();
-        buffer[1]    = p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
+        buffer[1]    = p_camera->perspective(fov, aspect_ratio, 0.01f, 25.f);
 
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
 
     // Make a shader debugging window and its own uniform buffer
     {
-        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug));
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug) + 2 * sizeof(float));
         auto *buffer = reinterpret_cast<ShaderDebug *>(u_pos.mapped);
         buffer->selected = static_cast<uint>(s_selected);
         buffer->opacity  = s_opacity;
+        auto *floatbuffer = reinterpret_cast<float*>(buffer + 1);
+        floatbuffer[0] = s_trace_dist;
+        floatbuffer[1] = s_occlusion;
+        floatbuffer[2] = s_exposure;
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
@@ -694,9 +706,7 @@ void Renderer::draw_model()
             transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
         }
 
-        const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
-        api.bind_image(model.program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_radiance, radiance_rgba8);
-
+        api.bind_combined_image_sampler(model.program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_radiance, voxels_sampler);
 
         {
             std::vector<vk::ImageView> views;
@@ -707,7 +717,7 @@ void Renderer::draw_model()
                 transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
                 views.push_back(api.get_image(volume_h).default_view);
             }
-            api.bind_images(model.program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_directional_volumes, views);
+            api.bind_combined_images_sampler(model.program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_directional_volumes, voxels_sampler, views);
         }
     }
 
@@ -802,7 +812,7 @@ static void depth_prepass(Renderer &r)
         auto u_pos   = r.api.dynamic_uniform_buffer(2 * sizeof(float4x4));
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = r.p_camera->get_view();
-        buffer[1]    = r.p_camera->perspective(fov, aspect_ratio, 0.1f, 30.f);
+        buffer[1]    = r.p_camera->perspective(fov, aspect_ratio, 0.01f, 25.f);
 
         r.api.bind_buffer(r.model_depth_only, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
@@ -1099,7 +1109,6 @@ void Renderer::inject_direct_lighting()
     // use the RGBA8 format defined at creation in view_formats
     const auto& albedo_rgba8 = api.get_image(voxels_albedo).format_views[0];
     const auto& normal_rgba8 = api.get_image(voxels_normal).format_views[0];
-    const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
 
     {
     auto &image = api.get_image(voxels_albedo);
@@ -1117,7 +1126,7 @@ void Renderer::inject_direct_lighting()
     auto &image = api.get_image(voxels_radiance);
     transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     }
-    api.bind_image(program, 4, voxels_radiance, radiance_rgba8);
+    api.bind_image(program, 4, voxels_radiance);
 
 
     auto count = voxel_options.res;
@@ -1132,13 +1141,11 @@ void Renderer::generate_aniso_voxels()
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
     // use the RGBA8 format defined at creation in view_formats
-    const auto& radiance_rgba8 = api.get_image(voxels_radiance).format_views[0];
-
     {
     auto &image = api.get_image(voxels_radiance);
     transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
-    api.bind_combined_image_sampler(generate_aniso_base, 0, voxels_radiance, voxels_sampler, radiance_rgba8);
+    api.bind_combined_image_sampler(generate_aniso_base, 0, voxels_radiance, voxels_sampler);
 
 
 

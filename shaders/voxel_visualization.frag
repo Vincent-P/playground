@@ -19,7 +19,7 @@ layout (set = 1, binding = 2) uniform UBODebug {
 
 layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
 layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
-layout(set = 1, binding = 5, r32ui) uniform uimage3D voxels_radiance;
+layout(set = 1, binding = 5, rgba8) uniform image3D voxels_radiance;
 
 
 layout (location = 0) in vec2 inUV;
@@ -33,7 +33,7 @@ float mincomp(vec3 v) {
 }
 
 /// vec4 PlaneMarch(uimage3D voxels, vec3 p0, vec3 d)
-#define PlaneMarch(ret, voxels, p0, d)                                  \
+#define PlaneMarchUint(ret, voxels, p0, d)                              \
     {                                                                   \
         float t = 0;                                                    \
         while (t < MAX_DIST) {                                          \
@@ -42,7 +42,25 @@ float mincomp(vec3 v) {
             uint voxel = imageLoad(voxels, voxel_pos).r;                \
             if (voxel != 0)                                             \
             {                                                           \
-                ret = vec4(abs(unpackUnorm4x8(voxel)).xyz, debug.opacity);\
+                ret = vec4(abs(unpackUnorm4x8(voxel)).rgb, debug.opacity);\
+                break;                                                  \
+            }                                                           \
+                                                                        \
+            vec3 deltas = (step(0, d) - fract(p)) / d;                  \
+            t += max(mincomp(deltas), EPSILON);                         \
+        }                                                               \
+    }
+
+#define PlaneMarch(ret, voxels, p0, d)                              \
+    {                                                                   \
+        float t = 0;                                                    \
+        while (t < MAX_DIST) {                                          \
+            vec3 p = p0 + d * t;                                        \
+            ivec3 voxel_pos = ivec3(floor(p));                          \
+            vec4 voxel = imageLoad(voxels, voxel_pos);              \
+            if (voxel.a > EPSILON)                                      \
+            {                                                           \
+                ret = vec4(voxel.rgb, debug.opacity);\
                 break;                                                  \
             }                                                           \
                                                                         \
@@ -63,10 +81,10 @@ void main()
 
     vec4 color = vec4(0);
     if (debug.selected == 1) {
-        PlaneMarch(color, voxels_albedo, p0, d);
+        PlaneMarchUint(color, voxels_albedo, p0, d);
     }
     else if (debug.selected == 2) {
-        PlaneMarch(color, voxels_normal, p0, d);
+        PlaneMarchUint(color, voxels_normal, p0, d);
     }
     else if (debug.selected == 3) {
         PlaneMarch(color, voxels_radiance, p0, d);

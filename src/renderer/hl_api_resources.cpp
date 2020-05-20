@@ -143,9 +143,9 @@ ImageH API::create_image(const ImageInfo &info)
     sci.addressModeV     = vk::SamplerAddressMode::eRepeat;
     sci.addressModeW     = vk::SamplerAddressMode::eRepeat;
     sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatOpaqueBlack;
+    sci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
     sci.minLod           = 0;
-    sci.maxLod           = 0;
+    sci.maxLod           = img.image_info.mipLevels;
     sci.maxAnisotropy    = 8.0f;
     sci.anisotropyEnable = VK_TRUE;
     img.default_sampler  = ctx.device->createSampler(sci);
@@ -342,7 +342,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     sci.compareOp        = vk::CompareOp::eNever;
     sci.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
     sci.minLod           = 0;
-    sci.maxLod           = 0;
+    sci.maxLod           = 7;
     sci.maxAnisotropy    = 8.0f;
     sci.anisotropyEnable = VK_TRUE;
     sampler.vkhandle     = ctx.device->createSamplerUnique(sci);

@@ -659,6 +659,13 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, Imag
 }
 
 
+void API::bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view)
+{
+    auto &program = get_program(program_h);
+    auto &sampler = get_sampler(sampler_h);
+    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
+}
+
 void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view)
 {
     auto &program = get_program(program_h);

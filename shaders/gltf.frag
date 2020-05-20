@@ -17,6 +17,9 @@ layout (push_constant) uniform MU
 layout (set = 1, binding = 1) uniform UBODebug {
     uint selected;
     float opacity;
+    float trace_dist;
+    float occlusion_lambda;
+    float exposure;
 } debug;
 
 layout (set = 1, binding = 2) uniform VO {
@@ -53,6 +56,8 @@ const float diffuseConeWeights[] =
     3.0f * PI / 20.0f,
 };
 
+
+
 vec4 AnisotropicSample(vec3 position, float mip, uvec3 faces, vec3 weight)
 {
     float aniso_level = max(mip - 1.0, 0.0);
@@ -73,20 +78,20 @@ vec4 AnisotropicSample(vec3 position, float mip, uvec3 faces, vec3 weight)
 // aperture = tan(teta / 2)
 vec4 TraceCone(vec3 origin, vec3 direction, float aperture, float max_dist)
 {
+    // to perform anisotropic sampling
     uvec3 faces;
     faces.x = (direction.x < 0.0) ? 0 : 1;
     faces.y = (direction.y < 0.0) ? 2 : 3;
     faces.z = (direction.z < 0.0) ? 4 : 5;
-
     vec3 weight = direction * direction;
 
+    vec4 cone_sampled = vec4(0.0);
     vec3 p = origin;
-    float d = voxel_options.size;
+    float d = 1.0 * voxel_options.size;
 
     float occlusion = 0.0;
 
-    uint iter = 0;
-    while (iter < 1000 && occlusion < 1.0f && d < max_dist)
+    while (cone_sampled.a < 1.0f && d < max_dist)
     {
         p = origin + d * direction;
 
@@ -96,22 +101,23 @@ vec4 TraceCone(vec3 origin, vec3 direction, float aperture, float max_dist)
 
         vec4 sampled = AnisotropicSample(voxel_pos, mip_level, faces, weight);
 
-        occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + d);
+        cone_sampled += (1.0 - cone_sampled) * sampled;
+        occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + debug.occlusion_lambda * diameter);
 
         d += diameter;
-        iter += 1;
     }
 
-    return vec4(vec3(1.0 - occlusion), 1);
+    return vec4(cone_sampled.rgb , 1.0 - occlusion);
 }
 
-vec4 AmbientOcclusion(vec3 normal)
+vec4 Indirect(vec3 normal)
 {
     vec3 position = inWorldPos;
-    vec4 visibility = vec4(0.0);
+    vec4 diffuse = vec4(0.0);
+
+    const float aperture = 0.57735f;
 
     // diffuse cone setup
-    const float aperture = 0.57735f;
     vec3 guide = vec3(0.0f, 1.0f, 0.0f);
 
     if (abs(dot(normal,guide)) == 1.0f)
@@ -130,10 +136,10 @@ vec4 AmbientOcclusion(vec3 normal)
         direction += diffuseConeDirections[i].x * right + diffuseConeDirections[i].z * up;
         direction = normalize(direction);
 
-        visibility += TraceCone(position, direction, aperture, 10.0) * diffuseConeWeights[i];
+        diffuse += TraceCone(position, direction, aperture, debug.trace_dist) * diffuseConeWeights[i];
     }
 
-    return visibility;
+    return diffuse;
 }
 
 void main()
@@ -144,20 +150,25 @@ void main()
         discard;
     }
 
-    vec4 color = AmbientOcclusion(normal);
+    vec3 composite = vec3(1.0);
 
-    if (debug.selected == 1)
-    {
-        color = vec4(base_color.rgb, 1);
-    }
-    else if (debug.selected == 2)
-    {
-        color = vec4(EncodeNormal(getNormal(inWorldPos, inNormal, normalTexture, inUV0)), 1);
-    }
-    else if (debug.selected == 3)
-    {
-        color = vec4(inWorldPos / 20, 1);
-    }
+    vec3 direct = vec3(0.0);
+    vec4 indirect = Indirect(normal);
 
-    outColor = color;
+    // show ao
+    // indirect.rgb = vec3(1.0);
+    // direct = vec3(0.0);
+
+    indirect.rgb = pow(indirect.rgb, vec3(2.2f));
+
+    indirect.rgb *= base_color.rgb;
+
+    composite = (direct + indirect.rgb) * indirect.a;
+
+    // composite = composite / (composite + 1.0);
+    composite = vec3(1.0) - exp(-composite * debug.exposure);
+
+    composite = pow(composite, vec3(1.0 / 2.2));
+
+    outColor = vec4(composite, 1.0);
 }
