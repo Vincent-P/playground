@@ -41,19 +41,36 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         color_ref.attachment = static_cast<u32>(attachments.size());
 
         vk::ImageLayout initial_layout;
+        auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+        vk::Format format;
+
         auto color_rt  = api.get_rendertarget(rp.info.color->rt);
-        if (color_rt.is_swapchain) {
+        if (color_rt.is_swapchain)
+        {
             initial_layout = rp.info.color->load_op == vk::AttachmentLoadOp::eClear ? vk::ImageLayout::eUndefined : vk::ImageLayout::ePresentSrcKHR;
+            format = api.ctx.swapchain.format.format;
         }
-        else {
-            auto color_img = api.get_image(color_rt.image_h);
+        else
+        {
+            auto &color_img = api.get_image(color_rt.image_h);
             initial_layout = color_img.layout;
+            format = color_img.image_info.format;
+
+            if (final_layout != color_img.layout)
+            {
+                color_img.layout = final_layout;
+                color_img.access = access_from_layout(color_img.layout);
+            }
         }
 
-        auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
+        if (initial_layout == vk::ImageLayout::eUndefined)
+        {
+            rp.info.color->load_op = vk::AttachmentLoadOp::eClear;
+        }
+
 
         vk::AttachmentDescription attachment;
-        attachment.format         = api.ctx.swapchain.format.format;
+        attachment.format         = format;
         attachment.samples        = vk::SampleCountFlagBits::e1;
         attachment.loadOp         = rp.info.color->load_op;
         attachment.storeOp        = vk::AttachmentStoreOp::eStore;

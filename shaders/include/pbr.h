@@ -24,4 +24,5 @@ vec3 getNormal(vec3 world_pos, vec3 vertex_normal, in sampler2D normal_texture, 
     return normalize(TBN * tangentNormal);
 }
 
+
 #endif

@@ -156,18 +156,15 @@ void main()
     vec4 indirect = Indirect(normal);
 
     // show ao
-    // indirect.rgb = vec3(1.0);
-    // direct = vec3(0.0);
+    indirect.rgb = vec3(1.0);
+    direct = vec3(0.0);
 
+    // to linear
     indirect.rgb = pow(indirect.rgb, vec3(2.2f));
-
-    indirect.rgb *= base_color.rgb;
 
     composite = (direct + indirect.rgb) * indirect.a;
 
-    // composite = composite / (composite + 1.0);
-    composite = vec3(1.0) - exp(-composite * debug.exposure);
-
+    // to srgb
     composite = pow(composite, vec3(1.0 / 2.2));
 
     outColor = vec4(composite, 1.0);

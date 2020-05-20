@@ -92,7 +92,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     {
         vulkan::ImageInfo iinfo;
-        iinfo.name   = "Depth texture";
+        iinfo.name   = "Depth";
         iinfo.format = vk::Format::eD32Sfloat;
         iinfo.width  = r.api.ctx.swapchain.extent.width;
         iinfo.height = r.api.ctx.swapchain.extent.height;
@@ -104,10 +104,26 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         dinfo.is_swapchain = false;
         dinfo.image_h      = depth_h;
         r.depth_rt         = r.api.create_rendertarget(dinfo);
+    }
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "HDR color";
+        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.width  = r.api.ctx.swapchain.extent.width;
+        iinfo.height = r.api.ctx.swapchain.extent.height;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        auto color_h = r.api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
-        cinfo.is_swapchain = true;
+        cinfo.is_swapchain = false;
+        cinfo.image_h      = color_h;
         r.color_rt         = r.api.create_rendertarget(cinfo);
+    }
+    {
+        vulkan::RTInfo sinfo;
+        sinfo.is_swapchain = true;
+        r.swapchain_rt = r.api.create_rendertarget(sinfo);
     }
 
     {
@@ -255,7 +271,7 @@ Renderer Renderer::create(const Window &window, Camera &camera)
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/voxel_visualization.vert.spv");
+        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
 
         // voxel options
@@ -355,6 +371,27 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
     }
 
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/hdr_compositing.frag.spv");
+
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        r.hdr_compositing = r.api.create_program(std::move(pinfo));
+    }
+    {
+        vulkan::SamplerInfo sinfo{};
+        r.default_sampler = r.api.create_sampler(sinfo);
+    }
+
+
     return r;
 }
 
@@ -366,6 +403,10 @@ void Renderer::destroy()
     {
         auto &depth = api.get_rendertarget(depth_rt);
         api.destroy_image(depth.image_h);
+    }
+    {
+        auto &color = api.get_rendertarget(color_rt);
+        api.destroy_image(color.image_h);
     }
 
     api.destroy_image(voxels_albedo);
@@ -387,14 +428,40 @@ void Renderer::on_resize(int width, int height)
     auto &depth = api.get_rendertarget(depth_rt);
     api.destroy_image(depth.image_h);
 
-    vulkan::ImageInfo iinfo;
-    iinfo.name    = "Depth texture";
-    iinfo.format  = vk::Format::eD32Sfloat;
-    iinfo.width   = api.ctx.swapchain.extent.width;
-    iinfo.height  = api.ctx.swapchain.extent.height;
-    iinfo.depth   = 1;
-    iinfo.usages  = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    depth.image_h = api.create_image(iinfo);
+    auto &color = api.get_rendertarget(color_rt);
+    api.destroy_image(color.image_h);
+
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "Depth";
+        iinfo.format = vk::Format::eD32Sfloat;
+        iinfo.width  = api.ctx.swapchain.extent.width;
+        iinfo.height = api.ctx.swapchain.extent.height;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        auto depth_h = api.create_image(iinfo);
+
+        vulkan::RTInfo dinfo;
+        dinfo.is_swapchain = false;
+        dinfo.image_h      = depth_h;
+        depth_rt         = api.create_rendertarget(dinfo);
+    }
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "HDR color";
+        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.width  = api.ctx.swapchain.extent.width;
+        iinfo.height = api.ctx.swapchain.extent.height;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        auto color_h = api.create_image(iinfo);
+
+        vulkan::RTInfo cinfo;
+        cinfo.is_swapchain = false;
+        cinfo.image_h      = color_h;
+        color_rt         = api.create_rendertarget(cinfo);
+    }
+
 }
 
 void Renderer::wait_idle()
@@ -519,7 +586,7 @@ void Renderer::imgui_draw()
 
     vulkan::AttachmentInfo color_info;
     color_info.load_op = vk::AttachmentLoadOp::eLoad;
-    color_info.rt      = color_rt;
+    color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
@@ -722,10 +789,10 @@ void Renderer::draw_model()
     }
 
     vulkan::PassInfo pass;
-    pass.present = true;
+    pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1030,7 +1097,7 @@ void Renderer::visualize_voxels()
 
 
     vulkan::PassInfo pass;
-    pass.present = true;
+    pass.present = false;
 
     vulkan::AttachmentInfo color_info;
     color_info.load_op = vk::AttachmentLoadOp::eLoad;
@@ -1046,7 +1113,7 @@ void Renderer::visualize_voxels()
 
     api.bind_program(visualization);
 
-    api.draw(6, 1, 0, 0);
+    api.draw(3, 1, 0, 0);
 
     api.end_pass();
     api.end_label();
@@ -1221,6 +1288,65 @@ void Renderer::generate_aniso_voxels()
     api.end_label();
 }
 
+void Renderer::composite_hdr()
+{
+    static usize s_selected = 0;
+    static float s_exposure = 1.0f;
+
+#if defined(ENABLE_IMGUI)
+    ImGui::Begin("HDR Shader");
+    static std::array options{"Reinhard", "Exposure", "Clamp"};
+    tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
+    ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
+    ImGui::End();
+#endif
+
+    api.begin_label("HDR");
+
+    vk::Viewport viewport{};
+    viewport.width    = api.ctx.swapchain.extent.width;
+    viewport.height   = api.ctx.swapchain.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent = api.ctx.swapchain.extent;
+    api.set_scissor(scissor);
+
+    // use the default format
+    auto &hdr_rt = api.get_rendertarget(color_rt);
+    api.bind_combined_image_sampler(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_rt.image_h, default_sampler);
+
+    vulkan::PassInfo pass;
+    pass.present = true;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.rt      = swapchain_rt;
+    pass.color         = std::make_optional(color_info);
+
+    api.begin_pass(std::move(pass));
+
+    api.bind_program(hdr_compositing);
+
+    // Make a shader debugging window and its own uniform buffer
+    {
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(uint) + sizeof(float));
+        auto *buffer = reinterpret_cast<uint *>(u_pos.mapped);
+        buffer[0] = static_cast<uint>(s_selected);
+        auto *floatbuffer = reinterpret_cast<float*>(buffer + 1);
+        floatbuffer[0] = s_exposure;
+        api.bind_buffer(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
+    }
+
+
+    api.draw(3, 1, 0, 0);
+
+    api.end_pass();
+    api.end_label();
+}
+
 void Renderer::draw()
 {
     bool is_ok = api.start_frame();
@@ -1252,6 +1378,8 @@ void Renderer::draw()
 
     draw_model();
     visualize_voxels();
+
+    composite_hdr();
     imgui_draw();
 
     api.end_frame();

@@ -48,7 +48,15 @@ struct Renderer
     void inject_direct_lighting();
     void generate_aniso_voxels();
     void visualize_voxels();
+    void composite_hdr();
 
+    vulkan::RenderTargetH depth_rt;
+    vulkan::RenderTargetH color_rt;
+    vulkan::RenderTargetH swapchain_rt;
+    Camera *p_camera;
+
+    vulkan::SamplerH default_sampler;
+    vulkan::GraphicsProgramH hdr_compositing;
 
     // ImGui
     vulkan::GraphicsProgramH gui_program;
@@ -74,10 +82,6 @@ struct Renderer
     vulkan::ImageH voxels_normal;
     vulkan::ImageH voxels_radiance;
     std::vector<vulkan::ImageH> voxels_directional_volumes;
-
-    vulkan::RenderTargetH depth_rt;
-    vulkan::RenderTargetH color_rt;
-    Camera *p_camera;
 };
 
 } // namespace my_app

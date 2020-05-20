@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <vulkan/vulkan.hpp>
+#include <iostream>
 
 /***
  * The HL API is a Vulkan abstraction.
@@ -531,6 +532,21 @@ struct API
 void destroy_buffer_internal(API &api, Buffer &buffer);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range);
+
+inline ThsvsAccessType access_from_layout(vk::ImageLayout layout)
+{
+    if (layout == vk::ImageLayout::eShaderReadOnlyOptimal)
+    {
+        return THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
+    }
+    if (layout == vk::ImageLayout::ePresentSrcKHR)
+    {
+        return THSVS_ACCESS_PRESENT;
+    }
+    std::cerr << "Invalid layout " << vk::to_string(layout) << std::endl;
+
+    return THSVS_ACCESS_GENERAL;
+}
 
 } // namespace vulkan
 } // namespace my_app
