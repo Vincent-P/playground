@@ -1,15 +1,23 @@
 #include "voxels.h"
 
-// layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(set = 0, binding = 0) uniform sampler3D voxels_radiance;
-layout(set = 0, binding = 1, rgba8) uniform image3D voxels_directional_volumes[6];
+layout(set = 0, binding = 0) uniform VO {
+    VoxelOptions voxel_options;
+};
+
+layout(set = 0, binding = 1) uniform sampler3D voxels_radiance;
+layout(set = 0, binding = 2, rgba8) uniform image3D voxels_directional_volumes[6];
 
 #define DirIntegration(from, to) (from + to * (1 - from.a))
 
 void main()
 {
     ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
+
+    if (voxel_pos.x > voxel_options.res || voxel_pos.y > voxel_options.res || voxel_pos.z > voxel_options.res) {
+        return;
+    }
 
     vec4 values[8];
     AnisoTexelFetch(voxels_radiance, 0, 2 * voxel_pos);

@@ -1,6 +1,6 @@
 #include "voxels.h"
 
-// layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(set = 0, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -119,5 +119,10 @@ void InjectDirectLighting(ivec3 voxel_pos)
 void main()
 {
     ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
+
+    if (voxel_pos.x > voxel_options.res || voxel_pos.y > voxel_options.res || voxel_pos.z > voxel_options.res) {
+        return;
+    }
+
     InjectDirectLighting(voxel_pos);
 }

@@ -19,7 +19,6 @@ layout (set = 1, binding = 1) uniform UBODebug {
     float opacity;
     float trace_dist;
     float occlusion_lambda;
-    float exposure;
 } debug;
 
 layout (set = 1, binding = 2) uniform VO {
@@ -144,10 +143,22 @@ vec4 Indirect(vec3 normal)
 
 void main()
 {
-    vec3 normal = getNormal(inWorldPos, inNormal, normalTexture, inUV0);
+    vec3 normal = vec3(0.0);
+    getNormalM(normal, inWorldPos, inNormal, normalTexture, inUV0);
     vec4 base_color = texture(baseColorTexture, inUV0);
     if (base_color.a < 0.5) {
         discard;
+    }
+
+    if (debug.selected == 1)
+    {
+        outColor = vec4(base_color.rgb, 1.0);
+        return;
+    }
+    else if (debug.selected == 2)
+    {
+        outColor = vec4(EncodeNormal(normal), 1.0);
+        return;
     }
 
     vec3 composite = vec3(1.0);

@@ -26,7 +26,8 @@ void main()
     if (color.a < 0.1) {
         discard;
     }
-    vec3 normal = getNormal(inWorldPos, inNormal, normalTexture, inUV0);
+    vec3 normal = vec3(0.0);
+    getNormalM(normal, inWorldPos, inNormal, normalTexture, inUV0);
 
     // output:
     ivec3 voxel_pos = WorldToVoxel(inWorldPos, voxel_options);

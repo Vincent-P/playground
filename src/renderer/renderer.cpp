@@ -335,14 +335,19 @@ Renderer Renderer::create(const Window &window, Camera &camera)
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
-        // radiance
+        // voxel options
         pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
+        // radiance
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
 
         // aniso volumes
         u32 count = r.voxels_directional_volumes.size();
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
         r.generate_aniso_base = r.api.create_program(std::move(pinfo));
@@ -357,15 +362,20 @@ Renderer Renderer::create(const Window &window, Camera &camera)
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
 
+        // mip src
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
+                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+
         u32 count = r.voxels_directional_volumes.size();
 
         // radiance
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
 
         // aniso volumes
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
+        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
                        /*.stages = */ vk::ShaderStageFlagBits::eCompute,
                        /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
         r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
@@ -703,15 +713,13 @@ void Renderer::draw_model()
     static float s_opacity = 1.0f;
     static float s_trace_dist = 2.0f;
     static float s_occlusion = 1.0f;
-    static float s_exposure = 1.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
-    static std::array options{"Nothing", "BaseColor", "Normal", "World Pos"};
+    static std::array options{"Nothing", "BaseColor", "Normal"};
     tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
     ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 5.0f);
     ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 2.0f);
-    ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
     ImGui::End();
 #endif
     if (s_opacity == 0.0f) {
@@ -753,7 +761,6 @@ void Renderer::draw_model()
         auto *floatbuffer = reinterpret_cast<float*>(buffer + 1);
         floatbuffer[0] = s_trace_dist;
         floatbuffer[1] = s_occlusion;
-        floatbuffer[2] = s_exposure;
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
@@ -1196,7 +1203,7 @@ void Renderer::inject_direct_lighting()
     api.bind_image(program, 4, voxels_radiance);
 
 
-    auto count = voxel_options.res;
+    auto count = voxel_options.res / 8;
     api.dispatch(program, count, count, count);
     api.end_label();
 }
@@ -1207,12 +1214,24 @@ void Renderer::generate_aniso_voxels()
 
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
+
+    // Bind voxel options
+    {
+        auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+        auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+        *buffer = voxel_options;
+        buffer->size *= 2;
+        buffer->res /= 2;
+
+        api.bind_buffer(generate_aniso_base, 0, u_pos);
+    }
+
     // use the RGBA8 format defined at creation in view_formats
     {
     auto &image = api.get_image(voxels_radiance);
     transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
-    api.bind_combined_image_sampler(generate_aniso_base, 0, voxels_radiance, voxels_sampler);
+    api.bind_combined_image_sampler(generate_aniso_base, 1, voxels_radiance, voxels_sampler);
 
 
 
@@ -1239,11 +1258,12 @@ void Renderer::generate_aniso_voxels()
             image_barrier.image = image.vkhandle;
             image_barrier.subresourceRange = image.full_range;
         }
-        api.bind_images(generate_aniso_base, 1, voxels_directional_volumes, views);
+        api.bind_images(generate_aniso_base, 2, voxels_directional_volumes, views);
     }
 
     // the first directional volumes have 2 times less voxels
     auto count = voxel_options.res / 2;
+    count /= 8; // local size
     api.dispatch(generate_aniso_base, count, count, count);
 
     cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
@@ -1254,11 +1274,23 @@ void Renderer::generate_aniso_voxels()
         auto src = mip_i;
         auto dst = mip_i + 1;
 
+
+        // Bind voxel options
+        {
+            auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
+            auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
+            *buffer = voxel_options;
+            buffer->size *= 2 * (dst + 1);
+            buffer->res /= 2 * (dst + 1);
+
+            api.bind_buffer(generate_aniso_mipmap, 0, u_pos);
+        }
+
         {
             auto u_pos     = api.dynamic_uniform_buffer(sizeof(int));
             auto *buffer   = reinterpret_cast<int*>(u_pos.mapped);
             *buffer = static_cast<int>(src);
-            api.bind_buffer(generate_aniso_mipmap, 0, u_pos);
+            api.bind_buffer(generate_aniso_mipmap, 1, u_pos);
         }
 
         std::vector<vk::ImageView> src_views;
@@ -1277,8 +1309,8 @@ void Renderer::generate_aniso_voxels()
             transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
         }
 
-        api.bind_images(generate_aniso_mipmap, 1, voxels_directional_volumes, src_views);
-        api.bind_images(generate_aniso_mipmap, 2, voxels_directional_volumes, dst_views);
+        api.bind_images(generate_aniso_mipmap, 2, voxels_directional_volumes, src_views);
+        api.bind_images(generate_aniso_mipmap, 3, voxels_directional_volumes, dst_views);
 
         api.dispatch(generate_aniso_mipmap, count, count, count);
 
@@ -1314,10 +1346,6 @@ void Renderer::composite_hdr()
     scissor.extent = api.ctx.swapchain.extent;
     api.set_scissor(scissor);
 
-    // use the default format
-    auto &hdr_rt = api.get_rendertarget(color_rt);
-    api.bind_combined_image_sampler(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_rt.image_h, default_sampler);
-
     vulkan::PassInfo pass;
     pass.present = true;
 
@@ -1328,7 +1356,8 @@ void Renderer::composite_hdr()
 
     api.begin_pass(std::move(pass));
 
-    api.bind_program(hdr_compositing);
+    auto &hdr_rt = api.get_rendertarget(color_rt);
+    api.bind_combined_image_sampler(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_rt.image_h, default_sampler);
 
     // Make a shader debugging window and its own uniform buffer
     {
@@ -1339,6 +1368,8 @@ void Renderer::composite_hdr()
         floatbuffer[0] = s_exposure;
         api.bind_buffer(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
+
+    api.bind_program(hdr_compositing);
 
 
     api.draw(3, 1, 0, 0);
