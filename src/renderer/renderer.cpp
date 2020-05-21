@@ -1214,22 +1214,24 @@ void Renderer::generate_aniso_voxels()
 
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
+    auto voxel_size = voxel_options.size * 2;
+    auto voxel_res = voxel_options.res / 2;
 
     // Bind voxel options
     {
         auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
         auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
         *buffer = voxel_options;
-        buffer->size *= 2;
-        buffer->res /= 2;
+        buffer->size = voxel_size;
+        buffer->res  = voxel_res;
 
         api.bind_buffer(generate_aniso_base, 0, u_pos);
     }
 
     // use the RGBA8 format defined at creation in view_formats
     {
-    auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        auto &image = api.get_image(voxels_radiance);
+        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
     api.bind_combined_image_sampler(generate_aniso_base, 1, voxels_radiance, voxels_sampler);
 
@@ -1261,27 +1263,27 @@ void Renderer::generate_aniso_voxels()
         api.bind_images(generate_aniso_base, 2, voxels_directional_volumes, views);
     }
 
-    // the first directional volumes have 2 times less voxels
-    auto count = voxel_options.res / 2;
-    count /= 8; // local size
+    auto count = voxel_res / 8; // local compute size
     api.dispatch(generate_aniso_base, count, count, count);
 
     cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
 
     for (uint mip_i = 0; count > 1; mip_i++)
     {
-        count /= 2;
+        count      /= 2;
+        voxel_size *= 2;
+        voxel_res  /= 2;
+
         auto src = mip_i;
         auto dst = mip_i + 1;
-
 
         // Bind voxel options
         {
             auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
             auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
             *buffer = voxel_options;
-            buffer->size *= 2 * (dst + 1);
-            buffer->res /= 2 * (dst + 1);
+            buffer->size = voxel_size;
+            buffer->res  = voxel_res;
 
             api.bind_buffer(generate_aniso_mipmap, 0, u_pos);
         }
