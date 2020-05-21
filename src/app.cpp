@@ -3,6 +3,7 @@
 #include <imgui.h>
 #endif
 #include <iostream>
+#include <sstream>
 #include "file_watcher.hpp"
 
 namespace my_app
@@ -39,7 +40,12 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
             return;
         }
 
-        this->renderer.reload_shader("shaders", event);
+
+        std::stringstream shader_name_stream;
+        shader_name_stream << "shaders/" << event.name;
+        std::string shader_name = shader_name_stream.str();
+
+        this->renderer.reload_shader(shader_name);
     });
 }
 

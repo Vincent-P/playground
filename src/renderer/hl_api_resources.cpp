@@ -533,12 +533,12 @@ CircularBufferPosition API::dynamic_index_buffer(usize len)
 
 /// --- Shaders
 
-ShaderH API::create_shader(const std::string &path)
+ShaderH API::create_shader(std::string_view path)
 {
     Shader shader;
 
     shader.name = path;
-    auto code   = tools::read_file(path.c_str());
+    auto code   = tools::read_file(path);
     // keep code for reflection?
 
     vk::ShaderModuleCreateInfo info{};
@@ -719,7 +719,9 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
 
     program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
-    program.info            = std::move(info);
+
+
+    program.info             = std::move(info);
 
     program.data_dirty = true;
 
@@ -731,7 +733,13 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     pinfo.stage.module = *compute_shader.vkhandle;
     pinfo.stage.pName  = "main";
     pinfo.layout       = *program.pipeline_layout;
-    program.vkpipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+
+    program.pipelines_vk.emplace_back();
+    auto &pipeline = program.pipelines_vk.back();
+    pipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+
+    program.pipelines_info.push_back(std::move(pinfo));
+
 
     return compute_programs.add(std::move(program));
 }

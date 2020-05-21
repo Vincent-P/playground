@@ -303,6 +303,11 @@ inline bool operator==(const ComputeProgramInfo &a, const ComputeProgramInfo &b)
         && a.bindings == b.bindings;
 }
 
+inline bool operator!=(const ComputeProgramInfo &a, const ComputeProgramInfo &b)
+{
+    return !(a == b);
+}
+
 // TODO: smart fields
 struct PipelineInfo
 {
@@ -374,9 +379,9 @@ struct ComputeProgram
     std::vector<DescriptorSet> descriptor_sets;
     usize current_descriptor_set;
 
-    vk::UniquePipeline vkpipeline;
-
     ComputeProgramInfo info;
+    std::vector<vk::ComputePipelineCreateInfo> pipelines_info;
+    std::vector<vk::UniquePipeline> pipelines_vk;
 };
 
 inline bool operator==(const ComputeProgram &a, const ComputeProgram &b)
@@ -516,7 +521,7 @@ struct API
     void destroy_buffer(BufferH H);
     void upload_buffer(BufferH H, void *data, usize len);
 
-    ShaderH create_shader(const std::string &path);
+    ShaderH create_shader(std::string_view path);
     Shader &get_shader(ShaderH H);
     void destroy_shader(ShaderH H);
 

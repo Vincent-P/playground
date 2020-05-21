@@ -75,8 +75,8 @@ void main()
     vec3 p0 = (cam.position.xyz - voxel_options.center) / (voxel_options.size);
 
     vec3 cam_right = cross(normalize(cam.front.xyz), normalize(cam.up.xyz));
-    float x = inUV.x;
-    float y = - inUV.y * 9 / 16;
+    float x = 2 * inUV.x - 1.0;
+    float y = - (2 * inUV.y - 1.0) * 9 / 16;
     vec3 d = normalize(cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz));
 
     vec4 color = vec4(0);

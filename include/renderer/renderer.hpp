@@ -34,7 +34,7 @@ struct Renderer
     void on_resize(int width, int height);
     void wait_idle();
 
-    void reload_shader(const char* prefix_path, const Event& shader_event);
+    void reload_shader(std::string_view shader_name);
 
     // glTF
     void load_model_data();

@@ -10,7 +10,6 @@
 #include "file_watcher.hpp"
 #include "types.hpp"
 #include <iostream>
-#include <sstream>
 
 
 namespace my_app
@@ -479,12 +478,8 @@ void Renderer::wait_idle()
     api.wait_idle();
 }
 
-void Renderer::reload_shader(const char *prefix_path, const Event &shader_event)
+void Renderer::reload_shader(std::string_view shader_name)
 {
-    std::stringstream shader_name_stream;
-    shader_name_stream << prefix_path << '/' << shader_event.name;
-    std::string shader_name = shader_name_stream.str();
-
     std::cout << shader_name << " changed!\n";
 
     // Find the shader that needs to be updated
@@ -522,11 +517,29 @@ void Renderer::reload_shader(const char *prefix_path, const Event &shader_event)
             }
         }
 
+        if (program.info.geom_shader.is_valid()) {
+            auto &geom_shader = api.get_shader(program.info.geom_shader);
+            if (geom_shader.name == shader.name) {
+                to_remove.push_back(program.info.geom_shader);
+                program.info.geom_shader = new_shader;
+            }
+        }
+
         if (program.info.fragment_shader.is_valid()) {
             auto &fragment_shader = api.get_shader(program.info.fragment_shader);
             if (fragment_shader.name == shader.name) {
                 to_remove.push_back(program.info.fragment_shader);
                 program.info.fragment_shader = new_shader;
+            }
+        }
+    }
+
+    for (auto &program : api.compute_programs) {
+        if (program.info.shader.is_valid()) {
+            auto &compute_shader = api.get_shader(program.info.shader);
+            if (compute_shader.name == shader.name) {
+                to_remove.push_back(program.info.shader);
+                program.info.shader = new_shader;
             }
         }
     }
@@ -1107,7 +1120,7 @@ void Renderer::visualize_voxels()
     pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1144,6 +1157,10 @@ void Renderer::inject_direct_lighting()
     static auto s_max_dist          = static_cast<float>(voxel_options.res);
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Direct Lighting");
+    if (ImGui::Button("Reload shader"))
+    {
+        reload_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+    }
     ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
     ImGui::SliderFloat("Point light scale", &s_scale, 0.0f, 1000.f);
     ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);

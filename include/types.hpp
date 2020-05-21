@@ -78,16 +78,21 @@ struct Handle
 {
     static Handle invalid() { return Handle(u32_invalid); }
     Handle() : index(u32_invalid) {}
-    explicit Handle(u32 i) : index(i) {}
+    explicit Handle(u32 i) : index(i)
+    {
+        static u32 cur_gen = 0;
+        gen = cur_gen++;
+    }
 
     [[nodiscard]] u32 value() const { return index; }
-    [[nodiscard]] bool is_valid() const { return *this != invalid(); }
+    [[nodiscard]] bool is_valid() const { return index != u32_invalid; }
 
-    friend bool operator==(Handle a, Handle b) { return a.index == b.index; }
-    friend bool operator!=(Handle a, Handle b) { return a.index != b.index; }
+    friend bool operator==(Handle a, Handle b) { return a.index == b.index && a.gen == b.gen; }
+    friend bool operator!=(Handle a, Handle b) { return !(a == b); }
 
   private:
     u32 index;
+    u32 gen;
 };
 
 /// --- Arena allocator

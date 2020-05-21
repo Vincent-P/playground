@@ -271,34 +271,14 @@ void API::end_pass()
 
 static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
 {
-    const auto &program_info = pipeline_info.program_info;
+    // const auto &program_info = pipeline_info.program_info;
     u32 pipeline_i           = u32_invalid;
 
     for (u32 i = 0; i < program.pipelines_info.size(); i++) {
         const auto &cur_pipeline_info = program.pipelines_info[i];
         if (cur_pipeline_info == pipeline_info) {
-
-            // A deep comparison is needed since the operator== only check if handles are the same index
-            bool same = true;
-
-            const auto &cur_program_info = cur_pipeline_info.program_info;
-
-            if (program_info.vertex_shader.is_valid()) {
-                same &= api.get_shader(program_info.vertex_shader) == api.get_shader(cur_program_info.vertex_shader);
-            }
-
-            if (program_info.geom_shader.is_valid()) {
-                same &= api.get_shader(program_info.geom_shader) == api.get_shader(cur_program_info.geom_shader);
-            }
-
-            if (program_info.fragment_shader.is_valid()) {
-                same &= api.get_shader(program_info.fragment_shader) == api.get_shader(cur_program_info.fragment_shader);
-            }
-
-            if (same) {
-                pipeline_i = i;
-                break;
-            }
+            pipeline_i = i;
+            break;
         }
     }
 
@@ -844,8 +824,32 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = *frame_resource.command_buffer;
 
+    const auto &compute_shader = get_shader(program.info.shader);
 
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *program.vkpipeline);
+    vk::ComputePipelineCreateInfo pinfo{};
+    pinfo.stage.stage  = vk::ShaderStageFlagBits::eCompute;
+    pinfo.stage.module = *compute_shader.vkhandle;
+    pinfo.stage.pName  = "main";
+    pinfo.layout       = *program.pipeline_layout;
+
+    usize pipeline_i = ~0u;
+    for (usize i = 0; i < program.pipelines_info.size(); i++)
+    {
+        if (program.pipelines_info[i] == pinfo) {
+            pipeline_i = i;
+        }
+    }
+
+    if (pipeline_i == ~0u)
+    {
+        pipeline_i = program.pipelines_vk.size();
+        program.pipelines_vk.emplace_back();
+        auto &pipeline = program.pipelines_vk.back();
+        pipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+    }
+
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *program.pipelines_vk[pipeline_i]);
 
     /// --- Find and bind descriptor set
     if (program.data_dirty) {
