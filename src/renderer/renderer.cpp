@@ -50,14 +50,14 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
         // clang-format off
-        pinfo.push_constant({/*.stages = */ vk::ShaderStageFlagBits::eVertex, /*.offset = */ 0, /*.size = */ 4 * sizeof(float)});
-        pinfo.binding({/* .set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0, /*.stages = */ vk::ShaderStageFlagBits::eFragment, /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.push_constant({.stages =  vk::ShaderStageFlagBits::eVertex, .offset =  0, .size =  4 * sizeof(float)});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0, .stages =  vk::ShaderStageFlagBits::eFragment, .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
         // clang-format on
         pinfo.vertex_stride(sizeof(ImDrawVert));
 
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, pos)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(ImDrawVert, uv)});
-        pinfo.vertex_info({vk::Format::eR8G8B8A8Unorm, MEMBER_OFFSET(ImDrawVert, col)});
+        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
+        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
+        pinfo.vertex_info({.format = vk::Format::eR8G8B8A8Unorm,.offset =  MEMBER_OFFSET(ImDrawVert, col)});
 
         r.gui_program = r.api.create_program(std::move(pinfo));
     }
@@ -131,19 +131,19 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.fragment_shader = r.api.create_shader("shaders/gltf_depth_only.frag.spv");
 
         // camera uniform buffer
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eVertex,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eVertex,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // node transform
-        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eVertex,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eVertex,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // base color texture
-        pinfo.binding({/* .set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({ .set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
@@ -223,37 +223,37 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.fragment_shader = r.api.create_shader("shaders/voxelization.frag.spv");
 
         // voxel options
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // projection cameras
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eGeometry,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eGeometry,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // voxels textures
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
         // node transform
-        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eVertex,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eVertex,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // color texture
-        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
         // normal texture
-        pinfo.binding({/*.set = */ vulkan::DRAW_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
@@ -274,28 +274,28 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
 
         // voxel options
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
         // camera
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
         // debug
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // voxels textures
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 4,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 5,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  5,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
         r.visualization = r.api.create_program(std::move(pinfo));
     }
@@ -305,28 +305,28 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.shader = r.api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
 
         // voxel options
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // directional light
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // voxels textures
         // albedo
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
         // normal
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
         // radiance
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 4,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
         r.inject_radiance = r.api.create_program(std::move(pinfo));
     }
@@ -335,20 +335,20 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
         // voxel options
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // radiance
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
         // aniso volumes
         u32 count = r.voxels_directional_volumes.size();
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
         r.generate_aniso_base = r.api.create_program(std::move(pinfo));
     }
 
@@ -357,26 +357,26 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
 
         // voxel options
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         // mip src
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         u32 count = r.voxels_directional_volumes.size();
 
         // radiance
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 2,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
 
         // aniso volumes
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 3,
-                       /*.stages = */ vk::ShaderStageFlagBits::eCompute,
-                       /*.type = */ vk::DescriptorType::eStorageImage, /*.count = */ count});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
         r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
     }
 
@@ -385,13 +385,13 @@ Renderer Renderer::create(const Window &window, Camera &camera)
         pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/hdr_compositing.frag.spv");
 
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 0,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eCombinedImageSampler, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
-        pinfo.binding({/*.set = */ vulkan::SHADER_DESCRIPTOR_SET, /*.slot = */ 1,
-                       /*.stages = */ vk::ShaderStageFlagBits::eFragment,
-                       /*.type = */ vk::DescriptorType::eUniformBufferDynamic, /*.count = */ 1});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eFragment,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
         r.hdr_compositing = r.api.create_program(std::move(pinfo));
     }
