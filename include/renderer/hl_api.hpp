@@ -2,14 +2,15 @@
 
 #include "renderer/vlk_context.hpp"
 #include "types.hpp"
+
+#include <iostream>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include <string_view>
 #include <vulkan/vulkan.hpp>
-#include <iostream>
 
 /***
  * The HL API is a Vulkan abstraction.
@@ -56,10 +57,10 @@ struct Image
     vk::ImageLayout layout;
     vk::ImageSubresourceRange full_range;
 
-    vk::ImageView default_view;               // view with the default format (image_info.format) and full range
+    vk::ImageView default_view; // view with the default format (image_info.format) and full range
     std::vector<vk::Format> extra_formats;
-    std::vector<vk::ImageView> format_views;  // extra views for each image_info.extra_formats
-    std::vector<vk::ImageView> mip_views;     // mip slices with defaut format
+    std::vector<vk::ImageView> format_views; // extra views for each image_info.extra_formats
+    std::vector<vk::ImageView> mip_views;    // mip slices with defaut format
 
     vk::Sampler default_sampler;
 };
@@ -97,13 +98,10 @@ struct Buffer
     vk::BufferUsageFlags usage;
     void *mapped;
     usize size;
+
+    bool operator==(const Buffer &b) const = default;
 };
 using BufferH = Handle<Buffer>;
-
-inline bool operator==(const Buffer &a, const Buffer &b)
-{
-    return a.vkhandle == b.vkhandle;
-}
 
 struct RTInfo
 {
@@ -127,11 +125,9 @@ struct FrameBufferInfo
     u32 width;
     u32 height;
     vk::RenderPass render_pass; // renderpass info instead?
+
+    bool operator==(const FrameBufferInfo &b) const = default;
 };
-inline bool operator==(const FrameBufferInfo &a, const FrameBufferInfo &b)
-{
-    return a.image_view == b.image_view && a.render_pass == b.render_pass && a.width == b.width && a.height == b.height;
-}
 
 struct FrameBuffer
 {
@@ -143,12 +139,9 @@ struct AttachmentInfo
 {
     vk::AttachmentLoadOp load_op = vk::AttachmentLoadOp::eDontCare;
     RenderTargetH rt;
-};
 
-inline bool operator==(const AttachmentInfo &a, const AttachmentInfo &b)
-{
-    return a.load_op == b.load_op && a.rt == b.rt;
-}
+    bool operator==(const AttachmentInfo &b) const = default;
+};
 
 struct PassInfo
 {
@@ -159,24 +152,20 @@ struct PassInfo
     // param for vk::FrameBuffer
     std::optional<AttachmentInfo> color;
     std::optional<AttachmentInfo> depth;
-};
 
-// compatible passes
-inline bool operator==(const PassInfo &a, const PassInfo &b)
-{
-    return a.present == b.present && a.samples == b.samples && a.color == b.color && a.depth == b.depth;
-}
+    bool operator==(const PassInfo &b) const = default;
+};
 
 struct RenderPass
 {
     PassInfo info;
     vk::UniqueRenderPass vkhandle;
-};
 
-inline bool operator==(const RenderPass &a, const RenderPass &b)
-{
-    return a.info == b.info && *a.vkhandle == *b.vkhandle;
-}
+    bool operator==(const RenderPass &b) const
+    {
+        return info == b.info && *vkhandle == *b.vkhandle;
+    }
+};
 
 using RenderPassH = Handle<RenderPass>;
 
@@ -189,15 +178,14 @@ struct Shader
 {
     std::string name;
     vk::UniqueShaderModule vkhandle;
+
+    bool operator==(const Shader &b) const
+    {
+        return name == b.name && *vkhandle == *b.vkhandle;
+    }
 };
 
 using ShaderH = Handle<Shader>;
-
-inline bool operator==(const Shader &a, const Shader &b)
-{
-    return a.name == b.name && *a.vkhandle == *b.vkhandle;
-}
-
 
 // replace with vk::PushConstantRange?
 // i like the name of this members as params
@@ -206,12 +194,9 @@ struct PushConstantInfo
     vk::ShaderStageFlags stages;
     u32 offset;
     u32 size;
-};
 
-inline bool operator==(const PushConstantInfo &a, const PushConstantInfo &b)
-{
-    return a.stages == b.stages && a.offset == b.offset && a.size == b.size;
-}
+    bool operator==(const PushConstantInfo &) const = default;
+};
 
 // replace with vk::DescriptorSetLayoutBinding?
 // i like the name of this members as params
@@ -222,34 +207,25 @@ struct BindingInfo
     vk::ShaderStageFlags stages;
     vk::DescriptorType type;
     u32 count;
-};
 
-inline bool operator==(const BindingInfo &a, const BindingInfo &b)
-{
-    return a.set == b.set && a.slot == b.slot && a.stages == b.stages && a.type == b.type && a.count == b.count;
-}
+    bool operator==(const BindingInfo &) const = default;
+};
 
 struct VertexInfo
 {
     vk::Format format;
     u32 offset;
-};
 
-inline bool operator==(const VertexInfo &a, const VertexInfo &b)
-{
-    return a.format == b.format && a.offset == b.offset;
-}
+    bool operator==(const VertexInfo &) const = default;
+};
 
 struct VertexBufferInfo
 {
     u32 stride;
     std::vector<VertexInfo> vertices_info;
-};
 
-inline bool operator==(const VertexBufferInfo &a, const VertexBufferInfo &b)
-{
-    return a.stride == b.stride && a.vertices_info == b.vertices_info;
-}
+    bool operator==(const VertexBufferInfo &) const = default;
+};
 
 struct GraphicsProgramInfo
 {
@@ -266,24 +242,13 @@ struct GraphicsProgramInfo
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
 
+    bool operator==(const GraphicsProgramInfo &) const = default;
+
     void push_constant(PushConstantInfo &&push_constant);
     void binding(BindingInfo &&binding);
     void vertex_stride(u32 value);
     void vertex_info(VertexInfo &&info);
 };
-
-inline bool operator==(const GraphicsProgramInfo &a, const GraphicsProgramInfo &b)
-{
-    return    a.vertex_shader == b.vertex_shader
-           && a.geom_shader == b.geom_shader
-           && a.fragment_shader == b.fragment_shader
-           && a.push_constants == b.push_constants
-           && a.bindings_by_set == b.bindings_by_set
-           && a.vertex_buffer_info == b.vertex_buffer_info
-           && a.enable_depth_test == b.enable_depth_test
-           && a.enable_depth_write == b.enable_depth_write
-           && a.enable_conservative_rasterization == b.enable_conservative_rasterization;
-}
 
 struct ComputeProgramInfo
 {
@@ -292,21 +257,11 @@ struct ComputeProgramInfo
     std::vector<PushConstantInfo> push_constants;
     std::vector<BindingInfo> bindings;
 
+    bool operator==(const ComputeProgramInfo &) const = default;
+
     void push_constant(PushConstantInfo &&push_constant);
     void binding(BindingInfo &&binding);
 };
-
-inline bool operator==(const ComputeProgramInfo &a, const ComputeProgramInfo &b)
-{
-    return a.shader == b.shader
-        && a.push_constants == b.push_constants
-        && a.bindings == b.bindings;
-}
-
-inline bool operator!=(const ComputeProgramInfo &a, const ComputeProgramInfo &b)
-{
-    return !(a == b);
-}
 
 // TODO: smart fields
 struct PipelineInfo
@@ -315,7 +270,9 @@ struct PipelineInfo
     vk::PipelineLayout pipeline_layout;
     RenderPassH render_pass;
 
-    bool operator==(const PipelineInfo &other) const { return program_info == other.program_info && render_pass == other.render_pass; }
+    bool operator==(const PipelineInfo &) const = default;
+    // bool operator==(const PipelineInfo &other) const { return program_info == other.program_info && render_pass ==
+    // other.render_pass; }
 };
 
 struct DescriptorSet
@@ -331,15 +288,9 @@ struct ShaderBinding
     std::vector<vk::DescriptorImageInfo> images_info;
     vk::BufferView buffer_view;
     vk::DescriptorBufferInfo buffer_info;
+
+    bool operator==(const ShaderBinding &) const = default;
 };
-
-inline bool operator==(const ShaderBinding &a, const ShaderBinding &b)
-{
-    return a.binding == b.binding && a.type == b.type && a.images_info == b.images_info && a.buffer_view == b.buffer_view
-	   && a.buffer_info == b.buffer_info;
-}
-
-inline bool operator!=(const ShaderBinding &a, const ShaderBinding &b) { return !(a == b); }
 
 struct GraphicsProgram
 {
@@ -358,12 +309,12 @@ struct GraphicsProgram
 
     GraphicsProgramInfo info;
     std::array<usize, MAX_DESCRIPTOR_SET> dynamic_count_by_set;
-};
 
-inline bool operator==(const GraphicsProgram &a, const GraphicsProgram &b)
-{
-    return a.info == b.info;
-}
+    bool operator==(const GraphicsProgram &b) const
+    {
+        return info == b.info;
+    }
+};
 
 using GraphicsProgramH = Handle<GraphicsProgram>;
 
@@ -382,12 +333,12 @@ struct ComputeProgram
     ComputeProgramInfo info;
     std::vector<vk::ComputePipelineCreateInfo> pipelines_info;
     std::vector<vk::UniquePipeline> pipelines_vk;
-};
 
-inline bool operator==(const ComputeProgram &a, const ComputeProgram &b)
-{
-    return a.info == b.info;
-}
+    bool operator==(const ComputeProgram &b) const
+    {
+        return info == b.info;
+    }
+};
 
 using ComputeProgramH = Handle<ComputeProgram>;
 
@@ -457,17 +408,26 @@ struct API
     void end_pass();
     void bind_program(GraphicsProgramH H);
 
-    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view = std::nullopt);
-    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
+                    std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h,
+                    std::optional<vk::ImageView> image_view = std::nullopt);
 
-    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view);
-    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view);
+    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h,
+                     const std::vector<vk::ImageView> &images_view);
+    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
+                     const std::vector<vk::ImageView> &images_view);
 
-    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
-    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
+                                     SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
+    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h,
+                                     std::optional<vk::ImageView> image_view = std::nullopt);
 
-    void bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view);
-    void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view);
+    void bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot,
+                                      const std::vector<ImageH> &images_h, SamplerH sampler_h,
+                                      const std::vector<vk::ImageView> &images_view);
+    void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
+                                      SamplerH sampler_h, const std::vector<vk::ImageView> &images_view);
 
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
@@ -479,8 +439,8 @@ struct API
 
     template <typename T> T *bind_uniform()
     {
-	auto pos = map_circular_buffer_internal(*this, staging_buffer, sizeof(T));
-	return pos.mapped;
+        auto pos = map_circular_buffer_internal(*this, staging_buffer, sizeof(T));
+        return pos.mapped;
     }
 
     void bind_vertex_buffer(BufferH H, u32 offset = 0);
@@ -536,7 +496,8 @@ struct API
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range);
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout,
+                                   vk::ImageSubresourceRange &range);
 
 inline ThsvsAccessType access_from_layout(vk::ImageLayout layout)
 {

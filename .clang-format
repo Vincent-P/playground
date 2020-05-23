@@ -1,25 +1,29 @@
 ﻿---
 IndentWidth: 4
-ColumnLimit: 200
+ColumnLimit: 120
+AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Right
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
+BinPackArguments: false
+BreakBeforeBinaryOperators: All
+BreakBeforeBraces: Allman
+BreakConstructorInitializers: BeforeComma
+BreakStringLiterals: true
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IndentCaseLabels: true
+IndentPPDirectives: AfterHash
+NamespaceIndentation: None
 PointerAlignment: Right
-BreakBeforeBinaryOperators: true
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterCaseLabel: true
-  AfterClass: true
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: true
-  AfterUnion: true
-  AfterExternBlock: true
-  BeforeCatch: true
-  BeforeElse: true
-  IndentBraces: false
-  SplitEmptyFunction: false
-  SplitEmptyRecord: false
-  SplitEmptyNamespace: false
+ReflowComments: true
+SortIncludes: true
+Standard: c++17
+UseCRLF: false
+UseTab: Never
