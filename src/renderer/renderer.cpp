@@ -9,6 +9,7 @@
 #endif
 #include "file_watcher.hpp"
 #include "types.hpp"
+#include "timer.hpp"
 #include <iostream>
 
 
@@ -21,11 +22,13 @@ struct ShaderDebug
     float opacity;
 };
 
-Renderer Renderer::create(const Window &window, Camera &camera)
+    Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer)
 {
     Renderer r;
     r.api      = vulkan::API::create(window);
+    r.p_window = &window;
     r.p_camera = &camera;
+    r.p_timer  = &timer;
 
     /// --- Init ImGui
 
@@ -1397,8 +1400,88 @@ void Renderer::composite_hdr()
     api.end_label();
 }
 
+void draw_fps(Renderer &renderer)
+{
+#if defined(ENABLE_IMGUI)
+    ImGuiIO &io  = ImGui::GetIO();
+    const auto &window = *renderer.p_window;
+    const auto &timer = *renderer.p_timer;
+
+    io.DeltaTime = timer.get_delta_time();
+    io.Framerate = timer.get_average_fps();
+
+
+    io.DisplaySize.x             = float(renderer.api.ctx.swapchain.extent.width);
+    io.DisplaySize.y             = float(renderer.api.ctx.swapchain.extent.height);
+    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+
+    static bool init = true;
+    if (init) {
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / window.get_dpi_scale().x - 120.0f, 10.0f * window.get_dpi_scale().y));
+        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+    }
+    else {
+        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
+    }
+    init = false;
+
+    static bool show_fps = false;
+
+    if (ImGui::RadioButton("FPS", show_fps)) {
+        show_fps = true;
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::RadioButton("ms", !show_fps)) {
+        show_fps = false;
+    }
+
+    if (show_fps) {
+        ImGui::SetCursorPosX(20.0f);
+        ImGui::Text("%7.1f", double(timer.get_average_fps()));
+
+        const auto &histogram = timer.get_fps_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+    }
+    else {
+        ImGui::SetCursorPosX(20.0f);
+        ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
+
+        const auto &histogram = timer.get_delta_time_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+    }
+
+    // 10 is the number of heaps of the device 10 should be fine?
+    std::array<VmaBudget, 10> budgets{};
+    vmaGetBudget(renderer.api.ctx.allocator, budgets.data());
+
+    for (usize i = 0; i < budgets.size(); i++)
+    {
+        const auto& budget = budgets[i];
+        if (budget.blockBytes == 0) {
+            continue;
+        }
+
+        ImGui::Text("Heap #%llu", i);
+        ImGui::Text("Block bytes: %llu", budget.blockBytes);
+        ImGui::Text("Allocation bytes: %llu", budget.allocationBytes);
+        ImGui::Text("Usage: %llu", budget.usage);
+        ImGui::Text("Budget: %llu", budget.budget);
+        ImGui::Text("Total: %llu", budget.usage + budget.budget);
+        double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
+        ImGui::Text("%02.2f%%", utilization);
+    }
+
+    ImGui::End();
+#endif
+}
+
 void Renderer::draw()
 {
+    draw_fps(*this);
+
     bool is_ok = api.start_frame();
     if (!is_ok) {
 #if defined(ENABLE_IMGUI)

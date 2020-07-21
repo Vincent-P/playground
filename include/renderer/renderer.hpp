@@ -15,6 +15,7 @@ namespace my_app
 {
 struct Model;
 struct Event;
+class TimerData;
 
 struct VoxelDebug
 {
@@ -27,7 +28,7 @@ struct Renderer
 {
     vulkan::API api;
 
-    static Renderer create(const Window &window, Camera &camera);
+    static Renderer create(const Window &window, Camera &camera, TimerData &timer);
     void destroy();
 
     void draw();
@@ -53,7 +54,10 @@ struct Renderer
     vulkan::RenderTargetH depth_rt;
     vulkan::RenderTargetH color_rt;
     vulkan::RenderTargetH swapchain_rt;
+
+    const Window *p_window;
     Camera *p_camera;
+    TimerData *p_timer;
 
     vulkan::SamplerH default_sampler;
     vulkan::GraphicsProgramH hdr_compositing;

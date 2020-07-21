@@ -19,7 +19,6 @@ class App
     void run();
 
   private:
-    void draw_fps();
     void camera_update();
     void update();
 

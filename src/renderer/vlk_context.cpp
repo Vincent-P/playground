@@ -84,6 +84,7 @@ Context Context::create(const Window &window)
         instance_extensions.push_back(required_extensions[i]);
     }
 
+    instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
@@ -151,6 +152,7 @@ Context Context::create(const Window &window)
     std::vector<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+    device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 
     ctx.physical_device_features       = vk::PhysicalDeviceFeatures2{};
     ctx.vulkan12_features              = vk::PhysicalDeviceVulkan12Features{};
@@ -205,15 +207,18 @@ Context Context::create(const Window &window)
     ctx.physical_props = ctx.physical_device.getProperties();
 
     /// --- Init VMA allocator
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice         = ctx.physical_device;
-    allocatorInfo.device                 = *ctx.device;
-    vmaCreateAllocator(&allocatorInfo, &ctx.allocator);
+    VmaAllocatorCreateInfo allocator_info = {};
+    allocator_info.vulkanApiVersion       = VK_API_VERSION_1_2;
+    allocator_info.physicalDevice         = ctx.physical_device;
+    allocator_info.device                 = *ctx.device;
+    allocator_info.instance               = *ctx.instance;
+    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+    vmaCreateAllocator(&allocator_info, &ctx.allocator);
 
     /// --- Create the swapchain
     ctx.create_swapchain();
 
-    ctx.create_frame_resources(2);
+    ctx.create_frame_resources(1);
 
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{

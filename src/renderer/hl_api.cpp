@@ -138,6 +138,7 @@ void API::end_frame()
     }
     ctx.frame_count += 1;
     ctx.frame_resources.current = ctx.frame_count % ctx.frame_resources.data.size();
+    vmaSetCurrentFrameIndex(ctx.allocator, ctx.frame_count);
 }
 
 void API::wait_idle() { ctx.device->waitIdle(); }

@@ -1,24 +1,23 @@
 cmake_minimum_required(VERSION 3.17)
 
-cmake_policy(SET CMP0091 NEW) # makes MSVC_RUNTIME_LIBRARY variable work
-
 # Setup the vcpkg toolchain to get packages
 if(DEFINED ENV{VCPKG_ROOT})
   set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
 
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # Put binaries at the root of the build folder
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+cmake_policy(SET CMP0091 NEW) # makes MSVC_RUNTIME_LIBRARY variable work
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>") # Specify MSVC runtime to link libraries correctly
 
 project(test-vulkan LANGUAGES CXX)
 
 add_compile_options(
   -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
-  -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
+  -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
   )
 
 # Enable ASAN
