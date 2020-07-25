@@ -17,8 +17,8 @@ layout (set = 1, binding = 2) uniform UBODebug {
 } debug;
 
 
-layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
-layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
+layout(set = 1, binding = 3, rgba16) uniform image3D voxels_albedo;
+layout(set = 1, binding = 4, rgba16) uniform image3D voxels_normal;
 layout(set = 1, binding = 5, rgba8) uniform image3D voxels_radiance;
 
 
@@ -39,10 +39,10 @@ float mincomp(vec3 v) {
         while (t < MAX_DIST) {                                          \
             vec3 p = p0 + d * t;                                        \
             ivec3 voxel_pos = ivec3(floor(p));                          \
-            uint voxel = imageLoad(voxels, voxel_pos).r;                \
-            if (voxel != 0)                                             \
+            vec4 voxel = imageLoad(voxels, voxel_pos);                \
+            if (voxel.a != 0.0)                                             \
             {                                                           \
-                ret = vec4(abs(unpackUnorm4x8(voxel)).rgb, debug.opacity);\
+                ret = vec4(voxel.rgb, debug.opacity);\
                 break;                                                  \
             }                                                           \
                                                                         \
@@ -85,6 +85,7 @@ void main()
     }
     else if (debug.selected == 2) {
         PlaneMarchUint(color, voxels_normal, p0, d);
+        color = normalize(color);
     }
     else if (debug.selected == 3) {
         PlaneMarch(color, voxels_radiance, p0, d);

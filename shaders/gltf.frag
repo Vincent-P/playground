@@ -19,6 +19,8 @@ layout (set = 1, binding = 1) uniform UBODebug {
     float opacity;
     float trace_dist;
     float occlusion_lambda;
+    float sampling_factor;
+    float start;
 } debug;
 
 layout (set = 1, binding = 2) uniform VO {
@@ -86,9 +88,10 @@ vec4 TraceCone(vec3 origin, vec3 direction, float aperture, float max_dist)
 
     vec4 cone_sampled = vec4(0.0);
     vec3 p = origin;
-    float d = 1.0 * voxel_options.size;
+    float d = debug.start * voxel_options.size;
 
     float occlusion = 0.0;
+    float sampling_factor = debug.sampling_factor < 0.2 ? 0.2 : debug.sampling_factor;
 
     while (cone_sampled.a < 1.0f && d < max_dist)
     {
@@ -103,7 +106,7 @@ vec4 TraceCone(vec3 origin, vec3 direction, float aperture, float max_dist)
         cone_sampled += (1.0 - cone_sampled) * sampled;
         occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + debug.occlusion_lambda * diameter);
 
-        d += diameter;
+        d += diameter * sampling_factor;
     }
 
     return vec4(cone_sampled.rgb , 1.0 - occlusion);
@@ -170,10 +173,14 @@ void main()
     indirect.rgb = vec3(1.0);
     direct = vec3(0.0);
 
+    // show indirect
+    // direct = base_color.rgb;
+
     // to linear
     indirect.rgb = pow(indirect.rgb, vec3(2.2f));
 
-    composite = (direct + indirect.rgb) * indirect.a;
+    // ao
+    composite = indirect.rgb * indirect.a;
 
     // to srgb
     composite = pow(composite, vec3(1.0 / 2.2));

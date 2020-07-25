@@ -8,18 +8,6 @@ namespace my_app::vulkan
 // TODO: multiple render targets, multisampling
 static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    if (info.color) {
-        auto color_rt  = api.get_rendertarget(info.color->rt);
-        if (color_rt.is_swapchain)
-        {
-            if (api.first_swapchain_pass_of_frame)
-            {
-                info.color->load_op = vk::AttachmentLoadOp::eClear;
-                api.first_swapchain_pass_of_frame = false;
-            }
-        }
-    }
-
     for (auto it = api.renderpasses.begin(); it != api.renderpasses.end(); ++it) {
         const auto &render_pass = *it;
         if (render_pass.info == info) {
@@ -129,10 +117,8 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     return api.renderpasses.add(std::move(rp));
 }
 
-// TODO: render targets other than one swapchain image
 static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo &info, const RenderPass &render_pass)
 {
-
     for (auto &framebuffer : api.framebuffers) {
         if (framebuffer.info == info) {
             return framebuffer;
@@ -172,7 +158,7 @@ void API::begin_pass(PassInfo &&info)
     FrameBufferInfo fb_info;
 
     if (render_pass.info.color) {
-        bool is_swapchain = render_pass.info.color && get_rendertarget(render_pass.info.color->rt).is_swapchain;
+        bool is_swapchain = get_rendertarget(render_pass.info.color->rt).is_swapchain;
         if (!is_swapchain) {
             const auto &rt     = get_rendertarget(render_pass.info.color->rt);
             const auto &image  = get_image(rt.image_h);
@@ -292,6 +278,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         const auto &render_pass        = *api.renderpasses.get(pipeline_info.render_pass);
 
         // TODO: support 0 or more than 1 vertex buffer
+        // but full screen triangle already works without vertex buffer?
         std::array<vk::VertexInputBindingDescription, 1> bindings;
         bindings[0].binding   = 0;
         bindings[0].stride    = vertex_buffer_info.stride;
@@ -553,11 +540,6 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
-        if (false && data.type == vk::DescriptorType::eStorageImage && image.layout != vk::ImageLayout::eGeneral)
-        {
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
-        }
-
         assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
 
         data.images_info.push_back({});
@@ -619,10 +601,6 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
     {
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
-
-        if (false) {
-            transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
-        }
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();

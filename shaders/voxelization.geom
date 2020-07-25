@@ -37,6 +37,7 @@ void main(void)
         outNormal = inNormal[i];
         outUV0 = inUV0[i];
         outUV1 = inUV1[i];
+
         EmitVertex();
     }
     EndPrimitive();

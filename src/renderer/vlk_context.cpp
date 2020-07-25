@@ -218,7 +218,7 @@ Context Context::create(const Window &window)
     /// --- Create the swapchain
     ctx.create_swapchain();
 
-    ctx.create_frame_resources(1);
+    ctx.create_frame_resources(FRAME_IN_FLIGHT);
 
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{

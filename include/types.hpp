@@ -115,7 +115,6 @@ template <typename T> struct Handle
 };
 
 /// --- Arena allocator
-// TODO: iterator type to be able to use ranged-based for loops, the iterator should only return values not handles...
 template <typename T> class Arena
 {
     class Iterator

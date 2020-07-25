@@ -33,7 +33,7 @@ struct VoxelOptions
             count   = uint(currVec4.a*255.0f);  /*extract count*/                              \
                                                                                                \
             /*Compute the running average*/                                                    \
-            average = (average*count + value) / (count+1);                                     \
+            average = (average*count + value) / (count+1);                                \
                                                                                                \
             /*Pack new average and incremented count back into a uint*/                        \
             nextUint = packUnorm4x8(vec4(average, (count+1)/255.0f));                          \
@@ -50,6 +50,11 @@ vec3 WorldToVoxelTex(vec3 world_pos, VoxelOptions options)
 {
     vec3 voxel_pos = (world_pos - floor(options.center)) / options.size;
     return voxel_pos / options.res;
+}
+
+vec3 VoxelToWorld(ivec3 voxel_pos, VoxelOptions options)
+{
+    return (options.size * voxel_pos) + options.center;
 }
 
 vec3 EncodeNormal(vec3 normal)

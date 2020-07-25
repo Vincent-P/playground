@@ -238,6 +238,8 @@ struct GraphicsProgramInfo
     VertexBufferInfo vertex_buffer_info;
 
     // TODO: is it the right struct for this?
+    // Either we create different programs in user code OR we implicitly handle them here
+    // and keep track of dynamic states
     bool enable_depth_test{false};
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
@@ -373,6 +375,7 @@ struct API
 {
     Context ctx;
 
+    // resources
     Arena<Image> images;
     Arena<RenderTarget> rendertargets;
     Arena<Sampler> samplers;
@@ -385,15 +388,15 @@ struct API
     std::vector<FrameBuffer> framebuffers;
     Arena<RenderPass> renderpasses;
 
+    // Ring buffers for dynamic resources
     CircularBuffer staging_buffer;
     CircularBuffer dyn_uniform_buffer;
     CircularBuffer dyn_vertex_buffer;
     CircularBuffer dyn_index_buffer;
 
-    // render context
+    // render context separate struct?
     RenderPassH current_render_pass;
     GraphicsProgram *current_program;
-    bool first_swapchain_pass_of_frame{true};
 
     static API create(const Window &window);
     void destroy();

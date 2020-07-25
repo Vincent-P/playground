@@ -11,6 +11,7 @@
 #include "types.hpp"
 #include "timer.hpp"
 #include <iostream>
+#include <fstream>
 
 
 namespace my_app
@@ -168,8 +169,8 @@ struct ShaderDebug
         vulkan::ImageInfo iinfo;
         iinfo.name         = "Voxels albedo";
         iinfo.type         = vk::ImageType::e3D;
-        iinfo.format       = vk::Format::eR32Uint;
-        iinfo.extra_formats = {vk::Format::eR8G8B8A8Unorm};
+        iinfo.format       = vk::Format::eR8G8B8A8Unorm;
+        iinfo.extra_formats = {vk::Format::eR32Uint};
         iinfo.width        = r.voxel_options.res;
         iinfo.height       = r.voxel_options.res;
         iinfo.depth        = r.voxel_options.res;
@@ -180,7 +181,7 @@ struct ShaderDebug
         r.voxels_normal    = r.api.create_image(iinfo);
 
         iinfo.name          = "Voxels radiance";
-        iinfo.format        = vk::Format::eR8G8B8A8Unorm;
+        iinfo.format        = vk::Format::eR16G16B16A16Sfloat;
         iinfo.extra_formats = {};
         r.voxels_radiance   = r.api.create_image(iinfo);
 
@@ -199,6 +200,7 @@ struct ShaderDebug
 
         vulkan::ImageInfo iinfo;
         iinfo.type         = vk::ImageType::e3D;
+        iinfo.format       = vk::Format::eR16G16B16A16Sfloat;
         iinfo.width        = size;
         iinfo.height       = size;
         iinfo.depth        = size;
@@ -266,7 +268,7 @@ struct ShaderDebug
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
 
-        pinfo.enable_conservative_rasterization = false;
+        pinfo.enable_conservative_rasterization = true;
 
         r.voxelization = r.api.create_program(std::move(pinfo));
     }
@@ -615,11 +617,6 @@ void Renderer::imgui_draw()
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
-    vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
-    depth_info.rt      = depth_rt;
-    pass.depth         = std::make_optional(depth_info);
-
     api.begin_pass(std::move(pass));
 
 
@@ -729,13 +726,18 @@ void Renderer::draw_model()
     static float s_opacity = 1.0f;
     static float s_trace_dist = 2.0f;
     static float s_occlusion = 1.0f;
+    static float s_sampling_factor = 1.0f;
+    static float s_start = 1.0f;
+
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
     static std::array options{"Nothing", "BaseColor", "Normal"};
     tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
-    ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 5.0f);
-    ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 2.0f);
+    ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 1.0f);
+    ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 1.0f);
+    ImGui::SliderFloat("Sampling factor", &s_sampling_factor, 0.1f, 2.0f);
+    ImGui::SliderFloat("Start position", &s_start, 0.1f, 2.0f);
     ImGui::End();
 #endif
     if (s_opacity == 0.0f) {
@@ -770,13 +772,15 @@ void Renderer::draw_model()
 
     // Make a shader debugging window and its own uniform buffer
     {
-        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug) + 2 * sizeof(float));
+        auto u_pos   = api.dynamic_uniform_buffer(sizeof(ShaderDebug) + 4 * sizeof(float));
         auto *buffer = reinterpret_cast<ShaderDebug *>(u_pos.mapped);
         buffer->selected = static_cast<uint>(s_selected);
         buffer->opacity  = s_opacity;
         auto *floatbuffer = reinterpret_cast<float*>(buffer + 1);
         floatbuffer[0] = s_trace_dist;
         floatbuffer[1] = s_occlusion;
+        floatbuffer[2] = s_sampling_factor;
+        floatbuffer[3] = s_start;
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 1, u_pos);
     }
 
@@ -1008,25 +1012,20 @@ void Renderer::voxelize_scene()
     // Bind voxel textures
 
     // use the default format
+    auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
+    auto &normal_uint = api.get_image(voxels_normal).format_views[0];
 
     {
     auto &image = api.get_image(voxels_albedo);
     transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     }
-    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
+    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo, albedo_uint);
 
     {
     auto &image = api.get_image(voxels_normal);
     transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     }
-    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
-
-    // TODO: triche
-    {
-    auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
-    }
-    api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
+    api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal, normal_uint);
 
 
     vulkan::PassInfo pass{};
@@ -1102,8 +1101,6 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
     }
 
-    // use the default format
-
     auto &image = api.get_image(voxels_albedo);
     transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
@@ -1127,11 +1124,6 @@ void Renderer::visualize_voxels()
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
-    vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
-    depth_info.rt      = depth_rt;
-    pass.depth         = std::make_optional(depth_info);
-
     api.begin_pass(std::move(pass));
 
     api.bind_program(visualization);
@@ -1150,14 +1142,17 @@ struct DirectLightingDebug
     float point_scale;
     float trace_shadow_hit;
     float max_dist;
+    float first_step;
 };
 
 void Renderer::inject_direct_lighting()
 {
     static std::array s_position       = {1.5f, 2.5f, 0.0f};
-    static float s_scale            = 1000.0f;
+    static std::array s_sun_direction       = {90.f, 0.f, 0.f};
+    static float s_scale            = 1.0f;
     static float s_trace_shadow_hit = 0.5f;
     static auto s_max_dist          = static_cast<float>(voxel_options.res);
+    static float s_first_step          = 2.0f;
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("Voxels Direct Lighting");
     if (ImGui::Button("Reload shader"))
@@ -1165,10 +1160,11 @@ void Renderer::inject_direct_lighting()
         reload_shader("shaders/voxel_inject_direct_lighting.comp.spv");
     }
     ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
-    ImGui::SliderFloat("Point light scale", &s_scale, 0.0f, 1000.f);
-    ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
+    ImGui::SliderFloat("Point light scale", &s_scale, 0.1f, 10.f);
+    ImGui::SliderFloat3("Sun rotation", s_sun_direction.data(), -180.0f, 180.0f);
     ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
     ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
+    ImGui::SliderFloat("First step", &s_first_step, 1.0f, 20.0f);
     ImGui::End();
 #endif
 
@@ -1190,30 +1186,31 @@ void Renderer::inject_direct_lighting()
         auto u_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
         auto *buffer = reinterpret_cast<DirectLightingDebug *>(u_pos.mapped);
 
+        sun.pitch = s_sun_direction[0];
+        sun.yaw  = s_sun_direction[1];
+        sun.roll = s_sun_direction[2];
         sun.update_view();
         buffer->sun_direction    = float4(sun.front, 1);
         buffer->point_position   = float4(s_position[0], s_position[1], s_position[2], 1);
         buffer->point_scale      = s_scale;
         buffer->trace_shadow_hit = s_trace_shadow_hit;
         buffer->max_dist         = s_max_dist;
+        buffer->first_step       = s_first_step;
 
         api.bind_buffer(program, 1, u_pos);
     }
 
     // use the RGBA8 format defined at creation in view_formats
-    const auto& albedo_rgba8 = api.get_image(voxels_albedo).format_views[0];
-    const auto& normal_rgba8 = api.get_image(voxels_normal).format_views[0];
-
     {
     auto &image = api.get_image(voxels_albedo);
     transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
-    api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler, albedo_rgba8);
+    api.bind_combined_image_sampler(program, 2, voxels_albedo, voxels_sampler);
 
     {
     auto &image = api.get_image(voxels_normal);
     transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
-    api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler, normal_rgba8);
+    api.bind_combined_image_sampler(program, 3, voxels_normal, voxels_sampler);
     }
 
     {
@@ -1304,6 +1301,7 @@ void Renderer::generate_aniso_voxels()
             *buffer = voxel_options;
             buffer->size = voxel_size;
             buffer->res  = voxel_res;
+
 
             api.bind_buffer(generate_aniso_mipmap, 0, u_pos);
         }
@@ -1451,6 +1449,17 @@ void draw_fps(Renderer &renderer)
 
         const auto &histogram = timer.get_delta_time_histogram();
         ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+    }
+
+    if (ImGui::Button("Dump usage")) {
+        char* dump;
+        vmaBuildStatsString(renderer.api.ctx.allocator, &dump, VK_TRUE);
+        std::cout << "Vulkan memory dump:\n" << dump << "\n";
+
+        std::ofstream file{"dump.json"};
+        file << dump;
+
+        vmaFreeStatsString(renderer.api.ctx.allocator, dump);
     }
 
     // 10 is the number of heaps of the device 10 should be fine?

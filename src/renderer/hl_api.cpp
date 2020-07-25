@@ -64,16 +64,16 @@ void API::destroy()
 
 void API::on_resize(int width, int height)
 {
-    // submit all command buffers
+    // submit all command buffers?
+
     ctx.on_resize(width, height);
 }
 
 bool API::start_frame()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    first_swapchain_pass_of_frame = true;
 
-    // TODO: user defined unit?
+    // TODO: user defined unit for time and timer for profiling
     auto wait_result = ctx.device->waitForFences(*frame_resource.fence, VK_TRUE, 10lu * 1000lu * 1000lu * 1000lu);
     if (wait_result == vk::Result::eTimeout) {
 	throw std::runtime_error("Submitted the frame more than 10 second ago.");
@@ -136,6 +136,7 @@ void API::end_frame()
     catch (const std::exception &) {
 	return;
     }
+
     ctx.frame_count += 1;
     ctx.frame_resources.current = ctx.frame_count % ctx.frame_resources.data.size();
     vmaSetCurrentFrameIndex(ctx.allocator, ctx.frame_count);

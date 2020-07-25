@@ -775,17 +775,7 @@ void API::destroy_program(GraphicsProgramH H)
 
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout)
 {
-    if (image.access != next_access)
-    {
-        auto &frame_resource = api.ctx.frame_resources.get_current();
-        transition_layout_internal(*frame_resource.command_buffer,
-                                   image.vkhandle,
-                                   image.access,
-                                   next_access,
-                                   image.full_range);
-        image.access = next_access;
-        image.layout = next_layout;
-    }
+    transition_if_needed_internal(api, image, next_access, next_layout, image.full_range);
 }
 
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range)
