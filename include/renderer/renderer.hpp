@@ -26,8 +26,6 @@ struct VoxelDebug
 
 struct Renderer
 {
-    vulkan::API api;
-
     static Renderer create(const Window &window, Camera &camera, TimerData &timer);
     void destroy();
 
@@ -55,9 +53,14 @@ struct Renderer
     vulkan::RenderTargetH color_rt;
     vulkan::RenderTargetH swapchain_rt;
 
+    vulkan::API api;
+
     const Window *p_window;
     Camera *p_camera;
     TimerData *p_timer;
+
+    /// --- Rendering
+    double last_frame_total;
 
     vulkan::SamplerH default_sampler;
     vulkan::GraphicsProgramH hdr_compositing;

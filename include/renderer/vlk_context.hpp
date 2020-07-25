@@ -19,7 +19,7 @@ class Window;
 namespace vulkan
 {
 
-constexpr inline auto ENABLE_VALIDATION_LAYERS = true;
+constexpr inline auto ENABLE_VALIDATION_LAYERS = false;
 constexpr inline auto FRAME_IN_FLIGHT = 2;
 
 template <typename T> inline u64 get_raw_vulkan_handle(T const &cpp_handle)

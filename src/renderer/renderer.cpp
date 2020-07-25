@@ -14,8 +14,44 @@
 #include <fstream>
 
 
+
 namespace my_app
 {
+
+struct ProfileFunction
+{
+    Renderer &renderer;
+    std::string_view name;
+    TimePoint start;
+
+    ProfileFunction(Renderer &_renderer, std::string_view _name, float4 color = {1, 1, 1, 1})
+        : renderer(_renderer)
+        , name(_name)
+    {
+        auto &api = renderer.api;
+        api.begin_label(name, color);
+
+        /// start CPU timer
+        start = Clock::now();
+    }
+
+    ~ProfileFunction()
+    {
+        ImGui::Begin("Profiler");
+
+        int name_length = name.size();
+        ImGui::Text("%*s", name_length, name.data());
+
+        TimePoint end = Clock::now();
+        auto duration = elapsed_ms<double>(start, end);
+        ImGui::Text(" - CPU: %0.2fms", duration);
+
+        ImGui::End();
+
+        auto &api = renderer.api;
+        api.end_label();
+    }
+};
 
 struct ShaderDebug
 {
@@ -23,7 +59,7 @@ struct ShaderDebug
     float opacity;
 };
 
-    Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer)
+Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer)
 {
     Renderer r;
     r.api      = vulkan::API::create(window);
@@ -36,6 +72,7 @@ struct ShaderDebug
 #if defined(ENABLE_IMGUI)
     {
         ImGui::CreateContext();
+        /*
         auto &style             = ImGui::GetStyle();
         style.FrameRounding     = 0.f;
         style.GrabRounding      = 0.f;
@@ -43,6 +80,7 @@ struct ShaderDebug
         style.ScrollbarRounding = 0.f;
         style.GrabRounding      = 0.f;
         style.TabRounding       = 0.f;
+        */
 
         auto &io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -560,7 +598,8 @@ void Renderer::reload_shader(std::string_view shader_name)
 
 void Renderer::imgui_draw()
 {
-    api.begin_label("ImGui");
+    ProfileFunction(*this, "ImGui");
+
 #if defined(ENABLE_IMGUI)
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
@@ -665,7 +704,6 @@ void Renderer::imgui_draw()
     }
 #endif
     api.end_pass();
-    api.end_label();
 }
 
 static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint slot, std::optional<u32> i_texture)
@@ -744,7 +782,7 @@ void Renderer::draw_model()
         return;
     }
 
-    api.begin_label("Model");
+    ProfileFunction(*this, "Draw glTF model");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -839,8 +877,6 @@ void Renderer::draw_model()
     }
 
     api.end_pass();
-
-    api.end_label();
 }
 
 static void draw_node_shadow(Renderer &r, Node &node)
@@ -873,7 +909,8 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
 static void depth_prepass(Renderer &r)
 {
-    r.api.begin_label("Depth prepass");
+    ProfileFunction(r, "Depth prepass");
+
     vulkan::PassInfo pass;
     pass.present = false;
 
@@ -920,7 +957,6 @@ static void depth_prepass(Renderer &r)
     }
 
     r.api.end_pass();
-    r.api.end_label();
 }
 
 
@@ -960,7 +996,7 @@ static void voxelize_node(Renderer &r, Node &node)
 
 void Renderer::voxelize_scene()
 {
-    api.begin_label("Voxelization");
+    ProfileFunction(*this, "Voxelization");
 
     vk::Viewport viewport{};
     viewport.width    = voxel_options.res;
@@ -1041,7 +1077,6 @@ void Renderer::voxelize_scene()
     }
 
     api.end_pass();
-    api.end_label();
 }
 
 void Renderer::visualize_voxels()
@@ -1059,7 +1094,7 @@ void Renderer::visualize_voxels()
         return;
     }
 
-    api.begin_label("Voxel visualization");
+    ProfileFunction(*this, "Voxel visualization");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1131,7 +1166,6 @@ void Renderer::visualize_voxels()
     api.draw(3, 1, 0, 0);
 
     api.end_pass();
-    api.end_label();
 }
 
 
@@ -1168,7 +1202,7 @@ void Renderer::inject_direct_lighting()
     ImGui::End();
 #endif
 
-    api.begin_label("Inject direct lighting");
+    ProfileFunction(*this, "Inject direct lighting");
 
     auto &program = inject_radiance;
 
@@ -1222,12 +1256,11 @@ void Renderer::inject_direct_lighting()
 
     auto count = voxel_options.res / 8;
     api.dispatch(program, count, count, count);
-    api.end_label();
 }
 
 void Renderer::generate_aniso_voxels()
 {
-    api.begin_label("Compute anisotropic voxels");
+    ProfileFunction(*this, "Compute anisotropic voxels");
 
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
@@ -1337,7 +1370,6 @@ void Renderer::generate_aniso_voxels()
         cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
     }
 
-    api.end_label();
 }
 
 void Renderer::composite_hdr()
@@ -1353,7 +1385,7 @@ void Renderer::composite_hdr()
     ImGui::End();
 #endif
 
-    api.begin_label("HDR");
+    ProfileFunction(*this, "Tonemap");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1395,7 +1427,6 @@ void Renderer::composite_hdr()
     api.draw(3, 1, 0, 0);
 
     api.end_pass();
-    api.end_label();
 }
 
 void draw_fps(Renderer &renderer)
@@ -1414,15 +1445,7 @@ void draw_fps(Renderer &renderer)
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
-    static bool init = true;
-    if (init) {
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / window.get_dpi_scale().x - 120.0f, 10.0f * window.get_dpi_scale().y));
-        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
-    }
-    else {
-        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
-    }
-    init = false;
+    ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
 
     static bool show_fps = false;
 
@@ -1489,6 +1512,7 @@ void draw_fps(Renderer &renderer)
 
 void Renderer::draw()
 {
+    TimePoint start = Clock::now();
     draw_fps(*this);
 
     bool is_ok = api.start_frame();
@@ -1522,7 +1546,15 @@ void Renderer::draw()
     visualize_voxels();
 
     composite_hdr();
+
+    ImGui::Begin("Profiler");
+    ImGui::Text("Last frame total: %.2fms", last_frame_total);
+    ImGui::End();
+
     imgui_draw();
+
+    TimePoint end = Clock::now();
+    last_frame_total = elapsed_ms<double>(start, end);
 
     api.end_frame();
 }

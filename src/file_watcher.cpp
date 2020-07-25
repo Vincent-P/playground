@@ -99,6 +99,7 @@ static void destroy_internal(FileWatcher& fw)
 {
     for (auto& watch: fw.watches)
     {
+        (void)(watch); // TODO: custom assert, unused variable on release
         assert(CloseHandle(watch.directory_handle));
     }
 }
@@ -150,6 +151,7 @@ static void fetch_events_internal(FileWatcher &fw)
         if (!res)
         {
             auto error = GetLastError();
+            (void)(error); // TODO: custom assert, unused variable on release
             assert(error == ERROR_IO_INCOMPLETE);
         }
 

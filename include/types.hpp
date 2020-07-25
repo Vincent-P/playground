@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <variant>
 #include <vector>
+#include <chrono>
 
 #define NO_COPY_NO_MOVE(name)                                                                                          \
     name(const name &other)  = delete;                                                                                 \
@@ -322,5 +323,15 @@ template <typename T> class Arena
     std::vector<element_type> data;
     usize size{0};
 };
+
+/// Clock
+using Clock = std::chrono::high_resolution_clock;
+using TimePoint = std::chrono::time_point<Clock>;
+
+template <typename T>
+inline T elapsed_ms(TimePoint start, TimePoint end)
+{
+    return std::chrono::duration<T, std::milli>(end-start).count();
+}
 
 } // namespace my_app
