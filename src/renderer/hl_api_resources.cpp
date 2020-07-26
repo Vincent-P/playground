@@ -159,7 +159,7 @@ Image &API::get_image(ImageH H)
     return *images.get(H);
 }
 
-static void destroy_image_internal(API &api, Image &img)
+void destroy_image_internal(API &api, Image &img)
 {
     vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     api.ctx.device->destroy(img.default_view);

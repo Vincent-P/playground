@@ -63,6 +63,8 @@ struct Image
     std::vector<vk::ImageView> mip_views;    // mip slices with defaut format
 
     vk::Sampler default_sampler;
+
+    bool operator==(const Image &b) const = default;
 };
 using ImageH = Handle<Image>;
 
@@ -240,7 +242,7 @@ struct GraphicsProgramInfo
     // TODO: is it the right struct for this?
     // Either we create different programs in user code OR we implicitly handle them here
     // and keep track of dynamic states
-    bool enable_depth_test{false};
+    std::optional<vk::CompareOp> depth_test;
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
 
@@ -498,6 +500,7 @@ struct API
 };
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
+void destroy_image_internal(API &api, Image &img);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
 void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout,
                                    vk::ImageSubresourceRange &range);

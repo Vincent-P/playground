@@ -59,6 +59,11 @@ void API::destroy()
         destroy_buffer_internal(*this, buffer);
     }
 
+    for (auto& image : images)
+    {
+        destroy_image_internal(*this, image);
+    }
+
     ctx.destroy();
 }
 

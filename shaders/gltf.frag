@@ -149,9 +149,6 @@ void main()
     vec3 normal = vec3(0.0);
     getNormalM(normal, inWorldPos, inNormal, normalTexture, inUV0);
     vec4 base_color = texture(baseColorTexture, inUV0);
-    if (base_color.a < 0.5) {
-        discard;
-    }
 
     vec3 composite = vec3(1.0);
 
@@ -175,6 +172,7 @@ void main()
     // ao
     else if (debug.selected == 3)
     {
+        direct = vec3(0.0);
         indirect.rgb = vec3(1.0);
     }
     // indirect

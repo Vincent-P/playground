@@ -194,7 +194,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
-        pinfo.enable_depth_test = true;
+        pinfo.depth_test = vk::CompareOp::eLessOrEqual;
         pinfo.enable_depth_write = true;
 
         r.model_depth_only = r.api.create_program(std::move(pinfo));

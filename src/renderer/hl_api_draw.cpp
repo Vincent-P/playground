@@ -364,9 +364,9 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         vk::PipelineDepthStencilStateCreateInfo ds_i{};
         ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
 
-        ds_i.depthTestEnable       = pipeline_info.program_info.enable_depth_test ? VK_TRUE : VK_FALSE;
+        ds_i.depthTestEnable       = pipeline_info.program_info.depth_test ? VK_TRUE : VK_FALSE;
         ds_i.depthWriteEnable      = pipeline_info.program_info.enable_depth_write ? VK_TRUE : VK_FALSE;
-        ds_i.depthCompareOp        = vk::CompareOp::eLessOrEqual;
+        ds_i.depthCompareOp        = pipeline_info.program_info.depth_test ? *pipeline_info.program_info.depth_test : vk::CompareOp::eLessOrEqual;
         ds_i.depthBoundsTestEnable = VK_FALSE;
         ds_i.minDepthBounds        = 0.0f;
         ds_i.maxDepthBounds        = 0.0f;
