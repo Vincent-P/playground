@@ -770,7 +770,7 @@ void Renderer::draw_model()
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("glTF Shader");
     ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
-    static std::array options{"Nothing", "BaseColor", "Normal"};
+    static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
     tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
     ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 1.0f);
     ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 1.0f);

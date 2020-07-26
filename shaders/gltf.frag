@@ -153,34 +153,47 @@ void main()
         discard;
     }
 
-    if (debug.selected == 1)
-    {
-        outColor = vec4(base_color.rgb, 1.0);
-        return;
-    }
-    else if (debug.selected == 2)
-    {
-        outColor = vec4(EncodeNormal(normal), 1.0);
-        return;
-    }
-
     vec3 composite = vec3(1.0);
 
     vec3 direct = vec3(0.0);
     vec4 indirect = Indirect(normal);
 
-    // show ao
-    indirect.rgb = vec3(1.0);
-    direct = vec3(0.0);
-
-    // show indirect
-    // direct = base_color.rgb;
+    // base color
+    if (debug.selected == 1)
+    {
+        indirect.rgb = vec3(0.0);
+        indirect.a = 1.0;
+        direct = base_color.rgb;
+    }
+    // normal
+    else if (debug.selected == 2)
+    {
+        indirect.rgb = vec3(0.0);
+        indirect.a = 1.0;
+        direct = EncodeNormal(normal);
+    }
+    // ao
+    else if (debug.selected == 3)
+    {
+        indirect.rgb = vec3(1.0);
+    }
+    // indirect
+    else if (debug.selected == 4)
+    {
+    }
+    // no debug
+    else
+    {
+        direct = base_color.rgb;
+        indirect.rgb = vec3(0.0);
+    }
 
     // to linear
     indirect.rgb = pow(indirect.rgb, vec3(2.2f));
+    direct.rgb = pow(direct.rgb, vec3(2.2f));
 
-    // ao
-    composite = indirect.rgb * indirect.a;
+    // composite direct and indirect lighting
+    composite = (direct + indirect.rgb) * indirect.a;
 
     // to srgb
     composite = pow(composite, vec3(1.0 / 2.2));
