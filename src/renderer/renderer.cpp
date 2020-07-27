@@ -598,7 +598,7 @@ void Renderer::reload_shader(std::string_view shader_name)
 
 void Renderer::imgui_draw()
 {
-    ProfileFunction(*this, "ImGui");
+    api.begin_label("ImGui");
 
 #if defined(ENABLE_IMGUI)
     ImGui::Render();
@@ -704,6 +704,7 @@ void Renderer::imgui_draw()
     }
 #endif
     api.end_pass();
+    api.end_label();
 }
 
 static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint slot, std::optional<u32> i_texture)
@@ -782,7 +783,7 @@ void Renderer::draw_model()
         return;
     }
 
-    ProfileFunction(*this, "Draw glTF model");
+    ProfileFunction pf(*this, "Draw glTF model");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -795,15 +796,19 @@ void Renderer::draw_model()
     scissor.extent = api.ctx.swapchain.extent;
     api.set_scissor(scissor);
 
+
+
     // Bind camera uniform buffer
     {
         float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
         static float fov   = 60.0f;
 
-        auto u_pos   = api.dynamic_uniform_buffer(2 * sizeof(float4x4));
+        auto u_pos   = api.dynamic_uniform_buffer(4 * sizeof(float4x4));
         auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
         buffer[0]    = p_camera->get_view();
         buffer[1]    = p_camera->perspective(fov, aspect_ratio, 0.01f, 25.f);
+        buffer[2]    = sun.get_view();
+        buffer[3]    = sun.ortho_square(40.f, 0.1f, 30.f);
 
         api.bind_buffer(model.program, vulkan::SHADER_DESCRIPTOR_SET, 0, u_pos);
     }
@@ -909,7 +914,7 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
 static void depth_prepass(Renderer &r)
 {
-    ProfileFunction(r, "Depth prepass");
+    ProfileFunction pf(r, "Depth prepass");
 
     vulkan::PassInfo pass;
     pass.present = false;
@@ -996,7 +1001,7 @@ static void voxelize_node(Renderer &r, Node &node)
 
 void Renderer::voxelize_scene()
 {
-    ProfileFunction(*this, "Voxelization");
+    ProfileFunction pf(*this, "Voxelization");
 
     vk::Viewport viewport{};
     viewport.width    = voxel_options.res;
@@ -1094,7 +1099,7 @@ void Renderer::visualize_voxels()
         return;
     }
 
-    ProfileFunction(*this, "Voxel visualization");
+    ProfileFunction pf(*this, "Voxel visualization");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1202,7 +1207,7 @@ void Renderer::inject_direct_lighting()
     ImGui::End();
 #endif
 
-    ProfileFunction(*this, "Inject direct lighting");
+    ProfileFunction pf(*this, "Inject direct lighting");
 
     auto &program = inject_radiance;
 
@@ -1220,6 +1225,7 @@ void Renderer::inject_direct_lighting()
         auto u_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
         auto *buffer = reinterpret_cast<DirectLightingDebug *>(u_pos.mapped);
 
+        sun.position = float3(0.0f, 20.0f, 0.0f);
         sun.pitch = s_sun_direction[0];
         sun.yaw  = s_sun_direction[1];
         sun.roll = s_sun_direction[2];
@@ -1260,7 +1266,7 @@ void Renderer::inject_direct_lighting()
 
 void Renderer::generate_aniso_voxels()
 {
-    ProfileFunction(*this, "Compute anisotropic voxels");
+    ProfileFunction pf(*this, "Compute anisotropic voxels");
 
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
