@@ -8,13 +8,14 @@ layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 layout (location = 4) in vec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
+layout (location = 6) in vec4 inLightPosition;
 
 layout (push_constant) uniform MU
 {
     MaterialUniform material;
 };
 
-layout (set = 1, binding = 1) uniform UBODebug {
+layout (set = 1, binding = 0) uniform UBODebug {
     uint selected;
     float opacity;
     float trace_dist;
@@ -23,12 +24,12 @@ layout (set = 1, binding = 1) uniform UBODebug {
     float start;
 } debug;
 
-layout (set = 1, binding = 2) uniform VO {
+layout (set = 1, binding = 1) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 3) uniform sampler3D voxels_radiance;
-layout(set = 1, binding = 4) uniform sampler3D voxels_directional_volumes[6];
+layout(set = 1, binding = 2) uniform sampler3D voxels_radiance;
+layout(set = 1, binding = 3) uniform sampler3D voxels_directional_volumes[6];
 
 layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
 layout(set = 2, binding = 2) uniform sampler2D normalTexture;

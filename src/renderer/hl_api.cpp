@@ -1,5 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include <iostream>
+#include <vulkan/vulkan.hpp>
 
 namespace my_app::vulkan
 {
@@ -90,6 +91,7 @@ bool API::start_frame()
     frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique(
 	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
 
+    // TODO: dont acquire swapchain image yet, make separate start_present to acquire it only for post process
     auto result
 	= ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
 					  *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
@@ -105,7 +107,8 @@ bool API::start_frame()
 	return false;
     }
 
-    frame_resource.command_buffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    vk::CommandBufferBeginInfo binfo{};
+    frame_resource.command_buffer->begin(binfo);
     return true;
 }
 

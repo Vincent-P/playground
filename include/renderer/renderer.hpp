@@ -24,6 +24,15 @@ struct VoxelDebug
     uint res{256};
 };
 
+struct GlobalUniform
+{
+    float4x4 camera_view;
+    float4x4 camera_projection;
+    float4x4 camera_inv_projection;
+    float4x4 sun_view;
+    float4x4 sun_projection;
+};
+
 struct Renderer
 {
     static Renderer create(const Window &window, Camera &camera, TimerData &timer);
@@ -65,16 +74,25 @@ struct Renderer
     vulkan::SamplerH default_sampler;
     vulkan::GraphicsProgramH hdr_compositing;
 
+    vulkan::CircularBufferPosition global_uniform_pos;
+
     // ImGui
     vulkan::GraphicsProgramH gui_program;
+    vulkan::GraphicsProgramH gui_uint_program;
     vulkan::ImageH gui_texture;
 
     // glTF
     Model model;
 
     // Shadow Map
+    vulkan::RenderTargetH screenspace_lod_map_rt;
+
+    vulkan::RenderTargetH shadow_map_rt;
+
+    vulkan::ImageH min_lod_map;
+    vulkan::ComputeProgramH fill_min_lod_map;
+    vulkan::GraphicsProgramH model_prepass;
     Camera sun;
-    vulkan::GraphicsProgramH model_depth_only;
 
     // Voxelization
     VoxelDebug voxel_options{};
@@ -84,7 +102,7 @@ struct Renderer
     vulkan::ComputeProgramH generate_aniso_base;
     vulkan::ComputeProgramH generate_aniso_mipmap;
 
-    vulkan::SamplerH voxels_sampler;
+    vulkan::SamplerH trilinear_sampler;
     vulkan::ImageH voxels_albedo;
     vulkan::ImageH voxels_normal;
     vulkan::ImageH voxels_radiance;

@@ -346,7 +346,7 @@ void Context::create_frame_resources(usize count)
         frame_resource.rendering_finished = device->createSemaphoreUnique({});
 
         /// --- Create the command pool to create a command buffer for each frame
-        frame_resource.command_pool = device->createCommandPoolUnique({{vk::CommandPoolCreateFlagBits::eTransient}, static_cast<uint32_t>(graphics_family_idx)});
+        frame_resource.command_pool = device->createCommandPoolUnique({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, static_cast<uint32_t>(graphics_family_idx)});
     }
 }
 

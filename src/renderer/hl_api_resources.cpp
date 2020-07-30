@@ -5,6 +5,7 @@
 #include <cassert>
 #include <iostream>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
 {
@@ -61,6 +62,9 @@ ImageH API::create_image(const ImageInfo &info)
 
     assert(info.mip_levels == 1 || !info.generate_mip_levels);
 
+    if (info.is_sparse) {
+        img.image_info.flags = vk::ImageCreateFlagBits::eSparseResidency | vk::ImageCreateFlagBits::eSparseBinding;
+    }
     img.image_info.imageType             = info.type;
     img.image_info.format                = info.format;
     img.image_info.extent.width          = info.width;
@@ -80,13 +84,61 @@ ImageH API::create_image(const ImageInfo &info)
 	img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
     }
 
-    VmaAllocationCreateInfo alloc_info{};
-    alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-    alloc_info.usage     = img.memory_usage;
-    alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
+    img.is_sparse = info.is_sparse;
 
-    VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
-			    reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
+    if (!info.is_sparse)
+    {
+        VmaAllocationCreateInfo alloc_info{};
+        alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+        alloc_info.usage     = img.memory_usage;
+        alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
+
+        VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
+                                reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
+    }
+    else
+    {
+        auto props = ctx.physical_device.getSparseImageFormatProperties(img.image_info.format, img.image_info.imageType, img.image_info.samples, img.image_info.usage, img.image_info.tiling);\
+
+        vk::PhysicalDeviceSparseImageFormatInfo2 info2{};
+        info2.format = img.image_info.format;
+        info2.type = img.image_info.imageType;
+        info2.samples = img.image_info.samples;
+        info2.usage = img.image_info.usage;
+        info2.tiling = img.image_info.tiling;
+        auto props2 = ctx.physical_device.getSparseImageFormatProperties2(info2);
+
+        assert(info.max_sparse_size != 0);
+        img.vkhandle = ctx.device->createImage(img.image_info);
+
+        auto mem_req        = ctx.device->getImageMemoryRequirements(img.vkhandle);
+        auto sparse_mem_req = ctx.device->getImageSparseMemoryRequirements(img.vkhandle);
+
+        // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
+        const usize page_size  = mem_req.alignment;
+
+        // TODO: max_sparse_size might not be a multiple of page_size?
+        assert(info.max_sparse_size % page_size == 0);
+        const usize page_count = info.max_sparse_size / page_size;
+
+        VkMemoryRequirements page_mem_req = mem_req;
+        page_mem_req.size                 = page_size;
+
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        img.sparse_allocations.resize(page_count);
+        img.allocations_infos.resize(page_count);
+        std::fill(img.sparse_allocations.begin(), img.sparse_allocations.end(), nullptr);
+        VK_CHECK(vmaAllocateMemoryPages(ctx.allocator,
+                               &page_mem_req,
+                               &allocCreateInfo,
+                               page_count,
+                               img.sparse_allocations.data(),
+                               img.allocations_infos.data()));
+
+        img.page_size = page_size;
+    }
 
     if (ENABLE_VALIDATION_LAYERS) {
 	ctx.device->setDebugUtilsObjectNameEXT(
@@ -161,7 +213,15 @@ Image &API::get_image(ImageH H)
 
 void destroy_image_internal(API &api, Image &img)
 {
-    vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
+    if (!img.is_sparse) {
+        vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
+    }
+    else {
+
+        api.ctx.device->destroy(img.vkhandle);
+        vmaFreeMemoryPages(api.ctx.allocator, img.sparse_allocations.size(), img.sparse_allocations.data());
+    }
+
     api.ctx.device->destroy(img.default_view);
     api.ctx.device->destroy(img.default_sampler);
 

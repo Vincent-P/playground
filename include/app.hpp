@@ -1,9 +1,9 @@
 #pragma once
 #include "camera.hpp"
+#include "file_watcher.hpp"
 #include "renderer/renderer.hpp"
 #include "timer.hpp"
 #include "window.hpp"
-#include "file_watcher.hpp"
 
 namespace my_app
 {

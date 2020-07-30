@@ -9,6 +9,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -174,23 +175,24 @@ void Renderer::load_model_data()
 			 .size =  sizeof(MaterialPushConstant)});
 
     // camera uniform buffer
-    pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-		   .stages =  vk::ShaderStageFlagBits::eVertex,
+    pinfo.binding({.set =  vulkan::GLOBAL_DESCRIPTOR_SET, .slot =  0,
+            .stages =  vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eCompute,
 		   .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+
     // debug shader output
+    pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
+		   .stages =  vk::ShaderStageFlagBits::eFragment,
+		   .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+
     pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
 		   .stages =  vk::ShaderStageFlagBits::eFragment,
 		   .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
-    pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-		   .stages =  vk::ShaderStageFlagBits::eFragment,
-		   .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
-
-    pinfo.binding({ .set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
+    pinfo.binding({ .set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
 		   .stages =  vk::ShaderStageFlagBits::eFragment,
 		   .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
 
-    pinfo.binding({ .set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
+    pinfo.binding({ .set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
 		   .stages =  vk::ShaderStageFlagBits::eFragment,
 		   .type =  vk::DescriptorType::eCombinedImageSampler, .count =  6});
 

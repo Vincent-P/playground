@@ -14,6 +14,12 @@ void main()
 {
     vec3 hdr = texture(hdr_buffer, inUV).rgb;
 
+    if (any(lessThan(hdr, vec3(0.0))))
+    {
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
     if (debug.selected == 1)
     {
         hdr = vec3(1.0) - exp(-hdr * debug.exposure);

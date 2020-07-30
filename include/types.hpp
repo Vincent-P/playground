@@ -176,7 +176,7 @@ template <typename T> class Arena
 
         bool operator==(const Iterator &rhs) const
         {
-            return arena == rhs.arena && current_index == rhs.current_index;
+            return current_index == rhs.current_index;
         }
 
         void swap(Iterator &)

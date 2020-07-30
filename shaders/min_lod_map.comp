@@ -1,0 +1,56 @@
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+#include "globals.h"
+
+layout(set = 0, binding = 1) uniform usampler2D screenspace_lod_map;
+layout(set = 0, binding = 2) uniform sampler2D depth_buffer;
+layout(set = 0, binding = 3, r32ui) uniform uimage2D min_lod_map;
+
+void main()
+{
+    ivec2 pixel_src = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 screen_size = textureSize(screenspace_lod_map, 0);
+    if (any(greaterThan(pixel_src, screen_size))) {
+        return;
+    }
+
+    float depth = texelFetch(depth_buffer, pixel_src, 0).r;
+
+    vec4 fragment_pos = vec4(
+        float(pixel_src.x) / screen_size.x,
+        float(pixel_src.y) / screen_size.y,
+        depth,
+        1.0
+        );
+
+    fragment_pos.x = (fragment_pos.x * 2) - 1;
+    fragment_pos.y = (fragment_pos.y * 2) - 1;
+
+    // reconstruct world position from the depth and the fragment position
+    vec4 world_pos = inverse(global.camera_view) * (inverse(global.camera_proj) * fragment_pos);
+
+    // project to light space
+    vec4 sun_pos = global.sun_proj * (global.sun_view * world_pos);
+    sun_pos.xyz /= sun_pos.w;
+
+    // uv of the shadow map
+    vec2 uv = sun_pos.xy;
+    uv += vec2(0.5);
+
+    // desired lod of the shadow map at that uv
+    uint shadowmap_lod = texelFetch(screenspace_lod_map, pixel_src, 0).r;
+
+    /// --- find which tile corresponds to that shadowmap's uv
+
+    const ivec2 image_size = imageSize(min_lod_map);
+
+    ivec2 tile = ivec2(
+        int(uv.x * image_size),
+        int(uv.y * image_size)
+        );
+
+
+    // only r value will be written to R8Uint texture
+    vec4 value = vec4(shadowmap_lod / 6, 0.0, 0.0, 0.0);
+    imageAtomicMin(min_lod_map, tile, shadowmap_lod);
+}

@@ -343,6 +343,21 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         att_states[0].dstAlphaBlendFactor = vk::BlendFactor::eZero;
         att_states[0].alphaBlendOp        = vk::BlendOp::eAdd;
 
+        if (render_pass.info.color)
+        {
+            auto &color_attachment = *render_pass.info.color;
+            auto &color = api.get_rendertarget(color_attachment.rt);
+            if (!color.is_swapchain)
+            {
+                auto &image = api.get_image(color.image_h);
+                // TODO: disable for all uint
+                if (image.image_info.format == vk::Format::eR8Uint) {
+                    att_states[0].blendEnable = VK_FALSE;
+                }
+            }
+        }
+
+
         vk::PipelineColorBlendStateCreateInfo colorblend_i{};
         colorblend_i.flags             = {};
         colorblend_i.attachmentCount   = att_states.size();
@@ -515,6 +530,7 @@ void API::bind_program(GraphicsProgramH H)
     auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
+    bind_descriptor_set(*this, program, GLOBAL_DESCRIPTOR_SET);
     bind_descriptor_set(*this, program, SHADER_DESCRIPTOR_SET);
 
     current_program = &program;
@@ -607,7 +623,12 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
 
         image_info.imageView   = image_view;
         image_info.sampler     = *sampler.vkhandle;
-        image_info.imageLayout = image.layout != vk::ImageLayout::eShaderReadOnlyOptimal ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal;
+        image_info.imageLayout = image.layout;
+
+        // TODO: improve layout management
+        if (image_info.imageLayout != vk::ImageLayout::eShaderReadOnlyOptimal && image_info.imageLayout != vk::ImageLayout::eDepthStencilReadOnlyOptimal) {
+            image_info.imageLayout = vk::ImageLayout::eGeneral;
+        }
     }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {

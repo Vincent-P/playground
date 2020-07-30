@@ -44,14 +44,27 @@ struct ImageInfo
     u32 layers                      = 1;
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
     vk::ImageUsageFlags usages      = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+
+    // sparse resident textures
+    bool is_sparse                  = false;
+    usize max_sparse_size;
 };
 
 struct Image
 {
     const char *name;
-    vk::Image vkhandle;
     vk::ImageCreateInfo image_info;
+
+    // regular texture
+    vk::Image vkhandle;
     VmaAllocation allocation;
+
+    // sparse residency texture
+    bool is_sparse = false;
+    usize page_size;
+    std::vector<VmaAllocation> sparse_allocations;
+    std::vector<VmaAllocationInfo> allocations_infos;
+
     VmaMemoryUsage memory_usage;
     ThsvsAccessType access;
     vk::ImageLayout layout;
