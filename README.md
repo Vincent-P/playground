@@ -4,7 +4,7 @@ This project was made to learn the Vulkan API, and more specifically the C++ bin
 
 It can render basic glTF 2 models with an incomplete PBR (Physically Based Rendering) implementation.
 
-![Screen shot of Sponza, a scene often used in tech demos](https://cdn.discordapp.com/attachments/102848732738912256/618192461042548747/unknown.png)
+![Screen shot of Sponza, a scene often used in tech demos](https://media.discordapp.net/attachments/102848732738912256/737768460792234094/unknown.png?width=1587&height=918)
 
 # Installation
 
