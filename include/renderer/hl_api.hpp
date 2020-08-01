@@ -45,27 +45,36 @@ struct ImageInfo
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
     vk::ImageUsageFlags usages      = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
 
+    VmaMemoryUsage memory_usage     = VMA_MEMORY_USAGE_GPU_ONLY;
+
     // sparse resident textures
     bool is_sparse                  = false;
     usize max_sparse_size;
+
+    bool is_linear                  = false;
+
+    bool operator==(const ImageInfo&) const = default;
 };
 
+struct Image;
+using ImageH = Handle<Image>;
 struct Image
 {
     const char *name;
+
+    //TODO clean dupplicates
     vk::ImageCreateInfo image_info;
+    ImageInfo info;
 
     // regular texture
     vk::Image vkhandle;
     VmaAllocation allocation;
 
     // sparse residency texture
-    bool is_sparse = false;
     usize page_size;
     std::vector<VmaAllocation> sparse_allocations;
     std::vector<VmaAllocationInfo> allocations_infos;
 
-    VmaMemoryUsage memory_usage;
     ThsvsAccessType access;
     vk::ImageLayout layout;
     vk::ImageSubresourceRange full_range;
@@ -76,10 +85,10 @@ struct Image
     std::vector<vk::ImageView> mip_views;    // mip slices with defaut format
 
     vk::Sampler default_sampler;
+    FatPtr mapped_ptr{};
 
     bool operator==(const Image &b) const = default;
 };
-using ImageH = Handle<Image>;
 
 struct SamplerInfo
 {
@@ -480,35 +489,44 @@ struct API
     CircularBufferPosition dynamic_uniform_buffer(usize len);
 
     /// --- Resources
+    // Images
     ImageH create_image(const ImageInfo &info);
     Image &get_image(ImageH H);
     void destroy_image(ImageH H);
+
     void upload_image(ImageH H, void *data, usize len);
     void generate_mipmaps(ImageH H);
+    FatPtr read_image(ImageH H);
 
+    // Samplers
     SamplerH create_sampler(const SamplerInfo &info);
     Sampler &get_sampler(SamplerH H);
     void destroy_sampler(SamplerH H);
 
+    // Render targets
     RenderTargetH create_rendertarget(const RTInfo &info);
     RenderTarget &get_rendertarget(RenderTargetH H);
     void destroy_rendertarget(RenderTargetH H);
 
+    // Buffers
     BufferH create_buffer(const BufferInfo &info);
     Buffer &get_buffer(BufferH H);
     void destroy_buffer(BufferH H);
     void upload_buffer(BufferH H, void *data, usize len);
 
+    // Shaders
     ShaderH create_shader(std::string_view path);
     Shader &get_shader(ShaderH H);
     void destroy_shader(ShaderH H);
 
+    // Programs
     GraphicsProgramH create_program(GraphicsProgramInfo &&info);
     ComputeProgramH create_program(ComputeProgramInfo &&info);
     GraphicsProgram &get_program(GraphicsProgramH H);
     ComputeProgram &get_program(ComputeProgramH H);
     void destroy_program(GraphicsProgramH H);
 
+    // COmmand buffers
     CommandBuffer get_temp_cmd_buffer();
 };
 

@@ -334,4 +334,14 @@ inline T elapsed_ms(TimePoint start, TimePoint end)
     return std::chrono::duration<T, std::milli>(end-start).count();
 }
 
+/// Fat pointer
+
+struct FatPtr
+{
+    void* data{nullptr};
+    usize size{0};
+
+    bool operator==(const FatPtr&) const = default;
+};
+
 } // namespace my_app

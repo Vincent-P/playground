@@ -52,8 +52,8 @@ ImageH API::create_image(const ImageInfo &info)
 {
     Image img;
 
-    img.name         = info.name;
-    img.memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    img.name = info.name;
+    img.info = info;
 
     img.extra_formats = info.extra_formats;
     if (!info.extra_formats.empty()) {
@@ -78,19 +78,18 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.queueFamilyIndexCount = 0;
     img.image_info.pQueueFamilyIndices   = nullptr;
     img.image_info.sharingMode           = vk::SharingMode::eExclusive;
+    img.image_info.tiling                = info.is_linear ? vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal;
 
     if (info.generate_mip_levels) {
 	img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
 	img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
     }
 
-    img.is_sparse = info.is_sparse;
-
     if (!info.is_sparse)
     {
         VmaAllocationCreateInfo alloc_info{};
         alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-        alloc_info.usage     = img.memory_usage;
+        alloc_info.usage     = img.info.memory_usage;
         alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
         VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
@@ -218,7 +217,12 @@ Image &API::get_image(ImageH H)
 
 void destroy_image_internal(API &api, Image &img)
 {
-    if (!img.is_sparse) {
+    if (img.mapped_ptr.data)
+    {
+        vmaUnmapMemory(api.ctx.allocator, img.allocation);
+    }
+
+    if (!img.info.is_sparse) {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     }
     else {
@@ -389,6 +393,26 @@ void API::generate_mipmaps(ImageH h)
     image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     cmd_buffer.submit_and_wait();
+}
+
+FatPtr API::read_image(ImageH H)
+{
+    auto &image = get_image(H);
+    assert(!image.info.is_sparse);
+    assert(image.info.is_linear);
+    assert(image.image_info.mipLevels == 1);
+    assert(image.info.memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU || image.info.memory_usage == VMA_MEMORY_USAGE_CPU_ONLY);
+
+    if (!image.mapped_ptr.data)
+    {
+        vmaMapMemory(ctx.allocator, image.allocation, &image.mapped_ptr.data);
+        //TODO: return size?
+        image.mapped_ptr.size = 1;
+    }
+
+    assert(image.mapped_ptr.data);
+
+    return image.mapped_ptr;
 }
 
 /// --- Samplers

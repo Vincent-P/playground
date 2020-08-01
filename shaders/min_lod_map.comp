@@ -35,7 +35,8 @@ void main()
 
     // uv of the shadow map
     vec2 uv = sun_pos.xy;
-    uv += vec2(0.5);
+
+    uv += vec2(0.5); // ???
 
     // desired lod of the shadow map at that uv
     uint shadowmap_lod = texelFetch(screenspace_lod_map, pixel_src, 0).r;

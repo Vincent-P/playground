@@ -13,11 +13,17 @@
 #include <iostream>
 #include <fstream>
 
-// #define ENABLE_SPARSE
-
+#define ENABLE_SPARSE
 
 namespace my_app
 {
+
+struct TileAllocationRequest
+{
+    vk::Offset3D offset;
+    u32 mip_level;
+};
+
 
 struct ProfileFunction
 {
@@ -289,11 +295,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo sm_info;
         sm_info.name   = "Sparse Shadow map";
-        sm_info.format = vk::Format::eR32Sfloat;
+        sm_info.format = vk::Format::eD32Sfloat;
         sm_info.width  = 16 * 1024;
         sm_info.height = 16 * 1024;
         sm_info.depth  = 1;
-        sm_info.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        sm_info.mip_levels = 8;
+        sm_info.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment;
         sm_info.is_sparse = true;
         sm_info.max_sparse_size = 64u * 1024u * 1024u; // 64Mb should be the size of a 4K non-sparse shadow map
 
@@ -307,14 +314,15 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 #endif
 
         vulkan::ImageInfo mlm_info;
-        mlm_info.name   = "ShadowMap Min LOD";
-        mlm_info.format = vk::Format::eR32Uint; // needed for atomic even though 8 bits should be enough...
-        mlm_info.extra_formats = {vk::Format::eR32Sfloat};
-        mlm_info.width  = sm_info.width / 128; // https://renderdoc.org/vkspec_chunked/chap32.html#sparsememory-standard-shapes
-        mlm_info.height = sm_info.height / 128; // standard block shape for 32 bits / texel 2D texture is 128x128
-        mlm_info.depth  = 1;
-        mlm_info.usages = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        r.min_lod_map = r.api.create_image(mlm_info);
+        mlm_info.name      = "ShadowMap Min LOD";
+        mlm_info.format    = vk::Format::eR32Uint; // needed for atomic even though 8 bits should be enough...
+        mlm_info.width     = sm_info.width / 128; // https://renderdoc.org/vkspec_chunked/chap32.html#sparsememory-standard-shapes
+        mlm_info.height    = sm_info.height / 128; // standard block shape for 32 bits / texel 2D texture is 128x128
+        mlm_info.depth     = 1;
+        mlm_info.usages    = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        mlm_info.memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+        mlm_info.is_linear = true;
+        r.min_lod_map      = r.api.create_image(mlm_info);
     }
 
     /// --- Voxelization
@@ -1067,7 +1075,7 @@ static void prepass(Renderer &r)
     ProfileFunction pf(r, "Prepass");
 
     /// --- First fill the depth buffer and write the desired lod of each pixel into a screenspace lod map
-
+    {
     vulkan::PassInfo pass;
     pass.present = false;
 
@@ -1109,8 +1117,11 @@ static void prepass(Renderer &r)
     }
 
     r.api.end_pass();
+    }
 
     /// --- Then build the min lod map, a texture where each texel map to 1 tile of the sparse shadow map and contains the min lod of the tile
+
+    auto &min_lod_map_img = r.api.get_image(r.min_lod_map);
 
     {
         vk::ClearColorValue clear{};
@@ -1142,14 +1153,15 @@ static void prepass(Renderer &r)
         }
 
         {
-            auto &image = r.api.get_image(r.min_lod_map);
-            transition_if_needed_internal(r.api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
             r.api.bind_image(program, 3, r.min_lod_map);
         }
 
         auto size_x = r.api.ctx.swapchain.extent.width / 8;
         auto size_y = r.api.ctx.swapchain.extent.height / 8;
         r.api.dispatch(program, size_x, size_y, 1);
+
+        transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_HOST_READ, vk::ImageLayout::eGeneral);
     }
 
     {
@@ -1159,18 +1171,16 @@ static void prepass(Renderer &r)
         ImGui::End();
     }
 
-
     /// --- Readback min lod map and remap pages
-#if defined(ENABLE_SPARSE)
+
 
     auto &ctx = r.api.ctx;
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = frame_resource.command_buffer;
     auto graphics_queue   = ctx.device->getQueue(ctx.graphics_family_idx, 0);
 
+    // wait for gpu to read min lod map
     {
-        // wait for gpu to finish drawing shadow map and dispatch
-
         vk::UniqueFence fence = ctx.device->createFenceUnique({});
 
         cmd->end();
@@ -1183,25 +1193,86 @@ static void prepass(Renderer &r)
         ctx.device->waitForFences({*fence}, VK_FALSE, UINT64_MAX);
     }
 
+    constexpr usize MAX_REQUESTS = 1024;
+
+    std::vector<TileAllocationRequest> requests;
+    requests.reserve(MAX_REQUESTS);
+
+    {
+        auto ptr = r.api.read_image(r.min_lod_map);
+        auto *lods = reinterpret_cast<u32*>(ptr.data);
+
+        usize mip_size = 128; // width (and height because it's squared) of the i_mip mip level of the shadow map
+        usize mip_tile_size = 128; // size of the i_mip mip level in the min lod map (mip 7 covers the entire map and mip 0 is 1 texel)
+        requests.push_back({.offset = {}, .mip_level = 7});
+
+        for (int i_mip = 6; i_mip >= 0; i_mip--)
+        {
+            mip_size *= 2; // each mip get more pixels (coarse -> fine)
+
+            assert(mip_tile_size > 1);
+            mip_tile_size /= 2; // because each mip gets finer the size each mip covers in the min lod map gets smaller
+
+            const uint step = 128;
+
+            // traverse each tiles for this mip level
+            for (u32 y = 0; y < mip_size; y += step)
+            {
+                for (u32 x = 0; x < mip_size; x += step)
+                {
+                    auto offset = vk::Offset3D{static_cast<i32>(x), static_cast<i32>(y), 0};
+
+                    for (uint row = offset.y; row < y + mip_tile_size; row++)
+                    {
+                        for (uint col = offset.x; col < x + mip_tile_size; col++)
+                        {
+                            u32 lod = lods[row * 128 + col];
+                            if (lod == 99) {
+                                continue;
+                            }
+
+                            if (lod >= static_cast<uint>(i_mip)) {
+                                requests.push_back({.offset = offset, .mip_level = static_cast<uint>(i_mip)});
+
+                                if (requests.size() >= MAX_REQUESTS) {
+                                    goto allocations_done;
+                                }
+
+                                goto tile_search_end;
+                            }
+                        }
+                    }
+tile_search_end:
+                    (void)(0); // statement needed for label?
+                }
+            }
+        }
+allocations_done:
+        (void)(0); // statement needed for label?
+    }
+
+#if defined(ENABLE_SPARSE)
     {
         auto &shadow_map_rt = r.api.get_rendertarget(r.shadow_map_rt);
         auto &shadow_map = r.api.get_image(shadow_map_rt.image_h);
 
-        const auto page_count = 128; // shadow_map.sparse_allocations.size();
+        const auto page_count =  shadow_map.sparse_allocations.size();
         // const auto page_size  = shadow_map.page_size;
 
         // sort lods and allocate page (this better be really fast)
         std::vector<vk::SparseImageMemoryBind> binds;
         binds.resize(page_count);
 
+        assert(requests.size() == page_count);
+
         for (uint i = 0; i < page_count; ++i)
         {
             binds[i]                        = vk::SparseImageMemoryBind{};
             binds[i].flags                  = {};
             binds[i].subresource.arrayLayer = 0;
-            binds[i].subresource.aspectMask = vk::ImageAspectFlagBits::eDepth;
-            binds[i].subresource.mipLevel   = 0;
-            binds[i].offset                 = {.x = static_cast<int>(i) * 128, .y = 0, .z = 0};
+            binds[i].subresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            binds[i].subresource.mipLevel   = requests[i].mip_level;
+            binds[i].offset                 = requests[i].offset;
             binds[i].extent                 = vk::Extent3D{128, 128, 1};
             binds[i].memory                 = shadow_map.allocations_infos[i].deviceMemory;
             binds[i].memoryOffset           = shadow_map.allocations_infos[i].offset;
@@ -1212,20 +1283,58 @@ static void prepass(Renderer &r)
         img.pBinds    = binds.data();
         img.bindCount = binds.size();
 
-        vk::Fence null{};
-
         vk::BindSparseInfo info{};
         info.pImageBinds    = &img;
         info.imageBindCount = 1;
-        graphics_queue.bindSparse(info, null);
+        graphics_queue.bindSparse(info, {});
     }
+#endif
 
     // restart command buffer
     vk::CommandBufferBeginInfo binfo{};
     cmd->begin(binfo);
-#endif
 
     /// --- Render shadow map
+
+    if (0)
+    {
+        vulkan::PassInfo pass;
+        pass.present = false;
+
+        vulkan::AttachmentInfo shadowmap_info;
+        shadowmap_info.load_op = vk::AttachmentLoadOp::eClear;
+        shadowmap_info.rt      = r.shadow_map_rt;
+        pass.color             = std::make_optional(shadowmap_info);
+
+        r.api.begin_pass(std::move(pass));
+
+        auto depth_rt  = r.api.get_rendertarget(r.depth_rt);
+        auto depth_img = r.api.get_image(depth_rt.image_h);
+
+        vk::Viewport viewport{};
+        viewport.width    = depth_img.image_info.extent.width;
+        viewport.height   = depth_img.image_info.extent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        r.api.set_viewport(viewport);
+
+        vk::Rect2D scissor{};
+        scissor.extent.width  = depth_img.image_info.extent.width;
+        scissor.extent.height = depth_img.image_info.extent.height;
+        r.api.set_scissor(scissor);
+
+        r.api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+
+        r.api.bind_program(r.model_prepass);
+        r.api.bind_index_buffer(r.model.index_buffer);
+        r.api.bind_vertex_buffer(r.model.vertex_buffer);
+
+        for (usize node_i : r.model.scene) {
+            draw_node_shadow(r, r.model.nodes[node_i]);
+        }
+
+        r.api.end_pass();
+    }
 }
 
 
