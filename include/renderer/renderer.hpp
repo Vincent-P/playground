@@ -103,6 +103,7 @@ struct Renderer
     vulkan::ComputeProgramH generate_aniso_mipmap;
 
     vulkan::SamplerH trilinear_sampler;
+    vulkan::SamplerH nearest_sampler;
     vulkan::ImageH voxels_albedo;
     vulkan::ImageH voxels_normal;
     vulkan::ImageH voxels_radiance;

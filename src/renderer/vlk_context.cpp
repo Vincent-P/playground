@@ -123,7 +123,7 @@ Context Context::create(const Window &window)
     if (ENABLE_VALIDATION_LAYERS) {
         vk::DebugUtilsMessengerCreateInfoEXT ci;
         ci.flags           = {};
-        ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+        ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
         ci.messageType     = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
         ci.pfnUserCallback = debug_callback;
 

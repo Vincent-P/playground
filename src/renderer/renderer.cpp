@@ -346,6 +346,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         sinfo.mip_map_mode = vk::SamplerMipmapMode::eLinear;
         sinfo.address_mode = vk::SamplerAddressMode::eClampToBorder;
         r.trilinear_sampler  = r.api.create_sampler(sinfo);
+
+        sinfo.mag_filter   = vk::Filter::eNearest;
+        sinfo.min_filter   = vk::Filter::eNearest;
+        sinfo.mip_map_mode = vk::SamplerMipmapMode::eNearest;
+        r.nearest_sampler  = r.api.create_sampler(sinfo);
     }
     // voxels directional volumes
     {
@@ -767,7 +772,7 @@ void Renderer::imgui_draw()
             const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
 
             if (draw_command->TextureId) {
-                auto image_h = vulkan::ImageH(reinterpret_cast<u32>(draw_command->TextureId));
+                auto image_h = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
                 auto &image = api.get_image(image_h);
 
                 auto next_access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
@@ -810,7 +815,7 @@ void Renderer::imgui_draw()
             vulkan::GraphicsProgramH current = gui_program;
 
             if (draw_command->TextureId) {
-                auto texture = vulkan::ImageH(reinterpret_cast<u32>(draw_command->TextureId));
+                auto texture = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
                 auto& image = api.get_image(texture);
 
                 if (image.image_info.format == vk::Format::eR32Uint)
@@ -1123,7 +1128,7 @@ static void prepass(Renderer &r)
                                           image,
                                           THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
                                           vk::ImageLayout::eShaderReadOnlyOptimal);
-            r.api.bind_combined_image_sampler(program, 1, rt.image_h, r.trilinear_sampler);
+            r.api.bind_combined_image_sampler(program, 1, rt.image_h, r.nearest_sampler);
         }
 
         {
@@ -1133,7 +1138,7 @@ static void prepass(Renderer &r)
                                           image,
                                           THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
                                           vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-            r.api.bind_combined_image_sampler(program, 2, rt.image_h, r.trilinear_sampler);
+            r.api.bind_combined_image_sampler(program, 2, rt.image_h, r.nearest_sampler);
         }
 
         {
@@ -1757,12 +1762,12 @@ void draw_fps(Renderer &renderer)
             continue;
         }
 
-        ImGui::Text("Heap #%llu", i);
-        ImGui::Text("Block bytes: %llu", budget.blockBytes);
-        ImGui::Text("Allocation bytes: %llu", budget.allocationBytes);
-        ImGui::Text("Usage: %llu", budget.usage);
-        ImGui::Text("Budget: %llu", budget.budget);
-        ImGui::Text("Total: %llu", budget.usage + budget.budget);
+        ImGui::Text("Heap #%lu", i);
+        ImGui::Text("Block bytes: %lu", budget.blockBytes);
+        ImGui::Text("Allocation bytes: %lu", budget.allocationBytes);
+        ImGui::Text("Usage: %lu", budget.usage);
+        ImGui::Text("Budget: %lu", budget.budget);
+        ImGui::Text("Total: %lu", budget.usage + budget.budget);
         double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
         ImGui::Text("%02.2f%%", utilization);
     }

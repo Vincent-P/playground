@@ -172,6 +172,11 @@ ImageH API::create_image(const ImageInfo &info)
 
     img.default_view = ctx.device->createImageView(vci);
 
+    if (ENABLE_VALIDATION_LAYERS) {
+	ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImageView, get_raw_vulkan_handle(img.default_view), info.name});
+    }
+
+
     img.format_views.reserve(info.extra_formats.size());
     for (const auto &extra_format : info.extra_formats)
     {
