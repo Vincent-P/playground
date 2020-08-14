@@ -289,7 +289,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         mlm_info.usages    = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
         mlm_info.memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
         mlm_info.is_linear = true;
-        r.min_lod_map      = r.api.create_image(mlm_info);
+
+        r.min_lod_map_per_frame.resize(vulkan::FRAMES_IN_FLIGHT);
+
+        for (auto &copy : r.min_lod_map_per_frame)
+        {
+            copy = r.api.create_image(mlm_info);
+        }
     }
 
     /// --- Voxelization
@@ -1089,12 +1095,14 @@ static void prepass(Renderer &r)
 
     /// --- Then build the min lod map, a texture where each texel map to 1 tile of the sparse shadow map and contains the min lod of the tile
 
-    auto &min_lod_map_img = r.api.get_image(r.min_lod_map);
+    uint frame_idx = r.api.ctx.frame_count % vulkan::FRAMES_IN_FLIGHT;
+    vulkan::ImageH min_lod_map = r.min_lod_map_per_frame[frame_idx];
+    auto &min_lod_map_img = r.api.get_image(min_lod_map);
 
     {
         vk::ClearColorValue clear{};
         clear.uint32[0] = 99; // need high value because we are doing min operations on it
-        r.api.clear_image(r.min_lod_map, clear);
+        r.api.clear_image(min_lod_map, clear);
 
         auto &program = r.fill_min_lod_map;
 
@@ -1122,7 +1130,7 @@ static void prepass(Renderer &r)
 
         {
             transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
-            r.api.bind_image(program, 3, r.min_lod_map);
+            r.api.bind_image(program, 3, min_lod_map);
         }
 
         auto size_x = r.api.ctx.swapchain.extent.width / 8;
@@ -1135,7 +1143,7 @@ static void prepass(Renderer &r)
     {
         ImGui::Begin("Sparse Shadow Map");
         ImGui::Text("Min lod map:");
-        ImGui::Image(reinterpret_cast<void*>(r.min_lod_map.value()), ImVec2(256, 256));
+        ImGui::Image(reinterpret_cast<void*>(min_lod_map.value()), ImVec2(256, 256));
         ImGui::End();
     }
 
@@ -1148,6 +1156,7 @@ static void prepass(Renderer &r)
     auto graphics_queue   = ctx.device->getQueue(ctx.graphics_family_idx, 0);
 
     // wait for gpu to read min lod map
+    if (0)
     {
         vk::UniqueFence fence = ctx.device->createFenceUnique({});
 
@@ -1167,7 +1176,7 @@ static void prepass(Renderer &r)
     requests.reserve(MAX_REQUESTS);
 
     {
-        auto ptr = r.api.read_image(r.min_lod_map);
+        auto ptr = r.api.read_image(min_lod_map);
         auto *lods = reinterpret_cast<u32*>(ptr.data);
 
         usize mip_size = 128; // width (and height because it's squared) of the i_mip mip level of the shadow map
@@ -1258,9 +1267,12 @@ allocations_done:
     }
 #endif
 
+    if (0)
+    {
     // restart command buffer
     vk::CommandBufferBeginInfo binfo{};
     cmd->begin(binfo);
+    }
 
     /// --- Render shadow map
 

@@ -89,7 +89,8 @@ struct Renderer
 
     vulkan::RenderTargetH shadow_map_rt;
 
-    vulkan::ImageH min_lod_map;
+    std::vector<vulkan::ImageH> min_lod_map_per_frame; // we read back it every frame so n-plicate it to avoid gpu stall
+
     vulkan::ComputeProgramH fill_min_lod_map;
     vulkan::GraphicsProgramH model_prepass;
     Camera sun;
