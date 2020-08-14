@@ -14,7 +14,10 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 {
-    camera   = InputCamera::create(window, float3(0, 10, 0));
+    camera   = InputCamera::create(window, float3(4.0f, 4.5f, 0.0f));
+    camera._internal.yaw   = 90.0f;
+    camera._internal.pitch = 20.0f;
+
     renderer = Renderer::create(window, camera._internal, timer);
 
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
