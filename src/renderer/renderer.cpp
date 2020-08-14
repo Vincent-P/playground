@@ -551,7 +551,9 @@ void Renderer::destroy()
         api.destroy_image(image_h);
     }
 
+#if defined(ENABLE_IMGUI)
     api.destroy_image(gui_texture);
+#endif
     api.destroy();
 }
 
@@ -1140,12 +1142,14 @@ static void prepass(Renderer &r)
         transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_HOST_READ, vk::ImageLayout::eGeneral);
     }
 
+#if defined(ENABLE_IMGUI)
     {
         ImGui::Begin("Sparse Shadow Map");
         ImGui::Text("Min lod map:");
         ImGui::Image(reinterpret_cast<void*>(min_lod_map.value()), ImVec2(256, 256));
         ImGui::End();
     }
+#endif
 
     /// --- Readback min lod map and remap pages
 
