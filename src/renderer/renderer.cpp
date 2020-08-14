@@ -25,41 +25,6 @@ struct TileAllocationRequest
 };
 
 
-struct ProfileFunction
-{
-    Renderer &renderer;
-    std::string_view name;
-    TimePoint start;
-
-    ProfileFunction(Renderer &_renderer, std::string_view _name, float4 color = {1, 1, 1, 1})
-        : renderer(_renderer)
-        , name(_name)
-    {
-        auto &api = renderer.api;
-        api.begin_label(name, color);
-
-        /// start CPU timer
-        start = Clock::now();
-    }
-
-    ~ProfileFunction()
-    {
-        ImGui::Begin("Profiler");
-
-        int name_length = name.size();
-        ImGui::Text("%*s", name_length, name.data());
-
-        TimePoint end = Clock::now();
-        auto duration = elapsed_ms<double>(start, end);
-        ImGui::Text(" - CPU: %0.2fms", duration);
-
-        ImGui::End();
-
-        auto &api = renderer.api;
-        api.end_label();
-    }
-};
-
 struct ShaderDebug
 {
     uint selected;
@@ -802,7 +767,7 @@ void Renderer::imgui_draw()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.load_op = vk::AttachmentLoadOp::eLoad;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -946,7 +911,7 @@ void Renderer::draw_model()
         return;
     }
 
-    ProfileFunction pf(*this, "Draw glTF model");
+    api.begin_label("Draw glTF model");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1042,6 +1007,7 @@ void Renderer::draw_model()
     }
 
     api.end_pass();
+    api.end_label();
 }
 
 static void draw_node_shadow(Renderer &r, Node &node)
@@ -1074,7 +1040,7 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
 static void prepass(Renderer &r)
 {
-    ProfileFunction pf(r, "Prepass");
+    r.api.begin_label("Prepass");
 
     /// --- First fill the depth buffer and write the desired lod of each pixel into a screenspace lod map
     {
@@ -1337,6 +1303,7 @@ allocations_done:
 
         r.api.end_pass();
     }
+    r.api.end_label();
 }
 
 
@@ -1376,7 +1343,7 @@ static void voxelize_node(Renderer &r, Node &node)
 
 void Renderer::voxelize_scene()
 {
-    ProfileFunction pf(*this, "Voxelization");
+    api.begin_label("Voxelization");
 
     vk::Viewport viewport{};
     viewport.width    = voxel_options.res;
@@ -1457,6 +1424,7 @@ void Renderer::voxelize_scene()
     }
 
     api.end_pass();
+    api.end_label();
 }
 
 void Renderer::visualize_voxels()
@@ -1474,7 +1442,7 @@ void Renderer::visualize_voxels()
         return;
     }
 
-    ProfileFunction pf(*this, "Voxel visualization");
+    api.begin_label("Voxel visualization");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1546,6 +1514,7 @@ void Renderer::visualize_voxels()
     api.draw(3, 1, 0, 0);
 
     api.end_pass();
+    api.end_label();
 }
 
 
@@ -1582,7 +1551,7 @@ void Renderer::inject_direct_lighting()
     ImGui::End();
 #endif
 
-    ProfileFunction pf(*this, "Inject direct lighting");
+    api.begin_label("Inject direct lighting");
 
     auto &program = inject_radiance;
 
@@ -1635,11 +1604,12 @@ void Renderer::inject_direct_lighting()
 
     auto count = voxel_options.res / 8;
     api.dispatch(program, count, count, count);
+    api.end_label();
 }
 
 void Renderer::generate_aniso_voxels()
 {
-    ProfileFunction pf(*this, "Compute anisotropic voxels");
+    api.begin_label("Compute anisotropic voxels");
 
     auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
 
@@ -1747,12 +1717,15 @@ void Renderer::generate_aniso_voxels()
         cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
     }
 
+    api.end_label();
 }
 
 void Renderer::composite_hdr()
 {
     static usize s_selected = 0;
     static float s_exposure = 1.0f;
+
+    api.begin_label("Tonemap");
 
 #if defined(ENABLE_IMGUI)
     ImGui::Begin("HDR Shader");
@@ -1761,8 +1734,6 @@ void Renderer::composite_hdr()
     ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
     ImGui::End();
 #endif
-
-    ProfileFunction(*this, "Tonemap");
 
     vk::Viewport viewport{};
     viewport.width    = api.ctx.swapchain.extent.width;
@@ -1804,10 +1775,13 @@ void Renderer::composite_hdr()
     api.draw(3, 1, 0, 0);
 
     api.end_pass();
+    api.end_label();
 }
 
 void draw_fps(Renderer &renderer)
 {
+    renderer.api.begin_label("Draw fps");
+
 #if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();
     const auto &window = *renderer.p_window;
@@ -1816,7 +1790,6 @@ void draw_fps(Renderer &renderer)
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
 
-
     io.DisplaySize.x             = float(renderer.api.ctx.swapchain.extent.width);
     io.DisplaySize.y             = float(renderer.api.ctx.swapchain.extent.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
@@ -1824,32 +1797,6 @@ void draw_fps(Renderer &renderer)
 
     ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
 
-    static bool show_fps = false;
-
-    if (ImGui::RadioButton("FPS", show_fps)) {
-        show_fps = true;
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::RadioButton("ms", !show_fps)) {
-        show_fps = false;
-    }
-
-    if (show_fps) {
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("%7.1f", double(timer.get_average_fps()));
-
-        const auto &histogram = timer.get_fps_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
-    }
-    else {
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
-
-        const auto &histogram = timer.get_delta_time_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
-    }
 
     if (ImGui::Button("Dump usage")) {
         char* dump;
@@ -1884,11 +1831,86 @@ void draw_fps(Renderer &renderer)
     }
 
     ImGui::End();
+
+    ImGui::Begin("Profiler");
+
+    static bool show_fps = false;
+
+    if (ImGui::RadioButton("FPS", show_fps)) {
+        show_fps = true;
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::RadioButton("ms", !show_fps)) {
+        show_fps = false;
+    }
+
+    if (show_fps) {
+        ImGui::SetCursorPosX(20.0f);
+        ImGui::Text("%7.1f", double(timer.get_average_fps()));
+
+        const auto &histogram = timer.get_fps_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+    }
+    else {
+        ImGui::SetCursorPosX(20.0f);
+        ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
+
+        const auto &histogram = timer.get_delta_time_histogram();
+        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
+    }
+
+    const auto &timestamps = renderer.api.timestamps;
+    if (timestamps.size() > 0)
+    {
+        ImGui::Columns(3, "timestamps"); // 4-ways, with border
+        ImGui::Separator();
+        ImGui::Text("Label"); ImGui::NextColumn();
+        ImGui::Text("GPU (us)"); ImGui::NextColumn();
+        ImGui::Text("CPU (ms)"); ImGui::NextColumn();
+        ImGui::Separator();
+        for (uint32_t i = 1; i < timestamps.size() - 1; i++)
+        {
+            auto gpu_delta = timestamps[i].gpu_microseconds - timestamps[i - 1].gpu_microseconds;
+            auto cpu_delta = timestamps[i].cpu_milliseconds - timestamps[i - 1].cpu_milliseconds;
+
+            ImGui::Text("%*s", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data()); ImGui::NextColumn();
+            ImGui::Text("%.1f", gpu_delta); ImGui::NextColumn();
+            ImGui::Text("%.1f", cpu_delta); ImGui::NextColumn();
+        }
+
+        ImGui::Columns(1);
+        ImGui::Separator();
+
+        //scrolling data and average computing
+        static float gpu_values[128];
+        static float cpu_values[128];
+
+        gpu_values[127] = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
+        cpu_values[127] = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
+        float gpu_average = gpu_values[0];
+        float cpu_average = cpu_values[0];
+        for (uint i = 0; i < 128 - 1; i++) { gpu_values[i] = gpu_values[i + 1]; gpu_average += gpu_values[i]; cpu_values[i] = cpu_values[i + 1]; cpu_average += cpu_values[i]; }
+        gpu_average /= 128;
+        cpu_average /= 128;
+
+        ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
+        ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+
+        ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
+        ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+    }
+
+    ImGui::End();
+
 #endif
+    renderer.api.end_label();
 }
 
 void update_uniforms(Renderer &r)
 {
+    r.api.begin_label("Update uniforms");
     float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
     static float fov   = 60.0f;
 
@@ -1905,13 +1927,11 @@ void update_uniforms(Renderer &r)
     globals->camera_inv_projection = glm::inverse(globals->camera_projection);
     globals->sun_view              = r.sun.get_view();
     globals->sun_projection        = r.sun.get_projection();
+    r.api.end_label();
 }
 
 void Renderer::draw()
 {
-    TimePoint start = Clock::now();
-    draw_fps(*this);
-
     bool is_ok = api.start_frame();
     if (!is_ok) {
 #if defined(ENABLE_IMGUI)
@@ -1920,14 +1940,13 @@ void Renderer::draw()
         return;
     }
 
-    if (0)
-    {
+    draw_fps(*this);
+
     update_uniforms(*this);
 
     prepass(*this);
 
-    api.add_gpu_timestamp("Clear voxels");
-
+    api.begin_label("Clear voxels");
     vk::ClearColorValue clear{};
     clear.float32[0] = 0.f;
     clear.float32[1] = 0.f;
@@ -1940,6 +1959,7 @@ void Renderer::draw()
     {
         api.clear_image(image_h, clear);
     }
+    api.end_label();
 
     voxelize_scene();
     inject_direct_lighting();
@@ -1949,39 +1969,8 @@ void Renderer::draw()
     visualize_voxels();
 
     composite_hdr();
-    }
-
-    ImGui::Begin("Profiler");
-    ImGui::Text("Last frame total: %.2fms", last_frame_total);
-
-    auto timestamps = api.timestamps;
-    if (timestamps.size() > 0)
-    {
-        for (uint32_t i = 1; i < timestamps.size(); i++)
-        {
-            auto delta = timestamps[i].microseconds - timestamps[i - 1].microseconds;
-            ImGui::Text("%-*s: %7.1f us", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data(), delta);
-        }
-
-        //scrolling data and average computing
-        static float values[128];
-        values[127] = float(timestamps.back().microseconds - timestamps.front().microseconds);
-        float average = values[0];
-        for (uint i = 0; i < 128 - 1; i++) { values[i] = values[i + 1]; average += values[i]; }
-        average /= 128;
-
-        ImGui::Text("%-17s: %7.1f us", "Total gpu time", average);
-        ImGui::PlotLines("", values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
-    }
-
-    ImGui::End();
-    ImGui::ShowDemoWindow();
 
     imgui_draw();
-
-    TimePoint end = Clock::now();
-    last_frame_total = elapsed_ms<double>(start, end);
-
     api.end_frame();
 }
 

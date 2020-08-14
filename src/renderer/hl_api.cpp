@@ -52,7 +52,8 @@ API API::create(const Window &window)
     }
 
     {
-        api.current_timestamp_labels.resize(FRAMES_IN_FLIGHT);
+        api.timestamp_labels_per_frame.resize(FRAMES_IN_FLIGHT);
+        api.cpu_timestamps_per_frame.resize(FRAMES_IN_FLIGHT);
     }
 
     return api;
@@ -96,35 +97,47 @@ bool API::start_frame()
     frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique(
 	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
 
-    // TODO: check compile and work, add timestamp during begin_label?
-    // there is at least one timestamp to read
+
+    /// --- Read timestamp from previous frame and copy them in cpu memory
+
     uint frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
+    auto &current_timestamp_labels = timestamp_labels_per_frame[frame_idx];
+    auto &cpu_timestamps = cpu_timestamps_per_frame[frame_idx];
     usize timestamps_to_read = current_timestamp_labels.size();
+
+    // there is at least one timestamp to read
     if (timestamps_to_read != 0)
     {
+
+        // read gpu timestamps
+        std::array<u64, MAX_TIMESTAMP_PER_FRAME> gpu_timestamps;
         // timestampPeriod is the number of nanoseconds per timestamp value increment
         double ms_per_tick = (1e-3f * ctx.physical_props.limits.timestampPeriod);
-
-        std::array<u64, MAX_TIMESTAMP_PER_FRAME> gpu_timestamps;
         auto res = ctx.device->getQueryPoolResults(*ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, timestamps_to_read, timestamps_to_read * sizeof(u64), gpu_timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::eWithAvailability);
+
         (void)(res);
         assert(res == vk::Result::eSuccess);
 
+
+        // copy the timestamps to display them later in the frame
         timestamps.resize(timestamps_to_read);
         for (usize i = 0; i < timestamps_to_read; i++)
         {
-            timestamps[i] = {.label = current_timestamp_labels[i], .microseconds = float(ms_per_tick * (gpu_timestamps[i] - gpu_timestamps[0]))};
+            timestamps[i] = {
+                .label = current_timestamp_labels[i],
+                .gpu_microseconds = float(ms_per_tick * (gpu_timestamps[i] - gpu_timestamps[0])),
+                .cpu_milliseconds = elapsed_ms<float>(cpu_timestamps[0], cpu_timestamps[i]),
+            };
         }
 
         current_timestamp_labels.clear();
     }
 
     ctx.device->resetQueryPool(*ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, MAX_TIMESTAMP_PER_FRAME);
-
+    cpu_timestamps.clear();
 
     // TODO: dont acquire swapchain image yet, make separate start_present to acquire it only for post process
-    auto result
-	= ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
+    auto result = ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
 					  *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
 
     if (result == vk::Result::eErrorOutOfDateKHR) {
@@ -140,11 +153,16 @@ bool API::start_frame()
 
     vk::CommandBufferBeginInfo binfo{};
     frame_resource.command_buffer->begin(binfo);
+
+    add_timestamp("Begin Frame");
+
     return true;
 }
 
 void API::end_frame()
 {
+    add_timestamp("End Frame");
+
     auto graphics_queue = ctx.device->getQueue(ctx.graphics_family_idx, 0);
 
     auto &frame_resource = ctx.frame_resources.get_current();

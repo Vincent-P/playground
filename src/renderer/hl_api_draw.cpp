@@ -784,24 +784,37 @@ void API::begin_label(std::string_view name, float4 color)
     info.color[3] = color[3];
     frame_resource.command_buffer->beginDebugUtilsLabelEXT(&info);
 
-    add_gpu_timestamp(name);
+    current_label = name;
 }
 
-void API::add_gpu_timestamp(std::string_view label)
+void API::add_timestamp(std::string_view label)
 {
+    assert(label.size() > 0);
+    assert(current_label.size() == 0);
+
     auto &frame_resource = ctx.frame_resources.get_current();
     u32 frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
+    auto &current_timestamp_labels = timestamp_labels_per_frame[frame_idx];
     u32 offset    = frame_idx * MAX_TIMESTAMP_PER_FRAME + current_timestamp_labels.size();
 
+    // write gpu timestamp
     frame_resource.command_buffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *ctx.timestamp_pool, offset);
+
+    // write cpu timestamp
+    auto &cpu_timestamps = cpu_timestamps_per_frame[frame_idx];
+    cpu_timestamps.push_back(Clock::now());
 
     current_timestamp_labels.push_back(label);
 }
 
 void API::end_label()
 {
+    add_timestamp(current_label);
+
     auto &frame_resource = ctx.frame_resources.get_current();
     frame_resource.command_buffer->endDebugUtilsLabelEXT();
+
+    current_label = {};
 }
 
 static DescriptorSet &find_or_create_descriptor_set(API &api, ComputeProgram &program)
