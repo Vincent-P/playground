@@ -697,7 +697,6 @@ void Renderer::reload_shader(std::string_view shader_name)
 
 void Renderer::imgui_draw()
 {
-    api.begin_label("ImGui");
 
 #if defined(ENABLE_IMGUI)
     ImGui::Render();
@@ -705,6 +704,7 @@ void Renderer::imgui_draw()
     if (data == nullptr || data->TotalVtxCount == 0) {
         return;
     }
+    api.begin_label("ImGui");
 
     u32 vbuffer_len = sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount);
     u32 ibuffer_len = sizeof(ImDrawIdx) * static_cast<u32>(data->TotalIdxCount);
@@ -836,9 +836,9 @@ void Renderer::imgui_draw()
         }
         vertex_offset += cmd_list->VtxBuffer.Size;
     }
-#endif
     api.end_pass();
     api.end_label();
+#endif
 }
 
 static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint slot, std::optional<u32> i_texture)

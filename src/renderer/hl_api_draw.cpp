@@ -775,6 +775,9 @@ void API::set_viewport(const vk::Viewport &viewport)
 
 void API::begin_label(std::string_view name, float4 color)
 {
+    assert(name.size() > 0);
+    assert(current_label.size() == 0);
+
     auto &frame_resource = ctx.frame_resources.get_current();
     vk::DebugUtilsLabelEXT info{};
     info.pLabelName = name.data();
@@ -789,9 +792,6 @@ void API::begin_label(std::string_view name, float4 color)
 
 void API::add_timestamp(std::string_view label)
 {
-    assert(label.size() > 0);
-    assert(current_label.size() == 0);
-
     auto &frame_resource = ctx.frame_resources.get_current();
     u32 frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
     auto &current_timestamp_labels = timestamp_labels_per_frame[frame_idx];
