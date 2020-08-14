@@ -1,4 +1,5 @@
 #include "renderer/hl_api.hpp"
+#include "renderer/vlk_context.hpp"
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_core.h>
 
@@ -782,6 +783,19 @@ void API::begin_label(std::string_view name, float4 color)
     info.color[2] = color[2];
     info.color[3] = color[3];
     frame_resource.command_buffer->beginDebugUtilsLabelEXT(&info);
+
+    add_gpu_timestamp(name);
+}
+
+void API::add_gpu_timestamp(std::string_view label)
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+    u32 frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
+    u32 offset    = frame_idx * MAX_TIMESTAMP_PER_FRAME + current_timestamp_labels.size();
+
+    frame_resource.command_buffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *ctx.timestamp_pool, offset);
+
+    current_timestamp_labels.push_back(label);
 }
 
 void API::end_label()

@@ -20,7 +20,8 @@ namespace vulkan
 {
 
 constexpr inline auto ENABLE_VALIDATION_LAYERS = true;
-constexpr inline auto FRAME_IN_FLIGHT = 1;
+constexpr inline auto FRAMES_IN_FLIGHT         = 1;
+constexpr inline u32  MAX_TIMESTAMP_PER_FRAME  = 128;
 
 template <typename T> inline u64 get_raw_vulkan_handle(T const &cpp_handle)
 {
@@ -94,6 +95,7 @@ struct Context
     usize descriptor_sets_count{0};
 
     // query pool for timestamps
+    vk::UniqueQueryPool timestamp_pool;
 
     static Context create(const Window &window);
     void create_swapchain();

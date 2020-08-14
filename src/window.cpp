@@ -1,6 +1,7 @@
 #include "window.hpp"
 #include "types.hpp"
 #include <GLFW/glfw3.h>
+#include <iostream>
 #if defined(ENABLE_IMGUI)
 #include <imgui.h>
 #endif

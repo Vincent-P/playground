@@ -1,4 +1,5 @@
 #include "renderer/hl_api.hpp"
+#include "renderer/vlk_context.hpp"
 #include <iostream>
 #include <vulkan/vulkan.hpp>
 
@@ -50,6 +51,10 @@ API API::create(const Window &window)
 	api.dyn_index_buffer.offset   = 0;
     }
 
+    {
+        api.current_timestamp_labels.resize(FRAMES_IN_FLIGHT);
+    }
+
     return api;
 }
 
@@ -90,6 +95,32 @@ bool API::start_frame()
     ctx.device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
     frame_resource.command_buffer = std::move(ctx.device->allocateCommandBuffersUnique(
 	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+
+    // TODO: check compile and work, add timestamp during begin_label?
+    // there is at least one timestamp to read
+    uint frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
+    usize timestamps_to_read = current_timestamp_labels.size();
+    if (timestamps_to_read != 0)
+    {
+        // timestampPeriod is the number of nanoseconds per timestamp value increment
+        double ms_per_tick = (1e-3f * ctx.physical_props.limits.timestampPeriod);
+
+        std::array<u64, MAX_TIMESTAMP_PER_FRAME> gpu_timestamps;
+        auto res = ctx.device->getQueryPoolResults(*ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, timestamps_to_read, timestamps_to_read * sizeof(u64), gpu_timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::eWithAvailability);
+        (void)(res);
+        assert(res == vk::Result::eSuccess);
+
+        timestamps.resize(timestamps_to_read);
+        for (usize i = 0; i < timestamps_to_read; i++)
+        {
+            timestamps[i] = {.label = current_timestamp_labels[i], .microseconds = float(ms_per_tick * (gpu_timestamps[i] - gpu_timestamps[0]))};
+        }
+
+        current_timestamp_labels.clear();
+    }
+
+    ctx.device->resetQueryPool(*ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, MAX_TIMESTAMP_PER_FRAME);
+
 
     // TODO: dont acquire swapchain image yet, make separate start_present to acquire it only for post process
     auto result

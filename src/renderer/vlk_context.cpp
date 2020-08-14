@@ -218,7 +218,7 @@ Context Context::create(const Window &window)
     /// --- Create the swapchain
     ctx.create_swapchain();
 
-    ctx.create_frame_resources(FRAME_IN_FLIGHT);
+    ctx.create_frame_resources(FRAMES_IN_FLIGHT);
 
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{
@@ -233,6 +233,11 @@ Context Context::create(const Window &window)
     dpci.pPoolSizes     = pool_sizes.data();
     dpci.maxSets        = 1024;
     ctx.descriptor_pool = ctx.device->createDescriptorPoolUnique(dpci);
+
+    vk::QueryPoolCreateInfo qpci{};
+    qpci.queryType = vk::QueryType::eTimestamp;
+    qpci.queryCount = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
+    ctx.timestamp_pool = ctx.device->createQueryPoolUnique(qpci);
 
     return ctx;
 }

@@ -395,9 +395,18 @@ struct API;
 
 CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &circular, usize len);
 
+struct GpuTimestamp
+{
+    std::string_view label;
+    float microseconds;
+};
+
 struct API
 {
     Context ctx;
+
+    std::vector<GpuTimestamp> timestamps;
+    std::vector<std::string_view> current_timestamp_labels;
 
     // resources
     Arena<Image> images;
@@ -528,6 +537,9 @@ struct API
 
     // COmmand buffers
     CommandBuffer get_temp_cmd_buffer();
+
+    /// --- Queries
+    void add_gpu_timestamp(std::string_view label);
 };
 
 void destroy_buffer_internal(API &api, Buffer &buffer);

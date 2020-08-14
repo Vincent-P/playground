@@ -13,7 +13,7 @@
 #include <iostream>
 #include <fstream>
 
-#define ENABLE_SPARSE
+// #define ENABLE_SPARSE
 
 namespace my_app
 {
@@ -154,6 +154,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         auto &io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         io.ConfigDockingWithShift = false;
+        io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
+        io.BackendPlatformName = "custom_glfw";
     }
 
     {
@@ -800,7 +802,7 @@ void Renderer::imgui_draw()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1871,12 +1873,12 @@ void draw_fps(Renderer &renderer)
             continue;
         }
 
-        ImGui::Text("Heap #%lu", i);
-        ImGui::Text("Block bytes: %lu", budget.blockBytes);
-        ImGui::Text("Allocation bytes: %lu", budget.allocationBytes);
-        ImGui::Text("Usage: %lu", budget.usage);
-        ImGui::Text("Budget: %lu", budget.budget);
-        ImGui::Text("Total: %lu", budget.usage + budget.budget);
+        ImGui::Text("Heap #%llu", static_cast<u64>(i));
+        ImGui::Text("Block bytes: %llu", static_cast<u64>(budget.blockBytes));
+        ImGui::Text("Allocation bytes: %llu", static_cast<u64>(budget.allocationBytes));
+        ImGui::Text("Usage: %llu", static_cast<u64>(budget.usage));
+        ImGui::Text("Budget: %llu", static_cast<u64>(budget.budget));
+        ImGui::Text("Total: %llu", static_cast<u64>(budget.usage + budget.budget));
         double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
         ImGui::Text("%02.2f%%", utilization);
     }
@@ -1918,9 +1920,13 @@ void Renderer::draw()
         return;
     }
 
+    if (0)
+    {
     update_uniforms(*this);
 
     prepass(*this);
+
+    api.add_gpu_timestamp("Clear voxels");
 
     vk::ClearColorValue clear{};
     clear.float32[0] = 0.f;
@@ -1943,10 +1949,33 @@ void Renderer::draw()
     visualize_voxels();
 
     composite_hdr();
+    }
 
     ImGui::Begin("Profiler");
     ImGui::Text("Last frame total: %.2fms", last_frame_total);
+
+    auto timestamps = api.timestamps;
+    if (timestamps.size() > 0)
+    {
+        for (uint32_t i = 1; i < timestamps.size(); i++)
+        {
+            auto delta = timestamps[i].microseconds - timestamps[i - 1].microseconds;
+            ImGui::Text("%-*s: %7.1f us", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data(), delta);
+        }
+
+        //scrolling data and average computing
+        static float values[128];
+        values[127] = float(timestamps.back().microseconds - timestamps.front().microseconds);
+        float average = values[0];
+        for (uint i = 0; i < 128 - 1; i++) { values[i] = values[i + 1]; average += values[i]; }
+        average /= 128;
+
+        ImGui::Text("%-17s: %7.1f us", "Total gpu time", average);
+        ImGui::PlotLines("", values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+    }
+
     ImGui::End();
+    ImGui::ShowDemoWindow();
 
     imgui_draw();
 
