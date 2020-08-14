@@ -267,6 +267,7 @@ struct GraphicsProgramInfo
     std::optional<vk::CompareOp> depth_test;
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
+    float depth_bias{0.0f};
 
     bool operator==(const GraphicsProgramInfo &) const = default;
 

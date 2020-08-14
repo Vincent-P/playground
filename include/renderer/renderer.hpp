@@ -69,31 +69,36 @@ struct Renderer
     TimerData *p_timer;
 
     /// --- Rendering
-    double last_frame_total;
-
     vulkan::SamplerH default_sampler;
+    vulkan::CircularBufferPosition global_uniform_pos;
+    Camera sun;
+
+    // Tonemap
     vulkan::GraphicsProgramH hdr_compositing;
 
-    vulkan::CircularBufferPosition global_uniform_pos;
 
     // ImGui
     vulkan::GraphicsProgramH gui_program;
     vulkan::GraphicsProgramH gui_uint_program;
     vulkan::ImageH gui_texture;
 
+    // Checkerboard floor
+    struct CheckerBoardFloorPass
+    {
+        vulkan::BufferH index_buffer;
+        vulkan::BufferH vertex_buffer;
+        vulkan::GraphicsProgramH program;
+    } checkerboard_floor;
+
     // glTF
     Model model;
 
     // Shadow Map
-    vulkan::RenderTargetH screenspace_lod_map_rt;
-
-    vulkan::RenderTargetH shadow_map_rt;
-
-    std::vector<vulkan::ImageH> min_lod_map_per_frame; // we read back it every frame so n-plicate it to avoid gpu stall
-
-    vulkan::ComputeProgramH fill_min_lod_map;
     vulkan::GraphicsProgramH model_prepass;
-    Camera sun;
+    vulkan::RenderTargetH screenspace_lod_map_rt;
+    vulkan::RenderTargetH shadow_map_rt;
+    std::vector<vulkan::ImageH> min_lod_map_per_frame; // we read back it every frame so n-plicate it to avoid gpu stall
+    vulkan::ComputeProgramH fill_min_lod_map;
 
     // Voxelization
     VoxelDebug voxel_options{};

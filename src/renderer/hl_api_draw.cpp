@@ -327,8 +327,8 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         rast_i.frontFace               = vk::FrontFace::eCounterClockwise;
         rast_i.depthClampEnable        = VK_FALSE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
-        rast_i.depthBiasEnable         = VK_FALSE;
-        rast_i.depthBiasConstantFactor = 0;
+        rast_i.depthBiasEnable         = program_info.depth_bias != 0.0f ? true : false;
+        rast_i.depthBiasConstantFactor = program_info.depth_bias;
         rast_i.depthBiasClamp          = 0;
         rast_i.depthBiasSlopeFactor    = 0;
         rast_i.lineWidth               = 1.0f;

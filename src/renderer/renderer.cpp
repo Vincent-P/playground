@@ -526,6 +526,64 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
     }
 
+    /// --- Checkerboard floor
+    {
+        std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
+
+        // clang-format off
+        std::array vertices =
+        {
+            -1.0f,  0.0f, -1.0f,      0.0f, 0.0f,
+             1.0f,  0.0f, -1.0f,      1.0f, 0.0f,
+             1.0f,  0.0f,  1.0f,      1.0f, 1.0f,
+            -1.0f,  0.0f,  1.0f,      0.0f, 1.0f,
+        };
+        // clang-format on
+
+        auto &index_buffer  = r.checkerboard_floor.index_buffer;
+        auto &vertex_buffer = r.checkerboard_floor.vertex_buffer;
+
+	vulkan::BufferInfo info;
+	info.name           = "Floor Index buffer";
+	info.size           = indices.size() * sizeof(u16);
+	info.usage          = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	info.memory_usage   = VMA_MEMORY_USAGE_GPU_ONLY;
+	index_buffer        = r.api.create_buffer(info);
+
+	info.name           = "Floor Vertex buffer";
+	info.size           = vertices.size() * sizeof(float);
+	info.usage          = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	vertex_buffer       = r.api.create_buffer(info);
+
+	r.api.upload_buffer(index_buffer,  indices.data(),  indices.size() * sizeof(u16));
+	r.api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
+    }
+
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/checkerboard_floor.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/checkerboard_floor.frag.spv");
+
+        // voxel options
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eCompute,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        pinfo.vertex_stride(3*sizeof(float) + 2*sizeof(float));
+        pinfo.vertex_info({.format = vk::Format::eR32G32B32Sfloat, .offset = 0});
+        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = 3 * sizeof(float)});
+
+        pinfo.enable_depth_write = true;
+        pinfo.depth_test = vk::CompareOp::eLessOrEqual;
+        pinfo.depth_bias = 0.0f;
+
+        r.checkerboard_floor.program = r.api.create_program(std::move(pinfo));
+    }
+
+
+
     return r;
 }
 
@@ -895,6 +953,49 @@ static void draw_node(Renderer &r, Node &node)
     }
 }
 
+void draw_floor(Renderer &r)
+{
+    r.api.begin_label("Draw floor");
+
+    vk::Viewport viewport{};
+    viewport.width    = r.api.ctx.swapchain.extent.width;
+    viewport.height   = r.api.ctx.swapchain.extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    r.api.set_viewport(viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent = r.api.ctx.swapchain.extent;
+    r.api.set_scissor(scissor);
+
+    // Bind camera uniform buffer
+    r.api.bind_buffer(r.checkerboard_floor.program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+
+    vulkan::PassInfo pass;
+    pass.present = false;
+
+    vulkan::AttachmentInfo color_info;
+    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.rt      = r.color_rt;
+    pass.color         = std::make_optional(color_info);
+
+    vulkan::AttachmentInfo depth_info;
+    depth_info.load_op = vk::AttachmentLoadOp::eLoad;
+    depth_info.rt      = r.depth_rt;
+    pass.depth         = std::make_optional(depth_info);
+
+    r.api.begin_pass(std::move(pass));
+
+    r.api.bind_program(r.checkerboard_floor.program);
+    r.api.bind_index_buffer(r.checkerboard_floor.index_buffer);
+    r.api.bind_vertex_buffer(r.checkerboard_floor.vertex_buffer);
+
+    r.api.draw_indexed(6, 1, 0, 0, 0);
+
+    r.api.end_pass();
+    r.api.end_label();
+}
+
 void Renderer::draw_model()
 {
     static usize s_selected = 0;
@@ -995,7 +1096,7 @@ void Renderer::draw_model()
     pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.load_op = vk::AttachmentLoadOp::eLoad;
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1930,7 +2031,7 @@ void update_uniforms(Renderer &r)
     float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
     static float fov   = 60.0f;
 
-    r.p_camera->perspective(fov, aspect_ratio, 0.01f, 25.f);
+    r.p_camera->perspective(fov, aspect_ratio, 0.01f, 500.f);
     r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
@@ -1981,6 +2082,7 @@ void Renderer::draw()
     inject_direct_lighting();
     generate_aniso_voxels();
 
+    draw_floor(*this);
     draw_model();
     visualize_voxels();
 
