@@ -104,7 +104,13 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].preserveAttachmentCount = 0;
     subpasses[0].pPreserveAttachments    = nullptr;
 
-    std::array<vk::SubpassDependency, 0> dependencies{};
+    std::array<vk::SubpassDependency, 1> dependencies{};
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = {};
+    dependencies[0].srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    dependencies[0].srcAccessMask = {};
+    dependencies[0].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    dependencies[0].dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
     vk::RenderPassCreateInfo rp_info{};
     rp_info.attachmentCount = static_cast<u32>(attachments.size());
