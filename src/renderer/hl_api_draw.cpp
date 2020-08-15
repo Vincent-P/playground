@@ -306,7 +306,7 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         }
 
         vk::PipelineVertexInputStateCreateInfo vert_i{};
-        vert_i.vertexBindingDescriptionCount   = bindings.size();
+        vert_i.vertexBindingDescriptionCount   = attributes.size() == 0 ? 0 : bindings.size();
         vert_i.pVertexBindingDescriptions      = bindings.data();
         vert_i.vertexAttributeDescriptionCount = static_cast<u32>(attributes.size());
         vert_i.pVertexAttributeDescriptions    = attributes.data();
