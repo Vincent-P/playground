@@ -531,12 +531,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
 
         // clang-format off
+        float height = -0.001f;
         std::array vertices =
         {
-            -1.0f,  0.0f, -1.0f,      0.0f, 0.0f,
-             1.0f,  0.0f, -1.0f,      1.0f, 0.0f,
-             1.0f,  0.0f,  1.0f,      1.0f, 1.0f,
-            -1.0f,  0.0f,  1.0f,      0.0f, 1.0f,
+            -1.0f,  height, -1.0f,      0.0f, 0.0f,
+             1.0f,  height, -1.0f,      1.0f, 0.0f,
+             1.0f,  height,  1.0f,      1.0f, 1.0f,
+            -1.0f,  height,  1.0f,      0.0f, 1.0f,
         };
         // clang-format on
 
@@ -583,6 +584,108 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     }
 
 
+    /// --- Sky
+
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "Transmittance LUT";
+        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.width  = 256;
+        iinfo.height = 64;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
+                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        auto image_h = r.api.create_image(iinfo);
+
+        vulkan::RTInfo cinfo;
+        cinfo.is_swapchain         = false;
+        cinfo.image_h              = image_h;
+        r.sky.transmittance_lut_rt = r.api.create_rendertarget(cinfo);
+    }
+
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/transmittance_lut.frag.spv");
+
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        r.sky.render_transmittance = r.api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "SkyView LUT";
+        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.width  = 192;
+        iinfo.height = 108;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
+                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        auto image_h = r.api.create_image(iinfo);
+
+        vulkan::RTInfo cinfo;
+        cinfo.is_swapchain         = false;
+        cinfo.image_h              = image_h;
+        r.sky.skyview_lut_rt = r.api.create_rendertarget(cinfo);
+    }
+
+
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/skyview_lut.frag.spv");
+
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        r.sky.render_skyview = r.api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = r.api.create_shader("shaders/sky_raymarch.frag.spv");
+
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        r.sky.sky_raymarch = r.api.create_program(std::move(pinfo));
+    }
 
     return r;
 }
@@ -612,6 +715,17 @@ void Renderer::destroy()
 #if defined(ENABLE_IMGUI)
     api.destroy_image(gui_texture);
 #endif
+
+    {
+        auto &image = api.get_rendertarget(sky.transmittance_lut_rt);
+        api.destroy_image(image.image_h);
+    }
+
+    {
+        auto &image = api.get_rendertarget(sky.skyview_lut_rt);
+        api.destroy_image(image.image_h);
+    }
+
     api.destroy();
 }
 
@@ -1648,7 +1762,7 @@ struct DirectLightingDebug
 void Renderer::inject_direct_lighting()
 {
     static std::array s_position       = {1.5f, 2.5f, 0.0f};
-    static std::array s_sun_direction       = {90.f, 0.f, 0.f};
+    static std::array s_sun_direction       = {-8.f, 120.f, 0.f};
     static float s_scale            = 1.0f;
     static float s_trace_shadow_hit = 0.5f;
     static auto s_max_dist          = static_cast<float>(voxel_options.res);
@@ -1871,10 +1985,12 @@ void Renderer::composite_hdr()
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
-    api.begin_pass(std::move(pass));
+
 
     auto &hdr_rt = api.get_rendertarget(color_rt);
     api.bind_combined_image_sampler(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_rt.image_h, default_sampler);
+
+    api.begin_pass(std::move(pass));
 
     // Make a shader debugging window and its own uniform buffer
     {
@@ -1892,6 +2008,155 @@ void Renderer::composite_hdr()
     api.draw(3, 1, 0, 0);
 
     api.end_pass();
+    api.end_label();
+}
+
+void render_sky(Renderer &r)
+{
+    auto &api = r.api;
+
+    auto &transmittance_lut_rt = api.get_rendertarget(r.sky.transmittance_lut_rt);
+    auto &transmittance_lut = api.get_image(transmittance_lut_rt.image_h);
+
+    auto &skyview_lut_rt = api.get_rendertarget(r.sky.skyview_lut_rt);
+    auto &skyview_lut = api.get_image(skyview_lut_rt.image_h);
+
+    api.begin_label("Sky");
+
+    /// --- Render transmittance LUT
+    {
+        vk::Viewport viewport{};
+        viewport.width    = transmittance_lut.info.width;
+        viewport.height   = transmittance_lut.info.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        api.set_viewport(viewport);
+
+        vk::Rect2D scissor{};
+        scissor.extent.width  = viewport.width;
+        scissor.extent.height = viewport.height;
+        api.set_scissor(scissor);
+
+        vulkan::PassInfo pass;
+        pass.present = false;
+
+        vulkan::AttachmentInfo color_info;
+        color_info.load_op = vk::AttachmentLoadOp::eClear;
+        color_info.rt      = r.sky.transmittance_lut_rt;
+        pass.color         = std::make_optional(color_info);
+
+        api.begin_pass(std::move(pass));
+
+        api.bind_buffer(r.sky.render_transmittance, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_program(r.sky.render_transmittance);
+
+        api.draw(3, 1, 0, 0);
+
+        api.end_pass();
+    }
+
+    /// --- Render SkyView LUT
+    {
+        vk::Viewport viewport{};
+        viewport.width    = skyview_lut.info.width;
+        viewport.height   = skyview_lut.info.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        api.set_viewport(viewport);
+
+        vk::Rect2D scissor{};
+        scissor.extent.width  = viewport.width;
+        scissor.extent.height = viewport.height;
+        api.set_scissor(scissor);
+
+        vulkan::PassInfo pass;
+        pass.present = false;
+
+        vulkan::AttachmentInfo color_info;
+        color_info.load_op = vk::AttachmentLoadOp::eClear;
+        color_info.rt      = r.sky.skyview_lut_rt;
+        pass.color         = std::make_optional(color_info);
+
+        transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        api.begin_pass(std::move(pass));
+
+        api.bind_buffer(r.sky.render_skyview, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+
+        api.bind_combined_image_sampler(r.sky.render_skyview,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        0,
+                                        transmittance_lut_rt.image_h,
+                                        r.trilinear_sampler);
+
+        api.bind_program(r.sky.render_skyview);
+
+        api.draw(3, 1, 0, 0);
+
+        api.end_pass();
+    }
+
+    /// --- Raymarch the sky
+    {
+        vk::Viewport viewport{};
+        viewport.width    = api.ctx.swapchain.extent.width;
+        viewport.height   = api.ctx.swapchain.extent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        api.set_viewport(viewport);
+
+        vk::Rect2D scissor{};
+        scissor.extent.width  = viewport.width;
+        scissor.extent.height = viewport.height;
+        api.set_scissor(scissor);
+
+        vulkan::PassInfo pass;
+        pass.present = false;
+
+        vulkan::AttachmentInfo color_info;
+        color_info.load_op = vk::AttachmentLoadOp::eLoad;
+        color_info.rt      = r.color_rt;
+        pass.color         = std::make_optional(color_info);
+
+        transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        transition_if_needed_internal(api, skyview_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        auto &program = r.sky.sky_raymarch;
+
+        api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+
+        api.bind_combined_image_sampler(program,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        0,
+                                        transmittance_lut_rt.image_h,
+                                        r.trilinear_sampler);
+
+        api.bind_combined_image_sampler(program,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        1,
+                                        skyview_lut_rt.image_h,
+                                        r.trilinear_sampler);
+
+        {
+            auto &rt = api.get_rendertarget(r.depth_rt);
+            auto &image = api.get_image(rt.image_h);
+            transition_if_needed_internal(api,
+                                          image,
+                                          THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
+                                          vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+            api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 2, rt.image_h, r.nearest_sampler);
+        }
+
+
+        api.begin_pass(std::move(pass));
+
+        api.bind_program(program);
+
+        api.draw(3, 1, 0, 0);
+
+        api.end_pass();
+    }
+
     api.end_label();
 }
 
@@ -2037,13 +2302,70 @@ void update_uniforms(Renderer &r)
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.ortho_square(40.f, 1.f, 100.f);
 
-    r.global_uniform_pos           = r.api.dynamic_uniform_buffer(sizeof(GlobalUniform));
-    auto *globals                  = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
-    globals->camera_view           = r.p_camera->get_view();
-    globals->camera_projection     = r.p_camera->get_projection();
-    globals->camera_inv_projection = glm::inverse(globals->camera_projection);
-    globals->sun_view              = r.sun.get_view();
-    globals->sun_projection        = r.sun.get_projection();
+    r.global_uniform_pos     = r.api.dynamic_uniform_buffer(sizeof(GlobalUniform));
+    auto *globals            = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
+    std::memset(globals, 0, sizeof(GlobalUniform));
+
+    globals->camera_pos      = r.p_camera->position;
+    globals->camera_view     = r.p_camera->get_view();
+    globals->camera_proj     = r.p_camera->get_projection();
+    globals->camera_inv_proj = glm::inverse(globals->camera_proj);
+    globals->sun_view        = r.sun.get_view();
+    globals->sun_proj        = r.sun.get_projection();
+
+    globals->resolution = uint2(r.api.ctx.swapchain.extent.width, r.api.ctx.swapchain.extent.height);
+    globals->raymarch_min_max_spp = float2(4, 14);
+    globals->MultipleScatteringFactor = 1.0f;
+    globals->MultiScatteringLUTRes = 32;
+
+    globals->TRANSMITTANCE_TEXTURE_WIDTH = 256;
+    globals->TRANSMITTANCE_TEXTURE_HEIGHT = 64;
+
+    globals->sun_direction = float4(r.sun.front, 1);
+
+    //
+    // From AtmosphereParameters
+    //
+    const float EarthBottomRadius = 6360.0f;
+    const float EarthTopRadius = 6460.0f;   // 100km atmosphere radius, less edge visible and it contain 99.99% of the atmosphere medium https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_line
+    const float EarthRayleighScaleHeight = 8.0f;
+    const float EarthMieScaleHeight = 1.2f;
+
+    // Sun - This should not be part of the sky model...
+    // info.solar_irradiance = { 1.474000f, 1.850400f, 1.911980f };
+    globals->solar_irradiance = {1.0f, 1.0f, 1.0f}; // Using a normalise sun illuminance. This is to make sure the LUTs acts as a transfert
+                              // factor to apply the runtime computed sun irradiance over.
+    globals->sun_angular_radius = 0.004675f;
+
+    // Earth
+    globals->bottom_radius = EarthBottomRadius;
+    globals->top_radius    = EarthTopRadius;
+    globals->ground_albedo = {0.0f, 0.0f, 0.0f};
+
+    // Raleigh scattering
+    globals->rayleigh_density[0] = {0.0f, 0.0f, 0.0f, 0.0f};
+    globals->rayleigh_density[1] = {0.0f, 0.0f, 1.0f, -1.0f / EarthRayleighScaleHeight};
+    globals->rayleigh_density[2] = {0.0f, 0.0f ,0.0f, 0.0f};
+    globals->rayleigh_scattering        = {0.005802f, 0.013558f, 0.033100f}; // 1/km
+
+    // Mie scattering
+    globals->mie_density[0] = {0.0f, 0.0f, 0.0f, 0.0f};
+    globals->mie_density[1] = {0.0f, 0.0f, 1.0f, -1.0f / EarthMieScaleHeight};
+    globals->mie_density[2] = {0.0f, 0.0f ,0.0f, 0.0f};
+    globals->mie_scattering        = {0.003996f, 0.003996f, 0.003996f}; // 1/km
+    globals->mie_extinction        = {0.004440f, 0.004440f, 0.004440f}; // 1/km
+    globals->mie_phase_function_g  = 0.8f;
+    globals->mie_absorption = glm::max(globals->mie_extinction - globals->mie_scattering, float3(0.0f));
+
+    // Ozone absorption
+    globals->absorption_density[0] = {25.0f, 0.0f, 0.0f, 1.0f / 15.0f};
+    globals->absorption_density[1] = {-2.0f / 3.0f, 0.0f, 0.0f, 0.0f};
+    globals->absorption_density[2] = {-1.0f / 15.0f, 8.0f / 3.0f, 0.0f, 0.0f};
+    globals->absorption_extinction        = {0.000650f, 0.001881f, 0.000085f}; // 1/km
+
+    const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
+    globals->mu_s_min                     = (float)cos(max_sun_zenith_angle);
+
     r.api.end_label();
 }
 
@@ -2085,6 +2407,9 @@ void Renderer::draw()
     draw_floor(*this);
     draw_model();
     visualize_voxels();
+
+    render_sky(*this);
+
 
     composite_hdr();
 

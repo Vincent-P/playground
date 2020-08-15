@@ -14,7 +14,7 @@ float checkersGradBox(in vec2 p)
 }
 
 void main() {
-    vec3 color = vec3(1.0);
+    vec3 color = vec3(2.0);
 
     float f = checkersGradBox(inUV);
     float k = 0.3 + f*0.1;
