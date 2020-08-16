@@ -554,6 +554,8 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         }
     }
 
+    assert(slot < binded_data.size());
+
     ShaderBinding data;
     data.binding                = slot;
     data.type                   = bindings[slot].type;
@@ -684,6 +686,8 @@ static void bind_buffer_internal(API& /*api*/, Buffer &buffer, CircularBufferPos
             binded_data.emplace_back(std::nullopt);
         }
     }
+
+    assert(slot < binded_data.size());
 
     ShaderBinding data;
     data.binding            = slot;

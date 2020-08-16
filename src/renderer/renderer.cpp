@@ -13,6 +13,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "../shaders/include/atmosphere.h"
+
 // #define ENABLE_SPARSE
 
 namespace my_app
@@ -611,6 +613,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
@@ -1776,6 +1784,7 @@ void Renderer::inject_direct_lighting()
     ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
     ImGui::SliderFloat("Point light scale", &s_scale, 0.1f, 10.f);
     ImGui::SliderFloat3("Sun rotation", s_sun_direction.data(), -180.0f, 180.0f);
+    ImGui::SliderFloat3("Sun front", &sun.front[0], -180.0f, 180.0f);
     ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
     ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
     ImGui::SliderFloat("First step", &s_first_step, 1.0f, 20.0f);
@@ -2023,6 +2032,51 @@ void render_sky(Renderer &r)
 
     api.begin_label("Sky");
 
+    assert_uniform_size(AtmosphereParameters);
+    static_assert(sizeof(AtmosphereParameters) == 240);
+
+    auto atmosphere_params = r.api.dynamic_uniform_buffer(sizeof(AtmosphereParameters));
+    auto *p        = reinterpret_cast<AtmosphereParameters *>(atmosphere_params.mapped);
+
+    {
+        // info.solar_irradiance = { 1.474000f, 1.850400f, 1.911980f };
+        p->solar_irradiance = {1.0f, 1.0f, 1.0f}; // Using a normalise sun illuminance. This is to make sure the LUTs acts as a transfert
+                                                  // factor to apply the runtime computed sun irradiance over.
+        p->sun_angular_radius = 0.004675f;
+
+        // Earth
+        p->bottom_radius = 6360000.0f;
+        p->top_radius    = 6460000.0f;
+        p->ground_albedo = {0.0f, 0.0f, 0.0f};
+
+        // Raleigh scattering
+        constexpr double kRayleighScaleHeight = 8000.0;
+        constexpr double kMieScaleHeight      = 1200.0;
+
+        p->rayleigh_density.width     = 0.0f;
+        p->rayleigh_density.layers[0] = DensityProfileLayer{.exp_term = 1.0f, .exp_scale = -1.0f / kRayleighScaleHeight};
+        p->rayleigh_scattering        = {0.000005802f, 0.000013558f, 0.000033100f};
+
+        // Mie scattering
+        p->mie_density.width  = 0.0f;
+        p->mie_density.layers[0] = DensityProfileLayer{.exp_term = 1.0f, .exp_scale = -1.0f / kMieScaleHeight};
+
+        p->mie_scattering        = {0.000003996f, 0.000003996f, 0.000003996f};
+        p->mie_extinction        = {0.000004440f, 0.000004440f, 0.000004440f};
+        p->mie_phase_function_g  = 0.8f;
+
+        // Ozone absorption
+        p->absorption_density.width  = 25000.0f;
+        p->absorption_density.layers[0] = DensityProfileLayer{.linear_term =  1.0f / 15000.0f, .constant_term = -2.0f / 3.0f};
+
+        p->absorption_density.layers[1] = DensityProfileLayer{.linear_term = -1.0f / 15000.0f, .constant_term =  8.0f / 3.0f};
+        p->absorption_extinction      = {0.000000650f, 0.000001881f, 0.000000085f};
+
+        const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
+        p->mu_s_min                       = (float)cos(max_sun_zenith_angle);
+    }
+
+
     /// --- Render transmittance LUT
     {
         vk::Viewport viewport{};
@@ -2048,12 +2102,23 @@ void render_sky(Renderer &r)
         api.begin_pass(std::move(pass));
 
         api.bind_buffer(r.sky.render_transmittance, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_buffer(r.sky.render_transmittance, vulkan::SHADER_DESCRIPTOR_SET, 0, atmosphere_params);
         api.bind_program(r.sky.render_transmittance);
 
         api.draw(3, 1, 0, 0);
 
         api.end_pass();
     }
+
+#if defined(ENABLE_IMGUI)
+    {
+        ImGui::Begin("Sky");
+        ImGui::Text("Transmittance LUT:");
+        ImGui::Image(reinterpret_cast<void*>(transmittance_lut_rt.image_h.value()), ImVec2(2 * transmittance_lut.info.width, 2 * transmittance_lut.info.height));
+        ImGui::End();
+    }
+#endif
+
 
     /// --- Render SkyView LUT
     {
@@ -2306,7 +2371,7 @@ void update_uniforms(Renderer &r)
     auto *globals            = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
 
-    globals->camera_pos      = r.p_camera->position;
+    globals->camera_pos      = r.p_camera->position / 1000.0f;
     globals->camera_view     = r.p_camera->get_view();
     globals->camera_proj     = r.p_camera->get_projection();
     globals->camera_inv_proj = glm::inverse(globals->camera_proj);
@@ -2321,7 +2386,14 @@ void update_uniforms(Renderer &r)
     globals->TRANSMITTANCE_TEXTURE_WIDTH = 256;
     globals->TRANSMITTANCE_TEXTURE_HEIGHT = 64;
 
-    globals->sun_direction = float4(r.sun.front, 1);
+    globals->sun_direction = float4(-r.sun.front, 1);
+
+
+    static float s_sun_illuminance = 1.0f;
+    ImGui::Begin("Globals");
+    ImGui::SliderFloat("Sun illuminance", &s_sun_illuminance, 0.1f, 100.f);
+    ImGui::End();
+    globals->sun_illuminance = s_sun_illuminance * float3(1.0f);
 
     //
     // From AtmosphereParameters

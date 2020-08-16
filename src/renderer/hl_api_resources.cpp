@@ -429,7 +429,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     sci.addressModeV     = info.address_mode;
     sci.addressModeW     = info.address_mode;
     sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatOpaqueWhite;
+    sci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
     sci.minLod           = 0;
     sci.maxLod           = 7;
     sci.maxAnisotropy    = 8.0f;

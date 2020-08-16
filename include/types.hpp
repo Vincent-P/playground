@@ -39,8 +39,6 @@
 
 constexpr float PI = 3.1415926535897932384626433832795f;
 
-namespace my_app
-{
 /// --- Numeric Types
 using i8    = std::int8_t;
 using i16   = std::int16_t;
@@ -68,6 +66,9 @@ using uint3     = glm::uvec3;
 using uint4     = glm::uvec4;
 using float4x4 = glm::mat4;
 
+
+namespace my_app
+{
 /// --- Utility functions
 
 template <typename T> inline T *ptr_offset(T *ptr, usize offset)

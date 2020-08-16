@@ -22,6 +22,9 @@ layout (set = 0, binding = 0) uniform GlobalUniform {
     float3 sun_direction;
     float pad000;
 
+    float3 sun_illuminance;
+    float pad1234;
+
     //
     // From AtmosphereParameters
     //

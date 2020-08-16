@@ -5,14 +5,17 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
 
+
+#define assert_uniform_size(T) static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!")
+
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
  * The main functions are StartFrame and EndFrame and it contains
  * raw HL API calls in between to draw things or validate/cook a Render Graph.
  ***/
-
 namespace my_app
 {
+
 struct Model;
 struct Event;
 class TimerData;
@@ -47,6 +50,9 @@ struct PACKED GlobalUniform
     float3 sun_direction;
     float pad000;
 
+    float3 sun_illuminance;
+    float pad1234;
+
     //
     // From AtmosphereParameters
     //
@@ -76,7 +82,7 @@ struct PACKED GlobalUniform
     float4 absorption_density[3];
 };
 
-static_assert(sizeof(GlobalUniform) % 16 == 0, "Uniforms must be aligned to a float4!");
+assert_uniform_size(GlobalUniform);
 
 struct Renderer
 {
