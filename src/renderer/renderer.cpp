@@ -648,14 +648,30 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = r.api.create_shader("shaders/skyview_lut.frag.spv");
 
+        // globla uniform
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
                        .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
+        // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .count  = 1});
+
+        // transmittance LUT
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        // multiscattering LUT
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
@@ -694,6 +710,40 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         r.sky.sky_raymarch = r.api.create_program(std::move(pinfo));
     }
+
+
+    {
+        vulkan::ImageInfo iinfo;
+        iinfo.name   = "Multiscattering LUT";
+        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.width  = 32;
+        iinfo.height = 32;
+        iinfo.depth  = 1;
+        iinfo.usages = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        r.sky.multiscattering_lut = r.api.create_image(iinfo);
+    }
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = r.api.create_shader("shaders/multiscat_lut.comp.spv");
+        // atmosphere params
+        pinfo.binding({.slot =  0,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+
+        // transmittance lut
+        pinfo.binding({.slot =  1,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+
+        // multiscattering lut
+        pinfo.binding({.slot =  2,
+                       .stages =  vk::ShaderStageFlagBits::eCompute,
+                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+
+        r.sky.compute_multiscattering_lut = r.api.create_program(std::move(pinfo));
+    }
+
 
     return r;
 }
@@ -1770,7 +1820,7 @@ struct DirectLightingDebug
 void Renderer::inject_direct_lighting()
 {
     static std::array s_position       = {1.5f, 2.5f, 0.0f};
-    static std::array s_sun_direction       = {-8.f, 120.f, 0.f};
+    static std::array s_sun_direction       = {8.f, -90.f, 0.f};
     static float s_scale            = 1.0f;
     static float s_trace_shadow_hit = 0.5f;
     static auto s_max_dist          = static_cast<float>(voxel_options.res);
@@ -1962,7 +2012,7 @@ void Renderer::generate_aniso_voxels()
 
 void Renderer::composite_hdr()
 {
-    static usize s_selected = 0;
+    static usize s_selected = 1;
     static float s_exposure = 1.0f;
 
     api.begin_label("Tonemap");
@@ -2030,7 +2080,7 @@ void render_sky(Renderer &r)
     auto &skyview_lut_rt = api.get_rendertarget(r.sky.skyview_lut_rt);
     auto &skyview_lut = api.get_image(skyview_lut_rt.image_h);
 
-    api.begin_label("Sky");
+    api.begin_label("Transmittance LUT");
 
     assert_uniform_size(AtmosphereParameters);
     static_assert(sizeof(AtmosphereParameters) == 240);
@@ -2110,18 +2160,43 @@ void render_sky(Renderer &r)
         api.end_pass();
     }
 
-#if defined(ENABLE_IMGUI)
-    {
-        ImGui::Begin("Sky");
-        ImGui::Text("Transmittance LUT:");
-        ImGui::Image(reinterpret_cast<void*>(transmittance_lut_rt.image_h.value()), ImVec2(2 * transmittance_lut.info.width, 2 * transmittance_lut.info.height));
-        ImGui::End();
-    }
-#endif
+    api.end_label();
+    api.begin_label("Sky Multiscattering LUT");
 
+    transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    auto &multiscattering_lut = api.get_image(r.sky.multiscattering_lut);
+
+    {
+        auto &program = r.sky.compute_multiscattering_lut;
+
+        api.bind_buffer(program, 0, atmosphere_params);
+
+        api.bind_combined_image_sampler(program,
+                                        1,
+                                        transmittance_lut_rt.image_h,
+                                        r.trilinear_sampler);
+
+        {
+            transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            api.bind_image(program, 2, r.sky.multiscattering_lut);
+        }
+
+        auto size_x = multiscattering_lut.info.width;
+        auto size_y = multiscattering_lut.info.height;
+        r.api.dispatch(program, size_x, size_y, 1);
+
+        transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
+
+
+    api.end_label();
+    api.begin_label("SkyView LUT");
 
     /// --- Render SkyView LUT
     {
+        auto &program = r.sky.render_skyview;
+
         vk::Viewport viewport{};
         viewport.width    = skyview_lut.info.width;
         viewport.height   = skyview_lut.info.height;
@@ -2142,24 +2217,55 @@ void render_sky(Renderer &r)
         color_info.rt      = r.sky.skyview_lut_rt;
         pass.color         = std::make_optional(color_info);
 
-        transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
 
         api.begin_pass(std::move(pass));
 
-        api.bind_buffer(r.sky.render_skyview, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, atmosphere_params);
 
-        api.bind_combined_image_sampler(r.sky.render_skyview,
+        api.bind_combined_image_sampler(program,
                                         vulkan::SHADER_DESCRIPTOR_SET,
-                                        0,
+                                        1,
                                         transmittance_lut_rt.image_h,
                                         r.trilinear_sampler);
 
-        api.bind_program(r.sky.render_skyview);
+        api.bind_combined_image_sampler(program,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        2,
+                                        r.sky.multiscattering_lut,
+                                        r.trilinear_sampler);
+
+        api.bind_program(program);
 
         api.draw(3, 1, 0, 0);
 
         api.end_pass();
     }
+
+    api.end_label();
+
+#if defined(ENABLE_IMGUI)
+    {
+
+        ImGui::Begin("Sky");
+
+        float scale = 2.0f;
+        ImGui::Text("Transmittance LUT:");
+        ImGui::Image(reinterpret_cast<void*>(transmittance_lut_rt.image_h.value()), ImVec2(scale * transmittance_lut.info.width, scale * transmittance_lut.info.height));
+
+        scale = 10.f;
+        ImGui::Text("Multiscattering LUT:");
+        ImGui::Image(reinterpret_cast<void*>(r.sky.multiscattering_lut.value()), ImVec2(scale * multiscattering_lut.info.width, scale * multiscattering_lut.info.height));
+
+        scale = 2.f;
+        ImGui::Text("SkyView LUT:");
+        ImGui::Image(reinterpret_cast<void*>(skyview_lut_rt.image_h.value()), ImVec2(scale * skyview_lut.info.width, scale * skyview_lut.info.height));
+
+        ImGui::End();
+    }
+#endif
+
+    api.begin_label("Sky render");
 
     /// --- Raymarch the sky
     {
@@ -2390,10 +2496,13 @@ void update_uniforms(Renderer &r)
 
 
     static float s_sun_illuminance = 1.0f;
+    static float s_multiple_scattering = 0.0f;
     ImGui::Begin("Globals");
     ImGui::SliderFloat("Sun illuminance", &s_sun_illuminance, 0.1f, 100.f);
+    ImGui::SliderFloat("Multiple scattering", &s_multiple_scattering, 0.0f, 1.0f);
     ImGui::End();
     globals->sun_illuminance = s_sun_illuminance * float3(1.0f);
+    globals->multiple_scattering = s_multiple_scattering;
 
     //
     // From AtmosphereParameters
@@ -2407,7 +2516,7 @@ void update_uniforms(Renderer &r)
     // info.solar_irradiance = { 1.474000f, 1.850400f, 1.911980f };
     globals->solar_irradiance = {1.0f, 1.0f, 1.0f}; // Using a normalise sun illuminance. This is to make sure the LUTs acts as a transfert
                               // factor to apply the runtime computed sun irradiance over.
-    globals->sun_angular_radius = 0.004675f;
+    globals->sun_angular_radius = 0.004675f * 20.f;
 
     // Earth
     globals->bottom_radius = EarthBottomRadius;

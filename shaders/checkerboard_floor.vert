@@ -7,7 +7,7 @@ layout (location = 1) out vec2 outUV;
 
 void main()
 {
-    float size = 1000.0;
+    float size = 100.0;
     outUV = inUV * size;
     gl_Position = global.camera_proj * global.camera_view * vec4(inPosition.xyz*size, 1.0);
 }

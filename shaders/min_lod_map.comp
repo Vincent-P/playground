@@ -1,4 +1,4 @@
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #include "globals.h"
 
@@ -8,30 +8,22 @@ layout(set = 0, binding = 3, r32ui) uniform uimage2D min_lod_map;
 
 void main()
 {
-    ivec2 pixel_src = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 screen_size = textureSize(screenspace_lod_map, 0);
+    ivec2 pixel_src   = ivec2(gl_GlobalInvocationID.xy);
+    float2 screen_size = float2(textureSize(screenspace_lod_map, 0));
     if (any(greaterThan(pixel_src, screen_size))) {
         return;
     }
 
     float depth = texelFetch(depth_buffer, pixel_src, 0).r;
 
-    vec4 fragment_pos = vec4(
-        float(pixel_src.x) / screen_size.x,
-        float(pixel_src.y) / screen_size.y,
-        depth,
-        1.0
-        );
-
-    fragment_pos.x = (fragment_pos.x * 2) - 1;
-    fragment_pos.y = (fragment_pos.y * 2) - 1;
+    float3 clip_space = float3((pixel_src / screen_size) * 2.0 - float2(1.0), depth);
 
     // reconstruct world position from the depth and the fragment position
-    vec4 world_pos = inverse(global.camera_view) * (inverse(global.camera_proj) * fragment_pos);
+    vec4 world_pos = inverse(global.camera_proj * global.camera_view) * float4(clip_space, 1.0);
+    world_pos /= world_pos.w;
 
     // project to light space
-    vec4 sun_pos = global.sun_proj * (global.sun_view * world_pos);
-    sun_pos.xyz /= sun_pos.w;
+    vec4 sun_pos = global.sun_proj * global.sun_view * world_pos;
 
     // uv of the shadow map
     vec2 uv = sun_pos.xy;

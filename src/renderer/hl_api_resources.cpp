@@ -697,16 +697,15 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 	    return binding;
 	});
 
-	vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo>
-	    create_info;
 	// clang-format off
 	std::vector<vk::DescriptorBindingFlags> flags{info.bindings_by_set[i].size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
 	// clang-format on
-	auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+	vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
 	flags_info.bindingCount  = static_cast<u32>(bindings.size());
 	flags_info.pBindingFlags = flags.data();
 
-	auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+	vk::DescriptorSetLayoutCreateInfo layout_info{};
+        layout_info.pNext        = &flags_info;
 	layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
 	layout_info.bindingCount = static_cast<u32>(bindings.size());
 	layout_info.pBindings    = bindings.data();
@@ -772,15 +771,15 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         return binding;
     });
 
-    vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> create_info;
     // clang-format off
     std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
     // clang-format on
-    auto &flags_info         = create_info.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
-    auto &layout_info        = create_info.get<vk::DescriptorSetLayoutCreateInfo>();
+    vk::DescriptorSetLayoutCreateInfo layout_info{};
+    layout_info.pNext        = &flags_info;
     layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
     layout_info.bindingCount = static_cast<u32>(bindings.size());
     layout_info.pBindings    = bindings.data();

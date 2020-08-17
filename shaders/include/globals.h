@@ -47,7 +47,7 @@ layout (set = 0, binding = 0) uniform GlobalUniform {
     float	pad00;
 
     float3	ground_albedo;
-    float       pad0;
+    float       multiple_scattering;
 
     float4 rayleigh_density[3];
     float4 mie_density[3];

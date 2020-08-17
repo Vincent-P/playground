@@ -16,9 +16,6 @@ struct SingleScatteringResult
     float3 OpticalDepth;            // Optical depth (1/m)
     float3 Transmittance;            // Transmittance in [0,1] (unitless)
     float3 MultiScatAs1;
-
-    float3 NewMultiScatStep0Out;
-    float3 NewMultiScatStep1Out;
 };
 
 struct AtmosphereParameters
@@ -309,13 +306,14 @@ void LutTransmittanceParamsToUv(AtmosphereParameters Atmosphere, float viewHeigh
     //uv = float2(fromUnitToSubUvs(uv.x, TRANSMITTANCE_TEXTURE_WIDTH), fromUnitToSubUvs(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT)); // No real impact so off
 }
 
-#define NONLINEARSKYVIEWLUT 1
 void UvToSkyViewLutParams(AtmosphereParameters Atmosphere, out float viewZenithCosAngle, out float lightViewCosAngle, in float viewHeight, in float2 uv)
 {
     // Constrain uvs to valid sub texel range (avoid zenith derivative issue making LUT usage visible)
     uv = float2(fromSubUvsToUnit(uv.x, 192.0f), fromSubUvsToUnit(uv.y, 108.0f));
 
+    // rho, distance to horizon
     float Vhorizon = sqrt(viewHeight * viewHeight - Atmosphere.BottomRadius * Atmosphere.BottomRadius);
+
     float CosBeta = Vhorizon / viewHeight;				// GroundToHorizonCos
     float Beta = acos(CosBeta);
     float ZenithHorizonAngle = PI - Beta;
@@ -324,19 +322,15 @@ void UvToSkyViewLutParams(AtmosphereParameters Atmosphere, out float viewZenithC
     {
         float coord = 2.0*uv.y;
         coord = 1.0 - coord;
-#if NONLINEARSKYVIEWLUT
         coord *= coord;
-#endif
         coord = 1.0 - coord;
-        viewZenithCosAngle = cos(ZenithHorizonAngle * coord);
+        viewZenithCosAngle = cos(ZenithHorizonAngle * coord); // mu?
     }
     else
     {
         float coord = uv.y*2.0 - 1.0;
-#if NONLINEARSKYVIEWLUT
         coord *= coord;
-#endif
-        viewZenithCosAngle = cos(ZenithHorizonAngle + Beta * coord);
+        viewZenithCosAngle = cos(ZenithHorizonAngle + Beta * coord); // mu?
     }
 
     float coord = uv.x;
@@ -355,18 +349,14 @@ void SkyViewLutParamsToUv(AtmosphereParameters Atmosphere, in bool IntersectGrou
     {
         float coord = acos(viewZenithCosAngle) / ZenithHorizonAngle;
         coord = 1.0 - coord;
-#if NONLINEARSKYVIEWLUT
         coord = sqrt(coord);
-#endif
         coord = 1.0 - coord;
         uv.y = coord * 0.5f;
     }
     else
     {
         float coord = (acos(viewZenithCosAngle) - ZenithHorizonAngle) / Beta;
-#if NONLINEARSKYVIEWLUT
         coord = sqrt(coord);
-#endif
         uv.y = coord * 0.5f + 0.5f;
     }
 
@@ -571,19 +561,6 @@ SingleScatteringResult IntegrateScatteredLuminance(
         float3 MSint = (MS - MS * SampleTransmittance) / medium.extinction;
         result.MultiScatAs1 += throughput * MSint;
 #endif
-
-        // Evaluate input to multi scattering
-        {
-            float3 newMS;
-
-            newMS = earthShadow * TransmittanceToSun * medium.scattering * uniformPhase * 1;
-            result.NewMultiScatStep0Out += throughput * (newMS - newMS * SampleTransmittance) / medium.extinction;
-            //    result.NewMultiScatStep0Out += SampleTransmittance * throughput * newMS * dt;
-
-            newMS = medium.scattering * uniformPhase * multiScatteredLuminance;
-            result.NewMultiScatStep1Out += throughput * (newMS - newMS * SampleTransmittance) / medium.extinction;
-            //    result.NewMultiScatStep1Out += SampleTransmittance * throughput * newMS * dt;
-        }
 
         // See slide 28 at http://www.frostbite.com/2015/08/physically-based-unified-volumetric-rendering-in-frostbite/
         float3 Sint = (S - S * SampleTransmittance) / medium.extinction;    // integrate along the current step segment
