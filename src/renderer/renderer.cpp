@@ -38,6 +38,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 {
     Renderer r;
     r.api      = vulkan::API::create(window);
+    auto &api = r.api;
 
     r.p_ui     = &ui;
     r.p_window = &window;
@@ -50,45 +51,45 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Depth";
         iinfo.format = vk::Format::eD32Sfloat;
-        iinfo.width  = r.api.ctx.swapchain.extent.width;
-        iinfo.height = r.api.ctx.swapchain.extent.height;
+        iinfo.width  = api.ctx.swapchain.extent.width;
+        iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-        auto depth_h = r.api.create_image(iinfo);
+        auto depth_h = api.create_image(iinfo);
 
         vulkan::RTInfo dinfo;
         dinfo.is_swapchain = false;
         dinfo.image_h      = depth_h;
-        r.depth_rt         = r.api.create_rendertarget(dinfo);
+        r.depth_rt         = api.create_rendertarget(dinfo);
     }
 
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "HDR color";
         iinfo.format = vk::Format::eR16G16B16A16Sfloat;
-        iinfo.width  = r.api.ctx.swapchain.extent.width;
-        iinfo.height = r.api.ctx.swapchain.extent.height;
+        iinfo.width  = api.ctx.swapchain.extent.width;
+        iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        auto color_h = r.api.create_image(iinfo);
+        auto color_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
         cinfo.is_swapchain = false;
         cinfo.image_h      = color_h;
-        r.color_rt         = r.api.create_rendertarget(cinfo);
+        r.color_rt         = api.create_rendertarget(cinfo);
     }
 
     {
         vulkan::RTInfo sinfo;
         sinfo.is_swapchain = true;
-        r.swapchain_rt = r.api.create_rendertarget(sinfo);
+        r.swapchain_rt = api.create_rendertarget(sinfo);
     }
 
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/hdr_compositing.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv");
 
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
                        .stages =  vk::ShaderStageFlagBits::eFragment,
@@ -98,12 +99,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .stages =  vk::ShaderStageFlagBits::eFragment,
                        .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
 
-        r.hdr_compositing = r.api.create_program(std::move(pinfo));
+        r.hdr_compositing = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::SamplerInfo sinfo{};
-        r.default_sampler = r.api.create_sampler(sinfo);
+        r.default_sampler = api.create_sampler(sinfo);
     }
 
     /// --- Init ImGui
@@ -130,8 +131,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/gui.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/gui.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
         // clang-format off
         pinfo.push_constant({.stages =  vk::ShaderStageFlagBits::eVertex, .offset =  0, .size =  4 * sizeof(float)});
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0, .stages =  vk::ShaderStageFlagBits::eFragment, .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
@@ -143,10 +144,10 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({.format = vk::Format::eR8G8B8A8Unorm,.offset =  MEMBER_OFFSET(ImDrawVert, col)});
 
         vulkan::GraphicsProgramInfo puintinfo = pinfo;
-        puintinfo.fragment_shader = r.api.create_shader("shaders/gui_uint.frag.spv");
+        puintinfo.fragment_shader = api.create_shader("shaders/gui_uint.frag.spv");
 
-        r.gui_program = r.api.create_program(std::move(pinfo));
-        r.gui_uint_program = r.api.create_program(std::move(puintinfo));
+        r.gui_program = api.create_program(std::move(pinfo));
+        r.gui_uint_program = api.create_program(std::move(puintinfo));
     }
 
     {
@@ -164,8 +165,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.height = static_cast<u32>(h);
         iinfo.depth  = 1;
 
-        r.gui_texture = r.api.create_image(iinfo);
-        r.api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
+        r.gui_texture = api.create_image(iinfo);
+        api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
     }
 #endif
 
@@ -180,8 +181,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader = r.api.create_shader("shaders/gltf.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/gltf_prepass.frag.spv");
+        pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
 
         // camera uniform buffer
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
@@ -214,12 +215,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
         pinfo.enable_depth_write = true;
 
-        r.model_prepass = r.api.create_program(std::move(pinfo));
+        r.model_prepass = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = r.api.create_shader("shaders/min_lod_map.comp.spv");
+        pinfo.shader = api.create_shader("shaders/min_lod_map.comp.spv");
 
         // camera uniform buffer
         pinfo.binding({.slot   = 0,
@@ -245,23 +246,23 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .type   = vk::DescriptorType::eStorageImage,
                        .count  = 1});
 
-        r.fill_min_lod_map = r.api.create_program(std::move(pinfo));
+        r.fill_min_lod_map = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Shadow Map LOD";
         iinfo.format = vk::Format::eR8Uint;
-        iinfo.width  = r.api.ctx.swapchain.extent.width;
-        iinfo.height = r.api.ctx.swapchain.extent.height;
+        iinfo.width  = api.ctx.swapchain.extent.width;
+        iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        auto lod_map_h = r.api.create_image(iinfo);
+        auto lod_map_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
         cinfo.is_swapchain     = false;
         cinfo.image_h          = lod_map_h;
-        r.screenspace_lod_map_rt = r.api.create_rendertarget(cinfo);
+        r.screenspace_lod_map_rt = api.create_rendertarget(cinfo);
     }
 
     {
@@ -277,12 +278,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         sm_info.max_sparse_size = 64u * 1024u * 1024u; // 64Mb should be the size of a 4K non-sparse shadow map
 
 #if defined(ENABLE_SPARSE)
-        auto shadow_map_h = r.api.create_image(sm_info);
+        auto shadow_map_h = api.create_image(sm_info);
 
         vulkan::RTInfo rt_info;
         rt_info.is_swapchain     = false;
         rt_info.image_h          = shadow_map_h;
-        r.shadow_map_rt = r.api.create_rendertarget(rt_info);
+        r.shadow_map_rt = api.create_rendertarget(rt_info);
 #endif
 
         vulkan::ImageInfo mlm_info;
@@ -299,7 +300,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         for (auto &copy : r.min_lod_map_per_frame)
         {
-            copy = r.api.create_image(mlm_info);
+            copy = api.create_image(mlm_info);
         }
     }
 
@@ -316,27 +317,27 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.height       = r.voxel_options.res;
         iinfo.depth        = r.voxel_options.res;
         iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
-        r.voxels_albedo    = r.api.create_image(iinfo);
+        r.voxels_albedo    = api.create_image(iinfo);
 
         iinfo.name         = "Voxels normal";
-        r.voxels_normal    = r.api.create_image(iinfo);
+        r.voxels_normal    = api.create_image(iinfo);
 
         iinfo.name          = "Voxels radiance";
         iinfo.format        = vk::Format::eR16G16B16A16Sfloat;
         iinfo.extra_formats = {};
-        r.voxels_radiance   = r.api.create_image(iinfo);
+        r.voxels_radiance   = api.create_image(iinfo);
 
         vulkan::SamplerInfo sinfo{};
         sinfo.mag_filter   = vk::Filter::eLinear;
         sinfo.min_filter   = vk::Filter::eLinear;
         sinfo.mip_map_mode = vk::SamplerMipmapMode::eLinear;
         sinfo.address_mode = vk::SamplerAddressMode::eClampToBorder;
-        r.trilinear_sampler  = r.api.create_sampler(sinfo);
+        r.trilinear_sampler  = api.create_sampler(sinfo);
 
         sinfo.mag_filter   = vk::Filter::eNearest;
         sinfo.min_filter   = vk::Filter::eNearest;
         sinfo.mip_map_mode = vk::SamplerMipmapMode::eNearest;
-        r.nearest_sampler  = r.api.create_sampler(sinfo);
+        r.nearest_sampler  = api.create_sampler(sinfo);
     }
     // voxels directional volumes
     {
@@ -354,24 +355,24 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
 
         iinfo.name                         = "Voxels directional volume -X";
-        r.voxels_directional_volumes[0]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[0]    = api.create_image(iinfo);
         iinfo.name                         = "Voxels directional volume +X";
-        r.voxels_directional_volumes[1]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[1]    = api.create_image(iinfo);
         iinfo.name                         = "Voxels directional volume -Y";
-        r.voxels_directional_volumes[2]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[2]    = api.create_image(iinfo);
         iinfo.name                         = "Voxels directional volume +Y";
-        r.voxels_directional_volumes[3]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[3]    = api.create_image(iinfo);
         iinfo.name                         = "Voxels directional volume -Z";
-        r.voxels_directional_volumes[4]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[4]    = api.create_image(iinfo);
         iinfo.name                         = "Voxels directional volume +Z";
-        r.voxels_directional_volumes[5]    = r.api.create_image(iinfo);
+        r.voxels_directional_volumes[5]    = api.create_image(iinfo);
     }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/voxelization.vert.spv");
-        pinfo.geom_shader     = r.api.create_shader("shaders/voxelization.geom.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/voxelization.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
+        pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
@@ -416,13 +417,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         pinfo.enable_conservative_rasterization = true;
 
-        r.voxelization = r.api.create_program(std::move(pinfo));
+        r.voxelization = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/voxel_visualization.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
@@ -448,12 +449,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .stages =  vk::ShaderStageFlagBits::eFragment,
                        .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
-        r.visualization = r.api.create_program(std::move(pinfo));
+        r.visualization = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = r.api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+        pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
@@ -479,12 +480,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .stages =  vk::ShaderStageFlagBits::eCompute,
                        .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
-        r.inject_radiance = r.api.create_program(std::move(pinfo));
+        r.inject_radiance = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
+        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
                        .stages =  vk::ShaderStageFlagBits::eCompute,
@@ -500,12 +501,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
                        .stages =  vk::ShaderStageFlagBits::eCompute,
                        .type =  vk::DescriptorType::eStorageImage, .count =  count});
-        r.generate_aniso_base = r.api.create_program(std::move(pinfo));
+        r.generate_aniso_base = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = r.api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
+        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
@@ -528,7 +529,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
                        .stages =  vk::ShaderStageFlagBits::eCompute,
                        .type =  vk::DescriptorType::eStorageImage, .count =  count});
-        r.generate_aniso_mipmap = r.api.create_program(std::move(pinfo));
+        r.generate_aniso_mipmap = api.create_program(std::move(pinfo));
     }
 
     /// --- Checkerboard floor
@@ -554,21 +555,21 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 	info.size           = indices.size() * sizeof(u16);
 	info.usage          = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst;
 	info.memory_usage   = VMA_MEMORY_USAGE_GPU_ONLY;
-	index_buffer        = r.api.create_buffer(info);
+	index_buffer        = api.create_buffer(info);
 
 	info.name           = "Floor Vertex buffer";
 	info.size           = vertices.size() * sizeof(float);
 	info.usage          = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
-	vertex_buffer       = r.api.create_buffer(info);
+	vertex_buffer       = api.create_buffer(info);
 
-	r.api.upload_buffer(index_buffer,  indices.data(),  indices.size() * sizeof(u16));
-	r.api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
+	api.upload_buffer(index_buffer,  indices.data(),  indices.size() * sizeof(u16));
+	api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
     }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/checkerboard_floor.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/checkerboard_floor.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
 
         // voxel options
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
@@ -585,7 +586,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
         pinfo.depth_bias = 0.0f;
 
-        r.checkerboard_floor.program = r.api.create_program(std::move(pinfo));
+        r.checkerboard_floor.program = api.create_program(std::move(pinfo));
     }
 
 
@@ -600,18 +601,18 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        auto image_h = r.api.create_image(iinfo);
+        auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
         cinfo.is_swapchain         = false;
         cinfo.image_h              = image_h;
-        r.sky.transmittance_lut_rt = r.api.create_rendertarget(cinfo);
+        r.sky.transmittance_lut_rt = api.create_rendertarget(cinfo);
     }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/transmittance_lut.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv");
 
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
@@ -625,7 +626,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
-        r.sky.render_transmittance = r.api.create_program(std::move(pinfo));
+        r.sky.render_transmittance = api.create_program(std::move(pinfo));
     }
 
     {
@@ -637,19 +638,19 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        auto image_h = r.api.create_image(iinfo);
+        auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
         cinfo.is_swapchain         = false;
         cinfo.image_h              = image_h;
-        r.sky.skyview_lut_rt = r.api.create_rendertarget(cinfo);
+        r.sky.skyview_lut_rt = api.create_rendertarget(cinfo);
     }
 
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/skyview_lut.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv");
 
         // globla uniform
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
@@ -679,13 +680,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
 
-        r.sky.render_skyview = r.api.create_program(std::move(pinfo));
+        r.sky.render_skyview = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = r.api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = r.api.create_shader("shaders/sky_raymarch.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv");
 
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
@@ -717,7 +718,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
 
-        r.sky.sky_raymarch = r.api.create_program(std::move(pinfo));
+        r.sky.sky_raymarch = api.create_program(std::move(pinfo));
     }
 
 
@@ -730,11 +731,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.depth  = 1;
         iinfo.usages = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-        r.sky.multiscattering_lut = r.api.create_image(iinfo);
+        r.sky.multiscattering_lut = api.create_image(iinfo);
     }
     {
         vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = r.api.create_shader("shaders/multiscat_lut.comp.spv");
+        pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
         // atmosphere params
         pinfo.binding({.slot =  0,
                        .stages =  vk::ShaderStageFlagBits::eCompute,
@@ -750,7 +751,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .stages =  vk::ShaderStageFlagBits::eCompute,
                        .type =  vk::DescriptorType::eStorageImage, .count =  1});
 
-        r.sky.compute_multiscattering_lut = r.api.create_program(std::move(pinfo));
+        r.sky.compute_multiscattering_lut = api.create_program(std::move(pinfo));
     }
 
 
@@ -1084,12 +1085,13 @@ void Renderer::imgui_draw()
 
 static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint slot, std::optional<u32> i_texture)
 {
+    auto &api = r.api;
     if (i_texture) {
         auto &texture = r.model.textures[*i_texture];
         auto &image   = r.model.images[texture.image];
         auto &sampler = r.model.samplers[texture.sampler];
 
-        r.api.bind_combined_image_sampler(program_h, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
+        api.bind_combined_image_sampler(program_h, vulkan::DRAW_DESCRIPTOR_SET, slot, image.image_h, sampler.sampler_h);
     }
     else {
         // bind empty texture
@@ -1098,6 +1100,7 @@ static void bind_texture(Renderer &r, vulkan::GraphicsProgramH program_h, uint s
 
 static void draw_node(Renderer &r, Node &node)
 {
+    auto &api = r.api;
     if (node.dirty) {
         node.dirty            = false;
         auto translation      = glm::translate(glm::mat4(1.0f), node.translation);
@@ -1106,10 +1109,10 @@ static void draw_node(Renderer &r, Node &node)
         node.cached_transform = translation * rotation * scale;
     }
 
-    auto u_pos   = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto u_pos   = api.dynamic_uniform_buffer(sizeof(float4x4));
     auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
     *buffer      = node.cached_transform;
-    r.api.bind_buffer(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+    api.bind_buffer(r.model.program, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto &mesh = r.model.meshes[node.mesh];
     for (const auto &primitive : mesh.primitives)
@@ -1119,13 +1122,13 @@ static void draw_node(Renderer &r, Node &node)
         const auto &material = r.model.materials[primitive.material];
 
         MaterialPushConstant material_pc = MaterialPushConstant::from(material);
-        r.api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
+        api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
 
         bind_texture(r, r.model.program, 1, material.base_color_texture);
         bind_texture(r, r.model.program, 2, material.normal_texture);
         bind_texture(r, r.model.program, 3, material.metallic_roughness_texture);
 
-        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+        api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
     // TODO: transform relative to parent
@@ -1136,21 +1139,13 @@ static void draw_node(Renderer &r, Node &node)
 
 void draw_floor(Renderer &r)
 {
-    r.api.begin_label("Draw floor");
+    auto &api = r.api;
+    api.begin_label("Draw floor");
 
-    vk::Viewport viewport{};
-    viewport.width    = r.api.ctx.swapchain.extent.width;
-    viewport.height   = r.api.ctx.swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    r.api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent = r.api.ctx.swapchain.extent;
-    r.api.set_scissor(scissor);
+    api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
     // Bind camera uniform buffer
-    r.api.bind_buffer(r.checkerboard_floor.program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+    api.bind_buffer(r.checkerboard_floor.program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
 
     vulkan::PassInfo pass;
     pass.present = false;
@@ -1165,16 +1160,16 @@ void draw_floor(Renderer &r)
     depth_info.rt      = r.depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
-    r.api.begin_pass(std::move(pass));
+    api.begin_pass(std::move(pass));
 
-    r.api.bind_program(r.checkerboard_floor.program);
-    r.api.bind_index_buffer(r.checkerboard_floor.index_buffer);
-    r.api.bind_vertex_buffer(r.checkerboard_floor.vertex_buffer);
+    api.bind_program(r.checkerboard_floor.program);
+    api.bind_index_buffer(r.checkerboard_floor.index_buffer);
+    api.bind_vertex_buffer(r.checkerboard_floor.vertex_buffer);
 
-    r.api.draw_indexed(6, 1, 0, 0, 0);
+    api.draw_indexed(6, 1, 0, 0, 0);
 
-    r.api.end_pass();
-    r.api.end_label();
+    api.end_pass();
+    api.end_label();
 }
 
 void Renderer::draw_model()
@@ -1205,17 +1200,7 @@ void Renderer::draw_model()
 
     api.begin_label("Draw glTF model");
 
-    vk::Viewport viewport{};
-    viewport.width    = api.ctx.swapchain.extent.width;
-    viewport.height   = api.ctx.swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent = api.ctx.swapchain.extent;
-    api.set_scissor(scissor);
-
+    api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
 
     // Bind camera uniform buffer
@@ -1304,6 +1289,7 @@ void Renderer::draw_model()
 
 static void draw_node_shadow(Renderer &r, Node &node)
 {
+    auto &api = r.api;
     if (node.dirty) {
         node.dirty            = false;
         auto translation      = glm::translate(glm::mat4(1.0f), node.translation);
@@ -1312,16 +1298,16 @@ static void draw_node_shadow(Renderer &r, Node &node)
         node.cached_transform = translation * rotation * scale;
     }
 
-    auto u_pos   = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto u_pos   = api.dynamic_uniform_buffer(sizeof(float4x4));
     auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
     *buffer      = node.cached_transform;
-    r.api.bind_buffer(r.model_prepass, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+    api.bind_buffer(r.model_prepass, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto &mesh = r.model.meshes[node.mesh];
     for (const auto &primitive : mesh.primitives) {
         const auto &material = r.model.materials[primitive.material];
         bind_texture(r, r.model_prepass, 1, material.base_color_texture);
-        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+        api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
     // TODO: transform relative to parent
@@ -1332,7 +1318,8 @@ static void draw_node_shadow(Renderer &r, Node &node)
 
 static void prepass(Renderer &r)
 {
-    r.api.begin_label("Prepass");
+    auto &api = r.api;
+    api.begin_label("Prepass");
 
     /// --- First fill the depth buffer and write the desired lod of each pixel into a screenspace lod map
     {
@@ -1349,81 +1336,71 @@ static void prepass(Renderer &r)
     lod_map_info.rt      = r.screenspace_lod_map_rt;
     pass.color           = std::make_optional(lod_map_info);
 
-    r.api.begin_pass(std::move(pass));
+    api.begin_pass(std::move(pass));
 
-    auto depth_rt  = r.api.get_rendertarget(r.depth_rt);
-    auto depth_img = r.api.get_image(depth_rt.image_h);
+    auto depth_rt  = api.get_rendertarget(r.depth_rt);
+    auto depth_img = api.get_image(depth_rt.image_h);
 
-    vk::Viewport viewport{};
-    viewport.width    = depth_img.image_info.extent.width;
-    viewport.height   = depth_img.image_info.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    r.api.set_viewport(viewport);
+    api.set_viewport_and_scissor(depth_img.info.width, depth_img.info.height);
 
-    vk::Rect2D scissor{};
-    scissor.extent.width  = depth_img.image_info.extent.width;
-    scissor.extent.height = depth_img.image_info.extent.height;
-    r.api.set_scissor(scissor);
+    api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
 
-    r.api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
-
-    r.api.bind_program(r.model_prepass);
-    r.api.bind_index_buffer(r.model.index_buffer);
-    r.api.bind_vertex_buffer(r.model.vertex_buffer);
+    api.bind_program(r.model_prepass);
+    api.bind_index_buffer(r.model.index_buffer);
+    api.bind_vertex_buffer(r.model.vertex_buffer);
 
     for (usize node_i : r.model.scene) {
         draw_node_shadow(r, r.model.nodes[node_i]);
     }
 
-    r.api.end_pass();
+    api.end_pass();
     }
 
     /// --- Then build the min lod map, a texture where each texel map to 1 tile of the sparse shadow map and contains the min lod of the tile
 
-    uint frame_idx = r.api.ctx.frame_count % vulkan::FRAMES_IN_FLIGHT;
+    uint frame_idx = api.ctx.frame_count % vulkan::FRAMES_IN_FLIGHT;
     vulkan::ImageH min_lod_map = r.min_lod_map_per_frame[frame_idx];
-    auto &min_lod_map_img = r.api.get_image(min_lod_map);
+    auto &min_lod_map_img = api.get_image(min_lod_map);
 
     {
         vk::ClearColorValue clear{};
         clear.uint32[0] = 99; // need high value because we are doing min operations on it
-        r.api.clear_image(min_lod_map, clear);
+        api.clear_image(min_lod_map, clear);
 
         auto &program = r.fill_min_lod_map;
 
-        r.api.bind_buffer(program, 0, r.global_uniform_pos);
+        api.bind_buffer(program, 0, r.global_uniform_pos);
 
         {
-            auto &rt = r.api.get_rendertarget(r.screenspace_lod_map_rt);
-            auto &image = r.api.get_image(rt.image_h);
-            transition_if_needed_internal(r.api,
+            auto &rt = api.get_rendertarget(r.screenspace_lod_map_rt);
+            auto &image = api.get_image(rt.image_h);
+            transition_if_needed_internal(api,
                                           image,
                                           THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
                                           vk::ImageLayout::eShaderReadOnlyOptimal);
-            r.api.bind_combined_image_sampler(program, 1, rt.image_h, r.nearest_sampler);
+            api.bind_combined_image_sampler(program, 1, rt.image_h, r.nearest_sampler);
         }
 
         {
-            auto &rt = r.api.get_rendertarget(r.depth_rt);
-            auto &image = r.api.get_image(rt.image_h);
-            transition_if_needed_internal(r.api,
+            auto &rt = api.get_rendertarget(r.depth_rt);
+            auto &image = api.get_image(rt.image_h);
+            transition_if_needed_internal(api,
                                           image,
                                           THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
                                           vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-            r.api.bind_combined_image_sampler(program, 2, rt.image_h, r.nearest_sampler);
+            api.bind_combined_image_sampler(program, 2, rt.image_h, r.nearest_sampler);
         }
 
         {
-            transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
-            r.api.bind_image(program, 3, min_lod_map);
+            transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            api.bind_image(program, 3, min_lod_map);
         }
 
-        auto size_x = r.api.ctx.swapchain.extent.width / 8;
-        auto size_y = r.api.ctx.swapchain.extent.height / 8;
-        r.api.dispatch(program, size_x, size_y, 1);
+        auto size_x = api.ctx.swapchain.extent.width / 8;
+        auto size_y = api.ctx.swapchain.extent.height / 8;
+        api.dispatch(program, size_x, size_y, 1);
 
-        transition_if_needed_internal(r.api, min_lod_map_img, THSVS_ACCESS_HOST_READ, vk::ImageLayout::eGeneral);
+        transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_HOST_READ, vk::ImageLayout::eGeneral);
     }
 
 #if defined(ENABLE_IMGUI)
@@ -1440,7 +1417,7 @@ static void prepass(Renderer &r)
     /// --- Readback min lod map and remap pages
 
 
-    auto &ctx = r.api.ctx;
+    auto &ctx = api.ctx;
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = frame_resource.command_buffer;
     auto graphics_queue   = ctx.device->getQueue(ctx.graphics_family_idx, 0);
@@ -1466,7 +1443,7 @@ static void prepass(Renderer &r)
     requests.reserve(MAX_REQUESTS);
 
     {
-        auto ptr = r.api.read_image(min_lod_map);
+        auto ptr = api.read_image(min_lod_map);
         auto *lods = reinterpret_cast<u32*>(ptr.data);
 
         usize mip_size = 128; // width (and height because it's squared) of the i_mip mip level of the shadow map
@@ -1520,8 +1497,8 @@ allocations_done:
 
 #if defined(ENABLE_SPARSE)
     {
-        auto &shadow_map_rt = r.api.get_rendertarget(r.shadow_map_rt);
-        auto &shadow_map = r.api.get_image(shadow_map_rt.image_h);
+        auto &shadow_map_rt = api.get_rendertarget(r.shadow_map_rt);
+        auto &shadow_map = api.get_image(shadow_map_rt.image_h);
 
         const auto page_count =  shadow_map.sparse_allocations.size();
         // const auto page_size  = shadow_map.page_size;
@@ -1576,41 +1553,32 @@ allocations_done:
         shadowmap_info.rt      = r.shadow_map_rt;
         pass.color             = std::make_optional(shadowmap_info);
 
-        r.api.begin_pass(std::move(pass));
+        api.begin_pass(std::move(pass));
 
-        auto depth_rt  = r.api.get_rendertarget(r.depth_rt);
-        auto depth_img = r.api.get_image(depth_rt.image_h);
+        auto depth_rt  = api.get_rendertarget(r.depth_rt);
+        auto depth_img = api.get_image(depth_rt.image_h);
 
-        vk::Viewport viewport{};
-        viewport.width    = depth_img.image_info.extent.width;
-        viewport.height   = depth_img.image_info.extent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        r.api.set_viewport(viewport);
+        api.set_viewport_and_scissor(depth_img.info.width, depth_img.info.height);
 
-        vk::Rect2D scissor{};
-        scissor.extent.width  = depth_img.image_info.extent.width;
-        scissor.extent.height = depth_img.image_info.extent.height;
-        r.api.set_scissor(scissor);
+        api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
 
-        r.api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
-
-        r.api.bind_program(r.model_prepass);
-        r.api.bind_index_buffer(r.model.index_buffer);
-        r.api.bind_vertex_buffer(r.model.vertex_buffer);
+        api.bind_program(r.model_prepass);
+        api.bind_index_buffer(r.model.index_buffer);
+        api.bind_vertex_buffer(r.model.vertex_buffer);
 
         for (usize node_i : r.model.scene) {
             draw_node_shadow(r, r.model.nodes[node_i]);
         }
 
-        r.api.end_pass();
+        api.end_pass();
     }
-    r.api.end_label();
+    api.end_label();
 }
 
 
 static void voxelize_node(Renderer &r, Node &node)
 {
+    auto &api = r.api;
     if (node.dirty) {
         node.dirty            = false;
         auto translation      = glm::translate(glm::mat4(1.0f), node.translation);
@@ -1619,10 +1587,10 @@ static void voxelize_node(Renderer &r, Node &node)
         node.cached_transform = translation * rotation * scale;
     }
 
-    auto u_pos   = r.api.dynamic_uniform_buffer(sizeof(float4x4));
+    auto u_pos   = api.dynamic_uniform_buffer(sizeof(float4x4));
     auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
     *buffer      = node.cached_transform;
-    r.api.bind_buffer(r.voxelization, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
+    api.bind_buffer(r.voxelization, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
 
     const auto &mesh = r.model.meshes[node.mesh];
     for (const auto &primitive : mesh.primitives) {
@@ -1633,7 +1601,7 @@ static void voxelize_node(Renderer &r, Node &node)
         bind_texture(r, r.voxelization, 1, material.base_color_texture);
         bind_texture(r, r.voxelization, 2, material.normal_texture);
 
-        r.api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+        api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
     }
 
     // TODO: transform relative to parent
@@ -1646,18 +1614,7 @@ static void voxelize_node(Renderer &r, Node &node)
 void Renderer::voxelize_scene()
 {
     api.begin_label("Voxelization");
-
-    vk::Viewport viewport{};
-    viewport.width    = voxel_options.res;
-    viewport.height   = voxel_options.res;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent.width  = voxel_options.res;
-    scissor.extent.height = voxel_options.res;
-    api.set_scissor(scissor);
+    api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
 
     // Bind voxel debug
     {
@@ -1750,16 +1707,7 @@ void Renderer::visualize_voxels()
 
     api.begin_label("Voxel visualization");
 
-    vk::Viewport viewport{};
-    viewport.width    = api.ctx.swapchain.extent.width;
-    viewport.height   = api.ctx.swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent = api.ctx.swapchain.extent;
-    api.set_scissor(scissor);
+    api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
     // Bind voxel options
     {
@@ -2046,16 +1994,7 @@ void Renderer::composite_hdr()
     }
 #endif
 
-    vk::Viewport viewport{};
-    viewport.width    = api.ctx.swapchain.extent.width;
-    viewport.height   = api.ctx.swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    api.set_viewport(viewport);
-
-    vk::Rect2D scissor{};
-    scissor.extent = api.ctx.swapchain.extent;
-    api.set_scissor(scissor);
+    api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
     vulkan::PassInfo pass;
     pass.present = true;
@@ -2106,7 +2045,7 @@ void render_sky(Renderer &r)
     assert_uniform_size(AtmosphereParameters);
     static_assert(sizeof(AtmosphereParameters) == 240);
 
-    auto atmosphere_params = r.api.dynamic_uniform_buffer(sizeof(AtmosphereParameters));
+    auto atmosphere_params = api.dynamic_uniform_buffer(sizeof(AtmosphereParameters));
     auto *p        = reinterpret_cast<AtmosphereParameters *>(atmosphere_params.mapped);
 
     {
@@ -2150,17 +2089,7 @@ void render_sky(Renderer &r)
 
     /// --- Render transmittance LUT
     {
-        vk::Viewport viewport{};
-        viewport.width    = transmittance_lut.info.width;
-        viewport.height   = transmittance_lut.info.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        api.set_viewport(viewport);
-
-        vk::Rect2D scissor{};
-        scissor.extent.width  = viewport.width;
-        scissor.extent.height = viewport.height;
-        api.set_scissor(scissor);
+        api.set_viewport_and_scissor(transmittance_lut.info.width, transmittance_lut.info.height);
 
         vulkan::PassInfo pass;
         pass.present = false;
@@ -2205,7 +2134,7 @@ void render_sky(Renderer &r)
 
         auto size_x = multiscattering_lut.info.width;
         auto size_y = multiscattering_lut.info.height;
-        r.api.dispatch(program, size_x, size_y, 1);
+        api.dispatch(program, size_x, size_y, 1);
 
         transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
@@ -2218,17 +2147,7 @@ void render_sky(Renderer &r)
     {
         auto &program = r.sky.render_skyview;
 
-        vk::Viewport viewport{};
-        viewport.width    = skyview_lut.info.width;
-        viewport.height   = skyview_lut.info.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        api.set_viewport(viewport);
-
-        vk::Rect2D scissor{};
-        scissor.extent.width  = viewport.width;
-        scissor.extent.height = viewport.height;
-        api.set_scissor(scissor);
+        api.set_viewport_and_scissor(skyview_lut.info.width, skyview_lut.info.height);
 
         vulkan::PassInfo pass;
         pass.present = false;
@@ -2294,17 +2213,7 @@ void render_sky(Renderer &r)
 
     /// --- Raymarch the sky
     {
-        vk::Viewport viewport{};
-        viewport.width    = api.ctx.swapchain.extent.width;
-        viewport.height   = api.ctx.swapchain.extent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        api.set_viewport(viewport);
-
-        vk::Rect2D scissor{};
-        scissor.extent.width  = viewport.width;
-        scissor.extent.height = viewport.height;
-        api.set_scissor(scissor);
+        api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
         vulkan::PassInfo pass;
         pass.present = false;
@@ -2362,7 +2271,8 @@ void render_sky(Renderer &r)
 
 void draw_fps(Renderer &renderer)
 {
-    renderer.api.begin_label("Draw fps");
+    auto &api = renderer.api;
+    api.begin_label("Draw fps");
 
 #if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();
@@ -2372,8 +2282,8 @@ void draw_fps(Renderer &renderer)
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
 
-    io.DisplaySize.x             = float(renderer.api.ctx.swapchain.extent.width);
-    io.DisplaySize.y             = float(renderer.api.ctx.swapchain.extent.height);
+    io.DisplaySize.x             = float(api.ctx.swapchain.extent.width);
+    io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
@@ -2384,18 +2294,18 @@ void draw_fps(Renderer &renderer)
         if (ImGui::Button("Dump usage"))
         {
             char *dump;
-            vmaBuildStatsString(renderer.api.ctx.allocator, &dump, VK_TRUE);
+            vmaBuildStatsString(api.ctx.allocator, &dump, VK_TRUE);
             std::cout << "Vulkan memory dump:\n" << dump << "\n";
 
             std::ofstream file{"dump.json"};
             file << dump;
 
-            vmaFreeStatsString(renderer.api.ctx.allocator, dump);
+            vmaFreeStatsString(api.ctx.allocator, dump);
         }
 
         // 10 is the number of heaps of the device 10 should be fine?
         std::array<VmaBudget, 10> budgets{};
-        vmaGetBudget(renderer.api.ctx.allocator, budgets.data());
+        vmaGetBudget(api.ctx.allocator, budgets.data());
 
         for (usize i = 0; i < budgets.size(); i++)
         {
@@ -2465,7 +2375,7 @@ void draw_fps(Renderer &renderer)
                                  ImVec2(85.0f, 30.0f));
         }
 
-        const auto &timestamps = renderer.api.timestamps;
+        const auto &timestamps = api.timestamps;
         if (timestamps.size() > 0)
         {
             ImGui::Columns(3, "timestamps"); // 4-ways, with border
@@ -2522,13 +2432,14 @@ void draw_fps(Renderer &renderer)
     }
 
 #endif
-    renderer.api.end_label();
+    api.end_label();
 }
 
 void update_uniforms(Renderer &r)
 {
-    r.api.begin_label("Update uniforms");
-    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
+    auto &api = r.api;
+    api.begin_label("Update uniforms");
+    float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
     static float fov   = 60.0f;
     static float s_near  = 1.0f;
     static float s_far   = 200.0f;
@@ -2539,7 +2450,7 @@ void update_uniforms(Renderer &r)
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.ortho_square(40.f, 1.f, 100.f);
 
-    r.global_uniform_pos     = r.api.dynamic_uniform_buffer(sizeof(GlobalUniform));
+    r.global_uniform_pos     = api.dynamic_uniform_buffer(sizeof(GlobalUniform));
     auto *globals            = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
 
@@ -2551,7 +2462,7 @@ void update_uniforms(Renderer &r)
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 
-    globals->resolution = uint2(r.api.ctx.swapchain.extent.width, r.api.ctx.swapchain.extent.height);
+    globals->resolution = uint2(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
     globals->raymarch_min_max_spp = float2(4, 14);
     globals->MultipleScatteringFactor = 1.0f;
     globals->MultiScatteringLUTRes = 32;
@@ -2628,7 +2539,7 @@ void update_uniforms(Renderer &r)
     const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
     globals->mu_s_min                     = (float)cos(max_sun_zenith_angle);
 
-    r.api.end_label();
+    api.end_label();
 }
 
 void Renderer::draw()

@@ -785,6 +785,23 @@ void API::set_viewport(const vk::Viewport &viewport)
     frame_resource.command_buffer->setViewport(0, viewport);
 }
 
+void API::set_viewport_and_scissor(u32 width, u32 height)
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+
+    vk::Viewport viewport{};
+    viewport.width    = width;
+    viewport.height   = height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    frame_resource.command_buffer->setViewport(0, viewport);
+
+    vk::Rect2D scissor{};
+    scissor.extent.width  = width;
+    scissor.extent.height = height;
+    frame_resource.command_buffer->setScissor(0, scissor);
+}
+
 void API::begin_label(std::string_view name, float4 color)
 {
     assert(name.size() > 0);

@@ -491,8 +491,11 @@ struct API
 
     void draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance);
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
+
     void set_scissor(const vk::Rect2D &scissor);
     void set_viewport(const vk::Viewport &viewport);
+    void set_viewport_and_scissor(u32 width, u32 height);
+
     void clear_image(ImageH H, const vk::ClearColorValue &clear_color);
 
     /// ---
