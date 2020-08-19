@@ -15,6 +15,10 @@
  ***/
 namespace my_app
 {
+namespace UI
+{
+struct Context;
+};
 
 struct Model;
 struct Event;
@@ -87,7 +91,7 @@ assert_uniform_size(GlobalUniform);
 
 struct Renderer
 {
-    static Renderer create(const Window &window, Camera &camera, TimerData &timer);
+    static Renderer create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
     void destroy();
 
     void draw();
@@ -116,6 +120,8 @@ struct Renderer
 
     vulkan::API api;
 
+
+    UI::Context *p_ui;
     const Window *p_window;
     Camera *p_camera;
     TimerData *p_timer;

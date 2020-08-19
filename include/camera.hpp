@@ -6,7 +6,13 @@
 namespace my_app
 {
 
+namespace UI
+{
+    struct Context;
+};
+
 class Window;
+class TimerData;
 
 struct Camera
 {
@@ -36,11 +42,13 @@ struct InputCamera
 {
     Camera _internal;
     Window *p_window;
+    UI::Context *p_ui;
+    TimerData *p_timer;
 
     double last_xpos;
     double last_ypos;
 
-    static InputCamera create(Window &window, float3 position);
+    static InputCamera create(Window &window, TimerData& timer, UI::Context &ui, float3 position);
     void on_mouse_movement(double xpos, double ypos);
     void update();
 };

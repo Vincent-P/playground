@@ -1,4 +1,6 @@
+#include "app.hpp"
 #include "camera.hpp"
+#include "timer.hpp"
 #include "window.hpp"
 #if defined(ENABLE_IMGUI)
 #include <imgui.h>
@@ -7,7 +9,7 @@
 namespace my_app
 {
 
-static float CAMERA_SPEED      = 0.02f;
+static float CAMERA_SPEED      = 20.0f;
 static float MOUSE_SENSITIVITY = 0.5f;
 
 static constexpr float3 UP    = float3(0, 1, 0);
@@ -23,11 +25,13 @@ Camera Camera::create(float3 position)
     return camera;
 }
 
-InputCamera InputCamera::create(Window &window, float3 position)
+InputCamera InputCamera::create(Window &window, TimerData& timer, UI::Context &ui, float3 position)
 {
     InputCamera camera{};
     camera._internal = Camera::create(position);
     camera.p_window  = &window;
+    camera.p_timer  = &timer;
+    camera.p_ui      = &ui;
     return camera;
 }
 
@@ -66,7 +70,7 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
 
 void InputCamera::update()
 {
-    static constexpr auto delta_t = 16.f;
+    float delta_t = p_timer->get_delta_time();
 
     int forward = 0;
     int right   = 0;
@@ -98,13 +102,15 @@ void InputCamera::update()
     }
 
 #if defined(ENABLE_IMGUI)
-    ImGui::Begin("Camera");
-    ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.f, 0.25f);
-    ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
-    ImGui::SliderFloat3("position", &_internal.position[0], -180.0f, 180.0f);
-    ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
-    ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
-    ImGui::End();
+    if (p_ui->begin_window("Camera"))
+    {
+        ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
+        ImGui::SliderFloat3("position", &_internal.position[0], 1.1f, 100000.0f);
+        ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
+        ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
+        p_ui->end_window();
+    }
 #endif
 
 }

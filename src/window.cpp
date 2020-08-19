@@ -78,6 +78,14 @@ void Window::update()
 #if defined(ENABLE_IMGUI)
     ImGuiIO &io = ImGui::GetIO();
 
+    // Update the mouse buttons
+    for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++) {
+	// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events
+	// that are shorter than 1 frame.
+	io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
+	mouse_just_pressed[i] = false;
+    }
+
     // Update the mouse position for ImGui
     if (io.WantSetMousePos) {
 	glfwSetCursorPos(this->window, double(io.MousePos.x), double(io.MousePos.y));
@@ -90,14 +98,6 @@ void Window::update()
 
 	last_xpos = mouse_x;
 	last_ypos = mouse_y;
-    }
-
-    // Update the mouse buttons
-    for (usize i = 0; i < ARRAY_SIZE(io.MouseDown); i++) {
-	// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events
-	// that are shorter than 1 frame.
-	io.MouseDown[i]       = mouse_just_pressed[i] || glfwGetMouseButton(window, static_cast<int>(i)) != 0;
-	mouse_just_pressed[i] = false;
     }
 #endif
 }

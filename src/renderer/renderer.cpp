@@ -1,4 +1,5 @@
 #include "renderer/renderer.hpp"
+#include "app.hpp"
 #include "camera.hpp"
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
@@ -33,10 +34,12 @@ struct ShaderDebug
     float opacity;
 };
 
-Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer)
+Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     Renderer r;
     r.api      = vulkan::API::create(window);
+
+    r.p_ui     = &ui;
     r.p_window = &window;
     r.p_camera = &camera;
     r.p_timer  = &timer;
@@ -1184,15 +1187,17 @@ void Renderer::draw_model()
     static float s_start = 1.0f;
 
 #if defined(ENABLE_IMGUI)
-    ImGui::Begin("glTF Shader");
-    ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
-    static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
-    tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
-    ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 1.0f);
-    ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 1.0f);
-    ImGui::SliderFloat("Sampling factor", &s_sampling_factor, 0.1f, 2.0f);
-    ImGui::SliderFloat("Start position", &s_start, 0.1f, 2.0f);
-    ImGui::End();
+    if (p_ui->begin_window("glTF Shader"))
+    {
+        ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
+        static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
+        tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+        ImGui::SliderFloat("Trace dist.", &s_trace_dist, 0.0f, 1.0f);
+        ImGui::SliderFloat("Occlusion factor", &s_occlusion, 0.0f, 1.0f);
+        ImGui::SliderFloat("Sampling factor", &s_sampling_factor, 0.1f, 2.0f);
+        ImGui::SliderFloat("Start position", &s_start, 0.1f, 2.0f);
+        p_ui->end_window();
+    }
 #endif
     if (s_opacity == 0.0f) {
         return;
@@ -1423,10 +1428,12 @@ static void prepass(Renderer &r)
 
 #if defined(ENABLE_IMGUI)
     {
-        ImGui::Begin("Sparse Shadow Map");
-        ImGui::Text("Min lod map:");
-        ImGui::Image(reinterpret_cast<void*>(min_lod_map.value()), ImVec2(256, 256));
-        ImGui::End();
+        if (r.p_ui->begin_window("Sparse Shadow Map"))
+        {
+            ImGui::Text("Min lod map:");
+            ImGui::Image(reinterpret_cast<void*>(min_lod_map.value()), ImVec2(256, 256));
+            r.p_ui->end_window();
+        }
     }
 #endif
 
@@ -1655,11 +1662,13 @@ void Renderer::voxelize_scene()
     // Bind voxel debug
     {
 #if defined(ENABLE_IMGUI)
-        ImGui::Begin("Voxelization");
-        ImGui::SliderFloat3("Center", &voxel_options.center[0], -40.f, 40.f);
-        voxel_options.center = glm::floor(voxel_options.center);
-        ImGui::SliderFloat("Voxel size (m)", &voxel_options.size, 0.01f, 0.1f);
-        ImGui::End();
+        if (p_ui->begin_window("Voxelization"))
+        {
+            ImGui::SliderFloat3("Center", &voxel_options.center[0], -40.f, 40.f);
+            voxel_options.center = glm::floor(voxel_options.center);
+            ImGui::SliderFloat("Voxel size (m)", &voxel_options.size, 0.01f, 0.1f);
+            p_ui->end_window();
+        }
 #endif
         auto u_pos     = api.dynamic_uniform_buffer(sizeof(VoxelDebug));
         auto *buffer   = reinterpret_cast<VoxelDebug *>(u_pos.mapped);
@@ -1727,11 +1736,13 @@ void Renderer::visualize_voxels()
     static usize s_selected = 3;
     static float s_opacity = 0.0f;
 #if defined(ENABLE_IMGUI)
-    ImGui::Begin("Voxels Shader");
-    ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
-    static std::array options{"Nothing", "Albedo", "Normal", "Radiance"};
-    tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
-    ImGui::End();
+    if (p_ui->begin_window("Voxels Shader"))
+    {
+        ImGui::SliderFloat("Output opacity", &s_opacity, 0.0f, 1.0f);
+        static std::array options{"Nothing", "Albedo", "Normal", "Radiance"};
+        tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+        p_ui->end_window();
+    }
 #endif
     if (s_opacity == 0.0f || s_selected == 0) {
         return;
@@ -1832,19 +1843,21 @@ void Renderer::inject_direct_lighting()
     static auto s_max_dist          = static_cast<float>(voxel_options.res);
     static float s_first_step          = 2.0f;
 #if defined(ENABLE_IMGUI)
-    ImGui::Begin("Voxels Direct Lighting");
-    if (ImGui::Button("Reload shader"))
+    if (p_ui->begin_window("Voxels Direct Lighting"))
     {
-        reload_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+        if (ImGui::Button("Reload shader"))
+        {
+            reload_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+        }
+        ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
+        ImGui::SliderFloat("Point light scale", &s_scale, 0.1f, 10.f);
+        ImGui::SliderFloat3("Sun rotation", s_sun_direction.data(), -180.0f, 180.0f);
+        ImGui::SliderFloat3("Sun front", &sun.front[0], -180.0f, 180.0f);
+        ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
+        ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
+        ImGui::SliderFloat("First step", &s_first_step, 1.0f, 20.0f);
+        p_ui->end_window();
     }
-    ImGui::SliderFloat3("Point light position", &s_position[0], -10.0f, 10.0f);
-    ImGui::SliderFloat("Point light scale", &s_scale, 0.1f, 10.f);
-    ImGui::SliderFloat3("Sun rotation", s_sun_direction.data(), -180.0f, 180.0f);
-    ImGui::SliderFloat3("Sun front", &sun.front[0], -180.0f, 180.0f);
-    ImGui::SliderFloat("Trace Shadow Hit", &s_trace_shadow_hit, 0.0f, 1.0f);
-    ImGui::SliderFloat("Max Dist", &s_max_dist, 0.0f, 300.0f);
-    ImGui::SliderFloat("First step", &s_first_step, 1.0f, 20.0f);
-    ImGui::End();
 #endif
 
     api.begin_label("Inject direct lighting");
@@ -2024,11 +2037,13 @@ void Renderer::composite_hdr()
     api.begin_label("Tonemap");
 
 #if defined(ENABLE_IMGUI)
-    ImGui::Begin("HDR Shader");
-    static std::array options{"Reinhard", "Exposure", "Clamp"};
-    tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
-    ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
-    ImGui::End();
+    if (p_ui->begin_window("HDR Shader"))
+    {
+        static std::array options{"Reinhard", "Exposure", "Clamp"};
+        tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
+        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
+        p_ui->end_window();
+    }
 #endif
 
     vk::Viewport viewport{};
@@ -2253,21 +2268,25 @@ void render_sky(Renderer &r)
 #if defined(ENABLE_IMGUI)
     {
 
-        ImGui::Begin("Sky");
+        if(r.p_ui->begin_window("Sky"))
+        {
+            float scale = 2.0f;
+            ImGui::Text("Transmittance LUT:");
+            ImGui::Image(reinterpret_cast<void *>(transmittance_lut_rt.image_h.value()),
+                         ImVec2(scale * transmittance_lut.info.width, scale * transmittance_lut.info.height));
 
-        float scale = 2.0f;
-        ImGui::Text("Transmittance LUT:");
-        ImGui::Image(reinterpret_cast<void*>(transmittance_lut_rt.image_h.value()), ImVec2(scale * transmittance_lut.info.width, scale * transmittance_lut.info.height));
+            scale = 10.f;
+            ImGui::Text("Multiscattering LUT:");
+            ImGui::Image(reinterpret_cast<void *>(r.sky.multiscattering_lut.value()),
+                         ImVec2(scale * multiscattering_lut.info.width, scale * multiscattering_lut.info.height));
 
-        scale = 10.f;
-        ImGui::Text("Multiscattering LUT:");
-        ImGui::Image(reinterpret_cast<void*>(r.sky.multiscattering_lut.value()), ImVec2(scale * multiscattering_lut.info.width, scale * multiscattering_lut.info.height));
+            scale = 2.f;
+            ImGui::Text("SkyView LUT:");
+            ImGui::Image(reinterpret_cast<void *>(skyview_lut_rt.image_h.value()),
+                         ImVec2(scale * skyview_lut.info.width, scale * skyview_lut.info.height));
 
-        scale = 2.f;
-        ImGui::Text("SkyView LUT:");
-        ImGui::Image(reinterpret_cast<void*>(skyview_lut_rt.image_h.value()), ImVec2(scale * skyview_lut.info.width, scale * skyview_lut.info.height));
-
-        ImGui::End();
+            r.p_ui->end_window();
+        }
     }
 #endif
 
@@ -2358,114 +2377,149 @@ void draw_fps(Renderer &renderer)
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
-    ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar);
-
-
-    if (ImGui::Button("Dump usage")) {
-        char* dump;
-        vmaBuildStatsString(renderer.api.ctx.allocator, &dump, VK_TRUE);
-        std::cout << "Vulkan memory dump:\n" << dump << "\n";
-
-        std::ofstream file{"dump.json"};
-        file << dump;
-
-        vmaFreeStatsString(renderer.api.ctx.allocator, dump);
-    }
-
-    // 10 is the number of heaps of the device 10 should be fine?
-    std::array<VmaBudget, 10> budgets{};
-    vmaGetBudget(renderer.api.ctx.allocator, budgets.data());
-
-    for (usize i = 0; i < budgets.size(); i++)
+    auto &ui = *renderer.p_ui;
+    if (ui.begin_window("Stats"))
     {
-        const auto& budget = budgets[i];
-        if (budget.blockBytes == 0) {
-            continue;
-        }
 
-        ImGui::Text("Heap #%llu", static_cast<u64>(i));
-        ImGui::Text("Block bytes: %llu", static_cast<u64>(budget.blockBytes));
-        ImGui::Text("Allocation bytes: %llu", static_cast<u64>(budget.allocationBytes));
-        ImGui::Text("Usage: %llu", static_cast<u64>(budget.usage));
-        ImGui::Text("Budget: %llu", static_cast<u64>(budget.budget));
-        ImGui::Text("Total: %llu", static_cast<u64>(budget.usage + budget.budget));
-        double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
-        ImGui::Text("%02.2f%%", utilization);
-    }
-
-    ImGui::End();
-
-    ImGui::Begin("Profiler");
-
-    static bool show_fps = false;
-
-    if (ImGui::RadioButton("FPS", show_fps)) {
-        show_fps = true;
-    }
-
-    ImGui::SameLine();
-
-    if (ImGui::RadioButton("ms", !show_fps)) {
-        show_fps = false;
-    }
-
-    if (show_fps) {
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("%7.1f", double(timer.get_average_fps()));
-
-        const auto &histogram = timer.get_fps_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
-    }
-    else {
-        ImGui::SetCursorPosX(20.0f);
-        ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
-
-        const auto &histogram = timer.get_delta_time_histogram();
-        ImGui::PlotHistogram("", histogram.data(), static_cast<int>(histogram.size()), 0, nullptr, 0.0f, FLT_MAX, ImVec2(85.0f, 30.0f));
-    }
-
-    const auto &timestamps = renderer.api.timestamps;
-    if (timestamps.size() > 0)
-    {
-        ImGui::Columns(3, "timestamps"); // 4-ways, with border
-        ImGui::Separator();
-        ImGui::Text("Label"); ImGui::NextColumn();
-        ImGui::Text("GPU (us)"); ImGui::NextColumn();
-        ImGui::Text("CPU (ms)"); ImGui::NextColumn();
-        ImGui::Separator();
-        for (uint32_t i = 1; i < timestamps.size() - 1; i++)
+        if (ImGui::Button("Dump usage"))
         {
-            auto gpu_delta = timestamps[i].gpu_microseconds - timestamps[i - 1].gpu_microseconds;
-            auto cpu_delta = timestamps[i].cpu_milliseconds - timestamps[i - 1].cpu_milliseconds;
+            char *dump;
+            vmaBuildStatsString(renderer.api.ctx.allocator, &dump, VK_TRUE);
+            std::cout << "Vulkan memory dump:\n" << dump << "\n";
 
-            ImGui::Text("%*s", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data()); ImGui::NextColumn();
-            ImGui::Text("%.1f", gpu_delta); ImGui::NextColumn();
-            ImGui::Text("%.1f", cpu_delta); ImGui::NextColumn();
+            std::ofstream file{"dump.json"};
+            file << dump;
+
+            vmaFreeStatsString(renderer.api.ctx.allocator, dump);
         }
 
-        ImGui::Columns(1);
-        ImGui::Separator();
+        // 10 is the number of heaps of the device 10 should be fine?
+        std::array<VmaBudget, 10> budgets{};
+        vmaGetBudget(renderer.api.ctx.allocator, budgets.data());
 
-        //scrolling data and average computing
-        static float gpu_values[128];
-        static float cpu_values[128];
+        for (usize i = 0; i < budgets.size(); i++)
+        {
+            const auto &budget = budgets[i];
+            if (budget.blockBytes == 0)
+            {
+                continue;
+            }
 
-        gpu_values[127] = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
-        cpu_values[127] = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
-        float gpu_average = gpu_values[0];
-        float cpu_average = cpu_values[0];
-        for (uint i = 0; i < 128 - 1; i++) { gpu_values[i] = gpu_values[i + 1]; gpu_average += gpu_values[i]; cpu_values[i] = cpu_values[i + 1]; cpu_average += cpu_values[i]; }
-        gpu_average /= 128;
-        cpu_average /= 128;
+            ImGui::Text("Heap #%llu", static_cast<u64>(i));
+            ImGui::Text("Block bytes: %llu", static_cast<u64>(budget.blockBytes));
+            ImGui::Text("Allocation bytes: %llu", static_cast<u64>(budget.allocationBytes));
+            ImGui::Text("Usage: %llu", static_cast<u64>(budget.usage));
+            ImGui::Text("Budget: %llu", static_cast<u64>(budget.budget));
+            ImGui::Text("Total: %llu", static_cast<u64>(budget.usage + budget.budget));
+            double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
+            ImGui::Text("%02.2f%%", utilization);
+        }
 
-        ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
-        ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
-
-        ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
-        ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+        ui.end_window();
     }
 
-    ImGui::End();
+    if (ui.begin_window("Profiler", true))
+    {
+        static bool show_fps = false;
+
+        if (ImGui::RadioButton("FPS", show_fps))
+        {
+            show_fps = true;
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::RadioButton("ms", !show_fps))
+        {
+            show_fps = false;
+        }
+
+        if (show_fps)
+        {
+            ImGui::SetCursorPosX(20.0f);
+            ImGui::Text("%7.1f", double(timer.get_average_fps()));
+
+            const auto &histogram = timer.get_fps_histogram();
+            ImGui::PlotHistogram("",
+                                 histogram.data(),
+                                 static_cast<int>(histogram.size()),
+                                 0,
+                                 nullptr,
+                                 0.0f,
+                                 FLT_MAX,
+                                 ImVec2(85.0f, 30.0f));
+        }
+        else
+        {
+            ImGui::SetCursorPosX(20.0f);
+            ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
+
+            const auto &histogram = timer.get_delta_time_histogram();
+            ImGui::PlotHistogram("",
+                                 histogram.data(),
+                                 static_cast<int>(histogram.size()),
+                                 0,
+                                 nullptr,
+                                 0.0f,
+                                 FLT_MAX,
+                                 ImVec2(85.0f, 30.0f));
+        }
+
+        const auto &timestamps = renderer.api.timestamps;
+        if (timestamps.size() > 0)
+        {
+            ImGui::Columns(3, "timestamps"); // 4-ways, with border
+            ImGui::Separator();
+            ImGui::Text("Label");
+            ImGui::NextColumn();
+            ImGui::Text("GPU (us)");
+            ImGui::NextColumn();
+            ImGui::Text("CPU (ms)");
+            ImGui::NextColumn();
+            ImGui::Separator();
+            for (uint32_t i = 1; i < timestamps.size() - 1; i++)
+            {
+                auto gpu_delta = timestamps[i].gpu_microseconds - timestamps[i - 1].gpu_microseconds;
+                auto cpu_delta = timestamps[i].cpu_milliseconds - timestamps[i - 1].cpu_milliseconds;
+
+                ImGui::Text("%*s", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data());
+                ImGui::NextColumn();
+                ImGui::Text("%.1f", gpu_delta);
+                ImGui::NextColumn();
+                ImGui::Text("%.1f", cpu_delta);
+                ImGui::NextColumn();
+            }
+
+            ImGui::Columns(1);
+            ImGui::Separator();
+
+            // scrolling data and average computing
+            static float gpu_values[128];
+            static float cpu_values[128];
+
+            gpu_values[127]   = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
+            cpu_values[127]   = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
+            float gpu_average = gpu_values[0];
+            float cpu_average = cpu_values[0];
+            for (uint i = 0; i < 128 - 1; i++)
+            {
+                gpu_values[i] = gpu_values[i + 1];
+                gpu_average += gpu_values[i];
+                cpu_values[i] = cpu_values[i + 1];
+                cpu_average += cpu_values[i];
+            }
+            gpu_average /= 128;
+            cpu_average /= 128;
+
+            ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
+            ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+
+            ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
+            ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+        }
+
+        ui.end_window();
+    }
 
 #endif
     renderer.api.end_label();
@@ -2510,11 +2564,25 @@ void update_uniforms(Renderer &r)
 
     static float s_sun_illuminance = 1.0f;
     static float s_multiple_scattering = 0.0f;
-    ImGui::Begin("Globals");
-    ImGui::SliderFloat("Sun illuminance", &s_sun_illuminance, 0.1f, 100.f);
-    ImGui::SliderFloat("Multiple scattering", &s_multiple_scattering, 0.0f, 1.0f);
-    ImGui::End();
-    globals->sun_illuminance = s_sun_illuminance * float3(1.0f);
+    if (r.p_ui->begin_window("Globals"))
+    {
+        ImGui::SliderFloat("Near plane", &s_near, 0.01f, 1.f);
+        ImGui::SliderFloat("Far plane", &s_far, 100.0f, 100000.0f);
+
+        if (ImGui::Button("Reset near"))
+        {
+            s_near = 0.1f;
+        }
+        if (ImGui::Button("Reset far"))
+        {
+            s_far = 200.0f;
+        }
+
+        ImGui::SliderFloat("Sun illuminance", &s_sun_illuminance, 0.1f, 100.f);
+        ImGui::SliderFloat("Multiple scattering", &s_multiple_scattering, 0.0f, 1.0f);
+        r.p_ui->end_window();
+    }
+    globals->sun_illuminance     = s_sun_illuminance * float3(1.0f);
     globals->multiple_scattering = s_multiple_scattering;
 
     //
