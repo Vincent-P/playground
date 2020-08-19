@@ -19,7 +19,7 @@ void main()
     float3 clip_space = float3((pixel_src / screen_size) * 2.0 - float2(1.0), depth);
 
     // reconstruct world position from the depth and the fragment position
-    vec4 world_pos = inverse(global.camera_proj * global.camera_view) * float4(clip_space, 1.0);
+    vec4 world_pos = global.camera_inv_view_proj * float4(clip_space, 1.0);
     world_pos /= world_pos.w;
 
     // project to light space

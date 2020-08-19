@@ -82,12 +82,14 @@ struct AtmosphereParameters
 
 /// --- Utils
 
-float safe_sqrt(float a) {
-  return sqrt(max(a, 0.0));
+float safe_sqrt(float a)
+{
+    return sqrt(max(a, 0.0));
 }
 
-float clamp_cos(float theta) {
-  return clamp(theta, float(-1.0), float(1.0));
+float clamp_cos(float theta)
+{
+    return clamp(theta, -1.0, 1.0);
 }
 
 /// --- Struct fonctions

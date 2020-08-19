@@ -123,10 +123,17 @@ float4x4 Camera::update_view()
 
 float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, float far_plane)
 {
-    projection = glm::perspective(glm::radians(fov), aspect_ratio, near_plane, far_plane);
-    projection[1][1] *= -1;
+    (void)(far_plane);
+    float f = 1.0f / tan(glm::radians(fov) / 2.0f);
+    projection = glm::mat4(
+        f / aspect_ratio, 0.0f,       0.0f,  0.0f,
+                    0.0f,   -f,       0.0f,  0.0f,
+                    0.0f, 0.0f,       0.0f, -1.0f,
+                    0.0f, 0.0f, near_plane,  0.0f);
+
     return projection;
 }
+
 float4x4 Camera::ortho_square(float size, float near_plane, float far_plane)
 {
     projection = glm::ortho(-size, size, -size, size, near_plane, far_plane);

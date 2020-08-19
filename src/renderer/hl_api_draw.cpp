@@ -217,18 +217,20 @@ void API::begin_pass(PassInfo &&info)
 
     if (render_pass.info.color && render_pass.info.color->load_op == vk::AttachmentLoadOp::eClear) {
         vk::ClearValue clear;
-        clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
+        clear.color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
         clear_values.push_back(std::move(clear));
     }
 
     if (render_pass.info.depth && render_pass.info.depth->load_op == vk::AttachmentLoadOp::eClear) {
+        // ??
         if (render_pass.info.color && clear_values.empty()) {
             vk::ClearValue clear;
-            clear.color = vk::ClearColorValue(std::array<float, 4>{0.6f, 0.7f, 0.94f, 1.0f});
+            clear.color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
             clear_values.push_back(std::move(clear));
         }
+
         vk::ClearValue clear;
-        clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
+        clear.depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
         clear_values.push_back(std::move(clear));
     }
 

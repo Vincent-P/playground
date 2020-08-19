@@ -1,10 +1,6 @@
 #ifndef SKY_H
 #define SKY_H
 
-layout(set = 1, binding = 0) uniform sampler2D TransmittanceLutTexture; // sampler linear clamp
-layout(set = 1, binding = 1) uniform sampler2D SkyViewLutTexture; // sampler linear clamp
-layout(set = 1, binding = 2) uniform sampler2D ViewDepthTexture; // texel fetch
-
 #define PLANET_RADIUS_OFFSET 0.01f
 #define MULTISCATAPPROX_ENABLED 0
 #define SHADOWMAP_ENABLED 0
@@ -419,9 +415,9 @@ SingleScatteringResult IntegrateScatteredLuminance(
     if (DepthBufferValue >= 0.0f)
     {
         ClipSpace.z = DepthBufferValue;
-        if (ClipSpace.z < 1.0f)
+        if (ClipSpace.z > 0.01f)
         {
-            float4 DepthBufferWorldPos = inverse(global.camera_proj * global.camera_view) * float4(ClipSpace, 1.0);
+            float4 DepthBufferWorldPos = global.camera_inv_view_proj * float4(ClipSpace, 1.0);
             DepthBufferWorldPos /= DepthBufferWorldPos.w;
 
             float tDepth = length(DepthBufferWorldPos.xyz - (WorldPos + float3(0.0, -Atmosphere.BottomRadius, 0.0))); // apply earth offset to go back to origin as top of earth mode.

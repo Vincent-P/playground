@@ -208,7 +208,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
-        pinfo.depth_test = vk::CompareOp::eLessOrEqual;
+        pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
         pinfo.enable_depth_write = true;
 
         r.model_prepass = r.api.create_program(std::move(pinfo));
@@ -579,7 +579,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = 3 * sizeof(float)});
 
         pinfo.enable_depth_write = true;
-        pinfo.depth_test = vk::CompareOp::eLessOrEqual;
+        pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
         pinfo.depth_bias = 0.0f;
 
         r.checkerboard_floor.program = r.api.create_program(std::move(pinfo));
@@ -693,7 +693,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -704,6 +704,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
@@ -2289,22 +2295,26 @@ void render_sky(Renderer &r)
         color_info.rt      = r.color_rt;
         pass.color         = std::make_optional(color_info);
 
-        transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        transition_if_needed_internal(api,
+                                      transmittance_lut,
+                                      THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
+                                      vk::ImageLayout::eShaderReadOnlyOptimal);
         transition_if_needed_internal(api, skyview_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
 
         auto &program = r.sky.sky_raymarch;
 
         api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, atmosphere_params);
 
         api.bind_combined_image_sampler(program,
                                         vulkan::SHADER_DESCRIPTOR_SET,
-                                        0,
+                                        1,
                                         transmittance_lut_rt.image_h,
                                         r.trilinear_sampler);
 
         api.bind_combined_image_sampler(program,
                                         vulkan::SHADER_DESCRIPTOR_SET,
-                                        1,
+                                        2,
                                         skyview_lut_rt.image_h,
                                         r.trilinear_sampler);
 
@@ -2315,7 +2325,7 @@ void render_sky(Renderer &r)
                                           image,
                                           THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
                                           vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-            api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 2, rt.image_h, r.nearest_sampler);
+            api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 3, rt.image_h, r.nearest_sampler);
         }
 
 
@@ -2466,8 +2476,10 @@ void update_uniforms(Renderer &r)
     r.api.begin_label("Update uniforms");
     float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
     static float fov   = 60.0f;
+    static float s_near  = 1.0f;
+    static float s_far   = 200.0f;
 
-    r.p_camera->perspective(fov, aspect_ratio, 0.01f, 500.f);
+    r.p_camera->perspective(fov, aspect_ratio, s_near, 200.f);
     r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
@@ -2477,10 +2489,11 @@ void update_uniforms(Renderer &r)
     auto *globals            = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
 
-    globals->camera_pos      = r.p_camera->position / 1000.0f;
+    globals->camera_pos      = r.p_camera->position;
     globals->camera_view     = r.p_camera->get_view();
     globals->camera_proj     = r.p_camera->get_projection();
     globals->camera_inv_proj = glm::inverse(globals->camera_proj);
+    globals->camera_inv_view_proj = glm::inverse(globals->camera_proj * globals->camera_view);
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 

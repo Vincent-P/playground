@@ -56,7 +56,7 @@ float3 integrate_luminance(AtmosphereParameters atmosphere, float3 p, float3 dir
         float3 sun_transmittance = get_transmittance_to_sun(atmosphere, transmittance_lut, rd, mu_s_d);
 
         float3 T  = sun_transmittance;
-        float  S  = intersects_ground ? 0.0 : 1.0; // todo?
+        float  S  = 1.0; // todo?
         float3 p  = medium.mie_scattering * mie_phase + medium.rayleigh_scattering * rayleigh_phase;
         float3 psi_ms = global.multiple_scattering > 0.0 ? get_multiple_scattering(atmosphere, float3(0.0, rd, 0.0), mu_s_d) : float3(0.0);
         float3 Ei = global.sun_illuminance;
@@ -86,17 +86,16 @@ void main()
     float3 clip_space;
     clip_space.xy = uv * 2.0 - float2(1.0);
     clip_space.z = 1;
-    float4 h_pos = inverse(global.camera_proj * global.camera_view) * float4(clip_space, 1.0);
+    float4 h_pos = global.camera_inv_view_proj * float4(clip_space, 1.0);
     h_pos.xyz /= h_pos.w;
 
-    float3 world_dir = normalize(h_pos.xyz - global.camera_pos * 1000.0);
-    float3 world_pos = global.camera_pos * 1000.0 + float3(0.0, atmosphere.bottom_radius, 0.0);
+    float3 world_dir = normalize(h_pos.xyz - global.camera_pos);
+    float3 world_pos = global.camera_pos + float3(0.0, atmosphere.bottom_radius, 0.0);
 
     float r = length(world_pos);
     float mu;
     float cos_lightview;
     uv_to_mu_coslightview(atmosphere, uv, r, mu, cos_lightview);
-
 
     float3 up = world_pos / r;
     float mu_s = dot(up, global.sun_direction);
@@ -124,6 +123,10 @@ void main()
 }
 
 #else
+
+layout(set = 1, binding = 1) uniform sampler2D TransmittanceLutTexture; // sampler linear clamp
+layout(set = 1, binding = 2) uniform sampler2D SkyViewLutTexture; // sampler linear clamp
+
 #include "sky.h"
 
 void main()
@@ -132,11 +135,11 @@ void main()
     AtmosphereParameters Atmosphere = GetAtmosphereParameters();
 
     float3 ClipSpace = float3((pixPos / float2(192.0,108.0))*float2(2.0, 2.0) - float2(1.0, 1.0), 1.0);
-    float4 HPos = inverse(global.camera_proj * global.camera_view) * float4(ClipSpace, 1.0);
+    float4 HPos = global.camera_inv_view_proj * float4(ClipSpace, 1.0);
+    HPos /= 1000.0f;
 
     float3 WorldDir = normalize(HPos.xyz / HPos.w - global.camera_pos);
-    float3 WorldPos = global.camera_pos + float3(0, Atmosphere.BottomRadius, 0);
-
+    float3 WorldPos = global.camera_pos / 1000.f + float3(0, Atmosphere.BottomRadius, 0);
 
     float2 uv = pixPos / float2(192.0, 108.0);
 
@@ -145,6 +148,11 @@ void main()
     float viewZenithCosAngle;
     float lightViewCosAngle;
     UvToSkyViewLutParams(Atmosphere, viewZenithCosAngle, lightViewCosAngle, viewHeight, uv);
+
+    /*
+    outColor = float4(viewZenithCosAngle, lightViewCosAngle, 0.0, 1.0);
+    return;
+    */
 
 
     float3 SunDir;

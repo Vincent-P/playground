@@ -1,8 +1,55 @@
 #include "types.h"
 #include "globals.h"
-#include "sky.h"
 
+layout(set = 1, binding = 1) uniform sampler2D TransmittanceLutTexture; // sampler linear clamp
+layout(set = 1, binding = 2) uniform sampler2D SkyViewLutTexture; // sampler linear clamp
+layout(set = 1, binding = 3) uniform sampler2D ViewDepthTexture; // texel fetch
+
+layout(location = 1) in vec3 inViewRay;
 layout(location = 0) out vec4 outColor;
+
+#if 0
+#include "atmosphere.h"
+
+layout (set = 1, binding = 0) uniform AtmosphereUniform {
+    AtmosphereParameters atmosphere;
+};
+
+void main()
+{
+    float2 pixel_pos = gl_FragCoord.xy;
+    float2 uv = pixel_pos / global.resolution;
+
+    float3 clip_space = float3(uv * 2.0 - float2(1.0), 0.01);
+    float4 h_pos      = global.camera_inv_view_proj * float4(clip_space, 1.0);
+    h_pos.xyz /= h_pos.w;
+
+    float3 world_dir = normalize(h_pos.xyz - global.camera_pos);
+    float3 world_pos = global.camera_pos + float3(0.0, atmosphere.bottom_radius, 0.0);
+
+    outColor = float4(world_dir, 1.0);
+    return;
+
+    float r = length(world_pos);
+    float3 up = normalize(world_pos);
+    float mu = dot(world_dir, up);
+
+    float cos_lightview;
+
+    float3 side = normalize(cross(up, world_dir));		// assumes non parallel vectors
+    float3 forward = normalize(cross(side, up));	// aligns toward the sun light but perpendicular to up vector
+    float2 light_on_plane = float2(dot(global.sun_direction, forward), dot(global.sun_direction, side));
+    light_on_plane = normalize(light_on_plane);
+    cos_lightview = light_on_plane.x;
+
+    bool intersects_ground = intersects_ground(atmosphere, r, mu);
+    float2 skyview_uv = mu_coslightview_to_uv(atmosphere, intersects_ground, r, mu, cos_lightview);
+    outColor = float4(skyview_uv.y, intersects_ground ? 1.0 : 0.0, 0.0, 1.0);
+}
+
+#else
+
+#include "sky.h"
 
 #define COLORED_TRANSMITTANCE_ENABLED 0
 #define FASTSKY_ENABLED 1
@@ -17,11 +64,18 @@ void main()
     ivec2 pixPos = ivec2(gl_FragCoord.xy);
     AtmosphereParameters Atmosphere = GetAtmosphereParameters();
 
-    float3 ClipSpace = float3((float2(pixPos) / float2(global.resolution))*float2(2.0, 2.0) - float2(1.0, 1.0), 1.0);
-    float4 HPos = inverse(global.camera_proj * global.camera_view) * float4(ClipSpace, 1.0);
+    float3 ClipSpace = float3((float2(pixPos) / float2(global.resolution))*float2(2.0, 2.0) - float2(1.0, 1.0), 0.001);
+    float4 HPos = global.camera_inv_view_proj * float4(ClipSpace, 1.0);
+    HPos /= HPos.w;
 
-    float3 WorldDir = normalize(HPos.xyz / HPos.w - global.camera_pos);
-    float3 WorldPos = global.camera_pos + float3(0, Atmosphere.BottomRadius, 0);
+    float3 WorldDir = normalize(HPos.xyz - global.camera_pos);
+
+    /*
+    outColor = float4(WorldDir, 1.0);
+    return;
+    */
+
+    float3 WorldPos = global.camera_pos / 1000.0f + float3(0, Atmosphere.BottomRadius, 0);
 
     float DepthBufferValue = -1.0;
 
@@ -35,7 +89,7 @@ void main()
     float3 L = float3(0.0);
     DepthBufferValue = texelFetch(ViewDepthTexture, pixPos, 0).r;
 #if FASTSKY_ENABLED
-    if (viewHeight < Atmosphere.TopRadius && DepthBufferValue == 1.0f)
+    if (viewHeight < Atmosphere.TopRadius && DepthBufferValue <= 0.001)
     {
         float2 uv;
         float3 UpVector = normalize(WorldPos);
@@ -51,13 +105,12 @@ void main()
 
         SkyViewLutParamsToUv(Atmosphere, IntersectGround, viewZenithCosAngle, lightViewCosAngle, viewHeight, uv);
 
-
         //output.Luminance = float4(SkyViewLutTexture.SampleLevel(samplerLinearClamp, pixPos / float2(gResolution), 0).rgb + GetSunLuminance(WorldPos, WorldDir, Atmosphere.BottomRadius), 1.0);
         outColor = float4(10.0 * textureLod(SkyViewLutTexture, uv, 0).rgb + GetSunLuminance(WorldPos, WorldDir, Atmosphere.BottomRadius), 1.0);
         return;
     }
 #else
-    if (DepthBufferValue == 1.0f)
+    if (DepthBufferValue <= 0.1)
         L += GetSunLuminance(WorldPos, WorldDir, Atmosphere.BottomRadius);
 #endif
 
@@ -121,3 +174,4 @@ void main()
 
     return;
 }
+#endif
