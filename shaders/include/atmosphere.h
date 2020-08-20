@@ -149,6 +149,9 @@ float distance_to_top_atmosphere(AtmosphereParameters atmosphere, float r, float
     float discriminant = r * r * (mu * mu - 1.0) + atmosphere.top_radius * atmosphere.top_radius;
     // because discriminant is divided by four it cancels the 1/2a
     float root = -r * mu + safe_sqrt(discriminant);
+    if (root < 0.0) {
+        return -r * mu - safe_sqrt(discriminant);
+    }
     return root;
 }
 
@@ -271,7 +274,7 @@ float2 mu_coslightview_to_uv(AtmosphereParameters atmosphere, bool intersects_gr
 
     float2 uv;
 
-    if (intersects_ground)
+    if (!intersects_ground)
     {
         float coord = acos(mu) / zenith_horizon;
         coord = 1.0 - coord;
@@ -327,6 +330,17 @@ float3 get_transmittance_to_sun(AtmosphereParameters atmosphere, sampler2D trans
     return get_transmittance_to_top_atmosphere(atmosphere, transmittance_lut, r, mu_s) * visible_sun_disc;
 }
 
+float3 get_multiple_scattering(AtmosphereParameters atmosphere, sampler2D lut, float3 world_pos, float mu)
+{
+    float2 lut_size = float2(textureSize(lut, 0));
+    float2 uv = (float2(mu * 0.5f + 0.5f, (length(world_pos) - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius)));
+    uv = clamp(uv, 0.0, 1.0);
+    uv = unit_to_uv(uv, lut_size);
+
+    float3 psi_ms = textureLod(lut, uv, 0).rgb;
+    return psi_ms;
+}
+
 /// --- Phase functions
 
 const float uniform_phase = 1.0 / (4.0 * PI);
@@ -345,18 +359,50 @@ float cornette_shanks_phase_function(float g, float cos_theta)
 
 /// ---
 
+// - r0: ray origin
+// - rd: normalized ray direction
+// - s0: sphere center
+// - sR: sphere radius
+// - Returns distance from r0 to first intersecion with sphere,
+//   or -1.0 if no intersection.
+float ray_sphere_nearest_intersection(float3 r0, float3 rd, float3 s0, float sr)
+{
+    float a = dot(rd, rd);
+    float3 s0_r0 = r0 - s0;
+    float b = 2.0 * dot(rd, s0_r0);
+    float c = dot(s0_r0, s0_r0) - (sr * sr);
+    float delta = b * b - 4.0*a*c;
+    if (delta < 0.0 || a == 0.0)
+    {
+        return -1.0;
+    }
+    float sol0 = (-b - sqrt(delta)) / (2.0*a);
+    float sol1 = (-b + sqrt(delta)) / (2.0*a);
+    if (sol0 < 0.0 && sol1 < 0.0)
+    {
+        return -1.0;
+    }
+    if (sol0 < 0.0)
+    {
+        return max(0.0, sol1);
+    }
+    else if (sol1 < 0.0)
+    {
+        return max(0.0, sol0);
+    }
+    return max(0.0, min(sol0, sol1));
+}
 
 bool move_to_top_atmosphere(AtmosphereParameters atmosphere, inout float3 world_pos, float3 world_dir)
 {
     float r = length(world_pos);
     if (r > atmosphere.top_radius)
     {
-        float3 up = world_pos / r;
-        float  mu = dot(up, world_dir);
-        if (intersects_top_atmosphere(atmosphere, r, mu))
+        float d = ray_sphere_nearest_intersection(world_pos, world_dir, float3(0.0), atmosphere.top_radius);
+        if (d >= 0.0)
         {
-            float d = distance_to_top_atmosphere(atmosphere, r, mu);
-            world_pos = world_pos + world_dir * d;
+            float3 up = world_pos / r;
+            world_pos = world_pos + world_dir * d + up * -10.0f;
         }
         else
         {
@@ -366,6 +412,19 @@ bool move_to_top_atmosphere(AtmosphereParameters atmosphere, inout float3 world_
     return true;
 }
 
+float3 get_sun_luminance(float3 world_pos, float3 world_dir, float radius)
+{
+    if (dot(world_dir, global.sun_direction) > cos(0.5*0.505*3.14159 / 180.0))
+    {
+        float t = ray_sphere_nearest_intersection(world_pos, world_dir, float3(0.0f, 0.0f, 0.0f), radius);
+        if (t < 0.0f) // no intersection
+        {
+            const float3 sun_luminance = float3(1000000.0); // arbitrary. But fine, not use when comparing the models
+            return sun_luminance;
+        }
+    }
+    return float3(0.0);
+}
 
 #endif
 

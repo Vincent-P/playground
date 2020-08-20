@@ -703,29 +703,41 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                        .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
+        // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eUniformBufferDynamic,
                        .count  = 1});
 
+        // transmittance lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
 
+        // skyview lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
 
+        // depth
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 3,
                        .stages = vk::ShaderStageFlagBits::eFragment,
                        .type   = vk::DescriptorType::eCombinedImageSampler,
                        .count  = 1});
+
+        // multiscattering
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 4,
+                       .stages = vk::ShaderStageFlagBits::eFragment,
+                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .count  = 1});
+
 
         r.sky.sky_raymarch = api.create_program(std::move(pinfo));
     }
@@ -2266,6 +2278,14 @@ void render_sky(Renderer &r)
         }
 
 
+        api.bind_combined_image_sampler(program,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        4,
+                                        r.sky.multiscattering_lut,
+                                        r.trilinear_sampler);
+
+
+
         api.begin_pass(std::move(pass));
 
         api.bind_program(program);
@@ -2448,6 +2468,7 @@ void update_uniforms(Renderer &r)
 {
     auto &api = r.api;
     api.begin_label("Update uniforms");
+
     float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
     static float fov   = 60.0f;
     static float s_near  = 1.0f;
@@ -2472,13 +2493,6 @@ void update_uniforms(Renderer &r)
     globals->sun_proj        = r.sun.get_projection();
 
     globals->resolution = uint2(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
-    globals->raymarch_min_max_spp = float2(4, 14);
-    globals->MultipleScatteringFactor = 1.0f;
-    globals->MultiScatteringLUTRes = 32;
-
-    globals->TRANSMITTANCE_TEXTURE_WIDTH = 256;
-    globals->TRANSMITTANCE_TEXTURE_HEIGHT = 64;
-
     globals->sun_direction = float4(-r.sun.front, 1);
 
 
@@ -2503,50 +2517,6 @@ void update_uniforms(Renderer &r)
         r.p_ui->end_window();
     }
     globals->sun_illuminance     = s_sun_illuminance * float3(1.0f);
-    globals->multiple_scattering = s_multiple_scattering;
-
-    //
-    // From AtmosphereParameters
-    //
-    const float EarthBottomRadius = 6360.0f;
-    const float EarthTopRadius = 6460.0f;   // 100km atmosphere radius, less edge visible and it contain 99.99% of the atmosphere medium https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_line
-    const float EarthRayleighScaleHeight = 8.0f;
-    const float EarthMieScaleHeight = 1.2f;
-
-    // Sun - This should not be part of the sky model...
-    // info.solar_irradiance = { 1.474000f, 1.850400f, 1.911980f };
-    globals->solar_irradiance = {1.0f, 1.0f, 1.0f}; // Using a normalise sun illuminance. This is to make sure the LUTs acts as a transfert
-                              // factor to apply the runtime computed sun irradiance over.
-    globals->sun_angular_radius = 0.004675f * 20.f;
-
-    // Earth
-    globals->bottom_radius = EarthBottomRadius;
-    globals->top_radius    = EarthTopRadius;
-    globals->ground_albedo = {0.0f, 0.0f, 0.0f};
-
-    // Raleigh scattering
-    globals->rayleigh_density[0] = {0.0f, 0.0f, 0.0f, 0.0f};
-    globals->rayleigh_density[1] = {0.0f, 0.0f, 1.0f, -1.0f / EarthRayleighScaleHeight};
-    globals->rayleigh_density[2] = {0.0f, 0.0f ,0.0f, 0.0f};
-    globals->rayleigh_scattering        = {0.005802f, 0.013558f, 0.033100f}; // 1/km
-
-    // Mie scattering
-    globals->mie_density[0] = {0.0f, 0.0f, 0.0f, 0.0f};
-    globals->mie_density[1] = {0.0f, 0.0f, 1.0f, -1.0f / EarthMieScaleHeight};
-    globals->mie_density[2] = {0.0f, 0.0f ,0.0f, 0.0f};
-    globals->mie_scattering        = {0.003996f, 0.003996f, 0.003996f}; // 1/km
-    globals->mie_extinction        = {0.004440f, 0.004440f, 0.004440f}; // 1/km
-    globals->mie_phase_function_g  = 0.8f;
-    globals->mie_absorption = glm::max(globals->mie_extinction - globals->mie_scattering, float3(0.0f));
-
-    // Ozone absorption
-    globals->absorption_density[0] = {25.0f, 0.0f, 0.0f, 1.0f / 15.0f};
-    globals->absorption_density[1] = {-2.0f / 3.0f, 0.0f, 0.0f, 0.0f};
-    globals->absorption_density[2] = {-1.0f / 15.0f, 8.0f / 3.0f, 0.0f, 0.0f};
-    globals->absorption_extinction        = {0.000650f, 0.001881f, 0.000085f}; // 1/km
-
-    const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
-    globals->mu_s_min                     = (float)cos(max_sun_zenith_angle);
 
     api.end_label();
 }
