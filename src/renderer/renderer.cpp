@@ -2583,10 +2583,11 @@ void Renderer::draw()
 
     render_sky(*this);
 
+    api.start_present();
 
     composite_hdr();
-
     imgui_draw();
+
     api.end_frame();
 }
 

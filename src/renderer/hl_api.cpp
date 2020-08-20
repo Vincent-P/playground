@@ -136,27 +136,23 @@ bool API::start_frame()
     ctx.device->resetQueryPool(*ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, MAX_TIMESTAMP_PER_FRAME);
     cpu_timestamps.clear();
 
-    // TODO: dont acquire swapchain image yet, make separate start_present to acquire it only for post process
-    auto result = ctx.device->acquireNextImageKHR(*ctx.swapchain.handle, std::numeric_limits<uint64_t>::max(),
-					  *frame_resource.image_available, nullptr, &ctx.swapchain.current_image);
-
-    if (result == vk::Result::eErrorOutOfDateKHR) {
-#if 0
-	std::cerr << "The swapchain is out of date. Recreating it...\n";
-	ctx.destroy_swapchain();
-	ctx.create_swapchain();
-	start_frame();
-	return;
-#endif
-	return false;
-    }
-
     vk::CommandBufferBeginInfo binfo{};
     frame_resource.command_buffer->begin(binfo);
 
     add_timestamp("Begin Frame");
 
     return true;
+}
+
+void API::start_present()
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+
+    ctx.device->acquireNextImageKHR(*ctx.swapchain.handle,
+                                    std::numeric_limits<uint64_t>::max(),
+                                    *frame_resource.image_available,
+                                    nullptr,
+                                    &ctx.swapchain.current_image);
 }
 
 void API::end_frame()
