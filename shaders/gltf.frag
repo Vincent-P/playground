@@ -188,14 +188,14 @@ void main()
     }
 
     // to linear
-    indirect.rgb = pow(indirect.rgb, vec3(2.2f));
-    direct.rgb = pow(direct.rgb, vec3(2.2f));
+    // indirect.rgb = pow(indirect.rgb, vec3(2.2f));
+    // direct.rgb = pow(direct.rgb, vec3(2.2f));
 
     // composite direct and indirect lighting
     composite = (direct + indirect.rgb) * indirect.a;
 
     // to srgb
-    composite = pow(composite, vec3(1.0 / 2.2));
+    // composite = pow(composite, vec3(1.0 / 2.2));
 
     outColor = vec4(composite, 1.0);
 }

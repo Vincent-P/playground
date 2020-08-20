@@ -1,3 +1,5 @@
+#include "types.h"
+
 layout(set = 1, binding = 0) uniform sampler2D hdr_buffer;
 
 layout(set = 1, binding = 1) uniform DO
@@ -12,26 +14,24 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-    vec3 hdr = texture(hdr_buffer, inUV).rgb;
-
-    if (any(lessThan(hdr, vec3(0.0))))
-    {
-        outColor = vec4(1.0, 0.0, 0.0, 1.0);
-        return;
-    }
+    float3 ldr = texture(hdr_buffer, inUV).rgb;
+    float3 hdr = float3(0.0);
 
     if (debug.selected == 1)
     {
-        hdr = vec3(1.0) - exp(-hdr * debug.exposure);
+        hdr = vec3(1.0) - exp(-ldr * debug.exposure);
     }
     else if (debug.selected == 2)
     {
-        hdr = clamp(hdr, 0.0, 1.0);
+        hdr = clamp(ldr, 0.0, 1.0);
     }
     else
     {
-        hdr = hdr / (hdr + 1.0);
+        hdr = ldr / (ldr + 1.0);
     }
 
-    outColor = vec4(hdr, 1);
+    // to srgb
+    hdr = pow(hdr, float3(1.0 / 2.2));
+
+    outColor = vec4(hdr, 1.0);
 }

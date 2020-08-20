@@ -157,6 +157,7 @@ void Renderer::load_model_data()
 	    iinfo.width               = static_cast<u32>(image_info.width);
 	    iinfo.height              = static_cast<u32>(image_info.height);
 	    iinfo.depth               = 1;
+            iinfo.format  = vk::Format::eR8G8B8A8Srgb;
 	    iinfo.generate_mip_levels = true;
 	    image.image_h = api.create_image(iinfo);
             auto size = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
