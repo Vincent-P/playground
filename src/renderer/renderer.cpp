@@ -6,6 +6,7 @@
 #include "window.hpp"
 #include <vulkan/vulkan.hpp>
 #if defined(ENABLE_IMGUI)
+#include "eva-icons.hpp"
 #include <imgui.h>
 #endif
 #include "file_watcher.hpp"
@@ -112,6 +113,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 #if defined(ENABLE_IMGUI)
     {
         ImGui::CreateContext();
+
         /*
         auto &style             = ImGui::GetStyle();
         style.FrameRounding     = 0.f;
@@ -127,6 +129,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         io.ConfigDockingWithShift = false;
         io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
         io.BackendPlatformName = "custom_glfw";
+
+        io.Fonts->AddFontDefault();
+        ImFontConfig config;
+        config.MergeMode = true;
+        config.GlyphMinAdvanceX = 13.0f; // Use if you want to make the icon monospaced
+        static const ImWchar icon_ranges[] = { eva_icons::MIN, eva_icons::MAX, 0 };
+        io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
     }
 
     {
@@ -1985,11 +1994,11 @@ void Renderer::composite_hdr()
     api.begin_label("Tonemap");
 
 #if defined(ENABLE_IMGUI)
-    if (p_ui->begin_window("HDR Shader"))
+    if (p_ui->begin_window("HDR Shader", true))
     {
         static std::array options{"Reinhard", "Exposure", "Clamp"};
         tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
-        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 1.0f);
+        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 10.0f);
         p_ui->end_window();
     }
 #endif

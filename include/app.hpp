@@ -1,10 +1,12 @@
 #pragma once
 #include "camera.hpp"
+#include "types.hpp"
 #include "file_watcher.hpp"
 #include "renderer/renderer.hpp"
 #include "timer.hpp"
 #include "window.hpp"
 #include <imgui.h>
+#include "eva-icons.hpp"
 #include <unordered_map>
 #include <string>
 
@@ -50,14 +52,22 @@ struct Context
         if (ImGui::BeginMainMenuBar())
         {
             ImGui::Dummy(ImVec2(io.DisplaySize.x / 2 - 100.0f, 0.0f));
-            if (ImGui::BeginMenu("Windows"))
+            if (ImGui::BeginMenu(EVA_MENU " Menu"))
             {
                 for (auto& [_, window] : windows) {
                     ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
                 }
                 ImGui::EndMenu();
             }
+
+            for (auto& [_, window] : windows) {
+                if (window.is_visible) {
+                    ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
+                }
+            }
+
             ImGui::EndMainMenuBar();
+
         }
     }
 

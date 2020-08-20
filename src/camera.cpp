@@ -102,7 +102,7 @@ void InputCamera::update()
     }
 
 #if defined(ENABLE_IMGUI)
-    if (p_ui->begin_window("Camera"))
+    if (p_ui->begin_window("Camera", true))
     {
         ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.1f, 250.f);
         ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
