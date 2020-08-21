@@ -2475,7 +2475,7 @@ void update_uniforms(Renderer &r)
     static float s_far   = 200.0f;
 
     r.p_camera->perspective(fov, aspect_ratio, s_near, 200.f);
-    r.p_camera->update_view();
+    // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.ortho_square(40.f, 1.f, 100.f);

@@ -21,6 +21,7 @@ Window::Window(int width, int height)
     glfwSetFramebufferSizeCallback(this->window, glfw_resize_callback);
     glfwSetMouseButtonCallback(this->window, glfw_click_callback);
     glfwSetCursorPosCallback(this->window, glfw_cursor_position_callback);
+    glfwSetScrollCallback(this->window, glfw_scroll_callback);
 
     GLFWmonitor *primary = glfwGetPrimaryMonitor();
     glfwGetMonitorContentScale(primary, &dpi_scale.x, &dpi_scale.y);
@@ -36,6 +37,12 @@ void Window::register_resize_callback(const std::function<void(int, int)> &callb
 void Window::register_mouse_callback(const std::function<void(double, double)> &callback)
 {
     mouse_callbacks.push_back(callback);
+}
+
+
+void Window::register_scroll_callback(const std::function<void(double, double)> &callback)
+{
+    scroll_callbacks.push_back(callback);
 }
 
 void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
@@ -64,6 +71,15 @@ void Window::glfw_cursor_position_callback(GLFWwindow *window, double xpos, doub
 	cb(xpos, ypos);
     }
 }
+
+void Window::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    for (const auto &cb : self->scroll_callbacks) {
+	cb(xoffset, yoffset);
+    }
+}
+
 
 bool Window::should_close() { return force_close || glfwWindowShouldClose(window) != 0; }
 

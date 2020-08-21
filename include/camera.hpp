@@ -40,6 +40,25 @@ struct Camera
 
 struct InputCamera
 {
+    enum struct States
+    {
+        Idle,
+        Move,
+        Orbit,
+        Zoom
+    };
+
+    States state;
+    float2 dragged_mouse_start_pos;
+    bool view_dirty = true;
+
+    float3 target{};
+
+    // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
+    float r = 1.0f;
+    float theta = 0.0f;
+    float phi = -45.0f;
+
     Camera _internal;
     Window *p_window;
     UI::Context *p_ui;
@@ -50,6 +69,7 @@ struct InputCamera
 
     static InputCamera create(Window &window, TimerData& timer, UI::Context &ui, float3 position);
     void on_mouse_movement(double xpos, double ypos);
+    void on_mouse_scroll(double xoffset, double yoffset);
     void update();
 };
 

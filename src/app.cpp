@@ -22,6 +22,7 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
     window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); });
+    window.register_scroll_callback([this](double xoffset, double yoffset) { this->camera.on_mouse_scroll(xoffset, yoffset); });
 
 #if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();

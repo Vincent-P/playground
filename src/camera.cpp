@@ -1,16 +1,18 @@
-#include "app.hpp"
 #include "camera.hpp"
+
+#include "app.hpp"
 #include "timer.hpp"
 #include "window.hpp"
 #if defined(ENABLE_IMGUI)
-#include <imgui.h>
+#    include <imgui.h>
 #endif
 
 namespace my_app
 {
 
-static float CAMERA_SPEED      = 20.0f;
-static float MOUSE_SENSITIVITY = 0.5f;
+static float CAMERA_MOVE_SPEED   = 5.0f;
+static float CAMERA_ROTATE_SPEED = 20.0f;
+static float CAMERA_SCROLL_SPEED = 20.0f;
 
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);
@@ -25,94 +27,230 @@ Camera Camera::create(float3 position)
     return camera;
 }
 
-InputCamera InputCamera::create(Window &window, TimerData& timer, UI::Context &ui, float3 position)
+InputCamera InputCamera::create(Window &window, TimerData &timer, UI::Context &ui, float3 position)
 {
     InputCamera camera{};
     camera._internal = Camera::create(position);
     camera.p_window  = &window;
-    camera.p_timer  = &timer;
+    camera.p_timer   = &timer;
     camera.p_ui      = &ui;
     return camera;
 }
 
 void InputCamera::on_mouse_movement(double xpos, double ypos)
 {
-    bool pressed = glfwGetKey(p_window->get_handle(), GLFW_KEY_LEFT_ALT);
-    if (!pressed) {
-	return;
+    float delta_t = p_timer->get_delta_time();
+
+    switch (state)
+    {
+        case States::Idle:
+        {
+            break;
+        }
+        case States::Move:
+        {
+            float up    = ypos - dragged_mouse_start_pos.y;
+            float right = xpos - dragged_mouse_start_pos.x;
+
+            if (up != 0.0f || right != 0.0f)
+            {
+                auto camera_plane_forward = glm::normalize(float3(_internal.front.x, 0.0f, _internal.front.z));
+                auto camera_right         = glm::cross(_internal.up, _internal.front);
+                auto camera_plane_right   = glm::normalize(float3(camera_right.x, 0.0f, camera_right.z));
+
+                target += (CAMERA_MOVE_SPEED * delta_t) * right * camera_plane_right;
+                target += (CAMERA_MOVE_SPEED * delta_t) * up     * camera_plane_forward;
+
+                view_dirty = true;
+
+                // reset drag?
+                dragged_mouse_start_pos = float2(xpos, ypos);
+            }
+
+            break;
+        }
+        case States::Orbit:
+        {
+            float up    = ypos - dragged_mouse_start_pos.y;
+            float right = dragged_mouse_start_pos.x - xpos;
+
+            if (up != 0.0f || right != 0.0f)
+            {
+                theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
+
+                constexpr auto low = -90.0f;
+                constexpr auto high = 0.0f;
+                if (low <= phi && phi < high)
+                {
+                    phi += (CAMERA_ROTATE_SPEED * delta_t) * up;
+                    phi = glm::clamp(phi, low, high - 1.0f);
+                }
+
+                view_dirty = true;
+
+                // reset drag?
+                dragged_mouse_start_pos = float2(xpos, ypos);
+            }
+
+            break;
+        }
+        case States::Zoom:
+        {
+            break;
+        }
     }
+}
 
-    if (last_xpos == 0.0) {
-	last_xpos = xpos;
+void InputCamera::on_mouse_scroll(double, double yoffset)
+{
+    float delta_t = p_timer->get_delta_time();
+    switch (state)
+    {
+        case States::Idle:
+        {
+            target.y += (CAMERA_SCROLL_SPEED * delta_t) * yoffset;
+            view_dirty = true;
+            break;
+        }
+        case States::Move:
+        {
+            break;
+        }
+        case States::Orbit:
+        {
+
+            break;
+        }
+        case States::Zoom:
+        {
+            r += (CAMERA_SCROLL_SPEED * delta_t) * -yoffset;
+            r = glm::max(r, 0.1f);
+            view_dirty = true;
+            break;
+        }
     }
-    if (last_ypos == 0.0) {
-	last_ypos = ypos;
-    }
-
-    float yaw_increment   = (float(xpos) - last_xpos) * MOUSE_SENSITIVITY;
-    float pitch_increment = (float(ypos) - last_ypos) * MOUSE_SENSITIVITY;
-
-    _internal.yaw += yaw_increment;
-    _internal.pitch += pitch_increment;
-
-    if (_internal.pitch > 89.0f) {
-	_internal.pitch = 89.0f;
-    }
-    if (_internal.pitch < -89.0f) {
-	_internal.pitch = -89.0f;
-    }
-
-    _internal.update_view();
-
-    last_xpos = xpos;
-    last_ypos = ypos;
 }
 
 void InputCamera::update()
 {
-    float delta_t = p_timer->get_delta_time();
+    auto *glfw_handle = p_window->get_handle();
 
-    int forward = 0;
-    int right   = 0;
+    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
+    bool lmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    bool rmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
-    if (glfwGetKey(p_window->get_handle(), GLFW_KEY_W)) {
-	forward++;
-    }
-    if (glfwGetKey(p_window->get_handle(), GLFW_KEY_A)) {
-	right--;
-    }
-    if (glfwGetKey(p_window->get_handle(), GLFW_KEY_S)) {
-	forward--;
-    }
-    if (glfwGetKey(p_window->get_handle(), GLFW_KEY_D)) {
-	right++;
+    switch (state)
+    {
+        case States::Idle:
+        {
+            if (alt_pressed && lmb_pressed)
+            {
+                state = States::Move;
+
+                double xpos;
+                double ypos;
+                glfwGetCursorPos(glfw_handle, &xpos, &ypos);
+                dragged_mouse_start_pos = float2(xpos, ypos);
+            }
+            else if (alt_pressed && rmb_pressed)
+            {
+                state = States::Orbit;
+
+                double xpos;
+                double ypos;
+                glfwGetCursorPos(glfw_handle, &xpos, &ypos);
+                dragged_mouse_start_pos = float2(xpos, ypos);
+            }
+            else if (alt_pressed)
+            {
+                state = States::Zoom;
+            }
+            break;
+        }
+        case States::Move:
+        {
+            if (!alt_pressed || !lmb_pressed)
+            {
+                state = States::Idle;
+            }
+            break;
+        }
+        case States::Orbit:
+        {
+            if (!alt_pressed || !rmb_pressed)
+            {
+                state = States::Idle;
+            }
+            break;
+        }
+        case States::Zoom:
+        {
+            if (!alt_pressed || lmb_pressed || rmb_pressed)
+            {
+                state = States::Idle;
+            }
+            break;
+        }
     }
 
-    if (forward) {
-	_internal.position += (CAMERA_SPEED * float(forward) * delta_t) * _internal.front;
-    }
+    if (view_dirty)
+    {
+        float theta_rad     = glm::radians(theta);
+        float phi_rad     = glm::radians(phi);
 
-    if (right) {
-	auto camera_right = glm::normalize(glm::cross(_internal.front, _internal.up));
-	_internal.position += (CAMERA_SPEED * float(right) * delta_t) * camera_right;
-    }
+        float3 pos;
+        pos.x = r * sin(phi_rad) * sin(theta_rad);
+        pos.y = r * cos(phi_rad);
+        pos.z = r * sin(phi_rad) * cos(theta_rad);
 
-    if (forward || right) {
-	_internal.update_view();
+        _internal.front.x = -1.0f * sin(phi_rad) * sin(theta_rad);
+        _internal.front.y = -1.0f * cos(phi_rad);
+        _internal.front.z = -1.0f * sin(phi_rad) * cos(theta_rad);
+
+        _internal.up.x = sin(PI / 2 + phi_rad) * sin(theta_rad);
+        _internal.up.y = cos(PI / 2 + phi_rad);
+        _internal.up.z = sin(PI / 2 + phi_rad) * cos(theta_rad);
+
+        _internal.position = target + pos;
+
+        _internal.view = glm::lookAt(_internal.position, target, _internal.up);
     }
 
 #if defined(ENABLE_IMGUI)
     if (p_ui->begin_window("Camera", true))
     {
-        ImGui::SliderFloat("Camera speed", &CAMERA_SPEED, 0.1f, 250.f);
-        ImGui::SliderFloat("Mouse sensitivity", &MOUSE_SENSITIVITY, 0.f, 1.f);
+        if (state == States::Idle)
+        {
+            ImGui::Text("State: Idle");
+        }
+        else if (state == States::Move)
+        {
+            ImGui::Text("State: Move");
+        }
+        else if (state == States::Orbit)
+        {
+            ImGui::Text("State: Orbit");
+        }
+        else if (state == States::Zoom)
+        {
+            ImGui::Text("State: Zoom");
+        }
+        ImGui::SliderFloat("move speed", &CAMERA_MOVE_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat("rotate speed", &CAMERA_ROTATE_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat("scroll speed", &CAMERA_SCROLL_SPEED, 0.1f, 250.f);
         ImGui::SliderFloat3("position", &_internal.position[0], 1.1f, 100000.0f);
+
         ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
         ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
+
+        ImGui::SliderFloat3("target", &target[0], -180.0f, 180.0f);
+        ImGui::SliderFloat("spherical r", &r, 0.1f, 180.0f);
+        ImGui::SliderFloat("spherical theta", &theta, -180.0f, 180.0f);
+        ImGui::SliderFloat("spherical phi", &phi, -180.0f, 180.0f);
+
         p_ui->end_window();
     }
 #endif
-
 }
 
 float4x4 Camera::update_view()
@@ -122,7 +260,7 @@ float4x4 Camera::update_view()
 
     front = rotation * FRONT;
     up    = rotation * UP;
-    view  = glm::lookAt(position, position + front, up);
+    view  = glm::lookAt(position, position + front, UP);
 
     return view;
 }
@@ -130,12 +268,23 @@ float4x4 Camera::update_view()
 float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, float far_plane)
 {
     (void)(far_plane);
-    float f = 1.0f / tan(glm::radians(fov) / 2.0f);
-    projection = glm::mat4(
-        f / aspect_ratio, 0.0f,       0.0f,  0.0f,
-                    0.0f,   -f,       0.0f,  0.0f,
-                    0.0f, 0.0f,       0.0f, -1.0f,
-                    0.0f, 0.0f, near_plane,  0.0f);
+    float f    = 1.0f / tan(glm::radians(fov) / 2.0f);
+    projection = glm::mat4(f / aspect_ratio,
+                           0.0f,
+                           0.0f,
+                           0.0f,
+                           0.0f,
+                           -f,
+                           0.0f,
+                           0.0f,
+                           0.0f,
+                           0.0f,
+                           0.0f,
+                           -1.0f,
+                           0.0f,
+                           0.0f,
+                           near_plane,
+                           0.0f);
 
     return projection;
 }
