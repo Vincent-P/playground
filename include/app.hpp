@@ -23,13 +23,13 @@ struct Window
 
 struct Context
 {
-    inline bool begin_window(std::string_view name, bool is_visible = false)
+    inline bool begin_window(std::string_view name, bool is_visible = false, ImGuiWindowFlags flags = 0)
     {
         if (windows.count(name)) {
             auto &window = windows.at(name);
             if (window.is_visible)
             {
-                ImGui::Begin(name.data(), &window.is_visible);
+                ImGui::Begin(name.data(), &window.is_visible, flags);
                 return true;
             }
         }
