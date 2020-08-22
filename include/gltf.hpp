@@ -60,6 +60,7 @@ struct Material
 struct Image
 {
     vulkan::ImageH image_h;
+    bool srgb;
     std::vector<u8> data;
 };
 

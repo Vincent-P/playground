@@ -134,7 +134,7 @@ void Renderer::load_model_data()
                     info.pixels = stbi_load_from_memory(image.data.data(), static_cast<int>(image.data.size()),
                                                         &info.width, &info.height,
                                                    &info.nb_comp, wanted_nb_comp);
-                    info.format = vk::Format::eR8G8B8A8Unorm;
+                    info.format = image.srgb ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
                     info.nb_comp      = wanted_nb_comp;
                 }
                 else if (info.nb_comp == 4) {//NOLINT
@@ -157,11 +157,11 @@ void Renderer::load_model_data()
 	    iinfo.width               = static_cast<u32>(image_info.width);
 	    iinfo.height              = static_cast<u32>(image_info.height);
 	    iinfo.depth               = 1;
-            iinfo.format  = vk::Format::eR8G8B8A8Srgb;
-	    iinfo.generate_mip_levels = true;
-	    image.image_h = api.create_image(iinfo);
-            auto size = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
-	    api.upload_image(image.image_h, image_info.pixels, size);
+            iinfo.format              = image_info.format;
+            iinfo.generate_mip_levels = true;
+            image.image_h             = api.create_image(iinfo);
+            auto size                 = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
+            api.upload_image(image.image_h, image_info.pixels, size);
 	    api.generate_mipmaps(image.image_h);
 
 	    stbi_image_free(image_info.pixels);
@@ -429,6 +429,7 @@ Model load_model(const char *c_path)
 	images_data[i] = std::async(std::launch::async, [=]() {
 	    Image image;
 	    image.data = tools::read_file(image_path);
+            image.srgb = false;
             return image;
         });
     }
@@ -459,6 +460,10 @@ Model load_model(const char *c_path)
             if (json_pbr.count("baseColorTexture")) {
                 u32 i_texture               = json_pbr["baseColorTexture"]["index"];
                 material.base_color_texture = i_texture;
+
+                auto i_image = model.textures[i_texture].image;
+                auto &image  = model.images[i_image];
+                image.srgb   = true;
             }
 
             if (json_pbr.count("metallicRoughnessTexture")) {
