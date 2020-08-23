@@ -29,8 +29,6 @@ endif ()
 add_definitions(
   -DNOMINMAX #ty windows....
 
-  -DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
-
   -DGLFW_INCLUDE_VULKAN
 
   -DGLM_FORCE_RADIANS

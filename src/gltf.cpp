@@ -10,8 +10,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "renderer/renderer.hpp"
