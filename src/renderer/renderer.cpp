@@ -4,7 +4,8 @@
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
 #include "window.hpp"
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #if defined(ENABLE_IMGUI)
 #include "eva-icons.hpp"
 #include <imgui.h>
@@ -24,7 +25,7 @@ namespace my_app
 
 struct TileAllocationRequest
 {
-    vk::Offset3D offset;
+    VkOffset3D offset;
     u32 mip_level;
 };
 
@@ -51,11 +52,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Depth";
-        iinfo.format = vk::Format::eD32Sfloat;
+        iinfo.format = VK_FORMAT_D32_SFLOAT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto depth_h = api.create_image(iinfo);
 
         vulkan::RTInfo dinfo;
@@ -67,11 +68,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "HDR color";
-        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto color_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -93,12 +94,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv");
 
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
 
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         r.hdr_compositing = api.create_program(std::move(pinfo));
     }
@@ -143,14 +144,14 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
         // clang-format off
-        pinfo.push_constant({.stages =  vk::ShaderStageFlagBits::eVertex, .offset =  0, .size =  4 * sizeof(float)});
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0, .stages =  vk::ShaderStageFlagBits::eFragment, .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+        pinfo.push_constant({.stages =  VK_SHADER_STAGE_VERTEX_BIT, .offset =  0, .size =  4 * sizeof(float)});
+        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0, .stages =  VK_SHADER_STAGE_FRAGMENT_BIT, .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
         // clang-format on
         pinfo.vertex_stride(sizeof(ImDrawVert));
 
-        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
-        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
-        pinfo.vertex_info({.format = vk::Format::eR8G8B8A8Unorm,.offset =  MEMBER_OFFSET(ImDrawVert, col)});
+        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
+        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
+        pinfo.vertex_info({.format = VK_FORMAT_R8G8B8A8_UNORM,.offset =  MEMBER_OFFSET(ImDrawVert, col)});
 
         vulkan::GraphicsProgramInfo puintinfo = pinfo;
         puintinfo.fragment_shader = api.create_shader("shaders/gui_uint.frag.spv");
@@ -196,32 +197,32 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         // camera uniform buffer
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // node transform
         pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // base color texture
         pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
                        .slot   = 1,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
-        pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.depth_test = VK_COMPARE_OP_GREATER_OR_EQUAL;
         pinfo.enable_depth_write = true;
 
         r.model_prepass = api.create_program(std::move(pinfo));
@@ -233,26 +234,26 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         // camera uniform buffer
         pinfo.binding({.slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // screen-space lod
         pinfo.binding({.slot   = 1,
-                       .stages = vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // depth buffer to reconstruct world position from screen
         pinfo.binding({.slot   = 2,
-                       .stages = vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // min lod map
         pinfo.binding({.slot   = 3,
-                       .stages = vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eStorageImage,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                        .count  = 1});
 
         r.fill_min_lod_map = api.create_program(std::move(pinfo));
@@ -261,11 +262,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Shadow Map LOD";
-        iinfo.format = vk::Format::eR8Uint;
+        iinfo.format = VK_FORMAT_R8_UINT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto lod_map_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -277,12 +278,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo sm_info;
         sm_info.name   = "Sparse Shadow map";
-        sm_info.format = vk::Format::eD32Sfloat;
+        sm_info.format = VK_FORMAT_D32_SFLOAT;
         sm_info.width  = 16 * 1024;
         sm_info.height = 16 * 1024;
         sm_info.depth  = 1;
         sm_info.mip_levels = 8;
-        sm_info.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+        sm_info.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         sm_info.is_sparse = true;
         sm_info.max_sparse_size = 64u * 1024u * 1024u; // 64Mb should be the size of a 4K non-sparse shadow map
 
@@ -297,11 +298,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         vulkan::ImageInfo mlm_info;
         mlm_info.name      = "ShadowMap Min LOD";
-        mlm_info.format    = vk::Format::eR32Uint; // needed for atomic even though 8 bits should be enough...
+        mlm_info.format    = VK_FORMAT_R32_UINT; // needed for atomic even though 8 bits should be enough...
         mlm_info.width     = sm_info.width / 128; // https://renderdoc.org/vkspec_chunked/chap32.html#sparsememory-standard-shapes
         mlm_info.height    = sm_info.height / 128; // standard block shape for 32 bits / texel 2D texture is 128x128
         mlm_info.depth     = 1;
-        mlm_info.usages    = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        mlm_info.usages    = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         mlm_info.memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
         mlm_info.is_linear = true;
 
@@ -318,35 +319,35 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         r.voxel_options.res = 256;
 
         vulkan::ImageInfo iinfo;
-        iinfo.name         = "Voxels albedo";
-        iinfo.type         = vk::ImageType::e3D;
-        iinfo.format       = vk::Format::eR8G8B8A8Unorm;
-        iinfo.extra_formats = {vk::Format::eR32Uint};
-        iinfo.width        = r.voxel_options.res;
-        iinfo.height       = r.voxel_options.res;
-        iinfo.depth        = r.voxel_options.res;
-        iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
-        r.voxels_albedo    = api.create_image(iinfo);
+        iinfo.name          = "Voxels albedo";
+        iinfo.type          = VK_IMAGE_TYPE_3D;
+        iinfo.format        = VK_FORMAT_R8G8B8A8_UNORM;
+        iinfo.extra_formats = {VK_FORMAT_R32_UINT};
+        iinfo.width         = r.voxel_options.res;
+        iinfo.height        = r.voxel_options.res;
+        iinfo.depth         = r.voxel_options.res;
+        iinfo.usages        = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        r.voxels_albedo     = api.create_image(iinfo);
 
-        iinfo.name         = "Voxels normal";
-        r.voxels_normal    = api.create_image(iinfo);
+        iinfo.name          = "Voxels normal";
+        r.voxels_normal     = api.create_image(iinfo);
 
         iinfo.name          = "Voxels radiance";
-        iinfo.format        = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format        = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.extra_formats = {};
         r.voxels_radiance   = api.create_image(iinfo);
 
         vulkan::SamplerInfo sinfo{};
-        sinfo.mag_filter   = vk::Filter::eLinear;
-        sinfo.min_filter   = vk::Filter::eLinear;
-        sinfo.mip_map_mode = vk::SamplerMipmapMode::eLinear;
-        sinfo.address_mode = vk::SamplerAddressMode::eClampToBorder;
-        r.trilinear_sampler  = api.create_sampler(sinfo);
+        sinfo.mag_filter    = VK_FILTER_LINEAR;
+        sinfo.min_filter    = VK_FILTER_LINEAR;
+        sinfo.mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        sinfo.address_mode  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        r.trilinear_sampler = api.create_sampler(sinfo);
 
-        sinfo.mag_filter   = vk::Filter::eNearest;
-        sinfo.min_filter   = vk::Filter::eNearest;
-        sinfo.mip_map_mode = vk::SamplerMipmapMode::eNearest;
-        r.nearest_sampler  = api.create_sampler(sinfo);
+        sinfo.mag_filter    = VK_FILTER_NEAREST;
+        sinfo.min_filter    = VK_FILTER_NEAREST;
+        sinfo.mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        r.nearest_sampler   = api.create_sampler(sinfo);
     }
     // voxels directional volumes
     {
@@ -355,13 +356,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         u32 size = r.voxel_options.res / 2;
 
         vulkan::ImageInfo iinfo;
-        iinfo.type         = vk::ImageType::e3D;
-        iinfo.format       = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.type         = VK_IMAGE_TYPE_3D;
+        iinfo.format       = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width        = size;
         iinfo.height       = size;
         iinfo.depth        = size;
         iinfo.mip_levels   = static_cast<u32>(std::floor(std::log2(size)) + 1.0);
-        iinfo.usages       = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst;
+        iinfo.usages       = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         iinfo.name                         = "Voxels directional volume -X";
         r.voxels_directional_volumes[0]    = api.create_image(iinfo);
@@ -385,46 +386,46 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eGeometry | vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // projection cameras
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eGeometry,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_GEOMETRY_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // voxels textures
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
 
         // node transform
         pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eVertex,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_VERTEX_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // color texture
         pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
 
         // normal texture
         pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({vk::Format::eR32G32B32Sfloat, MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({vk::Format::eR32G32Sfloat, MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({vk::Format::eR32G32B32A32Sfloat, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
 
-        pinfo.enable_conservative_rasterization = true;
+        pinfo.enable_conservative_rasterization = false;
 
         r.voxelization = api.create_program(std::move(pinfo));
     }
@@ -436,27 +437,27 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
         // camera
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
         // debug
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // voxels textures
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  5,
-                       .stages =  vk::ShaderStageFlagBits::eFragment,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
 
         r.visualization = api.create_program(std::move(pinfo));
     }
@@ -467,27 +468,27 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // directional light
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // voxels textures
         // albedo
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
         // normal
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
         // radiance
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
 
         r.inject_radiance = api.create_program(std::move(pinfo));
     }
@@ -497,19 +498,19 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // radiance
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
 
         // aniso volumes
         u32 count = r.voxels_directional_volumes.size();
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
         r.generate_aniso_base = api.create_program(std::move(pinfo));
     }
 
@@ -519,25 +520,25 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         // voxel options
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // mip src
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         u32 count = r.voxels_directional_volumes.size();
 
         // radiance
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
 
         // aniso volumes
         pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  count});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
         r.generate_aniso_mipmap = api.create_program(std::move(pinfo));
     }
 
@@ -562,13 +563,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 	vulkan::BufferInfo info;
 	info.name           = "Floor Index buffer";
 	info.size           = indices.size() * sizeof(u16);
-	info.usage          = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	info.usage          = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	info.memory_usage   = VMA_MEMORY_USAGE_GPU_ONLY;
 	index_buffer        = api.create_buffer(info);
 
 	info.name           = "Floor Vertex buffer";
 	info.size           = vertices.size() * sizeof(float);
-	info.usage          = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+	info.usage          = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	vertex_buffer       = api.create_buffer(info);
 
 	api.upload_buffer(index_buffer,  indices.data(),  indices.size() * sizeof(u16));
@@ -583,16 +584,16 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         // voxel options
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         pinfo.vertex_stride(3*sizeof(float) + 2*sizeof(float));
-        pinfo.vertex_info({.format = vk::Format::eR32G32B32Sfloat, .offset = 0});
-        pinfo.vertex_info({.format = vk::Format::eR32G32Sfloat, .offset = 3 * sizeof(float)});
+        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
+        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
 
         pinfo.enable_depth_write = true;
-        pinfo.depth_test = vk::CompareOp::eGreaterOrEqual;
+        pinfo.depth_test = VK_COMPARE_OP_GREATER_OR_EQUAL;
         pinfo.depth_bias = 0.0f;
 
         r.checkerboard_floor.program = api.create_program(std::move(pinfo));
@@ -604,12 +605,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Transmittance LUT";
-        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width  = 256;
         iinfo.height = 64;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
-                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -625,14 +626,14 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         r.sky.render_transmittance = api.create_program(std::move(pinfo));
@@ -641,12 +642,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "SkyView LUT";
-        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width  = 192;
         iinfo.height = 108;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc
-                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -664,29 +665,29 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         // globla uniform
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // transmittance LUT
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // multiscattering LUT
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         r.sky.render_skyview = api.create_program(std::move(pinfo));
@@ -699,43 +700,43 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eUniformBufferDynamic,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                        .count  = 1});
 
         // transmittance lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // skyview lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // depth
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 3,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
         // multiscattering
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 4,
-                       .stages = vk::ShaderStageFlagBits::eFragment,
-                       .type   = vk::DescriptorType::eCombinedImageSampler,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        .count  = 1});
 
 
@@ -746,12 +747,12 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Multiscattering LUT";
-        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width  = 32;
         iinfo.height = 32;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
-                       | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         r.sky.multiscattering_lut = api.create_image(iinfo);
     }
     {
@@ -759,18 +760,18 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
         // atmosphere params
         pinfo.binding({.slot =  0,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eUniformBufferDynamic, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
 
         // transmittance lut
         pinfo.binding({.slot =  1,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eCombinedImageSampler, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
 
         // multiscattering lut
         pinfo.binding({.slot =  2,
-                       .stages =  vk::ShaderStageFlagBits::eCompute,
-                       .type =  vk::DescriptorType::eStorageImage, .count =  1});
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
 
         r.sky.compute_multiscattering_lut = api.create_program(std::move(pinfo));
     }
@@ -834,11 +835,11 @@ void Renderer::on_resize(int width, int height)
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "Depth";
-        iinfo.format = vk::Format::eD32Sfloat;
+        iinfo.format = VK_FORMAT_D32_SFLOAT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto depth_h = api.create_image(iinfo);
 
         vulkan::RTInfo dinfo;
@@ -849,11 +850,11 @@ void Renderer::on_resize(int width, int height)
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "HDR color";
-        iinfo.format = vk::Format::eR16G16B16A16Sfloat;
+        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto color_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -864,11 +865,11 @@ void Renderer::on_resize(int width, int height)
     {
         vulkan::ImageInfo iinfo;
         iinfo.name   = "ShadowMap LOD map";
-        iinfo.format = vk::Format::eR8Uint;
+        iinfo.format = VK_FORMAT_R8_UINT;
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         auto lod_map_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -988,7 +989,7 @@ void Renderer::imgui_draw()
         indices += cmd_list->IdxBuffer.Size;
     }
 
-    vk::Viewport viewport{};
+    VkViewport viewport{};
     viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
     viewport.height   = data->DisplaySize.y * data->FramebufferScale.y;
     viewport.minDepth = 1.0f;
@@ -1020,11 +1021,11 @@ void Renderer::imgui_draw()
                 auto &image = api.get_image(image_h);
 
                 auto next_access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-                auto next_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+                auto next_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                if (image.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
+                if (image.image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
                     next_access = THSVS_ACCESS_FRAGMENT_SHADER_READ_DEPTH_STENCIL_INPUT_ATTACHMENT;
-                    next_layout = vk::ImageLayout::eDepthReadOnlyOptimal;
+                    next_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                 }
 
                 transition_if_needed_internal(api, image, next_access, next_layout);
@@ -1036,7 +1037,7 @@ void Renderer::imgui_draw()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1062,7 +1063,7 @@ void Renderer::imgui_draw()
                 auto texture = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
                 auto& image = api.get_image(texture);
 
-                if (image.image_info.format == vk::Format::eR32Uint)
+                if (image.image_info.format == VK_FORMAT_R32_UINT)
                 {
                     current = gui_uint_program;
                 }
@@ -1074,7 +1075,7 @@ void Renderer::imgui_draw()
             }
 
             api.bind_program(current);
-            api.push_constant(vk::ShaderStageFlagBits::eVertex, 0, sizeof(float4), &scale_and_translation);
+            api.push_constant(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float4), &scale_and_translation);
 
             // Project scissor/clipping rectangles into framebuffer space
             ImVec4 clip_rect;
@@ -1085,7 +1086,7 @@ void Renderer::imgui_draw()
 
             // Apply scissor/clipping rectangle
             // FIXME: We could clamp width/height based on clamped min/max values.
-            vk::Rect2D scissor;
+            VkRect2D scissor;
             scissor.offset.x      = (static_cast<i32>(clip_rect.x) > 0) ? static_cast<i32>(clip_rect.x) : 0;
             scissor.offset.y      = (static_cast<i32>(clip_rect.y) > 0) ? static_cast<i32>(clip_rect.y) : 0;
             scissor.extent.width  = static_cast<u32>(clip_rect.z - clip_rect.x);
@@ -1143,7 +1144,7 @@ static void draw_node(Renderer &r, Node &node)
         const auto &material = r.model.materials[primitive.material];
 
         MaterialPushConstant material_pc = MaterialPushConstant::from(material);
-        api.push_constant(vk::ShaderStageFlagBits::eFragment, 0, sizeof(material_pc), &material_pc);
+        api.push_constant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(material_pc), &material_pc);
 
         bind_texture(r, r.model.program, 1, material.base_color_texture);
         bind_texture(r, r.model.program, 2, material.normal_texture);
@@ -1172,12 +1173,12 @@ void draw_floor(Renderer &r)
     pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_info.rt      = r.color_rt;
     pass.color         = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eLoad;
+    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     depth_info.rt      = r.depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
@@ -1254,7 +1255,7 @@ void Renderer::draw_model()
     {
         {
             auto &image = api.get_image(voxels_radiance);
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         api.bind_combined_image_sampler(model.program,
@@ -1264,12 +1265,12 @@ void Renderer::draw_model()
                                         trilinear_sampler);
 
         {
-            std::vector<vk::ImageView> views;
+            std::vector<VkImageView> views;
             views.reserve(voxels_directional_volumes.size());
             for (const auto& volume_h : voxels_directional_volumes)
             {
                 auto &image = api.get_image(volume_h);
-                transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+                transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 views.push_back(api.get_image(volume_h).default_view);
             }
             api.bind_combined_images_sampler(model.program,
@@ -1285,12 +1286,12 @@ void Renderer::draw_model()
     pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eLoad;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eLoad;
+    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     depth_info.rt      = depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
@@ -1348,12 +1349,12 @@ static void prepass(Renderer &r)
     pass.present = false;
 
     vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = vk::AttachmentLoadOp::eClear;
+    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_info.rt      = r.depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
     vulkan::AttachmentInfo lod_map_info;
-    lod_map_info.load_op = vk::AttachmentLoadOp::eClear;
+    lod_map_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     lod_map_info.rt      = r.screenspace_lod_map_rt;
     pass.color           = std::make_optional(lod_map_info);
 
@@ -1384,7 +1385,7 @@ static void prepass(Renderer &r)
     auto &min_lod_map_img = api.get_image(min_lod_map);
 
     {
-        vk::ClearColorValue clear{};
+        VkClearColorValue clear{};
         clear.uint32[0] = 99; // need high value because we are doing min operations on it
         api.clear_image(min_lod_map, clear);
 
@@ -1398,7 +1399,7 @@ static void prepass(Renderer &r)
             transition_if_needed_internal(api,
                                           image,
                                           THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
-                                          vk::ImageLayout::eShaderReadOnlyOptimal);
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             api.bind_combined_image_sampler(program, 1, rt.image_h, r.nearest_sampler);
         }
 
@@ -1408,12 +1409,12 @@ static void prepass(Renderer &r)
             transition_if_needed_internal(api,
                                           image,
                                           THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
-                                          vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
             api.bind_combined_image_sampler(program, 2, rt.image_h, r.nearest_sampler);
         }
 
         {
-            transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
             api.bind_image(program, 3, min_lod_map);
         }
 
@@ -1421,7 +1422,7 @@ static void prepass(Renderer &r)
         auto size_y = api.ctx.swapchain.extent.height / 8;
         api.dispatch(program, size_x, size_y, 1);
 
-        transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_HOST_READ, vk::ImageLayout::eGeneral);
+        transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_HOST_READ, VK_IMAGE_LAYOUT_GENERAL);
     }
 
 #if defined(ENABLE_IMGUI)
@@ -1441,22 +1442,26 @@ static void prepass(Renderer &r)
     auto &ctx = api.ctx;
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = frame_resource.command_buffer;
-    auto graphics_queue   = ctx.device->getQueue(ctx.graphics_family_idx, 0);
+    (void)(cmd);
+
+    VkQueue graphics_queue;
+    vkGetDeviceQueue(ctx.device, ctx.graphics_family_idx, 0, &graphics_queue);
 
     // wait for gpu to read min lod map
-    if (0)
+#if 0
     {
-        vk::UniqueFence fence = ctx.device->createFenceUnique({});
+        VkFence fence = ctx.device->createFenceUnique({});
 
         cmd->end();
 
-        vk::SubmitInfo si{};
+        VkSubmitInfo si{};
         si.commandBufferCount = 1;
-        si.pCommandBuffers    = &cmd.get();
+        si.pCommandBuffers    = &cmd;
         graphics_queue.submit(si, *fence);
 
         ctx.device->waitForFences({*fence}, VK_FALSE, UINT64_MAX);
     }
+#endif
 
     constexpr usize MAX_REQUESTS = 1024;
 
@@ -1485,7 +1490,7 @@ static void prepass(Renderer &r)
             {
                 for (u32 x = 0; x < mip_size; x += step)
                 {
-                    auto offset = vk::Offset3D{static_cast<i32>(x), static_cast<i32>(y), 0};
+                    auto offset = VkOffset3D{static_cast<i32>(x), static_cast<i32>(y), 0};
 
                     for (uint row = offset.y; row < y + mip_tile_size; row++)
                     {
@@ -1525,40 +1530,41 @@ allocations_done:
         // const auto page_size  = shadow_map.page_size;
 
         // sort lods and allocate page (this better be really fast)
-        std::vector<vk::SparseImageMemoryBind> binds;
+        std::vector<VkSparseImageMemoryBind> binds;
         binds.resize(page_count);
 
         assert(requests.size() == page_count);
 
         for (uint i = 0; i < page_count; ++i)
         {
-            binds[i]                        = vk::SparseImageMemoryBind{};
+            binds[i]                        = VkSparseImageMemoryBind{};
             binds[i].flags                  = {};
             binds[i].subresource.arrayLayer = 0;
-            binds[i].subresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            binds[i].subresource.aspectMask = VkImageAspectFlagBits::eColor;
             binds[i].subresource.mipLevel   = requests[i].mip_level;
             binds[i].offset                 = requests[i].offset;
-            binds[i].extent                 = vk::Extent3D{128, 128, 1};
+            binds[i].extent                 = VkExtent3D{128, 128, 1};
             binds[i].memory                 = shadow_map.allocations_infos[i].deviceMemory;
             binds[i].memoryOffset           = shadow_map.allocations_infos[i].offset;
         }
 
-        vk::SparseImageMemoryBindInfo img{};
+        VkSparseImageMemoryBindInfo img{};
         img.image     = shadow_map.vkhandle;
         img.pBinds    = binds.data();
         img.bindCount = binds.size();
 
-        vk::BindSparseInfo info{};
+        VkBindSparseInfo info{};
         info.pImageBinds    = &img;
         info.imageBindCount = 1;
         graphics_queue.bindSparse(info, {});
     }
 #endif
 
+#if 0
     if (0)
     {
     // restart command buffer
-    vk::CommandBufferBeginInfo binfo{};
+    VkCommandBufferBeginInfo binfo{};
     cmd->begin(binfo);
     }
 
@@ -1570,7 +1576,7 @@ allocations_done:
         pass.present = false;
 
         vulkan::AttachmentInfo shadowmap_info;
-        shadowmap_info.load_op = vk::AttachmentLoadOp::eClear;
+        shadowmap_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
         shadowmap_info.rt      = r.shadow_map_rt;
         pass.color             = std::make_optional(shadowmap_info);
 
@@ -1593,6 +1599,7 @@ allocations_done:
 
         api.end_pass();
     }
+#endif
     api.end_label();
 }
 
@@ -1682,19 +1689,19 @@ void Renderer::voxelize_scene()
 
     {
     auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     }
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo, albedo_uint);
 
     {
     auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     }
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal, normal_uint);
 
 
     vulkan::PassInfo pass{};
-    pass.samples = vk::SampleCountFlagBits::e16;
+    pass.samples = VK_SAMPLE_COUNT_16_BIT;
     api.begin_pass(std::move(pass));
 
     api.bind_program(voxelization);
@@ -1760,16 +1767,16 @@ void Renderer::visualize_voxels()
     }
 
     auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
     {
     auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
     {
     auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
@@ -1778,7 +1785,7 @@ void Renderer::visualize_voxels()
     pass.present = false;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_info.rt      = color_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1863,19 +1870,19 @@ void Renderer::inject_direct_lighting()
     // use the RGBA8 format defined at creation in view_formats
     {
     auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     api.bind_combined_image_sampler(program, 2, voxels_albedo, trilinear_sampler);
 
     {
     auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     api.bind_combined_image_sampler(program, 3, voxels_normal, trilinear_sampler);
     }
 
     {
     auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
     }
     api.bind_image(program, 4, voxels_radiance);
 
@@ -1889,7 +1896,7 @@ void Renderer::generate_aniso_voxels()
 {
     api.begin_label("Compute anisotropic voxels");
 
-    auto &cmd = *api.ctx.frame_resources.get_current().command_buffer;
+    auto cmd = api.ctx.frame_resources.get_current().command_buffer;
 
     auto voxel_size = voxel_options.size * 2;
     auto voxel_res = voxel_options.res / 2;
@@ -1908,32 +1915,33 @@ void Renderer::generate_aniso_voxels()
     // use the RGBA8 format defined at creation in view_formats
     {
         auto &image = api.get_image(voxels_radiance);
-        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     api.bind_combined_image_sampler(generate_aniso_base, 1, voxels_radiance, trilinear_sampler);
 
-    std::vector<vk::ImageMemoryBarrier> barriers;
+    std::vector<VkImageMemoryBarrier> barriers;
 
     {
-        std::vector<vk::ImageView> views;
+        std::vector<VkImageView> views;
         views.reserve(voxels_directional_volumes.size());
         for (const auto& volume_h : voxels_directional_volumes)
         {
             auto &image = api.get_image(volume_h);
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 
             views.push_back(api.get_image(volume_h).mip_views[0]);
 
             barriers.emplace_back();
-            auto &image_barrier = barriers.back();
-            image_barrier.srcAccessMask = vk::AccessFlagBits::eMemoryWrite;
-            image_barrier.dstAccessMask = vk::AccessFlagBits::eMemoryRead;
-            image_barrier.oldLayout = image.layout;
-            image_barrier.newLayout = image.layout;
+            auto &image_barrier               = barriers.back();
+            image_barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            image_barrier.srcAccessMask       = VK_ACCESS_MEMORY_WRITE_BIT;
+            image_barrier.dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT;
+            image_barrier.oldLayout           = image.layout;
+            image_barrier.newLayout           = image.layout;
             image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            image_barrier.image = image.vkhandle;
-            image_barrier.subresourceRange = image.full_range;
+            image_barrier.image               = image.vkhandle;
+            image_barrier.subresourceRange    = image.full_range;
         }
         api.bind_images(generate_aniso_base, 2, voxels_directional_volumes, views);
     }
@@ -1941,7 +1949,7 @@ void Renderer::generate_aniso_voxels()
     auto count = voxel_res / 8; // local compute size
     api.dispatch(generate_aniso_base, count, count, count);
 
-    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
 
     for (uint mip_i = 0; count > 1; mip_i++)
     {
@@ -1971,12 +1979,12 @@ void Renderer::generate_aniso_voxels()
             api.bind_buffer(generate_aniso_mipmap, 1, u_pos);
         }
 
-        std::vector<vk::ImageView> src_views;
-        std::vector<vk::ImageView> dst_views;
+        std::vector<VkImageView> src_views;
+        std::vector<VkImageView> dst_views;
         src_views.reserve(voxels_directional_volumes.size());
         dst_views.reserve(voxels_directional_volumes.size());
 
-        std::vector<vk::ImageMemoryBarrier> image_barriers;
+        std::vector<VkImageMemoryBarrier> image_barriers;
 
         for (const auto& volume_h : voxels_directional_volumes)
         {
@@ -1984,7 +1992,7 @@ void Renderer::generate_aniso_voxels()
             src_views.push_back(image.mip_views[src]);
             dst_views.push_back(image.mip_views[dst]);
 
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         api.bind_images(generate_aniso_mipmap, 2, voxels_directional_volumes, src_views);
@@ -1992,7 +2000,8 @@ void Renderer::generate_aniso_voxels()
 
         api.dispatch(generate_aniso_mipmap, count, count, count);
 
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {}, {}, barriers);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, image_barriers.size(), image_barriers.data());
+
     }
 
     api.end_label();
@@ -2021,7 +2030,7 @@ void Renderer::composite_hdr()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = vk::AttachmentLoadOp::eClear;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -2116,7 +2125,7 @@ void render_sky(Renderer &r)
         pass.present = false;
 
         vulkan::AttachmentInfo color_info;
-        color_info.load_op = vk::AttachmentLoadOp::eClear;
+        color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
         color_info.rt      = r.sky.transmittance_lut_rt;
         pass.color         = std::make_optional(color_info);
 
@@ -2134,7 +2143,7 @@ void render_sky(Renderer &r)
     api.end_label();
     api.begin_label("Sky Multiscattering LUT");
 
-    transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+    transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     auto &multiscattering_lut = api.get_image(r.sky.multiscattering_lut);
 
@@ -2149,7 +2158,7 @@ void render_sky(Renderer &r)
                                         r.trilinear_sampler);
 
         {
-            transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_GENERAL, vk::ImageLayout::eGeneral);
+            transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
             api.bind_image(program, 2, r.sky.multiscattering_lut);
         }
 
@@ -2157,7 +2166,7 @@ void render_sky(Renderer &r)
         auto size_y = multiscattering_lut.info.height;
         api.dispatch(program, size_x, size_y, 1);
 
-        transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+        transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
 
@@ -2174,7 +2183,7 @@ void render_sky(Renderer &r)
         pass.present = false;
 
         vulkan::AttachmentInfo color_info;
-        color_info.load_op = vk::AttachmentLoadOp::eClear;
+        color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
         color_info.rt      = r.sky.skyview_lut_rt;
         pass.color         = std::make_optional(color_info);
 
@@ -2240,15 +2249,15 @@ void render_sky(Renderer &r)
         pass.present = false;
 
         vulkan::AttachmentInfo color_info;
-        color_info.load_op = vk::AttachmentLoadOp::eLoad;
+        color_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
         color_info.rt      = r.color_rt;
         pass.color         = std::make_optional(color_info);
 
         transition_if_needed_internal(api,
                                       transmittance_lut,
                                       THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
-                                      vk::ImageLayout::eShaderReadOnlyOptimal);
-        transition_if_needed_internal(api, skyview_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, vk::ImageLayout::eShaderReadOnlyOptimal);
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        transition_if_needed_internal(api, skyview_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         auto &program = r.sky.sky_raymarch;
 
@@ -2273,7 +2282,7 @@ void render_sky(Renderer &r)
             transition_if_needed_internal(api,
                                           image,
                                           THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
-                                          vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
             api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 3, rt.image_h, r.nearest_sampler);
         }
 
@@ -2496,7 +2505,7 @@ void update_uniforms(Renderer &r)
     globals->sun_direction = float4(-r.sun.front, 1);
 
 
-    static float s_sun_illuminance = 1.0f;
+    static float s_sun_illuminance = 10000.0f;
     static float s_multiple_scattering = 0.0f;
     if (r.p_ui->begin_window("Globals"))
     {
@@ -2538,7 +2547,7 @@ void Renderer::draw()
     prepass(*this);
 
     api.begin_label("Clear voxels");
-    vk::ClearColorValue clear{};
+    VkClearColorValue clear{};
     clear.float32[0] = 0.f;
     clear.float32[1] = 0.f;
     clear.float32[2] = 0.f;

@@ -1,5 +1,5 @@
-#include <vulkan/vulkan.hpp>
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #define VMA_IMPLEMENTATION
 #define THSVS_SIMPLER_VULKAN_SYNCHRONIZATION_IMPLEMENTATION
 
@@ -10,14 +10,26 @@
 #include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <vector>
 #include <vk_mem_alloc.h>
+#include <string>
 
-VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
+    VkInstance                                  instance,
+    const VkDebugUtilsMessengerCreateInfoEXT*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDebugUtilsMessengerEXT*                   pMessenger);
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
+    VkInstance                                  instance,
+    VkDebugUtilsMessengerEXT                    messenger,
+    const VkAllocationCallbacks*                pAllocator);
 
 namespace my_app::vulkan
 {
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void * /*unused*/)
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+                                                     VkDebugUtilsMessageTypeFlagsEXT message_type,
+                                                     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                     void * /*unused*/)
 {
     std::string severity{};
     switch (message_severity) {
@@ -59,7 +71,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
         std::cerr << "Objects: \n";
         for (size_t i = 0; i < pCallbackData->objectCount; i++) {
             const auto &object = pCallbackData->pObjects[i];
-            std::cerr << "\t [" << i << "] " << vk::to_string(static_cast<vk::ObjectType>(object.objectType)) << " " << (object.pObjectName ? object.pObjectName : "NoName") << std::endl;
+            std::cerr << "\t [" << i << "] " << /*Vkto_string(static_cast<VkObjectType>(object.objectType)) <<*/ " " << (object.pObjectName ? object.pObjectName : "NoName") << std::endl;
         }
     }
 
@@ -69,11 +81,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 Context Context::create(const Window &window)
 {
     Context ctx;
-
-    // the default dispatcher needs to be initialized with this first so that enumarateInstanceLayerProperties work
-    vk::DynamicLoader dl;
-    auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     /// --- Create Instance
     std::vector<const char *> instance_extensions;
@@ -87,97 +94,143 @@ Context Context::create(const Window &window)
     instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-    auto installed_instance_layers = vk::enumerateInstanceLayerProperties();
+    uint layer_props_count = 0;
+    std::vector<VkLayerProperties> installed_instance_layers;
+    VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
+    installed_instance_layers.resize(layer_props_count);
+    VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_instance_layers.data()));
+
     std::vector<const char *> instance_layers;
     if (ENABLE_VALIDATION_LAYERS) {
         instance_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
 
-    vk::ApplicationInfo app_info;
+    VkApplicationInfo app_info;
+    app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName   = "Test Vulkan";
     app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     app_info.pEngineName        = "GoodEngine";
     app_info.engineVersion      = VK_MAKE_VERSION(1, 1, 0);
     app_info.apiVersion         = VK_API_VERSION_1_2;
 
-    std::array<vk::ValidationFeatureEnableEXT, 1> enables{vk::ValidationFeatureEnableEXT::eBestPractices};
+    std::array<VkValidationFeatureEnableEXT, 1> enables{VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
 
-    vk::ValidationFeaturesEXT features = {};
+    VkValidationFeaturesEXT features = {};
+    features.sType                         = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
     features.enabledValidationFeatureCount = enables.size();
-    features.pEnabledValidationFeatures = enables.data();
+    features.pEnabledValidationFeatures    = enables.data();
 
-    vk::InstanceCreateInfo create_info;
+    VkInstanceCreateInfo create_info;
+    create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pNext                   = &features;
-    create_info.flags                   = {};
+    create_info.flags                   = 0;
     create_info.pApplicationInfo        = &app_info;
     create_info.enabledLayerCount       = static_cast<uint32_t>(instance_layers.size());
     create_info.ppEnabledLayerNames     = instance_layers.data();
     create_info.enabledExtensionCount   = static_cast<uint32_t>(instance_extensions.size());
     create_info.ppEnabledExtensionNames = instance_extensions.data();
 
-    ctx.instance = vk::createInstanceUnique(create_info);
+    VK_CHECK(vkCreateInstance(&create_info, nullptr, &ctx.instance));
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(*ctx.instance);
+    /// --- Load instance functions
+#define X(name) ctx.name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(ctx.instance, #name))
+    X(vkCreateDebugUtilsMessengerEXT);
+    X(vkDestroyDebugUtilsMessengerEXT);
+    X(vkCmdBeginDebugUtilsLabelEXT);
+    X(vkCmdEndDebugUtilsLabelEXT);
+    X(vkSetDebugUtilsObjectNameEXT);
+#undef X
 
     /// --- Init debug layers
     if (ENABLE_VALIDATION_LAYERS) {
-        vk::DebugUtilsMessengerCreateInfoEXT ci;
-        ci.flags           = {};
-        ci.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-        ci.messageType     = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+        VkDebugUtilsMessengerCreateInfoEXT ci;
+        ci.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        ci.flags           = 0;
+        ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        ci.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         ci.pfnUserCallback = debug_callback;
 
-        ctx.debug_messenger = ctx.instance->createDebugUtilsMessengerEXT(ci, nullptr);
+        VkDebugUtilsMessengerEXT messenger;
+        VK_CHECK(ctx.vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
+        ctx.debug_messenger = messenger;
     }
 
     /// --- Create the surface
-    VkSurfaceKHR surfaceTmp;
-    glfwCreateWindowSurface(static_cast<VkInstance>(*ctx.instance), window.get_handle(), nullptr, &surfaceTmp);
-    ctx.surface = vk::UniqueSurfaceKHR(surfaceTmp, *ctx.instance);
+    VK_CHECK(glfwCreateWindowSurface(ctx.instance, window.get_handle(), nullptr, &ctx.surface));
 
     /// --- Pick a physical device
-    auto physical_devices = ctx.instance->enumeratePhysicalDevices();
-    ctx.physical_device   = physical_devices[0];
-    for (const auto &d : physical_devices) {
-        auto properties = d.getProperties();
+    uint physical_devices_count = 0;
+    std::vector<VkPhysicalDevice> physical_devices;
+    VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
+    physical_devices.resize(physical_devices_count);
+    VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, physical_devices.data()));
+
+    ctx.physical_device = physical_devices[0];
+    for (const auto &physical_device : physical_devices) {
+        VkPhysicalDeviceProperties properties;
+        vkGetPhysicalDeviceProperties(physical_device, &properties);
         std::cout << "Device: " << properties.deviceName << "\n";
-        if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
             std::cout << "Selected: " << properties.deviceName << "\n";
-            ctx.physical_device = d;
+            ctx.physical_device = physical_device;
         }
     }
 
     /// --- Create the logical device
-    auto installed_extensions = ctx.physical_device.enumerateDeviceExtensionProperties();
+    std::vector<VkExtensionProperties> installed_device_extensions;
+    uint installed_device_extensions_count = 0;
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device, nullptr, &installed_device_extensions_count, nullptr));
+    installed_device_extensions.resize(installed_device_extensions_count);
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device, nullptr, &installed_device_extensions_count, installed_device_extensions.data()));
+
     std::vector<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 
-    ctx.physical_device_features       = vk::PhysicalDeviceFeatures2{};
-    ctx.vulkan12_features              = vk::PhysicalDeviceVulkan12Features{};
+    ctx.vulkan12_features              = {};
+    ctx.vulkan12_features.sType        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+    ctx.physical_device_features       = {};
+    ctx.physical_device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     ctx.physical_device_features.pNext = &ctx.vulkan12_features;
+    vkGetPhysicalDeviceFeatures2(ctx.physical_device, &ctx.physical_device_features);
 
-    ctx.physical_device.getFeatures2(&ctx.physical_device_features);
+    uint queue_families_count = 0;
+    std::vector<VkQueueFamilyProperties> queue_families;
+    vkGetPhysicalDeviceQueueFamilyProperties(ctx.physical_device, &queue_families_count, nullptr);
+    queue_families.resize(queue_families_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(ctx.physical_device, &queue_families_count, queue_families.data());
 
-    auto queue_families = ctx.physical_device.getQueueFamilyProperties();
-
-    std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
+    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
     float priority = 0.0;
 
     bool has_graphics = false;
     bool has_present  = false;
     for (uint32_t i = 0; i < queue_families.size(); i++) {
-        if (!has_graphics && queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+        if (!has_graphics && queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             // Create a single graphics queue.
-            queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), i, 1, &priority);
+            queue_create_infos.emplace_back();
+            auto &queue_create_info = queue_create_infos.back();
+            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queue_create_info.queueFamilyIndex = i;
+            queue_create_info.queueCount = 1;
+            queue_create_info.pQueuePriorities = &priority;
             has_graphics            = true;
             ctx.graphics_family_idx = i;
         }
 
-        if (!has_present && ctx.physical_device.getSurfaceSupportKHR(i, *ctx.surface)) {
+        VkBool32 surface_support = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(ctx.physical_device, i, ctx.surface, &surface_support);
+
+        if (!has_present && surface_support) {
             // Create a single graphics queue.
-            queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), i, 1, &priority);
+            queue_create_infos.emplace_back();
+            auto &queue_create_info = queue_create_infos.back();
+            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queue_create_info.queueFamilyIndex = i;
+            queue_create_info.queueCount = 1;
+            queue_create_info.pQueuePriorities = &priority;
             has_present            = true;
             ctx.present_family_idx = i;
         }
@@ -191,9 +244,10 @@ Context Context::create(const Window &window)
         queue_create_infos.pop_back();
     }
 
-    vk::DeviceCreateInfo dci;
+    VkDeviceCreateInfo dci;
+    dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dci.pNext                   = &ctx.physical_device_features;
-    dci.flags                   = {};
+    dci.flags                   = 0;
     dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
     dci.pQueueCreateInfos       = queue_create_infos.data();
     dci.enabledLayerCount       = 0;
@@ -202,18 +256,18 @@ Context Context::create(const Window &window)
     dci.ppEnabledExtensionNames = device_extensions.data();
     dci.pEnabledFeatures        = nullptr;
 
-    ctx.device = ctx.physical_device.createDeviceUnique(dci);
+    VK_CHECK(vkCreateDevice(ctx.physical_device, &dci, nullptr, &ctx.device));
 
-    ctx.physical_props = ctx.physical_device.getProperties();
+    vkGetPhysicalDeviceProperties(ctx.physical_device, &ctx.physical_props);
 
     /// --- Init VMA allocator
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.vulkanApiVersion       = VK_API_VERSION_1_2;
     allocator_info.physicalDevice         = ctx.physical_device;
-    allocator_info.device                 = *ctx.device;
-    allocator_info.instance               = *ctx.instance;
+    allocator_info.device                 = ctx.device;
+    allocator_info.instance               = ctx.instance;
     allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-    vmaCreateAllocator(&allocator_info, &ctx.allocator);
+    VK_CHECK(vmaCreateAllocator(&allocator_info, &ctx.allocator));
 
     /// --- Create the swapchain
     ctx.create_swapchain();
@@ -222,22 +276,24 @@ Context Context::create(const Window &window)
 
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{
-        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 16 * 1024),
-        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage,         16 * 1024),
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBufferDynamic, 16 * 1024),
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 16 * 1024},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 16 * 1024},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 16 * 1024},
     };
 
-    vk::DescriptorPoolCreateInfo dpci{};
-    dpci.flags          = {/*vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind*/};
-    dpci.poolSizeCount  = pool_sizes.size();
-    dpci.pPoolSizes     = pool_sizes.data();
-    dpci.maxSets        = 1024;
-    ctx.descriptor_pool = ctx.device->createDescriptorPoolUnique(dpci);
+    VkDescriptorPoolCreateInfo dpci{};
+    dpci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    dpci.flags         = 0;
+    dpci.poolSizeCount = pool_sizes.size();
+    dpci.pPoolSizes    = pool_sizes.data();
+    dpci.maxSets       = 1024;
+    VK_CHECK(vkCreateDescriptorPool(ctx.device, &dpci, nullptr, &ctx.descriptor_pool));
 
-    vk::QueryPoolCreateInfo qpci{};
-    qpci.queryType = vk::QueryType::eTimestamp;
+    VkQueryPoolCreateInfo qpci{};
+    qpci.sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    qpci.queryType  = VK_QUERY_TYPE_TIMESTAMP;
     qpci.queryCount = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
-    ctx.timestamp_pool = ctx.device->createQueryPoolUnique(qpci);
+    VK_CHECK(vkCreateQueryPool(ctx.device, &qpci, nullptr, &ctx.timestamp_pool));
 
     return ctx;
 }
@@ -247,95 +303,117 @@ void Context::create_swapchain()
     auto &ctx = *this;
 
     // Use default extent for the swapchain
-    auto capabilities    = ctx.physical_device.getSurfaceCapabilitiesKHR(*ctx.surface);
+    VkSurfaceCapabilitiesKHR capabilities;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx.physical_device, ctx.surface, &capabilities));
     ctx.swapchain.extent = capabilities.currentExtent;
 
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
-    auto present_modes         = ctx.physical_device.getSurfacePresentModesKHR(*ctx.surface);
-    ctx.swapchain.present_mode = vk::PresentModeKHR::eFifo;
+    uint present_modes_count = 0;
+    std::vector<VkPresentModeKHR> present_modes;
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
+    present_modes.resize(present_modes_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, present_modes.data()));
+    ctx.swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
     for (auto &pm : present_modes) {
-        if (pm == vk::PresentModeKHR::eMailbox) {
-            ctx.swapchain.present_mode = vk::PresentModeKHR::eMailbox;
+        if (pm == VK_PRESENT_MODE_MAILBOX_KHR) {
+            ctx.swapchain.present_mode = pm;
             break;
         }
     }
 
-    if (ctx.swapchain.present_mode == vk::PresentModeKHR::eFifo) {
+    if (ctx.swapchain.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
         for (auto &pm : present_modes) {
-            if (pm == vk::PresentModeKHR::eImmediate) {
-                ctx.swapchain.present_mode = vk::PresentModeKHR::eImmediate;
+            if (pm == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+                ctx.swapchain.present_mode = pm;
                 break;
             }
         }
     }
 
     // Find the best format
-    auto formats         = ctx.physical_device.getSurfaceFormatsKHR(*ctx.surface);
+    uint formats_count = 0;
+    std::vector<VkSurfaceFormatKHR> formats;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx.physical_device, ctx.surface, &formats_count, nullptr));
+    formats.resize(formats_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx.physical_device, ctx.surface, &formats_count, formats.data()));
     ctx.swapchain.format = formats[0];
-    if (ctx.swapchain.format.format == vk::Format::eUndefined) {
-        ctx.swapchain.format.format     = vk::Format::eB8G8R8A8Unorm;
-        ctx.swapchain.format.colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear;
+    if (ctx.swapchain.format.format == VK_FORMAT_UNDEFINED) {
+        ctx.swapchain.format.format     = VK_FORMAT_B8G8R8A8_UNORM;
+        ctx.swapchain.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     }
     else {
         for (const auto &f : formats) {
-            if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 ctx.swapchain.format = f;
                 break;
             }
         }
     }
 
-    vk::SwapchainCreateInfoKHR ci{};
-    ci.surface          = *ctx.surface;
+    VkSwapchainCreateInfoKHR ci{};
+    ci.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    ci.surface          = ctx.surface;
     ci.minImageCount    = capabilities.minImageCount + 1;
     ci.imageFormat      = ctx.swapchain.format.format;
     ci.imageColorSpace  = ctx.swapchain.format.colorSpace;
     ci.imageExtent      = ctx.swapchain.extent;
     ci.imageArrayLayers = 1;
-    ci.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
+    ci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-    if (ctx.graphics_family_idx != ctx.present_family_idx) {
+    if (ctx.graphics_family_idx != ctx.present_family_idx)
+    {
         std::array indices{ctx.graphics_family_idx, ctx.present_family_idx};
-        ci.imageSharingMode      = vk::SharingMode::eConcurrent;
+        ci.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
         ci.queueFamilyIndexCount = indices.size();
         ci.pQueueFamilyIndices   = indices.data();
     }
     else {
-        ci.imageSharingMode = vk::SharingMode::eExclusive;
+        ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
-    ci.preTransform   = vk::SurfaceTransformFlagBitsKHR::eIdentity;
-    ci.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    ci.preTransform   = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     ci.presentMode    = ctx.swapchain.present_mode;
     ci.clipped        = VK_TRUE;
 
-    ctx.swapchain.handle = ctx.device->createSwapchainKHRUnique(ci);
-    ctx.swapchain.images = ctx.device->getSwapchainImagesKHR(*ctx.swapchain.handle);
+    VK_CHECK(vkCreateSwapchainKHR(ctx.device, &ci, nullptr, &ctx.swapchain.handle));
+
+    uint images_count = 0;
+    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &images_count, nullptr));
+    ctx.swapchain.images.resize(images_count);
+    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &images_count, swapchain.images.data()));
+
     ctx.swapchain.image_views.resize(ctx.swapchain.images.size());
 
-    for (size_t i = 0; i < ctx.swapchain.images.size(); i++) {
-        vk::ImageViewCreateInfo ici{};
+    for (size_t i = 0; i < ctx.swapchain.images.size(); i++)
+    {
+        VkImageViewCreateInfo ici{};
+        ici.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         ici.image                           = ctx.swapchain.images[i];
-        ici.viewType                        = vk::ImageViewType::e2D;
+        ici.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
         ici.format                          = ctx.swapchain.format.format;
-        ici.components                      = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
-        ici.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+        ici.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ici.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ici.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ici.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ici.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         ici.subresourceRange.baseMipLevel   = 0;
         ici.subresourceRange.levelCount     = 1;
         ici.subresourceRange.baseArrayLayer = 0;
         ici.subresourceRange.layerCount     = 1;
-        ctx.swapchain.image_views[i]        = ctx.device->createImageView(ici);
+
+        VK_CHECK(vkCreateImageView(ctx.device, &ici, nullptr, &ctx.swapchain.image_views[i]));
     }
 }
 
 void Context::destroy_swapchain()
 {
-    device->waitIdle();
-
     for (auto &o : swapchain.image_views) {
-        device->destroy(o);
+        vkDestroyImageView(device, o, nullptr);
     }
+
+    vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
 }
 
 void Context::create_frame_resources(usize count)
@@ -346,36 +424,159 @@ void Context::create_frame_resources(usize count)
     for (usize i = 0; i < count; i++) {
         auto &frame_resource = frame_resources.data[i];
 
-        frame_resource.fence              = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
-        frame_resource.image_available    = device->createSemaphoreUnique({});
-        frame_resource.rendering_finished = device->createSemaphoreUnique({});
+        VkFenceCreateInfo fci{};
+        fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        VK_CHECK(vkCreateFence(device, &fci, nullptr, &frame_resource.fence));
+
+        VkSemaphoreCreateInfo sci{};
+        sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        VK_CHECK(vkCreateSemaphore(device, &sci, nullptr, &frame_resource.image_available));
+        VK_CHECK(vkCreateSemaphore(device, &sci, nullptr, &frame_resource.rendering_finished));
 
         /// --- Create the command pool to create a command buffer for each frame
-        frame_resource.command_pool = device->createCommandPoolUnique({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, static_cast<uint32_t>(graphics_family_idx)});
+        VkCommandPoolCreateInfo cpci{};
+        cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // TODO: remove?
+        cpci.queueFamilyIndex = graphics_family_idx;
+        VK_CHECK(vkCreateCommandPool(device, &cpci, nullptr, &frame_resource.command_pool));
     }
 }
 
 void Context::destroy()
 {
-    if (ENABLE_VALIDATION_LAYERS) {
-        instance->destroyDebugUtilsMessengerEXT(*debug_messenger, nullptr);
+    VK_CHECK(vkDeviceWaitIdle(device));
+
+    vkDestroyQueryPool(device, timestamp_pool, nullptr);
+    vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
+
+    for (auto &frame : frame_resources.data) {
+        vkDestroyFence(device, frame.fence, nullptr);
+        vkDestroySemaphore(device, frame.image_available, nullptr);
+        vkDestroySemaphore(device, frame.rendering_finished, nullptr);
+        vkDestroyCommandPool(device, frame.command_pool, nullptr);
     }
 
     destroy_swapchain();
 
+    vkDestroySurfaceKHR(instance, surface, nullptr);
     vmaDestroyAllocator(allocator);
+    vkDestroyDevice(device, nullptr);
+
+    if (ENABLE_VALIDATION_LAYERS) {
+        vkDestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);
+    }
+
+    vkDestroyInstance(instance, nullptr);
 }
 
 void Context::on_resize(int /*width*/, int /*height*/)
 {
+    VK_CHECK(vkDeviceWaitIdle(device));
+
     destroy_swapchain();
     create_swapchain();
 
-    for (auto &frame_resource : frame_resources.data) {
-        frame_resource.fence = device->createFenceUnique({vk::FenceCreateFlagBits::eSignaled});
-        device->resetCommandPool(*frame_resource.command_pool, {vk::CommandPoolResetFlagBits::eReleaseResources});
-        frame_resource.command_buffer = std::move(device->allocateCommandBuffersUnique({*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+    for (auto &frame_resource : frame_resources.data)
+    {
+        // TODO: isnt it possible to reset then signal the fence?
+        vkDestroyFence(device, frame_resource.fence, nullptr);
+
+        VkFenceCreateInfo fci{};
+        fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        VK_CHECK(vkCreateFence(device, &fci, nullptr, &frame_resource.fence));
+
+        VK_CHECK(vkResetCommandPool(device, frame_resource.command_pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
+        VkCommandBufferAllocateInfo ai{};
+        ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        ai.commandPool        = frame_resource.command_pool;
+        ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        ai.commandBufferCount = 1;
+        VK_CHECK(vkAllocateCommandBuffers(device, &ai, &frame_resource.command_buffer));
     }
 }
 
 } // namespace my_app::vulkan
+
+bool operator==(const VkPipelineShaderStageCreateInfo &a, const VkPipelineShaderStageCreateInfo &b)
+{
+    return a.flags == b.flags
+        && a.stage == b.stage
+        && a.module == b.module
+        && a.pName == b.pName // TODO: strcmp?
+        && a.pSpecializationInfo == b.pSpecializationInfo; // TODO: deep cmp?
+}
+
+bool operator==(const VkDescriptorBufferInfo &a, const VkDescriptorBufferInfo &b)
+{
+    return a.buffer == b.buffer
+        && a.offset == b.offset
+        && a.range == b.range;
+}
+
+bool operator==(const VkDescriptorImageInfo &a, const VkDescriptorImageInfo &b)
+{
+    return a.sampler == b.sampler
+        && a.imageView == b.imageView
+        && a.imageLayout == b.imageLayout;
+}
+
+bool operator==(const VkExtent3D &a, const VkExtent3D &b)
+{
+    return a.width == b.width
+        && a.height == b.height
+        && a.depth == b.depth;
+}
+
+bool operator==(const VkImageSubresourceRange &a, const VkImageSubresourceRange &b)
+{
+    return a.aspectMask == b.aspectMask
+        && a.baseMipLevel == b.baseMipLevel
+        && a.levelCount == b.levelCount
+        && a.baseArrayLayer == b.baseArrayLayer
+        && a.layerCount == b.layerCount;
+}
+
+bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b)
+{
+    bool same = a.queueFamilyIndexCount == b.queueFamilyIndexCount;
+    if (!same) {
+        return false;
+    }
+
+    if (a.pQueueFamilyIndices && b.pQueueFamilyIndices)
+    {
+        for (usize i = 0; i < a.queueFamilyIndexCount; i++) {
+            if (a.pQueueFamilyIndices[i] != b.pQueueFamilyIndices[i]) {
+                return false;
+            }
+        }
+    }
+    else
+    {
+        same = a.pQueueFamilyIndices == b.pQueueFamilyIndices;
+    }
+
+    return same
+        && a.flags == b.flags
+        && a.imageType == b.imageType
+        && a.format == b.format
+        && a.extent == b.extent
+        && a.mipLevels == b.mipLevels
+        && a.arrayLayers == b.arrayLayers
+        && a.samples == b.samples
+        && a.tiling == b.tiling
+        && a.usage == b.usage
+        && a.sharingMode == b.sharingMode
+        && a.initialLayout == b.initialLayout;
+}
+
+bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b)
+{
+    return a.flags == b.flags
+        && a.stage == b.stage
+        && a.layout == b.layout
+        && a.basePipelineHandle == b.basePipelineHandle
+        && a.basePipelineIndex == b.basePipelineIndex;
+}

@@ -1,10 +1,11 @@
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
 #include "types.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
@@ -35,17 +36,20 @@ void API::destroy_rendertarget(RenderTargetH H)
 
 /// --- Images
 
-static vk::ImageViewType view_type_from(vk::ImageType _type)
+static VkImageViewType view_type_from(VkImageType _type)
 {
-    switch (_type) {
-    case vk::ImageType::e1D:
-	return vk::ImageViewType::e1D;
-    case vk::ImageType::e2D:
-	return vk::ImageViewType::e2D;
-    case vk::ImageType::e3D:
-	return vk::ImageViewType::e3D;
+    switch (_type)
+    {
+        case VK_IMAGE_TYPE_1D:
+            return VK_IMAGE_VIEW_TYPE_1D;
+        case VK_IMAGE_TYPE_2D:
+            return VK_IMAGE_VIEW_TYPE_2D;
+        case VK_IMAGE_TYPE_3D:
+            return VK_IMAGE_VIEW_TYPE_3D;
+        case VK_IMAGE_TYPE_MAX_ENUM:
+            break;
     }
-    return vk::ImageViewType::e2D;
+    return VK_IMAGE_VIEW_TYPE_2D;
 }
 
 ImageH API::create_image(const ImageInfo &info)
@@ -55,15 +59,20 @@ ImageH API::create_image(const ImageInfo &info)
     img.name = info.name;
     img.info = info;
 
-    img.extra_formats = info.extra_formats;
-    if (!info.extra_formats.empty()) {
-        img.image_info.flags = vk::ImageCreateFlagBits::eMutableFormat;
+    img.extra_formats    = info.extra_formats;
+    img.image_info.flags = 0;
+    if (!info.extra_formats.empty())
+    {
+        img.image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
     }
 
     assert(info.mip_levels == 1 || !info.generate_mip_levels);
 
-    if (info.is_sparse) {
-        img.image_info.flags = vk::ImageCreateFlagBits::eSparseResidency | vk::ImageCreateFlagBits::eSparseBinding;
+    img.image_info.pNext = nullptr;
+    img.image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    if (info.is_sparse)
+    {
+        img.image_info.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
     }
     img.image_info.imageType             = info.type;
     img.image_info.format                = info.format;
@@ -73,16 +82,17 @@ ImageH API::create_image(const ImageInfo &info)
     img.image_info.mipLevels             = info.mip_levels;
     img.image_info.arrayLayers           = info.layers;
     img.image_info.samples               = info.samples;
-    img.image_info.initialLayout         = vk::ImageLayout::eUndefined;
+    img.image_info.initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
     img.image_info.usage                 = info.usages;
     img.image_info.queueFamilyIndexCount = 0;
     img.image_info.pQueueFamilyIndices   = nullptr;
-    img.image_info.sharingMode           = vk::SharingMode::eExclusive;
-    img.image_info.tiling                = info.is_linear ? vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal;
+    img.image_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+    img.image_info.tiling                = info.is_linear ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
 
-    if (info.generate_mip_levels) {
-	img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
-	img.image_info.usage |= vk::ImageUsageFlagBits::eTransferSrc;
+    if (info.generate_mip_levels)
+    {
+        img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
+        img.image_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 
     if (!info.is_sparse)
@@ -92,29 +102,46 @@ ImageH API::create_image(const ImageInfo &info)
         alloc_info.usage     = img.info.memory_usage;
         alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
-        VK_CHECK(vmaCreateImage(ctx.allocator, reinterpret_cast<VkImageCreateInfo *>(&img.image_info), &alloc_info,
-                                reinterpret_cast<VkImage *>(&img.vkhandle), &img.allocation, nullptr));
+        VK_CHECK(vmaCreateImage(ctx.allocator,
+                                reinterpret_cast<VkImageCreateInfo *>(&img.image_info),
+                                &alloc_info,
+                                reinterpret_cast<VkImage *>(&img.vkhandle),
+                                &img.allocation,
+                                nullptr));
     }
     else
     {
-        auto props = ctx.physical_device.getSparseImageFormatProperties(img.image_info.format, img.image_info.imageType, img.image_info.samples, img.image_info.usage, img.image_info.tiling);\
-
-        vk::PhysicalDeviceSparseImageFormatInfo2 info2{};
-        info2.format = img.image_info.format;
-        info2.type = img.image_info.imageType;
+        VkPhysicalDeviceSparseImageFormatInfo2 info2{};
+        info2.sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2;
+        info2.format  = img.image_info.format;
+        info2.type    = img.image_info.imageType;
         info2.samples = img.image_info.samples;
-        info2.usage = img.image_info.usage;
-        info2.tiling = img.image_info.tiling;
-        auto props2 = ctx.physical_device.getSparseImageFormatProperties2(info2);
+        info2.usage   = img.image_info.usage;
+        info2.tiling  = img.image_info.tiling;
 
-        assert(info.max_sparse_size != 0);
-        img.vkhandle = ctx.device->createImage(img.image_info);
+        uint props_count = 0;
+        std::vector<VkSparseImageFormatProperties2> props;
+        vkGetPhysicalDeviceSparseImageFormatProperties2(ctx.physical_device, &info2, &props_count, nullptr);
+        props.resize(props_count);
+        vkGetPhysicalDeviceSparseImageFormatProperties2(ctx.physical_device, &info2, &props_count, nullptr);
 
-        auto mem_req        = ctx.device->getImageMemoryRequirements(img.vkhandle);
-        auto sparse_mem_req = ctx.device->getImageSparseMemoryRequirements(img.vkhandle);
+        assert(props.size() > 0 && info.max_sparse_size != 0);
+
+        VK_CHECK(vkCreateImage(ctx.device, &img.image_info, nullptr, &img.vkhandle));
+
+        VkMemoryRequirements mem_req;
+        vkGetImageMemoryRequirements(ctx.device, img.vkhandle, &mem_req);
+
+        uint sparse_mem_req_count = 0;
+        std::vector<VkSparseImageMemoryRequirements> sparse_mem_req;
+        vkGetImageSparseMemoryRequirements(ctx.device, img.vkhandle, &sparse_mem_req_count, nullptr);
+        sparse_mem_req.resize(sparse_mem_req_count);
+        vkGetImageSparseMemoryRequirements(ctx.device, img.vkhandle, &sparse_mem_req_count, sparse_mem_req.data());
+
+        assert(sparse_mem_req.size() > 0);
 
         // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
-        const usize page_size  = mem_req.alignment;
+        const usize page_size = mem_req.alignment;
 
         // TODO: max_sparse_size might not be a multiple of page_size?
         assert(info.max_sparse_size % page_size == 0);
@@ -130,81 +157,98 @@ ImageH API::create_image(const ImageInfo &info)
         img.allocations_infos.resize(page_count);
         std::fill(img.sparse_allocations.begin(), img.sparse_allocations.end(), nullptr);
         VK_CHECK(vmaAllocateMemoryPages(ctx.allocator,
-                               &page_mem_req,
-                               &allocCreateInfo,
-                               page_count,
-                               img.sparse_allocations.data(),
-                               img.allocations_infos.data()));
+                                        &page_mem_req,
+                                        &allocCreateInfo,
+                                        page_count,
+                                        img.sparse_allocations.data(),
+                                        img.allocations_infos.data()));
 
         img.page_size = page_size;
     }
 
-    if (ENABLE_VALIDATION_LAYERS) {
-	ctx.device->setDebugUtilsObjectNameEXT(
-	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImage, get_raw_vulkan_handle(img.vkhandle), info.name});
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni{};
+        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        ni.objectHandle = reinterpret_cast<u64>(img.vkhandle);
+        ni.objectType   = VK_OBJECT_TYPE_IMAGE;
+        ni.pObjectName  = info.name;
+        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
     img.access = THSVS_ACCESS_NONE;
-    img.layout = vk::ImageLayout::eUndefined;
+    img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    img.full_range.aspectMask     = vk::ImageAspectFlagBits::eColor;
+    img.full_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     img.full_range.baseMipLevel   = 0;
     img.full_range.levelCount     = img.image_info.mipLevels;
     img.full_range.baseArrayLayer = 0;
     img.full_range.layerCount     = img.image_info.arrayLayers;
 
-    if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-	img.full_range.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    if (img.image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+    {
+        img.full_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
 
-    vk::ImageViewCreateInfo vci{};
-    vci.flags  = {};
-    vci.image  = img.vkhandle;
-    vci.format = img.image_info.format;
-    vci.components = {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA};
+    VkImageViewCreateInfo vci{};
+    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.flags            = 0;
+    vci.image            = img.vkhandle;
+    vci.format           = img.image_info.format;
+    vci.components.r     = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.g     = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.b     = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.a     = VK_COMPONENT_SWIZZLE_IDENTITY;
     vci.subresourceRange = img.full_range;
     vci.viewType         = view_type_from(img.image_info.imageType);
 
-    if (img.image_info.usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-	vci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &img.default_view));
+
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni{};
+        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        ni.objectHandle = reinterpret_cast<u64>(img.default_view);
+        ni.objectType   = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName  = info.name;
+        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
-
-    img.default_view = ctx.device->createImageView(vci);
-
-    if (ENABLE_VALIDATION_LAYERS) {
-	ctx.device->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eImageView, get_raw_vulkan_handle(img.default_view), info.name});
-    }
-
 
     img.format_views.reserve(info.extra_formats.size());
     for (const auto &extra_format : info.extra_formats)
     {
+        VkImageView format_view;
         vci.format = extra_format;
-        img.format_views.push_back(ctx.device->createImageView(vci));
+        VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &format_view));
+        img.format_views.push_back(format_view);
     }
 
     vci.format = img.image_info.format;
     for (u32 i = 0; i < img.image_info.mipLevels; i++)
     {
+        VkImageView mip_view;
         vci.subresourceRange.baseMipLevel = i;
-        vci.subresourceRange.levelCount = 1;
-        img.mip_views.push_back(ctx.device->createImageView(vci));
+        vci.subresourceRange.levelCount   = 1;
+        VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &mip_view));
+        img.mip_views.push_back(mip_view);
     }
 
-    vk::SamplerCreateInfo sci{};
-    sci.magFilter        = vk::Filter::eNearest;
-    sci.minFilter        = vk::Filter::eNearest;
-    sci.mipmapMode       = vk::SamplerMipmapMode::eLinear;
-    sci.addressModeU     = vk::SamplerAddressMode::eRepeat;
-    sci.addressModeV     = vk::SamplerAddressMode::eRepeat;
-    sci.addressModeW     = vk::SamplerAddressMode::eRepeat;
-    sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
+    VkSamplerCreateInfo sci{};
+    sci.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sci.magFilter        = VK_FILTER_NEAREST;
+    sci.minFilter        = VK_FILTER_NEAREST;
+    sci.mipmapMode       = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sci.addressModeU     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeV     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.compareOp        = VK_COMPARE_OP_NEVER;
+    sci.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
     sci.minLod           = 0;
     sci.maxLod           = img.image_info.mipLevels;
     sci.maxAnisotropy    = 8.0f;
-    sci.anisotropyEnable = VK_TRUE;
-    img.default_sampler  = ctx.device->createSampler(sci);
+    sci.anisotropyEnable = true;
+
+    VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &img.default_sampler));
 
     return images.add(std::move(img));
 }
@@ -222,25 +266,30 @@ void destroy_image_internal(API &api, Image &img)
         vmaUnmapMemory(api.ctx.allocator, img.allocation);
     }
 
-    if (!img.info.is_sparse) {
+    if (!img.info.is_sparse)
+    {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     }
-    else {
-
-        api.ctx.device->destroy(img.vkhandle);
+    else
+    {
+        vkDestroyImage(api.ctx.device, img.vkhandle, nullptr);
         vmaFreeMemoryPages(api.ctx.allocator, img.sparse_allocations.size(), img.sparse_allocations.data());
     }
 
-    api.ctx.device->destroy(img.default_view);
-    api.ctx.device->destroy(img.default_sampler);
+    vkDestroyImageView(api.ctx.device, img.default_view, nullptr);
+    vkDestroySampler(api.ctx.device, img.default_sampler, nullptr);
 
-    for (auto &image_view : img.format_views) {
-        api.ctx.device->destroy(image_view);
+    for (auto &image_view : img.format_views)
+    {
+        vkDestroyImageView(api.ctx.device, image_view, nullptr);
     }
-    for (auto &image_view : img.mip_views) {
-        api.ctx.device->destroy(image_view);
+    for (auto &image_view : img.mip_views)
+    {
+        vkDestroyImageView(api.ctx.device, image_view, nullptr);
     }
+
     img.format_views.clear();
+    img.mip_views.clear();
 }
 
 void API::destroy_image(ImageH H)
@@ -250,7 +299,8 @@ void API::destroy_image(ImageH H)
     images.remove(H);
 }
 
-static void transition_layout_internal(vk::CommandBuffer cmd, vk::Image image, ThsvsAccessType prev_access, ThsvsAccessType next_access, vk::ImageSubresourceRange subresource_range)
+static void transition_layout_internal(VkCommandBuffer cmd, VkImage image, ThsvsAccessType prev_access,
+                                       ThsvsAccessType next_access, VkImageSubresourceRange subresource_range)
 {
     ThsvsImageBarrier image_barrier;
     image_barrier.prevAccessCount     = 1;
@@ -281,28 +331,36 @@ void API::upload_image(ImageH H, void *data, usize len)
 
     cmd_buffer.begin();
 
-    std::vector<vk::BufferImageCopy> copies;
+    std::vector<VkBufferImageCopy> copies;
     copies.reserve(range.levelCount);
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_NONE, THSVS_ACCESS_TRANSFER_WRITE,
-			       range);
+    transition_layout_internal(cmd_buffer.vkhandle,
+                               image.vkhandle,
+                               THSVS_ACCESS_NONE,
+                               THSVS_ACCESS_TRANSFER_WRITE,
+                               range);
 
-    for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++) {
-	vk::BufferImageCopy copy;
-	copy.bufferOffset                    = staging_position.offset;
-	copy.imageSubresource.aspectMask     = range.aspectMask;
-	copy.imageSubresource.mipLevel       = i;
-	copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
-	copy.imageSubresource.layerCount     = range.layerCount;
-	copy.imageExtent                     = image.image_info.extent;
-	copies.push_back(std::move(copy));
+    for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++)
+    {
+        VkBufferImageCopy copy{};
+        copy.bufferOffset                    = staging_position.offset;
+        copy.imageSubresource.aspectMask     = range.aspectMask;
+        copy.imageSubresource.mipLevel       = i;
+        copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
+        copy.imageSubresource.layerCount     = range.layerCount;
+        copy.imageExtent                     = image.image_info.extent;
+        copies.push_back(std::move(copy));
     }
 
-    cmd_buffer.vkhandle->copyBufferToImage(staging.vkhandle, image.vkhandle, vk::ImageLayout::eTransferDstOptimal,
-					   copies);
+    vkCmdCopyBufferToImage(cmd_buffer.vkhandle,
+                           staging.vkhandle,
+                           image.vkhandle,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           copies.size(),
+                           copies.data());
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
-    image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    transition_layout_internal(cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
+    image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     cmd_buffer.submit_and_wait();
 }
@@ -316,81 +374,126 @@ void API::generate_mipmaps(ImageH h)
     u32 height     = image.image_info.extent.height;
     u32 mip_levels = image.image_info.mipLevels;
 
-    if (mip_levels == 1) {
-	return;
+    if (mip_levels == 1)
+    {
+        return;
     }
 
     cmd_buffer.begin();
 
-    auto &cmd = cmd_buffer.vkhandle;
+    auto cmd = cmd_buffer.vkhandle;
+
+    VkImageSubresourceRange mip_sub_range{};
+    mip_sub_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    mip_sub_range.baseArrayLayer = 0;
+    mip_sub_range.layerCount     = 1;
+    mip_sub_range.baseMipLevel   = 0;
+    mip_sub_range.levelCount     = 1;
 
     {
-	vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
-	vk::ImageMemoryBarrier b{};
-	b.oldLayout        = vk::ImageLayout::eShaderReadOnlyOptimal;
-	b.newLayout        = vk::ImageLayout::eTransferSrcOptimal;
-	b.srcAccessMask    = vk::AccessFlags();
-	b.dstAccessMask    = vk::AccessFlagBits::eTransferRead;
-	b.image            = image.vkhandle;
-	b.subresourceRange = mip_sub_range;
-	cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, nullptr,
-			     nullptr, b);
+        VkImageMemoryBarrier b{};
+        b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        b.oldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        b.srcAccessMask    = 0;
+        b.dstAccessMask    = VK_ACCESS_TRANSFER_READ_BIT;
+        b.image            = image.vkhandle;
+        b.subresourceRange = mip_sub_range;
+        vkCmdPipelineBarrier(cmd,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             1,
+                             &b);
     }
 
-    for (u32 i = 1; i < mip_levels; i++) {
-	auto src_width  = width >> (i - 1);
-	auto src_height = height >> (i - 1);
-	auto dst_width  = width >> i;
-	auto dst_height = height >> i;
+    for (u32 i = 1; i < mip_levels; i++)
+    {
+        auto src_width  = width >> (i - 1);
+        auto src_height = height >> (i - 1);
+        auto dst_width  = width >> i;
+        auto dst_height = height >> i;
 
-	vk::ImageBlit blit{};
-	blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-	blit.srcSubresource.layerCount = 1;
-	blit.srcSubresource.mipLevel   = i - 1;
-	blit.srcOffsets[1].x           = static_cast<i32>(src_width);
-	blit.srcOffsets[1].y           = static_cast<i32>(src_height);
-	blit.srcOffsets[1].z           = 1;
-	blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-	blit.dstSubresource.layerCount = 1;
-	blit.dstSubresource.mipLevel   = i;
-	blit.dstOffsets[1].x           = static_cast<i32>(dst_width);
-	blit.dstOffsets[1].y           = static_cast<i32>(dst_height);
-	blit.dstOffsets[1].z           = 1;
+        VkImageBlit blit{};
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.layerCount = 1;
+        blit.srcSubresource.mipLevel   = i - 1;
+        blit.srcOffsets[1].x           = static_cast<i32>(src_width);
+        blit.srcOffsets[1].y           = static_cast<i32>(src_height);
+        blit.srcOffsets[1].z           = 1;
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.layerCount = 1;
+        blit.dstSubresource.mipLevel   = i;
+        blit.dstOffsets[1].x           = static_cast<i32>(dst_width);
+        blit.dstOffsets[1].y           = static_cast<i32>(dst_height);
+        blit.dstOffsets[1].z           = 1;
 
-	vk::ImageSubresourceRange mip_sub_range(vk::ImageAspectFlagBits::eColor, i, 1, 0, 1);
+        mip_sub_range.baseMipLevel = i;
 
-	{
-	    vk::ImageMemoryBarrier b{};
-	    b.oldLayout        = vk::ImageLayout::eUndefined;
-	    b.newLayout        = vk::ImageLayout::eTransferDstOptimal;
-	    b.srcAccessMask    = vk::AccessFlags();
-	    b.dstAccessMask    = vk::AccessFlagBits::eTransferWrite;
-	    b.image            = image.vkhandle;
-	    b.subresourceRange = mip_sub_range;
-	    cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
-				 nullptr, nullptr, b);
-	}
+        {
+            VkImageMemoryBarrier b{};
+            b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            b.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+            b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b.srcAccessMask    = 0;
+            b.dstAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b.image            = image.vkhandle;
+            b.subresourceRange = mip_sub_range;
 
-	cmd->blitImage(image.vkhandle, vk::ImageLayout::eTransferSrcOptimal, image.vkhandle,
-		       vk::ImageLayout::eTransferDstOptimal, blit, vk::Filter::eLinear);
+            vkCmdPipelineBarrier(cmd,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 0,
+                                 0,
+                                 nullptr,
+                                 0,
+                                 nullptr,
+                                 1,
+                                 &b);
+        }
 
-	{
-	    vk::ImageMemoryBarrier b{};
-	    b.oldLayout        = vk::ImageLayout::eTransferDstOptimal;
-	    b.newLayout        = vk::ImageLayout::eTransferSrcOptimal;
-	    b.srcAccessMask    = vk::AccessFlagBits::eTransferWrite;
-	    b.dstAccessMask    = vk::AccessFlagBits::eTransferRead;
-	    b.image            = image.vkhandle;
-	    b.subresourceRange = mip_sub_range;
-	    cmd->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
-				 nullptr, nullptr, b);
-	}
+        vkCmdBlitImage(cmd,
+                       image.vkhandle,
+                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       image.vkhandle,
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1,
+                       &blit,
+                       VK_FILTER_LINEAR);
+
+        {
+            VkImageMemoryBarrier b{};
+            b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            b.oldLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            b.srcAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b.dstAccessMask    = VK_ACCESS_TRANSFER_READ_BIT;
+            b.image            = image.vkhandle;
+            b.subresourceRange = mip_sub_range;
+            vkCmdPipelineBarrier(cmd,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 0,
+                                 0,
+                                 nullptr,
+                                 0,
+                                 nullptr,
+                                 1,
+                                 &b);
+        }
     }
 
     image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    transition_layout_internal(*cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_READ, image.access,
-			       image.full_range);
-    image.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    transition_layout_internal(cmd_buffer.vkhandle,
+                               image.vkhandle,
+                               THSVS_ACCESS_TRANSFER_READ,
+                               image.access,
+                               image.full_range);
+    image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     cmd_buffer.submit_and_wait();
 }
@@ -401,12 +504,13 @@ FatPtr API::read_image(ImageH H)
     assert(!image.info.is_sparse);
     assert(image.info.is_linear);
     assert(image.image_info.mipLevels == 1);
-    assert(image.info.memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU || image.info.memory_usage == VMA_MEMORY_USAGE_CPU_ONLY);
+    assert(image.info.memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU
+           || image.info.memory_usage == VMA_MEMORY_USAGE_CPU_ONLY);
 
     if (!image.mapped_ptr.data)
     {
         vmaMapMemory(ctx.allocator, image.allocation, &image.mapped_ptr.data);
-        //TODO: return size?
+        // TODO: return size?
         image.mapped_ptr.size = 1;
     }
 
@@ -421,22 +525,23 @@ SamplerH API::create_sampler(const SamplerInfo &info)
 {
     Sampler sampler;
 
-    vk::SamplerCreateInfo sci{};
+    VkSamplerCreateInfo sci{};
+    sci.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sci.magFilter        = info.mag_filter;
     sci.minFilter        = info.min_filter;
     sci.mipmapMode       = info.mip_map_mode;
     sci.addressModeU     = info.address_mode;
     sci.addressModeV     = info.address_mode;
     sci.addressModeW     = info.address_mode;
-    sci.compareOp        = vk::CompareOp::eNever;
-    sci.borderColor      = vk::BorderColor::eFloatTransparentBlack;
+    sci.compareOp        = VK_COMPARE_OP_NEVER;
+    sci.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
     sci.minLod           = 0;
     sci.maxLod           = 7;
     sci.maxAnisotropy    = 8.0f;
-    sci.anisotropyEnable = VK_TRUE;
-    sampler.vkhandle     = ctx.device->createSamplerUnique(sci);
-    sampler.info         = info;
+    sci.anisotropyEnable = true;
 
+    VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &sampler.vkhandle));
+    sampler.info = info;
 
     return samplers.add(std::move(sampler));
 }
@@ -447,9 +552,17 @@ Sampler &API::get_sampler(SamplerH H)
     return *samplers.get(H);
 }
 
+
+void destroy_sampler_internal(API &api, Sampler &sampler)
+{
+    vkDestroySampler(api.ctx.device, sampler.vkhandle, nullptr);
+}
+
 void API::destroy_sampler(SamplerH H)
 {
     assert(H.is_valid());
+    auto *sampler = samplers.get(H);
+    destroy_sampler_internal(*this, *sampler);
     samplers.remove(H);
 }
 
@@ -465,7 +578,8 @@ BufferH API::create_buffer(const BufferInfo &info)
     buf.mapped       = nullptr;
     buf.size         = info.size;
 
-    vk::BufferCreateInfo ci{};
+    VkBufferCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     ci.usage = info.usage;
     ci.size  = info.size;
 
@@ -474,12 +588,21 @@ BufferH API::create_buffer(const BufferInfo &info)
     alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
     alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
-    VK_CHECK(vmaCreateBuffer(ctx.allocator, reinterpret_cast<VkBufferCreateInfo *>(&ci), &alloc_info,
-			     reinterpret_cast<VkBuffer *>(&buf.vkhandle), &buf.allocation, nullptr));
+    VK_CHECK(vmaCreateBuffer(ctx.allocator,
+                             reinterpret_cast<VkBufferCreateInfo *>(&ci),
+                             &alloc_info,
+                             reinterpret_cast<VkBuffer *>(&buf.vkhandle),
+                             &buf.allocation,
+                             nullptr));
 
-    if (ENABLE_VALIDATION_LAYERS) {
-	ctx.device->setDebugUtilsObjectNameEXT(
-	    vk::DebugUtilsObjectNameInfoEXT{vk::ObjectType::eBuffer, get_raw_vulkan_handle(buf.vkhandle), info.name});
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni{};
+        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+        ni.objectHandle = reinterpret_cast<u64>(buf.vkhandle);
+        ni.objectType   = VK_OBJECT_TYPE_BUFFER;
+        ni.pObjectName  = info.name;
+        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
     return buffers.add(std::move(buf));
@@ -493,16 +616,18 @@ Buffer &API::get_buffer(BufferH H)
 
 void destroy_buffer_internal(API &api, Buffer &buf)
 {
-    if (buf.mapped) {
-	vmaUnmapMemory(api.ctx.allocator, buf.allocation);
+    if (buf.mapped)
+    {
+        vmaUnmapMemory(api.ctx.allocator, buf.allocation);
     }
     vmaDestroyBuffer(api.ctx.allocator, buf.vkhandle, buf.allocation);
 }
 
 static void *buffer_map_internal(API &api, Buffer &buf)
 {
-    if (buf.mapped == nullptr) {
-	vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
+    if (buf.mapped == nullptr)
+    {
+        vmaMapMemory(api.ctx.allocator, buf.allocation, &buf.mapped);
     }
     return buf.mapped;
 }
@@ -526,11 +651,11 @@ void API::upload_buffer(BufferH H, void *data, usize len)
 
     cmd_buffer.begin();
 
-    vk::BufferCopy copy;
+    VkBufferCopy copy;
     copy.srcOffset = staging_position.offset;
     copy.dstOffset = 0;
     copy.size      = len;
-    cmd_buffer.vkhandle->copyBuffer(staging.vkhandle, buffer.vkhandle, copy);
+    vkCmdCopyBuffer(cmd_buffer.vkhandle, staging.vkhandle, buffer.vkhandle, 1, &copy);
 
     cmd_buffer.submit_and_wait();
 }
@@ -542,27 +667,45 @@ CommandBuffer API::get_temp_cmd_buffer()
     CommandBuffer cmd{ctx, {}};
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    cmd.vkhandle = std::move(ctx.device->allocateCommandBuffersUnique(
-	{*frame_resource.command_pool, vk::CommandBufferLevel::ePrimary, 1})[0]);
+    VkCommandBufferAllocateInfo ai{};
+    ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool        = frame_resource.command_pool;
+    ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &ai, &cmd.vkhandle));
 
     return cmd;
 }
 
-void CommandBuffer::begin() { vkhandle->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit}); }
+void CommandBuffer::begin()
+{
+    VkCommandBufferBeginInfo binfo{};
+    binfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    binfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(vkhandle, &binfo);
+}
 
 void CommandBuffer::submit_and_wait()
 {
-    vk::UniqueFence fence = ctx.device->createFenceUnique({});
-    auto graphics_queue   = ctx.device->getQueue(ctx.graphics_family_idx, 0);
+    VkFence fence;
+    VkFenceCreateInfo fci{};
+    fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VK_CHECK(vkCreateFence(ctx.device, &fci, nullptr, &fence));
 
-    vkhandle->end();
+    VkQueue graphics_queue;
+    vkGetDeviceQueue(ctx.device, ctx.graphics_family_idx, 0, &graphics_queue);
 
-    vk::SubmitInfo si{};
+    VK_CHECK(vkEndCommandBuffer(vkhandle));
+
+    VkSubmitInfo si{};
+    si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
-    si.pCommandBuffers    = &vkhandle.get();
-    graphics_queue.submit(si, *fence);
+    si.pCommandBuffers    = &vkhandle;
 
-    ctx.device->waitForFences({*fence}, VK_FALSE, UINT64_MAX);
+    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &si, fence));
+
+    VK_CHECK(vkWaitForFences(ctx.device, 1, &fence, true, UINT64_MAX));
+    vkDestroyFence(ctx.device, fence, nullptr);
 }
 
 /// --- Circular buffers
@@ -575,8 +718,9 @@ CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &ci
     constexpr uint min_uniform_buffer_alignment = 256u;
     len                                         = round_up_to_alignment(min_uniform_buffer_alignment, len);
 
-    if (current_offset + len > buffer.size) {
-	current_offset = 0;
+    if (current_offset + len > buffer.size)
+    {
+        current_offset = 0;
     }
 
     buffer_map_internal(api, buffer);
@@ -630,13 +774,14 @@ ShaderH API::create_shader(std::string_view path)
     auto code   = tools::read_file(path);
     // keep code for reflection?
 
-    vk::ShaderModuleCreateInfo info{};
-    info.codeSize   = code.size();
-    info.pCode      = reinterpret_cast<const u32 *>(code.data());
-    shader.vkhandle = ctx.device->createShaderModuleUnique(info);
+    VkShaderModuleCreateInfo info{};
+    info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    info.codeSize = code.size();
+    info.pCode    = reinterpret_cast<const u32 *>(code.data());
+
+    VK_CHECK(vkCreateShaderModule(ctx.device, &info, nullptr, &shader.vkhandle));
 
     return shaders.add(std::move(shader));
-
 }
 
 Shader &API::get_shader(ShaderH H)
@@ -645,9 +790,16 @@ Shader &API::get_shader(ShaderH H)
     return *shaders.get(H);
 }
 
+void destroy_shader_internal(API &api, Shader &shader)
+{
+    vkDestroyShaderModule(api.ctx.device, shader.vkhandle, nullptr);
+}
+
 void API::destroy_shader(ShaderH H)
 {
     assert(H.is_valid());
+    auto *shader = shaders.get(H);
+    destroy_shader_internal(*this, *shader);
     shaders.remove(H);
 }
 
@@ -679,69 +831,70 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     /// --- Create descriptor set layout
 
-    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++) {
-	std::vector<vk::DescriptorSetLayoutBinding> bindings;
-	program.dynamic_count_by_set[i] = 0;
+    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> bindings;
+        program.dynamic_count_by_set[i] = 0;
 
-	map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
-	    vk::DescriptorSetLayoutBinding binding;
-	    binding.binding        = info_binding.slot;
-	    binding.stageFlags     = info_binding.stages;
-	    binding.descriptorType = info_binding.type;
+        map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
+            VkDescriptorSetLayoutBinding binding{};
+            binding.binding        = info_binding.slot;
+            binding.stageFlags     = info_binding.stages;
+            binding.descriptorType = info_binding.type;
 
-	    if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
-		program.dynamic_count_by_set[i]++;
-	    }
+            if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+            {
+                program.dynamic_count_by_set[i]++;
+            }
 
-	    binding.descriptorCount = info_binding.count;
-	    return binding;
-	});
+            binding.descriptorCount = info_binding.count;
+            return binding;
+        });
 
-	// clang-format off
-	std::vector<vk::DescriptorBindingFlags> flags{info.bindings_by_set[i].size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
-	// clang-format on
-	vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
-	flags_info.bindingCount  = static_cast<u32>(bindings.size());
-	flags_info.pBindingFlags = flags.data();
+        // clang-format off
+        std::vector<VkDescriptorBindingFlags> flags(info.bindings_by_set[i].size(), 0);
+        // clang-format on
 
-	vk::DescriptorSetLayoutCreateInfo layout_info{};
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
+        flags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        flags_info.bindingCount  = static_cast<u32>(bindings.size());
+        flags_info.pBindingFlags = flags.data();
+
+        VkDescriptorSetLayoutCreateInfo layout_info{};
+        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_info.pNext        = &flags_info;
-	layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-	layout_info.bindingCount = static_cast<u32>(bindings.size());
-	layout_info.pBindings    = bindings.data();
+        layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+        layout_info.bindingCount = static_cast<u32>(bindings.size());
+        layout_info.pBindings    = bindings.data();
 
-	program.descriptor_layouts[i] = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+        VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &program.descriptor_layouts[i]));
     }
 
     /// --- Create pipeline layout
 
-    std::vector<vk::PushConstantRange> pc_ranges;
+    std::vector<VkPushConstantRange> pc_ranges;
     map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
-	vk::PushConstantRange range;
-	range.stageFlags = push_constant.stages;
-	range.offset     = push_constant.offset;
-	range.size       = push_constant.size;
-	return range;
+        VkPushConstantRange range;
+        range.stageFlags = push_constant.stages;
+        range.offset     = push_constant.offset;
+        range.size       = push_constant.size;
+        return range;
     });
 
-    std::vector<vk::DescriptorSetLayout> layouts;
+    auto &layouts = program.descriptor_layouts;
 
-    for (const auto &unique_layout : program.descriptor_layouts) {
-	if (unique_layout) {
-	    layouts.push_back(*unique_layout);
-	}
-    }
-
-    vk::PipelineLayoutCreateInfo ci{};
+    VkPipelineLayoutCreateInfo ci{};
+    ci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     ci.pSetLayouts            = layouts.data();
     ci.setLayoutCount         = static_cast<u32>(layouts.size());
     ci.pPushConstantRanges    = pc_ranges.data();
     ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
 
-    program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
-    program.info            = std::move(info);
+    VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
+    program.info = std::move(info);
 
-    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++) {
+    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
+    {
         program.data_dirty_by_set[i] = true;
     }
 
@@ -754,16 +907,17 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 
     /// --- Create descriptor set layout
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
     program.dynamic_count = 0;
 
     map_transform(info.bindings, bindings, [&](const auto &info_binding) {
-        vk::DescriptorSetLayoutBinding binding;
+        VkDescriptorSetLayoutBinding binding{};
         binding.binding        = info_binding.slot;
         binding.stageFlags     = info_binding.stages;
         binding.descriptorType = info_binding.type;
 
-        if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+        {
             program.dynamic_count++;
         }
 
@@ -772,66 +926,66 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     });
 
     // clang-format off
-    std::vector<vk::DescriptorBindingFlags> flags{info.bindings.size(), vk::DescriptorBindingFlags{/*vk::DescriptorBindingFlagBits::eUpdateAfterBind*/}};
+    std::vector<VkDescriptorBindingFlags> flags( info.bindings.size(), 0 );
     // clang-format on
-    vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
+    flags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
-    vk::DescriptorSetLayoutCreateInfo layout_info{};
+    VkDescriptorSetLayoutCreateInfo layout_info{};
+    layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layout_info.pNext        = &flags_info;
     layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
     layout_info.bindingCount = static_cast<u32>(bindings.size());
     layout_info.pBindings    = bindings.data();
 
-    program.descriptor_layout = ctx.device->createDescriptorSetLayoutUnique(layout_info);
+    VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &program.descriptor_layout));
 
     /// --- Create pipeline layout
 
-    std::vector<vk::PushConstantRange> pc_ranges;
+    std::vector<VkPushConstantRange> pc_ranges;
     map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
-	vk::PushConstantRange range;
-	range.stageFlags = push_constant.stages;
-	range.offset     = push_constant.offset;
-	range.size       = push_constant.size;
-	return range;
+        VkPushConstantRange range;
+        range.stageFlags = push_constant.stages;
+        range.offset     = push_constant.offset;
+        range.size       = push_constant.size;
+        return range;
     });
 
-    const vk::DescriptorSetLayout *layout = &program.descriptor_layout.get();
-
-
-    vk::PipelineLayoutCreateInfo ci{};
-    ci.pSetLayouts            = layout;
-    ci.setLayoutCount         = layout ? 1 : 0;
+    VkPipelineLayoutCreateInfo ci{};
+    ci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    ci.pSetLayouts            = &program.descriptor_layout;
+    ci.setLayoutCount         = 1;
     ci.pPushConstantRanges    = pc_ranges.data();
     ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
 
-    program.pipeline_layout = ctx.device->createPipelineLayoutUnique(ci);
+    VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
 
-
-    program.info             = std::move(info);
+    program.info = std::move(info);
 
     program.data_dirty = true;
 
     /// --- Create pipeline
     const auto &compute_shader = get_shader(program.info.shader);
 
-    vk::ComputePipelineCreateInfo pinfo{};
-    pinfo.stage.stage  = vk::ShaderStageFlagBits::eCompute;
-    pinfo.stage.module = *compute_shader.vkhandle;
+    VkComputePipelineCreateInfo pinfo{};
+    pinfo.sType        = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pinfo.stage.sType  =  VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    pinfo.stage.module = compute_shader.vkhandle;
     pinfo.stage.pName  = "main";
-    pinfo.layout       = *program.pipeline_layout;
+    pinfo.layout       = program.pipeline_layout;
 
     program.pipelines_vk.emplace_back();
     auto &pipeline = program.pipelines_vk.back();
-    pipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+
+    VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));
 
     program.pipelines_info.push_back(std::move(pinfo));
 
-
     return compute_programs.add(std::move(program));
 }
-
 
 void ComputeProgramInfo::push_constant(PushConstantInfo &&push_constant)
 {
@@ -855,39 +1009,78 @@ ComputeProgram &API::get_program(ComputeProgramH H)
     return *compute_programs.get(H);
 }
 
+void destroy_program_internal(API &api, GraphicsProgram &program)
+{
+    for (auto layout : program.descriptor_layouts)
+    {
+        vkDestroyDescriptorSetLayout(api.ctx.device, layout, nullptr);
+    }
+
+    vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
+
+    for (auto pipeline : program.pipelines_vk)
+    {
+        vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
+    }
+}
+
 void API::destroy_program(GraphicsProgramH H)
 {
     assert(H.is_valid());
+    auto *program = graphics_programs.get(H);
+    destroy_program_internal(*this, *program);
     graphics_programs.remove(H);
 }
 
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout)
+
+void destroy_program_internal(API &api, ComputeProgram &program)
+{
+    vkDestroyDescriptorSetLayout(api.ctx.device, program.descriptor_layout, nullptr);
+    vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
+
+    for (auto pipeline : program.pipelines_vk)
+    {
+        vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
+    }
+}
+
+void API::destroy_program(ComputeProgramH H)
+{
+    assert(H.is_valid());
+    auto *program = compute_programs.get(H);
+    destroy_program_internal(*this, *program);
+    compute_programs.remove(H);
+}
+
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout)
 {
     transition_if_needed_internal(api, image, next_access, next_layout, image.full_range);
 }
 
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout, vk::ImageSubresourceRange &range)
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout,
+                                   VkImageSubresourceRange &range)
 {
     if (image.access != next_access)
     {
         auto &frame_resource = api.ctx.frame_resources.get_current();
-        transition_layout_internal(*frame_resource.command_buffer,
-                                   image.vkhandle,
-                                   image.access,
-                                   next_access,
-                                   range);
+        transition_layout_internal(frame_resource.command_buffer, image.vkhandle, image.access, next_access, range);
         image.access = next_access;
         image.layout = next_layout;
     }
 }
 
-void API::clear_image(ImageH H, const vk::ClearColorValue &clear_color)
+void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    auto &image = get_image(H);
-    transition_if_needed_internal(*this, image, THSVS_ACCESS_TRANSFER_WRITE, vk::ImageLayout::eTransferDstOptimal);
-    frame_resource.command_buffer->clearColorImage(image.vkhandle, image.layout, clear_color, image.full_range);
-}
+    auto &image          = get_image(H);
+    transition_if_needed_internal(*this, image, THSVS_ACCESS_TRANSFER_WRITE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+    vkCmdClearColorImage(frame_resource.command_buffer,
+                         image.vkhandle,
+                         image.layout,
+                         &clear_color,
+                         1,
+                         &image.full_range);
+}
 
 } // namespace my_app::vulkan

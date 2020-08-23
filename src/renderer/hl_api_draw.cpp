@@ -1,6 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
@@ -19,24 +19,24 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     RenderPass rp;
     rp.info = std::move(info);
 
-    std::vector<vk::AttachmentDescription> attachments;
+    std::vector<VkAttachmentDescription> attachments;
 
-    vk::AttachmentReference color_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+    VkAttachmentReference color_ref{.attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 
     bool separateDepthStencilLayouts = api.ctx.vulkan12_features.separateDepthStencilLayouts;
-    vk::AttachmentReference depth_ref(0, separateDepthStencilLayouts ? vk::ImageLayout::eDepthAttachmentOptimal : vk::ImageLayout::eGeneral);
+    VkAttachmentReference depth_ref{.attachment = 0, .layout = separateDepthStencilLayouts ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL};
 
     if (rp.info.color) {
         color_ref.attachment = static_cast<u32>(attachments.size());
 
-        vk::ImageLayout initial_layout;
-        auto final_layout = rp.info.present ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eShaderReadOnlyOptimal;
-        vk::Format format;
+        VkImageLayout initial_layout;
+        auto final_layout = rp.info.present ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkFormat format;
 
         auto color_rt  = api.get_rendertarget(rp.info.color->rt);
         if (color_rt.is_swapchain)
         {
-            initial_layout = rp.info.color->load_op == vk::AttachmentLoadOp::eClear ? vk::ImageLayout::eUndefined : vk::ImageLayout::ePresentSrcKHR;
+            initial_layout = rp.info.color->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             format = api.ctx.swapchain.format.format;
         }
         else
@@ -52,19 +52,19 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
             }
         }
 
-        if (initial_layout == vk::ImageLayout::eUndefined)
+        if (initial_layout == VK_IMAGE_LAYOUT_UNDEFINED)
         {
-            rp.info.color->load_op = vk::AttachmentLoadOp::eClear;
+            rp.info.color->load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
         }
 
 
-        vk::AttachmentDescription attachment;
+        VkAttachmentDescription attachment;
         attachment.format         = format;
-        attachment.samples        = vk::SampleCountFlagBits::e1;
+        attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp         = rp.info.color->load_op;
-        attachment.storeOp        = vk::AttachmentStoreOp::eStore;
-        attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
-        attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachment.initialLayout  = initial_layout;
         attachment.finalLayout    = final_layout;
         attachment.flags          = {};
@@ -77,22 +77,22 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         const auto &depth_rt    = api.get_rendertarget(rp.info.depth->rt);
         const auto &depth_image = api.get_image(depth_rt.image_h);
 
-        vk::AttachmentDescription attachment;
+        VkAttachmentDescription attachment;
         attachment.format         = depth_image.image_info.format;
-        attachment.samples        = vk::SampleCountFlagBits::e1;
+        attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp         = rp.info.depth->load_op;
-        attachment.storeOp        = vk::AttachmentStoreOp::eStore;
-        attachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
-        attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachment.initialLayout  = rp.info.depth->load_op == vk::AttachmentLoadOp::eClear ? vk::ImageLayout::eUndefined : vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-        attachment.finalLayout    = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachment.initialLayout  = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        attachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
         attachment.flags          = {};
         attachments.push_back(std::move(attachment));
     }
 
-    std::array<vk::SubpassDescription, 1> subpasses{};
-    subpasses[0].flags                = vk::SubpassDescriptionFlags(0);
-    subpasses[0].pipelineBindPoint    = vk::PipelineBindPoint::eGraphics;
+    std::array<VkSubpassDescription, 1> subpasses{};
+    subpasses[0].flags                = 0;
+    subpasses[0].pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpasses[0].inputAttachmentCount = 0;
     subpasses[0].pInputAttachments    = nullptr;
     subpasses[0].colorAttachmentCount = rp.info.color ? 1 : 0;
@@ -104,22 +104,24 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].preserveAttachmentCount = 0;
     subpasses[0].pPreserveAttachments    = nullptr;
 
-    std::array<vk::SubpassDependency, 1> dependencies{};
-    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass = {};
-    dependencies[0].srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[0].srcAccessMask = {};
-    dependencies[0].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[0].dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+    std::array<VkSubpassDependency, 1> dependencies{};
+    dependencies[0].srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass    = 0;
+    dependencies[0].srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = 0;
+    dependencies[0].dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    vk::RenderPassCreateInfo rp_info{};
+    VkRenderPassCreateInfo rp_info{};
+    rp_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     rp_info.attachmentCount = static_cast<u32>(attachments.size());
     rp_info.pAttachments    = attachments.data();
     rp_info.subpassCount    = subpasses.size();
     rp_info.pSubpasses      = subpasses.data();
     rp_info.dependencyCount = dependencies.size();
     rp_info.pDependencies   = dependencies.data();
-    rp.vkhandle             = api.ctx.device->createRenderPassUnique(rp_info);
+
+    VK_CHECK(vkCreateRenderPass(api.ctx.device, &rp_info, nullptr, &rp.vkhandle));
 
     return api.renderpasses.add(std::move(rp));
 }
@@ -135,7 +137,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
     FrameBuffer fb;
     fb.info = info;
 
-    std::vector<vk::ImageView> attachments;
+    std::vector<VkImageView> attachments;
     if (render_pass.info.color) {
         attachments.push_back(fb.info.image_view);
     }
@@ -144,14 +146,16 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
         attachments.push_back(fb.info.depth_view);
     }
 
-    vk::FramebufferCreateInfo ci{};
-    ci.renderPass      = *render_pass.vkhandle;
+    VkFramebufferCreateInfo ci{};
+    ci.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    ci.renderPass      = render_pass.vkhandle;
     ci.attachmentCount = static_cast<u32>(attachments.size());
     ci.pAttachments    = attachments.data();
     ci.layers          = 1;
     ci.width           = fb.info.width;
     ci.height          = fb.info.height;
-    fb.vkhandle        = api.ctx.device->createFramebufferUnique(ci);
+
+    VK_CHECK(vkCreateFramebuffer(api.ctx.device, &ci, nullptr, &fb.vkhandle));
 
     api.framebuffers.push_back(std::move(fb));
     return api.framebuffers.back();
@@ -182,7 +186,7 @@ void API::begin_pass(PassInfo &&info)
         fb_info.depth_view      = depth_image.default_view;
     }
 
-    fb_info.render_pass = *render_pass.vkhandle;
+    fb_info.render_pass = render_pass.vkhandle;
 
     if (render_pass.info.color) {
         const auto &rt = get_rendertarget(render_pass.info.color->rt);
@@ -211,45 +215,46 @@ void API::begin_pass(PassInfo &&info)
 
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    vk::Rect2D render_area{vk::Offset2D(), {frame_buffer.info.width, frame_buffer.info.height}};
+    VkRect2D render_area{VkOffset2D(), {frame_buffer.info.width, frame_buffer.info.height}};
 
-    std::vector<vk::ClearValue> clear_values;
+    std::vector<VkClearValue> clear_values;
 
-    if (render_pass.info.color && render_pass.info.color->load_op == vk::AttachmentLoadOp::eClear) {
-        vk::ClearValue clear;
-        clear.color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
+    if (render_pass.info.color && render_pass.info.color->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+        VkClearValue clear;
+        clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
         clear_values.push_back(std::move(clear));
     }
 
-    if (render_pass.info.depth && render_pass.info.depth->load_op == vk::AttachmentLoadOp::eClear) {
+    if (render_pass.info.depth && render_pass.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
         // ??
         if (render_pass.info.color && clear_values.empty()) {
-            vk::ClearValue clear;
-            clear.color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
+            VkClearValue clear;
+            clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
             clear_values.push_back(std::move(clear));
         }
 
-        vk::ClearValue clear;
-        clear.depthStencil = vk::ClearDepthStencilValue(0.0f, 0);
+        VkClearValue clear;
+        clear.depthStencil = VkClearDepthStencilValue{.depth = 0.0f, .stencil = 0};
         clear_values.push_back(std::move(clear));
     }
 
-    vk::RenderPassBeginInfo rpbi{};
+    VkRenderPassBeginInfo rpbi{};
+    rpbi.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rpbi.renderArea      = render_area;
-    rpbi.renderPass      = *render_pass.vkhandle;
-    rpbi.framebuffer     = *frame_buffer.vkhandle;
+    rpbi.renderPass      = render_pass.vkhandle;
+    rpbi.framebuffer     = frame_buffer.vkhandle;
     rpbi.clearValueCount = static_cast<u32>(clear_values.size());
     rpbi.pClearValues    = clear_values.data();
 
     current_render_pass = render_pass_h;
 
-    frame_resource.command_buffer->beginRenderPass(rpbi, vk::SubpassContents::eInline);
+    vkCmdBeginRenderPass(frame_resource.command_buffer, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void API::end_pass()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->endRenderPass();
+    vkCmdEndRenderPass(frame_resource.command_buffer);
 
     auto *maybe_render_pass = renderpasses.get(current_render_pass);
     assert(maybe_render_pass);
@@ -258,13 +263,13 @@ void API::end_pass()
     if (render_pass.info.depth) {
         auto &depth_rt     = get_rendertarget(render_pass.info.depth->rt);
         auto &depth_image  = get_image(depth_rt.image_h);
-        depth_image.layout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        depth_image.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     }
 
     current_render_pass = RenderPassH::invalid();
 }
 
-static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
+static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
 {
     // const auto &program_info = pipeline_info.program_info;
     u32 pipeline_i           = u32_invalid;
@@ -278,9 +283,12 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
     }
 
     if (pipeline_i == u32_invalid) {
-        std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+        std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-        vk::PipelineDynamicStateCreateInfo dyn_i{{}, static_cast<u32>(dynamic_states.size()), dynamic_states.data()};
+        VkPipelineDynamicStateCreateInfo dyn_i{};
+        dyn_i.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dyn_i.dynamicStateCount = dynamic_states.size();
+        dyn_i.pDynamicStates    = dynamic_states.data();
 
         const auto &program_info       = pipeline_info.program_info;
         const auto &vertex_buffer_info = program_info.vertex_buffer_info;
@@ -288,17 +296,17 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
 
         // TODO: support 0 or more than 1 vertex buffer
         // but full screen triangle already works without vertex buffer?
-        std::array<vk::VertexInputBindingDescription, 1> bindings;
+        std::array<VkVertexInputBindingDescription, 1> bindings;
         bindings[0].binding   = 0;
         bindings[0].stride    = vertex_buffer_info.stride;
-        bindings[0].inputRate = vk::VertexInputRate::eVertex;
+        bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-        std::vector<vk::VertexInputAttributeDescription> attributes;
+        std::vector<VkVertexInputAttributeDescription> attributes;
         attributes.reserve(vertex_buffer_info.vertices_info.size());
 
         u32 location = 0;
         for (const auto &vertex_info : vertex_buffer_info.vertices_info) {
-            vk::VertexInputAttributeDescription attribute;
+            VkVertexInputAttributeDescription attribute;
             attribute.binding  = bindings[0].binding;
             attribute.location = location;
             attribute.format   = vertex_info.format;
@@ -307,50 +315,55 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
             location++;
         }
 
-        vk::PipelineVertexInputStateCreateInfo vert_i{};
-        vert_i.vertexBindingDescriptionCount   = attributes.size() == 0 ? 0 : bindings.size();
+        VkPipelineVertexInputStateCreateInfo vert_i{};
+        vert_i.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vert_i.vertexBindingDescriptionCount   = attributes.empty() ? 0 : bindings.size();
         vert_i.pVertexBindingDescriptions      = bindings.data();
         vert_i.vertexAttributeDescriptionCount = static_cast<u32>(attributes.size());
         vert_i.pVertexAttributeDescriptions    = attributes.data();
 
-        vk::PipelineInputAssemblyStateCreateInfo asm_i{};
+        VkPipelineInputAssemblyStateCreateInfo asm_i{};
+        asm_i.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         asm_i.flags                  = {};
         asm_i.primitiveRestartEnable = VK_FALSE;
-        asm_i.topology               = vk::PrimitiveTopology::eTriangleList;
+        asm_i.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 
-        vk::PipelineRasterizationConservativeStateCreateInfoEXT conservative{};
-        vk::PipelineRasterizationStateCreateInfo rast_i{};
+        VkPipelineRasterizationConservativeStateCreateInfoEXT conservative{};
+        conservative.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT;
+
+        VkPipelineRasterizationStateCreateInfo rast_i{};
+        rast_i.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 
         if (program_info.enable_conservative_rasterization)
         {
             rast_i.pNext = &conservative;
-            conservative.conservativeRasterizationMode = vk::ConservativeRasterizationModeEXT::eOverestimate;
+            conservative.conservativeRasterizationMode = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
             conservative.extraPrimitiveOverestimationSize = 0.1; // in pixels
         }
 
         rast_i.flags                   = {};
-        rast_i.polygonMode             = vk::PolygonMode::eFill;
-        rast_i.cullMode                = vk::CullModeFlagBits::eNone;
-        rast_i.frontFace               = vk::FrontFace::eCounterClockwise;
+        rast_i.polygonMode             = VK_POLYGON_MODE_FILL;
+        rast_i.cullMode                = VK_CULL_MODE_NONE;
+        rast_i.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rast_i.depthClampEnable        = VK_FALSE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
-        rast_i.depthBiasEnable         = program_info.depth_bias != 0.0f ? true : false;
+        rast_i.depthBiasEnable         = program_info.depth_bias != 0.0f;
         rast_i.depthBiasConstantFactor = program_info.depth_bias;
         rast_i.depthBiasClamp          = 0;
         rast_i.depthBiasSlopeFactor    = 0;
         rast_i.lineWidth               = 1.0f;
 
         // TODO: from render_pass
-        std::array<vk::PipelineColorBlendAttachmentState, 1> att_states;
-        att_states[0].colorWriteMask      = {vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
+        std::array<VkPipelineColorBlendAttachmentState, 1> att_states;
+        att_states[0].colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
         att_states[0].blendEnable         = VK_TRUE;
-        att_states[0].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-        att_states[0].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-        att_states[0].colorBlendOp        = vk::BlendOp::eAdd;
-        att_states[0].srcAlphaBlendFactor = vk::BlendFactor::eOne;
-        att_states[0].dstAlphaBlendFactor = vk::BlendFactor::eZero;
-        att_states[0].alphaBlendOp        = vk::BlendOp::eAdd;
+        att_states[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        att_states[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        att_states[0].colorBlendOp        = VK_BLEND_OP_ADD;
+        att_states[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        att_states[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        att_states[0].alphaBlendOp        = VK_BLEND_OP_ADD;
 
         if (render_pass.info.color)
         {
@@ -360,52 +373,55 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
             {
                 auto &image = api.get_image(color.image_h);
                 // TODO: disable for all uint
-                if (image.image_info.format == vk::Format::eR8Uint) {
+                if (image.image_info.format == VK_FORMAT_R8_UINT) {
                     att_states[0].blendEnable = VK_FALSE;
                 }
             }
         }
 
 
-        vk::PipelineColorBlendStateCreateInfo colorblend_i{};
-        colorblend_i.flags             = {};
+        VkPipelineColorBlendStateCreateInfo colorblend_i{};
+        colorblend_i.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorblend_i.flags             = 0;
         colorblend_i.attachmentCount   = att_states.size();
         colorblend_i.pAttachments      = att_states.data();
         colorblend_i.logicOpEnable     = VK_FALSE;
-        colorblend_i.logicOp           = vk::LogicOp::eCopy;
+        colorblend_i.logicOp           = VK_LOGIC_OP_COPY;
         colorblend_i.blendConstants[0] = 0.0f;
         colorblend_i.blendConstants[1] = 0.0f;
         colorblend_i.blendConstants[2] = 0.0f;
         colorblend_i.blendConstants[3] = 0.0f;
 
-        vk::PipelineViewportStateCreateInfo vp_i{};
-        vp_i.flags         = {};
+        VkPipelineViewportStateCreateInfo vp_i{};
+        vp_i.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        vp_i.flags         = 0;
         vp_i.viewportCount = 1;
         vp_i.scissorCount  = 1;
         vp_i.pScissors     = nullptr;
         vp_i.pViewports    = nullptr;
 
-        vk::PipelineDepthStencilStateCreateInfo ds_i{};
-        ds_i.flags = vk::PipelineDepthStencilStateCreateFlags();
-
+        VkPipelineDepthStencilStateCreateInfo ds_i{};
+        ds_i.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        ds_i.flags                 = 0;
         ds_i.depthTestEnable       = pipeline_info.program_info.depth_test ? VK_TRUE : VK_FALSE;
         ds_i.depthWriteEnable      = pipeline_info.program_info.enable_depth_write ? VK_TRUE : VK_FALSE;
-        ds_i.depthCompareOp        = pipeline_info.program_info.depth_test ? *pipeline_info.program_info.depth_test : vk::CompareOp::eLessOrEqual;
+        ds_i.depthCompareOp        = pipeline_info.program_info.depth_test ? *pipeline_info.program_info.depth_test : VK_COMPARE_OP_NEVER;
         ds_i.depthBoundsTestEnable = VK_FALSE;
         ds_i.minDepthBounds        = 0.0f;
         ds_i.maxDepthBounds        = 0.0f;
         ds_i.stencilTestEnable     = VK_FALSE;
-        ds_i.back.failOp           = vk::StencilOp::eKeep;
-        ds_i.back.passOp           = vk::StencilOp::eKeep;
-        ds_i.back.compareOp        = vk::CompareOp::eAlways;
+        ds_i.back.failOp           = VK_STENCIL_OP_KEEP;
+        ds_i.back.passOp           = VK_STENCIL_OP_KEEP;
+        ds_i.back.compareOp        = VK_COMPARE_OP_ALWAYS;
         ds_i.back.compareMask      = 0;
         ds_i.back.reference        = 0;
-        ds_i.back.depthFailOp      = vk::StencilOp::eKeep;
+        ds_i.back.depthFailOp      = VK_STENCIL_OP_KEEP;
         ds_i.back.writeMask        = 0;
         ds_i.front                 = ds_i.back;
 
-        vk::PipelineMultisampleStateCreateInfo ms_i{};
-        ms_i.flags                 = {};
+        VkPipelineMultisampleStateCreateInfo ms_i{};
+        ms_i.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        ms_i.flags                 = 0;
         ms_i.pSampleMask           = nullptr;
         ms_i.rasterizationSamples  = render_pass.info.samples;
         ms_i.sampleShadingEnable   = VK_FALSE;
@@ -413,28 +429,44 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         ms_i.alphaToOneEnable      = VK_FALSE;
         ms_i.minSampleShading      = .2f;
 
-        std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+        std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
         shader_stages.reserve(3);
 
-        if (program_info.vertex_shader.is_valid()) {
+        if (program_info.vertex_shader.is_valid())
+        {
             const auto &shader = api.get_shader(program_info.vertex_shader);
-            vk::PipelineShaderStageCreateInfo create_info{{}, vk::ShaderStageFlagBits::eVertex, *shader.vkhandle, "main"};
+            VkPipelineShaderStageCreateInfo create_info{};
+            create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            create_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+            create_info.module = shader.vkhandle;
+            create_info.pName  = "main";
             shader_stages.push_back(std::move(create_info));
         }
 
-        if (program_info.geom_shader.is_valid()) {
+        if (program_info.geom_shader.is_valid())
+        {
             const auto &shader = api.get_shader(program_info.geom_shader);
-            vk::PipelineShaderStageCreateInfo create_info{{}, vk::ShaderStageFlagBits::eGeometry, *shader.vkhandle, "main"};
+            VkPipelineShaderStageCreateInfo create_info{};
+            create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            create_info.stage  = VK_SHADER_STAGE_GEOMETRY_BIT;
+            create_info.module = shader.vkhandle;
+            create_info.pName  = "main";
             shader_stages.push_back(std::move(create_info));
         }
 
-        if (program_info.fragment_shader.is_valid()) {
+        if (program_info.fragment_shader.is_valid())
+        {
             const auto &shader = api.get_shader(program_info.fragment_shader);
-            vk::PipelineShaderStageCreateInfo create_info{{}, vk::ShaderStageFlagBits::eFragment, *shader.vkhandle, "main"};
+            VkPipelineShaderStageCreateInfo create_info{};
+            create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            create_info.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+            create_info.module = shader.vkhandle;
+            create_info.pName  = "main";
             shader_stages.push_back(std::move(create_info));
         }
 
-        vk::GraphicsPipelineCreateInfo pipe_i{};
+        VkGraphicsPipelineCreateInfo pipe_i{};
+        pipe_i.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipe_i.layout              = pipeline_info.pipeline_layout;
         pipe_i.basePipelineHandle  = nullptr;
         pipe_i.basePipelineIndex   = 0;
@@ -449,15 +481,18 @@ static vk::Pipeline find_or_create_pipeline(API &api, GraphicsProgram &program, 
         pipe_i.pDepthStencilState  = &ds_i;
         pipe_i.pStages             = shader_stages.data();
         pipe_i.stageCount          = static_cast<u32>(shader_stages.size());
-        pipe_i.renderPass          = *render_pass.vkhandle;
-        pipe_i.subpass             = 0; // TODO: subpasses
+        pipe_i.renderPass          = render_pass.vkhandle;
+        pipe_i.subpass             = 0;
 
         program.pipelines_info.push_back(pipeline_info);
-        program.pipelines_vk.push_back(api.ctx.device->createGraphicsPipelineUnique(nullptr, pipe_i));
+
+        program.pipelines_vk.emplace_back();
+        auto &pipeline = program.pipelines_vk.back();
+        VK_CHECK(vkCreateGraphicsPipelines(api.ctx.device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
         pipeline_i = static_cast<u32>(program.pipelines_vk.size()) - 1;
     }
 
-    return *program.pipelines_vk[pipeline_i];
+    return program.pipelines_vk[pipeline_i];
 }
 
 static DescriptorSet &find_or_create_descriptor_set(API &api, GraphicsProgram &program, uint freq)
@@ -472,13 +507,14 @@ static DescriptorSet &find_or_create_descriptor_set(API &api, GraphicsProgram &p
 
     DescriptorSet descriptor_set;
 
-    vk::DescriptorSetAllocateInfo dsai{};
-    dsai.descriptorPool     = *api.ctx.descriptor_pool;
-    dsai.pSetLayouts        = &program.descriptor_layouts[freq].get();
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsai.descriptorPool     = api.ctx.descriptor_pool;
+    dsai.pSetLayouts        = &program.descriptor_layouts[freq];
     dsai.descriptorSetCount = 1;
     api.ctx.descriptor_sets_count++;
 
-    descriptor_set.set        = std::move(api.ctx.device->allocateDescriptorSets(dsai)[0]);
+    VK_CHECK(vkAllocateDescriptorSets(api.ctx.device, &dsai, &descriptor_set.set));
     descriptor_set.frame_used = api.ctx.frame_count;
 
     program.descriptor_sets[freq].push_back(std::move(descriptor_set));
@@ -493,10 +529,12 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
     if (program.data_dirty_by_set[i_set]) {
         auto &descriptor_set = find_or_create_descriptor_set(api, program, i_set);
 
-        std::vector<vk::WriteDescriptorSet> writes;
+        std::vector<VkWriteDescriptorSet> writes;
         map_transform(program.binded_data_by_set[i_set], writes, [&](const auto &binded_data) {
             assert(binded_data.has_value());
-            vk::WriteDescriptorSet write;
+            VkWriteDescriptorSet write{};
+            write.pNext            = nullptr;
+            write.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet           = descriptor_set.set;
             write.dstBinding       = binded_data->binding;
             write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
@@ -507,7 +545,7 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
             return write;
         });
 
-        api.ctx.device->updateDescriptorSets(writes, nullptr);
+        vkUpdateDescriptorSets(api.ctx.device, writes.size(), writes.data(), 0, nullptr);
 
         program.data_dirty_by_set[i_set] = false;
     }
@@ -516,7 +554,7 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
 static void bind_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
 {
     auto &frame_resource = api.ctx.frame_resources.get_current();
-    auto cmd             = *frame_resource.command_buffer;
+    auto &cmd             = frame_resource.command_buffer;
 
     /// --- Find and bind descriptor set
     undirty_descriptor_set(api, program, i_set);
@@ -525,7 +563,8 @@ static void bind_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
 
     std::vector<u32> offsets;
     offsets.resize(program.dynamic_count_by_set[i_set]);
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *program.pipeline_layout, i_set, descriptor_set.set, offsets);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, i_set, 1, &descriptor_set.set, offsets.size(), offsets.data());
 }
 
 void API::bind_program(GraphicsProgramH H)
@@ -535,9 +574,9 @@ void API::bind_program(GraphicsProgramH H)
     auto &program        = get_program(H);
 
     /// --- Find and bind graphics pipeline
-    PipelineInfo pipeline_info{program.info, *program.pipeline_layout, current_render_pass};
+    PipelineInfo pipeline_info{program.info, program.pipeline_layout, current_render_pass};
     auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
-    frame_resource.command_buffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+    vkCmdBindPipeline(frame_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
     bind_descriptor_set(*this, program, GLOBAL_DESCRIPTOR_SET);
     bind_descriptor_set(*this, program, SHADER_DESCRIPTOR_SET);
@@ -545,7 +584,7 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     assert(images_h.size() == images_view.size());
 
@@ -567,7 +606,7 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
-        assert(image.layout == vk::ImageLayout::eShaderReadOnlyOptimal || image.layout == vk::ImageLayout::eDepthStencilReadOnlyOptimal || image.layout == vk::ImageLayout::eGeneral);
+        assert(image.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || image.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL || image.layout == VK_IMAGE_LAYOUT_GENERAL);
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
@@ -583,33 +622,33 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
     }
 }
 
-void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view)
+void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto view = image_view ? *image_view : get_image(image_h).default_view;
     bind_image_internal(*this, {image_h}, {view}, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
-void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<vk::ImageView> image_view)
+void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto view = image_view ? *image_view : get_image(image_h).default_view;
     bind_image_internal(*this, {image_h}, {view}, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view)
+void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
 {
     auto &program = get_program(program_h);
     bind_image_internal(*this, images_h, images_view, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
-void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> &images_view)
+void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
 {
     auto &program = get_program(program_h);
     bind_image_internal(*this, images_h, images_view, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<vk::ImageView> images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     assert(images_h.size() == images_view.size());
 
@@ -633,12 +672,12 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
         auto &image_info = data.images_info.back();
 
         image_info.imageView   = image_view;
-        image_info.sampler     = *sampler.vkhandle;
+        image_info.sampler     = sampler.vkhandle;
         image_info.imageLayout = image.layout;
 
         // TODO: improve layout management
-        if (image_info.imageLayout != vk::ImageLayout::eShaderReadOnlyOptimal && image_info.imageLayout != vk::ImageLayout::eDepthStencilReadOnlyOptimal) {
-            image_info.imageLayout = vk::ImageLayout::eGeneral;
+        if (image_info.imageLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && image_info.imageLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL) {
+            image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         }
     }
 
@@ -648,7 +687,7 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
     }
 }
 
-void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view)
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
@@ -657,7 +696,7 @@ void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint
 }
 
 
-void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<vk::ImageView> image_view)
+void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
@@ -666,14 +705,14 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, Imag
 }
 
 
-void API::bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view)
+void API::bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<VkImageView> &images_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
     bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
-void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<vk::ImageView> &images_view)
+void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<VkImageView> &images_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
@@ -722,36 +761,37 @@ void API::bind_vertex_buffer(BufferH H, u32 offset)
 {
     const auto &vertex_buffer = get_buffer(H);
     auto &frame_resource      = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindVertexBuffers(0, {vertex_buffer.vkhandle}, {offset});
+    VkDeviceSize device_offset = offset;
+    vkCmdBindVertexBuffers(frame_resource.command_buffer, 0, 1, &vertex_buffer.vkhandle, &device_offset);
 }
 
 void API::bind_vertex_buffer(CircularBufferPosition v_pos)
 {
     const auto &vertex_buffer = get_buffer(v_pos.buffer_h);
     auto &frame_resource      = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindVertexBuffers(0, {vertex_buffer.vkhandle}, {v_pos.offset});
+    vkCmdBindVertexBuffers(frame_resource.command_buffer, 0, 1, &vertex_buffer.vkhandle, &v_pos.offset);
 }
 
 void API::bind_index_buffer(BufferH H, u32 offset)
 {
     const auto &index_buffer = get_buffer(H);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindIndexBuffer(index_buffer.vkhandle, offset, vk::IndexType::eUint16);
+    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, offset, VK_INDEX_TYPE_UINT16);
 }
 
 void API::bind_index_buffer(CircularBufferPosition i_pos)
 {
     const auto &index_buffer = get_buffer(i_pos.buffer_h);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->bindIndexBuffer(index_buffer.vkhandle, i_pos.offset, vk::IndexType::eUint16);
+    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, i_pos.offset, VK_INDEX_TYPE_UINT16);
 }
 
-void API::push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data)
+void API::push_constant(VkShaderStageFlagBits stage, u32 offset, u32 size, void *data)
 {
     assert(current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
     const auto &program  = *current_program;
-    frame_resource.command_buffer->pushConstants(*program.pipeline_layout, stage, offset, size, data);
+    vkCmdPushConstants(frame_resource.command_buffer, program.pipeline_layout, stage, offset, size, data);
 }
 
 static void pre_draw(API &api, GraphicsProgram &program)
@@ -763,43 +803,43 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
 {
     pre_draw(*this, *current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->drawIndexed(index_count, instance_count, first_index, vertex_offset, first_instance);
+    vkCmdDrawIndexed(frame_resource.command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
 void API::draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance)
 {
     pre_draw(*this, *current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->draw(vertex_count, instance_count, first_vertex, first_instance);
+    vkCmdDraw(frame_resource.command_buffer, vertex_count, instance_count, first_vertex, first_instance);
 }
 
-void API::set_scissor(const vk::Rect2D &scissor)
+void API::set_scissor(const VkRect2D &scissor)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->setScissor(0, scissor);
+    vkCmdSetScissor(frame_resource.command_buffer, 0, 1, &scissor);
 }
 
-void API::set_viewport(const vk::Viewport &viewport)
+void API::set_viewport(const VkViewport &viewport)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->setViewport(0, viewport);
+    vkCmdSetViewport(frame_resource.command_buffer, 0, 1, &viewport);
 }
 
 void API::set_viewport_and_scissor(u32 width, u32 height)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    vk::Viewport viewport{};
+    VkViewport viewport{};
     viewport.width    = width;
     viewport.height   = height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    frame_resource.command_buffer->setViewport(0, viewport);
+    vkCmdSetViewport(frame_resource.command_buffer, 0, 1, &viewport);
 
-    vk::Rect2D scissor{};
+    VkRect2D scissor{};
     scissor.extent.width  = width;
     scissor.extent.height = height;
-    frame_resource.command_buffer->setScissor(0, scissor);
+    vkCmdSetScissor(frame_resource.command_buffer, 0, 1, &scissor);
 }
 
 void API::begin_label(std::string_view name, float4 color)
@@ -808,13 +848,14 @@ void API::begin_label(std::string_view name, float4 color)
     assert(current_label.size() == 0);
 
     auto &frame_resource = ctx.frame_resources.get_current();
-    vk::DebugUtilsLabelEXT info{};
+    VkDebugUtilsLabelEXT info{};
+    info.sType     =VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     info.pLabelName = name.data();
     info.color[0] = color[0];
     info.color[1] = color[1];
     info.color[2] = color[2];
     info.color[3] = color[3];
-    frame_resource.command_buffer->beginDebugUtilsLabelEXT(&info);
+    ctx.vkCmdBeginDebugUtilsLabelEXT(frame_resource.command_buffer, &info);
 
     current_label = name;
 }
@@ -827,7 +868,7 @@ void API::add_timestamp(std::string_view label)
     u32 offset    = frame_idx * MAX_TIMESTAMP_PER_FRAME + current_timestamp_labels.size();
 
     // write gpu timestamp
-    frame_resource.command_buffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *ctx.timestamp_pool, offset);
+    vkCmdWriteTimestamp(frame_resource.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, ctx.timestamp_pool, offset);
 
     // write cpu timestamp
     auto &cpu_timestamps = cpu_timestamps_per_frame[frame_idx];
@@ -841,7 +882,7 @@ void API::end_label()
     add_timestamp(current_label);
 
     auto &frame_resource = ctx.frame_resources.get_current();
-    frame_resource.command_buffer->endDebugUtilsLabelEXT();
+    ctx.vkCmdEndDebugUtilsLabelEXT(frame_resource.command_buffer);
 
     current_label = {};
 }
@@ -858,12 +899,14 @@ static DescriptorSet &find_or_create_descriptor_set(API &api, ComputeProgram &pr
 
     DescriptorSet descriptor_set;
 
-    vk::DescriptorSetAllocateInfo dsai{};
-    dsai.descriptorPool     = *api.ctx.descriptor_pool;
-    dsai.pSetLayouts        = &program.descriptor_layout.get();
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsai.descriptorPool     = api.ctx.descriptor_pool;
+    dsai.pSetLayouts        = &program.descriptor_layout;
     dsai.descriptorSetCount = 1;
+    api.ctx.descriptor_sets_count++;
 
-    descriptor_set.set        = std::move(api.ctx.device->allocateDescriptorSets(dsai)[0]);
+    VK_CHECK(vkAllocateDescriptorSets(api.ctx.device, &dsai, &descriptor_set.set));
     descriptor_set.frame_used = api.ctx.frame_count;
 
     program.descriptor_sets.push_back(std::move(descriptor_set));
@@ -877,15 +920,17 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
 {
     auto &program        = get_program(program_h);
     auto &frame_resource = ctx.frame_resources.get_current();
-    auto &cmd            = *frame_resource.command_buffer;
+    auto &cmd             = frame_resource.command_buffer;
 
     const auto &compute_shader = get_shader(program.info.shader);
 
-    vk::ComputePipelineCreateInfo pinfo{};
-    pinfo.stage.stage  = vk::ShaderStageFlagBits::eCompute;
-    pinfo.stage.module = *compute_shader.vkhandle;
+    VkComputePipelineCreateInfo pinfo{};
+    pinfo.sType        = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pinfo.stage.sType  =  VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    pinfo.stage.module = compute_shader.vkhandle;
     pinfo.stage.pName  = "main";
-    pinfo.layout       = *program.pipeline_layout;
+    pinfo.layout       = program.pipeline_layout;
 
     usize pipeline_i = ~0u;
     for (usize i = 0; i < program.pipelines_info.size(); i++)
@@ -900,34 +945,35 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
         pipeline_i = program.pipelines_vk.size();
         program.pipelines_vk.emplace_back();
         auto &pipeline = program.pipelines_vk.back();
-        pipeline = ctx.device->createComputePipelineUnique(nullptr, pinfo);
+        VK_CHECK(vkCreateComputePipelines(ctx.device, VK_NULL_HANDLE, 1, &pinfo, nullptr, &pipeline));
     }
 
-
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *program.pipelines_vk[pipeline_i]);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipelines_vk[pipeline_i]);
 
     /// --- Find and bind descriptor set
     if (program.data_dirty) {
         auto &descriptor_set = find_or_create_descriptor_set(*this, program);
 
-        std::vector<vk::WriteDescriptorSet> writes;
+        std::vector<VkWriteDescriptorSet> writes;
 
         for (const auto &binded_data : program.binded_data)
         {
             assert(binded_data.has_value());
 
             writes.emplace_back();
-            vk::WriteDescriptorSet &write = writes.back();
-            write.dstSet           = descriptor_set.set;
-            write.dstBinding       = binded_data->binding;
-            write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
-            write.descriptorType   = binded_data->type;
-            write.pImageInfo       = binded_data->images_info.data();
-            write.pBufferInfo      = &binded_data->buffer_info;
-            write.pTexelBufferView = &binded_data->buffer_view;
+            VkWriteDescriptorSet &write = writes.back();
+            write.pNext                 = nullptr;
+            write.sType                 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet                = descriptor_set.set;
+            write.dstBinding            = binded_data->binding;
+            write.descriptorCount       = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
+            write.descriptorType        = binded_data->type;
+            write.pImageInfo            = binded_data->images_info.data();
+            write.pBufferInfo           = &binded_data->buffer_info;
+            write.pTexelBufferView      = &binded_data->buffer_view;
         }
 
-        ctx.device->updateDescriptorSets(writes, nullptr);
+        vkUpdateDescriptorSets(ctx.device, writes.size(), writes.data(), 0, nullptr);
 
         program.data_dirty = false;
     }
@@ -937,8 +983,8 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
 
     std::vector<u32> offsets;
     offsets.resize(program.dynamic_count);
-    cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *program.pipeline_layout, 0, descriptor_set.set, offsets);
 
-    cmd.dispatch(x, y, z);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, 1, &descriptor_set.set, offsets.size(), offsets.data());
+    vkCmdDispatch(cmd, x, y, z);
 }
 } // namespace my_app::vulkan

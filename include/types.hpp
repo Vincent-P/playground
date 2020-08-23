@@ -13,19 +13,6 @@
     name operator=(const name &other) = delete;                                                                        \
     name operator=(const name &&other) = delete;
 
-#define VK_CHECK(x)                                                                                                    \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        VkResult err = x;                                                                                              \
-        if (err)                                                                                                       \
-        {                                                                                                              \
-            std::string error("Vulkan error");                                                                         \
-            error = std::to_string(err) + std::string(".");                                                            \
-            std::cerr << error << std::endl;                                                                           \
-            throw std::runtime_error(error);                                                                           \
-        }                                                                                                              \
-    } while (0)
-
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
 
 #define MEMBER_OFFSET(type, member) (static_cast<u32>(reinterpret_cast<u64>(&reinterpret_cast<type *>(0)->member)))

@@ -9,8 +9,9 @@
 #include <string_view>
 #include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <unordered_map>
+#include <array>
 #include <vector>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 /***
  * The HL API is a Vulkan abstraction.
@@ -33,17 +34,17 @@ inline constexpr u32 DRAW_DESCRIPTOR_SET   = 2;
 struct ImageInfo
 {
     const char *name;
-    vk::ImageType type = vk::ImageType::e2D;
-    vk::Format format  = vk::Format::eR8G8B8A8Unorm;
-    std::vector<vk::Format> extra_formats;
+    VkImageType type = VK_IMAGE_TYPE_2D;
+    VkFormat format  = VK_FORMAT_R8G8B8A8_UNORM;
+    std::vector<VkFormat> extra_formats;
     u32 width;
     u32 height;
     u32 depth;
     u32 mip_levels                  = 1;
     bool generate_mip_levels        = false;
     u32 layers                      = 1;
-    vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1;
-    vk::ImageUsageFlags usages      = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+    VkImageUsageFlags usages      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
     VmaMemoryUsage memory_usage     = VMA_MEMORY_USAGE_GPU_ONLY;
 
@@ -63,11 +64,11 @@ struct Image
     const char *name;
 
     //TODO clean dupplicates
-    vk::ImageCreateInfo image_info;
+    VkImageCreateInfo image_info;
     ImageInfo info;
 
     // regular texture
-    vk::Image vkhandle;
+    VkImage vkhandle;
     VmaAllocation allocation;
 
     // sparse residency texture
@@ -76,15 +77,15 @@ struct Image
     std::vector<VmaAllocationInfo> allocations_infos;
 
     ThsvsAccessType access;
-    vk::ImageLayout layout;
-    vk::ImageSubresourceRange full_range;
+    VkImageLayout layout;
+    VkImageSubresourceRange full_range;
 
-    vk::ImageView default_view; // view with the default format (image_info.format) and full range
-    std::vector<vk::Format> extra_formats;
-    std::vector<vk::ImageView> format_views; // extra views for each image_info.extra_formats
-    std::vector<vk::ImageView> mip_views;    // mip slices with defaut format
+    VkImageView default_view; // view with the default format (image_info.format) and full range
+    std::vector<VkFormat> extra_formats;
+    std::vector<VkImageView> format_views; // extra views for each image_info.extra_formats
+    std::vector<VkImageView> mip_views;    // mip slices with defaut format
 
-    vk::Sampler default_sampler;
+    VkSampler default_sampler;
     FatPtr mapped_ptr{};
 
     bool operator==(const Image &b) const = default;
@@ -92,15 +93,15 @@ struct Image
 
 struct SamplerInfo
 {
-    vk::Filter mag_filter               = vk::Filter::eNearest;
-    vk::Filter min_filter               = vk::Filter::eNearest;
-    vk::SamplerMipmapMode mip_map_mode  = vk::SamplerMipmapMode::eLinear;
-    vk::SamplerAddressMode address_mode = vk::SamplerAddressMode::eRepeat;
+    VkFilter mag_filter               = VK_FILTER_NEAREST;
+    VkFilter min_filter               = VK_FILTER_NEAREST;
+    VkSamplerMipmapMode mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 };
 
 struct Sampler
 {
-    vk::UniqueSampler vkhandle;
+    VkSampler vkhandle;
     SamplerInfo info;
 };
 using SamplerH = Handle<Sampler>;
@@ -109,17 +110,17 @@ struct BufferInfo
 {
     const char *name;
     usize size;
-    vk::BufferUsageFlags usage;
+    VkBufferUsageFlags usage;
     VmaMemoryUsage memory_usage;
 };
 
 struct Buffer
 {
     const char *name;
-    vk::Buffer vkhandle;
+    VkBuffer vkhandle;
     VmaAllocation allocation;
     VmaMemoryUsage memory_usage;
-    vk::BufferUsageFlags usage;
+    VkBufferUsageFlags usage;
     void *mapped;
     usize size;
 
@@ -143,12 +144,12 @@ using RenderTargetH = Handle<RenderTarget>;
 
 struct FrameBufferInfo
 {
-    vk::ImageView image_view;
-    vk::ImageView depth_view;
+    VkImageView image_view;
+    VkImageView depth_view;
 
     u32 width;
     u32 height;
-    vk::RenderPass render_pass; // renderpass info instead?
+    VkRenderPass render_pass; // renderpass info instead?
 
     bool operator==(const FrameBufferInfo &b) const = default;
 };
@@ -156,12 +157,12 @@ struct FrameBufferInfo
 struct FrameBuffer
 {
     FrameBufferInfo info;
-    vk::UniqueFramebuffer vkhandle;
+    VkFramebuffer vkhandle;
 };
 
 struct AttachmentInfo
 {
-    vk::AttachmentLoadOp load_op = vk::AttachmentLoadOp::eDontCare;
+    VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     RenderTargetH rt;
 
     bool operator==(const AttachmentInfo &b) const = default;
@@ -169,11 +170,11 @@ struct AttachmentInfo
 
 struct PassInfo
 {
-    // param for vk::RenderPass
+    // param for VkRenderPass
     bool present; // if it is the last pass and it should transition to present
-    vk::SampleCountFlagBits samples{vk::SampleCountFlagBits::e1};
+    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 
-    // param for vk::FrameBuffer
+    // param for VkFrameBuffer
     std::optional<AttachmentInfo> color;
     std::optional<AttachmentInfo> depth;
 
@@ -183,11 +184,11 @@ struct PassInfo
 struct RenderPass
 {
     PassInfo info;
-    vk::UniqueRenderPass vkhandle;
+    VkRenderPass vkhandle;
 
     bool operator==(const RenderPass &b) const
     {
-        return info == b.info && *vkhandle == *b.vkhandle;
+        return info == b.info && vkhandle == b.vkhandle;
     }
 };
 
@@ -201,35 +202,32 @@ using RenderPassH = Handle<RenderPass>;
 struct Shader
 {
     std::string name;
-    vk::UniqueShaderModule vkhandle;
+    VkShaderModule vkhandle;
 
-    bool operator==(const Shader &b) const
-    {
-        return name == b.name && *vkhandle == *b.vkhandle;
-    }
+    bool operator==(const Shader &b) const = default;
 };
 
 using ShaderH = Handle<Shader>;
 
-// replace with vk::PushConstantRange?
+// replace with VkPushConstantRange?
 // i like the name of this members as params
 struct PushConstantInfo
 {
-    vk::ShaderStageFlags stages;
+    VkShaderStageFlags stages;
     u32 offset;
     u32 size;
 
     bool operator==(const PushConstantInfo &) const = default;
 };
 
-// replace with vk::DescriptorSetLayoutBinding?
+// replace with VkDescriptorSetLayoutBinding?
 // i like the name of this members as params
 struct BindingInfo
 {
     u32 set;
     u32 slot;
-    vk::ShaderStageFlags stages;
-    vk::DescriptorType type;
+    VkShaderStageFlags stages;
+    VkDescriptorType type;
     u32 count;
 
     bool operator==(const BindingInfo &) const = default;
@@ -237,7 +235,7 @@ struct BindingInfo
 
 struct VertexInfo
 {
-    vk::Format format;
+    VkFormat format;
     u32 offset;
 
     bool operator==(const VertexInfo &) const = default;
@@ -264,7 +262,7 @@ struct GraphicsProgramInfo
     // TODO: is it the right struct for this?
     // Either we create different programs in user code OR we implicitly handle them here
     // and keep track of dynamic states
-    std::optional<vk::CompareOp> depth_test;
+    std::optional<VkCompareOp> depth_test;
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
     float depth_bias{0.0f};
@@ -294,7 +292,7 @@ struct ComputeProgramInfo
 struct PipelineInfo
 {
     GraphicsProgramInfo program_info;
-    vk::PipelineLayout pipeline_layout;
+    VkPipelineLayout pipeline_layout;
     RenderPassH render_pass;
 
     bool operator==(const PipelineInfo &) const = default;
@@ -304,25 +302,25 @@ struct PipelineInfo
 
 struct DescriptorSet
 {
-    vk::DescriptorSet set;
+    VkDescriptorSet set;
     usize frame_used;
 };
 
 struct ShaderBinding
 {
     u32 binding;
-    vk::DescriptorType type;
-    std::vector<vk::DescriptorImageInfo> images_info;
-    vk::BufferView buffer_view;
-    vk::DescriptorBufferInfo buffer_info;
+    VkDescriptorType type;
+    std::vector<VkDescriptorImageInfo> images_info;
+    VkBufferView buffer_view;
+    VkDescriptorBufferInfo buffer_info;
 
     bool operator==(const ShaderBinding &) const = default;
 };
 
 struct GraphicsProgram
 {
-    std::array<vk::UniqueDescriptorSetLayout, MAX_DESCRIPTOR_SET> descriptor_layouts;
-    vk::UniquePipelineLayout pipeline_layout; // layoutS??
+    std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET> descriptor_layouts;
+    VkPipelineLayout pipeline_layout; // layoutS??
 
     std::array<std::vector<std::optional<ShaderBinding>>, MAX_DESCRIPTOR_SET> binded_data_by_set;
     std::array<bool, MAX_DESCRIPTOR_SET> data_dirty_by_set;
@@ -332,7 +330,7 @@ struct GraphicsProgram
 
     // TODO: hashmap
     std::vector<PipelineInfo> pipelines_info;
-    std::vector<vk::UniquePipeline> pipelines_vk;
+    std::vector<VkPipeline> pipelines_vk;
 
     GraphicsProgramInfo info;
     std::array<usize, MAX_DESCRIPTOR_SET> dynamic_count_by_set;
@@ -347,8 +345,8 @@ using GraphicsProgramH = Handle<GraphicsProgram>;
 
 struct ComputeProgram
 {
-    vk::UniqueDescriptorSetLayout descriptor_layout;
-    vk::UniquePipelineLayout pipeline_layout; // layoutS??
+    VkDescriptorSetLayout descriptor_layout;
+    VkPipelineLayout pipeline_layout; // layoutS??
 
     std::vector<std::optional<ShaderBinding>> binded_data;
     bool data_dirty;
@@ -358,8 +356,8 @@ struct ComputeProgram
     usize current_descriptor_set;
 
     ComputeProgramInfo info;
-    std::vector<vk::ComputePipelineCreateInfo> pipelines_info;
-    std::vector<vk::UniquePipeline> pipelines_vk;
+    std::vector<VkComputePipelineCreateInfo> pipelines_info;
+    std::vector<VkPipeline> pipelines_vk;
 
     bool operator==(const ComputeProgram &b) const
     {
@@ -373,7 +371,7 @@ using ComputeProgramH = Handle<ComputeProgram>;
 struct CommandBuffer
 {
     Context &ctx;
-    vk::UniqueCommandBuffer vkhandle;
+    VkCommandBuffer vkhandle;
     void begin();
     void submit_and_wait();
 };
@@ -450,25 +448,25 @@ struct API
     void bind_program(GraphicsProgramH H);
 
     void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
-                    std::optional<vk::ImageView> image_view = std::nullopt);
+                    std::optional<VkImageView> image_view = std::nullopt);
     void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h,
-                    std::optional<vk::ImageView> image_view = std::nullopt);
+                    std::optional<VkImageView> image_view = std::nullopt);
 
     void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h,
-                     const std::vector<vk::ImageView> &images_view);
+                     const std::vector<VkImageView> &images_view);
     void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
-                     const std::vector<vk::ImageView> &images_view);
+                     const std::vector<VkImageView> &images_view);
 
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
-                                     SamplerH sampler_h, std::optional<vk::ImageView> image_view = std::nullopt);
+                                     SamplerH sampler_h, std::optional<VkImageView> image_view = std::nullopt);
     void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h,
-                                     std::optional<vk::ImageView> image_view = std::nullopt);
+                                     std::optional<VkImageView> image_view = std::nullopt);
 
     void bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot,
                                       const std::vector<ImageH> &images_h, SamplerH sampler_h,
-                                      const std::vector<vk::ImageView> &images_view);
+                                      const std::vector<VkImageView> &images_view);
     void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
-                                      SamplerH sampler_h, const std::vector<vk::ImageView> &images_view);
+                                      SamplerH sampler_h, const std::vector<VkImageView> &images_view);
 
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
@@ -488,16 +486,16 @@ struct API
     void bind_vertex_buffer(CircularBufferPosition v_pos);
     void bind_index_buffer(BufferH H, u32 offset = 0);
     void bind_index_buffer(CircularBufferPosition i_pos);
-    void push_constant(vk::ShaderStageFlagBits stage, u32 offset, u32 size, void *data);
+    void push_constant(VkShaderStageFlagBits stage, u32 offset, u32 size, void *data);
 
     void draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance);
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
 
-    void set_scissor(const vk::Rect2D &scissor);
-    void set_viewport(const vk::Viewport &viewport);
+    void set_scissor(const VkRect2D &scissor);
+    void set_viewport(const VkViewport &viewport);
     void set_viewport_and_scissor(u32 width, u32 height);
 
-    void clear_image(ImageH H, const vk::ClearColorValue &clear_color);
+    void clear_image(ImageH H, const VkClearColorValue &clear_color);
 
     /// ---
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);
@@ -542,6 +540,7 @@ struct API
     GraphicsProgram &get_program(GraphicsProgramH H);
     ComputeProgram &get_program(ComputeProgramH H);
     void destroy_program(GraphicsProgramH H);
+    void destroy_program(ComputeProgramH H);
 
     // COmmand buffers
     CommandBuffer get_temp_cmd_buffer();
@@ -552,21 +551,25 @@ struct API
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
 void destroy_image_internal(API &api, Image &img);
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout);
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, vk::ImageLayout next_layout,
-                                   vk::ImageSubresourceRange &range);
+void destroy_sampler_internal(API &api, Sampler &img);
+void destroy_program_internal(API &api, GraphicsProgram &program);
+void destroy_program_internal(API &api, ComputeProgram &program);
+void destroy_shader_internal(API &api, Shader &program);
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout);
+void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout,
+                                   VkImageSubresourceRange &range);
 
-inline ThsvsAccessType access_from_layout(vk::ImageLayout layout)
+inline ThsvsAccessType access_from_layout(VkImageLayout layout)
 {
-    if (layout == vk::ImageLayout::eShaderReadOnlyOptimal)
+    if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
     {
         return THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
     }
-    if (layout == vk::ImageLayout::ePresentSrcKHR)
+    if (layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
     {
         return THSVS_ACCESS_PRESENT;
     }
-    std::cerr << "Invalid layout " << vk::to_string(layout) << std::endl;
+    std::cerr << "Invalid layout " /*<< Vkto_string(layout)*/ << std::endl;
 
     return THSVS_ACCESS_GENERAL;
 }
