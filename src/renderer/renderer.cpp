@@ -1178,7 +1178,7 @@ void draw_floor(Renderer &r)
     pass.color         = std::make_optional(color_info);
 
     vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_info.rt      = r.depth_rt;
     pass.depth         = std::make_optional(depth_info);
 
@@ -1255,7 +1255,7 @@ void Renderer::draw_model()
     {
         {
             auto &image = api.get_image(voxels_radiance);
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+            transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
         api.bind_combined_image_sampler(model.program,
@@ -1345,37 +1345,37 @@ static void prepass(Renderer &r)
 
     /// --- First fill the depth buffer and write the desired lod of each pixel into a screenspace lod map
     {
-    vulkan::PassInfo pass;
-    pass.present = false;
+        vulkan::PassInfo pass;
+        pass.present = false;
 
-    vulkan::AttachmentInfo depth_info;
-    depth_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_info.rt      = r.depth_rt;
-    pass.depth         = std::make_optional(depth_info);
+        vulkan::AttachmentInfo depth_info;
+        depth_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depth_info.rt      = r.depth_rt;
+        pass.depth         = std::make_optional(depth_info);
 
-    vulkan::AttachmentInfo lod_map_info;
-    lod_map_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    lod_map_info.rt      = r.screenspace_lod_map_rt;
-    pass.color           = std::make_optional(lod_map_info);
+        vulkan::AttachmentInfo lod_map_info;
+        lod_map_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        lod_map_info.rt      = r.screenspace_lod_map_rt;
+        pass.color           = std::make_optional(lod_map_info);
 
-    api.begin_pass(std::move(pass));
+        api.begin_pass(std::move(pass));
 
-    auto depth_rt  = api.get_rendertarget(r.depth_rt);
-    auto depth_img = api.get_image(depth_rt.image_h);
+        auto depth_rt  = api.get_rendertarget(r.depth_rt);
+        auto depth_img = api.get_image(depth_rt.image_h);
 
-    api.set_viewport_and_scissor(depth_img.info.width, depth_img.info.height);
+        api.set_viewport_and_scissor(depth_img.info.width, depth_img.info.height);
 
-    api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+        api.bind_buffer(r.model_prepass, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
 
-    api.bind_program(r.model_prepass);
-    api.bind_index_buffer(r.model.index_buffer);
-    api.bind_vertex_buffer(r.model.vertex_buffer);
+        api.bind_program(r.model_prepass);
+        api.bind_index_buffer(r.model.index_buffer);
+        api.bind_vertex_buffer(r.model.vertex_buffer);
 
-    for (usize node_i : r.model.scene) {
-        draw_node_shadow(r, r.model.nodes[node_i]);
-    }
+        for (usize node_i : r.model.scene) {
+            draw_node_shadow(r, r.model.nodes[node_i]);
+        }
 
-    api.end_pass();
+        api.end_pass();
     }
 
     /// --- Then build the min lod map, a texture where each texel map to 1 tile of the sparse shadow map and contains the min lod of the tile
@@ -1384,39 +1384,87 @@ static void prepass(Renderer &r)
     vulkan::ImageH min_lod_map = r.min_lod_map_per_frame[frame_idx];
     auto &min_lod_map_img = api.get_image(min_lod_map);
 
+    auto &ctx = api.ctx;
+    auto &frame_resource = ctx.frame_resources.get_current();
+    auto &cmd            = frame_resource.command_buffer;
+
     {
         VkClearColorValue clear{};
         clear.uint32[0] = 99; // need high value because we are doing min operations on it
         api.clear_image(min_lod_map, clear);
 
         auto &program = r.fill_min_lod_map;
+        auto &depth = api.get_rendertarget(r.depth_rt);
+        auto &screenspace_lod_map = api.get_rendertarget(r.screenspace_lod_map_rt);
+        auto &screenspace_lod_map_img = api.get_image(screenspace_lod_map.image_h);
+
+        {
+            std::array<VkImageMemoryBarrier, 2> barriers;
+
+            VkPipelineStageFlags src_mask = 0;
+            VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+            auto *b = &barriers[0];
+
+            // screenspace lod map
+            *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b->oldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            b->newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            b->srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
+            b->image            = screenspace_lod_map_img.vkhandle;
+            b->subresourceRange = screenspace_lod_map_img.full_range;
+
+            src_mask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            screenspace_lod_map_img.layout = b->newLayout;
+            screenspace_lod_map_img.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
+
+            // min lod map
+            b++;
+            *b                     = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b->oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b->newLayout           = VK_IMAGE_LAYOUT_GENERAL;
+            b->srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b->dstAccessMask       = VK_ACCESS_SHADER_READ_BIT;
+            b->image               = min_lod_map_img.vkhandle;
+            b->subresourceRange    = min_lod_map_img.full_range;
+
+            src_mask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+            min_lod_map_img.layout = b->newLayout;
+            min_lod_map_img.access = THSVS_ACCESS_GENERAL;
+
+            /*
+            // min lod map
+            b++;
+            b->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            b->oldLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b->newLayout            = VK_IMAGE_LAYOUT_GENERAL;
+            b->srcAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT; // has to be 0 because top of pipe
+            b->dstAccessMask        = VK_ACCESS_SHADER_READ_BIT;
+            b->image                = min_lod_map_img.vkhandle;
+            b->subresourceRange     = min_lod_map_img.full_range;
+            min_lod_map_img.layout = VK_IMAGE_LAYOUT_GENERAL;
+            min_lod_map_img.access = THSVS_ACCESS_GENERAL;
+            */
+
+            vkCmdPipelineBarrier(frame_resource.command_buffer,
+                                 src_mask,
+                                 dst_mask,
+                                 0,
+                                 0,
+                                 nullptr,
+                                 0,
+                                 nullptr,
+                                 barriers.size(),
+                                 barriers.data());
+        }
 
         api.bind_buffer(program, 0, r.global_uniform_pos);
-
-        {
-            auto &rt = api.get_rendertarget(r.screenspace_lod_map_rt);
-            auto &image = api.get_image(rt.image_h);
-            transition_if_needed_internal(api,
-                                          image,
-                                          THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
-                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            api.bind_combined_image_sampler(program, 1, rt.image_h, r.nearest_sampler);
-        }
-
-        {
-            auto &rt = api.get_rendertarget(r.depth_rt);
-            auto &image = api.get_image(rt.image_h);
-            transition_if_needed_internal(api,
-                                          image,
-                                          THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
-                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-            api.bind_combined_image_sampler(program, 2, rt.image_h, r.nearest_sampler);
-        }
-
-        {
-            transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-            api.bind_image(program, 3, min_lod_map);
-        }
+        api.bind_combined_image_sampler(program, 1, screenspace_lod_map.image_h, r.nearest_sampler);
+        api.bind_combined_image_sampler(program, 2, depth.image_h, r.nearest_sampler);
+        api.bind_image(program, 3, min_lod_map);
 
         auto size_x = api.ctx.swapchain.extent.width / 8;
         auto size_y = api.ctx.swapchain.extent.height / 8;
@@ -1439,9 +1487,6 @@ static void prepass(Renderer &r)
     /// --- Readback min lod map and remap pages
 
 
-    auto &ctx = api.ctx;
-    auto &frame_resource = ctx.frame_resources.get_current();
-    auto &cmd            = frame_resource.command_buffer;
     (void)(cmd);
 
     VkQueue graphics_queue;
@@ -1984,8 +2029,6 @@ void Renderer::generate_aniso_voxels()
         src_views.reserve(voxels_directional_volumes.size());
         dst_views.reserve(voxels_directional_volumes.size());
 
-        std::vector<VkImageMemoryBarrier> image_barriers;
-
         for (const auto& volume_h : voxels_directional_volumes)
         {
             auto &image = api.get_image(volume_h);
@@ -1999,10 +2042,9 @@ void Renderer::generate_aniso_voxels()
         api.bind_images(generate_aniso_mipmap, 3, voxels_directional_volumes, dst_views);
 
         api.dispatch(generate_aniso_mipmap, count, count, count);
-
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, image_barriers.size(), image_barriers.data());
-
+        api.global_barrier();
     }
+
 
     api.end_label();
 }
@@ -2544,6 +2586,8 @@ void Renderer::draw()
 
     update_uniforms(*this);
 
+    if (0)
+    {
     prepass(*this);
 
     api.begin_label("Clear voxels");
@@ -2572,8 +2616,33 @@ void Renderer::draw()
     render_sky(*this);
 
     api.start_present();
-
     composite_hdr();
+    }
+    else
+    {
+
+    api.begin_label("Clear voxels");
+    VkClearColorValue clear{};
+    clear.float32[0] = 0.f;
+    clear.float32[1] = 0.f;
+    clear.float32[2] = 0.f;
+    clear.float32[3] = 0.f;
+    api.clear_image(voxels_albedo, clear);
+    api.clear_image(voxels_normal, clear);
+    api.clear_image(voxels_radiance, clear);
+    for (auto image_h : voxels_directional_volumes)
+    {
+        api.clear_image(image_h, clear);
+    }
+    api.end_label();
+
+    prepass(*this);
+    draw_floor(*this);
+    api.start_present();
+    composite_hdr();
+
+    }
+
     imgui_draw();
 
     api.end_frame();

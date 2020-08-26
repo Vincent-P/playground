@@ -33,24 +33,6 @@ float mincomp(vec3 v) {
 }
 
 /// vec4 PlaneMarch(uimage3D voxels, vec3 p0, vec3 d)
-#define PlaneMarchUint(ret, voxels, p0, d)                              \
-    {                                                                   \
-        float t = 0;                                                    \
-        while (t < MAX_DIST) {                                          \
-            vec3 p = p0 + d * t;                                        \
-            ivec3 voxel_pos = ivec3(floor(p));                          \
-            vec4 voxel = imageLoad(voxels, voxel_pos);                \
-            if (voxel.a != 0.0)                                             \
-            {                                                           \
-                ret = vec4(voxel.rgb, debug.opacity);\
-                break;                                                  \
-            }                                                           \
-                                                                        \
-            vec3 deltas = (step(0, d) - fract(p)) / d;                  \
-            t += max(mincomp(deltas), EPSILON);                         \
-        }                                                               \
-    }
-
 #define PlaneMarch(ret, voxels, p0, d)                              \
     {                                                                   \
         float t = 0;                                                    \
@@ -81,10 +63,10 @@ void main()
 
     vec4 color = vec4(0);
     if (debug.selected == 1) {
-        PlaneMarchUint(color, voxels_albedo, p0, d);
+        PlaneMarch(color, voxels_albedo, p0, d);
     }
     else if (debug.selected == 2) {
-        PlaneMarchUint(color, voxels_normal, p0, d);
+        PlaneMarch(color, voxels_normal, p0, d);
         color = normalize(color);
     }
     else if (debug.selected == 3) {

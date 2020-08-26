@@ -333,11 +333,26 @@ void API::upload_image(ImageH H, void *data, usize len)
 
     std::vector<VkBufferImageCopy> copies;
     copies.reserve(range.levelCount);
-    transition_layout_internal(cmd_buffer.vkhandle,
-                               image.vkhandle,
-                               THSVS_ACCESS_NONE,
-                               THSVS_ACCESS_TRANSFER_WRITE,
-                               range);
+
+    {
+        VkImageMemoryBarrier b = { .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        b.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
+        b.newLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b.srcAccessMask        = 0; // has to be 0 because top of pipe
+        b.dstAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
+        b.image                = image.vkhandle;
+        b.subresourceRange     = range;
+        vkCmdPipelineBarrier(cmd_buffer.vkhandle,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // wait for nothing
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             1,
+                             &b);
+    }
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++)
     {
@@ -1073,7 +1088,28 @@ void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &image          = get_image(H);
-    transition_if_needed_internal(*this, image, THSVS_ACCESS_TRANSFER_WRITE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    {
+        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
+        b.newLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b.srcAccessMask        = 0; // has to be 0 because top of pipe
+        b.dstAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
+        b.image                = image.vkhandle;
+        b.subresourceRange     = image.full_range;
+        vkCmdPipelineBarrier(frame_resource.command_buffer,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // wait for nothing
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             1,
+                             &b);
+        image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        image.access = THSVS_ACCESS_TRANSFER_WRITE;
+    }
 
     vkCmdClearColorImage(frame_resource.command_buffer,
                          image.vkhandle,

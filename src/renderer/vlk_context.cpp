@@ -20,19 +20,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
-    std::string severity{};
     switch (message_severity) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        severity = "[INFO]";
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-        severity = "[ERROR]";
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-        severity = "[VERBOSE]";
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        severity = "[WARNING]";
 
         if (strstr(pCallbackData->pMessage, "VK_PIPELINE_STAGE_ALL_COMMANDS_BIT when vkCmdPipelineBarrier is called")) {
             return VK_FALSE;
@@ -43,18 +38,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
         break;
     }
 
-    std::string type{};
-    if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
-        type += "[GENERAL]";
-    }
-    if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
-        type += "[VALIDATION]";
-    }
     if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
         return VK_FALSE;
     }
 
-    std::cerr << severity << type << " " << pCallbackData->pMessage << "\n";
+    std::cerr << pCallbackData->pMessage << "\n";
 
     if (pCallbackData->objectCount) {
         std::cerr << "Objects: \n";
@@ -102,6 +90,7 @@ Context Context::create(const Window &window)
     app_info.engineVersion      = VK_MAKE_VERSION(1, 1, 0);
     app_info.apiVersion         = VK_API_VERSION_1_2;
 
+    // TODO: add synchronization once the flag is available in vulkan_core.h
     std::array<VkValidationFeatureEnableEXT, 1> enables{VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
 
     VkValidationFeaturesEXT features = {};

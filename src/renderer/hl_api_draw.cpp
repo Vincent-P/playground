@@ -104,13 +104,36 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].preserveAttachmentCount = 0;
     subpasses[0].pPreserveAttachments    = nullptr;
 
-    std::array<VkSubpassDependency, 1> dependencies{};
-    dependencies[0].srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass    = 0;
-    dependencies[0].srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[0].srcAccessMask = 0;
-    dependencies[0].dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    std::array<VkSubpassDependency, 0> dependencies{};
+
+#if 0
+    uint idep = 0;
+
+    // Make anything that happened before starting the renderpass visible to
+    // color and depth read/write operations to avoid RAW and WAW hazards
+    dependencies[idep].srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependencies[idep].dstSubpass    = 0;
+    dependencies[idep].srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependencies[idep].srcAccessMask = 0;
+    dependencies[idep].dstStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[idep].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
+                     VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    idep++;
+
+    // Make color and depth read/write operations visible to
+    // compute/fragment shader read / renderpass load operations
+    dependencies[idep].srcSubpass   = 0;
+    dependencies[idep].dstSubpass   = VK_SUBPASS_EXTERNAL;
+    dependencies[idep].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                                   | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+                                   | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependencies[idep].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependencies[idep].dstStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    dependencies[idep].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+#endif
 
     VkRenderPassCreateInfo rp_info{};
     rp_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -887,6 +910,31 @@ void API::end_label()
     current_label = {};
 }
 
+// Should be used for debugging only as it creates a pipeline bubble
+void API::global_barrier()
+{
+    auto cmd = ctx.frame_resources.get_current().command_buffer;
+
+    VkMemoryBarrier mb;
+    mb.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mb.pNext         = nullptr;
+    mb.srcAccessMask = 0;
+    mb.dstAccessMask = 0;
+
+    // TOP/BOTTOM OF PIPE define execution dependency and dont perform any memory accesses
+    // srcAccess and dstAccess have to be 0
+    vkCmdPipelineBarrier(cmd,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         0,
+                         1,
+                         &mb,
+                         0,
+                         nullptr,
+                         0,
+                         nullptr);
+}
+
 static DescriptorSet &find_or_create_descriptor_set(API &api, ComputeProgram &program)
 {
     for (usize i = 0; i < program.descriptor_sets.size(); i++) {
@@ -926,7 +974,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
 
     VkComputePipelineCreateInfo pinfo{};
     pinfo.sType        = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pinfo.stage.sType  =  VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pinfo.stage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
     pinfo.stage.module = compute_shader.vkhandle;
     pinfo.stage.pName  = "main";

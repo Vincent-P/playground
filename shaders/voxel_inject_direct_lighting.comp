@@ -94,7 +94,7 @@ vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_d
     if (visibility < 0) {
         return vec4(0.0);
     }
-    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, visibility);
+    return vec4(vec3(visibility), 1.0);
 }
 
 vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
@@ -130,8 +130,8 @@ void InjectDirectLighting(ivec3 voxel_pos)
     normal = normalize(DecodeNormal(normal));
 
     vec4 lighting = vec4(0.0);
-    // lighting += DirectionalLighting(voxel_pos, albedo, normal, -sun_direction.xyz);
-    lighting += PointLight(voxel_pos, albedo, normal, point_position.xyz);
+    lighting += DirectionalLighting(voxel_pos, albedo, normal, -sun_direction.xyz);
+    // lighting += PointLight(voxel_pos, albedo, normal, point_position.xyz);
     lighting.a = 1;
 
     imageStore(voxels_radiance, voxel_pos, lighting);
