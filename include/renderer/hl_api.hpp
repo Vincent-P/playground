@@ -11,6 +11,7 @@
 #include <array>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 /***
  * The HL API is a Vulkan abstraction.
@@ -106,10 +107,10 @@ using SamplerH = Handle<Sampler>;
 
 struct BufferInfo
 {
-    const char *name;
-    usize size;
-    VkBufferUsageFlags usage;
-    VmaMemoryUsage memory_usage;
+    const char *name            = "No name";
+    usize size                  = 1;
+    VkBufferUsageFlags usage    = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
 };
 
 struct Buffer
@@ -128,8 +129,8 @@ using BufferH = Handle<Buffer>;
 
 struct RTInfo
 {
-    bool is_swapchain;
-    ImageH image_h;
+    bool is_swapchain = false;
+    ImageH image_h    = {};
 };
 
 struct RenderTarget
@@ -211,9 +212,9 @@ using ShaderH = Handle<Shader>;
 // i like the name of this members as params
 struct PushConstantInfo
 {
-    VkShaderStageFlags stages;
-    u32 offset;
-    u32 size;
+    VkShaderStageFlags stages = VK_SHADER_STAGE_ALL;
+    u32 offset                = 0;
+    u32 size                  = 0;
 
     bool operator==(const PushConstantInfo &) const = default;
 };
@@ -222,11 +223,11 @@ struct PushConstantInfo
 // i like the name of this members as params
 struct BindingInfo
 {
-    u32 set;
-    u32 slot;
-    VkShaderStageFlags stages;
-    VkDescriptorType type;
-    u32 count;
+    u32 set                   = 0;
+    u32 slot                  = 0;
+    VkShaderStageFlags stages = VK_SHADER_STAGE_ALL;
+    VkDescriptorType type     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    u32 count                 = 1;
 
     bool operator==(const BindingInfo &) const = default;
 };

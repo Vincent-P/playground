@@ -37,6 +37,48 @@ struct ShaderDebug
     float opacity;
 };
 
+void create_swapchain_sized_images(Renderer &r)
+{
+    auto &api = r.api;
+    auto &swapchain_extent = api.ctx.swapchain.extent;
+
+    auto depth_h = api.create_image({.name   = "Depth",
+                                     .format = VK_FORMAT_D32_SFLOAT,
+                                     .width  = swapchain_extent.width,
+                                     .height = swapchain_extent.height,
+                                     .usages = vulkan::depth_attachment_usage});
+
+    r.depth_rt = api.create_rendertarget({.image_h = depth_h});
+
+    auto color_h = api.create_image({.name   = "HDR color",
+                                     .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                                     .width  = swapchain_extent.width,
+                                     .height = swapchain_extent.height,
+                                     .usages = vulkan::color_attachment_usage});
+    r.color_rt = api.create_rendertarget({.image_h = color_h});
+
+    auto lod_map_h = api.create_image({.name   = "Shadow Map LOD",
+                                       .format = VK_FORMAT_R8_UINT,
+                                       .width  = swapchain_extent.width,
+                                       .height = swapchain_extent.height,
+                                       .usages = vulkan::color_attachment_usage});
+    r.screenspace_lod_map_rt = api.create_rendertarget({.image_h = lod_map_h});
+}
+
+void destroy_swapchain_sized_images(Renderer &r)
+{
+    auto &api = r.api;
+
+    auto &depth = api.get_rendertarget(r.depth_rt);
+    api.destroy_image(depth.image_h);
+
+    auto &color = api.get_rendertarget(r.color_rt);
+    api.destroy_image(color.image_h);
+
+    auto &lod_map = api.get_rendertarget(r.screenspace_lod_map_rt);
+    api.destroy_image(lod_map.image_h);
+}
+
 Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     Renderer r;
@@ -50,43 +92,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     /// --- Setup basic attachments
 
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Depth";
-        iinfo.format = VK_FORMAT_D32_SFLOAT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::depth_attachment_usage;
-        auto depth_h = api.create_image(iinfo);
-
-        vulkan::RTInfo dinfo;
-        dinfo.is_swapchain = false;
-        dinfo.image_h      = depth_h;
-        r.depth_rt         = api.create_rendertarget(dinfo);
-    }
-
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "HDR color";
-        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto color_h = api.create_image(iinfo);
-
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain = false;
-        cinfo.image_h      = color_h;
-        r.color_rt         = api.create_rendertarget(cinfo);
-    }
-
-    {
-        vulkan::RTInfo sinfo;
-        sinfo.is_swapchain = true;
-        r.swapchain_rt = api.create_rendertarget(sinfo);
-    }
+    create_swapchain_sized_images(r);
+    r.swapchain_rt = api.create_rendertarget({.is_swapchain = true});
 
 
     {
@@ -94,20 +101,21 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv");
 
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         r.hdr_compositing = api.create_program(std::move(pinfo));
     }
 
     {
-        vulkan::SamplerInfo sinfo{};
-        r.default_sampler = api.create_sampler(sinfo);
+        r.default_sampler = api.create_sampler({});
     }
 
     /// --- Init ImGui
@@ -144,10 +152,14 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
-        // clang-format off
-        pinfo.push_constant({.stages =  VK_SHADER_STAGE_VERTEX_BIT, .offset =  0, .size =  4 * sizeof(float)});
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0, .stages =  VK_SHADER_STAGE_FRAGMENT_BIT, .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
-        // clang-format on
+
+        pinfo.push_constant({.stages = VK_SHADER_STAGE_VERTEX_BIT, .size = 4 * sizeof(float)});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
         pinfo.vertex_stride(sizeof(ImDrawVert));
 
         pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
@@ -155,15 +167,13 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({.format = VK_FORMAT_R8G8B8A8_UNORM,.offset =  MEMBER_OFFSET(ImDrawVert, col)});
 
         vulkan::GraphicsProgramInfo puintinfo = pinfo;
-        puintinfo.fragment_shader = api.create_shader("shaders/gui_uint.frag.spv");
+        puintinfo.fragment_shader             = api.create_shader("shaders/gui_uint.frag.spv");
 
-        r.gui_program = api.create_program(std::move(pinfo));
+        r.gui_program      = api.create_program(std::move(pinfo));
         r.gui_uint_program = api.create_program(std::move(puintinfo));
     }
 
     {
-        vulkan::ImageInfo iinfo;
-        iinfo.name = "ImGui font texture";
 
         uchar *pixels = nullptr;
 
@@ -172,12 +182,9 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         int h = 0;
         ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
 
-        iinfo.width  = static_cast<u32>(w);
-        iinfo.height = static_cast<u32>(h);
-        iinfo.depth  = 1;
+        r.gui_texture = api.create_image({.name = "ImGui font atlas", .width = static_cast<uint>(w), .height = static_cast<uint>(h)});
 
-        r.gui_texture = api.create_image(iinfo);
-        api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
+        api.upload_image(r.gui_texture, pixels, w * h * 4);
 
         auto &vkimage          = api.get_image(r.gui_texture);
         VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -202,7 +209,6 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                              1,
                              &b);
         cmd_buffer.submit_and_wait();
-
     }
 #endif
 
@@ -217,29 +223,26 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader = api.create_shader("shaders/gltf.vert.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
 
         // camera uniform buffer
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // node transform
         pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // base color texture
         pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -248,7 +251,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
-        pinfo.depth_test = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
         pinfo.enable_depth_write = true;
 
         r.model_prepass = api.create_program(std::move(pinfo));
@@ -261,60 +264,38 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         // camera uniform buffer
         pinfo.binding({.slot   = 0,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // screen-space lod
         pinfo.binding({.slot   = 1,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // depth buffer to reconstruct world position from screen
         pinfo.binding({.slot   = 2,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // min lod map
         pinfo.binding({.slot   = 3,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         r.fill_min_lod_map = api.create_program(std::move(pinfo));
     }
 
     {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Shadow Map LOD";
-        iinfo.format = VK_FORMAT_R8_UINT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto lod_map_h = api.create_image(iinfo);
-
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain     = false;
-        cinfo.image_h          = lod_map_h;
-        r.screenspace_lod_map_rt = api.create_rendertarget(cinfo);
-    }
-
-    {
-        vulkan::ImageInfo sm_info;
-        sm_info.name   = "Sparse Shadow map";
-        sm_info.format = VK_FORMAT_D32_SFLOAT;
-        sm_info.width  = 16 * 1024;
-        sm_info.height = 16 * 1024;
-        sm_info.depth  = 1;
-        sm_info.mip_levels = 8;
-        sm_info.usages = vulkan::depth_attachment_usage;
-        sm_info.is_sparse = true;
-        sm_info.max_sparse_size = 64u * 1024u * 1024u; // 64Mb should be the size of a 4K non-sparse shadow map
+        auto size = 16_K;
 
 #if defined(ENABLE_SPARSE)
-        auto shadow_map_h = api.create_image(sm_info);
+        auto shadow_map_h = api.create_image({.name            = "Sparse shadow map",
+                                              .format          = VK_FORMAT_D32_SFLOAT,
+                                              .width           = size,
+                                              .height          = size,
+                                              .mip_levels      = 8,
+                                              .usages          = vulkan::depth_attachment_usage,
+                                              is_sparse        = true,
+                                              .max_sprase_size = 64_MiB});
 
         vulkan::RTInfo rt_info;
         rt_info.is_swapchain     = false;
@@ -322,21 +303,18 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         r.shadow_map_rt = api.create_rendertarget(rt_info);
 #endif
 
-        vulkan::ImageInfo mlm_info;
-        mlm_info.name      = "ShadowMap Min LOD";
-        mlm_info.format    = VK_FORMAT_R32_UINT; // needed for atomic even though 8 bits should be enough...
-        mlm_info.width     = sm_info.width / 128; // https://renderdoc.org/vkspec_chunked/chap32.html#sparsememory-standard-shapes
-        mlm_info.height    = sm_info.height / 128; // standard block shape for 32 bits / texel 2D texture is 128x128
-        mlm_info.depth     = 1;
-        mlm_info.usages    = vulkan::storage_image_usage;
-        mlm_info.memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
-        mlm_info.is_linear = true;
-
         r.min_lod_map_per_frame.resize(vulkan::FRAMES_IN_FLIGHT);
 
         for (auto &copy : r.min_lod_map_per_frame)
         {
-            copy = api.create_image(mlm_info);
+            // standard block shape for 32 bits / texel 2D texture is 128x128
+            copy = api.create_image({.name         = "ShadowMap Min LOD",
+                                     .format       = VK_FORMAT_R32_UINT,
+                                     .width        = size / 128,
+                                     .height       = size / 128,
+                                     .usages       = vulkan::storage_image_usage,
+                                     .memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU,
+                                     .is_linear    = true});
         }
     }
 
@@ -344,51 +322,48 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     {
         r.voxel_options.res = 256;
 
-        vulkan::ImageInfo iinfo;
-        iinfo.name          = "Voxels albedo";
-        iinfo.type          = VK_IMAGE_TYPE_3D;
-        iinfo.format        = VK_FORMAT_R8G8B8A8_UNORM;
-        iinfo.extra_formats = {VK_FORMAT_R32_UINT};
-        iinfo.width         = r.voxel_options.res;
-        iinfo.height        = r.voxel_options.res;
-        iinfo.depth         = r.voxel_options.res;
-        iinfo.usages        = vulkan::storage_image_usage;
-        r.voxels_albedo     = api.create_image(iinfo);
+        vulkan::ImageInfo base_voxel_info = {.name          = "Voxels albedo",
+                                             .type          = VK_IMAGE_TYPE_3D,
+                                             .format        = VK_FORMAT_R8G8B8A8_UNORM,
+                                             .extra_formats = {VK_FORMAT_R32_UINT},
+                                             .width         = r.voxel_options.res,
+                                             .height        = r.voxel_options.res,
+                                             .depth         = r.voxel_options.res,
+                                             .usages        = vulkan::storage_image_usage};
 
-        iinfo.name          = "Voxels normal";
-        r.voxels_normal     = api.create_image(iinfo);
+        r.voxels_albedo = api.create_image(base_voxel_info);
 
-        iinfo.name          = "Voxels radiance";
-        iinfo.format        = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.extra_formats = {};
-        r.voxels_radiance   = api.create_image(iinfo);
+        base_voxel_info.name = "Voxels normal";
+        r.voxels_normal      = api.create_image(base_voxel_info);
 
-        vulkan::SamplerInfo sinfo{};
-        sinfo.mag_filter    = VK_FILTER_LINEAR;
-        sinfo.min_filter    = VK_FILTER_LINEAR;
-        sinfo.mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        sinfo.address_mode  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        r.trilinear_sampler = api.create_sampler(sinfo);
+        base_voxel_info.name          = "Voxels radiance";
+        base_voxel_info.format        = VK_FORMAT_R16G16B16A16_SFLOAT;
+        base_voxel_info.extra_formats = {};
+        r.voxels_radiance             = api.create_image(base_voxel_info);
 
-        sinfo.mag_filter    = VK_FILTER_NEAREST;
-        sinfo.min_filter    = VK_FILTER_NEAREST;
-        sinfo.mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        r.nearest_sampler   = api.create_sampler(sinfo);
+        r.trilinear_sampler = api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
+                                                  .min_filter   = VK_FILTER_LINEAR,
+                                                  .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR});
+
+
+        r.nearest_sampler = api.create_sampler({.mag_filter   = VK_FILTER_NEAREST,
+                                                  .min_filter   = VK_FILTER_NEAREST,
+                                                  .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST});
     }
+
     // voxels directional volumes
     {
         r.voxels_directional_volumes.resize(6);
 
         u32 size = r.voxel_options.res / 2;
 
-        vulkan::ImageInfo iinfo;
-        iinfo.type         = VK_IMAGE_TYPE_3D;
-        iinfo.format       = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width        = size;
-        iinfo.height       = size;
-        iinfo.depth        = size;
-        iinfo.mip_levels   = static_cast<u32>(std::floor(std::log2(size)) + 1.0);
-        iinfo.usages        = vulkan::storage_image_usage;
+        vulkan::ImageInfo iinfo = {.type       = VK_IMAGE_TYPE_3D,
+                                   .format     = VK_FORMAT_R16G16B16A16_SFLOAT,
+                                   .width      = size,
+                                   .height     = size,
+                                   .depth      = size,
+                                   .mip_levels = static_cast<u32>(std::floor(std::log2(size)) + 1.0),
+                                   .usages     = vulkan::storage_image_usage};
 
         iinfo.name                         = "Voxels directional volume -X";
         r.voxels_directional_volumes[0]    = api.create_image(iinfo);
@@ -411,37 +386,45 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
 
         // voxel options
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // projection cameras
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_GEOMETRY_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_GEOMETRY_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxels textures
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         // node transform
-        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_VERTEX_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // color texture
-        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // normal texture
-        pinfo.binding({.set =  vulkan::DRAW_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -450,8 +433,6 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
-
-        pinfo.enable_conservative_rasterization = false;
 
         r.voxelization = api.create_program(std::move(pinfo));
     }
@@ -462,28 +443,38 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
 
         // voxel options
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
         // camera
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
         // debug
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxels textures
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  5,
-                       .stages =  VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 4,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 5,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         r.visualization = api.create_program(std::move(pinfo));
     }
@@ -493,28 +484,33 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
 
         // voxel options
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // directional light
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxels textures
         // albedo
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
         // normal
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
         // radiance
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  4,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 4,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         r.inject_radiance = api.create_program(std::move(pinfo));
     }
@@ -523,20 +519,24 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
         // voxel options
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // radiance
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // aniso volumes
         u32 count = r.voxels_directional_volumes.size();
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = count});
         r.generate_aniso_base = api.create_program(std::move(pinfo));
     }
 
@@ -545,26 +545,32 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
 
         // voxel options
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  0,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // mip src
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  1,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         u32 count = r.voxels_directional_volumes.size();
 
         // radiance
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  2,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = count});
 
         // aniso volumes
-        pinfo.binding({.set =  vulkan::SHADER_DESCRIPTOR_SET, .slot =  3,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  count});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = count});
         r.generate_aniso_mipmap = api.create_program(std::move(pinfo));
     }
 
@@ -586,20 +592,18 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         auto &index_buffer  = r.checkerboard_floor.index_buffer;
         auto &vertex_buffer = r.checkerboard_floor.vertex_buffer;
 
-	vulkan::BufferInfo info;
-	info.name           = "Floor Index buffer";
-	info.size           = indices.size() * sizeof(u16);
-	info.usage          = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	info.memory_usage   = VMA_MEMORY_USAGE_GPU_ONLY;
-	index_buffer        = api.create_buffer(info);
+        index_buffer
+            = api.create_buffer({.name  = "Floor Index buffer",
+                                 .size  = indices.size() * sizeof(u16),
+                                 .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT});
 
-	info.name           = "Floor Vertex buffer";
-	info.size           = vertices.size() * sizeof(float);
-	info.usage          = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	vertex_buffer       = api.create_buffer(info);
+        vertex_buffer
+            = api.create_buffer({.name  = "Floor Vertex buffer",
+                                 .size  = vertices.size() * sizeof(float),
+                                 .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT});
 
-	api.upload_buffer(index_buffer,  indices.data(),  indices.size() * sizeof(u16));
-	api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
+        api.upload_buffer(index_buffer, indices.data(), indices.size() * sizeof(u16));
+        api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
     }
 
     {
@@ -611,37 +615,29 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        pinfo.vertex_stride(3*sizeof(float) + 2*sizeof(float));
+        pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
         pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
 
         pinfo.enable_depth_write = true;
-        pinfo.depth_test = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.depth_bias = 0.0f;
+        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.depth_bias         = 0.0f;
 
         r.checkerboard_floor.program = api.create_program(std::move(pinfo));
     }
 
-
     /// --- Sky
 
     {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Transmittance LUT";
-        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width  = 256;
-        iinfo.height = 64;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto image_h = api.create_image(iinfo);
+        auto image_h = api.create_image({.name   = "Transmittance LUT",
+                                         .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                                         .width  = 256,
+                                         .height = 64,
+                                         .usages = vulkan::color_attachment_usage});
 
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain         = false;
-        cinfo.image_h              = image_h;
-        r.sky.transmittance_lut_rt = api.create_rendertarget(cinfo);
+        r.sky.transmittance_lut_rt = api.create_rendertarget({.image_h = image_h});
     }
 
     {
@@ -649,37 +645,29 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv");
 
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+        pinfo.binding(
+            {.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+             .slot   = 0,
+             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         r.sky.render_transmittance = api.create_program(std::move(pinfo));
     }
 
     {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "SkyView LUT";
-        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width  = 192;
-        iinfo.height = 108;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto image_h = api.create_image(iinfo);
+        auto image_h = api.create_image({.name   = "SkyView LUT",
+                                         .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                                         .width  = 192,
+                                         .height = 108,
+                                         .usages = vulkan::color_attachment_usage});
 
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain         = false;
-        cinfo.image_h              = image_h;
-        r.sky.skyview_lut_rt = api.create_rendertarget(cinfo);
+        r.sky.skyview_lut_rt = api.create_rendertarget({.image_h = image_h});
     }
-
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
@@ -687,32 +675,29 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv");
 
         // globla uniform
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+        pinfo.binding(
+            {.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+             .slot   = 0,
+             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // transmittance LUT
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // multiscattering LUT
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         r.sky.render_skyview = api.create_program(std::move(pinfo));
     }
@@ -722,83 +707,73 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv");
 
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+        pinfo.binding(
+            {.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+             .slot   = 0,
+             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // transmittance lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // skyview lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // depth
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 3,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // multiscattering
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 4,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                       .count  = 1});
-
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         r.sky.sky_raymarch = api.create_program(std::move(pinfo));
     }
 
-
     {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Multiscattering LUT";
-        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width  = 32;
-        iinfo.height = 32;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::storage_image_usage;
-        r.sky.multiscattering_lut = api.create_image(iinfo);
+        r.sky.multiscattering_lut = api.create_image({.name   = "Multiscattering LUT",
+                                                      .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                                                      .width  = 32,
+                                                      .height = 32,
+                                                      .usages = vulkan::storage_image_usage});
     }
+
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
         // atmosphere params
         pinfo.binding({.slot =  0,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .count =  1});
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // transmittance lut
         pinfo.binding({.slot =  1,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .count =  1});
+                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // multiscattering lut
         pinfo.binding({.slot =  2,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .count =  1});
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         r.sky.compute_multiscattering_lut = api.create_program(std::move(pinfo));
     }
-
 
     return r;
 }
@@ -845,61 +820,8 @@ void Renderer::destroy()
 void Renderer::on_resize(int width, int height)
 {
     api.on_resize(width, height);
-
-    auto &depth = api.get_rendertarget(depth_rt);
-    api.destroy_image(depth.image_h);
-
-    auto &color = api.get_rendertarget(color_rt);
-    api.destroy_image(color.image_h);
-
-    auto &lod_map = api.get_rendertarget(screenspace_lod_map_rt);
-    api.destroy_image(lod_map.image_h);
-
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "Depth";
-        iinfo.format = VK_FORMAT_D32_SFLOAT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::depth_attachment_usage;
-        auto depth_h = api.create_image(iinfo);
-
-        vulkan::RTInfo dinfo;
-        dinfo.is_swapchain = false;
-        dinfo.image_h      = depth_h;
-        depth_rt         = api.create_rendertarget(dinfo);
-    }
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "HDR color";
-        iinfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto color_h = api.create_image(iinfo);
-
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain = false;
-        cinfo.image_h      = color_h;
-        color_rt         = api.create_rendertarget(cinfo);
-    }
-    {
-        vulkan::ImageInfo iinfo;
-        iinfo.name   = "ShadowMap LOD map";
-        iinfo.format = VK_FORMAT_R8_UINT;
-        iinfo.width  = api.ctx.swapchain.extent.width;
-        iinfo.height = api.ctx.swapchain.extent.height;
-        iinfo.depth  = 1;
-        iinfo.usages = vulkan::color_attachment_usage;
-        auto lod_map_h = api.create_image(iinfo);
-
-        vulkan::RTInfo cinfo;
-        cinfo.is_swapchain     = false;
-        cinfo.image_h          = lod_map_h;
-        screenspace_lod_map_rt = api.create_rendertarget(cinfo);
-    }
+    destroy_swapchain_sized_images(*this);
+    create_swapchain_sized_images(*this);
 }
 
 void Renderer::wait_idle()

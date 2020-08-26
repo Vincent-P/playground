@@ -62,8 +62,30 @@ using float4x4 = glm::mat4;
 
 namespace my_app
 {
-/// --- Utility functions
+// --- User-defined literals
 
+inline uint operator"" _K(unsigned long long value)
+{
+    return value * 1000u;
+}
+
+inline uint operator"" _KiB(unsigned long long value)
+{
+    return value * 1024u;
+}
+
+inline uint operator"" _MiB(unsigned long long value)
+{
+    return value * 1024u * 1024u;
+}
+
+
+inline uint operator"" _GiB(unsigned long long value)
+{
+    return value * 1024u * 1024u * 1024;
+}
+
+/// --- Utility functions
 template <typename T> inline T *ptr_offset(T *ptr, usize offset)
 {
     return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
