@@ -16,11 +16,6 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>") # Specif
 
 project(test-vulkan LANGUAGES CXX)
 
-add_compile_options(
-  -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
-  -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
-  )
-
 add_definitions(
   -DNOMINMAX #ty windows....
 
@@ -61,6 +56,11 @@ add_executable(test-vulkan
   src/renderer/hl_api.cpp
   src/renderer/hl_api_resources.cpp
   src/renderer/hl_api_draw.cpp
+  )
+
+target_compile_options( test-vulkan PUBLIC
+  -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
+  -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
   )
 
 target_link_libraries(test-vulkan
