@@ -439,7 +439,7 @@ struct API
     void on_resize(int width, int height);
     bool start_frame();
     void end_frame();
-    void start_present();
+    bool start_present();
     void wait_idle();
 
     /// --- Drawing

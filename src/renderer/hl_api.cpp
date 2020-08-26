@@ -110,6 +110,10 @@ void API::on_resize(int width, int height)
     // submit all command buffers?
 
     ctx.on_resize(width, height);
+
+    for (auto &timestamps : timestamp_labels_per_frame) {
+        timestamps.clear();
+    }
 }
 
 bool API::start_frame()
@@ -178,15 +182,26 @@ bool API::start_frame()
     return true;
 }
 
-void API::start_present()
+bool API::start_present()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    VK_CHECK(vkAcquireNextImageKHR(ctx.device, ctx.swapchain.handle,
+    auto res = vkAcquireNextImageKHR(ctx.device, ctx.swapchain.handle,
                                     std::numeric_limits<uint64_t>::max(),
                                     frame_resource.image_available,
                                     nullptr,
-                                   &ctx.swapchain.current_image));
+                                   &ctx.swapchain.current_image);
+
+    if (res == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        return false;
+    }
+    else
+    {
+        VK_CHECK(res);
+    }
+
+    return true;
 }
 
 void API::end_frame()

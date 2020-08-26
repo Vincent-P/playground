@@ -1038,7 +1038,7 @@ void Renderer::imgui_draw()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -2587,6 +2587,7 @@ void Renderer::draw()
 
     update_uniforms(*this);
 
+    bool present = true;
     if (0)
     {
     prepass(*this);
@@ -2616,31 +2617,17 @@ void Renderer::draw()
 
     render_sky(*this);
 
-    api.start_present();
+    present = api.start_present();
     composite_hdr();
     }
     else
     {
-    api.begin_label("Clear voxels");
-    VkClearColorValue clear{};
-    clear.float32[0] = 0.f;
-    clear.float32[1] = 0.f;
-    clear.float32[2] = 0.f;
-    clear.float32[3] = 0.f;
-    api.clear_image(voxels_albedo, clear);
-    api.clear_image(voxels_normal, clear);
-    api.clear_image(voxels_radiance, clear);
-    for (auto image_h : voxels_directional_volumes)
-    {
-        api.clear_image(image_h, clear);
+        present = api.start_present();
     }
-    api.end_label();
 
-    prepass(*this);
-    draw_floor(*this);
-    api.start_present();
-    composite_hdr();
-
+    if (!present) {
+        ImGui::EndFrame();
+        return;
     }
 
     imgui_draw();
