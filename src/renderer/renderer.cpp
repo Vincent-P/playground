@@ -57,7 +57,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::depth_attachment_usage;
         auto depth_h = api.create_image(iinfo);
 
         vulkan::RTInfo dinfo;
@@ -73,7 +73,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto color_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -292,7 +292,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto lod_map_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -309,7 +309,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         sm_info.height = 16 * 1024;
         sm_info.depth  = 1;
         sm_info.mip_levels = 8;
-        sm_info.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        sm_info.usages = vulkan::depth_attachment_usage;
         sm_info.is_sparse = true;
         sm_info.max_sparse_size = 64u * 1024u * 1024u; // 64Mb should be the size of a 4K non-sparse shadow map
 
@@ -328,7 +328,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         mlm_info.width     = sm_info.width / 128; // https://renderdoc.org/vkspec_chunked/chap32.html#sparsememory-standard-shapes
         mlm_info.height    = sm_info.height / 128; // standard block shape for 32 bits / texel 2D texture is 128x128
         mlm_info.depth     = 1;
-        mlm_info.usages    = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        mlm_info.usages    = vulkan::storage_image_usage;
         mlm_info.memory_usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
         mlm_info.is_linear = true;
 
@@ -352,7 +352,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width         = r.voxel_options.res;
         iinfo.height        = r.voxel_options.res;
         iinfo.depth         = r.voxel_options.res;
-        iinfo.usages        = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        iinfo.usages        = vulkan::storage_image_usage;
         r.voxels_albedo     = api.create_image(iinfo);
 
         iinfo.name          = "Voxels normal";
@@ -388,7 +388,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.height       = size;
         iinfo.depth        = size;
         iinfo.mip_levels   = static_cast<u32>(std::floor(std::log2(size)) + 1.0);
-        iinfo.usages       = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        iinfo.usages        = vulkan::storage_image_usage;
 
         iinfo.name                         = "Voxels directional volume -X";
         r.voxels_directional_volumes[0]    = api.create_image(iinfo);
@@ -635,8 +635,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = 256;
         iinfo.height = 64;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -672,8 +671,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = 192;
         iinfo.height = 108;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto image_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -777,8 +775,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         iinfo.width  = 32;
         iinfo.height = 32;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-                       | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::storage_image_usage;
         r.sky.multiscattering_lut = api.create_image(iinfo);
     }
     {
@@ -865,7 +862,7 @@ void Renderer::on_resize(int width, int height)
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::depth_attachment_usage;
         auto depth_h = api.create_image(iinfo);
 
         vulkan::RTInfo dinfo;
@@ -880,7 +877,7 @@ void Renderer::on_resize(int width, int height)
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto color_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -895,7 +892,7 @@ void Renderer::on_resize(int width, int height)
         iinfo.width  = api.ctx.swapchain.extent.width;
         iinfo.height = api.ctx.swapchain.extent.height;
         iinfo.depth  = 1;
-        iinfo.usages = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        iinfo.usages = vulkan::color_attachment_usage;
         auto lod_map_h = api.create_image(iinfo);
 
         vulkan::RTInfo cinfo;
@@ -1043,15 +1040,8 @@ void Renderer::imgui_draw()
             const ImDrawCmd *draw_command = &cmd_list->CmdBuffer[command_index];
 
             if (draw_command->TextureId) {
-                auto image_h = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
-                auto &image = api.get_image(image_h);
-
-                auto next_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-                if (image.image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-                    next_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-                }
-
+                // auto image_h = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
+                // auto &image = api.get_image(image_h);
                 // TODO barrier
             }
         }

@@ -30,30 +30,32 @@ inline constexpr u32 GLOBAL_DESCRIPTOR_SET = 0;
 inline constexpr u32 SHADER_DESCRIPTOR_SET = 1;
 inline constexpr u32 DRAW_DESCRIPTOR_SET   = 2;
 
+inline constexpr VkImageUsageFlags depth_attachment_usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+inline constexpr VkImageUsageFlags color_attachment_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+inline constexpr VkImageUsageFlags sampled_image_usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+inline constexpr VkImageUsageFlags storage_image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
 struct ImageInfo
 {
-    const char *name;
-    VkImageType type = VK_IMAGE_TYPE_2D;
-    VkFormat format  = VK_FORMAT_R8G8B8A8_UNORM;
-    std::vector<VkFormat> extra_formats;
-    u32 width;
-    u32 height;
-    u32 depth;
-    u32 mip_levels                  = 1;
-    bool generate_mip_levels        = false;
-    u32 layers                      = 1;
-    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-    VkImageUsageFlags usages      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-    VmaMemoryUsage memory_usage     = VMA_MEMORY_USAGE_GPU_ONLY;
-
+    const char *name                    = "No name";
+    VkImageType type                    = VK_IMAGE_TYPE_2D;
+    VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
+    std::vector<VkFormat> extra_formats = {};
+    u32 width                           = 1;
+    u32 height                          = 1;
+    u32 depth                           = 1;
+    u32 mip_levels                      = 1;
+    bool generate_mip_levels            = false;
+    u32 layers                          = 1;
+    VkSampleCountFlagBits samples       = VK_SAMPLE_COUNT_1_BIT;
+    VkImageUsageFlags usages            = sampled_image_usage;
+    VmaMemoryUsage memory_usage         = VMA_MEMORY_USAGE_GPU_ONLY;
     // sparse resident textures
-    bool is_sparse                  = false;
+    bool is_sparse = false;
     usize max_sparse_size;
+    bool is_linear = false;
 
-    bool is_linear                  = false;
-
-    bool operator==(const ImageInfo&) const = default;
+    bool operator==(const ImageInfo &) const = default;
 };
 
 struct Image;
