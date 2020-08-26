@@ -2,7 +2,7 @@
 
 #include <filesystem>
 #if defined(ENABLE_IMGUI)
-#include <imgui.h>
+#include <imgui/imgui.h>
 #endif
 #include <iostream>
 #include <string>

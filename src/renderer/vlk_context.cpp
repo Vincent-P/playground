@@ -55,6 +55,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
+bool is_extension_installed(const char *wanted, const std::vector<VkExtensionProperties> &installed)
+{
+    for (const auto &extension : installed)
+    {
+        if (!strcmp(wanted, extension.extensionName))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 Context Context::create(const Window &window)
 {
     Context ctx;
@@ -163,8 +175,10 @@ Context Context::create(const Window &window)
 
     std::vector<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+    if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions)) {
+        device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+    }
 
     ctx.vulkan12_features              = {};
     ctx.vulkan12_features.sType        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;

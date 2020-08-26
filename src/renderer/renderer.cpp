@@ -8,13 +8,14 @@
 #include <vulkan/vulkan_core.h>
 #if defined(ENABLE_IMGUI)
 #include "eva-icons.hpp"
-#include <imgui.h>
+#include <imgui/imgui.h>
 #endif
 #include "file_watcher.hpp"
 #include "types.hpp"
 #include "timer.hpp"
 #include <iostream>
 #include <fstream>
+#include <cstring>
 
 #include "../shaders/include/atmosphere.h"
 
@@ -2395,12 +2396,12 @@ void draw_fps(Renderer &renderer)
                 continue;
             }
 
-            ImGui::Text("Heap #%llu", static_cast<u64>(i));
-            ImGui::Text("Block bytes: %llu", static_cast<u64>(budget.blockBytes));
-            ImGui::Text("Allocation bytes: %llu", static_cast<u64>(budget.allocationBytes));
-            ImGui::Text("Usage: %llu", static_cast<u64>(budget.usage));
-            ImGui::Text("Budget: %llu", static_cast<u64>(budget.budget));
-            ImGui::Text("Total: %llu", static_cast<u64>(budget.usage + budget.budget));
+            ImGui::Text("Heap #" PRINT_u64, i);
+            ImGui::Text("Block bytes: " PRINT_u64, budget.blockBytes);
+            ImGui::Text("Allocation bytes: " PRINT_u64, budget.allocationBytes);
+            ImGui::Text("Usage: " PRINT_u64, budget.usage);
+            ImGui::Text("Budget: " PRINT_u64, budget.budget);
+            ImGui::Text("Total: " PRINT_u64, budget.usage + budget.budget);
             double utilization = 100.0 * budget.usage / (budget.usage + budget.budget);
             ImGui::Text("%02.2f%%", utilization);
         }
@@ -2620,7 +2621,6 @@ void Renderer::draw()
     }
     else
     {
-
     api.begin_label("Clear voxels");
     VkClearColorValue clear{};
     clear.float32[0] = 0.f;

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
+include(FetchContent)
 
 # Setup the vcpkg toolchain to get packages
 if(DEFINED ENV{VCPKG_ROOT})
@@ -19,12 +20,6 @@ add_compile_options(
   -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
   -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
   )
-
-# Enable ASAN
-if(0 AND (NOT WIN32 OR CMAKE_BUILD_TYPE MATCHES Release))
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -fsanitize=address")
-endif ()
 
 add_definitions(
   -DNOMINMAX #ty windows....
@@ -49,7 +44,6 @@ find_package(glm REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 
 # Main executable
@@ -77,7 +71,6 @@ target_link_libraries(test-vulkan
   nlohmann_json
   nlohmann_json::nlohmann_json
   unofficial::vulkan-memory-allocator::vulkan-memory-allocator
-  imgui::imgui
   )
 
 target_include_directories(test-vulkan
@@ -86,6 +79,7 @@ target_include_directories(test-vulkan
   )
 
 # SHADERS
+
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "shaders/*.frag"
   "shaders/*.vert"
@@ -110,21 +104,16 @@ add_custom_target(
 
 add_dependencies(test-vulkan shaders)
 
-# GTest executable
-# add_executable(tests
-#   tests/arena.cpp
-#   )
-#
-# target_link_libraries(tests
-#   GTest::gtest
-#   GTest::gtest_main
-#   )
-#
-# target_include_directories(tests
-#   PUBLIC include/
-#   SYSTEM PUBLIC third_party/
-#   )
-#
-# enable_testing()
-# include(GoogleTest)
-# gtest_discover_tests(tests)
+# ImGUI
+
+add_library(imgui
+  third_party/imgui/imgui.cpp
+  third_party/imgui/imgui_demo.cpp
+  third_party/imgui/imgui_draw.cpp
+  third_party/imgui/imgui_widgets.cpp
+  )
+
+target_link_libraries(test-vulkan
+  PRIVATE
+  imgui
+  )

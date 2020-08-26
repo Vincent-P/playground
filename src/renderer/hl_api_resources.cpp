@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>

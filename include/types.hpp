@@ -24,6 +24,12 @@
 
 #define PACKED __attribute__((packed))
 
+#if defined(_WIN64)
+#define PRINT_u64 "%llu"
+#else
+#define PRINT_u64 "%lu"
+#endif
+
 constexpr float PI = 3.1415926535897932384626433832795f;
 
 /// --- Numeric Types

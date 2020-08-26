@@ -4,7 +4,7 @@
 #include "timer.hpp"
 #include "window.hpp"
 #if defined(ENABLE_IMGUI)
-#    include <imgui.h>
+#    include <imgui/imgui.h>
 #endif
 
 namespace my_app

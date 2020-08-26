@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #if defined(ENABLE_IMGUI)
-#include <imgui.h>
+#include <imgui/imgui.h>
 #endif
 
 namespace my_app
