@@ -7,7 +7,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <unordered_map>
 #include <array>
 #include <vector>
@@ -76,7 +75,6 @@ struct Image
     std::vector<VmaAllocation> sparse_allocations;
     std::vector<VmaAllocationInfo> allocations_infos;
 
-    ThsvsAccessType access;
     VkImageLayout layout;
     VkImageSubresourceRange full_range;
 
@@ -556,24 +554,6 @@ void destroy_sampler_internal(API &api, Sampler &img);
 void destroy_program_internal(API &api, GraphicsProgram &program);
 void destroy_program_internal(API &api, ComputeProgram &program);
 void destroy_shader_internal(API &api, Shader &program);
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout);
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout,
-                                   VkImageSubresourceRange &range);
-
-inline ThsvsAccessType access_from_layout(VkImageLayout layout)
-{
-    if (layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    {
-        return THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    }
-    if (layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-    {
-        return THSVS_ACCESS_PRESENT;
-    }
-    std::cerr << "Invalid layout " /*<< Vkto_string(layout)*/ << std::endl;
-
-    return THSVS_ACCESS_GENERAL;
-}
 
 } // namespace vulkan
 } // namespace my_app

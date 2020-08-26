@@ -1,13 +1,11 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #define VMA_IMPLEMENTATION
-#define THSVS_SIMPLER_VULKAN_SYNCHRONIZATION_IMPLEMENTATION
 
 #include "renderer/vlk_context.hpp"
 #include "window.hpp"
 
 #include <iostream>
-#include <thsvs/thsvs_simpler_vulkan_synchronization.h>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <string>

@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "renderer/renderer.hpp"
@@ -165,6 +166,8 @@ void Renderer::load_model_data()
             });
         }
 
+        std::vector<VkImageMemoryBarrier> barriers;
+
         for (usize image_i = 0; image_i < model.images.size(); image_i++)
         {
             auto &image     = model.images[image_i];
@@ -182,8 +185,36 @@ void Renderer::load_model_data()
             api.upload_image(image.image_h, image_info.pixels, size);
             api.generate_mipmaps(image.image_h);
 
+            barriers.emplace_back();
+            auto &b = barriers.back();
+
+            auto &vkimage = api.get_image(image.image_h);
+            b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b.oldLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            b.newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            b.srcAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b.dstAccessMask    = 0;
+            b.image            = vkimage.vkhandle;
+            b.subresourceRange = vkimage.full_range;
+            vkimage.layout = b.newLayout;
+
             stbi_image_free(image_info.pixels);
         }
+
+        auto cmd_buffer = api.get_temp_cmd_buffer();
+        cmd_buffer.begin();
+        vkCmdPipelineBarrier(cmd_buffer.vkhandle,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             barriers.size(),
+                             barriers.data());
+        cmd_buffer.submit_and_wait();
+
     }
 
     vulkan::GraphicsProgramInfo pinfo{};

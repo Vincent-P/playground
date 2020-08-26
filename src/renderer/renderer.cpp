@@ -178,6 +178,31 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         r.gui_texture = api.create_image(iinfo);
         api.upload_image(r.gui_texture, pixels, iinfo.width * iinfo.height * 4);
+
+        auto &vkimage          = api.get_image(r.gui_texture);
+        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b.oldLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        b.newLayout            = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b.srcAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
+        b.dstAccessMask        = 0;
+        b.image                = vkimage.vkhandle;
+        b.subresourceRange     = vkimage.full_range;
+        vkimage.layout         = b.newLayout;
+
+        auto cmd_buffer = api.get_temp_cmd_buffer();
+        cmd_buffer.begin();
+        vkCmdPipelineBarrier(cmd_buffer.vkhandle,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             1,
+                             &b);
+        cmd_buffer.submit_and_wait();
+
     }
 #endif
 
@@ -1021,15 +1046,13 @@ void Renderer::imgui_draw()
                 auto image_h = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
                 auto &image = api.get_image(image_h);
 
-                auto next_access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
                 auto next_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
                 if (image.image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-                    next_access = THSVS_ACCESS_FRAGMENT_SHADER_READ_DEPTH_STENCIL_INPUT_ATTACHMENT;
                     next_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                 }
 
-                transition_if_needed_internal(api, image, next_access, next_layout);
+                // TODO barrier
             }
         }
     }
@@ -1038,7 +1061,7 @@ void Renderer::imgui_draw()
     pass.present = true;
 
     vulkan::AttachmentInfo color_info;
-    color_info.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_info.load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
@@ -1165,6 +1188,14 @@ void draw_floor(Renderer &r)
     auto &api = r.api;
     api.begin_label("Draw floor");
 
+
+    {
+        auto cmd = api.ctx.frame_resources.get_current().command_buffer;
+        // execution dependency between the compute shaders dispatched (shadow map lod) and the next command (begin renderpass)
+        // the compute shader has to be finished reading the depth before clearing it in the begin render pass
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+    }
+
     api.set_viewport_and_scissor(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
 
     // Bind camera uniform buffer
@@ -1255,8 +1286,7 @@ void Renderer::draw_model()
     // voxel textures
     {
         {
-            auto &image = api.get_image(voxels_radiance);
-            transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            // TODO barrier
         }
 
         api.bind_combined_image_sampler(model.program,
@@ -1270,8 +1300,7 @@ void Renderer::draw_model()
             views.reserve(voxels_directional_volumes.size());
             for (const auto& volume_h : voxels_directional_volumes)
             {
-                auto &image = api.get_image(volume_h);
-                transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                // todo barrier
                 views.push_back(api.get_image(volume_h).default_view);
             }
             api.bind_combined_images_sampler(model.program,
@@ -1396,11 +1425,12 @@ static void prepass(Renderer &r)
 
         auto &program = r.fill_min_lod_map;
         auto &depth = api.get_rendertarget(r.depth_rt);
+        auto &depth_img = api.get_image(depth.image_h);
         auto &screenspace_lod_map = api.get_rendertarget(r.screenspace_lod_map_rt);
         auto &screenspace_lod_map_img = api.get_image(screenspace_lod_map.image_h);
 
         {
-            std::array<VkImageMemoryBarrier, 2> barriers;
+            std::array<VkImageMemoryBarrier, 3> barriers;
 
             VkPipelineStageFlags src_mask = 0;
             VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -1409,17 +1439,16 @@ static void prepass(Renderer &r)
 
             // screenspace lod map
             *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            b->oldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            b->oldLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             b->newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             b->srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
             b->image            = screenspace_lod_map_img.vkhandle;
             b->subresourceRange = screenspace_lod_map_img.full_range;
+            screenspace_lod_map_img.layout = b->newLayout;
 
             src_mask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-            screenspace_lod_map_img.layout = b->newLayout;
-            screenspace_lod_map_img.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
 
             // min lod map
             b++;
@@ -1430,25 +1459,23 @@ static void prepass(Renderer &r)
             b->dstAccessMask       = VK_ACCESS_SHADER_READ_BIT;
             b->image               = min_lod_map_img.vkhandle;
             b->subresourceRange    = min_lod_map_img.full_range;
+            min_lod_map_img.layout = b->newLayout;
 
             src_mask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-            min_lod_map_img.layout = b->newLayout;
-            min_lod_map_img.access = THSVS_ACCESS_GENERAL;
 
-            /*
             // min lod map
             b++;
-            b->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            b->oldLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            b->newLayout            = VK_IMAGE_LAYOUT_GENERAL;
-            b->srcAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT; // has to be 0 because top of pipe
-            b->dstAccessMask        = VK_ACCESS_SHADER_READ_BIT;
-            b->image                = min_lod_map_img.vkhandle;
-            b->subresourceRange     = min_lod_map_img.full_range;
-            min_lod_map_img.layout = VK_IMAGE_LAYOUT_GENERAL;
-            min_lod_map_img.access = THSVS_ACCESS_GENERAL;
-            */
+            *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b->oldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            b->newLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            b->srcAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
+            b->image            = depth_img.vkhandle;
+            b->subresourceRange = depth_img.full_range;
+            depth_img.layout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+            src_mask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 
             vkCmdPipelineBarrier(frame_resource.command_buffer,
                                  src_mask,
@@ -1470,8 +1497,6 @@ static void prepass(Renderer &r)
         auto size_x = api.ctx.swapchain.extent.width / 8;
         auto size_y = api.ctx.swapchain.extent.height / 8;
         api.dispatch(program, size_x, size_y, 1);
-
-        transition_if_needed_internal(api, min_lod_map_img, THSVS_ACCESS_HOST_READ, VK_IMAGE_LAYOUT_GENERAL);
     }
 
 #if defined(ENABLE_IMGUI)
@@ -1733,16 +1758,10 @@ void Renderer::voxelize_scene()
     auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
     auto &normal_uint = api.get_image(voxels_normal).format_views[0];
 
-    {
-    auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-    }
+    // TODO barrier
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo, albedo_uint);
 
-    {
-    auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-    }
+    // TODO barrier
     api.bind_image(voxelization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal, normal_uint);
 
 
@@ -1812,18 +1831,10 @@ void Renderer::visualize_voxels()
         api.bind_buffer(visualization, vulkan::SHADER_DESCRIPTOR_SET, 2, u_pos);
     }
 
-    auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+    // todo barrier
+
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
-    {
-    auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-    }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
-    {
-    auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-    }
     api.bind_image(visualization, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
 
 
@@ -1914,22 +1925,9 @@ void Renderer::inject_direct_lighting()
     }
 
     // use the RGBA8 format defined at creation in view_formats
-    {
-    auto &image = api.get_image(voxels_albedo);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    }
+    // TODO barrier
     api.bind_combined_image_sampler(program, 2, voxels_albedo, trilinear_sampler);
-
-    {
-    auto &image = api.get_image(voxels_normal);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     api.bind_combined_image_sampler(program, 3, voxels_normal, trilinear_sampler);
-    }
-
-    {
-    auto &image = api.get_image(voxels_radiance);
-    transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-    }
     api.bind_image(program, 4, voxels_radiance);
 
 
@@ -1959,10 +1957,7 @@ void Renderer::generate_aniso_voxels()
     }
 
     // use the RGBA8 format defined at creation in view_formats
-    {
-        auto &image = api.get_image(voxels_radiance);
-        transition_if_needed_internal(api, image, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    }
+    // todo barrier
     api.bind_combined_image_sampler(generate_aniso_base, 1, voxels_radiance, trilinear_sampler);
 
     std::vector<VkImageMemoryBarrier> barriers;
@@ -1973,7 +1968,7 @@ void Renderer::generate_aniso_voxels()
         for (const auto& volume_h : voxels_directional_volumes)
         {
             auto &image = api.get_image(volume_h);
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+            // todo barrier
 
             views.push_back(api.get_image(volume_h).mip_views[0]);
 
@@ -2035,8 +2030,6 @@ void Renderer::generate_aniso_voxels()
             auto &image = api.get_image(volume_h);
             src_views.push_back(image.mip_views[src]);
             dst_views.push_back(image.mip_views[dst]);
-
-            transition_if_needed_internal(api, image, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
         }
 
         api.bind_images(generate_aniso_mipmap, 2, voxels_directional_volumes, src_views);
@@ -2056,6 +2049,38 @@ void Renderer::composite_hdr()
     static float s_exposure = 1.0f;
 
     api.begin_label("Tonemap");
+
+    auto &hdr_rt = api.get_rendertarget(color_rt);
+    auto &hdr_img = api.get_image(hdr_rt.image_h);
+
+    {
+        std::array<VkImageMemoryBarrier, 1> barriers;
+
+        VkPipelineStageFlags src_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        auto *b = &barriers[0];
+
+        *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b->oldLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        b->newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b->srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
+        b->image            = hdr_img.vkhandle;
+        b->subresourceRange = hdr_img.full_range;
+        hdr_img.layout      = b->newLayout;
+
+        vkCmdPipelineBarrier(api.ctx.frame_resources.get_current().command_buffer,
+                             src_mask,
+                             dst_mask,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             barriers.size(),
+                             barriers.data());
+    }
 
 #if defined(ENABLE_IMGUI)
     if (p_ui->begin_window("HDR Shader", true))
@@ -2077,9 +2102,6 @@ void Renderer::composite_hdr()
     color_info.rt      = swapchain_rt;
     pass.color         = std::make_optional(color_info);
 
-
-
-    auto &hdr_rt = api.get_rendertarget(color_rt);
     api.bind_combined_image_sampler(hdr_compositing, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_rt.image_h, default_sampler);
 
     api.begin_pass(std::move(pass));
@@ -2186,7 +2208,7 @@ void render_sky(Renderer &r)
     api.end_label();
     api.begin_label("Sky Multiscattering LUT");
 
-    transition_if_needed_internal(api, transmittance_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // todo barrier
 
     auto &multiscattering_lut = api.get_image(r.sky.multiscattering_lut);
 
@@ -2200,16 +2222,11 @@ void render_sky(Renderer &r)
                                         transmittance_lut_rt.image_h,
                                         r.trilinear_sampler);
 
-        {
-            transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-            api.bind_image(program, 2, r.sky.multiscattering_lut);
-        }
+        api.bind_image(program, 2, r.sky.multiscattering_lut);
 
         auto size_x = multiscattering_lut.info.width;
         auto size_y = multiscattering_lut.info.height;
         api.dispatch(program, size_x, size_y, 1);
-
-        transition_if_needed_internal(api, multiscattering_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
 
@@ -2296,12 +2313,6 @@ void render_sky(Renderer &r)
         color_info.rt      = r.color_rt;
         pass.color         = std::make_optional(color_info);
 
-        transition_if_needed_internal(api,
-                                      transmittance_lut,
-                                      THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER,
-                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        transition_if_needed_internal(api, skyview_lut, THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
         auto &program = r.sky.sky_raymarch;
 
         api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
@@ -2321,11 +2332,6 @@ void render_sky(Renderer &r)
 
         {
             auto &rt = api.get_rendertarget(r.depth_rt);
-            auto &image = api.get_image(rt.image_h);
-            transition_if_needed_internal(api,
-                                          image,
-                                          THSVS_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ,
-                                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
             api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 3, rt.image_h, r.nearest_sampler);
         }
 
@@ -2588,10 +2594,11 @@ void Renderer::draw()
     update_uniforms(*this);
 
     bool present = true;
-    if (0)
-    {
+
     prepass(*this);
 
+    if (0)
+    {
     api.begin_label("Clear voxels");
     VkClearColorValue clear{};
     clear.float32[0] = 0.f;
@@ -2610,25 +2617,25 @@ void Renderer::draw()
     voxelize_scene();
     inject_direct_lighting();
     generate_aniso_voxels();
+    }
 
     draw_floor(*this);
+
+    if (0)
+    {
     draw_model();
     visualize_voxels();
-
     render_sky(*this);
+    }
 
     present = api.start_present();
-    composite_hdr();
-    }
-    else
-    {
-        present = api.start_present();
-    }
 
     if (!present) {
         ImGui::EndFrame();
         return;
     }
+
+    composite_hdr();
 
     imgui_draw();
 

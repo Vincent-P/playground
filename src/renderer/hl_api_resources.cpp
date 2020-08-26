@@ -177,7 +177,6 @@ ImageH API::create_image(const ImageInfo &info)
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
-    img.access = THSVS_ACCESS_NONE;
     img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     img.full_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -300,25 +299,6 @@ void API::destroy_image(ImageH H)
     images.remove(H);
 }
 
-static void transition_layout_internal(VkCommandBuffer cmd, VkImage image, ThsvsAccessType prev_access,
-                                       ThsvsAccessType next_access, VkImageSubresourceRange subresource_range)
-{
-    ThsvsImageBarrier image_barrier;
-    image_barrier.prevAccessCount     = 1;
-    image_barrier.pPrevAccesses       = &prev_access;
-    image_barrier.nextAccessCount     = 1;
-    image_barrier.pNextAccesses       = &next_access;
-    image_barrier.prevLayout          = THSVS_IMAGE_LAYOUT_OPTIMAL;
-    image_barrier.nextLayout          = THSVS_IMAGE_LAYOUT_OPTIMAL;
-    image_barrier.discardContents     = VK_FALSE;
-    image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    image_barrier.image               = image;
-    image_barrier.subresourceRange    = subresource_range;
-
-    thsvsCmdPipelineBarrier(cmd, nullptr, 0, nullptr, 1, &image_barrier);
-}
-
 void API::upload_image(ImageH H, void *data, usize len)
 {
     auto cmd_buffer = get_temp_cmd_buffer();
@@ -374,9 +354,7 @@ void API::upload_image(ImageH H, void *data, usize len)
                            copies.size(),
                            copies.data());
 
-    image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    transition_layout_internal(cmd_buffer.vkhandle, image.vkhandle, THSVS_ACCESS_TRANSFER_WRITE, image.access, range);
-    image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
     cmd_buffer.submit_and_wait();
 }
@@ -409,7 +387,7 @@ void API::generate_mipmaps(ImageH h)
     {
         VkImageMemoryBarrier b{};
         b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        b.oldLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        b.oldLayout        = image.layout;
         b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         b.srcAccessMask    = 0;
         b.dstAccessMask    = VK_ACCESS_TRANSFER_READ_BIT;
@@ -502,14 +480,6 @@ void API::generate_mipmaps(ImageH h)
                                  &b);
         }
     }
-
-    image.access = THSVS_ACCESS_ANY_SHADER_READ_SAMPLED_IMAGE_OR_UNIFORM_TEXEL_BUFFER;
-    transition_layout_internal(cmd_buffer.vkhandle,
-                               image.vkhandle,
-                               THSVS_ACCESS_TRANSFER_READ,
-                               image.access,
-                               image.full_range);
-    image.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     cmd_buffer.submit_and_wait();
 }
@@ -1068,23 +1038,6 @@ void API::destroy_program(ComputeProgramH H)
     compute_programs.remove(H);
 }
 
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout)
-{
-    transition_if_needed_internal(api, image, next_access, next_layout, image.full_range);
-}
-
-void transition_if_needed_internal(API &api, Image &image, ThsvsAccessType next_access, VkImageLayout next_layout,
-                                   VkImageSubresourceRange &range)
-{
-    if (image.access != next_access)
-    {
-        auto &frame_resource = api.ctx.frame_resources.get_current();
-        transition_layout_internal(frame_resource.command_buffer, image.vkhandle, image.access, next_access, range);
-        image.access = next_access;
-        image.layout = next_layout;
-    }
-}
-
 void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
@@ -1109,7 +1062,6 @@ void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
                              1,
                              &b);
         image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        image.access = THSVS_ACCESS_TRANSFER_WRITE;
     }
 
     vkCmdClearColorImage(frame_resource.command_buffer,

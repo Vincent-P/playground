@@ -208,10 +208,37 @@ void API::end_frame()
 {
     add_timestamp("End Frame");
 
+    auto &frame_resource = ctx.frame_resources.get_current();
+
+    {
+        VkImage vkimage                   = ctx.swapchain.get_current_image();
+        VkImageMemoryBarrier b            = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b.oldLayout                       = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        b.newLayout                       = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        b.srcAccessMask                   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        b.dstAccessMask                   = 0;
+        b.image                           = vkimage;
+        b.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        b.subresourceRange.baseMipLevel   = 0;
+        b.subresourceRange.baseArrayLayer = 0;
+        b.subresourceRange.layerCount     = 1;
+        b.subresourceRange.levelCount     = 1;
+
+        vkCmdPipelineBarrier(frame_resource.command_buffer,
+                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             0,
+                             0,
+                             nullptr,
+                             0,
+                             nullptr,
+                             1,
+                             &b);
+    }
+
     VkQueue graphics_queue;
     vkGetDeviceQueue(ctx.device, ctx.graphics_family_idx, 0, &graphics_queue);
 
-    auto &frame_resource = ctx.frame_resources.get_current();
     VK_CHECK(vkEndCommandBuffer(frame_resource.command_buffer));
 
     VkPipelineStageFlags stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

@@ -29,8 +29,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     if (rp.info.color) {
         color_ref.attachment = static_cast<u32>(attachments.size());
 
-        VkImageLayout initial_layout;
-        auto final_layout = rp.info.present ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
         VkFormat format;
 
         auto color_rt  = api.get_rendertarget(rp.info.color->rt);
@@ -44,19 +43,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
             auto &color_img = api.get_image(color_rt.image_h);
             initial_layout = color_img.layout;
             format = color_img.image_info.format;
-
-            if (final_layout != color_img.layout)
-            {
-                color_img.layout = final_layout;
-                color_img.access = access_from_layout(color_img.layout);
-            }
         }
-
-        if (initial_layout == VK_IMAGE_LAYOUT_UNDEFINED)
-        {
-            rp.info.color->load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        }
-
 
         VkAttachmentDescription attachment;
         attachment.format         = format;
@@ -65,8 +52,8 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout  = initial_layout;
-        attachment.finalLayout    = final_layout;
+        attachment.initialLayout  = attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : color_ref.layout;
+        attachment.finalLayout    = color_ref.layout;
         attachment.flags          = {};
         attachments.push_back(std::move(attachment));
     }
@@ -84,8 +71,8 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout  = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-        attachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        attachment.initialLayout  = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : depth_ref.layout;
+        attachment.finalLayout    = depth_ref.layout;
         attachment.flags          = {};
         attachments.push_back(std::move(attachment));
     }
@@ -697,11 +684,6 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
         image_info.imageView   = image_view;
         image_info.sampler     = sampler.vkhandle;
         image_info.imageLayout = image.layout;
-
-        // TODO: improve layout management
-        if (image_info.imageLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && image_info.imageLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL) {
-            image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        }
     }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
