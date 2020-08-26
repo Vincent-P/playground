@@ -1077,7 +1077,7 @@ void Renderer::imgui_draw()
                 auto texture = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
                 auto& image = api.get_image(texture);
 
-                if (image.image_info.format == VK_FORMAT_R32_UINT)
+                if (image.info.format == VK_FORMAT_R32_UINT)
                 {
                     current = gui_uint_program;
                 }

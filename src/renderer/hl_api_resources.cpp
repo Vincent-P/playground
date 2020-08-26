@@ -61,39 +61,40 @@ ImageH API::create_image(const ImageInfo &info)
     img.info = info;
 
     img.extra_formats    = info.extra_formats;
-    img.image_info.flags = 0;
-    if (!info.extra_formats.empty())
-    {
-        img.image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-    }
 
     assert(info.mip_levels == 1 || !info.generate_mip_levels);
 
-    img.image_info.pNext = nullptr;
-    img.image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    VkImageCreateInfo image_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+
     if (info.is_sparse)
     {
-        img.image_info.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
+        image_info.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
     }
-    img.image_info.imageType             = info.type;
-    img.image_info.format                = info.format;
-    img.image_info.extent.width          = info.width;
-    img.image_info.extent.height         = info.height;
-    img.image_info.extent.depth          = info.depth;
-    img.image_info.mipLevels             = info.mip_levels;
-    img.image_info.arrayLayers           = info.layers;
-    img.image_info.samples               = info.samples;
-    img.image_info.initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
-    img.image_info.usage                 = info.usages;
-    img.image_info.queueFamilyIndexCount = 0;
-    img.image_info.pQueueFamilyIndices   = nullptr;
-    img.image_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
-    img.image_info.tiling                = info.is_linear ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
+    if (!info.extra_formats.empty())
+    {
+        image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+    }
+
+    image_info.imageType             = info.type;
+    image_info.format                = info.format;
+    image_info.extent.width          = info.width;
+    image_info.extent.height         = info.height;
+    image_info.extent.depth          = info.depth;
+    image_info.mipLevels             = info.mip_levels;
+    image_info.arrayLayers           = info.layers;
+    image_info.samples               = info.samples;
+    image_info.initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_info.usage                 = info.usages;
+    image_info.queueFamilyIndexCount = 0;
+    image_info.pQueueFamilyIndices   = nullptr;
+    image_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+    image_info.tiling                = info.is_linear ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
 
     if (info.generate_mip_levels)
     {
-        img.image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
-        img.image_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
+        img.info.mip_levels  = image_info.mipLevels;
+        image_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 
     if (!info.is_sparse)
@@ -104,7 +105,7 @@ ImageH API::create_image(const ImageInfo &info)
         alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(info.name));
 
         VK_CHECK(vmaCreateImage(ctx.allocator,
-                                reinterpret_cast<VkImageCreateInfo *>(&img.image_info),
+                                reinterpret_cast<VkImageCreateInfo *>(&image_info),
                                 &alloc_info,
                                 reinterpret_cast<VkImage *>(&img.vkhandle),
                                 &img.allocation,
@@ -114,11 +115,11 @@ ImageH API::create_image(const ImageInfo &info)
     {
         VkPhysicalDeviceSparseImageFormatInfo2 info2{};
         info2.sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2;
-        info2.format  = img.image_info.format;
-        info2.type    = img.image_info.imageType;
-        info2.samples = img.image_info.samples;
-        info2.usage   = img.image_info.usage;
-        info2.tiling  = img.image_info.tiling;
+        info2.format  = image_info.format;
+        info2.type    = image_info.imageType;
+        info2.samples = image_info.samples;
+        info2.usage   = image_info.usage;
+        info2.tiling  = image_info.tiling;
 
         uint props_count = 0;
         std::vector<VkSparseImageFormatProperties2> props;
@@ -128,7 +129,7 @@ ImageH API::create_image(const ImageInfo &info)
 
         assert(props.size() > 0 && info.max_sparse_size != 0);
 
-        VK_CHECK(vkCreateImage(ctx.device, &img.image_info, nullptr, &img.vkhandle));
+        VK_CHECK(vkCreateImage(ctx.device, &image_info, nullptr, &img.vkhandle));
 
         VkMemoryRequirements mem_req;
         vkGetImageMemoryRequirements(ctx.device, img.vkhandle, &mem_req);
@@ -181,11 +182,11 @@ ImageH API::create_image(const ImageInfo &info)
 
     img.full_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     img.full_range.baseMipLevel   = 0;
-    img.full_range.levelCount     = img.image_info.mipLevels;
+    img.full_range.levelCount     = image_info.mipLevels;
     img.full_range.baseArrayLayer = 0;
-    img.full_range.layerCount     = img.image_info.arrayLayers;
+    img.full_range.layerCount     = image_info.arrayLayers;
 
-    if (img.image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+    if (image_info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
     {
         img.full_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
@@ -194,13 +195,13 @@ ImageH API::create_image(const ImageInfo &info)
     vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vci.flags            = 0;
     vci.image            = img.vkhandle;
-    vci.format           = img.image_info.format;
+    vci.format           = image_info.format;
     vci.components.r     = VK_COMPONENT_SWIZZLE_IDENTITY;
     vci.components.g     = VK_COMPONENT_SWIZZLE_IDENTITY;
     vci.components.b     = VK_COMPONENT_SWIZZLE_IDENTITY;
     vci.components.a     = VK_COMPONENT_SWIZZLE_IDENTITY;
     vci.subresourceRange = img.full_range;
-    vci.viewType         = view_type_from(img.image_info.imageType);
+    vci.viewType         = view_type_from(image_info.imageType);
 
     VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &img.default_view));
 
@@ -223,8 +224,8 @@ ImageH API::create_image(const ImageInfo &info)
         img.format_views.push_back(format_view);
     }
 
-    vci.format = img.image_info.format;
-    for (u32 i = 0; i < img.image_info.mipLevels; i++)
+    vci.format = image_info.format;
+    for (u32 i = 0; i < image_info.mipLevels; i++)
     {
         VkImageView mip_view;
         vci.subresourceRange.baseMipLevel = i;
@@ -244,7 +245,7 @@ ImageH API::create_image(const ImageInfo &info)
     sci.compareOp        = VK_COMPARE_OP_NEVER;
     sci.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
     sci.minLod           = 0;
-    sci.maxLod           = img.image_info.mipLevels;
+    sci.maxLod           = image_info.mipLevels;
     sci.maxAnisotropy    = 8.0f;
     sci.anisotropyEnable = true;
 
@@ -343,7 +344,7 @@ void API::upload_image(ImageH H, void *data, usize len)
         copy.imageSubresource.mipLevel       = i;
         copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
         copy.imageSubresource.layerCount     = range.layerCount;
-        copy.imageExtent                     = image.image_info.extent;
+        copy.imageExtent                     = { image.info.width, image.info.height, image.info.depth };
         copies.push_back(std::move(copy));
     }
 
@@ -364,9 +365,9 @@ void API::generate_mipmaps(ImageH h)
     auto cmd_buffer = get_temp_cmd_buffer();
     auto &image     = get_image(h);
 
-    u32 width      = image.image_info.extent.width;
-    u32 height     = image.image_info.extent.height;
-    u32 mip_levels = image.image_info.mipLevels;
+    u32 width      = image.info.width;
+    u32 height     = image.info.height;
+    u32 mip_levels = image.info.mip_levels;
 
     if (mip_levels == 1)
     {
@@ -489,7 +490,7 @@ FatPtr API::read_image(ImageH H)
     auto &image = get_image(H);
     assert(!image.info.is_sparse);
     assert(image.info.is_linear);
-    assert(image.image_info.mipLevels == 1);
+    assert(image.info.mip_levels == 1);
     assert(image.info.memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU
            || image.info.memory_usage == VMA_MEMORY_USAGE_CPU_ONLY);
 

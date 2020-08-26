@@ -42,7 +42,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         {
             auto &color_img = api.get_image(color_rt.image_h);
             initial_layout = color_img.layout;
-            format = color_img.image_info.format;
+            format = color_img.info.format;
         }
 
         VkAttachmentDescription attachment;
@@ -65,7 +65,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         const auto &depth_image = api.get_image(depth_rt.image_h);
 
         VkAttachmentDescription attachment;
-        attachment.format         = depth_image.image_info.format;
+        attachment.format         = depth_image.info.format;
         attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp         = rp.info.depth->load_op;
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -206,15 +206,15 @@ void API::begin_pass(PassInfo &&info)
         }
         else {
             const auto &image = get_image(rt.image_h);
-            fb_info.width     = image.image_info.extent.width;
-            fb_info.height    = image.image_info.extent.height;
+            fb_info.width     = image.info.width;
+            fb_info.height    = image.info.height;
         }
     }
     else if (render_pass.info.depth) {
         const auto &rt    = get_rendertarget(render_pass.info.depth->rt);
         const auto &image = get_image(rt.image_h);
-        fb_info.width     = image.image_info.extent.width;
-        fb_info.height    = image.image_info.extent.height;
+        fb_info.width     = image.info.width;
+        fb_info.height    = image.info.height;
     }
     else {
         fb_info.width  = 4096;
@@ -383,7 +383,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             {
                 auto &image = api.get_image(color.image_h);
                 // TODO: disable for all uint
-                if (image.image_info.format == VK_FORMAT_R8_UINT) {
+                if (image.info.format == VK_FORMAT_R8_UINT) {
                     att_states[0].blendEnable = VK_FALSE;
                 }
             }

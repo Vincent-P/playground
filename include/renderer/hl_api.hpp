@@ -64,8 +64,6 @@ struct Image
 {
     const char *name;
 
-    //TODO clean dupplicates
-    VkImageCreateInfo image_info;
     ImageInfo info;
 
     // regular texture
