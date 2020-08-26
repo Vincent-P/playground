@@ -1,14 +1,18 @@
 * Render graph
 to generate automatic barriers (hopefully it will fix all synchronization errors)
 
+* Command buffer management
+Make a command buffer abstraction to avoid putting everything in =API=?
+How does it handle (multiple command buffers, submission, dependency, multithreading)?
+
 * Material system
- - points to a technique
+ - points to a =Technique=
 
-- effects are a collection of techniques
+- =Effect= s are a collection of =Technique= s
 
-each effect is a shader program and each technique is a combination of state?
+each =Effect= is a shader =Program= and each =Technique= is a combination of state?
 
-bind material to avoid just in time compilation of PSO
+bind =Material (Technique)= to avoid just in time compilation of PSO before each draw
 
 * Bugs
 
