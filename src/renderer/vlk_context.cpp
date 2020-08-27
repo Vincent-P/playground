@@ -26,11 +26,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-
-        if (strstr(pCallbackData->pMessage, "VK_PIPELINE_STAGE_ALL_COMMANDS_BIT when vkCmdPipelineBarrier is called")) {
-            return VK_FALSE;
-        }
-
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
         break;

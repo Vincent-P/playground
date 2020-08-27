@@ -178,7 +178,7 @@ ImageH API::create_image(const ImageInfo &info)
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
-    img.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    img.usage = ImageUsage::None;
 
     img.full_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     img.full_range.baseMipLevel   = 0;
@@ -317,23 +317,17 @@ void API::upload_image(ImageH H, void *data, usize len)
     copies.reserve(range.levelCount);
 
     {
-        VkImageMemoryBarrier b = { .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-        b.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
-        b.newLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        b.srcAccessMask        = 0; // has to be 0 because top of pipe
-        b.dstAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
+        auto src = get_src_image_access(image.usage);
+        auto dst = get_dst_image_access(ImageUsage::TransferDst);
+
+        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b.oldLayout            = src.layout;
+        b.newLayout            = dst.layout;
+        b.srcAccessMask        = src.access;
+        b.dstAccessMask        = dst.access;
         b.image                = image.vkhandle;
         b.subresourceRange     = range;
-        vkCmdPipelineBarrier(cmd_buffer.vkhandle,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // wait for nothing
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             1,
-                             &b);
+        vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     }
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++)
@@ -355,7 +349,7 @@ void API::upload_image(ImageH H, void *data, usize len)
                            copies.size(),
                            copies.data());
 
-    image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    image.usage = ImageUsage::TransferDst;
 
     cmd_buffer.submit_and_wait();
 }
@@ -386,24 +380,17 @@ void API::generate_mipmaps(ImageH h)
     mip_sub_range.levelCount     = 1;
 
     {
-        VkImageMemoryBarrier b{};
-        b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        b.oldLayout        = image.layout;
-        b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        b.srcAccessMask    = 0;
-        b.dstAccessMask    = VK_ACCESS_TRANSFER_READ_BIT;
-        b.image            = image.vkhandle;
-        b.subresourceRange = mip_sub_range;
-        vkCmdPipelineBarrier(cmd,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             1,
-                             &b);
+        auto src = get_src_image_access(image.usage);
+        auto dst = get_dst_image_access(ImageUsage::TransferSrc);
+
+        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        b.oldLayout            = src.layout;
+        b.newLayout            = dst.layout;
+        b.srcAccessMask        = src.access;
+        b.dstAccessMask        = dst.access;
+        b.image                = image.vkhandle;
+        b.subresourceRange     = mip_sub_range;
+        vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     }
 
     for (u32 i = 1; i < mip_levels; i++)
@@ -430,25 +417,17 @@ void API::generate_mipmaps(ImageH h)
         mip_sub_range.baseMipLevel = i;
 
         {
-            VkImageMemoryBarrier b{};
-            b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            b.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-            b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            b.srcAccessMask    = 0;
-            b.dstAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
-            b.image            = image.vkhandle;
-            b.subresourceRange = mip_sub_range;
+            auto src = get_src_image_access(ImageUsage::None);
+            auto dst = get_dst_image_access(ImageUsage::TransferDst);
 
-            vkCmdPipelineBarrier(cmd,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 0,
-                                 0,
-                                 nullptr,
-                                 0,
-                                 nullptr,
-                                 1,
-                                 &b);
+            VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b.oldLayout            = src.layout;
+            b.newLayout            = dst.layout;
+            b.srcAccessMask        = src.access;
+            b.dstAccessMask        = dst.access;
+            b.image                = image.vkhandle;
+            b.subresourceRange     = mip_sub_range;
+            vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
         }
 
         vkCmdBlitImage(cmd,
@@ -461,26 +440,21 @@ void API::generate_mipmaps(ImageH h)
                        VK_FILTER_LINEAR);
 
         {
-            VkImageMemoryBarrier b{};
-            b.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            b.oldLayout        = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            b.newLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            b.srcAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
-            b.dstAccessMask    = VK_ACCESS_TRANSFER_READ_BIT;
-            b.image            = image.vkhandle;
-            b.subresourceRange = mip_sub_range;
-            vkCmdPipelineBarrier(cmd,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                 0,
-                                 0,
-                                 nullptr,
-                                 0,
-                                 nullptr,
-                                 1,
-                                 &b);
+            auto src = get_src_image_access(ImageUsage::TransferDst);
+            auto dst = get_dst_image_access(ImageUsage::TransferSrc);
+
+            VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b.oldLayout            = src.layout;
+            b.newLayout            = dst.layout;
+            b.srcAccessMask        = src.access;
+            b.dstAccessMask        = dst.access;
+            b.image                = image.vkhandle;
+            b.subresourceRange     = mip_sub_range;
+            vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
         }
     }
+
+    image.usage = ImageUsage::TransferSrc;
 
     cmd_buffer.submit_and_wait();
 }
@@ -1042,35 +1016,23 @@ void API::destroy_program(ComputeProgramH H)
 void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
+    auto cmd             = frame_resource.command_buffer;
     auto &image          = get_image(H);
 
-    {
-        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        b.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
-        b.newLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        b.srcAccessMask        = 0; // has to be 0 because top of pipe
-        b.dstAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
-        b.image                = image.vkhandle;
-        b.subresourceRange     = image.full_range;
-        vkCmdPipelineBarrier(frame_resource.command_buffer,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // wait for nothing
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             1,
-                             &b);
-        image.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    }
+    auto src = get_src_image_access(image.usage);
+    auto dst = get_dst_image_access(ImageUsage::TransferDst);
 
-    vkCmdClearColorImage(frame_resource.command_buffer,
-                         image.vkhandle,
-                         image.layout,
-                         &clear_color,
-                         1,
-                         &image.full_range);
+    VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    b.oldLayout            = src.layout;
+    b.newLayout            = dst.layout;
+    b.srcAccessMask        = src.access;
+    b.dstAccessMask        = dst.access;
+    b.image                = image.vkhandle;
+    b.subresourceRange     = image.full_range;
+    vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+
+    image.usage = ImageUsage::TransferDst;
+    vkCmdClearColorImage(cmd, image.vkhandle, dst.layout, &clear_color, 1, &image.full_range);
 }
 
 } // namespace my_app::vulkan

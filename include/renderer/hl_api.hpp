@@ -59,6 +59,28 @@ struct ImageInfo
     bool operator==(const ImageInfo &) const = default;
 };
 
+struct ImageAccess
+{
+    VkPipelineStageFlags stage = 0;
+    VkAccessFlags access       = 0;
+    VkImageLayout layout       = VK_IMAGE_LAYOUT_UNDEFINED;
+    // queue?
+};
+
+enum struct ImageUsage
+{
+    None,
+    GraphicsShaderRead,
+    GraphicsShaderReadWrite,
+    ComputeShaderRead,
+    ComputeShaderReadWrite,
+    TransferDst,
+    TransferSrc,
+    ColorAttachment,
+    DepthAttachment,
+    Present
+};
+
 struct Image;
 using ImageH = Handle<Image>;
 struct Image
@@ -76,7 +98,7 @@ struct Image
     std::vector<VmaAllocation> sparse_allocations;
     std::vector<VmaAllocationInfo> allocations_infos;
 
-    VkImageLayout layout;
+    ImageUsage usage = ImageUsage::None;
     VkImageSubresourceRange full_range;
 
     VkImageView default_view; // view with the default format (image_info.format) and full range
@@ -555,6 +577,188 @@ void destroy_sampler_internal(API &api, Sampler &img);
 void destroy_program_internal(API &api, GraphicsProgram &program);
 void destroy_program_internal(API &api, ComputeProgram &program);
 void destroy_shader_internal(API &api, Shader &program);
+
+inline ImageAccess get_src_image_access(ImageUsage usage)
+{
+    ImageAccess access;
+    switch (usage)
+    {
+        case ImageUsage::GraphicsShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+        break;
+        case ImageUsage::GraphicsShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        break;
+        case ImageUsage::ComputeShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+        break;
+        case ImageUsage::ComputeShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        break;
+        case ImageUsage::TransferDst:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        }
+        break;
+        case ImageUsage::TransferSrc:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        }
+        break;
+        case ImageUsage::ColorAttachment:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            access.access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
+        break;
+        case ImageUsage::DepthAttachment:
+        {
+            access.stage  = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            access.access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+        break;
+        case ImageUsage::Present:
+        {
+            access.stage  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        }
+        break;
+        case ImageUsage::None:
+        {
+            access.stage  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        }
+        break;
+    };
+    return access;
+}
+
+inline ImageAccess get_dst_image_access(ImageUsage usage)
+{
+    ImageAccess access;
+    switch (usage)
+    {
+        case ImageUsage::GraphicsShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT;
+            access.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+        break;
+        case ImageUsage::GraphicsShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        break;
+        case ImageUsage::ComputeShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT;
+            access.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+        break;
+        case ImageUsage::ComputeShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        break;
+        case ImageUsage::TransferDst:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        }
+        break;
+        case ImageUsage::TransferSrc:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_READ_BIT;
+            access.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        }
+        break;
+        case ImageUsage::ColorAttachment:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            access.access = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            access.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
+        break;
+        case ImageUsage::DepthAttachment:
+        {
+            access.stage  = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            access.access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+            access.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+        break;
+        case ImageUsage::Present:
+        {
+            access.stage  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        }
+        break;
+        case ImageUsage::None:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            access.access = 0;
+            access.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        }
+        break;
+    };
+    return access;
+}
+
+inline bool is_image_barrier_needed(ImageUsage src, ImageUsage dst)
+{
+    if (src == ImageUsage::GraphicsShaderRead && dst == ImageUsage::GraphicsShaderRead)
+        return false;
+    return true;
+}
+
+inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &src, const ImageAccess &dst, const VkImageSubresourceRange &range)
+{
+    VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    b.oldLayout            = src.layout;
+    b.newLayout            = dst.layout;
+    b.srcAccessMask        = src.access;
+    b.dstAccessMask        = dst.access;
+    b.image                = image;
+    b.subresourceRange     = range;
+    return b;
+}
+
+inline VkImageMemoryBarrier get_image_barrier(const Image &image, const ImageAccess &src, const ImageAccess &dst)
+{
+    return get_image_barrier(image.vkhandle, src, dst, image.full_range);
+}
 
 } // namespace vulkan
 } // namespace my_app

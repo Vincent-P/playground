@@ -1,4 +1,5 @@
 #include "gltf.hpp"
+#include "renderer/hl_api.hpp"
 
 #include <cassert>
 #include <filesystem>
@@ -167,7 +168,8 @@ void Renderer::load_model_data()
         }
 
         std::vector<VkImageMemoryBarrier> barriers;
-
+        VkPipelineStageFlags src_stage = 0;
+        VkPipelineStageFlags dst_stage = 0;
         for (usize image_i = 0; image_i < model.images.size(); image_i++)
         {
             auto &image     = model.images[image_i];
@@ -189,14 +191,20 @@ void Renderer::load_model_data()
             auto &b = barriers.back();
 
             auto &vkimage = api.get_image(image.image_h);
-            b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            b.oldLayout        = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            b.newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            b.srcAccessMask    = VK_ACCESS_TRANSFER_WRITE_BIT;
-            b.dstAccessMask    = 0;
+            auto src      = vulkan::get_src_image_access(vkimage.usage);
+            auto dst      = vulkan::get_dst_image_access(vulkan::ImageUsage::GraphicsShaderRead);
+
+            b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            b.oldLayout        = src.layout;
+            b.newLayout        = dst.layout;
+            b.srcAccessMask    = src.access;
+            b.dstAccessMask    = dst.access;
             b.image            = vkimage.vkhandle;
             b.subresourceRange = vkimage.full_range;
-            vkimage.layout = b.newLayout;
+            vkimage.usage      = vulkan::ImageUsage::GraphicsShaderRead;
+
+            src_stage |= src.stage;
+            dst_stage |= dst.stage;
 
             stbi_image_free(image_info.pixels);
         }
@@ -204,8 +212,8 @@ void Renderer::load_model_data()
         auto cmd_buffer = api.get_temp_cmd_buffer();
         cmd_buffer.begin();
         vkCmdPipelineBarrier(cmd_buffer.vkhandle,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             src_stage,
+                             dst_stage,
                              0,
                              0,
                              nullptr,
@@ -214,7 +222,6 @@ void Renderer::load_model_data()
                              barriers.size(),
                              barriers.data());
         cmd_buffer.submit_and_wait();
-
     }
 
     vulkan::GraphicsProgramInfo pinfo{};

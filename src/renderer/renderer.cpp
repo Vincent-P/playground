@@ -186,28 +186,16 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
         api.upload_image(r.gui_texture, pixels, w * h * 4);
 
-        auto &vkimage          = api.get_image(r.gui_texture);
-        VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        b.oldLayout            = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        b.newLayout            = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        b.srcAccessMask        = VK_ACCESS_TRANSFER_WRITE_BIT;
-        b.dstAccessMask        = 0;
-        b.image                = vkimage.vkhandle;
-        b.subresourceRange     = vkimage.full_range;
-        vkimage.layout         = b.newLayout;
+        auto &vkimage = api.get_image(r.gui_texture);
+        auto src      = vulkan::get_src_image_access(vkimage.usage);
+        auto dst      = vulkan::get_src_image_access(vulkan::ImageUsage::GraphicsShaderRead);
+
+        VkImageMemoryBarrier b = vulkan::get_image_barrier(vkimage.vkhandle, src, dst, vkimage.full_range);
+        vkimage.usage = vulkan::ImageUsage::GraphicsShaderRead;
 
         auto cmd_buffer = api.get_temp_cmd_buffer();
         cmd_buffer.begin();
-        vkCmdPipelineBarrier(cmd_buffer.vkhandle,
-                             VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             1,
-                             &b);
+        vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
         cmd_buffer.submit_and_wait();
     }
 #endif
@@ -1345,49 +1333,44 @@ static void prepass(Renderer &r)
             std::array<VkImageMemoryBarrier, 3> barriers;
 
             VkPipelineStageFlags src_mask = 0;
-            VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            VkPipelineStageFlags dst_mask = 0;
 
             auto *b = &barriers[0];
 
             // screenspace lod map
-            *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            b->oldLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            b->newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            b->srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-            b->image            = screenspace_lod_map_img.vkhandle;
-            b->subresourceRange = screenspace_lod_map_img.full_range;
-            screenspace_lod_map_img.layout = b->newLayout;
+            {
+                auto src = vulkan::get_src_image_access(screenspace_lod_map_img.usage);
+                auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::ComputeShaderRead);
+                src_mask |= src.stage;
+                dst_mask |= dst.stage;
 
-            src_mask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
+                *b                            = vulkan::get_image_barrier(screenspace_lod_map_img, src, dst);
+                screenspace_lod_map_img.usage = vulkan::ImageUsage::ComputeShaderRead;
+            }
 
             // min lod map
             b++;
-            *b                     = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            b->oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            b->newLayout           = VK_IMAGE_LAYOUT_GENERAL;
-            b->srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-            b->dstAccessMask       = VK_ACCESS_SHADER_READ_BIT;
-            b->image               = min_lod_map_img.vkhandle;
-            b->subresourceRange    = min_lod_map_img.full_range;
-            min_lod_map_img.layout = b->newLayout;
+            {
+                auto src = vulkan::get_src_image_access(min_lod_map_img.usage);
+                auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::ComputeShaderReadWrite);
+                src_mask |= src.stage;
+                dst_mask |= dst.stage;
 
-            src_mask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+                *b                    = vulkan::get_image_barrier(min_lod_map_img, src, dst);
+                min_lod_map_img.usage = vulkan::ImageUsage::ComputeShaderReadWrite;
+            }
 
-
-            // min lod map
+            // depth
             b++;
-            *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-            b->oldLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            b->newLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-            b->srcAccessMask    = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-            b->image            = depth_img.vkhandle;
-            b->subresourceRange = depth_img.full_range;
-            depth_img.layout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            {
+                auto src = vulkan::get_src_image_access(depth_img.usage);
+                auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::ComputeShaderRead);
+                src_mask |= src.stage;
+                dst_mask |= dst.stage;
 
-            src_mask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                *b                    = vulkan::get_image_barrier(depth_img, src, dst);
+                depth_img.usage = vulkan::ImageUsage::ComputeShaderRead;
+            }
 
             vkCmdPipelineBarrier(frame_resource.command_buffer,
                                  src_mask,
@@ -1873,36 +1856,33 @@ void Renderer::generate_aniso_voxels()
     api.bind_combined_image_sampler(generate_aniso_base, 1, voxels_radiance, trilinear_sampler);
 
     std::vector<VkImageMemoryBarrier> barriers;
+    VkPipelineStageFlags src_stage = 0;
+    VkPipelineStageFlags dst_stage = 0;
 
+    std::vector<VkImageView> views;
+    views.reserve(voxels_directional_volumes.size());
+    for (const auto &volume_h : voxels_directional_volumes)
     {
-        std::vector<VkImageView> views;
-        views.reserve(voxels_directional_volumes.size());
-        for (const auto& volume_h : voxels_directional_volumes)
-        {
-            auto &image = api.get_image(volume_h);
-            // todo barrier
+        auto &image = api.get_image(volume_h);
 
-            views.push_back(api.get_image(volume_h).mip_views[0]);
+        views.push_back(api.get_image(volume_h).mip_views[0]);
 
-            barriers.emplace_back();
-            auto &image_barrier               = barriers.back();
-            image_barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            image_barrier.srcAccessMask       = VK_ACCESS_MEMORY_WRITE_BIT;
-            image_barrier.dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT;
-            image_barrier.oldLayout           = image.layout;
-            image_barrier.newLayout           = image.layout;
-            image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            image_barrier.image               = image.vkhandle;
-            image_barrier.subresourceRange    = image.full_range;
-        }
-        api.bind_images(generate_aniso_base, 2, voxels_directional_volumes, views);
+        auto src = vulkan::get_src_image_access(image.usage);
+        auto dst = vulkan::get_src_image_access(vulkan::ImageUsage::ComputeShaderReadWrite);
+
+        barriers.emplace_back();
+        auto &image_barrier = barriers.back();
+        image_barrier       = vulkan::get_image_barrier(image.vkhandle, src, dst, image.full_range);
+        src_stage |= src.stage;
+        dst_stage |= dst.stage;
     }
+
+    api.bind_images(generate_aniso_base, 2, voxels_directional_volumes, views);
 
     auto count = voxel_res / 8; // local compute size
     api.dispatch(generate_aniso_base, count, count, count);
 
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
+    vkCmdPipelineBarrier(cmd, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
 
     for (uint mip_i = 0; count > 1; mip_i++)
     {
@@ -1966,32 +1946,12 @@ void Renderer::composite_hdr()
     auto &hdr_img = api.get_image(hdr_rt.image_h);
 
     {
-        std::array<VkImageMemoryBarrier, 1> barriers;
+        auto cmd = api.ctx.frame_resources.get_current().command_buffer;
+        auto src = vulkan::get_src_image_access(hdr_img.usage);
+        auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::GraphicsShaderRead);
 
-        VkPipelineStageFlags src_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-        auto *b = &barriers[0];
-
-        *b                  = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        b->oldLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        b->newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        b->srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        b->dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-        b->image            = hdr_img.vkhandle;
-        b->subresourceRange = hdr_img.full_range;
-        hdr_img.layout      = b->newLayout;
-
-        vkCmdPipelineBarrier(api.ctx.frame_resources.get_current().command_buffer,
-                             src_mask,
-                             dst_mask,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             barriers.size(),
-                             barriers.data());
+        auto b = vulkan::get_image_barrier(hdr_img, src, dst);
+        vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     }
 
 #if defined(ENABLE_IMGUI)

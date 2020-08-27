@@ -41,7 +41,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         else
         {
             auto &color_img = api.get_image(color_rt.image_h);
-            initial_layout = color_img.layout;
+            initial_layout = get_src_image_access(color_img.usage).layout;
             format = color_img.info.format;
         }
 
@@ -182,8 +182,10 @@ void API::begin_pass(PassInfo &&info)
         bool is_swapchain = get_rendertarget(render_pass.info.color->rt).is_swapchain;
         if (!is_swapchain) {
             const auto &rt     = get_rendertarget(render_pass.info.color->rt);
-            const auto &image  = get_image(rt.image_h);
+            auto &image  = get_image(rt.image_h);
             fb_info.image_view = image.default_view;
+
+            image.usage = ImageUsage::ColorAttachment; // TODO move?
         }
         else {
             fb_info.image_view = ctx.swapchain.get_current_image_view();
@@ -192,8 +194,10 @@ void API::begin_pass(PassInfo &&info)
 
     if (render_pass.info.depth) {
         const auto &depth_rt    = get_rendertarget(render_pass.info.depth->rt);
-        const auto &depth_image = get_image(depth_rt.image_h);
+        auto &depth_image = get_image(depth_rt.image_h);
         fb_info.depth_view      = depth_image.default_view;
+
+        depth_image.usage = ImageUsage::DepthAttachment; // TODO move?
     }
 
     fb_info.render_pass = render_pass.vkhandle;
@@ -265,16 +269,6 @@ void API::end_pass()
 {
     auto &frame_resource = ctx.frame_resources.get_current();
     vkCmdEndRenderPass(frame_resource.command_buffer);
-
-    auto *maybe_render_pass = renderpasses.get(current_render_pass);
-    assert(maybe_render_pass);
-    auto &render_pass = *maybe_render_pass;
-
-    if (render_pass.info.depth) {
-        auto &depth_rt     = get_rendertarget(render_pass.info.depth->rt);
-        auto &depth_image  = get_image(depth_rt.image_h);
-        depth_image.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-    }
 
     current_render_pass = RenderPassH::invalid();
 }
@@ -616,14 +610,15 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
-        assert(image.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL || image.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL || image.layout == VK_IMAGE_LAYOUT_GENERAL);
+        assert(image.usage == ImageUsage::GraphicsShaderRead || image.usage == ImageUsage::GraphicsShaderReadWrite
+               || image.usage == ImageUsage::ComputeShaderRead || image.usage == ImageUsage::ComputeShaderReadWrite);
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
 
         image_info.imageView   = image_view;
         image_info.sampler     = image.default_sampler;
-        image_info.imageLayout = image.layout;
+        image_info.imageLayout = get_src_image_access(image.usage).layout;
     }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
@@ -658,7 +653,7 @@ void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<Im
     bind_image_internal(*this, images_h, images_view, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_combined_image_sampler_internal(API&, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
     assert(images_h.size() == images_view.size());
 
@@ -675,7 +670,6 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
 
     for (usize i = 0; i < images_h.size(); i++)
     {
-        auto &image = api.get_image(images_h[i]);
         const auto &image_view = images_view[i];
 
         data.images_info.push_back({});
@@ -683,7 +677,7 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
 
         image_info.imageView   = image_view;
         image_info.sampler     = sampler.vkhandle;
-        image_info.imageLayout = image.layout;
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
