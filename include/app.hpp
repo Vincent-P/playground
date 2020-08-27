@@ -98,6 +98,8 @@ class App
 
     FileWatcher watcher;
     Watch shaders_watch;
+
+    bool is_minimized;
 };
 
 } // namespace my_app

@@ -21,7 +21,8 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     renderer = Renderer::create(window, camera._internal, timer, ui);
 
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
-    window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); });
+    window.register_minimized_callback([this]() { this->is_minimized = true; });
+    window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); this->is_minimized = false; });
     window.register_scroll_callback([this](double xoffset, double yoffset) { this->camera.on_mouse_scroll(xoffset, yoffset); });
 
 #if defined(ENABLE_IMGUI)
@@ -51,6 +52,8 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 
         this->renderer.reload_shader(shader_name);
     });
+
+    is_minimized = false;
 }
 
 App::~App() { renderer.destroy(); }
@@ -64,13 +67,19 @@ void App::run()
 {
     while (!window.should_close()) {
 #if defined(ENABLE_IMGUI)
-        ImGui::NewFrame();
-        ui.display();
+        if (!is_minimized) {
+            ImGui::NewFrame();
+            ui.display();
+        }
 #endif
         window.update();
-        update();
+        if (!is_minimized) {
+            update();
+        }
         timer.update();
-        renderer.draw();
+        if (!is_minimized) {
+            renderer.draw();
+        }
         watcher.update();
     }
 

@@ -45,11 +45,27 @@ void Window::register_scroll_callback(const std::function<void(double, double)> 
     scroll_callbacks.push_back(callback);
 }
 
+void Window::register_minimized_callback(const std::function<void()> &callback)
+{
+    minimized_callbacks.push_back(callback);
+}
+
 void Window::glfw_resize_callback(GLFWwindow *window, int width, int height)
 {
     auto *self = reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
-    for (const auto &cb : self->resize_callbacks) {
-	cb(width, height);
+    if (!width && !height)
+    {
+        for (const auto &cb : self->minimized_callbacks)
+        {
+            cb();
+        }
+    }
+    else
+    {
+        for (const auto &cb : self->resize_callbacks)
+        {
+            cb(width, height);
+        }
     }
 }
 

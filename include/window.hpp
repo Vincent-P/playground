@@ -26,6 +26,7 @@ class Window
     void register_resize_callback(const std::function<void(int, int)> &callback);
     void register_mouse_callback(const std::function<void(double, double)> &callback);
     void register_scroll_callback(const std::function<void(double, double)> &callback);
+    void register_minimized_callback(const std::function<void()> &callback);
 
   private:
     static void glfw_resize_callback(GLFWwindow *window, int width, int height);
@@ -36,6 +37,7 @@ class Window
     std::vector<std::function<void(int, int)>> resize_callbacks;
     std::vector<std::function<void(double, double)>> mouse_callbacks;
     std::vector<std::function<void(double, double)>> scroll_callbacks;
+    std::vector<std::function<void()>> minimized_callbacks;
 
     bool force_close{false};
     GLFWwindow *window;
