@@ -196,7 +196,8 @@ bool API::start_present()
     {
         return false;
     }
-    else
+
+    if (res != VK_SUBOPTIMAL_KHR)
     {
         VK_CHECK(res);
     }
@@ -263,7 +264,12 @@ void API::end_frame()
     present_i.pSwapchains        = &ctx.swapchain.handle;
     present_i.pImageIndices      = &ctx.swapchain.current_image;
 
-    VK_CHECK(vkQueuePresentKHR(graphics_queue, &present_i));
+    auto res = vkQueuePresentKHR(graphics_queue, &present_i);
+
+    if (res != VK_SUBOPTIMAL_KHR)
+    {
+        VK_CHECK(res);
+    }
 
     ctx.frame_count += 1;
     ctx.frame_resources.current = ctx.frame_count % ctx.frame_resources.data.size();

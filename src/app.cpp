@@ -67,19 +67,13 @@ void App::run()
 {
     while (!window.should_close()) {
 #if defined(ENABLE_IMGUI)
-        if (!is_minimized) {
-            ImGui::NewFrame();
-            ui.display();
-        }
+        ImGui::NewFrame();
+        ui.display();
 #endif
         window.update();
-        if (!is_minimized) {
-            update();
-        }
+        update();
         timer.update();
-        if (!is_minimized) {
-            renderer.draw();
-        }
+        renderer.draw();
         watcher.update();
     }
 
