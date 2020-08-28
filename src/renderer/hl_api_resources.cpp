@@ -667,6 +667,9 @@ void CommandBuffer::submit_and_wait()
 
     VK_CHECK(vkWaitForFences(ctx.device, 1, &fence, true, UINT64_MAX));
     vkDestroyFence(ctx.device, fence, nullptr);
+
+    auto &frame_resource = ctx.frame_resources.get_current();
+    vkFreeCommandBuffers(ctx.device, frame_resource.command_pool, 1, &vkhandle);
 }
 
 /// --- Circular buffers

@@ -20,6 +20,8 @@ App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 
     renderer = Renderer::create(window, camera._internal, timer, ui);
 
+    renderer.graph.p_api = &renderer.api; // TODO how to fix pointers to work with static constructors???
+
     window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
     window.register_minimized_callback([this]() { this->is_minimized = true; });
     window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); this->is_minimized = false; });

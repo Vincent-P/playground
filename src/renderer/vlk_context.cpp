@@ -422,7 +422,7 @@ void Context::create_frame_resources(usize count)
         /// --- Create the command pool to create a command buffer for each frame
         VkCommandPoolCreateInfo cpci{};
         cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        cpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // TODO: remove?
+        cpci.flags = 0;
         cpci.queueFamilyIndex = graphics_family_idx;
         VK_CHECK(vkCreateCommandPool(device, &cpci, nullptr, &frame_resource.command_pool));
     }

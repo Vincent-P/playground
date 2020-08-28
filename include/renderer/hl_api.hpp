@@ -192,12 +192,12 @@ struct AttachmentInfo
 struct PassInfo
 {
     // param for VkRenderPass
-    bool present; // if it is the last pass and it should transition to present
+    bool present                  = false; // if it is the last pass and it should transition to present
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 
     // param for VkFrameBuffer
-    std::optional<AttachmentInfo> color;
-    std::optional<AttachmentInfo> depth;
+    std::optional<AttachmentInfo> color = {};
+    std::optional<AttachmentInfo> depth = {};
 
     bool operator==(const PassInfo &b) const = default;
 };
@@ -213,7 +213,7 @@ struct RenderPass
     }
 };
 
-using RenderPassH = Handle<RenderPass>;
+using RenderPassH = usize;
 
 // Idea: Program contains different "configurations" coresponding to pipelines so that
 // the HL API has a VkPipeline equivalent used to make sure they are created only during load time?
@@ -432,17 +432,18 @@ struct API
     std::vector<std::vector<std::string_view>> timestamp_labels_per_frame;
 
     // resources
-    Arena<Image> images;
-    Arena<RenderTarget> rendertargets;
-    Arena<Sampler> samplers;
-    Arena<Buffer> buffers;
-    Arena<GraphicsProgram> graphics_programs;
-    Arena<ComputeProgram> compute_programs;
-    Arena<Shader> shaders;
+    Pool<Image> images;
+    Pool<RenderTarget> rendertargets;
+    RenderTargetH swapchain_rth;
+    Pool<Sampler> samplers;
+    Pool<Buffer> buffers;
+    Pool<GraphicsProgram> graphics_programs;
+    Pool<ComputeProgram> compute_programs;
+    Pool<Shader> shaders;
 
     // TODO: arena?
     std::vector<FrameBuffer> framebuffers;
-    Arena<RenderPass> renderpasses;
+    std::vector<RenderPass> renderpasses;
 
     // Ring buffers for dynamic resources
     CircularBuffer staging_buffer;

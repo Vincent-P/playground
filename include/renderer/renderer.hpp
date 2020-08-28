@@ -4,6 +4,7 @@
 #include "gltf.hpp"
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
+#include "render_graph.hpp"
 
 
 #define assert_uniform_size(T) static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!")
@@ -86,7 +87,7 @@ struct Renderer
     vulkan::RenderTargetH swapchain_rt;
 
     vulkan::API api;
-
+    RenderGraph graph;
 
     UI::Context *p_ui;
     const Window *p_window;

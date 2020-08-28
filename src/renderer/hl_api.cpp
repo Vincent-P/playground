@@ -57,6 +57,8 @@ API API::create(const Window &window)
         api.cpu_timestamps_per_frame.resize(FRAMES_IN_FLIGHT);
     }
 
+    api.swapchain_rth = api.create_rendertarget({.is_swapchain = true});
+
     return api;
 }
 
@@ -72,34 +74,34 @@ void API::destroy()
         vkDestroyRenderPass(ctx.device, rp.vkhandle, nullptr);
     }
 
-    for (auto& buffer : buffers)
+    for (auto& [buffer_h, buffer] : buffers)
     {
-        destroy_buffer_internal(*this, buffer);
+        destroy_buffer_internal(*this, *buffer);
     }
 
-    for (auto& image : images)
+    for (auto& [image_h, image] : images)
     {
-        destroy_image_internal(*this, image);
+        destroy_image_internal(*this, *image);
     }
 
-    for (auto& sampler : samplers)
+    for (auto& [sampler_h, sampler] : samplers)
     {
-        destroy_sampler_internal(*this, sampler);
+        destroy_sampler_internal(*this, *sampler);
     }
 
-    for (auto& program : graphics_programs)
+    for (auto& [program_h, program] : graphics_programs)
     {
-        destroy_program_internal(*this, program);
+        destroy_program_internal(*this, *program);
     }
 
-    for (auto& program : compute_programs)
+    for (auto& [program_h, program] : compute_programs)
     {
-        destroy_program_internal(*this, program);
+        destroy_program_internal(*this, *program);
     }
 
-    for (auto& shader : shaders)
+    for (auto& [shader_h, shader] : shaders)
     {
-        destroy_shader_internal(*this, shader);
+        destroy_shader_internal(*this, *shader);
     }
 
     ctx.destroy();
@@ -129,6 +131,8 @@ bool API::start_frame()
 
     // Reset the current frame
     VK_CHECK(vkResetFences(ctx.device, 1, &frame_resource.fence));
+
+    vkFreeCommandBuffers(ctx.device, frame_resource.command_pool, 1, &frame_resource.command_buffer);
     VK_CHECK(vkResetCommandPool(ctx.device, frame_resource.command_pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
 
     VkCommandBufferAllocateInfo ai{};
@@ -175,6 +179,7 @@ bool API::start_frame()
 
     VkCommandBufferBeginInfo binfo{};
     binfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    binfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(frame_resource.command_buffer, &binfo);
 
     add_timestamp("Begin Frame");

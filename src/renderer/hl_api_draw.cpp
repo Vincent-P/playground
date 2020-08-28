@@ -9,10 +9,10 @@ namespace my_app::vulkan
 // TODO: multiple render targets, multisampling
 static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    for (auto it = api.renderpasses.begin(); it != api.renderpasses.end(); ++it) {
-        const auto &render_pass = *it;
+    for (usize i = 0; i < api.renderpasses.size(); i++) {
+        const auto &render_pass = api.renderpasses[i];
         if (render_pass.info == info) {
-            return RenderPassH(it.index());
+             return i;
         }
     }
 
@@ -133,7 +133,8 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 
     VK_CHECK(vkCreateRenderPass(api.ctx.device, &rp_info, nullptr, &rp.vkhandle));
 
-    return api.renderpasses.add(std::move(rp));
+    api.renderpasses.push_back(std::move(rp));
+    return api.renderpasses.size() - 1;
 }
 
 static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo &info, const RenderPass &render_pass)
@@ -173,8 +174,12 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
 
 void API::begin_pass(PassInfo &&info)
 {
+    if (info.color) {
+        assert(info.color->rt.is_valid());
+    }
+
     auto render_pass_h = find_or_create_render_pass(*this, std::move(info));
-    auto &render_pass = *renderpasses.get(render_pass_h);
+    auto &render_pass = renderpasses[render_pass_h];
 
     FrameBufferInfo fb_info;
 
@@ -270,7 +275,7 @@ void API::end_pass()
     auto &frame_resource = ctx.frame_resources.get_current();
     vkCmdEndRenderPass(frame_resource.command_buffer);
 
-    current_render_pass = RenderPassH::invalid();
+    current_render_pass = u32_invalid;
 }
 
 static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
@@ -296,7 +301,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
         const auto &program_info       = pipeline_info.program_info;
         const auto &vertex_buffer_info = program_info.vertex_buffer_info;
-        const auto &render_pass        = *api.renderpasses.get(pipeline_info.render_pass);
+        const auto &render_pass        = api.renderpasses[pipeline_info.render_pass];
 
         // TODO: support 0 or more than 1 vertex buffer
         // but full screen triangle already works without vertex buffer?
@@ -494,6 +499,8 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         auto &pipeline = program.pipelines_vk.back();
         VK_CHECK(vkCreateGraphicsPipelines(api.ctx.device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
         pipeline_i = static_cast<u32>(program.pipelines_vk.size()) - 1;
+
+        std::cout << "new pipeline #" << pipeline_i << std::endl;
     }
 
     return program.pipelines_vk[pipeline_i];
@@ -573,7 +580,7 @@ static void bind_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
 
 void API::bind_program(GraphicsProgramH H)
 {
-    assert(current_render_pass.is_valid());
+    assert(current_render_pass != u32_invalid);
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &program        = get_program(H);
 
