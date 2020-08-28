@@ -115,9 +115,11 @@ template <typename T> struct Handle
         : index(u32_invalid)
     {
     }
+
     explicit Handle(u32 i)
         : index(i)
     {
+        assert(index != u32_invalid);
         static u32 cur_gen = 0;
         gen                = cur_gen++;
     }
@@ -136,30 +138,52 @@ template <typename T> struct Handle
   private:
     u32 index;
     u32 gen;
-};
 
-/// --- Arena allocator
-template <typename T> class Arena
+    friend struct ::std::hash<Handle<T>>;
+};
+}
+
+namespace std
+{
+    template<typename T>
+    struct hash<my_app::Handle<T>>
+    {
+        std::size_t operator()(my_app::Handle<T> const& handle) const noexcept
+        {
+            std::size_t h1 = std::hash<u32>{}(handle.index);
+            std::size_t h2 = std::hash<u32>{}(handle.gen);
+            return h1 ^ (h2 << 1); // or use boost::hash_combine
+        }
+    };
+}
+
+namespace my_app
+{
+/// --- Pool allocator
+template <typename T> class Pool
 {
     class Iterator
     {
-        using difference_type   = void;
-        using value_type        = T;
-        using pointer           = T *;
-        using reference         = T &;
+      public:
+        using difference_type   = int;
+        using value_type        = std::pair<Handle<T>, T*>;
+        using pointer           = value_type *;
+        using reference         = value_type &;
         using iterator_category = std::input_iterator_tag;
 
-      public:
-        Iterator(Arena &_arena, usize _index = 0)
-            : arena{_arena}
+        Iterator() = default;
+
+        Iterator(Pool &_pool, usize _index = 0)
+            : pool{&_pool}
             , current_index{_index}
+            , value{}
         {
-            for (; current_index < arena.data.size(); current_index++)
+            for (; current_index < pool->data.size(); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
                 // 1: T
-                if (arena.data[current_index].index() == 1)
+                if (pool->data[current_index].index() == 1)
                 {
                     break;
                 }
@@ -168,31 +192,26 @@ template <typename T> class Arena
 
         Iterator(const Iterator &rhs)
         {
-            this->arena         = rhs.arena;
+            this->pool         = rhs.pool;
             this->current_index = rhs.current_index;
         }
 
         Iterator(Iterator &&rhs)
         {
-            this->arena         = rhs.arena;
+            this->pool         = rhs.pool;
             this->current_index = rhs.current_index;
-        }
-
-        [[nodiscard]] usize index() const
-        {
-            return current_index;
         }
 
         Iterator &operator=(const Iterator &rhs)
         {
-            this->arena         = rhs.arena;
+            this->pool          = rhs.pool;
             this->current_index = rhs.current_index;
             return *this;
         }
 
         Iterator &operator=(Iterator &&rhs)
         {
-            this->arena         = rhs.arena;
+            this->pool         = rhs.pool;
             this->current_index = rhs.current_index;
             return *this;
         }
@@ -202,31 +221,23 @@ template <typename T> class Arena
             return current_index == rhs.current_index;
         }
 
-        void swap(Iterator &)
-        {
-            not_implemented();
-        }
-
         reference operator*()
         {
-            assert(current_index < arena.data.size());
-            return std::get<value_type>(arena.data[current_index]);
-        }
-
-        pointer operator->()
-        {
-            return nullptr;
+            assert(this->pool && current_index < this->pool->get_size());
+            value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
+            return value;
         }
 
         Iterator &operator++()
         {
+            assert(this->pool);
             current_index++;
-            for (; current_index < arena.data.size(); current_index++)
+            for (; current_index < pool->data.size(); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
                 // 1: T
-                if (arena.data[current_index].index() == 1)
+                if (pool->data[current_index].index() == 1)
                 {
                     break;
                 }
@@ -236,15 +247,15 @@ template <typename T> class Arena
 
         Iterator &operator++(int n)
         {
-            assert(n > 0);
+            assert(this->pool && n > 0);
             for (int i = 0; i < n; i++)
             {
-                for (; current_index < arena.data.size(); current_index++)
+                for (; current_index < pool->data.size(); current_index++)
                 {
                     // index() returns a zero-based index of the type
                     // 0: handle_type
                     // 1: T
-                    if (arena.data[current_index].index() == 1)
+                    if (pool->data[current_index].index() == 1)
                     {
                         break;
                     }
@@ -252,30 +263,38 @@ template <typename T> class Arena
             }
             return *this;
         }
-
-      private:
-        Arena &arena;
-        usize current_index;
+    private:
+        Pool *pool        = nullptr;
+        usize current_index = 0;
+        value_type value = {};
     };
 
+    // static_assert(std::input_iterator<Iterator>);
+
     using handle_type  = Handle<T>;
-    using element_type = std::variant<handle_type, T>;
+    using element_type = std::variant<handle_type, T>; // < next_free_ptr, value >
 
     handle_type &get_handle_internal(handle_type handle)
     {
         return std::get<handle_type>(data[handle.value()]);
     }
 
+    T &get_value_internal(u32 index)
+    {
+        return std::get<T>(data[index]);
+    }
+
     T &get_value_internal(handle_type handle)
     {
-        return std::get<T>(data[handle.value()]);
+        return get_value_internal(handle.value());
     }
 
   public:
-    Arena() = default;
-    Arena(usize capacity)
+    Pool() = default;
+    Pool(usize capacity)
     {
         data.reserve(capacity);
+        keys.reserve(capacity);
     }
 
     handle_type add(T &&value)
@@ -285,16 +304,18 @@ template <typename T> class Arena
         if (!first_free.is_valid())
         {
             data.push_back(std::move(value));
-            return handle_type(data.size() - 1);
+            auto handle = handle_type(data.size() - 1);
+            keys.push_back(handle);
+            return handle;
         }
 
         // Pop the free list
         handle_type old_first_free = first_free;
         first_free                 = get_handle_internal(old_first_free);
 
-        //
-        element_type new_elem        = std::move(value);
-        data[old_first_free.value()] = std::move(new_elem);
+        // put the value in
+        data[old_first_free.value()] = std::move(value);
+        keys[old_first_free.value()] = old_first_free;
 
         return old_first_free;
     }
@@ -303,7 +324,13 @@ template <typename T> class Arena
     {
         if (!handle.is_valid())
         {
-            assert(false);
+            assert(!"invalid handle");
+            return nullptr;
+        }
+
+        if (handle != keys[handle.value()])
+        {
+            assert(!"use after free");
             return nullptr;
         }
 
@@ -319,14 +346,20 @@ template <typename T> class Arena
         }
 
         size -= 1;
-        auto &element = data[handle.value()];
-        element       = first_free;
+
+        // replace the value to remove with the head of the free list
+        auto &data_element = data[handle.value()];
+        auto &key_element  = keys[handle.value()];
+        data_element       = first_free;
+        key_element        = handle_type::invalid();
+
+        // set the new head of the free list to the handle that was just removed
         first_free    = handle;
     }
 
     Iterator begin()
     {
-        return Iterator(*this);
+        return Iterator(*this, 0);
     }
 
     Iterator end()
@@ -334,7 +367,7 @@ template <typename T> class Arena
         return Iterator(*this, data.size());
     }
 
-    bool operator==(const Arena &rhs) const = default;
+    bool operator==(const Pool &rhs) const = default;
 
     usize get_size() const
     {
@@ -342,9 +375,12 @@ template <typename T> class Arena
     }
 
   private:
-    handle_type first_free;
+    handle_type first_free; // free list head ptr
     std::vector<element_type> data;
+    std::vector<handle_type> keys;
     usize size{0};
+
+    friend class Iterator;
 };
 
 /// Clock
