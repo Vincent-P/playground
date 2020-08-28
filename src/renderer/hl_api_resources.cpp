@@ -884,7 +884,6 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     flags_info.pBindingFlags = flags.data();
 
     VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    layout_info;
     layout_info.pNext        = &flags_info;
     layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
     layout_info.bindingCount = static_cast<u32>(bindings.size());

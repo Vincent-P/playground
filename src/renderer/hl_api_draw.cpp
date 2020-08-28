@@ -534,7 +534,7 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
         std::vector<VkWriteDescriptorSet> writes;
         map_transform(program.binded_data_by_set[i_set], writes, [&](const auto &binded_data) {
             assert(binded_data.has_value());
-            VkWriteDescriptorSet write = {write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
             write.dstSet               = descriptor_set.set;
             write.dstBinding           = binded_data->binding;
             write.descriptorCount      = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
