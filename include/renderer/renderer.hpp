@@ -93,6 +93,9 @@ struct Renderer
     TimerData *p_timer;
 
     ImageDescH depth_buffer;
+    ImageDescH hdr_buffer;
+
+    /// --- Render Passes
 
     struct CheckerBoardFloorPass
     {
@@ -102,13 +105,31 @@ struct Renderer
     } checkerboard_floor;
 
 
-    // ImGui
     struct ImGuiPass
     {
         vulkan::GraphicsProgramH float_program;
         vulkan::GraphicsProgramH uint_program;
         vulkan::ImageH font_atlas;
     } imgui;
+
+    ImageDescH transmittance_lut;
+    ImageDescH skyview_lut;
+    ImageDescH multiscattering_lut;
+
+    struct ProceduralSkyPass
+    {
+        vulkan::CircularBufferPosition atmosphere_params_pos;
+        vulkan::GraphicsProgramH render_transmittance;
+        vulkan::GraphicsProgramH render_skyview;
+        vulkan::ComputeProgramH  compute_multiscattering_lut;
+        vulkan::GraphicsProgramH sky_raymarch;
+    } procedural_sky;
+
+    struct TonemappingPass
+    {
+        vulkan::GraphicsProgramH program;
+        vulkan::CircularBufferPosition params_pos;
+    } tonemapping;
 
     /// --- Old
 
