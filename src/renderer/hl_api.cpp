@@ -1,7 +1,9 @@
 #include "renderer/hl_api.hpp"
+#include "imgui/imgui.h"
 #include "renderer/vlk_context.hpp"
 #include <iostream>
 #include <vulkan/vulkan.h>
+#include "app.hpp"
 #include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
@@ -286,5 +288,34 @@ void API::end_frame()
 }
 
 void API::wait_idle() { VK_CHECK(vkDeviceWaitIdle(ctx.device)); }
+
+void API::display_ui(UI::Context &ui)
+{
+    if (ui.begin_window("API"))
+    {
+        ImGui::Separator();
+        ImGui::Text("Vulkan context");
+        ImGui::Separator();
+        ImGui::Text("Validation layers: %s", ENABLE_VALIDATION_LAYERS ? "enabled" : "disabled");
+        ImGui::Text("Frames in flight: %u", FRAMES_IN_FLIGHT);
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Text("Resources");
+        ImGui::Separator();
+        ImGui::Text("Images: %llu", images.size());
+        ImGui::Text("Buffers: %llu", buffers.size());
+        ImGui::Text("Rendertargets: %llu", rendertargets.size());
+        ImGui::Text("Samplers: %llu", samplers.size());
+        ImGui::Text("Graphics Programs: %llu", graphics_programs.size());
+        ImGui::Text("Graphics Pipelines: %llu", graphics_programs.size());
+        ImGui::Text("Compute Programs: %llu", compute_programs.size());
+        ImGui::Text("Compute Pipelines: %llu", compute_programs.size());
+        ImGui::Text("Shaders: %llu", shaders.size());
+        ImGui::Text("RenderPasses: %llu", renderpasses.size());
+        ImGui::Text("FrameBuffers: %llu", framebuffers.size());
+
+        ui.end_window();
+    }
+}
 
 } // namespace my_app::vulkan

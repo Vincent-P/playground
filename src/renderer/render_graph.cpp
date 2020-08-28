@@ -1,6 +1,8 @@
 #include "renderer/render_graph.hpp"
+#include "imgui/imgui.h"
 #include "renderer/hl_api.hpp"
 #include <vulkan/vulkan_core.h>
+#include "app.hpp"
 
 namespace my_app
 {
@@ -11,7 +13,7 @@ RenderGraph RenderGraph::create(vulkan::API &api)
 
     graph.p_api = &api;
 
-    graph.swapchain = graph.image_descs.add({});
+    graph.swapchain = graph.image_descs.add({.name = "Swapchain"});
     auto &swapchain_resource = graph.images[graph.swapchain];
     swapchain_resource.resolved_rt = api.swapchain_rth;
 
@@ -340,6 +342,67 @@ void RenderGraph::execute()
             break;
         }
         };
+    }
+}
+
+void RenderGraph::display_ui(UI::Context &ui)
+{
+    auto &api = *p_api;
+    if (ui.begin_window("Render Graph", true))
+    {
+        for (const auto& [pass_h, p_pass] : passes)
+        {
+            auto &renderpass = *p_pass;
+            if (ImGui::CollapsingHeader(renderpass.name.data()))
+            {
+                ImGui::Text("Type: %s", renderpass.type == PassType::Graphics ? "Graphics" : "Compute");
+                ImGui::TextUnformatted("Inputs:");
+                if (!renderpass.external_images.empty())
+                {
+                    ImGui::TextUnformatted(" - External images:");
+                    for (const auto image_h : renderpass.external_images)
+                    {
+                        const auto &vkimage = api.get_image(image_h);
+                        ImGui::Text("    - %s", vkimage.name);
+                    }
+                }
+                if (!renderpass.sampled_images.empty())
+                {
+                    ImGui::TextUnformatted(" - Sampled images:");
+                    for (const auto desc_h : renderpass.sampled_images)
+                    {
+                        const auto &desc = *image_descs.get(desc_h);
+                        ImGui::Text("    - %s", desc.name.data());
+                    }
+                }
+
+                ImGui::TextUnformatted("Outputs:");
+
+                if (!renderpass.storage_images.empty())
+                {
+                    ImGui::TextUnformatted(" - Storage images:");
+                    for (const auto desc_h : renderpass.sampled_images)
+                    {
+                        const auto &desc = *image_descs.get(desc_h);
+                        ImGui::Text("    - %s", desc.name.data());
+                    }
+                }
+
+                if (renderpass.color_attachment)
+                {
+                    const auto &desc = *image_descs.get(*renderpass.color_attachment);
+                    ImGui::Text(" - Color attachment: %s", desc.name.data());
+                }
+
+                if (renderpass.depth_attachment)
+                {
+                    const auto &desc = *image_descs.get(*renderpass.depth_attachment);
+                    ImGui::Text(" - Depth attachment: %s", desc.name.data());
+                }
+            }
+        }
+
+        ui.end_window();
     }
 }
 } // namespace my_app

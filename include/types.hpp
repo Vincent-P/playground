@@ -223,7 +223,7 @@ template <typename T> class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < this->pool->get_size());
+            assert(this->pool && current_index < this->pool->size());
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }
@@ -299,7 +299,7 @@ template <typename T> class Pool
 
     handle_type add(T &&value)
     {
-        size += 1;
+        data_size += 1;
 
         if (!first_free.is_valid())
         {
@@ -339,13 +339,13 @@ template <typename T> class Pool
 
     void remove(handle_type handle)
     {
-        assert(size != 0);
+        assert(data_size != 0);
         if (!handle.is_valid())
         {
             assert(false);
         }
 
-        size -= 1;
+        data_size -= 1;
 
         // replace the value to remove with the head of the free list
         auto &data_element = data[handle.value()];
@@ -369,16 +369,16 @@ template <typename T> class Pool
 
     bool operator==(const Pool &rhs) const = default;
 
-    usize get_size() const
+    usize size() const
     {
-        return size;
+        return data_size;
     }
 
   private:
     handle_type first_free; // free list head ptr
     std::vector<element_type> data;
     std::vector<handle_type> keys;
-    usize size{0};
+    usize data_size{0};
 
     friend class Iterator;
 };

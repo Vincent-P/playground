@@ -62,38 +62,29 @@ struct Renderer
     static Renderer create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
     void destroy();
 
+    void display_ui(UI::Context &ui);
     void draw();
     void on_resize(int width, int height);
     void wait_idle();
-
     void reload_shader(std::string_view shader_name);
-
-    // glTF
-    void load_model_data();
-    void draw_model();
-    void destroy_model();
-
-    // ImGui
-    void imgui_draw();
-
-    void voxelize_scene();
-    void inject_direct_lighting();
-    void generate_aniso_voxels();
-    void visualize_voxels();
-    void composite_hdr();
-
-    /// --- New
-
-    vulkan::API api;
-    RenderGraph graph;
 
     UI::Context *p_ui;
     const Window *p_window;
     Camera *p_camera;
     TimerData *p_timer;
 
+    vulkan::API api;
+    RenderGraph graph;
+
+    Camera sun;
+
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
+
+    vulkan::CircularBufferPosition global_uniform_pos;
+    vulkan::SamplerH default_sampler;
+    vulkan::SamplerH nearest_sampler;
+    vulkan::SamplerH trilinear_sampler;
 
     /// --- Render Passes
 
@@ -131,60 +122,6 @@ struct Renderer
         vulkan::CircularBufferPosition params_pos;
     } tonemapping;
 
-    /// --- Old
-
-    vulkan::RenderTargetH depth_rt;
-    vulkan::RenderTargetH color_rt;
-    vulkan::RenderTargetH swapchain_rt;
-
-    /// --- Rendering
-    vulkan::SamplerH default_sampler;
-    vulkan::CircularBufferPosition global_uniform_pos;
-    Camera sun;
-
-    // Tonemap
-    vulkan::GraphicsProgramH hdr_compositing;
-
-
-    // Unreal Engine sky
-    struct SkyPass
-    {
-        vulkan::RenderTargetH transmittance_lut_rt;
-        vulkan::GraphicsProgramH render_transmittance;
-
-        vulkan::RenderTargetH skyview_lut_rt;
-        vulkan::GraphicsProgramH render_skyview;
-
-        vulkan::ImageH multiscattering_lut;
-        vulkan::ComputeProgramH compute_multiscattering_lut;
-
-        vulkan::GraphicsProgramH sky_raymarch;
-    } sky;
-
-    // glTF
-    Model model;
-
-    // Shadow Map
-    vulkan::GraphicsProgramH model_prepass;
-    vulkan::RenderTargetH screenspace_lod_map_rt;
-    vulkan::RenderTargetH shadow_map_rt;
-    std::vector<vulkan::ImageH> min_lod_map_per_frame; // we read back it every frame so n-plicate it to avoid gpu stall
-    vulkan::ComputeProgramH fill_min_lod_map;
-
-    // Voxelization
-    VoxelDebug voxel_options{};
-    vulkan::GraphicsProgramH voxelization;
-    vulkan::GraphicsProgramH visualization;
-    vulkan::ComputeProgramH inject_radiance;
-    vulkan::ComputeProgramH generate_aniso_base;
-    vulkan::ComputeProgramH generate_aniso_mipmap;
-
-    vulkan::SamplerH trilinear_sampler;
-    vulkan::SamplerH nearest_sampler;
-    vulkan::ImageH voxels_albedo;
-    vulkan::ImageH voxels_normal;
-    vulkan::ImageH voxels_radiance;
-    std::vector<vulkan::ImageH> voxels_directional_volumes;
 };
 
 } // namespace my_app

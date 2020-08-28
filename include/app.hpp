@@ -46,13 +46,15 @@ struct Context
         ImGui::End();
     }
 
-    inline void display()
+    inline void display_ui()
     {
         const auto& io = ImGui::GetIO();
         if (ImGui::BeginMainMenuBar())
         {
             auto display_width = io.DisplaySize.x / io.DisplayFramebufferScale.x;
             ImGui::Dummy(ImVec2(display_width / 2 - 100.0f, 0.0f));
+
+            ImGui::TextUnformatted("|");
             if (ImGui::BeginMenu(EVA_MENU " Menu"))
             {
                 for (auto& [_, window] : windows) {
@@ -63,9 +65,11 @@ struct Context
 
             for (auto& [_, window] : windows) {
                 if (window.is_visible) {
+                    ImGui::TextUnformatted("|");
                     ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
                 }
             }
+            ImGui::TextUnformatted("|");
 
             ImGui::EndMainMenuBar();
 
@@ -89,6 +93,7 @@ class App
   private:
     void camera_update();
     void update();
+    void display_ui();
 
     UI::Context ui;
     Window window;

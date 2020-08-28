@@ -14,7 +14,7 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 {
-    camera   = InputCamera::create(window, timer, ui, float3(4.0f, 14.5f, 0.0f));
+    camera   = InputCamera::create(window, timer, float3(4.0f, 14.5f, 0.0f));
     camera._internal.yaw   = 90.0f;
     camera._internal.pitch = 0.0f;
 
@@ -65,16 +65,21 @@ void App::update()
     camera.update();
 }
 
+void App::display_ui()
+{
+    ImGui::NewFrame();
+    ui.display_ui();
+    camera.display_ui(ui);
+    renderer.display_ui(ui);
+}
+
 void App::run()
 {
     while (!window.should_close()) {
-#if defined(ENABLE_IMGUI)
-        ImGui::NewFrame();
-        ui.display();
-#endif
         window.update();
         update();
         timer.update();
+        display_ui();
         renderer.draw();
         watcher.update();
     }

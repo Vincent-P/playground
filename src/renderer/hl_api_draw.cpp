@@ -498,6 +498,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         program.pipelines_vk.emplace_back();
         auto &pipeline = program.pipelines_vk.back();
         VK_CHECK(vkCreateGraphicsPipelines(api.ctx.device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
+        api.graphics_pipeline_count++;
         pipeline_i = static_cast<u32>(program.pipelines_vk.size()) - 1;
 
         std::cout << "new pipeline #" << pipeline_i << std::endl;
@@ -977,6 +978,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
         program.pipelines_vk.emplace_back();
         auto &pipeline = program.pipelines_vk.back();
         VK_CHECK(vkCreateComputePipelines(ctx.device, VK_NULL_HANDLE, 1, &pinfo, nullptr, &pipeline));
+        compute_pipeline_count++;
     }
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipelines_vk[pipeline_i]);

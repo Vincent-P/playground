@@ -55,7 +55,7 @@ struct InputCamera
     float3 target{};
 
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
-    float r = 1.0f;
+    float r = 20.0f;
     float theta = 0.0f;
     float phi = -45.0f;
 
@@ -67,10 +67,11 @@ struct InputCamera
     double last_xpos;
     double last_ypos;
 
-    static InputCamera create(Window &window, TimerData& timer, UI::Context &ui, float3 position);
+    static InputCamera create(Window &window, TimerData& timer, float3 position);
     void on_mouse_movement(double xpos, double ypos);
     void on_mouse_scroll(double xoffset, double yoffset);
     void update();
+    void display_ui(UI::Context &ui);
 };
 
 } // namespace my_app

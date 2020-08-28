@@ -18,6 +18,11 @@ using ImageH = Handle<Image>;
 using RenderTargetH = Handle<RenderTarget>;
 };
 
+namespace UI
+{
+    struct Context;
+};
+
 struct RenderPass;
 struct RenderGraph;
 struct RenderResource;
@@ -88,6 +93,9 @@ struct RenderPass
     std::optional<ImageDescH> depth_attachment;
 
     std::function<void(RenderGraph&, RenderPass&, vulkan::API&)> exec;
+
+    // ui?
+    bool opened = true;
 };
 
 struct RenderGraph
@@ -98,6 +106,8 @@ struct RenderGraph
     void clear();
     void add_pass(RenderPass&&);
     void execute();
+
+    void display_ui(UI::Context &ui);
 
     vulkan::ImageH get_resolved_image(ImageDescH desc_h) const;
 

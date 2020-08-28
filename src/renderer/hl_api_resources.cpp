@@ -945,6 +945,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     auto &pipeline = program.pipelines_vk.back();
 
     VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));
+    compute_pipeline_count++;
 
     program.pipelines_info.push_back(std::move(pinfo));
 
@@ -985,6 +986,7 @@ void destroy_program_internal(API &api, GraphicsProgram &program)
     for (auto pipeline : program.pipelines_vk)
     {
         vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
+        api.graphics_pipeline_count--;
     }
 }
 
@@ -1005,6 +1007,7 @@ void destroy_program_internal(API &api, ComputeProgram &program)
     for (auto pipeline : program.pipelines_vk)
     {
         vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
+        api.compute_pipeline_count--;
     }
 }
 

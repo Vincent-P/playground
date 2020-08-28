@@ -10,9 +10,9 @@
 namespace my_app
 {
 
-static float CAMERA_MOVE_SPEED   = 5.0f;
-static float CAMERA_ROTATE_SPEED = 20.0f;
-static float CAMERA_SCROLL_SPEED = 20.0f;
+static float CAMERA_MOVE_SPEED   = 40.0f;
+static float CAMERA_ROTATE_SPEED = 240.0f;
+static float CAMERA_SCROLL_SPEED = 420.0f;
 
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);
@@ -27,13 +27,12 @@ Camera Camera::create(float3 position)
     return camera;
 }
 
-InputCamera InputCamera::create(Window &window, TimerData &timer, UI::Context &ui, float3 position)
+InputCamera InputCamera::create(Window &window, TimerData &timer, float3 position)
 {
     InputCamera camera{};
     camera._internal = Camera::create(position);
     camera.p_window  = &window;
     camera.p_timer   = &timer;
-    camera.p_ui      = &ui;
     return camera;
 }
 
@@ -131,6 +130,43 @@ void InputCamera::on_mouse_scroll(double, double yoffset)
     }
 }
 
+void InputCamera::display_ui(UI::Context &ui)
+{
+    if (ui.begin_window("Camera", true))
+    {
+        if (state == States::Idle)
+        {
+            ImGui::Text("State: Idle");
+        }
+        else if (state == States::Move)
+        {
+            ImGui::Text("State: Move");
+        }
+        else if (state == States::Orbit)
+        {
+            ImGui::Text("State: Orbit");
+        }
+        else if (state == States::Zoom)
+        {
+            ImGui::Text("State: Zoom");
+        }
+        ImGui::SliderFloat("move speed", &CAMERA_MOVE_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat("rotate speed", &CAMERA_ROTATE_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat("scroll speed", &CAMERA_SCROLL_SPEED, 0.1f, 250.f);
+        ImGui::SliderFloat3("position", &_internal.position[0], 1.1f, 100000.0f);
+
+        ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
+        ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
+
+        ImGui::SliderFloat3("target", &target[0], -180.0f, 180.0f);
+        ImGui::SliderFloat("spherical r", &r, 0.1f, 180.0f);
+        ImGui::SliderFloat("spherical theta", &theta, -180.0f, 180.0f);
+        ImGui::SliderFloat("spherical phi", &phi, -180.0f, 180.0f);
+
+        ui.end_window();
+    }
+}
+
 void InputCamera::update()
 {
     auto *glfw_handle = p_window->get_handle();
@@ -215,42 +251,6 @@ void InputCamera::update()
 
         _internal.view = glm::lookAt(_internal.position, target, _internal.up);
     }
-
-#if defined(ENABLE_IMGUI)
-    if (p_ui->begin_window("Camera", true))
-    {
-        if (state == States::Idle)
-        {
-            ImGui::Text("State: Idle");
-        }
-        else if (state == States::Move)
-        {
-            ImGui::Text("State: Move");
-        }
-        else if (state == States::Orbit)
-        {
-            ImGui::Text("State: Orbit");
-        }
-        else if (state == States::Zoom)
-        {
-            ImGui::Text("State: Zoom");
-        }
-        ImGui::SliderFloat("move speed", &CAMERA_MOVE_SPEED, 0.1f, 250.f);
-        ImGui::SliderFloat("rotate speed", &CAMERA_ROTATE_SPEED, 0.1f, 250.f);
-        ImGui::SliderFloat("scroll speed", &CAMERA_SCROLL_SPEED, 0.1f, 250.f);
-        ImGui::SliderFloat3("position", &_internal.position[0], 1.1f, 100000.0f);
-
-        ImGui::SliderFloat3("up", &_internal.up[0], -180.0f, 180.0f);
-        ImGui::SliderFloat3("front", &_internal.front[0], -180.0f, 180.0f);
-
-        ImGui::SliderFloat3("target", &target[0], -180.0f, 180.0f);
-        ImGui::SliderFloat("spherical r", &r, 0.1f, 180.0f);
-        ImGui::SliderFloat("spherical theta", &theta, -180.0f, 180.0f);
-        ImGui::SliderFloat("spherical phi", &phi, -180.0f, 180.0f);
-
-        p_ui->end_window();
-    }
-#endif
 }
 
 float4x4 Camera::update_view()

@@ -23,6 +23,10 @@
 
 namespace my_app
 {
+namespace UI
+{
+struct Context;
+}
 namespace vulkan
 {
 
@@ -457,6 +461,10 @@ struct API
     RenderPassH current_render_pass;
     GraphicsProgram *current_program;
 
+    // statistics
+    usize graphics_pipeline_count = 0;
+    usize compute_pipeline_count = 0;
+
     static API create(const Window &window);
     void destroy();
 
@@ -465,6 +473,7 @@ struct API
     void end_frame();
     bool start_present();
     void wait_idle();
+    void display_ui(UI::Context &ui);
 
     /// --- Drawing
     void begin_pass(PassInfo &&info);

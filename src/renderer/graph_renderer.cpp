@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "camera.hpp"
+#include "imgui/imgui.h"
 #include "renderer/hl_api.hpp"
 #include "renderer/renderer.hpp"
 #include "tools.hpp"
@@ -17,6 +18,27 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
 
 Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
+    // where to put this code?
+
+    // Init context
+    ImGui::CreateContext();
+
+    auto &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigDockingWithShift = false;
+    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
+    io.BackendPlatformName = "custom_glfw";
+
+    // Add fonts
+    io.Fonts->AddFontDefault();
+    ImFontConfig config;
+    config.MergeMode                   = true;
+    config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
+    static const ImWchar icon_ranges[] = {eva_icons::MIN, eva_icons::MAX, 0};
+    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
+
+    //
+
     Renderer r;
     r.api   = vulkan::API::create(window);
     r.graph = RenderGraph::create(r.api);
@@ -57,7 +79,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     // basic resources
 
     r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
-    r.hdr_buffer   = r.graph.image_descs.add({.name = "HDR color", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.hdr_buffer   = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
 
     r.trilinear_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
                                                 .min_filter   = VK_FILTER_LINEAR,
@@ -74,6 +96,8 @@ void Renderer::destroy()
 {
     api.wait_idle();
     api.destroy();
+
+    ImGui::DestroyContext();
 }
 
 void Renderer::on_resize(int width, int height)
@@ -180,23 +204,6 @@ void add_floor_pass(Renderer &r)
 Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
 {
     Renderer::ImGuiPass pass;
-
-    // Init context
-    ImGui::CreateContext();
-
-    auto &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigDockingWithShift = false;
-    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
-    io.BackendPlatformName = "custom_glfw";
-
-    // Add fonts
-    io.Fonts->AddFontDefault();
-    ImFontConfig config;
-    config.MergeMode                   = true;
-    config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
-    static const ImWchar icon_ranges[] = {eva_icons::MIN, eva_icons::MAX, 0};
-    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
 
     // Create vulkan programs
     vulkan::GraphicsProgramInfo pinfo{};
@@ -759,130 +766,6 @@ void add_tonemapping_pass(Renderer &r)
 /// --- BIG MESS
 
 // it a mess
-void imgui_update(Renderer &r)
-{
-
-    ImGuiIO &io        = ImGui::GetIO();
-    auto &api    = r.api;
-    auto &window = *r.p_window;
-    auto &ui     = *r.p_ui;
-    auto &timer  = *r.p_timer;
-
-    io.DeltaTime = timer.get_delta_time();
-    io.Framerate = timer.get_average_fps();
-
-    io.DisplaySize.x             = float(api.ctx.swapchain.extent.width);
-    io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
-    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
-    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
-
-    if (ui.begin_window("Profiler", true))
-    {
-        #if 0
-        static bool show_fps = false;
-
-        if (ImGui::RadioButton("FPS", show_fps))
-        {
-            show_fps = true;
-        }
-
-        ImGui::SameLine();
-
-        if (ImGui::RadioButton("ms", !show_fps))
-        {
-            show_fps = false;
-        }
-
-        if (show_fps)
-        {
-            ImGui::SetCursorPosX(20.0f);
-
-            const auto &histogram = timer.get_fps_histogram();
-            ImGui::PlotHistogram("",
-                                 histogram.data(),
-                                 static_cast<int>(histogram.size()),
-                                 0,
-                                 nullptr,
-                                 0.0f,
-                                 FLT_MAX,
-                                 ImVec2(85.0f, 30.0f));
-        }
-        else
-        {
-            ImGui::SetCursorPosX(20.0f);
-
-            const auto &histogram = timer.get_delta_time_histogram();
-            ImGui::PlotHistogram("",
-                                 histogram.data(),
-                                 static_cast<int>(histogram.size()),
-                                 0,
-                                 nullptr,
-                                 0.0f,
-                                 FLT_MAX,
-                                 ImVec2(85.0f, 30.0f));
-        }
-        #endif
-        ImGui::Text("%7.1f fps", double(timer.get_average_fps()));
-        ImGui::Text("%9.3f ms", double(timer.get_average_delta_time()));
-
-        const auto &timestamps = api.timestamps;
-        if (timestamps.size() > 0)
-        {
-            ImGui::Columns(3, "timestamps"); // 4-ways, with border
-            ImGui::Separator();
-            ImGui::Text("Label");
-            ImGui::NextColumn();
-            ImGui::Text("GPU (us)");
-            ImGui::NextColumn();
-            ImGui::Text("CPU (ms)");
-            ImGui::NextColumn();
-            ImGui::Separator();
-            for (uint32_t i = 1; i < timestamps.size() - 1; i++)
-            {
-                auto gpu_delta = timestamps[i].gpu_microseconds - timestamps[i - 1].gpu_microseconds;
-                auto cpu_delta = timestamps[i].cpu_milliseconds - timestamps[i - 1].cpu_milliseconds;
-
-                ImGui::Text("%*s", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data());
-                ImGui::NextColumn();
-                ImGui::Text("%.1f", gpu_delta);
-                ImGui::NextColumn();
-                ImGui::Text("%.1f", cpu_delta);
-                ImGui::NextColumn();
-            }
-
-            ImGui::Columns(1);
-            ImGui::Separator();
-
-            // scrolling data and average computing
-            static float gpu_values[128];
-            static float cpu_values[128];
-
-            gpu_values[127]   = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
-            cpu_values[127]   = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
-            float gpu_average = gpu_values[0];
-            float cpu_average = cpu_values[0];
-            for (uint i = 0; i < 128 - 1; i++)
-            {
-                gpu_values[i] = gpu_values[i + 1];
-                gpu_average += gpu_values[i];
-                cpu_values[i] = cpu_values[i + 1];
-                cpu_average += cpu_values[i];
-            }
-            gpu_average /= 128;
-            cpu_average /= 128;
-
-            ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
-            ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
-
-            ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
-            ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
-        }
-
-        ui.end_window();
-    }
-}
-
-// it a mess
 void update_uniforms(Renderer &r)
 {
     auto &api = r.api;
@@ -942,10 +825,129 @@ void update_uniforms(Renderer &r)
 
 /// --- Where the magic happens
 
+void Renderer::display_ui(UI::Context &ui)
+{
+    graph.display_ui(ui);
+    api.display_ui(ui);
+
+    ImGuiIO &io  = ImGui::GetIO();
+    const auto &window = *p_window;
+    auto &timer  = *p_timer;
+
+    io.DeltaTime = timer.get_delta_time();
+    io.Framerate = timer.get_average_fps();
+
+    io.DisplaySize.x             = float(api.ctx.swapchain.extent.width);
+    io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
+    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
+    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+
+    if (ui.begin_window("Profiler", true))
+    {
+        static bool show_fps = false;
+
+        if (ImGui::RadioButton("FPS", show_fps))
+        {
+            show_fps = true;
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::RadioButton("ms", !show_fps))
+        {
+            show_fps = false;
+        }
+
+        if (show_fps)
+        {
+            ImGui::SetCursorPosX(20.0f);
+            ImGui::Text("%7.1f", double(timer.get_average_fps()));
+
+            const auto &histogram = timer.get_fps_histogram();
+            ImGui::PlotHistogram("",
+                                 histogram.data(),
+                                 static_cast<int>(histogram.size()),
+                                 0,
+                                 nullptr,
+                                 0.0f,
+                                 FLT_MAX,
+                                 ImVec2(85.0f, 30.0f));
+        }
+        else
+        {
+            ImGui::SetCursorPosX(20.0f);
+            ImGui::Text("%9.3f", double(timer.get_average_delta_time()));
+
+            const auto &histogram = timer.get_delta_time_histogram();
+            ImGui::PlotHistogram("",
+                                 histogram.data(),
+                                 static_cast<int>(histogram.size()),
+                                 0,
+                                 nullptr,
+                                 0.0f,
+                                 FLT_MAX,
+                                 ImVec2(85.0f, 30.0f));
+        }
+
+        const auto &timestamps = api.timestamps;
+        if (!timestamps.empty())
+        {
+            ImGui::Columns(3, "timestamps"); // 4-ways, with border
+            ImGui::Separator();
+            ImGui::Text("Label");
+            ImGui::NextColumn();
+            ImGui::Text("GPU (us)");
+            ImGui::NextColumn();
+            ImGui::Text("CPU (ms)");
+            ImGui::NextColumn();
+            ImGui::Separator();
+            for (uint32_t i = 1; i < timestamps.size() - 1; i++)
+            {
+                auto gpu_delta = timestamps[i].gpu_microseconds - timestamps[i - 1].gpu_microseconds;
+                auto cpu_delta = timestamps[i].cpu_milliseconds - timestamps[i - 1].cpu_milliseconds;
+
+                ImGui::Text("%*s", static_cast<int>(timestamps[i].label.size()), timestamps[i].label.data());
+                ImGui::NextColumn();
+                ImGui::Text("%.1f", gpu_delta);
+                ImGui::NextColumn();
+                ImGui::Text("%.1f", cpu_delta);
+                ImGui::NextColumn();
+            }
+
+            ImGui::Columns(1);
+            ImGui::Separator();
+
+            // scrolling data and average computing
+            static float gpu_values[128];
+            static float cpu_values[128];
+
+            gpu_values[127]   = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
+            cpu_values[127]   = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
+            float gpu_average = gpu_values[0];
+            float cpu_average = cpu_values[0];
+            for (uint i = 0; i < 128 - 1; i++)
+            {
+                gpu_values[i] = gpu_values[i + 1];
+                gpu_average += gpu_values[i];
+                cpu_values[i] = cpu_values[i + 1];
+                cpu_average += cpu_values[i];
+            }
+            gpu_average /= 128;
+            cpu_average /= 128;
+
+            ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
+            ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+
+            ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
+            ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+        }
+
+        ui.end_window();
+    }
+}
+
 void Renderer::draw()
 {
-    imgui_update(*this);
-
     bool is_ok = api.start_frame();
     if (!is_ok) {
         ImGui::EndFrame();
