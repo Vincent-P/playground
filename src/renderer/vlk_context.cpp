@@ -311,7 +311,7 @@ void Context::create_swapchain()
     }
 
     auto image_count = capabilities.minImageCount + 2u;
-    if (image_count > capabilities.maxImageCount) {
+    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
         image_count = capabilities.maxImageCount;
     }
 
