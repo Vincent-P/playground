@@ -6,6 +6,7 @@
 #include "tools.hpp"
 #include "timer.hpp"
 #include <vulkan/vulkan_core.h>
+#include <cstring> // for std::memcpy
 #include "../shaders/include/atmosphere.h"
 
 namespace my_app

@@ -297,17 +297,17 @@ void API::display_ui(UI::Context &ui)
         ImGui::Separator();
         ImGui::Text("Resources");
         ImGui::Separator();
-        ImGui::Text("Images: %llu", images.size());
-        ImGui::Text("Buffers: %llu", buffers.size());
-        ImGui::Text("Rendertargets: %llu", rendertargets.size());
-        ImGui::Text("Samplers: %llu", samplers.size());
-        ImGui::Text("Graphics Programs: %llu", graphics_programs.size());
-        ImGui::Text("Graphics Pipelines: %llu", graphics_programs.size());
-        ImGui::Text("Compute Programs: %llu", compute_programs.size());
-        ImGui::Text("Compute Pipelines: %llu", compute_programs.size());
-        ImGui::Text("Shaders: %llu", shaders.size());
-        ImGui::Text("RenderPasses: %llu", renderpasses.size());
-        ImGui::Text("FrameBuffers: %llu", framebuffers.size());
+        ImGui::Text("Images: %zu", images.size());
+        ImGui::Text("Buffers: %zu", buffers.size());
+        ImGui::Text("Rendertargets: %zu", rendertargets.size());
+        ImGui::Text("Samplers: %zu", samplers.size());
+        ImGui::Text("Graphics Programs: %zu", graphics_programs.size());
+        ImGui::Text("Graphics Pipelines: %zu", graphics_programs.size());
+        ImGui::Text("Compute Programs: %zu", compute_programs.size());
+        ImGui::Text("Compute Pipelines: %zu", compute_programs.size());
+        ImGui::Text("Shaders: %zu", shaders.size());
+        ImGui::Text("RenderPasses: %zu", renderpasses.size());
+        ImGui::Text("FrameBuffers: %zu", framebuffers.size());
 
         ui.end_window();
     }
