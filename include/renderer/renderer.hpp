@@ -82,9 +82,7 @@ struct Renderer
     void visualize_voxels();
     void composite_hdr();
 
-    vulkan::RenderTargetH depth_rt;
-    vulkan::RenderTargetH color_rt;
-    vulkan::RenderTargetH swapchain_rt;
+    /// --- New
 
     vulkan::API api;
     RenderGraph graph;
@@ -94,6 +92,30 @@ struct Renderer
     Camera *p_camera;
     TimerData *p_timer;
 
+    ImageDescH depth_buffer;
+
+    struct CheckerBoardFloorPass
+    {
+        vulkan::BufferH index_buffer;
+        vulkan::BufferH vertex_buffer;
+        vulkan::GraphicsProgramH program;
+    } checkerboard_floor;
+
+
+    // ImGui
+    struct ImGuiPass
+    {
+        vulkan::GraphicsProgramH float_program;
+        vulkan::GraphicsProgramH uint_program;
+        vulkan::ImageH font_atlas;
+    } imgui;
+
+    /// --- Old
+
+    vulkan::RenderTargetH depth_rt;
+    vulkan::RenderTargetH color_rt;
+    vulkan::RenderTargetH swapchain_rt;
+
     /// --- Rendering
     vulkan::SamplerH default_sampler;
     vulkan::CircularBufferPosition global_uniform_pos;
@@ -102,19 +124,6 @@ struct Renderer
     // Tonemap
     vulkan::GraphicsProgramH hdr_compositing;
 
-
-    // ImGui
-    vulkan::GraphicsProgramH gui_program;
-    vulkan::GraphicsProgramH gui_uint_program;
-    vulkan::ImageH gui_texture;
-
-    // Checkerboard floor
-    struct CheckerBoardFloorPass
-    {
-        vulkan::BufferH index_buffer;
-        vulkan::BufferH vertex_buffer;
-        vulkan::GraphicsProgramH program;
-    } checkerboard_floor;
 
     // Unreal Engine sky
     struct SkyPass

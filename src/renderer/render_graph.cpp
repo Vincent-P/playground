@@ -23,6 +23,7 @@ void RenderGraph::clear()
 {
     passes = {};
     images = {};
+    image_descs = {};
 }
 
 void RenderGraph::add_pass(RenderPass && _pass)

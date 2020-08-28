@@ -7,12 +7,15 @@
 
 namespace my_app
 {
+
+Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api);
+Renderer::ImGuiPass create_imgui_pass(vulkan::API &api);
+
 Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     Renderer r;
-    r.api     = vulkan::API::create(window);
-
-    r.graph   = RenderGraph::create(r.api);
+    r.api   = vulkan::API::create(window);
+    r.graph = RenderGraph::create(r.api);
 
     auto &api = r.api;
 
@@ -21,133 +24,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     r.p_camera = &camera;
     r.p_timer  = &timer;
 
-    /// --- Setup imgui
-
-    ImGui::CreateContext();
-
-    auto &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigDockingWithShift = false;
-    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
-    io.BackendPlatformName = "custom_glfw";
-
-    io.Fonts->AddFontDefault();
-    ImFontConfig config;
-    config.MergeMode                   = true;
-    config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
-    static const ImWchar icon_ranges[] = {eva_icons::MIN, eva_icons::MAX, 0};
-    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
-
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
-
-        pinfo.push_constant({.stages = VK_SHADER_STAGE_VERTEX_BIT, .size = 4 * sizeof(float)});
-
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        pinfo.vertex_stride(sizeof(ImDrawVert));
-
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
-        pinfo.vertex_info({.format = VK_FORMAT_R8G8B8A8_UNORM, .offset = MEMBER_OFFSET(ImDrawVert, col)});
-
-        vulkan::GraphicsProgramInfo puintinfo = pinfo;
-        puintinfo.fragment_shader             = api.create_shader("shaders/gui_uint.frag.spv");
-
-        r.gui_program      = api.create_program(std::move(pinfo));
-        r.gui_uint_program = api.create_program(std::move(puintinfo));
-    }
-
-    {
-        uchar *pixels = nullptr;
-
-        int w = 0;
-        int h = 0;
-        ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
-
-        r.gui_texture = api.create_image({
-            .name   = "ImGui font atlas",
-            .width  = static_cast<uint>(w),
-            .height = static_cast<uint>(h),
-        });
-
-        api.upload_image(r.gui_texture, pixels, w * h * 4);
-
-        {
-            // TODO clean this somehow
-            auto &vkimage = api.get_image(r.gui_texture);
-            auto src      = vulkan::get_src_image_access(vkimage.usage);
-            auto dst      = vulkan::get_src_image_access(vulkan::ImageUsage::GraphicsShaderRead);
-
-            VkImageMemoryBarrier b = vulkan::get_image_barrier(vkimage.vkhandle, src, dst, vkimage.full_range);
-            vkimage.usage          = vulkan::ImageUsage::GraphicsShaderRead;
-
-            auto cmd_buffer = api.get_temp_cmd_buffer();
-            cmd_buffer.begin();
-            vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
-            cmd_buffer.submit_and_wait();
-        }
-    }
-
-    /// --- Checkerboard floor
-
-    {
-        std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
-
-        // clang-format off
-        float height = -0.001f;
-        std::array vertices =
-        {
-            -1.0f,  height, -1.0f,      0.0f, 0.0f,
-             1.0f,  height, -1.0f,      1.0f, 0.0f,
-             1.0f,  height,  1.0f,      1.0f, 1.0f,
-            -1.0f,  height,  1.0f,      0.0f, 1.0f,
-        };
-        // clang-format on
-
-        auto &index_buffer  = r.checkerboard_floor.index_buffer;
-        auto &vertex_buffer = r.checkerboard_floor.vertex_buffer;
-
-        index_buffer
-            = api.create_buffer({.name  = "Floor Index buffer",
-                                 .size  = indices.size() * sizeof(u16),
-                                 .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT});
-
-        vertex_buffer
-            = api.create_buffer({.name  = "Floor Vertex buffer",
-                                 .size  = vertices.size() * sizeof(float),
-                                 .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT});
-
-        api.upload_buffer(index_buffer, indices.data(), indices.size() * sizeof(u16));
-        api.upload_buffer(vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
-    }
-
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
-
-        // voxel options
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
-
-        pinfo.enable_depth_write = true;
-        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.depth_bias         = 0.0f;
-
-        r.checkerboard_floor.program = api.create_program(std::move(pinfo));
-    }
+    r.imgui              = create_imgui_pass(api);
+    r.checkerboard_floor = create_floor_pass(api);
 
     return r;
 }
@@ -172,16 +50,78 @@ void Renderer::reload_shader(std::string_view)
 {
 }
 
+/// --- Checker board floor
+
+Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
+{
+    Renderer::CheckerBoardFloorPass pass;
+
+    /// --- Create the index and vertex buffer
+
+    std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
+
+    // clang-format off
+    float height = -0.001f;
+    std::array vertices =
+    {
+        -1.0f,  height, -1.0f,      0.0f, 0.0f,
+        1.0f,  height, -1.0f,      1.0f, 0.0f,
+        1.0f,  height,  1.0f,      1.0f, 1.0f,
+        -1.0f,  height,  1.0f,      0.0f, 1.0f,
+    };
+    // clang-format on
+
+    pass.index_buffer = api.create_buffer({
+        .name  = "Floor Index buffer",
+        .size  = indices.size() * sizeof(u16),
+        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    });
+
+    pass.vertex_buffer = api.create_buffer({
+        .name  = "Floor Vertex buffer",
+        .size  = vertices.size() * sizeof(float),
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    });
+
+    api.upload_buffer(pass.index_buffer, indices.data(), indices.size() * sizeof(u16));
+    api.upload_buffer(pass.vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
+
+    /// --- Create program
+
+    vulkan::GraphicsProgramInfo pinfo{};
+    pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
+    pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
+
+    // voxel options
+    pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+    pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
+
+    pinfo.enable_depth_write = true;
+    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+    pinfo.depth_bias         = 0.0f;
+
+    pass.program = api.create_program(std::move(pinfo));
+
+    return pass;
+}
+
 void add_floor_pass(Renderer &r)
 {
     auto &graph = r.graph;
-    auto depth_buffer = graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
+
+    r.depth_buffer = graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
 
     graph.add_pass({
         .name = "Checkerboard Floor pass",
         .type = PassType::Graphics,
         .color_attachment = graph.swapchain, // clear
-        .depth_attachment = depth_buffer, // clear
+        .depth_attachment = r.depth_buffer, // clear
         .exec = [=](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             auto swapchain_extent = api.ctx.swapchain.extent;
@@ -199,6 +139,86 @@ void add_floor_pass(Renderer &r)
     });
 }
 
+/// --- ImGui Pass
+
+
+Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
+{
+    Renderer::ImGuiPass pass;
+
+    // Init context
+    ImGui::CreateContext();
+
+    auto &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigDockingWithShift = false;
+    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
+    io.BackendPlatformName = "custom_glfw";
+
+    // Add fonts
+    io.Fonts->AddFontDefault();
+    ImFontConfig config;
+    config.MergeMode                   = true;
+    config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
+    static const ImWchar icon_ranges[] = {eva_icons::MIN, eva_icons::MAX, 0};
+    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
+
+    // Create vulkan programs
+    vulkan::GraphicsProgramInfo pinfo{};
+    pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
+    pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
+
+    pinfo.push_constant({.stages = VK_SHADER_STAGE_VERTEX_BIT, .size = 4 * sizeof(float)});
+
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
+    pinfo.vertex_stride(sizeof(ImDrawVert));
+
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
+    pinfo.vertex_info({.format = VK_FORMAT_R8G8B8A8_UNORM, .offset = MEMBER_OFFSET(ImDrawVert, col)});
+
+    vulkan::GraphicsProgramInfo puintinfo = pinfo;
+    puintinfo.fragment_shader             = api.create_shader("shaders/gui_uint.frag.spv");
+
+    pass.float_program = api.create_program(std::move(pinfo));
+    pass.uint_program  = api.create_program(std::move(puintinfo));
+
+    // Upload the font atlas to the GPU
+    uchar *pixels = nullptr;
+
+    int w = 0;
+    int h = 0;
+    ImGui::GetIO().Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
+
+    pass.font_atlas = api.create_image({
+        .name   = "ImGui font atlas",
+        .width  = static_cast<uint>(w),
+        .height = static_cast<uint>(h),
+    });
+
+    api.upload_image(pass.font_atlas, pixels, w * h * 4);
+
+    // TODO clean this somehow
+    // Transition the image from the TRANSFER layout to the SHADER READ layout, upload_image doesnt do it automatically
+    auto &vkimage = api.get_image(pass.font_atlas);
+    auto src      = vulkan::get_src_image_access(vkimage.usage);
+    auto dst      = vulkan::get_src_image_access(vulkan::ImageUsage::GraphicsShaderRead);
+
+    VkImageMemoryBarrier b = vulkan::get_image_barrier(vkimage.vkhandle, src, dst, vkimage.full_range);
+    vkimage.usage          = vulkan::ImageUsage::GraphicsShaderRead;
+
+    auto cmd_buffer = api.get_temp_cmd_buffer();
+    cmd_buffer.begin();
+    vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    cmd_buffer.submit_and_wait();
+
+    return pass;
+}
+
 void add_imgui_pass(Renderer &r)
 {
     ImGui::Render();
@@ -209,9 +229,10 @@ void add_imgui_pass(Renderer &r)
 
     auto &graph = r.graph;
 
-    std::vector<vulkan::ImageH> external_images; // external are always sampled?
-
-    external_images.push_back(r.gui_texture);
+    // The render graph needs to know about external images to put barriers on them correctly
+    // are external images always going to be sampled or they need to be in differents categories
+    // like regular images from the graph?
+    std::vector<vulkan::ImageH> external_images;
 
     for (int list = 0; list < data->CmdListsCount; list++) {
         const auto &cmd_list = *data->CmdLists[list];
@@ -226,23 +247,13 @@ void add_imgui_pass(Renderer &r)
         }
     }
 
-    struct ImGuiPassData
-    {
-        vulkan::GraphicsProgramH float_program;
-        vulkan::GraphicsProgramH uint_program;
-    };
-
-    ImGuiPassData pass_data = {.float_program = r.gui_program, .uint_program = r.gui_uint_program};
-
     graph.add_pass({
         .name = "ImGui pass",
         .type = PassType::Graphics,
         .external_images = external_images,
         .color_attachment = graph.swapchain,
-        .exec = [pass_data = std::move(pass_data)](RenderGraph& /*graph*/, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data = r.imgui](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
-            // auto first_texture = graph.resolve_image(self.sampled_images[0]); ?
-            // auto textures = graph.resolve_images(self.sampled_images); ?
             ImDrawData *data = ImGui::GetDrawData();
 
             /// --- Prepare index and vertex buffer
@@ -306,13 +317,13 @@ void add_imgui_pass(Renderer &r)
 
                         if (image.info.format == VK_FORMAT_R32_UINT)
                         {
-                            current = pass_data.float_program;
+                            current = pass_data.uint_program;
                         }
 
                         api.bind_image(current, vulkan::SHADER_DESCRIPTOR_SET, 0, texture);
                     }
                     else {
-                        api.bind_image(current, vulkan::SHADER_DESCRIPTOR_SET, 0, self.external_images[0]);
+                        api.bind_image(current, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.font_atlas);
                     }
 
                     api.bind_program(current);
@@ -344,6 +355,8 @@ void add_imgui_pass(Renderer &r)
         }
     });
 }
+
+/// --- BIG MESS
 
 // it a mess
 void imgui_update(Renderer &r)
@@ -469,6 +482,7 @@ void imgui_update(Renderer &r)
     }
 }
 
+// it a mess
 void update_uniforms(Renderer &r)
 {
     auto &api = r.api;
@@ -525,6 +539,8 @@ void update_uniforms(Renderer &r)
 
     api.end_label();
 }
+
+/// --- Where the magic happens
 
 void Renderer::draw()
 {
