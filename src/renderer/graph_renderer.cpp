@@ -90,6 +90,19 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
                                               .min_filter   = VK_FILTER_NEAREST,
                                               .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST});
 
+
+
+    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
+    r.p_camera->perspective(90.0f, aspect_ratio, 1.0f, 200.f);
+    // r.p_camera->update_view();
+
+    r.sun.position = float3(0.0f, 40.0f, 0.0f);
+    r.sun.pitch = 25.0f;
+    r.sun.yaw = 0.0f;
+    r.sun.roll = 0.0f;
+    r.sun.ortho_square(40.f, 1.f, 100.f);
+
+
     return r;
 }
 
@@ -732,7 +745,7 @@ void add_tonemapping_pass(Renderer &r)
     {
         static std::array options{"Reinhard", "Exposure", "Clamp"};
         tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
-        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 10.0f);
+        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 2.0f);
         ui.end_window();
     }
 
@@ -772,17 +785,6 @@ void update_uniforms(Renderer &r)
     auto &api = r.api;
     api.begin_label("Update uniforms");
 
-    float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
-    static float fov   = 60.0f;
-    static float s_near  = 1.0f;
-    static float s_far   = 200.0f;
-
-    r.p_camera->perspective(fov, aspect_ratio, s_near, 200.f);
-    // r.p_camera->update_view();
-
-    r.sun.position = float3(0.0f, 40.0f, 0.0f);
-    r.sun.ortho_square(40.f, 1.f, 100.f);
-
     r.global_uniform_pos     = api.dynamic_uniform_buffer(sizeof(GlobalUniform));
     auto *globals            = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
@@ -795,31 +797,9 @@ void update_uniforms(Renderer &r)
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 
-    globals->resolution = uint2(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
-    globals->sun_direction = float4(-r.sun.front, 1);
-
-
-    static float s_sun_illuminance = 10000.0f;
-    static float s_multiple_scattering = 0.0f;
-    if (r.p_ui->begin_window("Globals"))
-    {
-        ImGui::SliderFloat("Near plane", &s_near, 0.01f, 1.f);
-        ImGui::SliderFloat("Far plane", &s_far, 100.0f, 100000.0f);
-
-        if (ImGui::Button("Reset near"))
-        {
-            s_near = 0.1f;
-        }
-        if (ImGui::Button("Reset far"))
-        {
-            s_far = 200.0f;
-        }
-
-        ImGui::SliderFloat("Sun illuminance", &s_sun_illuminance, 0.1f, 100.f);
-        ImGui::SliderFloat("Multiple scattering", &s_multiple_scattering, 0.0f, 1.0f);
-        r.p_ui->end_window();
-    }
-    globals->sun_illuminance     = s_sun_illuminance * float3(1.0f);
+    globals->resolution      = uint2(api.ctx.swapchain.extent.width, api.ctx.swapchain.extent.height);
+    globals->sun_direction   = float4(-r.sun.front, 1);
+    globals->sun_illuminance = float3(100.0f); //TODO: move from global and use real values (will need auto exposure)
 
     api.end_label();
 }
@@ -945,6 +925,14 @@ void Renderer::display_ui(UI::Context &ui)
 
         ui.end_window();
     }
+
+    if (p_ui->begin_window("Global"))
+    {
+        ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
+        p_ui->end_window();
+    }
+
+    sun.update_view();
 }
 
 void Renderer::draw()
