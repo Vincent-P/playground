@@ -13,28 +13,11 @@
 namespace my_app::vulkan
 {
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                                     VkDebugUtilsMessageTypeFlagsEXT message_type,
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+                                                         VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
-    switch (message_severity) {
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-        break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-        break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        break;
-    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-        break;
-    }
-
-    if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
-        return VK_FALSE;
-    }
-
     std::cerr << pCallbackData->pMessage << "\n";
 
     if (pCallbackData->objectCount) {
@@ -86,8 +69,7 @@ Context Context::create(const Window &window)
         instance_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
 
-    VkApplicationInfo app_info;
-    app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    VkApplicationInfo app_info  = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app_info.pApplicationName   = "Test Vulkan";
     app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     app_info.pEngineName        = "GoodEngine";
@@ -97,13 +79,11 @@ Context Context::create(const Window &window)
     // TODO: add synchronization once the flag is available in vulkan_core.h
     std::array<VkValidationFeatureEnableEXT, 1> enables{VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT};
 
-    VkValidationFeaturesEXT features = {};
-    features.sType                         = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    VkValidationFeaturesEXT features       = {.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT};
     features.enabledValidationFeatureCount = enables.size();
     features.pEnabledValidationFeatures    = enables.data();
 
-    VkInstanceCreateInfo create_info;
-    create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    VkInstanceCreateInfo create_info    = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     create_info.pNext                   = &features;
     create_info.flags                   = 0;
     create_info.pApplicationInfo        = &app_info;
@@ -125,11 +105,12 @@ Context Context::create(const Window &window)
 
     /// --- Init debug layers
     if (ENABLE_VALIDATION_LAYERS) {
-        VkDebugUtilsMessengerCreateInfoEXT ci;
-        ci.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        ci.flags           = 0;
-        ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        ci.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        VkDebugUtilsMessengerCreateInfoEXT ci = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+        ci.flags                              = 0;
+        ci.messageSeverity
+            = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        ci.messageType
+            = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         ci.pfnUserCallback = debug_callback;
 
         VkDebugUtilsMessengerEXT messenger;
@@ -172,11 +153,8 @@ Context Context::create(const Window &window)
         device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
     }
 
-    ctx.vulkan12_features              = {};
-    ctx.vulkan12_features.sType        = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-
-    ctx.physical_device_features       = {};
-    ctx.physical_device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    ctx.vulkan12_features              = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    ctx.physical_device_features       = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     ctx.physical_device_features.pNext = &ctx.vulkan12_features;
     vkGetPhysicalDeviceFeatures2(ctx.physical_device, &ctx.physical_device_features);
 
@@ -196,9 +174,9 @@ Context Context::create(const Window &window)
             // Create a single graphics queue.
             queue_create_infos.emplace_back();
             auto &queue_create_info = queue_create_infos.back();
-            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queue_create_info                  = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
             queue_create_info.queueFamilyIndex = i;
-            queue_create_info.queueCount = 1;
+            queue_create_info.queueCount       = 1;
             queue_create_info.pQueuePriorities = &priority;
             has_graphics            = true;
             ctx.graphics_family_idx = i;
@@ -211,9 +189,9 @@ Context Context::create(const Window &window)
             // Create a single graphics queue.
             queue_create_infos.emplace_back();
             auto &queue_create_info = queue_create_infos.back();
-            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queue_create_info                  = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
             queue_create_info.queueFamilyIndex = i;
-            queue_create_info.queueCount = 1;
+            queue_create_info.queueCount       = 1;
             queue_create_info.pQueuePriorities = &priority;
             has_present            = true;
             ctx.present_family_idx = i;
@@ -228,8 +206,7 @@ Context Context::create(const Window &window)
         queue_create_infos.pop_back();
     }
 
-    VkDeviceCreateInfo dci;
-    dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    VkDeviceCreateInfo dci      = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     dci.pNext                   = &ctx.physical_device_features;
     dci.flags                   = 0;
     dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
@@ -265,18 +242,16 @@ Context Context::create(const Window &window)
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 16 * 1024},
     };
 
-    VkDescriptorPoolCreateInfo dpci{};
-    dpci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    dpci.flags         = 0;
-    dpci.poolSizeCount = pool_sizes.size();
-    dpci.pPoolSizes    = pool_sizes.data();
-    dpci.maxSets       = 1024;
+    VkDescriptorPoolCreateInfo dpci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    dpci.flags                      = 0;
+    dpci.poolSizeCount              = pool_sizes.size();
+    dpci.pPoolSizes                 = pool_sizes.data();
+    dpci.maxSets                    = 1024;
     VK_CHECK(vkCreateDescriptorPool(ctx.device, &dpci, nullptr, &ctx.descriptor_pool));
 
-    VkQueryPoolCreateInfo qpci{};
-    qpci.sType      = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-    qpci.queryType  = VK_QUERY_TYPE_TIMESTAMP;
-    qpci.queryCount = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
+    VkQueryPoolCreateInfo qpci = {.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    qpci.queryType             = VK_QUERY_TYPE_TIMESTAMP;
+    qpci.queryCount            = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
     VK_CHECK(vkCreateQueryPool(ctx.device, &qpci, nullptr, &ctx.timestamp_pool));
 
     return ctx;
@@ -335,15 +310,14 @@ void Context::create_swapchain()
         }
     }
 
-    VkSwapchainCreateInfoKHR ci{};
-    ci.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    ci.surface          = ctx.surface;
-    ci.minImageCount    = capabilities.minImageCount + 1;
-    ci.imageFormat      = ctx.swapchain.format.format;
-    ci.imageColorSpace  = ctx.swapchain.format.colorSpace;
-    ci.imageExtent      = ctx.swapchain.extent;
-    ci.imageArrayLayers = 1;
-    ci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+    ci.surface                  = ctx.surface;
+    ci.minImageCount            = capabilities.minImageCount + 1;
+    ci.imageFormat              = ctx.swapchain.format.format;
+    ci.imageColorSpace          = ctx.swapchain.format.colorSpace;
+    ci.imageExtent              = ctx.swapchain.extent;
+    ci.imageArrayLayers         = 1;
+    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     if (ctx.graphics_family_idx != ctx.present_family_idx)
     {
@@ -372,8 +346,7 @@ void Context::create_swapchain()
 
     for (size_t i = 0; i < ctx.swapchain.images.size(); i++)
     {
-        VkImageViewCreateInfo ici{};
-        ici.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        VkImageViewCreateInfo ici           = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         ici.image                           = ctx.swapchain.images[i];
         ici.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
         ici.format                          = ctx.swapchain.format.format;
@@ -408,21 +381,18 @@ void Context::create_frame_resources(usize count)
     for (usize i = 0; i < count; i++) {
         auto &frame_resource = frame_resources.data[i];
 
-        VkFenceCreateInfo fci{};
-        fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        VkFenceCreateInfo fci = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        fci.flags             = VK_FENCE_CREATE_SIGNALED_BIT;
         VK_CHECK(vkCreateFence(device, &fci, nullptr, &frame_resource.fence));
 
-        VkSemaphoreCreateInfo sci{};
-        sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        VkSemaphoreCreateInfo sci = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         VK_CHECK(vkCreateSemaphore(device, &sci, nullptr, &frame_resource.image_available));
         VK_CHECK(vkCreateSemaphore(device, &sci, nullptr, &frame_resource.rendering_finished));
 
         /// --- Create the command pool to create a command buffer for each frame
-        VkCommandPoolCreateInfo cpci{};
-        cpci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        cpci.flags = 0;
-        cpci.queueFamilyIndex = graphics_family_idx;
+        VkCommandPoolCreateInfo cpci = {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        cpci.flags                   = 0;
+        cpci.queueFamilyIndex        = graphics_family_idx;
         VK_CHECK(vkCreateCommandPool(device, &cpci, nullptr, &frame_resource.command_pool));
     }
 }
@@ -466,17 +436,16 @@ void Context::on_resize(int /*width*/, int /*height*/)
         // TODO: isnt it possible to reset then signal the fence?
         vkDestroyFence(device, frame_resource.fence, nullptr);
 
-        VkFenceCreateInfo fci{};
-        fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        VkFenceCreateInfo fci = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        fci.flags             = VK_FENCE_CREATE_SIGNALED_BIT;
         VK_CHECK(vkCreateFence(device, &fci, nullptr, &frame_resource.fence));
 
         VK_CHECK(vkResetCommandPool(device, frame_resource.command_pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
-        VkCommandBufferAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        ai.commandPool        = frame_resource.command_pool;
-        ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        ai.commandBufferCount = 1;
+
+        VkCommandBufferAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        ai.commandPool                 = frame_resource.command_pool;
+        ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        ai.commandBufferCount          = 1;
         VK_CHECK(vkAllocateCommandBuffers(device, &ai, &frame_resource.command_buffer));
     }
 }

@@ -113,8 +113,8 @@ ImageH API::create_image(const ImageInfo &info)
     }
     else
     {
-        VkPhysicalDeviceSparseImageFormatInfo2 info2{};
-        info2.sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2;
+        VkPhysicalDeviceSparseImageFormatInfo2 info2
+            = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2};
         info2.format  = image_info.format;
         info2.type    = image_info.imageType;
         info2.samples = image_info.samples;
@@ -170,11 +170,10 @@ ImageH API::create_image(const ImageInfo &info)
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-        VkDebugUtilsObjectNameInfoEXT ni{};
-        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        ni.objectHandle = reinterpret_cast<u64>(img.vkhandle);
-        ni.objectType   = VK_OBJECT_TYPE_IMAGE;
-        ni.pObjectName  = info.name;
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(img.vkhandle);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE;
+        ni.pObjectName                   = info.name;
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
@@ -191,27 +190,25 @@ ImageH API::create_image(const ImageInfo &info)
         img.full_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
 
-    VkImageViewCreateInfo vci{};
-    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vci.flags            = 0;
-    vci.image            = img.vkhandle;
-    vci.format           = image_info.format;
-    vci.components.r     = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.g     = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.b     = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.a     = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.subresourceRange = img.full_range;
-    vci.viewType         = view_type_from(image_info.imageType);
+    VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    vci.flags                 = 0;
+    vci.image                 = img.vkhandle;
+    vci.format                = image_info.format;
+    vci.components.r          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.g          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.b          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.a          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.subresourceRange      = img.full_range;
+    vci.viewType              = view_type_from(image_info.imageType);
 
     VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &img.default_view));
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-        VkDebugUtilsObjectNameInfoEXT ni{};
-        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        ni.objectHandle = reinterpret_cast<u64>(img.default_view);
-        ni.objectType   = VK_OBJECT_TYPE_IMAGE_VIEW;
-        ni.pObjectName  = info.name;
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(img.default_view);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName                   = info.name;
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
@@ -234,20 +231,19 @@ ImageH API::create_image(const ImageInfo &info)
         img.mip_views.push_back(mip_view);
     }
 
-    VkSamplerCreateInfo sci{};
-    sci.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sci.magFilter        = VK_FILTER_NEAREST;
-    sci.minFilter        = VK_FILTER_NEAREST;
-    sci.mipmapMode       = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sci.addressModeU     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeV     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.compareOp        = VK_COMPARE_OP_NEVER;
-    sci.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-    sci.minLod           = 0;
-    sci.maxLod           = image_info.mipLevels;
-    sci.maxAnisotropy    = 8.0f;
-    sci.anisotropyEnable = true;
+    VkSamplerCreateInfo sci = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    sci.magFilter           = VK_FILTER_NEAREST;
+    sci.minFilter           = VK_FILTER_NEAREST;
+    sci.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sci.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeW        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.compareOp           = VK_COMPARE_OP_NEVER;
+    sci.borderColor         = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    sci.minLod              = 0;
+    sci.maxLod              = image_info.mipLevels;
+    sci.maxAnisotropy       = 8.0f;
+    sci.anisotropyEnable    = true;
 
     VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &img.default_sampler));
 
@@ -486,20 +482,19 @@ SamplerH API::create_sampler(const SamplerInfo &info)
 {
     Sampler sampler;
 
-    VkSamplerCreateInfo sci{};
-    sci.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sci.magFilter        = info.mag_filter;
-    sci.minFilter        = info.min_filter;
-    sci.mipmapMode       = info.mip_map_mode;
-    sci.addressModeU     = info.address_mode;
-    sci.addressModeV     = info.address_mode;
-    sci.addressModeW     = info.address_mode;
-    sci.compareOp        = VK_COMPARE_OP_NEVER;
-    sci.borderColor      = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-    sci.minLod           = 0;
-    sci.maxLod           = 7;
-    sci.maxAnisotropy    = 8.0f;
-    sci.anisotropyEnable = true;
+    VkSamplerCreateInfo sci = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    sci.magFilter           = info.mag_filter;
+    sci.minFilter           = info.min_filter;
+    sci.mipmapMode          = info.mip_map_mode;
+    sci.addressModeU        = info.address_mode;
+    sci.addressModeV        = info.address_mode;
+    sci.addressModeW        = info.address_mode;
+    sci.compareOp           = VK_COMPARE_OP_NEVER;
+    sci.borderColor         = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    sci.minLod              = 0;
+    sci.maxLod              = 7;
+    sci.maxAnisotropy       = 8.0f;
+    sci.anisotropyEnable    = true;
 
     VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &sampler.vkhandle));
     sampler.info = info;
@@ -539,10 +534,9 @@ BufferH API::create_buffer(const BufferInfo &info)
     buf.mapped       = nullptr;
     buf.size         = info.size;
 
-    VkBufferCreateInfo ci{};
-    ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    ci.usage = info.usage;
-    ci.size  = info.size;
+    VkBufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    ci.usage              = info.usage;
+    ci.size               = info.size;
 
     VmaAllocationCreateInfo alloc_info{};
     alloc_info.usage     = info.memory_usage;
@@ -558,11 +552,10 @@ BufferH API::create_buffer(const BufferInfo &info)
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-        VkDebugUtilsObjectNameInfoEXT ni{};
-        ni.sType        = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-        ni.objectHandle = reinterpret_cast<u64>(buf.vkhandle);
-        ni.objectType   = VK_OBJECT_TYPE_BUFFER;
-        ni.pObjectName  = info.name;
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(buf.vkhandle);
+        ni.objectType                    = VK_OBJECT_TYPE_BUFFER;
+        ni.pObjectName                   = info.name;
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
@@ -628,11 +621,10 @@ CommandBuffer API::get_temp_cmd_buffer()
     CommandBuffer cmd{ctx, {}};
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    VkCommandBufferAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool        = frame_resource.command_pool;
-    ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    ai.commandBufferCount = 1;
+    VkCommandBufferAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ai.commandPool                 = frame_resource.command_pool;
+    ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount          = 1;
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &ai, &cmd.vkhandle));
 
     return cmd;
@@ -640,17 +632,15 @@ CommandBuffer API::get_temp_cmd_buffer()
 
 void CommandBuffer::begin()
 {
-    VkCommandBufferBeginInfo binfo{};
-    binfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    binfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    binfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(vkhandle, &binfo);
 }
 
 void CommandBuffer::submit_and_wait()
 {
     VkFence fence;
-    VkFenceCreateInfo fci{};
-    fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFenceCreateInfo fci = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     VK_CHECK(vkCreateFence(ctx.device, &fci, nullptr, &fence));
 
     VkQueue graphics_queue;
@@ -658,8 +648,7 @@ void CommandBuffer::submit_and_wait()
 
     VK_CHECK(vkEndCommandBuffer(vkhandle));
 
-    VkSubmitInfo si{};
-    si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    VkSubmitInfo si       = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
     si.commandBufferCount = 1;
     si.pCommandBuffers    = &vkhandle;
 
@@ -738,10 +727,9 @@ ShaderH API::create_shader(std::string_view path)
     auto code   = tools::read_file(path);
     // keep code for reflection?
 
-    VkShaderModuleCreateInfo info{};
-    info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    info.codeSize = code.size();
-    info.pCode    = reinterpret_cast<const u32 *>(code.data());
+    VkShaderModuleCreateInfo info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    info.codeSize                 = code.size();
+    info.pCode                    = reinterpret_cast<const u32 *>(code.data());
 
     VK_CHECK(vkCreateShaderModule(ctx.device, &info, nullptr, &shader.vkhandle));
 
@@ -819,17 +807,16 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         std::vector<VkDescriptorBindingFlags> flags(info.bindings_by_set[i].size(), 0);
         // clang-format on
 
-        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
-        flags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
+            = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
         flags_info.bindingCount  = static_cast<u32>(bindings.size());
         flags_info.pBindingFlags = flags.data();
 
-        VkDescriptorSetLayoutCreateInfo layout_info{};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.pNext        = &flags_info;
-        layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-        layout_info.bindingCount = static_cast<u32>(bindings.size());
-        layout_info.pBindings    = bindings.data();
+        VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        layout_info.pNext                           = &flags_info;
+        layout_info.flags                           = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+        layout_info.bindingCount                    = static_cast<u32>(bindings.size());
+        layout_info.pBindings                       = bindings.data();
 
         VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &program.descriptor_layouts[i]));
     }
@@ -847,12 +834,11 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     auto &layouts = program.descriptor_layouts;
 
-    VkPipelineLayoutCreateInfo ci{};
-    ci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    ci.pSetLayouts            = layouts.data();
-    ci.setLayoutCount         = static_cast<u32>(layouts.size());
-    ci.pPushConstantRanges    = pc_ranges.data();
-    ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
+    VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    ci.pSetLayouts                = layouts.data();
+    ci.setLayoutCount             = static_cast<u32>(layouts.size());
+    ci.pPushConstantRanges        = pc_ranges.data();
+    ci.pushConstantRangeCount     = static_cast<u32>(pc_ranges.size());
 
     VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
     program.info = std::move(info);
@@ -892,13 +878,13 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     // clang-format off
     std::vector<VkDescriptorBindingFlags> flags( info.bindings.size(), 0 );
     // clang-format on
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
-    flags_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
+        = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
-    VkDescriptorSetLayoutCreateInfo layout_info{};
-    layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    layout_info;
     layout_info.pNext        = &flags_info;
     layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
     layout_info.bindingCount = static_cast<u32>(bindings.size());
@@ -917,12 +903,11 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         return range;
     });
 
-    VkPipelineLayoutCreateInfo ci{};
-    ci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    ci.pSetLayouts            = &program.descriptor_layout;
-    ci.setLayoutCount         = 1;
-    ci.pPushConstantRanges    = pc_ranges.data();
-    ci.pushConstantRangeCount = static_cast<u32>(pc_ranges.size());
+    VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    ci.pSetLayouts                = &program.descriptor_layout;
+    ci.setLayoutCount             = 1;
+    ci.pPushConstantRanges        = pc_ranges.data();
+    ci.pushConstantRangeCount     = static_cast<u32>(pc_ranges.size());
 
     VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
 
@@ -933,13 +918,12 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     /// --- Create pipeline
     const auto &compute_shader = get_shader(program.info.shader);
 
-    VkComputePipelineCreateInfo pinfo{};
-    pinfo.sType        = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pinfo.stage.sType  =  VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
-    pinfo.stage.module = compute_shader.vkhandle;
-    pinfo.stage.pName  = "main";
-    pinfo.layout       = program.pipeline_layout;
+    VkComputePipelineCreateInfo pinfo = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+    pinfo.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    pinfo.stage.stage                 = VK_SHADER_STAGE_COMPUTE_BIT;
+    pinfo.stage.module                = compute_shader.vkhandle;
+    pinfo.stage.pName                 = "main";
+    pinfo.layout                      = program.pipeline_layout;
 
     program.pipelines_vk.emplace_back();
     auto &pipeline = program.pipelines_vk.back();

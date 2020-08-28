@@ -508,7 +508,6 @@ struct API
     /// --- Debug
     void begin_label(std::string_view name, float4 color = {1, 1, 1, 1});
     void end_label();
-    void global_barrier();
 
     template <typename T> T *bind_uniform()
     {

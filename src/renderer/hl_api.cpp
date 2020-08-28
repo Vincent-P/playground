@@ -146,13 +146,11 @@ bool API::start_frame()
     vkFreeCommandBuffers(ctx.device, frame_resource.command_pool, 1, &frame_resource.command_buffer);
     VK_CHECK(vkResetCommandPool(ctx.device, frame_resource.command_pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
 
-    VkCommandBufferAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool        = frame_resource.command_pool;
-    ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    ai.commandBufferCount = 1;
+    VkCommandBufferAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ai.commandPool                 = frame_resource.command_pool;
+    ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount          = 1;
     VK_CHECK(vkAllocateCommandBuffers(ctx.device, &ai, &frame_resource.command_buffer));
-
 
     /// --- Read timestamp from previous frame and copy them in cpu memory
 
@@ -188,9 +186,8 @@ bool API::start_frame()
     vkResetQueryPool(ctx.device, ctx.timestamp_pool, frame_idx * MAX_TIMESTAMP_PER_FRAME, MAX_TIMESTAMP_PER_FRAME);
     cpu_timestamps.clear();
 
-    VkCommandBufferBeginInfo binfo{};
-    binfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    binfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    binfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(frame_resource.command_buffer, &binfo);
 
     add_timestamp("Begin Frame");
@@ -254,21 +251,19 @@ void API::end_frame()
     VK_CHECK(vkEndCommandBuffer(frame_resource.command_buffer));
 
     VkPipelineStageFlags stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSubmitInfo si{};
-    si.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    si.waitSemaphoreCount   = 1;
-    si.pWaitSemaphores      = &frame_resource.image_available;
-    si.pWaitDstStageMask    = &stage;
-    si.commandBufferCount   = 1;
-    si.pCommandBuffers      = &frame_resource.command_buffer;
-    si.signalSemaphoreCount = 1;
-    si.pSignalSemaphores    = &frame_resource.rendering_finished;
+    VkSubmitInfo si            = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.waitSemaphoreCount      = 1;
+    si.pWaitSemaphores         = &frame_resource.image_available;
+    si.pWaitDstStageMask       = &stage;
+    si.commandBufferCount      = 1;
+    si.pCommandBuffers         = &frame_resource.command_buffer;
+    si.signalSemaphoreCount    = 1;
+    si.pSignalSemaphores       = &frame_resource.rendering_finished;
 
     VK_CHECK(vkQueueSubmit(graphics_queue, 1, &si, frame_resource.fence));
 
     /// --- Present the frame
-    VkPresentInfoKHR present_i{};
-    present_i.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    VkPresentInfoKHR present_i   = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
     present_i.waitSemaphoreCount = 1;
     present_i.pWaitSemaphores    = &frame_resource.rendering_finished;
     present_i.swapchainCount     = 1;
