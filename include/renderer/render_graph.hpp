@@ -108,7 +108,9 @@ namespace vulkan
 {
 struct API;
 struct Image;
+struct RenderTarget;
 using ImageH = Handle<Image>;
+using RenderTargetH = Handle<RenderTarget>;
 };
 
 struct RenderPass;
@@ -127,7 +129,7 @@ struct RenderResource
     std::vector<RenderPassH> sampled_images_in;
     std::vector<RenderPassH> combined_sampler_images_in;
     std::vector<RenderPassH> storage_images_in;
-    std::vector<RenderPassH> color_attachments_in;
+    std::vector<RenderPassH> color_attachment_in;
     std::vector<RenderPassH> depth_attachment_in;
 };
 
@@ -153,7 +155,8 @@ struct ImageDesc
 struct ImageResource
 {
     RenderResource resource;
-    vulkan::ImageH resolved;
+    vulkan::ImageH resolved_img;
+    vulkan::RenderTargetH resolved_rt;
 };
 
 enum struct PassType

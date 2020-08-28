@@ -24,8 +24,11 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     r.p_camera = &camera;
     r.p_timer  = &timer;
 
+
     r.imgui              = create_imgui_pass(api);
     r.checkerboard_floor = create_floor_pass(api);
+
+    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
 
     return r;
 }
@@ -114,8 +117,6 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 void add_floor_pass(Renderer &r)
 {
     auto &graph = r.graph;
-
-    r.depth_buffer = graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
 
     graph.add_pass({
         .name = "Checkerboard Floor pass",

@@ -12,6 +12,11 @@ API API::create(const Window &window)
     API api;
     api.ctx = Context::create(window);
 
+    api.swapchain_usages.resize(api.ctx.swapchain.images.size());
+    for (auto &swapchain_usage : api.swapchain_usages) {
+        swapchain_usage = ImageUsage::None;
+    }
+
     {
 	BufferInfo binfo;
 	binfo.name                  = "Staging Buffer";
@@ -112,6 +117,10 @@ void API::on_resize(int width, int height)
     // submit all command buffers?
 
     ctx.on_resize(width, height);
+    swapchain_usages.resize(ctx.swapchain.images.size());
+    for (auto &swapchain_usage : swapchain_usages) {
+        swapchain_usage = ImageUsage::None;
+    }
 
     for (auto &timestamps : timestamp_labels_per_frame) {
         timestamps.clear();
@@ -215,33 +224,28 @@ void API::end_frame()
     add_timestamp("End Frame");
 
     auto &frame_resource = ctx.frame_resources.get_current();
+    auto cmd = frame_resource.command_buffer;
 
-    {
-        VkImage vkimage                   = ctx.swapchain.get_current_image();
-        VkImageMemoryBarrier b            = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        b.oldLayout                       = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        b.newLayout                       = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        b.srcAccessMask                   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        b.dstAccessMask                   = 0;
-        b.image                           = vkimage;
-        b.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        b.subresourceRange.baseMipLevel   = 0;
-        b.subresourceRange.baseArrayLayer = 0;
-        b.subresourceRange.layerCount     = 1;
-        b.subresourceRange.levelCount     = 1;
+    /// --- Transition swapchain to present
+    auto &swapchain_usage = swapchain_usages[ctx.swapchain.current_image];
+    assert(swapchain_usage == ImageUsage::ColorAttachment);
 
-        vkCmdPipelineBarrier(frame_resource.command_buffer,
-                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                             0,
-                             0,
-                             nullptr,
-                             0,
-                             nullptr,
-                             1,
-                             &b);
-    }
+    VkImage vkimage = ctx.swapchain.get_current_image();
+    VkImageSubresourceRange range{
+        .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel   = 0,
+        .levelCount     = 1,
+        .baseArrayLayer = 0,
+        .layerCount     = 1,
+    };
 
+    auto src = vulkan::get_src_image_access(swapchain_usage);
+    auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::Present);
+    auto b   = vulkan::get_image_barrier(vkimage, src, dst, range);
+    vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    swapchain_usage = vulkan::ImageUsage::Present;
+
+    /// --- Submit command buffer
     VkQueue graphics_queue;
     vkGetDeviceQueue(ctx.device, ctx.graphics_family_idx, 0, &graphics_queue);
 
@@ -260,7 +264,7 @@ void API::end_frame()
 
     VK_CHECK(vkQueueSubmit(graphics_queue, 1, &si, frame_resource.fence));
 
-    // Present the frame
+    /// --- Present the frame
     VkPresentInfoKHR present_i{};
     present_i.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_i.waitSemaphoreCount = 1;

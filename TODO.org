@@ -1,5 +1,6 @@
 * Render graph
 to generate automatic barriers (hopefully it will fix all synchronization errors)
+PLEASE clean the swapchain special handling everywhere mess
 
 * Command buffer management
 Make a command buffer abstraction to avoid putting everything in =API=?

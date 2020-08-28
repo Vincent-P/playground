@@ -433,6 +433,8 @@ struct API
 
     // resources
     Pool<Image> images;
+    std::vector<ImageUsage> swapchain_usages;
+
     Pool<RenderTarget> rendertargets;
     RenderTargetH swapchain_rth;
     Pool<Sampler> samplers;
