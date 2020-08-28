@@ -310,9 +310,15 @@ void Context::create_swapchain()
         }
     }
 
+    auto image_count = capabilities.minImageCount + 2u;
+    if (image_count > capabilities.maxImageCount) {
+        image_count = capabilities.maxImageCount;
+    }
+
+
     VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     ci.surface                  = ctx.surface;
-    ci.minImageCount            = capabilities.minImageCount + 1;
+    ci.minImageCount            = image_count;
     ci.imageFormat              = ctx.swapchain.format.format;
     ci.imageColorSpace          = ctx.swapchain.format.colorSpace;
     ci.imageExtent              = ctx.swapchain.extent;
