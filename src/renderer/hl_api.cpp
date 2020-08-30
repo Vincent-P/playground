@@ -9,15 +9,32 @@
 namespace my_app::vulkan
 {
 
+void init_swapchain_images(API &api)
+{
+    auto &swapchain = api.ctx.swapchain;
+    for (auto swapchain_img_h : api.swapchain_to_image_h)
+    {
+        api.destroy_image(swapchain_img_h);
+    }
+
+    api.swapchain_to_image_h.resize(swapchain.images_count);
+    for (usize i = 0; i < api.ctx.swapchain.images.size(); i++)
+    {
+        api.swapchain_to_image_h[i] = api.create_image_proxy(swapchain.images[i],
+                                                             {.name   = "Swapchain image",
+                                                              .format = swapchain.format.format,
+                                                              .width  = swapchain.extent.width,
+                                                              .height = swapchain.extent.height,
+                                                              .usages = vulkan::color_attachment_usage});
+    }
+}
+
 API API::create(const Window &window)
 {
     API api;
     api.ctx = Context::create(window);
 
-    api.swapchain_usages.resize(api.ctx.swapchain.images.size());
-    for (auto &swapchain_usage : api.swapchain_usages) {
-        swapchain_usage = ImageUsage::None;
-    }
+    init_swapchain_images(api);
 
     {
 	BufferInfo binfo;
@@ -64,7 +81,7 @@ API API::create(const Window &window)
         api.cpu_timestamps_per_frame.resize(FRAMES_IN_FLIGHT);
     }
 
-    api.swapchain_rth = api.create_rendertarget({.is_swapchain = true});
+    api.default_sampler = api.create_sampler({});
 
     return api;
 }
@@ -119,10 +136,8 @@ void API::on_resize(int width, int height)
     // submit all command buffers?
 
     ctx.on_resize(width, height);
-    swapchain_usages.resize(ctx.swapchain.images.size());
-    for (auto &swapchain_usage : swapchain_usages) {
-        swapchain_usage = ImageUsage::None;
-    }
+
+    init_swapchain_images(*this);
 
     for (auto &timestamps : timestamp_labels_per_frame) {
         timestamps.clear();
@@ -226,23 +241,12 @@ void API::end_frame()
     auto cmd = frame_resource.command_buffer;
 
     /// --- Transition swapchain to present
-    auto &swapchain_usage = swapchain_usages[ctx.swapchain.current_image];
-    assert(swapchain_usage == ImageUsage::ColorAttachment);
-
-    VkImage vkimage = ctx.swapchain.get_current_image();
-    VkImageSubresourceRange range{
-        .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel   = 0,
-        .levelCount     = 1,
-        .baseArrayLayer = 0,
-        .layerCount     = 1,
-    };
-
-    auto src = vulkan::get_src_image_access(swapchain_usage);
+    auto &swapchain_image = get_current_swapchain();
+    auto src = vulkan::get_src_image_access(swapchain_image.usage);
     auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::Present);
-    auto b   = vulkan::get_image_barrier(vkimage, src, dst, range);
+    auto b   = vulkan::get_image_barrier(swapchain_image, src, dst);
     vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
-    swapchain_usage = vulkan::ImageUsage::Present;
+    swapchain_image.usage = vulkan::ImageUsage::Present;
 
     /// --- Submit command buffer
     VkQueue graphics_queue;

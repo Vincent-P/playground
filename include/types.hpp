@@ -109,8 +109,9 @@ template <typename T> struct Handle
 {
     static Handle invalid()
     {
-        return Handle(u32_invalid);
+        return Handle();
     }
+
     Handle()
         : index(u32_invalid)
     {
@@ -223,7 +224,7 @@ template <typename T> class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < this->pool->size());
+            assert(this->pool && current_index < this->pool->data.size());
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }

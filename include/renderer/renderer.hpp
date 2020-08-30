@@ -82,7 +82,6 @@ struct Renderer
     ImageDescH hdr_buffer;
 
     vulkan::CircularBufferPosition global_uniform_pos;
-    vulkan::SamplerH default_sampler;
     vulkan::SamplerH nearest_sampler;
     vulkan::SamplerH trilinear_sampler;
 

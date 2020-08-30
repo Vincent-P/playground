@@ -33,17 +33,9 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         VkFormat format;
 
         auto color_rt  = api.get_rendertarget(rp.info.color->rt);
-        if (color_rt.is_swapchain)
-        {
-            initial_layout = rp.info.color->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            format = api.ctx.swapchain.format.format;
-        }
-        else
-        {
-            auto &color_img = api.get_image(color_rt.image_h);
-            initial_layout = get_src_image_access(color_img.usage).layout;
-            format = color_img.info.format;
-        }
+        auto &color_img = api.get_image(color_rt.image_h);
+        initial_layout = get_src_image_access(color_img.usage).layout;
+        format = color_img.info.format;
 
         VkAttachmentDescription attachment;
         attachment.format         = format;
@@ -92,35 +84,6 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].pPreserveAttachments    = nullptr;
 
     std::array<VkSubpassDependency, 0> dependencies{};
-
-#if 0
-    uint idep = 0;
-
-    // Make anything that happened before starting the renderpass visible to
-    // color and depth read/write operations to avoid RAW and WAW hazards
-    dependencies[idep].srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependencies[idep].dstSubpass    = 0;
-    dependencies[idep].srcStageMask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dependencies[idep].srcAccessMask = 0;
-    dependencies[idep].dstStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[idep].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
-                     VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    idep++;
-
-    // Make color and depth read/write operations visible to
-    // compute/fragment shader read / renderpass load operations
-    dependencies[idep].srcSubpass   = 0;
-    dependencies[idep].dstSubpass   = VK_SUBPASS_EXTERNAL;
-    dependencies[idep].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                                   | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-                                   | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependencies[idep].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dependencies[idep].dstStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    dependencies[idep].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-#endif
 
     VkRenderPassCreateInfo rp_info = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
     rp_info.attachmentCount        = static_cast<u32>(attachments.size());
@@ -181,49 +144,38 @@ void API::begin_pass(PassInfo &&info)
 
     FrameBufferInfo fb_info;
 
-    if (render_pass.info.color) {
-        bool is_swapchain = get_rendertarget(render_pass.info.color->rt).is_swapchain;
-        if (!is_swapchain) {
-            const auto &rt     = get_rendertarget(render_pass.info.color->rt);
-            auto &image  = get_image(rt.image_h);
-            fb_info.image_view = image.default_view;
-
-            image.usage = ImageUsage::ColorAttachment; // TODO move?
-        }
-        else {
-            fb_info.image_view = ctx.swapchain.get_current_image_view();
-        }
+    if (render_pass.info.color)
+    {
+        const auto &rt     = get_rendertarget(render_pass.info.color->rt);
+        auto &image        = get_image(rt.image_h);
+        fb_info.image_view = image.default_view;
     }
 
-    if (render_pass.info.depth) {
-        const auto &depth_rt    = get_rendertarget(render_pass.info.depth->rt);
-        auto &depth_image = get_image(depth_rt.image_h);
-        fb_info.depth_view      = depth_image.default_view;
-
-        depth_image.usage = ImageUsage::DepthAttachment; // TODO move?
+    if (render_pass.info.depth)
+    {
+        const auto &depth_rt = get_rendertarget(render_pass.info.depth->rt);
+        auto &depth_image    = get_image(depth_rt.image_h);
+        fb_info.depth_view   = depth_image.default_view;
     }
 
     fb_info.render_pass = render_pass.vkhandle;
 
-    if (render_pass.info.color) {
+    if (render_pass.info.color)
+    {
         const auto &rt = get_rendertarget(render_pass.info.color->rt);
-        if (rt.is_swapchain) {
-            fb_info.width  = ctx.swapchain.extent.width;
-            fb_info.height = ctx.swapchain.extent.height;
-        }
-        else {
-            const auto &image = get_image(rt.image_h);
-            fb_info.width     = image.info.width;
-            fb_info.height    = image.info.height;
-        }
+        const auto &image = get_image(rt.image_h);
+        fb_info.width     = image.info.width;
+        fb_info.height    = image.info.height;
     }
-    else if (render_pass.info.depth) {
+    else if (render_pass.info.depth)
+    {
         const auto &rt    = get_rendertarget(render_pass.info.depth->rt);
         const auto &image = get_image(rt.image_h);
         fb_info.width     = image.info.width;
         fb_info.height    = image.info.height;
     }
-    else {
+    else
+    {
         fb_info.width  = 4096;
         fb_info.height = 4096;
     }
@@ -372,13 +324,10 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         {
             auto &color_attachment = *render_pass.info.color;
             auto &color = api.get_rendertarget(color_attachment.rt);
-            if (!color.is_swapchain)
-            {
-                auto &image = api.get_image(color.image_h);
-                // TODO: disable for all uint
-                if (image.info.format == VK_FORMAT_R8_UINT) {
-                    att_states[0].blendEnable = VK_FALSE;
-                }
+            auto &image = api.get_image(color.image_h);
+            // TODO: disable for all uint
+            if (image.info.format == VK_FORMAT_R8_UINT) {
+                att_states[0].blendEnable = VK_FALSE;
             }
         }
 
@@ -613,7 +562,7 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         auto &image_info = data.images_info.back();
 
         image_info.imageView   = image_view;
-        image_info.sampler     = image.default_sampler;
+        image_info.sampler     = api.get_sampler(api.default_sampler).vkhandle;
         image_info.imageLayout = get_src_image_access(image.usage).layout;
     }
 

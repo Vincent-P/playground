@@ -343,39 +343,14 @@ void Context::create_swapchain()
 
     VK_CHECK(vkCreateSwapchainKHR(ctx.device, &ci, nullptr, &ctx.swapchain.handle));
 
-    uint images_count = 0;
-    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &images_count, nullptr));
-    ctx.swapchain.images.resize(images_count);
-    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &images_count, swapchain.images.data()));
-
-    ctx.swapchain.image_views.resize(ctx.swapchain.images.size());
-
-    for (size_t i = 0; i < ctx.swapchain.images.size(); i++)
-    {
-        VkImageViewCreateInfo ici           = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-        ici.image                           = ctx.swapchain.images[i];
-        ici.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        ici.format                          = ctx.swapchain.format.format;
-        ici.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ici.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ici.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ici.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ici.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        ici.subresourceRange.baseMipLevel   = 0;
-        ici.subresourceRange.levelCount     = 1;
-        ici.subresourceRange.baseArrayLayer = 0;
-        ici.subresourceRange.layerCount     = 1;
-
-        VK_CHECK(vkCreateImageView(ctx.device, &ici, nullptr, &ctx.swapchain.image_views[i]));
-    }
+    ctx.swapchain.images_count = 0;
+    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &ctx.swapchain.images_count, nullptr));
+    ctx.swapchain.images.resize(ctx.swapchain.images_count);
+    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &ctx.swapchain.images_count, ctx.swapchain.images.data()));
 }
 
 void Context::destroy_swapchain()
 {
-    for (auto &o : swapchain.image_views) {
-        vkDestroyImageView(device, o, nullptr);
-    }
-
     vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
 }
 

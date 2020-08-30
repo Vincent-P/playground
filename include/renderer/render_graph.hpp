@@ -103,21 +103,19 @@ struct RenderGraph
     static RenderGraph create(vulkan::API &api);
     void destroy();
 
+    void on_resize(int width, int height);
+    void display_ui(UI::Context &ui);
+
     void clear();
     void add_pass(RenderPass&&);
     void execute();
-
-    void display_ui(UI::Context &ui);
 
     vulkan::ImageH get_resolved_image(ImageDescH desc_h) const;
 
     vulkan::API *p_api;
 
-    Pool<RenderPass> passes;
-
-    // swapchain shit
     ImageDescH swapchain;
-
+    Pool<RenderPass> passes;
     Pool<ImageDesc> image_descs;
     std::unordered_map<ImageDescH, ImageResource> images;
 };

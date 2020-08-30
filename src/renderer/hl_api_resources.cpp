@@ -17,7 +17,6 @@ namespace my_app::vulkan
 RenderTargetH API::create_rendertarget(const RTInfo &info)
 {
     RenderTarget rt;
-    rt.is_swapchain = info.is_swapchain;
     rt.image_h      = info.image_h;
 
     return rendertargets.add(std::move(rt));
@@ -53,12 +52,13 @@ static VkImageViewType view_type_from(VkImageType _type)
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
-ImageH API::create_image(const ImageInfo &info)
+Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage external = VK_NULL_HANDLE)
 {
     Image img;
 
     img.name = info.name;
     img.info = info;
+    img.is_proxy = external != VK_NULL_HANDLE;
 
     img.extra_formats    = info.extra_formats;
 
@@ -97,7 +97,12 @@ ImageH API::create_image(const ImageInfo &info)
         image_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 
-    if (!info.is_sparse)
+    // Create the VkImage handle
+    if (img.is_proxy)
+    {
+        img.vkhandle = external;
+    }
+    else if (!info.is_sparse)
     {
         VmaAllocationCreateInfo alloc_info{};
         alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
@@ -230,24 +235,17 @@ ImageH API::create_image(const ImageInfo &info)
         VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &mip_view));
         img.mip_views.push_back(mip_view);
     }
+    return img;
+}
 
-    VkSamplerCreateInfo sci = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-    sci.magFilter           = VK_FILTER_NEAREST;
-    sci.minFilter           = VK_FILTER_NEAREST;
-    sci.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sci.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeW        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.compareOp           = VK_COMPARE_OP_NEVER;
-    sci.borderColor         = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-    sci.minLod              = 0;
-    sci.maxLod              = image_info.mipLevels;
-    sci.maxAnisotropy       = 8.0f;
-    sci.anisotropyEnable    = true;
+ImageH API::create_image(const ImageInfo &info)
+{
+    return images.add(create_image_internal(ctx, info));
+}
 
-    VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &img.default_sampler));
-
-    return images.add(std::move(img));
+ImageH API::create_image_proxy(VkImage external, const ImageInfo &info)
+{
+    return images.add(create_image_internal(ctx, info, external));
 }
 
 Image &API::get_image(ImageH H)
@@ -263,7 +261,10 @@ void destroy_image_internal(API &api, Image &img)
         vmaUnmapMemory(api.ctx.allocator, img.allocation);
     }
 
-    if (!img.info.is_sparse)
+    if (img.is_proxy)
+    {
+    }
+    else if (!img.info.is_sparse)
     {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     }
@@ -274,7 +275,6 @@ void destroy_image_internal(API &api, Image &img)
     }
 
     vkDestroyImageView(api.ctx.device, img.default_view, nullptr);
-    vkDestroySampler(api.ctx.device, img.default_sampler, nullptr);
 
     for (auto &image_view : img.format_views)
     {

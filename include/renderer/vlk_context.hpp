@@ -90,15 +90,13 @@ constexpr inline u32  MAX_TIMESTAMP_PER_FRAME  = 128;
 struct SwapChain
 {
     VkSwapchainKHR handle;
-    std::vector<VkImage> images;
-    std::vector<VkImageView> image_views;
     VkSurfaceFormatKHR format;
     VkPresentModeKHR present_mode;
     VkExtent2D extent;
-    u32 current_image;
+    u32 current_image = 0;
+    u32 images_count = 0;
 
-    VkImage get_current_image() { return images[current_image]; }
-    VkImageView get_current_image_view() { return image_views[current_image]; }
+    std::vector<VkImage> images;
 };
 
 struct FrameResource

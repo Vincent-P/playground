@@ -7,7 +7,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <array>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -110,8 +109,10 @@ struct Image
     std::vector<VkImageView> format_views; // extra views for each image_info.extra_formats
     std::vector<VkImageView> mip_views;    // mip slices with defaut format
 
-    VkSampler default_sampler;
     FatPtr mapped_ptr{};
+
+    // A proxy is an Image containing a VkImage that is external to the API (swapchain images for example)
+    bool is_proxy = false;
 
     bool operator==(const Image &b) const = default;
 };
@@ -153,15 +154,14 @@ struct Buffer
 };
 using BufferH = Handle<Buffer>;
 
+// TODO is the rendertarget struct really needed...
 struct RTInfo
 {
-    bool is_swapchain = false;
     ImageH image_h    = {};
 };
 
 struct RenderTarget
 {
-    bool is_swapchain;
     ImageH image_h;
 };
 
@@ -437,11 +437,13 @@ struct API
 
     // resources
     Pool<Image> images;
-    std::vector<ImageUsage> swapchain_usages;
+    std::vector<ImageH> swapchain_to_image_h;
 
     Pool<RenderTarget> rendertargets;
-    RenderTargetH swapchain_rth;
+
     Pool<Sampler> samplers;
+    SamplerH default_sampler;
+
     Pool<Buffer> buffers;
     Pool<GraphicsProgram> graphics_programs;
     Pool<ComputeProgram> compute_programs;
@@ -539,7 +541,13 @@ struct API
     /// --- Resources
     // Images
     ImageH create_image(const ImageInfo &info);
+    ImageH create_image_proxy(VkImage external, const ImageInfo &info);
+
     Image &get_image(ImageH H);
+
+    inline ImageH get_current_swapchain_h() const { return swapchain_to_image_h[ctx.swapchain.current_image]; };
+    inline Image &get_current_swapchain() { return get_image(get_current_swapchain_h()); };
+
     void destroy_image(ImageH H);
 
     void upload_image(ImageH H, void *data, usize len);

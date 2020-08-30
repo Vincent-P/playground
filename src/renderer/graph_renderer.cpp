@@ -109,6 +109,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 void Renderer::destroy()
 {
     api.wait_idle();
+    graph.destroy();
     api.destroy();
 
     ImGui::DestroyContext();
@@ -117,6 +118,8 @@ void Renderer::destroy()
 void Renderer::on_resize(int width, int height)
 {
     api.on_resize(width, height);
+
+    graph.on_resize(width, height);
 }
 
 void Renderer::wait_idle()
@@ -608,12 +611,11 @@ void add_procedural_sky_pass(Renderer &r)
             },
     });
 
-    // TODO: compute exec and sampled/storage images barriers
     graph.add_pass({
-        .name                    = "Sky Multiscattering LUT",
-        .type                    = PassType::Compute,
+        .name           = "Sky Multiscattering LUT",
+        .type           = PassType::Compute,
         .sampled_images = {r.transmittance_lut},
-        .storage_images          = {r.multiscattering_lut},
+        .storage_images = {r.multiscattering_lut},
         .exec =
             [pass_data         = r.procedural_sky,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
@@ -633,10 +635,10 @@ void add_procedural_sky_pass(Renderer &r)
     });
 
     graph.add_pass({
-        .name                    = "Skyview LUT",
-        .type                    = PassType::Graphics,
-        .sampled_images = {r.transmittance_lut, r.multiscattering_lut},
-        .color_attachment        = r.skyview_lut,
+        .name             = "Skyview LUT",
+        .type             = PassType::Graphics,
+        .sampled_images   = {r.transmittance_lut, r.multiscattering_lut},
+        .color_attachment = r.skyview_lut,
         .exec =
             [pass_data         = r.procedural_sky,
              global_data       = r.global_uniform_pos,
@@ -667,10 +669,10 @@ void add_procedural_sky_pass(Renderer &r)
     });
 
     graph.add_pass({
-        .name                    = "Sky raymarch",
-        .type                    = PassType::Graphics,
-        .sampled_images = {r.transmittance_lut, r.multiscattering_lut, r.depth_buffer, r.skyview_lut},
-        .color_attachment        = r.hdr_buffer,
+        .name             = "Sky raymarch",
+        .type             = PassType::Graphics,
+        .sampled_images   = {r.transmittance_lut, r.multiscattering_lut, r.depth_buffer, r.skyview_lut},
+        .color_attachment = r.hdr_buffer,
         .exec =
             [pass_data         = r.procedural_sky,
              global_data       = r.global_uniform_pos,
@@ -777,9 +779,6 @@ void add_tonemapping_pass(Renderer &r)
     });
 }
 
-/// --- BIG MESS
-
-// it a mess
 void update_uniforms(Renderer &r)
 {
     auto &api = r.api;
@@ -944,25 +943,24 @@ void Renderer::draw()
     }
     graph.clear(); // start_frame() ?
 
-    // do stuff that doesnt use swapchain image
     update_uniforms(*this);
     add_floor_pass(*this);
     add_procedural_sky_pass(*this);
+    add_tonemapping_pass(*this);
+    add_imgui_pass(*this);
 
+    // how to call these in a pass?
     if (!api.start_present()) {
         ImGui::EndFrame();
         return;
     }
 
-    add_tonemapping_pass(*this);
-
     ImGui::EndFrame(); // right before drawing the ui
-    add_imgui_pass(*this);
+    //
 
     graph.execute();
 
     // graph.end_frame() ?
-
     api.end_frame();
 }
 
