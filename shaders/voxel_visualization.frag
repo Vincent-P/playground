@@ -8,12 +8,10 @@ layout(set = 1, binding = 1) uniform UBO {
     vec4 position;
     vec4 front;
     vec4 up;
-    float opacity;
 } cam;
 
 layout (set = 1, binding = 2) uniform UBODebug {
     uint selected;
-    float opacity;
 } debug;
 
 
@@ -42,7 +40,7 @@ float mincomp(vec3 v) {
             vec4 voxel = imageLoad(voxels, voxel_pos);              \
             if (voxel.a > EPSILON)                                      \
             {                                                           \
-                ret = vec4(voxel.rgb, debug.opacity);\
+                ret = vec4(voxel.rgb, 1.0);\
                 break;                                                  \
             }                                                           \
                                                                         \

@@ -22,6 +22,7 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api);
 Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api);
 Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
 Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
+Renderer::VoxelPass create_voxel_pass(vulkan::API &/*api*/);
 
 Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
@@ -61,6 +62,32 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     r.procedural_sky     = create_procedural_sky_pass(r.api);
     r.tonemapping        = create_tonemapping_pass(r.api);
     r.gltf               = create_gltf_pass(r.api, r.model);
+    r.voxels             = create_voxel_pass(r.api);
+
+    // basic resources
+
+    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
+    r.hdr_buffer   = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+
+    r.trilinear_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
+                                                .min_filter   = VK_FILTER_LINEAR,
+                                                .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR});
+
+    r.nearest_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_NEAREST,
+                                              .min_filter   = VK_FILTER_NEAREST,
+                                              .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST});
+
+
+
+    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
+    r.p_camera->perspective(60.0f, aspect_ratio, 1.0f, 200.f);
+    // r.p_camera->update_view();
+
+    r.sun.position = float3(0.0f, 40.0f, 0.0f);
+    r.sun.pitch = 25.0f;
+    r.sun.yaw = 0.0f;
+    r.sun.roll = 0.0f;
+    r.sun.ortho_square(40.f, 1.f, 100.f);
 
     // it would be nice to be able to create those in the create_procedural_sky_pass function
 
@@ -85,31 +112,31 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
     });
 
-    // basic resources
+    r.voxels_albedo = r.graph.image_descs.add({
+        .name          = "Voxels albedo",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(r.voxel_options.res),
+        .type          = VK_IMAGE_TYPE_3D,
+        .format        = VK_FORMAT_R8G8B8A8_UNORM,
+        .extra_formats = {VK_FORMAT_R32_UINT},
+    });
 
-    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
-    r.hdr_buffer   = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.voxels_normal = r.graph.image_descs.add({
+        .name          = "Voxels normal",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(r.voxel_options.res),
+        .type          = VK_IMAGE_TYPE_3D,
+        .format        = VK_FORMAT_R8G8B8A8_UNORM,
+        .extra_formats = {VK_FORMAT_R32_UINT},
+    });
 
-    r.trilinear_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
-                                                .min_filter   = VK_FILTER_LINEAR,
-                                                .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR});
-
-    r.nearest_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_NEAREST,
-                                              .min_filter   = VK_FILTER_NEAREST,
-                                              .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST});
-
-
-
-    float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
-    r.p_camera->perspective(90.0f, aspect_ratio, 1.0f, 200.f);
-    // r.p_camera->update_view();
-
-    r.sun.position = float3(0.0f, 40.0f, 0.0f);
-    r.sun.pitch = 25.0f;
-    r.sun.yaw = 0.0f;
-    r.sun.roll = 0.0f;
-    r.sun.ortho_square(40.f, 1.f, 100.f);
-
+    r.voxels_radiance = r.graph.image_descs.add({
+        .name          = "Voxels radiance",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(r.voxel_options.res),
+        .type          = VK_IMAGE_TYPE_3D,
+        .format        = VK_FORMAT_R16G16B16A16_SFLOAT,
+    });
 
     return r;
 }
@@ -181,7 +208,6 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
 
-    // voxel options
     pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
                    .slot   = 0,
                    .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
@@ -751,7 +777,7 @@ void add_tonemapping_pass(Renderer &r)
     static usize s_selected = 1;
     static float s_exposure = 1.0f;
 
-    if (ui.begin_window("HDR Shader", true))
+    if (ui.begin_window("HDR Shader"))
     {
         static std::array options{"Reinhard", "Exposure", "Clamp"};
         tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
@@ -1220,6 +1246,393 @@ static void add_gltf_pass(Renderer &r)
     });
 }
 
+/// --- Voxels
+
+Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
+{
+    Renderer::VoxelPass pass;
+
+    {
+    vulkan::GraphicsProgramInfo pinfo{};
+    pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
+    pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
+    pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
+
+    // voxel options
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+    // projection cameras
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 1,
+                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+    // voxels textures
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 2,
+                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 3,
+                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+    // node transform
+    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+    // color texture
+    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                   .slot   = 1,
+                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
+    // normal texture
+    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                   .slot   = 2,
+                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
+    pinfo.vertex_stride(sizeof(GltfVertex));
+    pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
+    pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
+    pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
+    pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
+    pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
+    pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+
+    pass.voxelization = api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
+
+        // voxel options
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // camera
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // debug
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // voxels textures
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 4,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 5,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pass.visualization = api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = api.create_shader("shaders/voxel_clear.comp.spv");
+        pinfo.binding({.slot =  0,
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        pinfo.binding({.slot =  1,
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.slot =  2,
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pinfo.binding({.slot =  3,
+                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pass.clear_voxels = api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
+
+
+        pinfo.binding({.slot   = 0,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // voxel options
+        pinfo.binding({.slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // directional light
+        pinfo.binding({.slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // voxels textures
+        // albedo
+        pinfo.binding({.slot   = 3,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+        // normal
+        pinfo.binding({.slot   = 4,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+        // radiance
+        pinfo.binding({.slot   = 5,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        pass.inject_radiance = api.create_program(std::move(pinfo));
+    }
+
+
+    return pass;
+}
+
+void add_voxels_clear_pass(Renderer& r)
+{
+    auto &api = r.api;
+    auto &graph = r.graph;
+    auto &voxel_options = r.voxel_options;
+
+    auto &pass_data = r.voxels;
+    pass_data.voxel_options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
+    auto *buffer0                   = reinterpret_cast<VoxelOptions *>(pass_data.voxel_options_pos.mapped);
+    *buffer0                        = r.voxel_options;
+
+    graph.add_pass({
+        .name = "Voxels clear",
+        .type = PassType::Compute,
+        .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
+        .exec = [pass_data=r.voxels, voxel_options](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        {
+            auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
+            auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
+            auto voxels_radiance = graph.get_resolved_image(self.storage_images[2]);
+
+            auto program = pass_data.clear_voxels;
+
+            api.bind_buffer(program, 0, pass_data.voxel_options_pos);
+            api.bind_image(program, 1, voxels_albedo);
+            api.bind_image(program, 2, voxels_normal);
+            api.bind_image(program, 3, voxels_radiance);
+
+            auto count = voxel_options.res / 8;
+            api.dispatch(program, count, count, count);
+        }
+    });
+
+}
+
+void add_voxelization_pass(Renderer &r)
+{
+    auto &api   = r.api;
+    auto &graph = r.graph;
+    auto &ui    = *r.p_ui;
+
+    if (ui.begin_window("Voxelization"))
+    {
+        ImGui::SliderFloat3("Center", &r.voxel_options.center[0], -40.f, 40.f);
+        r.voxel_options.center = glm::floor(r.voxel_options.center);
+        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.01f, 0.1f);
+        ui.end_window();
+    }
+
+    auto &pass_data = r.voxels;
+
+    // Upload voxel debug
+    pass_data.voxel_options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
+    auto *buffer0                   = reinterpret_cast<VoxelOptions *>(pass_data.voxel_options_pos.mapped);
+    *buffer0                        = r.voxel_options;
+
+
+    // Upload projection cameras
+    pass_data.projection_cameras     = api.dynamic_uniform_buffer(3 * sizeof(float4x4));
+    auto *buffer1   = reinterpret_cast<float4x4 *>(pass_data.projection_cameras.mapped);
+    float res      = r.voxel_options.res * r.voxel_options.size;
+    float halfsize = res / 2;
+    auto center = r.voxel_options.center + float3(halfsize);
+    auto projection = glm::ortho(-halfsize, halfsize, -halfsize, halfsize, 0.0f, res);
+    buffer1[0] = projection * glm::lookAt(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
+    buffer1[1] = projection * glm::lookAt(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
+    buffer1[2] = projection * glm::lookAt(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
+
+
+    graph.add_pass({
+        .name = "Voxelization",
+        .type = PassType::Graphics,
+        .storage_images = {r.voxels_albedo, r.voxels_normal},
+        .samples = VK_SAMPLE_COUNT_32_BIT,
+        .exec = [pass_data, model_data=r.gltf, voxel_options=r.voxel_options](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        {
+            auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
+            auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
+            auto program = pass_data.voxelization;
+
+            api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
+
+            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
+            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.projection_cameras);
+
+            auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
+            auto &normal_uint = api.get_image(voxels_normal).format_views[0];
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo, albedo_uint);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal, normal_uint);
+
+            api.bind_program(program);
+            api.bind_index_buffer(model_data.index_buffer);
+            api.bind_vertex_buffer(model_data.vertex_buffer);
+
+            GltfNodeDrawOptions options = {.base_color = true, .normal_map = true};
+
+            for (usize node_i : model_data.model->scene)
+            {
+                draw_node(api, model_data.model->nodes[node_i], model_data, program, options);
+            }
+        }
+    });
+}
+
+void add_voxels_visualization_pass(Renderer& r)
+{
+    auto &graph = r.graph;
+    auto &api   = r.api;
+    auto &ui    = *r.p_ui;
+
+    static usize s_selected = 3;
+    if (ui.begin_window("Voxels Shader"))
+    {
+        static std::array options{"Nothing", "Albedo", "Normal", "Radiance"};
+        tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+        ui.end_window();
+    }
+
+    auto selection = api.dynamic_uniform_buffer(sizeof(uint));
+    auto *buffer0   = reinterpret_cast<uint *>(selection.mapped);
+    *buffer0        = s_selected;
+
+    // Bind camera uniform buffer
+    auto camera_buf   = api.dynamic_uniform_buffer(3 * sizeof(float4));
+    auto *buffer1 = reinterpret_cast<float4 *>(camera_buf.mapped);
+    buffer1[0]    = float4(r.p_camera->position, 0.0f);
+    buffer1[1]    = float4(r.p_camera->front, 0.0f);
+    buffer1[2]    = float4(r.p_camera->up, 0.0f);
+
+    graph.add_pass({
+        .name = "Voxels visualization",
+        .type = PassType::Graphics,
+        .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
+        .color_attachment = r.hdr_buffer,
+        .exec = [pass_data=r.voxels, /*global_data=r.global_uniform_pos,*/ selection, camera_buf](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        {
+            auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
+            auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
+            auto voxels_radiance = graph.get_resolved_image(self.storage_images[2]);
+
+            auto program = pass_data.visualization;
+
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, camera_buf);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, selection);
+
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
+
+            api.bind_program(program);
+
+            api.draw(3, 1, 0, 0);
+        }
+    });
+
+}
+
+struct DirectLightingDebug
+{
+    float4 point_position  = {1.5f, 2.5f, 0.0f, 0.0f};
+    float point_scale      = 1.0f;
+    float trace_shadow_hit = 1.0f;
+    float max_dist         = 256.f;
+    float first_step       = 3.0f;
+};
+
+void add_voxels_direct_lighting_pass(Renderer &r)
+{
+    auto &ui = *r.p_ui;
+    auto &api = r.api;
+    auto &graph = r.graph;
+
+    static DirectLightingDebug s_debug = {};
+
+    if (ui.begin_window("Voxels Direct Lighting"))
+    {
+        ImGui::SliderFloat3("Point light position", &s_debug.point_position[0], -10.0f, 10.0f);
+        ImGui::SliderFloat("Point light scale", &s_debug.point_scale, 0.1f, 10.f);
+        ImGui::SliderFloat("Trace Shadow Hit", &s_debug.trace_shadow_hit, 0.0f, 1.0f);
+        ImGui::SliderFloat("Max Dist", &s_debug.max_dist, 0.0f, 300.0f);
+        ImGui::SliderFloat("First step", &s_debug.first_step, 1.0f, 20.0f);
+        ui.end_window();
+    }
+
+    auto debug_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
+    auto *buffer = reinterpret_cast<DirectLightingDebug *>(debug_pos.mapped);
+    *buffer = s_debug;
+
+    graph.add_pass({
+            .name = "Voxels direct lighting",
+            .type = PassType::Compute,
+            .sampled_images = {r.voxels_albedo, r.voxels_normal},
+            .storage_images = {r.voxels_radiance},
+            .exec =
+            [pass_data=r.voxels, debug_pos, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data=r.global_uniform_pos]
+            (RenderGraph &graph, RenderPass &self, vulkan::API &api)
+            {
+                auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
+                auto voxels_normal = graph.get_resolved_image(self.sampled_images[1]);
+                auto voxels_radiance = graph.get_resolved_image(self.storage_images[0]);
+
+                auto &program = pass_data.inject_radiance;
+
+                api.bind_buffer(program, 0, global_data);
+                api.bind_buffer(program, 1, pass_data.voxel_options_pos);
+                api.bind_buffer(program, 2, debug_pos);
+                api.bind_combined_image_sampler(program, 3, voxels_albedo, trilinear_sampler);
+                api.bind_combined_image_sampler(program, 4, voxels_normal, trilinear_sampler);
+                api.bind_image(program, 5, voxels_radiance);
+
+                auto count = voxel_options.res / 8;
+                api.dispatch(program, count, count, count);
+            }
+        });
+}
+
+/// ---
+
 void update_uniforms(Renderer &r)
 {
     auto &api = r.api;
@@ -1388,7 +1801,15 @@ void Renderer::draw()
     add_gltf_prepass(*this);
     add_floor_pass(*this);
     add_gltf_pass(*this);
+
+    add_voxels_clear_pass(*this);
+    add_voxelization_pass(*this);
+
     add_procedural_sky_pass(*this);
+
+    add_voxels_direct_lighting_pass(*this);
+    add_voxels_visualization_pass(*this);
+
     add_tonemapping_pass(*this);
     add_imgui_pass(*this);
 

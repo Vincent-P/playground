@@ -196,7 +196,6 @@ struct AttachmentInfo
 struct PassInfo
 {
     // param for VkRenderPass
-    bool present                  = false; // if it is the last pass and it should transition to present
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 
     // param for VkFrameBuffer

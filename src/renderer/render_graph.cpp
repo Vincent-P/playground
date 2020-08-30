@@ -197,6 +197,7 @@ static void resolve_images(RenderGraph &graph)
             .name          = desc.name.data(),
             .type          = desc.type,
             .format        = desc.format,
+            .extra_formats = desc.extra_formats,
             .width         = static_cast<u32>(desc.size_type == SizeType::SwapchainRelative ? desc.size.x * swapchain_extent.width : desc.size.x),
             .height        = static_cast<u32>(desc.size_type == SizeType::SwapchainRelative ? desc.size.y * swapchain_extent.height : desc.size.y),
             .depth         = static_cast<u32>(desc.size.z),
@@ -329,7 +330,6 @@ void RenderGraph::execute()
         {
 
             vulkan::PassInfo pass;
-            pass.present = false;
 
             // does the color attachment needs to be cleared?
             if (renderpass.color_attachment)
@@ -395,7 +395,9 @@ void RenderGraph::execute()
             api.begin_label(renderpass.name);
             api.begin_pass(std::move(pass));
 
-            api.set_viewport_and_scissor(viewport_width, viewport_height);
+            if (viewport_width && viewport_height) {
+                api.set_viewport_and_scissor(viewport_width, viewport_height);
+            }
 
             renderpass.exec(*this, renderpass, api);
 
@@ -425,7 +427,7 @@ void RenderGraph::execute()
 void RenderGraph::display_ui(UI::Context &ui)
 {
     auto &api = *p_api;
-    if (ui.begin_window("Render Graph", true))
+    if (ui.begin_window("Render Graph"))
     {
         for (const auto& [pass_h, p_pass] : passes)
         {

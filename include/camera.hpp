@@ -55,7 +55,7 @@ struct InputCamera
     float3 target{};
 
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
-    float r = 20.0f;
+    float r = 5.0f;
     float theta = 0.0f;
     float phi = -45.0f;
 

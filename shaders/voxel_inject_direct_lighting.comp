@@ -1,23 +1,24 @@
+#include "types.h"
 #include "voxels.h"
+#include "globals.h"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(set = 0, binding = 0) uniform VO {
+layout(set = 0, binding = 1) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 0, binding = 1) uniform UBO {
-    vec4 sun_direction;
-    vec4 point_position;
+layout(set = 0, binding = 2) uniform UBO {
+    float4 point_position;
     float point_scale;
     float traceShadowHit;
     float max_dist;
     float first_step;
 };
 
-layout(set = 0, binding = 2) uniform sampler3D voxels_albedo;
-layout(set = 0, binding = 3) uniform sampler3D voxels_normal;
-layout(set = 0, binding = 4, rgba8) uniform image3D voxels_radiance;
+layout(set = 0, binding = 3) uniform sampler3D voxels_albedo;
+layout(set = 0, binding = 4) uniform sampler3D voxels_normal;
+layout(set = 0, binding = 5, rgba8) uniform image3D voxels_radiance;
 
 #define EPSILON 0.001
 
@@ -51,7 +52,7 @@ float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
         if(sampled > 1.0f - EPSILON) { return 0.0f; }
 
         // accumulate
-        occlusion += (1.0f - occlusion) * sampled / t;
+        // occlusion += (1.0f - occlusion) * sampled / t;
 
         // move further into volume
         t += step;
@@ -90,11 +91,11 @@ vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_d
     // position += normal * 0.5 * voxel_options.size;
     vec3 direction = normalize(light_direction);
 
-    float visibility = TraceShadow(position, direction, 30.0f);
+    float visibility = TraceShadow(position, direction, 100.0f);
     if (visibility < 0) {
         return vec4(0.0);
     }
-    return vec4(vec3(visibility), 1.0);
+    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, 1.0);
 }
 
 vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
@@ -130,7 +131,7 @@ void InjectDirectLighting(ivec3 voxel_pos)
     normal = normalize(DecodeNormal(normal));
 
     vec4 lighting = vec4(0.0);
-    lighting += DirectionalLighting(voxel_pos, albedo, normal, -sun_direction.xyz);
+    lighting += DirectionalLighting(voxel_pos, albedo, normal, global.sun_direction.xyz);
     // lighting += PointLight(voxel_pos, albedo, normal, point_position.xyz);
     lighting.a = 1;
 

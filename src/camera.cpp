@@ -11,8 +11,8 @@ namespace my_app
 {
 
 static float CAMERA_MOVE_SPEED   = 5.0f;
-static float CAMERA_ROTATE_SPEED = 140.0f;
-static float CAMERA_SCROLL_SPEED = 140.0f;
+static float CAMERA_ROTATE_SPEED = 80.0f;
+static float CAMERA_SCROLL_SPEED = 80.0f;
 
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);
@@ -132,7 +132,7 @@ void InputCamera::on_mouse_scroll(double, double yoffset)
 
 void InputCamera::display_ui(UI::Context &ui)
 {
-    if (ui.begin_window("Camera", true))
+    if (ui.begin_window("Camera"))
     {
         if (state == States::Idle)
         {

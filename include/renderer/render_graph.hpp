@@ -52,14 +52,15 @@ enum struct SizeType
 // almost same fields as vulkan::ImageInfo
 struct ImageDesc
 {
-    std::string_view name = "No name";
-    SizeType size_type    = SizeType::SwapchainRelative;
-    float3 size           = float3(1.0f);
-    VkImageType type      = VK_IMAGE_TYPE_2D;
-    VkFormat format       = VK_FORMAT_R8G8B8A8_UNORM;
-    uint samples          = 1;
-    uint levels           = 1;
-    uint layers           = 1;
+    std::string_view name               = "No name";
+    SizeType size_type                  = SizeType::SwapchainRelative;
+    float3 size                         = float3(1.0f);
+    VkImageType type                    = VK_IMAGE_TYPE_2D;
+    VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
+    std::vector<VkFormat> extra_formats = {};
+    uint samples                        = 1;
+    uint levels                         = 1;
+    uint layers                         = 1;
 };
 
 struct ImageResource
@@ -90,6 +91,7 @@ struct RenderPass
 
     // outputs
     std::optional<ImageDescH> color_attachment;
+    VkSampleCountFlagBits samples;
     std::optional<ImageDescH> depth_attachment;
 
     std::function<void(RenderGraph&, RenderPass&, vulkan::API&)> exec;

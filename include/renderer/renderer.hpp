@@ -25,13 +25,6 @@ struct Model;
 struct Event;
 class TimerData;
 
-struct VoxelDebug
-{
-    float3 center{-13.0f, -1.0f, -11.0f};
-    float size{0.1f};
-    uint res{256};
-};
-
 struct PACKED GlobalUniform
 {
     float4x4 camera_view;
@@ -56,6 +49,13 @@ struct PACKED GlobalUniform
 };
 
 assert_uniform_size(GlobalUniform);
+
+struct VoxelOptions
+{
+    float3 center = {-13.0f, -1.0f, -11.0f};
+    float size    = 0.1f;
+    uint res      = 256;
+};
 
 struct Renderer
 {
@@ -132,6 +132,22 @@ struct Renderer
         std::vector<vulkan::SamplerH> samplers;
         std::shared_ptr<Model> model;
     } gltf;
+
+    ImageDescH voxels_albedo;
+    ImageDescH voxels_normal;
+    ImageDescH voxels_radiance;
+
+    struct VoxelPass
+    {
+        vulkan::GraphicsProgramH voxelization;
+        vulkan::GraphicsProgramH visualization;
+        vulkan::ComputeProgramH clear_voxels;
+        vulkan::ComputeProgramH inject_radiance;
+        vulkan::CircularBufferPosition voxel_options_pos;
+        vulkan::CircularBufferPosition projection_cameras;
+    } voxels;
+
+    VoxelOptions voxel_options;
 
 };
 
