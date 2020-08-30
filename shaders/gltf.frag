@@ -154,7 +154,8 @@ void main()
     vec3 composite = vec3(1.0);
 
     vec3 direct = vec3(0.0);
-    vec4 indirect = Indirect(normal);
+    // vec4 indirect = Indirect(normal);
+    vec4 indirect = vec4(0.0);
 
     // base color
     if (debug.selected == 1)

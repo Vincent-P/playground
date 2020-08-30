@@ -1,6 +1,5 @@
 * Render graph
 to generate automatic barriers (hopefully it will fix all synchronization errors)
-PLEASE clean the swapchain special handling everywhere mess
 and clean the global descriptor set too to be able to bind it only once per frame...
 
 * Command buffer management

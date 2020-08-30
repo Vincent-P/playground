@@ -10,9 +10,9 @@
 namespace my_app
 {
 
-static float CAMERA_MOVE_SPEED   = 40.0f;
-static float CAMERA_ROTATE_SPEED = 240.0f;
-static float CAMERA_SCROLL_SPEED = 420.0f;
+static float CAMERA_MOVE_SPEED   = 5.0f;
+static float CAMERA_ROTATE_SPEED = 140.0f;
+static float CAMERA_SCROLL_SPEED = 140.0f;
 
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);

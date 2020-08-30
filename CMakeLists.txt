@@ -49,7 +49,7 @@ add_executable(test-vulkan
   src/app.cpp
   src/tools.cpp
   src/timer.cpp
-  # src/gltf.cpp
+  src/gltf.cpp
   src/file_watcher.cpp
   src/renderer/vlk_context.cpp
   # src/renderer/renderer.cpp

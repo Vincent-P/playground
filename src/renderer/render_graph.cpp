@@ -273,6 +273,22 @@ void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImag
         vk_image.usage = dst_usage;
     }
 
+    for (auto external_image : renderpass.external_images)
+    {
+        auto &vk_image       = api.get_image(external_image);
+
+        auto src = vulkan::get_src_image_access(vk_image.usage);
+        auto dst = vulkan::get_dst_image_access(dst_usage);
+        src_mask |= src.stage;
+        dst_mask |= dst.stage;
+
+        barriers.emplace_back();
+        auto &b        = barriers.back();
+        b              = vulkan::get_image_barrier(vk_image, src, dst);
+        vk_image.usage = dst_usage;
+    }
+
+
     dst_usage = renderpass.type == PassType::Graphics ? vulkan::ImageUsage::GraphicsShaderReadWrite : vulkan::ImageUsage::ComputeShaderReadWrite;
     for (auto storage_image : renderpass.storage_images)
     {

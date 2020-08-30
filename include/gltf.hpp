@@ -59,14 +59,12 @@ struct Material
 
 struct Image
 {
-    vulkan::ImageH image_h;
     bool srgb;
     std::vector<u8> data;
 };
 
 struct Sampler
 {
-    vulkan::SamplerH sampler_h;
     Filter mag_filter;
     Filter min_filter;
     Wrap wrap_s;
@@ -161,7 +159,6 @@ struct GltfVertex
 
 struct Model
 {
-
     std::vector<usize> scene;
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
@@ -174,10 +171,6 @@ struct Model
 
     std::vector<GltfVertex> vertices;
     std::vector<u16> indices;
-
-    vulkan::BufferH vertex_buffer;
-    vulkan::BufferH index_buffer;
-    vulkan::GraphicsProgramH program; // TODO: vector? or multipe ones for double-sided, etc
 };
 
 Model load_model(const char *path);

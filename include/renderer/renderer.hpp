@@ -77,6 +77,7 @@ struct Renderer
     RenderGraph graph;
 
     Camera sun;
+    std::shared_ptr<Model> model;
 
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
@@ -120,6 +121,17 @@ struct Renderer
         vulkan::GraphicsProgramH program;
         vulkan::CircularBufferPosition params_pos;
     } tonemapping;
+
+    struct GltfPass
+    {
+        vulkan::BufferH vertex_buffer;
+        vulkan::BufferH index_buffer;
+        vulkan::GraphicsProgramH shading;
+        vulkan::GraphicsProgramH prepass;
+        std::vector<vulkan::ImageH> images;
+        std::vector<vulkan::SamplerH> samplers;
+        std::shared_ptr<Model> model;
+    } gltf;
 
 };
 
