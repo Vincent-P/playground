@@ -455,6 +455,22 @@ void API::generate_mipmaps(ImageH h)
     cmd_buffer.submit_and_wait();
 }
 
+void API::transfer_done(ImageH H) // it's a hack for now
+{
+    auto cmd_buffer = get_temp_cmd_buffer();
+    auto &image     = get_image(H);
+
+    cmd_buffer.begin();
+
+    auto src = get_src_image_access(image.usage);
+    auto dst = get_dst_image_access(ImageUsage::GraphicsShaderRead);
+    auto b = get_image_barrier(image, src, dst);
+    vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    image.usage = ImageUsage::GraphicsShaderRead;
+    cmd_buffer.submit_and_wait();
+}
+
+
 FatPtr API::read_image(ImageH H)
 {
     auto &image = get_image(H);

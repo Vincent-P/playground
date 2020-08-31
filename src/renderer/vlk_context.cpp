@@ -104,14 +104,15 @@ Context Context::create(const Window &window)
 #undef X
 
     /// --- Init debug layers
-    if (ENABLE_VALIDATION_LAYERS) {
+    if (ENABLE_VALIDATION_LAYERS)
+    {
         VkDebugUtilsMessengerCreateInfoEXT ci = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-        ci.flags                              = 0;
-        ci.messageSeverity
-            = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        ci.messageType
-            = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        ci.pfnUserCallback = debug_callback;
+        ci.flags            = 0;
+        ci.messageSeverity  = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        ci.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        ci.messageType      = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+        // ci.messageType     |= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        ci.pfnUserCallback  = debug_callback;
 
         VkDebugUtilsMessengerEXT messenger;
         VK_CHECK(ctx.vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));

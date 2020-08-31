@@ -1,4 +1,6 @@
 #include "voxels.h"
+#include "globals.h"
+#include "types.h"
 
 layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
@@ -26,52 +28,71 @@ layout (location = 0) out vec4 outColor;
 #define MAX_DIST (voxel_options.res * 2)
 #define EPSILON 0.001
 
-float mincomp(vec3 v) {
-    return min(min(v.x, v.y), v.z);
-}
-
-/// vec4 PlaneMarch(uimage3D voxels, vec3 p0, vec3 d)
-#define PlaneMarch(ret, voxels, p0, d)                              \
-    {                                                                   \
-        float t = 0;                                                    \
-        while (t < MAX_DIST) {                                          \
-            vec3 p = p0 + d * t;                                        \
-            ivec3 voxel_pos = ivec3(floor(p));                          \
-            vec4 voxel = imageLoad(voxels, voxel_pos);              \
-            if (voxel.a > EPSILON)                                      \
-            {                                                           \
-                ret = vec4(voxel.rgb, 1.0);\
-                break;                                                  \
-            }                                                           \
-                                                                        \
-            vec3 deltas = (step(0, d) - fract(p)) / d;                  \
-            t += max(mincomp(deltas), EPSILON);                         \
-        }                                                               \
-    }
-
-
 void main()
 {
-    vec3 p0 = (cam.position.xyz - voxel_options.center) / (voxel_options.size);
+    float2 pixel_pos = gl_FragCoord.xy;
+    float2 uv = pixel_pos / global.resolution;
 
-    vec3 cam_right = cross(normalize(cam.front.xyz), normalize(cam.up.xyz));
-    float x = 2 * inUV.x - 1.0;
-    float y = - (2 * inUV.y - 1.0) * 9 / 16;
-    vec3 d = normalize(cam.front.xyz + x * cam_right + y * normalize(cam.up.xyz));
+    float3 clip_space = float3(uv * 2.0 - float2(1.0), 0.001);
+    float4 h_pos      = global.camera_inv_view_proj * float4(clip_space, 1.0);
+    h_pos /= h_pos.w;
 
-    vec4 color = vec4(0);
-    if (debug.selected == 1) {
-        PlaneMarch(color, voxels_albedo, p0, d);
+    float3 rayDir = normalize(h_pos.xyz - global.camera_pos);
+    float3 rayPos = WorldToVoxel(global.camera_pos, voxel_options);
+
+
+    ivec3 mapPos = ivec3(floor(rayPos + 0.));
+    vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
+    ivec3 rayStep = ivec3(sign(rayDir));
+    vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
+
+    bvec3 mask;
+
+    int i = 0;
+    float4 voxel = float4(0.0);
+    for (i = 0; i < MAX_DIST; i++) {
+        if (debug.selected == 0) {
+            voxel = imageLoad(voxels_albedo, mapPos);
+        }
+        else if (debug.selected == 1) {
+            voxel = imageLoad(voxels_normal, mapPos);
+        }
+        else if (debug.selected == 2) {
+            voxel = imageLoad(voxels_radiance, mapPos);
+        }
+        if (voxel.a > EPSILON) break;
+        if (sideDist.x < sideDist.y) {
+            if (sideDist.x < sideDist.z) {
+                sideDist.x += deltaDist.x;
+                mapPos.x += rayStep.x;
+                mask = bvec3(true, false, false);
+            }
+            else {
+                sideDist.z += deltaDist.z;
+                mapPos.z += rayStep.z;
+                mask = bvec3(false, false, true);
+            }
+        }
+        else {
+            if (sideDist.y < sideDist.z) {
+                sideDist.y += deltaDist.y;
+                mapPos.y += rayStep.y;
+                mask = bvec3(false, true, false);
+            }
+            else {
+                sideDist.z += deltaDist.z;
+                mapPos.z += rayStep.z;
+                mask = bvec3(false, false, true);
+            }
+        }
     }
-    else if (debug.selected == 2) {
-        PlaneMarch(color, voxels_normal, p0, d);
-        color = normalize(color);
+
+    if (voxel.a > EPSILON)
+    {
+        outColor = float4(voxel.xyz, 1.0);
     }
-    else if (debug.selected == 3) {
-        PlaneMarch(color, voxels_radiance, p0, d);
+    else
+    {
+        outColor = float4(0.0);
     }
-    if (color.a == 0) {
-        discard;
-    }
-    outColor = color;
 }

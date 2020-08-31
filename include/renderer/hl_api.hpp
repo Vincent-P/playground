@@ -551,6 +551,7 @@ struct API
 
     void upload_image(ImageH H, void *data, usize len);
     void generate_mipmaps(ImageH H);
+    void transfer_done(ImageH H); // it's a hack for now
     FatPtr read_image(ImageH H);
 
     // Samplers

@@ -52,9 +52,9 @@ assert_uniform_size(GlobalUniform);
 
 struct VoxelOptions
 {
-    float3 center = {-13.0f, -1.0f, -11.0f};
+    float3 center = {-20.0f, -10.0f, -15.0f};
     float size    = 0.1f;
-    uint res      = 256;
+    uint res      = 256 + 128;
 };
 
 struct Renderer
@@ -136,6 +136,7 @@ struct Renderer
     ImageDescH voxels_albedo;
     ImageDescH voxels_normal;
     ImageDescH voxels_radiance;
+    std::array<ImageDescH, 6> voxels_directional_volumes;
 
     struct VoxelPass
     {
@@ -143,6 +144,8 @@ struct Renderer
         vulkan::GraphicsProgramH visualization;
         vulkan::ComputeProgramH clear_voxels;
         vulkan::ComputeProgramH inject_radiance;
+        vulkan::ComputeProgramH generate_aniso_base;
+        vulkan::ComputeProgramH generate_aniso_mipmap;
         vulkan::CircularBufferPosition voxel_options_pos;
         vulkan::CircularBufferPosition projection_cameras;
     } voxels;

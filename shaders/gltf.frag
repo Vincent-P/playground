@@ -1,4 +1,5 @@
 #include "constants.h"
+#include "globals.h"
 #include "pbr.h"
 #include "voxels.h"
 
@@ -17,11 +18,11 @@ layout (push_constant) uniform MU
 
 layout (set = 1, binding = 0) uniform UBODebug {
     uint selected;
-    float opacity;
     float trace_dist;
     float occlusion_lambda;
     float sampling_factor;
     float start;
+    float3 pad0;
 } debug;
 
 layout (set = 1, binding = 1) uniform VO {
@@ -154,8 +155,7 @@ void main()
     vec3 composite = vec3(1.0);
 
     vec3 direct = vec3(0.0);
-    // vec4 indirect = Indirect(normal);
-    vec4 indirect = vec4(0.0);
+    vec4 indirect = Indirect(normal);
 
     // base color
     if (debug.selected == 1)
@@ -184,8 +184,7 @@ void main()
     // no debug
     else
     {
-        direct = base_color.rgb;
-        indirect.rgb = vec3(0.0);
+        indirect.rgb *= base_color.rgb;
     }
 
     // to linear

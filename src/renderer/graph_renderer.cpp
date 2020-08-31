@@ -84,7 +84,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
-    r.sun.pitch = 25.0f;
+    r.sun.pitch = 78.0f;
     r.sun.yaw = 0.0f;
     r.sun.roll = 0.0f;
     r.sun.ortho_square(40.f, 1.f, 100.f);
@@ -137,6 +137,28 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         .type          = VK_IMAGE_TYPE_3D,
         .format        = VK_FORMAT_R16G16B16A16_SFLOAT,
     });
+
+    usize name_i = 0;
+    std::array names = {
+        "Voxels volume -X",
+        "Voxels volume +X",
+        "Voxels volume -Y",
+        "Voxels volume +Y",
+        "Voxels volume -Z",
+        "Voxels volume +Z"
+    };
+    for (auto &volume : r.voxels_directional_volumes)
+    {
+        u32 size = r.voxel_options.res / 2;
+        volume = r.graph.image_descs.add({
+            .name      = names[name_i++],
+            .size_type = SizeType::Absolute,
+            .size      = float3(size),
+            .type      = VK_IMAGE_TYPE_3D,
+            .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .levels    = static_cast<u32>(std::floor(std::log2(size)) + 1.0)
+        });
+    }
 
     return r;
 }
@@ -226,7 +248,7 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     return pass;
 }
 
-void add_floor_pass(Renderer &r)
+static void add_floor_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
@@ -293,25 +315,11 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
     });
 
     api.upload_image(pass.font_atlas, pixels, w * h * 4);
-
-    // TODO clean this somehow
-    // Transition the image from the TRANSFER layout to the SHADER READ layout, upload_image doesnt do it automatically
-    auto &vkimage = api.get_image(pass.font_atlas);
-    auto src      = vulkan::get_src_image_access(vkimage.usage);
-    auto dst      = vulkan::get_src_image_access(vulkan::ImageUsage::GraphicsShaderRead);
-
-    VkImageMemoryBarrier b = vulkan::get_image_barrier(vkimage.vkhandle, src, dst, vkimage.full_range);
-    vkimage.usage          = vulkan::ImageUsage::GraphicsShaderRead;
-
-    auto cmd_buffer = api.get_temp_cmd_buffer();
-    cmd_buffer.begin();
-    vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
-    cmd_buffer.submit_and_wait();
-
+    api.transfer_done(pass.font_atlas);
     return pass;
 }
 
-void add_imgui_pass(Renderer &r)
+static void add_imgui_pass(Renderer &r)
 {
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
@@ -325,6 +333,7 @@ void add_imgui_pass(Renderer &r)
     // are external images always going to be sampled or they need to be in differents categories
     // like regular images from the graph?
     std::vector<vulkan::ImageH> external_images;
+    external_images.push_back(r.imgui.font_atlas);
 
     for (int list = 0; list < data->CmdListsCount; list++) {
         const auto &cmd_list = *data->CmdLists[list];
@@ -579,7 +588,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
     return pass;
 }
 
-void add_procedural_sky_pass(Renderer &r)
+static void add_procedural_sky_pass(Renderer &r)
 {
     auto &api = r.api;
     auto &graph = r.graph;
@@ -768,13 +777,13 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
     return pass;
 }
 
-void add_tonemapping_pass(Renderer &r)
+static void add_tonemapping_pass(Renderer &r)
 {
     auto &api   = r.api;
     auto &ui    = *r.p_ui;
     auto &graph = r.graph;
 
-    static usize s_selected = 1;
+    static uint s_selected = 1;
     static float s_exposure = 1.0f;
 
     if (ui.begin_window("HDR Shader"))
@@ -789,7 +798,7 @@ void add_tonemapping_pass(Renderer &r)
     {
         r.tonemapping.params_pos   = api.dynamic_uniform_buffer(sizeof(uint) + sizeof(float));
         auto *buffer = reinterpret_cast<uint *>(r.tonemapping.params_pos.mapped);
-        buffer[0] = static_cast<uint>(s_selected);
+        buffer[0] = s_selected;
         auto *floatbuffer = reinterpret_cast<float*>(buffer + 1);
         floatbuffer[0] = s_exposure;
     }
@@ -961,6 +970,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         auto size = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
         api.upload_image(image_h, image_info.pixels, size);
         api.generate_mipmaps(image_h);
+        api.transfer_done(image_h);
 
         stbi_image_free(image_info.pixels);
     }
@@ -1199,42 +1209,88 @@ static void add_gltf_prepass(Renderer &r)
     });
 }
 
+struct GltfDebug
+{
+    uint selected = 0;
+    float trace_dist = 2.0f;
+    float occlusion_lambda = 1.0f;
+    float sampling_factor = 1.0f;
+    float start = 1.0f;
+    float3 pad0;
+};
+
 static void add_gltf_pass(Renderer &r)
 {
     auto &graph = r.graph;
     auto &ui = *r.p_ui;
     auto &api = r.api;
 
-    static usize s_selected = 0;
+    static GltfDebug s_debug = {};
 
     if (ui.begin_window("glTF Shader"))
     {
         static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
-        tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
+        tools::imgui_select("Debug output", options.data(), options.size(), s_debug.selected);
+        ImGui::SliderFloat("Trace dist.", &s_debug.trace_dist, 0.0f, 1.0f);
+        ImGui::SliderFloat("Occlusion factor", &s_debug.occlusion_lambda, 0.0f, 1.0f);
+        ImGui::SliderFloat("Sampling factor", &s_debug.sampling_factor, 0.1f, 2.0f);
+        ImGui::SliderFloat("Start position", &s_debug.start, 0.1f, 2.0f);
         ui.end_window();
     }
 
-    auto u_pos   = api.dynamic_uniform_buffer(sizeof(uint));
-    auto *buffer = reinterpret_cast<uint *>(u_pos.mapped);
-    *buffer = static_cast<uint>(s_selected);
+    auto u_pos   = api.dynamic_uniform_buffer(sizeof(GltfDebug));
+    auto *buffer = reinterpret_cast<GltfDebug *>(u_pos.mapped);
+    *buffer = s_debug;
 
     auto external_images = r.gltf.images;
+    std::vector<ImageDescH> sampled_images;
+    sampled_images.push_back(r.voxels_radiance);
+    for (auto volume : r.voxels_directional_volumes) {
+        sampled_images.push_back(volume);
+    }
+
     graph.add_pass({
         .name = "glTF pass",
         .type = PassType::Graphics,
         .external_images = external_images,
+        .sampled_images = sampled_images,
         .color_attachment = r.hdr_buffer,
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, shader_data=u_pos](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
+        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, shader_data=u_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
+            auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
+            std::vector<vulkan::ImageH> voxels_directional_volumes;
+            for (usize i = 1; i < self.sampled_images.size(); i++) {
+                voxels_directional_volumes.push_back(graph.get_resolved_image(self.sampled_images[i]));
+            }
+
             auto program = pass_data.shading;
 
             api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, shader_data);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, voxel_data.voxel_options_pos);
+
+            api.bind_combined_image_sampler(program,
+                                            vulkan::SHADER_DESCRIPTOR_SET,
+                                            2,
+                                            voxels_radiance,
+                                            trilinear_sampler);
+
+            std::vector<VkImageView> views;
+            views.reserve(voxels_directional_volumes.size());
+            for (const auto &volume_h : voxels_directional_volumes) {
+                views.push_back(api.get_image(volume_h).default_view);
+            }
+            api.bind_combined_images_sampler(program,
+                                             vulkan::SHADER_DESCRIPTOR_SET,
+                                             3,
+                                             voxels_directional_volumes,
+                                             trilinear_sampler,
+                                             views);
+
             api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
             api.bind_vertex_buffer(pass_data.vertex_buffer);
-
 
             GltfNodeDrawOptions options = {.push_constants = true, .base_color = true, .normal_map = true};
 
@@ -1314,6 +1370,11 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
+
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxel options
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -1410,11 +1471,66 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pass.inject_radiance = api.create_program(std::move(pinfo));
     }
 
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
+        // voxel options
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // radiance
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
+        // aniso volumes
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = 6});
+        pass.generate_aniso_base = api.create_program(std::move(pinfo));
+    }
+
+    {
+        vulkan::ComputeProgramInfo pinfo{};
+        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
+
+        // voxel options
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // mip src
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // source mip
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = 6});
+
+        // dst mip
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                       .count  = 6});
+        pass.generate_aniso_mipmap = api.create_program(std::move(pinfo));
+    }
 
     return pass;
 }
 
-void add_voxels_clear_pass(Renderer& r)
+static void add_voxels_clear_pass(Renderer& r)
 {
     auto &api = r.api;
     auto &graph = r.graph;
@@ -1449,7 +1565,7 @@ void add_voxels_clear_pass(Renderer& r)
 
 }
 
-void add_voxelization_pass(Renderer &r)
+static void add_voxelization_pass(Renderer &r)
 {
     auto &api   = r.api;
     auto &graph = r.graph;
@@ -1458,7 +1574,6 @@ void add_voxelization_pass(Renderer &r)
     if (ui.begin_window("Voxelization"))
     {
         ImGui::SliderFloat3("Center", &r.voxel_options.center[0], -40.f, 40.f);
-        r.voxel_options.center = glm::floor(r.voxel_options.center);
         ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.01f, 0.1f);
         ui.end_window();
     }
@@ -1518,16 +1633,16 @@ void add_voxelization_pass(Renderer &r)
     });
 }
 
-void add_voxels_visualization_pass(Renderer& r)
+static void add_voxels_visualization_pass(Renderer& r)
 {
     auto &graph = r.graph;
     auto &api   = r.api;
     auto &ui    = *r.p_ui;
 
-    static usize s_selected = 3;
+    static uint s_selected = 0;
     if (ui.begin_window("Voxels Shader"))
     {
-        static std::array options{"Nothing", "Albedo", "Normal", "Radiance"};
+        static std::array options{"Albedo", "Normal", "Radiance"};
         tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
         ui.end_window();
     }
@@ -1548,7 +1663,7 @@ void add_voxels_visualization_pass(Renderer& r)
         .type = PassType::Graphics,
         .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
         .color_attachment = r.hdr_buffer,
-        .exec = [pass_data=r.voxels, /*global_data=r.global_uniform_pos,*/ selection, camera_buf](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.voxels, global_data=r.global_uniform_pos, selection, camera_buf](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
             auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
@@ -1556,6 +1671,7 @@ void add_voxels_visualization_pass(Renderer& r)
 
             auto program = pass_data.visualization;
 
+            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, camera_buf);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, selection);
@@ -1581,7 +1697,7 @@ struct DirectLightingDebug
     float first_step       = 3.0f;
 };
 
-void add_voxels_direct_lighting_pass(Renderer &r)
+static void add_voxels_direct_lighting_pass(Renderer &r)
 {
     auto &ui = *r.p_ui;
     auto &api = r.api;
@@ -1629,6 +1745,136 @@ void add_voxels_direct_lighting_pass(Renderer &r)
                 api.dispatch(program, count, count, count);
             }
         });
+}
+
+static void add_voxels_aniso_filtering(Renderer &r)
+{
+    auto &api   = r.api;
+    auto &graph = r.graph;
+
+    api.begin_label("Compute anisotropic voxels");
+
+    auto voxel_size = r.voxel_options.size * 2;
+    auto voxel_res  = r.voxel_options.res / 2;
+
+    auto mip_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
+    {
+        auto *buffer = reinterpret_cast<VoxelOptions *>(mip_pos.mapped);
+        *buffer      = r.voxel_options;
+        buffer->size = voxel_size;
+        buffer->res  = voxel_res;
+    }
+
+    std::vector<ImageDescH> storage_images;
+    for (auto image : r.voxels_directional_volumes)
+    {
+        storage_images.push_back(image);
+    }
+
+    auto count = r.voxel_options.res / 8; // local compute size
+
+    graph.add_pass(
+        {.name           = "Voxels aniso base",
+         .type           = PassType::Compute,
+         .sampled_images = {r.voxels_radiance},
+         .storage_images = storage_images,
+         .exec =
+             [pass_data = r.voxels, trilinear_sampler = r.trilinear_sampler, count, mip_pos](RenderGraph &graph,
+                                                                                             RenderPass &self,
+                                                                                             vulkan::API &api) {
+                 // resolved directional volumes
+                 std::vector<vulkan::ImageH> voxels_directional_volumes;
+                 std::vector<VkImageView> views;
+                 views.reserve(self.storage_images.size());
+                 for (auto volume : self.storage_images)
+                 {
+                     auto volume_h = graph.get_resolved_image(volume);
+                     voxels_directional_volumes.push_back(volume_h);
+
+                     auto &image = api.get_image(volume_h);
+                     views.push_back(image.mip_views[0]);
+                 }
+
+                 auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
+
+                 auto program = pass_data.generate_aniso_base;
+
+                 api.bind_buffer(program, 0, mip_pos);
+                 api.bind_combined_image_sampler(program, 1, voxels_radiance, trilinear_sampler);
+                 api.bind_images(program, 2, voxels_directional_volumes, views);
+
+                 api.dispatch(program, count, count, count);
+             }
+
+        });
+
+    for (uint mip_i = 0; count > 1; mip_i++)
+    {
+        count /= 2;
+        voxel_size *= 2;
+        voxel_res /= 2;
+
+        auto src = mip_i;
+        auto dst = mip_i + 1;
+
+        // Bind voxel options
+        mip_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
+        {
+            auto *buffer = reinterpret_cast<VoxelOptions *>(mip_pos.mapped);
+            *buffer      = r.voxel_options;
+            buffer->size = voxel_size;
+            buffer->res  = voxel_res;
+        }
+
+        auto mip_src_pos = api.dynamic_uniform_buffer(sizeof(int));
+        {
+            auto *buffer = reinterpret_cast<int *>(mip_src_pos.mapped);
+            *buffer      = static_cast<int>(src);
+        }
+
+        graph.add_pass({.name           = "Voxels aniso mip level",
+                        .type           = PassType::Compute,
+                        .sampled_images = {r.voxels_radiance},
+                        .storage_images = storage_images,
+                        .exec =
+                            [pass_data = r.voxels, count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
+                                                                                          RenderPass &self,
+                                                                                          vulkan::API &api) {
+                                // resolved directional volumes
+                                std::vector<vulkan::ImageH> voxels_directional_volumes;
+                                voxels_directional_volumes.reserve(self.storage_images.size());
+                                for (auto volume : self.storage_images)
+                                {
+                                    auto volume_h = graph.get_resolved_image(volume);
+                                    voxels_directional_volumes.push_back(volume_h);
+                                }
+
+                                auto program = pass_data.generate_aniso_mipmap;
+                                api.bind_buffer(program, 0, mip_pos);
+                                api.bind_buffer(program, 1, mip_src_pos);
+
+                                std::vector<VkImageView> src_views;
+                                std::vector<VkImageView> dst_views;
+                                src_views.reserve(voxels_directional_volumes.size());
+                                dst_views.reserve(voxels_directional_volumes.size());
+
+                                for (const auto &volume_h : voxels_directional_volumes)
+                                {
+                                    auto &image = api.get_image(volume_h);
+                                    src_views.push_back(image.mip_views[src]);
+                                    dst_views.push_back(image.mip_views[dst]);
+                                }
+
+                                api.bind_images(program, 2, voxels_directional_volumes, src_views);
+                                api.bind_images(program, 3, voxels_directional_volumes, dst_views);
+
+                                api.dispatch(program, count, count, count);
+                            }
+
+        });
+    }
+
+    api.end_label();
 }
 
 /// ---
@@ -1798,17 +2044,21 @@ void Renderer::draw()
     graph.clear(); // start_frame() ?
 
     update_uniforms(*this);
+
+    // voxel cone tracing prep
+    add_voxels_clear_pass(*this);
+    add_voxelization_pass(*this);
+    add_voxels_direct_lighting_pass(*this);
+    if (0) {
+    add_voxels_visualization_pass(*this);
+    }
+    add_voxels_aniso_filtering(*this);
+
+    // color pass
     add_gltf_prepass(*this);
     add_floor_pass(*this);
     add_gltf_pass(*this);
-
-    add_voxels_clear_pass(*this);
-    add_voxelization_pass(*this);
-
     add_procedural_sky_pass(*this);
-
-    add_voxels_direct_lighting_pass(*this);
-    add_voxels_visualization_pass(*this);
 
     add_tonemapping_pass(*this);
     add_imgui_pass(*this);

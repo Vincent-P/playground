@@ -24,8 +24,7 @@ struct MouseState
 
 std::vector<u8> read_file(const fs::path &path);
 
-#if defined(ENABLE_IMGUI)
-inline void imgui_select(const char *title, const char **items, usize items_size, usize &current_item)
+inline void imgui_select(const char *title, const char **items, usize items_size, uint &current_item)
 {
     std::string id("##custom combo");
     id += title;
@@ -44,6 +43,5 @@ inline void imgui_select(const char *title, const char **items, usize items_size
         ImGui::EndCombo();
     }
 }
-#endif
 
 } // namespace my_app::tools

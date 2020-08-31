@@ -201,6 +201,7 @@ static void resolve_images(RenderGraph &graph)
             .width         = static_cast<u32>(desc.size_type == SizeType::SwapchainRelative ? desc.size.x * swapchain_extent.width : desc.size.x),
             .height        = static_cast<u32>(desc.size_type == SizeType::SwapchainRelative ? desc.size.y * swapchain_extent.height : desc.size.y),
             .depth         = static_cast<u32>(desc.size.z),
+            .mip_levels    = desc.levels,
             .usages        = usage,
         };
 
@@ -221,7 +222,7 @@ vulkan::ImageH RenderGraph::get_resolved_image(ImageDescH desc_h) const
     return image.resolved_img;
 }
 
-void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImageMemoryBarrier> &barriers, VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
+static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImageMemoryBarrier> &barriers, VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
 
@@ -308,7 +309,7 @@ void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImag
     }
 }
 
-void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier> &barriers, VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
+static void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier> &barriers, VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
     auto cmd = api.ctx.frame_resources.get_current().command_buffer;

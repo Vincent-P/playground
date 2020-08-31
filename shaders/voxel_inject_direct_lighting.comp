@@ -95,7 +95,7 @@ vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_d
     if (visibility < 0) {
         return vec4(0.0);
     }
-    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, 1.0);
+    return vec4(10*BRDF(albedo.rgb, normal, direction)*visibility, 1.0);
 }
 
 vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
