@@ -16,14 +16,9 @@ layout (push_constant) uniform MU
     MaterialUniform material;
 };
 
-layout (set = 1, binding = 0) uniform UBODebug {
-    uint selected;
-    float trace_dist;
-    float occlusion_lambda;
-    float sampling_factor;
-    float start;
-    float3 pad0;
-} debug;
+layout (set = 1, binding = 0) uniform VCTD {
+    VCTDebug debug;
+};
 
 layout (set = 1, binding = 1) uniform VO {
     VoxelOptions voxel_options;
@@ -158,27 +153,27 @@ void main()
     vec4 indirect = Indirect(normal);
 
     // base color
-    if (debug.selected == 1)
+    if (debug.gltf_debug_selected == 1)
     {
         indirect.rgb = vec3(0.0);
         indirect.a = 1.0;
         direct = base_color.rgb;
     }
     // normal
-    else if (debug.selected == 2)
+    else if (debug.gltf_debug_selected == 2)
     {
         indirect.rgb = vec3(0.0);
         indirect.a = 1.0;
         direct = EncodeNormal(normal);
     }
     // ao
-    else if (debug.selected == 3)
+    else if (debug.gltf_debug_selected == 3)
     {
         direct = vec3(0.0);
         indirect.rgb = vec3(1.0);
     }
     // indirect
-    else if (debug.selected == 4)
+    else if (debug.gltf_debug_selected == 4)
     {
     }
     // no debug

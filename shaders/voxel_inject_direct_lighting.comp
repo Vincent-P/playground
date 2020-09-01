@@ -8,12 +8,8 @@ layout(set = 0, binding = 1) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 0, binding = 2) uniform UBO {
-    float4 point_position;
-    float point_scale;
-    float traceShadowHit;
-    float max_dist;
-    float first_step;
+layout(set = 0, binding = 2) uniform VCTD {
+    VCTDebug vct_debug;
 };
 
 layout(set = 0, binding = 3) uniform sampler3D voxels_albedo;
@@ -25,10 +21,10 @@ layout(set = 0, binding = 5, rgba8) uniform image3D voxels_radiance;
 float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
 {
     // scaling factor
-    float k = traceShadowHit * traceShadowHit;
+    float k = vct_debug.trace_shadow_hit * vct_debug.trace_shadow_hit;
 
     float step = voxel_options.size;
-    float t = step * floor(first_step); // avoid self shadowing
+    float t = step * floor(vct_debug.first_step); // avoid self shadowing
 
     vec3 p = position;
 
@@ -110,7 +106,7 @@ vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
     direction = normalize(direction);
 
     float falloff = 1 / (distance*distance);
-    falloff *= point_scale;
+    falloff *= vct_debug.point_scale;
 
     float visibility = TraceShadow(position, direction, distance) * falloff;
 
@@ -132,7 +128,7 @@ void InjectDirectLighting(ivec3 voxel_pos)
 
     vec4 lighting = vec4(0.0);
     lighting += DirectionalLighting(voxel_pos, albedo, normal, global.sun_direction.xyz);
-    // lighting += PointLight(voxel_pos, albedo, normal, point_position.xyz);
+    // lighting += PointLight(voxel_pos, albedo, normal, vct_debug.point_position.xyz);
     lighting.a = 1;
 
     imageStore(voxels_radiance, voxel_pos, lighting);

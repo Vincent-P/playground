@@ -6,20 +6,14 @@ layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 1) uniform UBO {
-    vec4 position;
-    vec4 front;
-    vec4 up;
-} cam;
-
-layout (set = 1, binding = 2) uniform UBODebug {
-    uint selected;
-} debug;
+layout (set = 1, binding = 1) uniform UBODebug {
+    VCTDebug debug;
+};
 
 
-layout(set = 1, binding = 3, rgba16) uniform image3D voxels_albedo;
-layout(set = 1, binding = 4, rgba16) uniform image3D voxels_normal;
-layout(set = 1, binding = 5, rgba8) uniform image3D voxels_radiance;
+layout(set = 1, binding = 2, rgba16) uniform image3D voxels_albedo;
+layout(set = 1, binding = 3, rgba16) uniform image3D voxels_normal;
+layout(set = 1, binding = 4, rgba8) uniform image3D voxels_radiance;
 
 
 layout (location = 0) in vec2 inUV;
@@ -51,13 +45,13 @@ void main()
     int i = 0;
     float4 voxel = float4(0.0);
     for (i = 0; i < MAX_DIST; i++) {
-        if (debug.selected == 0) {
+        if (debug.voxel_debug_selected == 0) {
             voxel = imageLoad(voxels_albedo, mapPos);
         }
-        else if (debug.selected == 1) {
+        else if (debug.voxel_debug_selected == 1) {
             voxel = imageLoad(voxels_normal, mapPos);
         }
-        else if (debug.selected == 2) {
+        else if (debug.voxel_debug_selected == 2) {
             voxel = imageLoad(voxels_radiance, mapPos);
         }
         if (voxel.a > EPSILON) break;

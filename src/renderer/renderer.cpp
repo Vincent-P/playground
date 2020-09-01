@@ -1209,38 +1209,9 @@ static void add_gltf_prepass(Renderer &r)
     });
 }
 
-struct GltfDebug
-{
-    uint selected = 0;
-    float trace_dist = 2.0f;
-    float occlusion_lambda = 1.0f;
-    float sampling_factor = 1.0f;
-    float start = 1.0f;
-    float3 pad0;
-};
-
 static void add_gltf_pass(Renderer &r)
 {
     auto &graph = r.graph;
-    auto &ui = *r.p_ui;
-    auto &api = r.api;
-
-    static GltfDebug s_debug = {};
-
-    if (ui.begin_window("glTF Shader"))
-    {
-        static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
-        tools::imgui_select("Debug output", options.data(), options.size(), s_debug.selected);
-        ImGui::SliderFloat("Trace dist.", &s_debug.trace_dist, 0.0f, 1.0f);
-        ImGui::SliderFloat("Occlusion factor", &s_debug.occlusion_lambda, 0.0f, 1.0f);
-        ImGui::SliderFloat("Sampling factor", &s_debug.sampling_factor, 0.1f, 2.0f);
-        ImGui::SliderFloat("Start position", &s_debug.start, 0.1f, 2.0f);
-        ui.end_window();
-    }
-
-    auto u_pos   = api.dynamic_uniform_buffer(sizeof(GltfDebug));
-    auto *buffer = reinterpret_cast<GltfDebug *>(u_pos.mapped);
-    *buffer = s_debug;
 
     auto external_images = r.gltf.images;
     std::vector<ImageDescH> sampled_images;
@@ -1256,7 +1227,7 @@ static void add_gltf_pass(Renderer &r)
         .sampled_images = sampled_images,
         .color_attachment = r.hdr_buffer,
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, shader_data=u_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
             std::vector<vulkan::ImageH> voxels_directional_volumes;
@@ -1267,7 +1238,7 @@ static void add_gltf_pass(Renderer &r)
             auto program = pass_data.shading;
 
             api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, shader_data);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, voxel_data.vct_debug_pos);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, voxel_data.voxel_options_pos);
 
             api.bind_combined_image_sampler(program,
@@ -1382,19 +1353,18 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        // camera
+        // debug
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        // debug
+        // voxels textures
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
-        // voxels textures
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 3,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1402,11 +1372,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 4,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 5,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
@@ -1636,34 +1601,13 @@ static void add_voxelization_pass(Renderer &r)
 static void add_voxels_visualization_pass(Renderer& r)
 {
     auto &graph = r.graph;
-    auto &api   = r.api;
-    auto &ui    = *r.p_ui;
-
-    static uint s_selected = 0;
-    if (ui.begin_window("Voxels Shader"))
-    {
-        static std::array options{"Albedo", "Normal", "Radiance"};
-        tools::imgui_select("Debug output", options.data(), options.size(), s_selected);
-        ui.end_window();
-    }
-
-    auto selection = api.dynamic_uniform_buffer(sizeof(uint));
-    auto *buffer0   = reinterpret_cast<uint *>(selection.mapped);
-    *buffer0        = s_selected;
-
-    // Bind camera uniform buffer
-    auto camera_buf   = api.dynamic_uniform_buffer(3 * sizeof(float4));
-    auto *buffer1 = reinterpret_cast<float4 *>(camera_buf.mapped);
-    buffer1[0]    = float4(r.p_camera->position, 0.0f);
-    buffer1[1]    = float4(r.p_camera->front, 0.0f);
-    buffer1[2]    = float4(r.p_camera->up, 0.0f);
 
     graph.add_pass({
         .name = "Voxels visualization",
         .type = PassType::Graphics,
         .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
         .color_attachment = r.hdr_buffer,
-        .exec = [pass_data=r.voxels, global_data=r.global_uniform_pos, selection, camera_buf](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.voxels, global_data=r.global_uniform_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
             auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
@@ -1673,12 +1617,11 @@ static void add_voxels_visualization_pass(Renderer& r)
 
             api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, camera_buf);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, selection);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.vct_debug_pos);
 
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 5, voxels_radiance);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_radiance);
 
             api.bind_program(program);
 
@@ -1688,36 +1631,9 @@ static void add_voxels_visualization_pass(Renderer& r)
 
 }
 
-struct DirectLightingDebug
-{
-    float4 point_position  = {1.5f, 2.5f, 0.0f, 0.0f};
-    float point_scale      = 1.0f;
-    float trace_shadow_hit = 1.0f;
-    float max_dist         = 256.f;
-    float first_step       = 3.0f;
-};
-
 static void add_voxels_direct_lighting_pass(Renderer &r)
 {
-    auto &ui = *r.p_ui;
-    auto &api = r.api;
     auto &graph = r.graph;
-
-    static DirectLightingDebug s_debug = {};
-
-    if (ui.begin_window("Voxels Direct Lighting"))
-    {
-        ImGui::SliderFloat3("Point light position", &s_debug.point_position[0], -10.0f, 10.0f);
-        ImGui::SliderFloat("Point light scale", &s_debug.point_scale, 0.1f, 10.f);
-        ImGui::SliderFloat("Trace Shadow Hit", &s_debug.trace_shadow_hit, 0.0f, 1.0f);
-        ImGui::SliderFloat("Max Dist", &s_debug.max_dist, 0.0f, 300.0f);
-        ImGui::SliderFloat("First step", &s_debug.first_step, 1.0f, 20.0f);
-        ui.end_window();
-    }
-
-    auto debug_pos   = api.dynamic_uniform_buffer(sizeof(DirectLightingDebug));
-    auto *buffer = reinterpret_cast<DirectLightingDebug *>(debug_pos.mapped);
-    *buffer = s_debug;
 
     graph.add_pass({
             .name = "Voxels direct lighting",
@@ -1725,7 +1641,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
             .sampled_images = {r.voxels_albedo, r.voxels_normal},
             .storage_images = {r.voxels_radiance},
             .exec =
-            [pass_data=r.voxels, debug_pos, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data=r.global_uniform_pos]
+            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data=r.global_uniform_pos]
             (RenderGraph &graph, RenderPass &self, vulkan::API &api)
             {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
@@ -1736,7 +1652,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 
                 api.bind_buffer(program, 0, global_data);
                 api.bind_buffer(program, 1, pass_data.voxel_options_pos);
-                api.bind_buffer(program, 2, debug_pos);
+                api.bind_buffer(program, 2, pass_data.vct_debug_pos);
                 api.bind_combined_image_sampler(program, 3, voxels_albedo, trilinear_sampler);
                 api.bind_combined_image_sampler(program, 4, voxels_normal, trilinear_sampler);
                 api.bind_image(program, 5, voxels_radiance);
@@ -1900,6 +1816,11 @@ void update_uniforms(Renderer &r)
     globals->sun_direction   = float4(-r.sun.front, 1);
     globals->sun_illuminance = float3(100.0f); //TODO: move from global and use real values (will need auto exposure)
 
+
+    r.voxels.vct_debug_pos = api.dynamic_uniform_buffer(sizeof(VCTDebug));
+    auto *debug            = reinterpret_cast<VCTDebug *>(r.voxels.vct_debug_pos.mapped);
+    *debug                 = r.vct_debug;
+
     api.end_label();
 }
 
@@ -2025,10 +1946,48 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
-    if (p_ui->begin_window("Global"))
+    if (ui.begin_window("Global"))
     {
         ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
         p_ui->end_window();
+    }
+
+    if (ui.begin_window("Voxel Cone Tracing", true))
+    {
+        ImGui::TextUnformatted("Debug display: ");
+        ImGui::SameLine();
+        if (ImGui::RadioButton("glTF", !vct_debug.display_voxels)) {
+            vct_debug.display_voxels = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("voxels", vct_debug.display_voxels)) {
+            vct_debug.display_voxels = true;
+        }
+
+        if (!vct_debug.display_voxels)
+        {
+            static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
+            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.gltf_debug_selected);
+            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 1.0f);
+            ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
+            ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
+            ImGui::SliderFloat("Start position", &vct_debug.start, 0.1f, 2.0f);
+        }
+        else
+        {
+            static std::array options{"Albedo", "Normal", "Radiance"};
+            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.voxel_debug_selected);
+        }
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Direct lighting:");
+        ImGui::SliderFloat3("Point light position", &vct_debug.point_position[0], -10.0f, 10.0f);
+        ImGui::SliderFloat("Point light scale", &vct_debug.point_scale, 0.1f, 10.f);
+        ImGui::SliderFloat("Trace Shadow Hit", &vct_debug.trace_shadow_hit, 0.0f, 1.0f);
+        ImGui::SliderFloat("Max Dist", &vct_debug.max_dist, 0.0f, 300.0f);
+        ImGui::SliderFloat("First step", &vct_debug.first_step, 1.0f, 20.0f);
+
+        ui.end_window();
     }
 
     sun.update_view();
@@ -2049,15 +2008,19 @@ void Renderer::draw()
     add_voxels_clear_pass(*this);
     add_voxelization_pass(*this);
     add_voxels_direct_lighting_pass(*this);
-    if (0) {
-    add_voxels_visualization_pass(*this);
-    }
     add_voxels_aniso_filtering(*this);
 
     // color pass
     add_gltf_prepass(*this);
     add_floor_pass(*this);
-    add_gltf_pass(*this);
+
+    if (vct_debug.display_voxels) {
+        add_voxels_visualization_pass(*this);
+    }
+    else {
+        add_gltf_pass(*this);
+    }
+
     add_procedural_sky_pass(*this);
 
     add_tonemapping_pass(*this);

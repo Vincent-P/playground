@@ -1,82 +1,106 @@
 #ifndef VOXELS_H
 #define VOXELS_H
 
+#include "types.h"
+
 struct VoxelOptions
 {
-    vec3 center;
+    float3 center;
     float size;
     uint res;
 };
 
+struct VCTDebug
+{
+    bool display_voxels;
+    uint voxel_debug_selected; // 0: albedo 1: normal 2: radiance
+    uint gltf_debug_selected; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
+    float pad0;
+
+    // cone tracing
+    float trace_dist;
+    float occlusion_lambda;
+    float sampling_factor;
+    float start;
+
+    // voxel direct lighting
+    float4 point_position;
+    float point_scale;
+    float trace_shadow_hit;
+    float max_dist;
+    float first_step;
+};
+
+
 // Compute the running average of a 3D uint texture
 // Without it, the values will change it frame depending on the execution order
 
-/// void imageAtomicAverageRGBA8(layout(r32ui) uimage3D voxels, ivec3 coord, vec3 value)
+/// void imageAtomicAverageRGBA8(layout(r32ui) uimage3D voxels, int3 coord, float3 value)
 #define imageAtomicAverageRGBA8(voxels, coord, value)                                          \
     {                                                                                          \
-        uint nextUint = packUnorm4x8(vec4(value,1.0f/255.0f));                                 \
+        uint nextUint = packUnorm4x8(float4(value,1.0f/255.0f));                                 \
         uint prevUint = 0;                                                                     \
         uint currUint;                                                                         \
                                                                                                \
-        vec4 currVec4;                                                                         \
+        float4 currFloat4;                                                                         \
                                                                                                \
-        vec3 average;                                                                          \
+        float3 average;                                                                          \
         uint count;                                                                            \
                                                                                                \
         /*"Spin" while threads are trying to change the voxel*/                                \
         while((currUint = imageAtomicCompSwap(voxels, coord, prevUint, nextUint)) != prevUint) \
         {                                                                                      \
             prevUint = currUint;                   /*store packed rgb average and count*/      \
-            currVec4 = unpackUnorm4x8(currUint);   /*unpack stored rgb average and count*/     \
+            currFloat4 = unpackUnorm4x8(currUint);   /*unpack stored rgb average and count*/     \
                                                                                                \
-            average =      currVec4.rgb;        /*extract rgb average*/                        \
-            count   = uint(currVec4.a*255.0f);  /*extract count*/                              \
+            average =      currFloat4.rgb;        /*extract rgb average*/                        \
+            count   = uint(currFloat4.a*255.0f);  /*extract count*/                              \
                                                                                                \
             /*Compute the running average*/                                                    \
             average = (average*count + value) / (count+1);                                \
                                                                                                \
             /*Pack new average and incremented count back into a uint*/                        \
-            nextUint = packUnorm4x8(vec4(average, (count+1)/255.0f));                          \
+            nextUint = packUnorm4x8(float4(average, (count+1)/255.0f));                          \
         }                                                                                      \
     }
 
-ivec3 WorldToVoxel(vec3 world_pos, VoxelOptions options)
+int3 WorldToVoxel(float3 world_pos, VoxelOptions options)
 {
-    vec3 voxel_pos = (world_pos - floor(options.center)) / options.size;
-    return ivec3(floor(voxel_pos));
+    float3 voxel_pos = (world_pos - floor(options.center)) / options.size;
+    return int3(floor(voxel_pos));
 }
 
-vec3 WorldToVoxelTex(vec3 world_pos, VoxelOptions options)
+float3 WorldToVoxelTex(float3 world_pos, VoxelOptions options)
 {
-    vec3 voxel_pos = (world_pos - floor(options.center)) / options.size;
+    float3 voxel_pos = (world_pos - floor(options.center)) / options.size;
     return voxel_pos / options.res;
 }
 
-vec3 VoxelToWorld(ivec3 voxel_pos, VoxelOptions options)
+float3 VoxelToWorld(int3 voxel_pos, VoxelOptions options)
 {
     return (options.size * voxel_pos) + options.center;
 }
 
-vec3 EncodeNormal(vec3 normal)
+float3 EncodeNormal(float3 normal)
 {
-    return normal * 0.5f + vec3(0.5f);
+    return normal * 0.5f + float3(0.5f);
 }
 
-vec3 DecodeNormal(vec3 normal)
+float3 DecodeNormal(float3 normal)
 {
-    return (normal - vec3(0.5f)) * 2.0f;
+    return (normal - float3(0.5f)) * 2.0f;
 }
 
-const ivec3 g_aniso_offsets[] = ivec3[8]
+const int3 g_aniso_offsets[] = int3[8]
     (
-        ivec3(0, 0, 0),
-        ivec3(0, 0, 1),
-        ivec3(0, 1, 0),
-        ivec3(0, 1, 1),
-        ivec3(1, 0, 0),
-        ivec3(1, 0, 1),
-        ivec3(1, 1, 0),
-        ivec3(1, 1, 1)
+        int3(0, 0, 0),
+        int3(0, 0, 1),
+        int3(0, 1, 0),
+        int3(0, 1, 1),
+        int3(1, 0, 0),
+        int3(1, 0, 1),
+        int3(1, 1, 0),
+        int3(1, 1, 1)
     );
 
 #define AnisoTexelFetch(texture, mip, pos)                                   \

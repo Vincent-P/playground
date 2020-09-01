@@ -57,6 +57,27 @@ struct VoxelOptions
     uint res      = 256 + 128;
 };
 
+struct VCTDebug
+{
+    bool display_voxels = false;
+    uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
+    uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
+    float pad0;
+
+    // cone tracing
+    float trace_dist = 2.0f;
+    float occlusion_lambda = 1.0f;
+    float sampling_factor = 1.0f;
+    float start = 1.0f;
+
+    // voxel direct lighting
+    float4 point_position  = {1.5f, 2.5f, 0.0f, 0.0f};
+    float point_scale      = 1.0f;
+    float trace_shadow_hit = 1.0f;
+    float max_dist         = 256.f;
+    float first_step       = 3.0f;
+};
+
 struct Renderer
 {
     static Renderer create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
@@ -148,9 +169,11 @@ struct Renderer
         vulkan::ComputeProgramH generate_aniso_mipmap;
         vulkan::CircularBufferPosition voxel_options_pos;
         vulkan::CircularBufferPosition projection_cameras;
+        vulkan::CircularBufferPosition vct_debug_pos;
     } voxels;
 
     VoxelOptions voxel_options;
+    VCTDebug vct_debug;
 
 };
 

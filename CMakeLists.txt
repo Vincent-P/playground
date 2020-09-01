@@ -52,8 +52,7 @@ add_executable(test-vulkan
   src/gltf.cpp
   src/file_watcher.cpp
   src/renderer/vlk_context.cpp
-  # src/renderer/renderer.cpp
-  src/renderer/graph_renderer.cpp
+  src/renderer/renderer.cpp
   src/renderer/render_graph.cpp
   src/renderer/hl_api.cpp
   src/renderer/hl_api_resources.cpp
