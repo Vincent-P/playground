@@ -5,6 +5,7 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
 #include "render_graph.hpp"
+#include <memory>
 
 
 #define assert_uniform_size(T) static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!")
