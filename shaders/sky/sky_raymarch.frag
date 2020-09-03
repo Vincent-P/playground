@@ -128,9 +128,10 @@ void main()
         return;
     }
 
+    discard; // disable aerial perspective for now
+
     // Move to top atmosphere as the starting point for ray marching.
     // This is critical to be after the above to not disrupt above atmosphere tests and voxel selection.
-
     if (!move_to_top_atmosphere(atmosphere, world_pos, world_dir))
     {
         // Ray is not intersecting the atmosphere
