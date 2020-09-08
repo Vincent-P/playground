@@ -353,6 +353,7 @@ void Context::create_swapchain()
 void Context::destroy_swapchain()
 {
     vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
+    swapchain.handle = VK_NULL_HANDLE;
 }
 
 void Context::create_frame_resources(usize count)

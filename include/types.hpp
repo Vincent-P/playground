@@ -114,6 +114,7 @@ template <typename T> struct Handle
 
     Handle()
         : index(u32_invalid)
+        , gen(u32_invalid)
     {
     }
 
@@ -131,7 +132,7 @@ template <typename T> struct Handle
     }
     [[nodiscard]] bool is_valid() const
     {
-        return index != u32_invalid;
+        return index != u32_invalid && gen != u32_invalid;
     }
 
     bool operator==(const Handle &b) const = default;

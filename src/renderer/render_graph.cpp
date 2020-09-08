@@ -217,7 +217,7 @@ static void resolve_images(RenderGraph &graph)
 
 vulkan::ImageH RenderGraph::get_resolved_image(ImageDescH desc_h) const
 {
-    auto &image = images.at(desc_h);
+    const auto &image = images.at(desc_h);
     assert(image.resolved_img.is_valid());
     return image.resolved_img;
 }
@@ -312,7 +312,7 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
 static void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier> &barriers, VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
-    auto cmd = api.ctx.frame_resources.get_current().command_buffer;
+    VkCommandBuffer cmd = api.ctx.frame_resources.get_current().command_buffer;
     vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
 }
 

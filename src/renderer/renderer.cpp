@@ -42,8 +42,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     ImFontConfig config;
     config.MergeMode                   = true;
     config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
-    static const ImWchar icon_ranges[] = {eva_icons::MIN, eva_icons::MAX, 0};
-    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges);
+    static const std::array<ImWchar, 3> icon_ranges = {eva_icons::MIN, eva_icons::MAX, 0};
+    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges.data());
 
     //
 
@@ -184,7 +184,7 @@ void Renderer::wait_idle()
     api.wait_idle();
 }
 
-void Renderer::reload_shader(std::string_view)
+void Renderer::reload_shader(std::string_view /*unused*/)
 {
 }
 
@@ -1539,7 +1539,7 @@ static void add_voxelization_pass(Renderer &r)
     if (ui.begin_window("Voxelization"))
     {
         ImGui::SliderFloat3("Center", &r.voxel_options.center[0], -40.f, 40.f);
-        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.01f, 0.1f);
+        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.1f, 1.f);
         ui.end_window();
     }
 
@@ -1648,7 +1648,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
                 auto voxels_normal = graph.get_resolved_image(self.sampled_images[1]);
                 auto voxels_radiance = graph.get_resolved_image(self.storage_images[0]);
 
-                auto &program = pass_data.inject_radiance;
+                const auto &program = pass_data.inject_radiance;
 
                 api.bind_buffer(program, 0, global_data);
                 api.bind_buffer(program, 1, pass_data.voxel_options_pos);
@@ -1919,8 +1919,8 @@ void Renderer::display_ui(UI::Context &ui)
             ImGui::Separator();
 
             // scrolling data and average computing
-            static float gpu_values[128];
-            static float cpu_values[128];
+            static std::array<float, 128> gpu_values;
+            static std::array<float, 128> cpu_values;
 
             gpu_values[127]   = float(timestamps.back().gpu_microseconds - timestamps.front().gpu_microseconds);
             cpu_values[127]   = float(timestamps.back().cpu_milliseconds - timestamps.front().cpu_milliseconds);
@@ -1937,10 +1937,10 @@ void Renderer::display_ui(UI::Context &ui)
             cpu_average /= 128;
 
             ImGui::Text("%-17s: %7.1f us", "Total GPU time", gpu_average);
-            ImGui::PlotLines("", gpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+            ImGui::PlotLines("", gpu_values.data(), 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
 
             ImGui::Text("%-17s: %7.1f ms", "Total CPU time", cpu_average);
-            ImGui::PlotLines("", cpu_values, 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
+            ImGui::PlotLines("", cpu_values.data(), 128, 0, "", 0.0f, 30000.0f, ImVec2(0, 80));
         }
 
         ui.end_window();
@@ -2005,20 +2005,31 @@ void Renderer::draw()
     update_uniforms(*this);
 
     // voxel cone tracing prep
-    add_voxels_clear_pass(*this);
-    add_voxelization_pass(*this);
-    add_voxels_direct_lighting_pass(*this);
-    add_voxels_aniso_filtering(*this);
+    if (false)
+    {
+        add_voxels_clear_pass(*this);
+        add_voxelization_pass(*this);
+        add_voxels_direct_lighting_pass(*this);
+        add_voxels_aniso_filtering(*this);
+    }
 
     // color pass
-    add_gltf_prepass(*this);
+    if (false)
+    {
+        add_gltf_prepass(*this);
+    }
     add_floor_pass(*this);
 
-    if (vct_debug.display_voxels) {
-        add_voxels_visualization_pass(*this);
-    }
-    else {
-        add_gltf_pass(*this);
+    if (false)
+    {
+        if (vct_debug.display_voxels)
+        {
+            add_voxels_visualization_pass(*this);
+        }
+        else
+        {
+            add_gltf_pass(*this);
+        }
     }
 
     add_procedural_sky_pass(*this);

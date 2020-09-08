@@ -169,12 +169,12 @@ using RenderTargetH = Handle<RenderTarget>;
 
 struct FrameBufferInfo
 {
-    VkImageView image_view;
-    VkImageView depth_view;
+    VkImageView image_view = VK_NULL_HANDLE;
+    VkImageView depth_view = VK_NULL_HANDLE;
 
-    u32 width;
-    u32 height;
-    VkRenderPass render_pass; // renderpass info instead?
+    u32 width = 0;
+    u32 height = 0;
+    VkRenderPass render_pass = VK_NULL_HANDLE; // renderpass info instead?
 
     bool operator==(const FrameBufferInfo &b) const = default;
 };
@@ -396,7 +396,7 @@ struct CommandBuffer
 {
     Context &ctx;
     VkCommandBuffer vkhandle;
-    void begin();
+    void begin() const;
     void submit_and_wait();
 };
 
@@ -473,8 +473,8 @@ struct API
     bool start_frame();
     void end_frame();
     bool start_present();
-    void wait_idle();
-    void display_ui(UI::Context &ui);
+    void wait_idle() const;
+    void display_ui(UI::Context &ui) const;
 
     /// --- Drawing
     void begin_pass(PassInfo &&info);
@@ -592,10 +592,10 @@ struct API
 
 void destroy_buffer_internal(API &api, Buffer &buffer);
 void destroy_image_internal(API &api, Image &img);
-void destroy_sampler_internal(API &api, Sampler &img);
+void destroy_sampler_internal(API &api, Sampler &sampler);
 void destroy_program_internal(API &api, GraphicsProgram &program);
 void destroy_program_internal(API &api, ComputeProgram &program);
-void destroy_shader_internal(API &api, Shader &program);
+void destroy_shader_internal(API &api, Shader &shader);
 
 inline ImageAccess get_src_image_access(ImageUsage usage)
 {

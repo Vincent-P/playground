@@ -29,13 +29,9 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     if (rp.info.color) {
         color_ref.attachment = static_cast<u32>(attachments.size());
 
-        VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        VkFormat format;
-
         auto color_rt  = api.get_rendertarget(rp.info.color->rt);
         auto &color_img = api.get_image(color_rt.image_h);
-        initial_layout = get_src_image_access(color_img.usage).layout;
-        format = color_img.info.format;
+        VkFormat format = color_img.info.format;
 
         VkAttachmentDescription attachment;
         attachment.format         = format;
@@ -322,7 +318,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
         if (render_pass.info.color)
         {
-            auto &color_attachment = *render_pass.info.color;
+            const auto &color_attachment = *render_pass.info.color;
             auto &color = api.get_rendertarget(color_attachment.rt);
             auto &image = api.get_image(color.image_h);
             // TODO: disable for all uint
@@ -524,7 +520,7 @@ void API::bind_program(GraphicsProgramH H)
 
     /// --- Find and bind graphics pipeline
     PipelineInfo pipeline_info{program.info, program.pipeline_layout, current_render_pass};
-    auto pipeline = find_or_create_pipeline(*this, program, pipeline_info);
+    VkPipeline pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     vkCmdBindPipeline(frame_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
     bind_descriptor_set(*this, program, GLOBAL_DESCRIPTOR_SET);
@@ -575,14 +571,14 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
 void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
-    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
     bind_image_internal(*this, {image_h}, {view}, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
 void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
-    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
     bind_image_internal(*this, {image_h}, {view}, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
@@ -635,7 +631,7 @@ void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
     bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data_by_set[set], program.info.bindings_by_set[set], program.data_dirty_by_set[set], slot);
 }
 
@@ -644,7 +640,7 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, Imag
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    auto view = image_view ? *image_view : get_image(image_h).default_view;
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
     bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
@@ -663,11 +659,15 @@ void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, con
     bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
 }
 
-static void bind_buffer_internal(API& /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_buffer_internal(API & /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos,
+                                 std::vector<std::optional<ShaderBinding>> &binded_data,
+                                 std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
 {
-    if (binded_data.size() <= slot) {
+    if (binded_data.size() <= slot)
+    {
         usize missing = slot - binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++) {
+        for (usize i = 0; i < missing; i++)
+        {
             binded_data.emplace_back(std::nullopt);
         }
     }
@@ -788,8 +788,8 @@ void API::set_viewport_and_scissor(u32 width, u32 height)
 
 void API::begin_label(std::string_view name, float4 color)
 {
-    assert(name.size() > 0);
-    assert(current_label.size() == 0);
+    assert(!name.empty());
+    assert(current_label.empty());
 
     auto &frame_resource = ctx.frame_resources.get_current();
     VkDebugUtilsLabelEXT info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};

@@ -3,6 +3,7 @@
 #include "app.hpp"
 #include "timer.hpp"
 #include "window.hpp"
+#include <GLFW/glfw3.h>
 #if defined(ENABLE_IMGUI)
 #    include <imgui/imgui.h>
 #endif
@@ -100,7 +101,7 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
     }
 }
 
-void InputCamera::on_mouse_scroll(double, double yoffset)
+    void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
 {
     float delta_t = p_timer->get_delta_time();
     switch (state)
@@ -171,7 +172,7 @@ void InputCamera::update()
 {
     auto *glfw_handle = p_window->get_handle();
 
-    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
+    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_CONTROL);
     bool lmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     bool rmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
@@ -235,17 +236,17 @@ void InputCamera::update()
         float phi_rad     = glm::radians(phi);
 
         float3 pos;
-        pos.x = r * sin(phi_rad) * sin(theta_rad);
-        pos.y = r * cos(phi_rad);
-        pos.z = r * sin(phi_rad) * cos(theta_rad);
+        pos.x = r * std::sin(phi_rad) * std::sin(theta_rad);
+        pos.y = r * std::cos(phi_rad);
+        pos.z = r * std::sin(phi_rad) * std::cos(theta_rad);
 
-        _internal.front.x = -1.0f * sin(phi_rad) * sin(theta_rad);
-        _internal.front.y = -1.0f * cos(phi_rad);
-        _internal.front.z = -1.0f * sin(phi_rad) * cos(theta_rad);
+        _internal.front.x = -1.0f * std::sin(phi_rad) * std::sin(theta_rad);
+        _internal.front.y = -1.0f * std::cos(phi_rad);
+        _internal.front.z = -1.0f * std::sin(phi_rad) * std::cos(theta_rad);
 
-        _internal.up.x = sin(PI / 2 + phi_rad) * sin(theta_rad);
-        _internal.up.y = cos(PI / 2 + phi_rad);
-        _internal.up.z = sin(PI / 2 + phi_rad) * cos(theta_rad);
+        _internal.up.x = std::sin(PI / 2 + phi_rad) * std::sin(theta_rad);
+        _internal.up.y = std::cos(PI / 2 + phi_rad);
+        _internal.up.z = std::sin(PI / 2 + phi_rad) * std::cos(theta_rad);
 
         _internal.position = target + pos;
 
@@ -268,7 +269,7 @@ float4x4 Camera::update_view()
 float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, float far_plane)
 {
     (void)(far_plane);
-    float f    = 1.0f / tan(glm::radians(fov) / 2.0f);
+    float f    = 1.0f / std::tan(glm::radians(fov) / 2.0f);
     projection = glm::mat4(f / aspect_ratio,
                            0.0f,
                            0.0f,

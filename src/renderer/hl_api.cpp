@@ -149,7 +149,7 @@ bool API::start_frame()
     auto &frame_resource = ctx.frame_resources.get_current();
 
     // TODO: user defined unit for time and timer for profiling
-    auto wait_result = vkWaitForFences(ctx.device, 1, &frame_resource.fence, true, 10lu * 1000lu * 1000lu * 1000lu);
+    auto wait_result = vkWaitForFences(ctx.device, 1, &frame_resource.fence, true, ~0lu);
     if (wait_result == VK_TIMEOUT) {
 	throw std::runtime_error("Submitted the frame more than 10 second ago.");
     }
@@ -238,7 +238,7 @@ void API::end_frame()
     add_timestamp("End Frame");
 
     auto &frame_resource = ctx.frame_resources.get_current();
-    auto cmd = frame_resource.command_buffer;
+    VkCommandBuffer cmd = frame_resource.command_buffer;
 
     /// --- Transition swapchain to present
     auto &swapchain_image = get_current_swapchain();
@@ -286,9 +286,9 @@ void API::end_frame()
     vmaSetCurrentFrameIndex(ctx.allocator, ctx.frame_count);
 }
 
-void API::wait_idle() { VK_CHECK(vkDeviceWaitIdle(ctx.device)); }
+void API::wait_idle() const { VK_CHECK(vkDeviceWaitIdle(ctx.device)); }
 
-void API::display_ui(UI::Context &ui)
+void API::display_ui(UI::Context &ui) const
 {
     if (ui.begin_window("API"))
     {

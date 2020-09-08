@@ -132,7 +132,7 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
         props.resize(props_count);
         vkGetPhysicalDeviceSparseImageFormatProperties2(ctx.physical_device, &info2, &props_count, nullptr);
 
-        assert(props.size() > 0 && info.max_sparse_size != 0);
+        assert(!props.empty() && info.max_sparse_size != 0);
 
         VK_CHECK(vkCreateImage(ctx.device, &image_info, nullptr, &img.vkhandle));
 
@@ -145,7 +145,7 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
         sparse_mem_req.resize(sparse_mem_req_count);
         vkGetImageSparseMemoryRequirements(ctx.device, img.vkhandle, &sparse_mem_req_count, sparse_mem_req.data());
 
-        assert(sparse_mem_req.size() > 0);
+        assert(!sparse_mem_req.empty());
 
         // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
         const usize page_size = mem_req.alignment;
@@ -366,7 +366,7 @@ void API::generate_mipmaps(ImageH h)
 
     cmd_buffer.begin();
 
-    auto cmd = cmd_buffer.vkhandle;
+    VkCommandBuffer cmd = cmd_buffer.vkhandle;
 
     VkImageSubresourceRange mip_sub_range{};
     mip_sub_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -646,7 +646,7 @@ CommandBuffer API::get_temp_cmd_buffer()
     return cmd;
 }
 
-void CommandBuffer::begin()
+void CommandBuffer::begin() const
 {
     VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     binfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -975,14 +975,14 @@ ComputeProgram &API::get_program(ComputeProgramH H)
 
 void destroy_program_internal(API &api, GraphicsProgram &program)
 {
-    for (auto layout : program.descriptor_layouts)
+    for (VkDescriptorSetLayout layout : program.descriptor_layouts)
     {
         vkDestroyDescriptorSetLayout(api.ctx.device, layout, nullptr);
     }
 
     vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
 
-    for (auto pipeline : program.pipelines_vk)
+    for (VkPipeline pipeline : program.pipelines_vk)
     {
         vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
         api.graphics_pipeline_count--;
@@ -1003,7 +1003,7 @@ void destroy_program_internal(API &api, ComputeProgram &program)
     vkDestroyDescriptorSetLayout(api.ctx.device, program.descriptor_layout, nullptr);
     vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
 
-    for (auto pipeline : program.pipelines_vk)
+    for (VkPipeline pipeline : program.pipelines_vk)
     {
         vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
         api.compute_pipeline_count--;
@@ -1021,7 +1021,7 @@ void API::destroy_program(ComputeProgramH H)
 void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    auto cmd             = frame_resource.command_buffer;
+    VkCommandBuffer cmd             = frame_resource.command_buffer;
     auto &image          = get_image(H);
 
     auto src = get_src_image_access(image.usage);
