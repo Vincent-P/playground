@@ -145,6 +145,11 @@ void RenderGraph::add_pass(RenderPass && _pass)
         auto &image = images[storage_desc];
         image.resource.storage_images_in.push_back(pass_h);
     }
+
+    if (pass.type == PassType::BlitToSwapchain) {
+        auto &image = images[swapchain];
+        image.resource.transfer_dst_in.push_back(pass_h);
+    }
 }
 
 
@@ -345,6 +350,17 @@ bool RenderGraph::execute()
                 }
                 assert(color_pass_idx < color_resource.resource.color_attachment_in.size());
 
+                // need to also check for transfer dst to avoid clearing after a transfer
+                if (color_pass_idx == 0)
+                {
+                    for (auto pass_h : color_resource.resource.transfer_dst_in) {
+                        if (pass_h.value() < renderpass_h.value()) {
+                            color_pass_idx = 1; // just disbale clear
+                            break;
+                        }
+                    }
+                }
+
                 pass.colors.emplace_back();
                 auto &color_info = pass.colors.back();
                 // for now, clear whenever a render target is used for the first time in the frame and load otherwise
@@ -421,7 +437,7 @@ bool RenderGraph::execute()
             api.end_label();
             break;
         }
-        case PassType::Present:
+        case PassType::BlitToSwapchain:
         {
             assert(renderpass.color_attachments.size() == 1);
             auto desc_h = renderpass.color_attachments[0];
@@ -505,7 +521,7 @@ void RenderGraph::display_ui(UI::Context &ui)
                     ImGui::TextUnformatted("Type: Compute");
                 }
                 else {
-                    ImGui::TextUnformatted("Type: Present");
+                    ImGui::TextUnformatted("Type: BlitToSwapchain");
                 }
 
                 ImGui::TextUnformatted("Inputs:");

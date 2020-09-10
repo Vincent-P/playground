@@ -41,6 +41,7 @@ struct RenderResource
     std::vector<RenderPassH> storage_images_in;
     std::vector<RenderPassH> color_attachment_in;
     std::vector<RenderPassH> depth_attachment_in;
+    std::vector<RenderPassH> transfer_dst_in;
 };
 
 enum struct SizeType
@@ -74,7 +75,7 @@ enum struct PassType
 {
     Graphics,
     Compute,
-    Present
+    BlitToSwapchain
     // Transfer?
 };
 

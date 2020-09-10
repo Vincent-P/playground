@@ -51,8 +51,8 @@ struct Context
         const auto& io = ImGui::GetIO();
         if (ImGui::BeginMainMenuBar())
         {
-            auto display_width = io.DisplaySize.x / io.DisplayFramebufferScale.x;
-            ImGui::Dummy(ImVec2(display_width / 2 - 100.0f, 0.0f));
+            auto display_width = io.DisplaySize.x * io.DisplayFramebufferScale.x;
+            ImGui::Dummy(ImVec2(display_width / 2 - 100.0f * io.DisplayFramebufferScale.x, 0.0f));
 
             ImGui::TextUnformatted("|");
             if (ImGui::BeginMenu(EVA_MENU " Menu"))

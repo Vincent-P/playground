@@ -54,8 +54,8 @@ assert_uniform_size(GlobalUniform);
 struct VoxelOptions
 {
     float3 center = {-20.0f, -10.0f, -15.0f};
-    float size    = 0.3f;
-    uint res      = 128;
+    float size    = 0.2f;
+    uint res      = 256;
 };
 
 struct VCTDebug

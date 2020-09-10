@@ -172,7 +172,7 @@ void InputCamera::update()
 {
     auto *glfw_handle = p_window->get_handle();
 
-    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_CONTROL);
+    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
     bool lmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     bool rmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
