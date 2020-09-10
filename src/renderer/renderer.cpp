@@ -255,7 +255,7 @@ static void add_floor_pass(Renderer &r)
     graph.add_pass({
         .name = "Checkerboard Floor pass",
         .type = PassType::Graphics,
-        .color_attachment = r.hdr_buffer,
+        .color_attachments = {r.hdr_buffer},
         .depth_attachment = r.depth_buffer,
         .exec = [pass_data=r.checkerboard_floor, global_data=r.global_uniform_pos](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
@@ -352,7 +352,7 @@ static void add_imgui_pass(Renderer &r)
         .name = "ImGui pass",
         .type = PassType::Graphics,
         .external_images = external_images,
-        .color_attachment = graph.swapchain,
+        .color_attachments = {graph.swapchain},
         .exec = [pass_data = r.imgui](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             ImDrawData *data = ImGui::GetDrawData();
@@ -640,7 +640,7 @@ static void add_procedural_sky_pass(Renderer &r)
     graph.add_pass({
         .name             = "Transmittance LUT",
         .type             = PassType::Graphics,
-        .color_attachment = r.transmittance_lut,
+        .color_attachments = {r.transmittance_lut},
         .exec =
             [pass_data   = r.procedural_sky,
              global_data = r.global_uniform_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
@@ -681,7 +681,7 @@ static void add_procedural_sky_pass(Renderer &r)
         .name             = "Skyview LUT",
         .type             = PassType::Graphics,
         .sampled_images   = {r.transmittance_lut, r.multiscattering_lut},
-        .color_attachment = r.skyview_lut,
+        .color_attachments = {r.skyview_lut},
         .exec =
             [pass_data         = r.procedural_sky,
              global_data       = r.global_uniform_pos,
@@ -715,7 +715,7 @@ static void add_procedural_sky_pass(Renderer &r)
         .name             = "Sky raymarch",
         .type             = PassType::Graphics,
         .sampled_images   = {r.transmittance_lut, r.multiscattering_lut, r.depth_buffer, r.skyview_lut},
-        .color_attachment = r.hdr_buffer,
+        .color_attachments = {r.hdr_buffer},
         .exec =
             [pass_data         = r.procedural_sky,
              global_data       = r.global_uniform_pos,
@@ -807,7 +807,7 @@ static void add_tonemapping_pass(Renderer &r)
         .name = "Tonemapping",
         .type = PassType::Graphics,
         .sampled_images = { r.hdr_buffer },
-        .color_attachment = graph.swapchain,
+        .color_attachments = {graph.swapchain},
         .exec = [pass_data=r.tonemapping, default_sampler=r.nearest_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto hdr_buffer = graph.get_resolved_image(self.sampled_images[0]);
@@ -1225,7 +1225,7 @@ static void add_gltf_pass(Renderer &r)
         .type = PassType::Graphics,
         .external_images = external_images,
         .sampled_images = sampled_images,
-        .color_attachment = r.hdr_buffer,
+        .color_attachments = {r.hdr_buffer},
         .depth_attachment = r.depth_buffer,
         .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
@@ -1495,6 +1495,7 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     return pass;
 }
 
+#if 1
 static void add_voxels_clear_pass(Renderer& r)
 {
     auto &api = r.api;
@@ -1527,8 +1528,21 @@ static void add_voxels_clear_pass(Renderer& r)
             api.dispatch(program, count, count, count);
         }
     });
+}
+#else
+static void add_voxels_clear_pass(Renderer& r)
+{
+    auto &graph = r.graph;
+
+    graph.add_pass({
+        .name = "Voxels clear",
+        .type = PassType::Graphics,
+        .color_attachments = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
+        .exec = [](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &/*api*/) {}
+    });
 
 }
+#endif
 
 static void add_voxelization_pass(Renderer &r)
 {
@@ -1606,7 +1620,7 @@ static void add_voxels_visualization_pass(Renderer& r)
         .name = "Voxels visualization",
         .type = PassType::Graphics,
         .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
-        .color_attachment = r.hdr_buffer,
+        .color_attachments = {r.hdr_buffer},
         .exec = [pass_data=r.voxels, global_data=r.global_uniform_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
@@ -2005,23 +2019,15 @@ void Renderer::draw()
     update_uniforms(*this);
 
     // voxel cone tracing prep
-    if (false)
-    {
         add_voxels_clear_pass(*this);
         add_voxelization_pass(*this);
         add_voxels_direct_lighting_pass(*this);
         add_voxels_aniso_filtering(*this);
-    }
 
     // color pass
-    if (false)
-    {
         add_gltf_prepass(*this);
-    }
     add_floor_pass(*this);
 
-    if (false)
-    {
         if (vct_debug.display_voxels)
         {
             add_voxels_visualization_pass(*this);
@@ -2030,7 +2036,6 @@ void Renderer::draw()
         {
             add_gltf_pass(*this);
         }
-    }
 
     add_procedural_sky_pass(*this);
 

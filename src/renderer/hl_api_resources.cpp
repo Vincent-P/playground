@@ -75,6 +75,10 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
         image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
     }
 
+    if (info.type == VK_IMAGE_TYPE_3D) {
+        image_info.flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
+    }
+
     image_info.imageType             = info.type;
     image_info.format                = info.format;
     image_info.extent.width          = info.width;
@@ -217,6 +221,22 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
+    VkImageViewCreateInfo cvci = vci;
+    if (cvci.viewType == VK_IMAGE_VIEW_TYPE_3D) {
+        cvci.subresourceRange.layerCount = image_info.extent.depth;
+        cvci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    }
+    VK_CHECK(vkCreateImageView(ctx.device, &cvci, nullptr, &img.color_attachment_view));
+
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(img.color_attachment_view);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName                   = info.name;
+        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
+    }
+
     img.format_views.reserve(info.extra_formats.size());
     for (const auto &extra_format : info.extra_formats)
     {
@@ -275,6 +295,7 @@ void destroy_image_internal(API &api, Image &img)
     }
 
     vkDestroyImageView(api.ctx.device, img.default_view, nullptr);
+    vkDestroyImageView(api.ctx.device, img.color_attachment_view, nullptr);
 
     for (auto &image_view : img.format_views)
     {

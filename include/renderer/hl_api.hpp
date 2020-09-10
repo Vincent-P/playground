@@ -93,7 +93,7 @@ struct Image
     ImageInfo info;
 
     // regular texture
-    VkImage vkhandle;
+    VkImage vkhandle = VK_NULL_HANDLE;
     VmaAllocation allocation;
 
     // sparse residency texture
@@ -104,7 +104,8 @@ struct Image
     ImageUsage usage = ImageUsage::None;
     VkImageSubresourceRange full_range;
 
-    VkImageView default_view; // view with the default format (image_info.format) and full range
+    VkImageView default_view = VK_NULL_HANDLE; // view with the default format (image_info.format) and full range
+    VkImageView color_attachment_view = VK_NULL_HANDLE;
     std::vector<VkFormat> extra_formats;
     std::vector<VkImageView> format_views; // extra views for each image_info.extra_formats
     std::vector<VkImageView> mip_views;    // mip slices with defaut format
@@ -169,11 +170,12 @@ using RenderTargetH = Handle<RenderTarget>;
 
 struct FrameBufferInfo
 {
-    VkImageView image_view = VK_NULL_HANDLE;
+    std::vector<VkImageView> color_views = {};
     VkImageView depth_view = VK_NULL_HANDLE;
 
     u32 width = 0;
     u32 height = 0;
+    u32 layers = 1;
     VkRenderPass render_pass = VK_NULL_HANDLE; // renderpass info instead?
 
     bool operator==(const FrameBufferInfo &b) const = default;
@@ -199,7 +201,7 @@ struct PassInfo
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 
     // param for VkFrameBuffer
-    std::optional<AttachmentInfo> color = {};
+    std::vector<AttachmentInfo> colors = {};
     std::optional<AttachmentInfo> depth = {};
 
     bool operator==(const PassInfo &b) const = default;

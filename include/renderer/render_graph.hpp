@@ -90,7 +90,7 @@ struct RenderPass
     std::vector<ImageDescH> storage_images;
 
     // outputs
-    std::optional<ImageDescH> color_attachment;
+    std::vector<ImageDescH> color_attachments;
     VkSampleCountFlagBits samples;
     std::optional<ImageDescH> depth_attachment;
 

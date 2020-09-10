@@ -122,9 +122,9 @@ void RenderGraph::add_pass(RenderPass && _pass)
     auto pass_h = passes.add(std::move(_pass));
     auto& pass = *passes.get(pass_h);
 
-    if (auto color_desc = pass.color_attachment)
+    for (auto color_desc : pass.color_attachments)
     {
-        auto &image = images[*color_desc];
+        auto &image = images[color_desc];
         image.resource.color_attachment_in.push_back(pass_h);
     }
 
@@ -226,9 +226,9 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
 {
     auto &api = *graph.p_api;
 
-    if (renderpass.color_attachment)
+    for (auto color_attachment : renderpass.color_attachments)
     {
-        auto &image_resource = graph.images.at(*renderpass.color_attachment);
+        auto &image_resource = graph.images.at(color_attachment);
         auto &vk_image       = api.get_image(image_resource.resolved_img);
 
         auto src = vulkan::get_src_image_access(vk_image.usage);
@@ -333,9 +333,9 @@ void RenderGraph::execute()
             vulkan::PassInfo pass;
 
             // does the color attachment needs to be cleared?
-            if (renderpass.color_attachment)
+            for (auto color_attachment : renderpass.color_attachments)
             {
-                auto &color_resource = images.at(*renderpass.color_attachment);
+                auto &color_resource = images.at(color_attachment);
                 usize color_pass_idx = 0; // index of the current pass in the color attachment's usage list
                 for (auto pass_h : color_resource.resource.color_attachment_in) {
                     if (pass_h == renderpass_h) {
@@ -345,11 +345,11 @@ void RenderGraph::execute()
                 }
                 assert(color_pass_idx < color_resource.resource.color_attachment_in.size());
 
-                vulkan::AttachmentInfo color_info;
+                pass.colors.emplace_back();
+                auto &color_info = pass.colors.back();
                 // for now, clear whenever a render target is used for the first time in the frame and load otherwise
                 color_info.load_op = color_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
                 color_info.rt      = color_resource.resolved_rt;
-                pass.color         = std::make_optional(color_info);
             }
 
             // same for depth
@@ -382,8 +382,8 @@ void RenderGraph::execute()
             usize viewport_height = 0;
 
             auto swapchain_extent = api.ctx.swapchain.extent;
-            if (renderpass.color_attachment) {
-                auto &desc      = *image_descs.get(*renderpass.color_attachment);
+            for (auto color_attachment : renderpass.color_attachments) {
+                auto &desc      = *image_descs.get(color_attachment);
                 viewport_width  = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative ? desc.size.x * swapchain_extent.width : desc.size.x);
                 viewport_height = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative ? desc.size.y * swapchain_extent.height : desc.size.y);
             }
@@ -468,9 +468,9 @@ void RenderGraph::display_ui(UI::Context &ui)
                     }
                 }
 
-                if (renderpass.color_attachment)
+                for (auto color_attachment : renderpass.color_attachments)
                 {
-                    const auto &desc = *image_descs.get(*renderpass.color_attachment);
+                    const auto &desc = *image_descs.get(color_attachment);
                     ImGui::Text(" - Color attachment: %s", desc.name.data());
                 }
 

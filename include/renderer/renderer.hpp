@@ -55,7 +55,7 @@ struct VoxelOptions
 {
     float3 center = {-20.0f, -10.0f, -15.0f};
     float size    = 0.1f;
-    uint res      = 256 + 128;
+    uint res      = 256;
 };
 
 struct VCTDebug

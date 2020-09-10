@@ -1,5 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
+#include <cstddef>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -21,31 +22,36 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 
     std::vector<VkAttachmentDescription> attachments;
 
-    VkAttachmentReference color_ref{.attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    std::vector<VkAttachmentReference> color_refs;
+    color_refs.reserve(rp.info.colors.size());
 
-    bool separateDepthStencilLayouts = api.ctx.vulkan12_features.separateDepthStencilLayouts;
-    VkAttachmentReference depth_ref{.attachment = 0, .layout = separateDepthStencilLayouts ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL};
+    for (auto &color_attachment : rp.info.colors)
+    {
+        color_refs.emplace_back();
+        auto &color_ref = color_refs.back();
 
-    if (rp.info.color) {
         color_ref.attachment = static_cast<u32>(attachments.size());
+        color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-        auto color_rt  = api.get_rendertarget(rp.info.color->rt);
+        auto color_rt  = api.get_rendertarget(color_attachment.rt);
         auto &color_img = api.get_image(color_rt.image_h);
         VkFormat format = color_img.info.format;
 
-        VkAttachmentDescription attachment;
+        attachments.emplace_back();
+        auto &attachment = attachments.back();
+        attachment.flags          = 0;
         attachment.format         = format;
         attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-        attachment.loadOp         = rp.info.color->load_op;
+        attachment.loadOp         = color_attachment.load_op;
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         attachment.initialLayout  = attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : color_ref.layout;
         attachment.finalLayout    = color_ref.layout;
-        attachment.flags          = {};
-        attachments.push_back(std::move(attachment));
     }
 
+    bool separateDepthStencilLayouts = api.ctx.vulkan12_features.separateDepthStencilLayouts;
+    VkAttachmentReference depth_ref{.attachment = 0, .layout = separateDepthStencilLayouts ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL};
     if (rp.info.depth) {
         depth_ref.attachment = static_cast<u32>(attachments.size());
 
@@ -70,8 +76,8 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpasses[0].inputAttachmentCount = 0;
     subpasses[0].pInputAttachments    = nullptr;
-    subpasses[0].colorAttachmentCount = rp.info.color ? 1 : 0;
-    subpasses[0].pColorAttachments    = rp.info.color ? &color_ref : nullptr;
+    subpasses[0].colorAttachmentCount = color_refs.size();
+    subpasses[0].pColorAttachments    = color_refs.data();
     subpasses[0].pResolveAttachments  = nullptr;
 
     subpasses[0].pDepthStencilAttachment = rp.info.depth ? &depth_ref : nullptr;
@@ -79,15 +85,13 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     subpasses[0].preserveAttachmentCount = 0;
     subpasses[0].pPreserveAttachments    = nullptr;
 
-    std::array<VkSubpassDependency, 0> dependencies{};
-
     VkRenderPassCreateInfo rp_info = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
     rp_info.attachmentCount        = static_cast<u32>(attachments.size());
     rp_info.pAttachments           = attachments.data();
     rp_info.subpassCount           = subpasses.size();
     rp_info.pSubpasses             = subpasses.data();
-    rp_info.dependencyCount        = dependencies.size();
-    rp_info.pDependencies          = dependencies.data();
+    rp_info.dependencyCount        = 0;
+    rp_info.pDependencies          = nullptr;
 
     VK_CHECK(vkCreateRenderPass(api.ctx.device, &rp_info, nullptr, &rp.vkhandle));
 
@@ -107,11 +111,11 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
     fb.info = info;
 
     std::vector<VkImageView> attachments;
-    if (render_pass.info.color) {
-        attachments.push_back(fb.info.image_view);
+    for (auto color_view : fb.info.color_views) {
+        attachments.push_back(color_view);
     }
 
-    if (render_pass.info.depth) {
+    if (fb.info.depth_view != VK_NULL_HANDLE) {
         attachments.push_back(fb.info.depth_view);
     }
 
@@ -119,7 +123,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
     ci.renderPass              = render_pass.vkhandle;
     ci.attachmentCount         = static_cast<u32>(attachments.size());
     ci.pAttachments            = attachments.data();
-    ci.layers                  = 1;
+    ci.layers                  = fb.info.layers;
     ci.width                   = fb.info.width;
     ci.height                  = fb.info.height;
 
@@ -131,20 +135,16 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo 
 
 void API::begin_pass(PassInfo &&info)
 {
-    if (info.color) {
-        assert(info.color->rt.is_valid());
-    }
-
     auto render_pass_h = find_or_create_render_pass(*this, std::move(info));
     auto &render_pass = renderpasses[render_pass_h];
 
     FrameBufferInfo fb_info;
 
-    if (render_pass.info.color)
+    for (auto &color_attachment : render_pass.info.colors)
     {
-        const auto &rt     = get_rendertarget(render_pass.info.color->rt);
+        const auto &rt     = get_rendertarget(color_attachment.rt);
         auto &image        = get_image(rt.image_h);
-        fb_info.image_view = image.default_view;
+        fb_info.color_views.push_back(image.color_attachment_view);
     }
 
     if (render_pass.info.depth)
@@ -156,21 +156,23 @@ void API::begin_pass(PassInfo &&info)
 
     fb_info.render_pass = render_pass.vkhandle;
 
-    if (render_pass.info.color)
+    for (auto &color_attachment : render_pass.info.colors)
     {
-        const auto &rt = get_rendertarget(render_pass.info.color->rt);
+        const auto &rt = get_rendertarget(color_attachment.rt);
         const auto &image = get_image(rt.image_h);
         fb_info.width     = image.info.width;
         fb_info.height    = image.info.height;
+        fb_info.layers    = image.info.depth;
     }
-    else if (render_pass.info.depth)
+
+    if (render_pass.info.depth)
     {
         const auto &rt    = get_rendertarget(render_pass.info.depth->rt);
         const auto &image = get_image(rt.image_h);
         fb_info.width     = image.info.width;
         fb_info.height    = image.info.height;
     }
-    else
+    else if (fb_info.width == 0 || fb_info.height == 0)
     {
         fb_info.width  = 4096;
         fb_info.height = 4096;
@@ -184,18 +186,24 @@ void API::begin_pass(PassInfo &&info)
 
     std::vector<VkClearValue> clear_values;
 
-    if (render_pass.info.color && render_pass.info.color->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
-        VkClearValue clear;
-        clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
-        clear_values.push_back(std::move(clear));
+    for (auto &color_attachment : render_pass.info.colors) {
+        if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+            clear_values.emplace_back();
+            auto &clear = clear_values.back();
+            clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
+        }
     }
 
     if (render_pass.info.depth && render_pass.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
-        // ??
-        if (render_pass.info.color && clear_values.empty()) {
-            VkClearValue clear;
-            clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
-            clear_values.push_back(std::move(clear));
+        // maybe push clear colors even when there is no need to clear attachments?
+        if (!render_pass.info.colors.empty() && clear_values.empty()) {
+            for (auto &color_attachment : render_pass.info.colors) {
+                if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+                    clear_values.emplace_back();
+                    auto &clear = clear_values.back();
+                    clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
+                }
+            }
         }
 
         VkClearValue clear;
@@ -306,25 +314,24 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         rast_i.lineWidth               = 1.0f;
 
         // TODO: from render_pass
-        std::array<VkPipelineColorBlendAttachmentState, 1> att_states;
-        att_states[0].colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        att_states[0].blendEnable         = VK_TRUE;
-        att_states[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        att_states[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        att_states[0].colorBlendOp        = VK_BLEND_OP_ADD;
-        att_states[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        att_states[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        att_states[0].alphaBlendOp        = VK_BLEND_OP_ADD;
+        std::vector<VkPipelineColorBlendAttachmentState> att_states;
+        att_states.reserve(render_pass.info.colors.size());
 
-        if (render_pass.info.color)
+        for (const auto &color_attachment : render_pass.info.colors)
         {
-            const auto &color_attachment = *render_pass.info.color;
             auto &color = api.get_rendertarget(color_attachment.rt);
             auto &image = api.get_image(color.image_h);
-            // TODO: disable for all uint
-            if (image.info.format == VK_FORMAT_R8_UINT) {
-                att_states[0].blendEnable = VK_FALSE;
-            }
+
+            att_states.emplace_back();
+            auto &state = att_states.back();
+            state.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            state.blendEnable         = image.info.format != VK_FORMAT_R8_UINT; // TODO: disable for all uint
+            state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            state.colorBlendOp        = VK_BLEND_OP_ADD;
+            state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            state.alphaBlendOp        = VK_BLEND_OP_ADD;
         }
 
         VkPipelineColorBlendStateCreateInfo colorblend_i
