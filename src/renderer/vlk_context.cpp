@@ -324,7 +324,7 @@ void Context::create_swapchain()
     ci.imageColorSpace          = ctx.swapchain.format.colorSpace;
     ci.imageExtent              = ctx.swapchain.extent;
     ci.imageArrayLayers         = 1;
-    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     if (ctx.graphics_family_idx != ctx.present_family_idx)
     {

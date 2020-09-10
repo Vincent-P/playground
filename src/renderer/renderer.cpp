@@ -66,8 +66,16 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     // basic resources
 
-    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
-    r.hdr_buffer   = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.resolution_scale = 0.25f;
+    r.depth_buffer     = r.graph.image_descs.add({.name   = "Depth Buffer",
+                                              .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                              .format = VK_FORMAT_D32_SFLOAT});
+    r.hdr_buffer       = r.graph.image_descs.add({.name   = "HDR Buffer",
+                                            .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                            .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.ldr_buffer       = r.graph.image_descs.add({.name   = "LDR Buffer",
+                                            .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                            .format = r.api.ctx.swapchain.format.format});
 
     r.trilinear_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
                                                 .min_filter   = VK_FILTER_LINEAR,
@@ -352,7 +360,7 @@ static void add_imgui_pass(Renderer &r)
         .name = "ImGui pass",
         .type = PassType::Graphics,
         .external_images = external_images,
-        .color_attachments = {graph.swapchain},
+        .color_attachments = {r.ldr_buffer},
         .exec = [pass_data = r.imgui](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             ImDrawData *data = ImGui::GetDrawData();
@@ -807,7 +815,7 @@ static void add_tonemapping_pass(Renderer &r)
         .name = "Tonemapping",
         .type = PassType::Graphics,
         .sampled_images = { r.hdr_buffer },
-        .color_attachments = {graph.swapchain},
+        .color_attachments = {r.ldr_buffer},
         .exec = [pass_data=r.tonemapping, default_sampler=r.nearest_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto hdr_buffer = graph.get_resolved_image(self.sampled_images[0]);
@@ -1852,10 +1860,17 @@ void Renderer::display_ui(UI::Context &ui)
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
 
-    io.DisplaySize.x             = float(api.ctx.swapchain.extent.width);
-    io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
+    io.DisplaySize.x             = resolution_scale * float(api.ctx.swapchain.extent.width);
+    io.DisplaySize.y             = resolution_scale * float(api.ctx.swapchain.extent.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
+
+    if (ui.begin_window("ImGui"))
+    {
+        ImGui::Text("Display size: %dx%d", (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+        ImGui::Text("Display scale: %dx%d", (int)io.DisplayFramebufferScale.x, (int)io.DisplayFramebufferScale.y);
+        ui.end_window();
+    }
 
     if (ui.begin_window("Profiler", true))
     {
@@ -2019,41 +2034,54 @@ void Renderer::draw()
     update_uniforms(*this);
 
     // voxel cone tracing prep
-        add_voxels_clear_pass(*this);
-        add_voxelization_pass(*this);
-        add_voxels_direct_lighting_pass(*this);
-        add_voxels_aniso_filtering(*this);
+    if (api.ctx.frame_count == 0)
+    {
+    add_voxels_clear_pass(*this);
+    add_voxelization_pass(*this);
+    }
+
+    if (0)
+    {
+    add_voxels_direct_lighting_pass(*this);
+    add_voxels_aniso_filtering(*this);
+    }
 
     // color pass
-        add_gltf_prepass(*this);
+    if (0)
+    {
+    add_gltf_prepass(*this);
+    }
     add_floor_pass(*this);
 
-        if (vct_debug.display_voxels)
-        {
-            add_voxels_visualization_pass(*this);
-        }
-        else
-        {
-            add_gltf_pass(*this);
-        }
+    if (vct_debug.display_voxels)
+    {
+        add_voxels_visualization_pass(*this);
+    }
+    else if (0)
+    {
+        add_gltf_pass(*this);
+    }
 
+    if (0)
+    {
     add_procedural_sky_pass(*this);
+    }
 
     add_tonemapping_pass(*this);
     add_imgui_pass(*this);
 
-    // how to call these in a pass?
-    if (!api.start_present()) {
-        ImGui::EndFrame();
+    graph.add_pass({
+        .name = "Present",
+        .type = PassType::Present,
+        .color_attachments = {ldr_buffer}
+    });
+
+    ImGui::EndFrame(); // right before drawing the ui
+
+    if (!graph.execute()) {
         return;
     }
 
-    ImGui::EndFrame(); // right before drawing the ui
-    //
-
-    graph.execute();
-
-    // graph.end_frame() ?
     api.end_frame();
 }
 

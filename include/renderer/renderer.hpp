@@ -54,13 +54,13 @@ assert_uniform_size(GlobalUniform);
 struct VoxelOptions
 {
     float3 center = {-20.0f, -10.0f, -15.0f};
-    float size    = 0.1f;
-    uint res      = 256;
+    float size    = 0.3f;
+    uint res      = 128;
 };
 
 struct VCTDebug
 {
-    bool display_voxels = false;
+    bool display_voxels = true;
     uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
     uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
     float pad0;
@@ -101,8 +101,10 @@ struct Renderer
     Camera sun;
     std::shared_ptr<Model> model;
 
+    float resolution_scale = 1.0f;
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
+    ImageDescH ldr_buffer;
 
     vulkan::CircularBufferPosition global_uniform_pos;
     vulkan::SamplerH nearest_sampler;

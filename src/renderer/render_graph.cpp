@@ -316,7 +316,7 @@ static void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier>
     vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
 }
 
-void RenderGraph::execute()
+bool RenderGraph::execute()
 {
     auto &api = *p_api;
     resolve_images(*this);
@@ -421,8 +421,71 @@ void RenderGraph::execute()
             api.end_label();
             break;
         }
+        case PassType::Present:
+        {
+            assert(renderpass.color_attachments.size() == 1);
+            auto desc_h = renderpass.color_attachments[0];
+            auto &image = images.at(desc_h);
+            auto &vk_image = api.get_image(image.resolved_img);
+            auto& swapchain_image = api.get_current_swapchain();
+
+            std::array<VkImageMemoryBarrier, 2> barriers;
+
+            // prepare the color attachment as the transfer src
+            uint src_mask = 0;
+            uint dst_mask = 0;
+            auto src       = vulkan::get_src_image_access(vk_image.usage);
+            auto dst       = vulkan::get_dst_image_access(vulkan::ImageUsage::TransferSrc);
+            barriers[0]    = vulkan::get_image_barrier(vk_image, src, dst);
+            vk_image.usage = vulkan::ImageUsage::TransferSrc;
+            src_mask |= src.stage;
+            dst_mask |= dst.stage;
+
+            // prepare the swapchain as the transfer dst
+            src            = vulkan::get_src_image_access(vulkan::ImageUsage::None);
+            dst            = vulkan::get_dst_image_access(vulkan::ImageUsage::TransferDst);
+            barriers[1]    = vulkan::get_image_barrier(swapchain_image, src, dst);
+            swapchain_image.usage = vulkan::ImageUsage::TransferDst;
+            src_mask |= src.stage;
+            dst_mask |= dst.stage;
+
+            VkCommandBuffer cmd = api.ctx.frame_resources.get_current().command_buffer;
+
+            bool success = api.start_present();
+            if (!success) {
+                return false;
+            }
+
+
+            vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
+
+            // blit the color attachment onto the swapchain
+            VkImageBlit blit;
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            blit.srcSubresource.mipLevel = 0;
+            blit.srcOffsets[0] = {.x = 0, .y = 0, .z =0};
+            blit.srcOffsets[1] = {.x = (i32)vk_image.info.width, .y = (i32)vk_image.info.height, .z = 1};
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+            blit.dstSubresource.mipLevel = 0;
+            blit.dstOffsets[0] = {.x = 0, .y = 0, .z =0};
+            blit.dstOffsets[1] = {.x = (i32)api.ctx.swapchain.extent.width, .y = (i32)api.ctx.swapchain.extent.height, .z = 1};
+
+            vkCmdBlitImage(cmd,
+                           vk_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           swapchain_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           1, &blit,
+                           VK_FILTER_NEAREST);
+
+            break;
+        }
         };
     }
+
+    return true;
 }
 
 void RenderGraph::display_ui(UI::Context &ui)
@@ -435,7 +498,16 @@ void RenderGraph::display_ui(UI::Context &ui)
             auto &renderpass = *p_pass;
             if (ImGui::CollapsingHeader(renderpass.name.data()))
             {
-                ImGui::Text("Type: %s", renderpass.type == PassType::Graphics ? "Graphics" : "Compute");
+                if (renderpass.type == PassType::Graphics) {
+                    ImGui::TextUnformatted("Type: Graphics");
+                }
+                else if (renderpass.type == PassType::Compute) {
+                    ImGui::TextUnformatted("Type: Compute");
+                }
+                else {
+                    ImGui::TextUnformatted("Type: Present");
+                }
+
                 ImGui::TextUnformatted("Inputs:");
                 if (!renderpass.external_images.empty())
                 {

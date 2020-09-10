@@ -73,7 +73,8 @@ struct ImageResource
 enum struct PassType
 {
     Graphics,
-    Compute
+    Compute,
+    Present
     // Transfer?
 };
 
@@ -110,7 +111,7 @@ struct RenderGraph
 
     void clear();
     void add_pass(RenderPass&&);
-    void execute();
+    bool execute();
 
     vulkan::ImageH get_resolved_image(ImageDescH desc_h) const;
 
