@@ -74,6 +74,7 @@ bool operator==(const VkExtent3D &a, const VkExtent3D &b);
 bool operator==(const VkImageSubresourceRange &a, const VkImageSubresourceRange &b);
 bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b);
 bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b);
+bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b);
 
 namespace my_app
 {

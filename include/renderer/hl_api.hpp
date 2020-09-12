@@ -54,10 +54,6 @@ struct ImageInfo
     VkSampleCountFlagBits samples       = VK_SAMPLE_COUNT_1_BIT;
     VkImageUsageFlags usages            = sampled_image_usage;
     VmaMemoryUsage memory_usage         = VMA_MEMORY_USAGE_GPU_ONLY;
-    // sparse resident textures
-    bool is_sparse = false;
-    usize max_sparse_size;
-    bool is_linear = false;
 
     bool operator==(const ImageInfo &) const = default;
 };
@@ -86,36 +82,40 @@ enum struct ImageUsage
 
 struct Image;
 using ImageH = Handle<Image>;
+struct ImageView;
+using ImageViewH = Handle<ImageView>;
+
 struct Image
 {
     const char *name;
 
     ImageInfo info;
 
-    // regular texture
     VkImage vkhandle = VK_NULL_HANDLE;
     VmaAllocation allocation;
-
-    // sparse residency texture
-    usize page_size;
-    std::vector<VmaAllocation> sparse_allocations;
-    std::vector<VmaAllocationInfo> allocations_infos;
 
     ImageUsage usage = ImageUsage::None;
     VkImageSubresourceRange full_range;
 
-    VkImageView default_view = VK_NULL_HANDLE; // view with the default format (image_info.format) and full range
-    VkImageView color_attachment_view = VK_NULL_HANDLE;
     std::vector<VkFormat> extra_formats;
-    std::vector<VkImageView> format_views; // extra views for each image_info.extra_formats
-    std::vector<VkImageView> mip_views;    // mip slices with defaut format
 
-    FatPtr mapped_ptr{};
+    ImageViewH default_view; // view with the default format (image_info.format) and full range
+    std::vector<ImageViewH> format_views; // extra views for each image_info.extra_formats
+    std::vector<ImageViewH> mip_views;    // mip slices with defaut format
 
     // A proxy is an Image containing a VkImage that is external to the API (swapchain images for example)
     bool is_proxy = false;
 
     bool operator==(const Image &b) const = default;
+};
+
+struct ImageView
+{
+    ImageH image_h;
+    VkImageSubresourceRange range;
+    VkFormat format;
+    VkImageViewType view_type;
+    VkImageView vkhandle;
 };
 
 struct SamplerInfo
@@ -155,42 +155,16 @@ struct Buffer
 };
 using BufferH = Handle<Buffer>;
 
-// TODO is the rendertarget struct really needed...
-struct RTInfo
-{
-    ImageH image_h    = {};
-};
-
-struct RenderTarget
-{
-    ImageH image_h;
-};
-
-using RenderTargetH = Handle<RenderTarget>;
-
-struct FrameBufferInfo
-{
-    std::vector<VkImageView> color_views = {};
-    VkImageView depth_view = VK_NULL_HANDLE;
-
-    u32 width = 0;
-    u32 height = 0;
-    u32 layers = 1;
-    VkRenderPass render_pass = VK_NULL_HANDLE; // renderpass info instead?
-
-    bool operator==(const FrameBufferInfo &b) const = default;
-};
-
 struct FrameBuffer
 {
-    FrameBufferInfo info;
+    VkFramebufferCreateInfo create_info;
     VkFramebuffer vkhandle;
 };
 
 struct AttachmentInfo
 {
     VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    RenderTargetH rt;
+    ImageViewH image_view;
 
     bool operator==(const AttachmentInfo &b) const = default;
 };
@@ -451,7 +425,7 @@ struct API
     Pool<Image> images;
     std::vector<ImageH> swapchain_to_image_h;
 
-    Pool<RenderTarget> rendertargets;
+    Pool<ImageView> image_views;
 
     Pool<Sampler> samplers;
     SamplerH default_sampler;
@@ -498,37 +472,23 @@ struct API
     void bind_program(GraphicsProgramH H);
 
     // storage images
-    void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
-                    std::optional<VkImageView> image_view = std::nullopt);
-    void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h,
-                    std::optional<VkImageView> image_view = std::nullopt);
-
-    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h,
-                     const std::vector<VkImageView> &images_view);
-    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
-                     const std::vector<VkImageView> &images_view);
+    void bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index = 0);
+    void bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint slot, uint index = 0);
+    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageViewH> &image_views_h);
+    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageViewH> &image_views_h);
 
     // sampled images
-    void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
-                                     SamplerH sampler_h, std::optional<VkImageView> image_view = std::nullopt);
-    void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h,
-                                     std::optional<VkImageView> image_view = std::nullopt);
+    void bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
+    void bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot, uint index = 0);
 
-    void bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot,
-                                      const std::vector<ImageH> &images_h, SamplerH sampler_h,
-                                      const std::vector<VkImageView> &images_view);
-
-    void bind_combined_images_samplers(GraphicsProgramH program_h, uint set, uint slot,
-                                      const std::vector<ImageH> &images_h,
-                                      const std::vector<SamplerH> &samplers,
-                                      const std::vector<VkImageView> &images_view);
-
-    void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
-                                      SamplerH sampler_h, const std::vector<VkImageView> &images_view);
+    void bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
+                                       const std::vector<SamplerH> &samplers, uint set, uint slot);
+    void bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
+                                       const std::vector<SamplerH> &samplers, uint slot);
 
     // dynamic buffers
-    void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
-    void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
+    void bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot);
+    void bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot);
 
     void create_global_set();
     void update_global_set();
@@ -581,17 +541,14 @@ struct API
     void upload_image(ImageH H, void *data, usize len);
     void generate_mipmaps(ImageH H);
     void transfer_done(ImageH H); // it's a hack for now
-    FatPtr read_image(ImageH H);
+
+    ImageView &get_image_view(ImageViewH H);
+
 
     // Samplers
     SamplerH create_sampler(const SamplerInfo &info);
     Sampler &get_sampler(SamplerH H);
     void destroy_sampler(SamplerH H);
-
-    // Render targets
-    RenderTargetH create_rendertarget(const RTInfo &info);
-    RenderTarget &get_rendertarget(RenderTargetH H);
-    void destroy_rendertarget(RenderTargetH H);
 
     // Buffers
     BufferH create_buffer(const BufferInfo &info);

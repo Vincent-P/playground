@@ -34,14 +34,12 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         color_ref.attachment = static_cast<u32>(attachments.size());
         color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-        auto color_rt  = api.get_rendertarget(color_attachment.rt);
-        auto &color_img = api.get_image(color_rt.image_h);
-        VkFormat format = color_img.info.format;
+        const auto &color_view = api.get_image_view(color_attachment.image_view);
 
         attachments.emplace_back();
         auto &attachment = attachments.back();
         attachment.flags          = 0;
-        attachment.format         = format;
+        attachment.format         = color_view.format;
         attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp         = color_attachment.load_op;
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -56,11 +54,10 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     if (rp.info.depth) {
         depth_ref.attachment = static_cast<u32>(attachments.size());
 
-        const auto &depth_rt    = api.get_rendertarget(rp.info.depth->rt);
-        const auto &depth_image = api.get_image(depth_rt.image_h);
+        const auto &depth_view    = api.get_image_view(rp.info.depth->image_view);
 
         VkAttachmentDescription attachment;
-        attachment.format         = depth_image.info.format;
+        attachment.format         = depth_view.format;
         attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp         = rp.info.depth->load_op;
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -100,36 +97,62 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     return api.renderpasses.size() - 1;
 }
 
-static FrameBuffer &find_or_create_frame_buffer(API &api, const FrameBufferInfo &info, const RenderPass &render_pass)
+static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &render_pass)
 {
+    VkFramebufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    ci.renderPass              = render_pass.vkhandle;
+
+    std::vector<VkImageView> attachments;
+
+    for (const auto &color_attachment : render_pass.info.colors)
+    {
+        const auto &color_view = api.get_image_view(color_attachment.image_view);
+        attachments.push_back(color_view.vkhandle);
+    }
+
+    if (render_pass.info.depth)
+    {
+        const auto &depth_view = api.get_image_view(render_pass.info.depth->image_view);
+        attachments.push_back(depth_view.vkhandle);
+    }
+
+    ci.attachmentCount = static_cast<u32>(attachments.size());
+    ci.pAttachments    = attachments.data();
+
+    for (const auto &color_attachment : render_pass.info.colors)
+    {
+        const auto &color_view = api.get_image_view(color_attachment.image_view);
+        const auto &image      = api.get_image(color_view.image_h);
+        ci.layers              = image.info.layers;
+        ci.width               = image.info.width;
+        ci.height              = image.info.height;
+    }
+
+    if (render_pass.info.depth)
+    {
+        const auto &depth_view    = api.get_image_view(render_pass.info.depth->image_view);
+        const auto &image = api.get_image(depth_view.image_h);
+        ci.layers              = image.info.layers;
+        ci.width               = image.info.width;
+        ci.height              = image.info.height;
+    }
+    else if (ci.width == 0 || ci.height == 0)
+    {
+        // shouldnt happen
+        ci.layers              = 1;
+        ci.width               = 4096;
+        ci.height              = 4096;
+    }
+
     for (auto &framebuffer : api.framebuffers) {
-        if (framebuffer.info == info) {
+        if (framebuffer.create_info == ci) {
             return framebuffer;
         }
     }
 
     FrameBuffer fb;
-    fb.info = info;
-
-    std::vector<VkImageView> attachments;
-    for (auto color_view : fb.info.color_views) {
-        attachments.push_back(color_view);
-    }
-
-    if (fb.info.depth_view != VK_NULL_HANDLE) {
-        attachments.push_back(fb.info.depth_view);
-    }
-
-    VkFramebufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    ci.renderPass              = render_pass.vkhandle;
-    ci.attachmentCount         = static_cast<u32>(attachments.size());
-    ci.pAttachments            = attachments.data();
-    ci.layers                  = fb.info.layers;
-    ci.width                   = fb.info.width;
-    ci.height                  = fb.info.height;
-
+    fb.create_info = ci;
     VK_CHECK(vkCreateFramebuffer(api.ctx.device, &ci, nullptr, &fb.vkhandle));
-
     api.framebuffers.push_back(std::move(fb));
     return api.framebuffers.back();
 }
@@ -139,51 +162,11 @@ void API::begin_pass(PassInfo &&info)
     auto render_pass_h = find_or_create_render_pass(*this, std::move(info));
     auto &render_pass = renderpasses[render_pass_h];
 
-    FrameBufferInfo fb_info;
-
-    for (auto &color_attachment : render_pass.info.colors)
-    {
-        const auto &rt     = get_rendertarget(color_attachment.rt);
-        auto &image        = get_image(rt.image_h);
-        fb_info.color_views.push_back(image.color_attachment_view);
-    }
-
-    if (render_pass.info.depth)
-    {
-        const auto &depth_rt = get_rendertarget(render_pass.info.depth->rt);
-        auto &depth_image    = get_image(depth_rt.image_h);
-        fb_info.depth_view   = depth_image.default_view;
-    }
-
-    fb_info.render_pass = render_pass.vkhandle;
-
-    for (auto &color_attachment : render_pass.info.colors)
-    {
-        const auto &rt = get_rendertarget(color_attachment.rt);
-        const auto &image = get_image(rt.image_h);
-        fb_info.width     = image.info.width;
-        fb_info.height    = image.info.height;
-        fb_info.layers    = image.info.depth;
-    }
-
-    if (render_pass.info.depth)
-    {
-        const auto &rt    = get_rendertarget(render_pass.info.depth->rt);
-        const auto &image = get_image(rt.image_h);
-        fb_info.width     = image.info.width;
-        fb_info.height    = image.info.height;
-    }
-    else if (fb_info.width == 0 || fb_info.height == 0)
-    {
-        fb_info.width  = 4096;
-        fb_info.height = 4096;
-    }
-
-    auto &frame_buffer = find_or_create_frame_buffer(*this, fb_info, render_pass);
+    auto &frame_buffer = find_or_create_frame_buffer(*this, render_pass);
 
     auto &frame_resource = ctx.frame_resources.get_current();
 
-    VkRect2D render_area{VkOffset2D(), {frame_buffer.info.width, frame_buffer.info.height}};
+    VkRect2D render_area{VkOffset2D(), {frame_buffer.create_info.width, frame_buffer.create_info.height}};
 
     std::vector<VkClearValue> clear_values;
 
@@ -322,13 +305,12 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
         for (const auto &color_attachment : render_pass.info.colors)
         {
-            auto &color = api.get_rendertarget(color_attachment.rt);
-            auto &image = api.get_image(color.image_h);
+            auto &color_view = api.get_image_view(color_attachment.image_view);
 
             att_states.emplace_back();
             auto &state = att_states.back();
             state.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            state.blendEnable         = image.info.format != VK_FORMAT_R8_UINT; // TODO: disable for all uint
+            state.blendEnable         = color_view.format != VK_FORMAT_R8_UINT; // TODO: disable for all uint
             state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
             state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             state.colorBlendOp        = VK_BLEND_OP_ADD;
@@ -544,124 +526,95 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, ShaderBindingSet &binding_set, uint slot)
+// bind one image
+// sampler ? => combined image sampler descriptor
+// else storage image
+static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint slot, uint index, ImageViewH &image_view_h, std::optional<SamplerH> sampler = std::nullopt)
 {
-    assert(images_h.size() == images_view.size());
-
-    if (binding_set.binded_data.size() <= slot) {
-        usize missing = slot - binding_set.binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++) {
-            binding_set.binded_data.emplace_back(std::nullopt);
-        }
-    }
-
     assert(slot < binding_set.binded_data.size());
 
-    BindingData data;
-    data.binding                = slot;
-    data.type                   = binding_set.bindings_info[slot].type;
-
-    for (usize i = 0; i < images_h.size(); i++)
+    if (!binding_set.binded_data[slot].has_value())
     {
-        auto &image = api.get_image(images_h[i]);
-        const auto &image_view = images_view[i];
+        binding_set.binded_data[slot] = std::make_optional<BindingData>({});
+        binding_set.binded_data[slot]->images_info.resize(1); // we are going to fill it
+    }
+    else
+    {
+        assert(index < binding_set.binded_data[slot]->images_info.size());
+    }
 
-        assert(image.usage == ImageUsage::GraphicsShaderRead || image.usage == ImageUsage::GraphicsShaderReadWrite
-               || image.usage == ImageUsage::ComputeShaderRead || image.usage == ImageUsage::ComputeShaderReadWrite);
+    auto &data = binding_set.binded_data[slot];
+
+    data->binding = slot;
+    data->type    = binding_set.bindings_info[slot].type;
+
+    assert(sampler ? data->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : data->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+    auto &image_view = api.get_image_view(image_view_h);
+    auto &image      = api.get_image(image_view.image_h);
+
+    assert(sampler
+           ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
+           : image.usage == ImageUsage::GraphicsShaderReadWrite || image.usage == ImageUsage::ComputeShaderReadWrite);
+
+    auto &image_info       = data->images_info[index];
+    image_info.imageView   = image_view.vkhandle;
+    image_info.imageLayout = sampler ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+    image_info.sampler     = sampler ? api.get_sampler(*sampler).vkhandle : VK_NULL_HANDLE;
+
+    binding_set.data_dirty = true;
+}
+
+// bind several images at once
+// if samplers.size == 0 then bind several storage images
+// if samplers.size == 1 then bind several combined image samplers with the same sampler
+// else bind several combined image samplers with a diferent sampler for each image
+static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint slot, const std::vector<ImageViewH> &image_views_h, const std::vector<SamplerH> &samplers_h = {})
+{
+    assert(slot < binding_set.binded_data.size());
+    assert(samplers_h.empty() || samplers_h.size() == 1 || samplers_h.size() == image_views_h.size());
+
+    BindingData data;
+    data.binding = slot;
+    data.type    = binding_set.bindings_info[slot].type;
+
+    assert(!samplers_h.empty() ? data.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : data.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+    for (usize i = 0; i < image_views_h.size(); i++)
+    {
+        auto &image_view = api.get_image_view(image_views_h[i]);
+        auto &image = api.get_image(image_view.image_h);
+
+        assert(!samplers_h.empty()
+           ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
+           : image.usage == ImageUsage::GraphicsShaderReadWrite || image.usage == ImageUsage::ComputeShaderReadWrite);
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
 
-        image_info.imageView   = image_view;
-        image_info.sampler     = api.get_sampler(api.default_sampler).vkhandle;
-        image_info.imageLayout = get_src_image_access(image.usage).layout;
-    }
+        image_info.imageView   = image_view.vkhandle;
+        image_info.imageLayout = !samplers_h.empty() ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+        image_info.sampler     = VK_NULL_HANDLE;
 
-    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
-        binding_set.binded_data[slot] = std::move(data);
-        binding_set.data_dirty        = true;
-    }
-}
-
-static void bind_combined_image_sampler_internal(API&, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, ShaderBindingSet &binding_set, uint slot)
-{
-    assert(images_h.size() == images_view.size());
-
-    if (binding_set.binded_data.size() <= slot) {
-        usize missing = slot - binding_set.binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++) {
-            binding_set.binded_data.emplace_back(std::nullopt);
-        }
-    }
-
-    BindingData data;
-    data.binding                = slot;
-    data.type                   = binding_set.bindings_info[slot].type;
-
-    for (usize i = 0; i < images_h.size(); i++)
-    {
-        const auto &image_view = images_view[i];
-
-        data.images_info.push_back({});
-        auto &image_info = data.images_info.back();
-
-        image_info.imageView   = image_view;
-        image_info.sampler     = sampler.vkhandle;
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-
-    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
-        binding_set.binded_data[slot] = std::move(data);
-        binding_set.data_dirty        = true;
-    }
-}
-
-static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, const std::vector<SamplerH> &samplers, ShaderBindingSet &binding_set, uint slot)
-{
-    assert(images_h.size() == images_view.size());
-    assert(images_h.size() == samplers.size());
-
-    if (binding_set.binded_data.size() <= slot) {
-        usize missing = slot - binding_set.binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++) {
-            binding_set.binded_data.emplace_back(std::nullopt);
-        }
-    }
-
-    BindingData data;
-    data.binding                = slot;
-    data.type                   = binding_set.bindings_info[slot].type;
-
-    for (usize i = 0; i < images_h.size(); i++)
-    {
-        const auto &image_view = images_view[i];
-        const auto &sampler = api.get_sampler(samplers[i]);
-
-        data.images_info.push_back({});
-        auto &image_info = data.images_info.back();
-
-        image_info.imageView   = image_view;
-        image_info.sampler     = sampler.vkhandle;
-        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    }
-
-    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
-        binding_set.binded_data[slot] = std::move(data);
-        binding_set.data_dirty        = true;
-    }
-}
-
-static void bind_buffer_internal(API & /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, ShaderBindingSet &binding_set, uint slot)
-{
-    if (binding_set.binded_data.size() <= slot)
-    {
-        usize missing = slot - binding_set.binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++)
+        if (samplers_h.size() == 1)
         {
-            binding_set.binded_data.emplace_back(std::nullopt);
+            image_info.sampler = api.get_sampler(samplers_h[0]).vkhandle;
+        }
+        else if (!samplers_h.empty())
+        {
+            image_info.sampler = api.get_sampler(samplers_h[i]).vkhandle;
         }
     }
 
+    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
+        binding_set.binded_data[slot] = std::move(data);
+        binding_set.data_dirty        = true;
+    }
+}
+
+// todo handle dynamic buffer correctly wtf
+static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, Buffer &buffer, CircularBufferPosition &buffer_pos, uint slot)
+{
     assert(slot < binding_set.binded_data.size());
 
     BindingData data;
@@ -676,111 +629,80 @@ static void bind_buffer_internal(API & /*api*/, Buffer &buffer, CircularBufferPo
 }
 
 
-void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
+// storage images
+void API::bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index)
 {
-    auto &program = get_program(program_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_image_internal(*this, {image_h}, {view}, program.binding_sets_by_freq[set-1], slot);
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
-void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
+void API::bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint slot, uint index)
 {
-    auto &program = get_program(program_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_image_internal(*this, {image_h}, {view}, program.binding_set, slot);
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
-void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
+void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageViewH> &image_views_h)
 {
-    if (set == GLOBAL_DESCRIPTOR_SET)
-    {
-        assert(!program_h.is_valid());
-        bind_image_internal(*this,
-                            images_h,
-                            images_view,
-                            global_bindings.binding_set,
-                            slot);
-    }
-    else
-    {
-        auto &program = get_program(program_h);
-        bind_image_internal(*this, images_h, images_view, program.binding_sets_by_freq[set-1], slot);
-    }
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
-void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
+void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageViewH> &image_views_h)
 {
-    auto &program = get_program(program_h);
-    bind_image_internal(*this, images_h, images_view, program.binding_set, slot);
-}
-void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<VkImageView> image_view)
-{
-    auto &program = get_program(program_h);
-    auto &sampler = get_sampler(sampler_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binding_sets_by_freq[set-1], slot);
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
-
-void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<VkImageView> image_view)
+// sampled images
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index)
 {
-    auto &program = get_program(program_h);
-    auto &sampler = get_sampler(sampler_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binding_set, slot);
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
+}
+
+void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot, uint index)
+{
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
+}
+
+void API::bind_combined_images_samplers(GraphicsProgramH program_h,
+                                        const std::vector<ImageViewH> &image_views_h,
+                                        const std::vector<SamplerH> &samplers,
+                                        uint set,
+                                        uint slot)
+{
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
+}
+void API::bind_combined_images_samplers(ComputeProgramH program_h,
+                                        const std::vector<ImageViewH> &image_views_h,
+                                        const std::vector<SamplerH> &samplers,
+                                        uint slot)
+{
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
 
 
-void API::bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<VkImageView> &images_view)
+void API::bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot)
 {
-    auto &program = get_program(program_h);
-    auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binding_sets_by_freq[set-1], slot);
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &buffer  = get_buffer(buffer_pos.buffer_h);
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_buffer_internal(*this, binding_set, buffer, buffer_pos, slot);
 }
 
-void API::bind_combined_images_samplers(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, const std::vector<VkImageView> &images_view)
-{
-    if (set == GLOBAL_DESCRIPTOR_SET)
-    {
-        assert(!program_h.is_valid());
-        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, global_bindings.binding_set, slot);
-    }
-    else
-    {
-        auto &program = get_program(program_h);
-        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, program.binding_sets_by_freq[set-1], slot);
-    }
-}
-
-void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, SamplerH sampler_h, const std::vector<VkImageView> &images_view)
-{
-    auto &program = get_program(program_h);
-    auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binding_set, slot);
-}
-
-void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
+void API::bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot)
 {
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
-
-    if (set == GLOBAL_DESCRIPTOR_SET)
-    {
-        assert(!program_h.is_valid());
-        bind_buffer_internal(*this, buffer, buffer_pos, global_bindings.binding_set, slot);
-    }
-    else
-    {
-        auto &program = get_program(program_h);
-        bind_buffer_internal(*this, buffer, buffer_pos, program.binding_sets_by_freq[set-1], slot);
-    }
-}
-
-void API::bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos)
-{
-    auto &program = get_program(program_h);
-    auto &buffer  = get_buffer(buffer_pos.buffer_h);
-
-    bind_buffer_internal(*this, buffer, buffer_pos, program.binding_set, slot);
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_buffer_internal(*this, binding_set, buffer, buffer_pos, slot);
 }
 
 

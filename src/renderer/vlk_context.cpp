@@ -517,3 +517,22 @@ bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCre
         && a.basePipelineHandle == b.basePipelineHandle
         && a.basePipelineIndex == b.basePipelineIndex;
 }
+
+bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b)
+{
+    if (a.attachmentCount != b.attachmentCount) {
+        return false;
+    }
+
+    for (uint i = 0; i < a.attachmentCount; i++) {
+        if (a.pAttachments[i] != b.pAttachments[i]) {
+            return false;
+        }
+    }
+
+    return a.flags == b.flags
+        && a.renderPass == b.renderPass
+        && a.width == b.width
+        && a.height == b.height
+        && a.layers == b.layers;
+}

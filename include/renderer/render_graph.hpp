@@ -13,9 +13,9 @@ namespace vulkan
 {
 struct API;
 struct Image;
-struct RenderTarget;
+struct ImageView;
 using ImageH = Handle<Image>;
-using RenderTargetH = Handle<RenderTarget>;
+using ImageViewH = Handle<ImageView>;
 };
 
 namespace UI
@@ -68,7 +68,6 @@ struct ImageResource
 {
     RenderResource resource;
     vulkan::ImageH resolved_img;
-    vulkan::RenderTargetH resolved_rt;
 };
 
 enum struct PassType

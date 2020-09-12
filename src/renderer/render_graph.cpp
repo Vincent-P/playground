@@ -14,10 +14,9 @@ RenderGraph RenderGraph::create(vulkan::API &api)
     graph.swapchain = graph.image_descs.add({.name = "Swapchain"});
 
     // how to clean this
-    auto swapchain_h   = api.get_current_swapchain_h();
-    auto &image        = graph.images[graph.swapchain];
-    image.resolved_img = swapchain_h;
-    image.resolved_rt  = api.create_rendertarget({.image_h = swapchain_h});
+    auto swapchain_h          = api.get_current_swapchain_h();
+    auto &image               = graph.images[graph.swapchain];
+    image.resolved_img        = swapchain_h;
 
     return graph;
 }
@@ -30,9 +29,6 @@ void RenderGraph::destroy()
         if (image.resolved_img.is_valid()) {
             api.destroy_image(image.resolved_img);
         }
-        if (image.resolved_rt.is_valid()) {
-            api.destroy_rendertarget(image.resolved_rt);
-        }
     }
 }
 
@@ -41,11 +37,9 @@ void RenderGraph::on_resize(int /*width*/, int /*height*/)
     auto &api = *p_api;
 
     // how to clean this
-    auto swapchain_h   = api.get_current_swapchain_h();
-    auto &image        = images[swapchain];
-    image.resolved_img = swapchain_h;
-    api.destroy_rendertarget(image.resolved_rt);
-    image.resolved_rt  = api.create_rendertarget({.image_h = swapchain_h});
+    auto swapchain_h          = api.get_current_swapchain_h();
+    auto &image               = images[swapchain];
+    image.resolved_img        = swapchain_h;
 
     // resize all swapchain relative images
     for (auto &[desc_h, image] : images)
@@ -96,12 +90,6 @@ void RenderGraph::on_resize(int /*width*/, int /*height*/)
         std::cout << "Updating image " << desc.name << std::endl;
         api.destroy_image(image.resolved_img);
         image.resolved_img = api.create_image(image_info);
-
-        if (is_color_attachment || is_depth_attachment) {
-            std::cout << "Updating render target " << desc.name << std::endl;
-            api.destroy_rendertarget(image.resolved_rt);
-            image.resolved_rt = api.create_rendertarget({.image_h = image.resolved_img});
-        }
     }
 }
 
@@ -161,8 +149,6 @@ static void resolve_images(RenderGraph &graph)
     auto swapchain_h = api.get_current_swapchain_h();
     auto &image = graph.images[graph.swapchain];
     image.resolved_img = swapchain_h;
-    api.destroy_rendertarget(image.resolved_rt);
-    image.resolved_rt = api.create_rendertarget({.image_h = swapchain_h});
 
     for (auto &[desc_h, image] : graph.images)
     {
@@ -215,7 +201,6 @@ static void resolve_images(RenderGraph &graph)
 
         if (is_color_attachment || is_depth_attachment) {
             std::cout << "Resolving render target for " << desc.name << std::endl;
-            image.resolved_rt = api.create_rendertarget({.image_h = image.resolved_img});
         }
     }
 }
@@ -364,8 +349,8 @@ bool RenderGraph::execute()
                 pass.colors.emplace_back();
                 auto &color_info = pass.colors.back();
                 // for now, clear whenever a render target is used for the first time in the frame and load otherwise
-                color_info.load_op = color_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-                color_info.rt      = color_resource.resolved_rt;
+                color_info.load_op    = color_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+                color_info.image_view = api.get_image(color_resource.resolved_img).default_view;
             }
 
             // same for depth
@@ -383,9 +368,9 @@ bool RenderGraph::execute()
 
                 vulkan::AttachmentInfo depth_info;
                 // for now, clear whenever a render target is used for the first time in the frame and load otherwise
-                depth_info.load_op = depth_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-                depth_info.rt      = depth_resource.resolved_rt;
-                pass.depth         = std::make_optional(depth_info);
+                depth_info.load_op    = depth_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+                depth_info.image_view = api.get_image(depth_resource.resolved_img).default_view;
+                pass.depth            = std::make_optional(depth_info);
             }
 
             std::vector<VkImageMemoryBarrier> barriers;

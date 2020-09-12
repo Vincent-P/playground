@@ -304,8 +304,8 @@ void API::display_ui(UI::Context &ui) const
         ImGui::Text("Resources");
         ImGui::Separator();
         ImGui::Text("Images: %zu", images.size());
+        ImGui::Text("Image views: %zu", image_views.size());
         ImGui::Text("Buffers: %zu", buffers.size());
-        ImGui::Text("Rendertargets: %zu", rendertargets.size());
         ImGui::Text("Samplers: %zu", samplers.size());
         ImGui::Text("Graphics Programs: %zu", graphics_programs.size());
         ImGui::Text("Graphics Pipelines: %zu", graphics_programs.size());

@@ -400,12 +400,14 @@ static void add_imgui_pass(Renderer &r)
         }
     }
 
+    auto &trilinear_sampler = r.trilinear_sampler;
+
     graph.add_pass({
         .name = "ImGui pass",
         .type = PassType::Graphics,
         .external_images = external_images,
         .color_attachments = {graph.swapchain},
-        .exec = [pass_data = r.imgui](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
+        .exec = [pass_data = r.imgui, trilinear_sampler](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             ImDrawData *data = ImGui::GetDrawData();
 
@@ -465,18 +467,18 @@ static void add_imgui_pass(Renderer &r)
                     vulkan::GraphicsProgramH current = pass_data.float_program;
 
                     if (draw_command->TextureId) {
-                        auto texture = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
-                        auto& image = api.get_image(texture);
+                        auto texture = vulkan::ImageViewH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
+                        auto& image_view = api.get_image_view(texture);
 
-                        if (image.info.format == VK_FORMAT_R32_UINT)
+                        if (image_view.format == VK_FORMAT_R32_UINT)
                         {
                             current = pass_data.uint_program;
                         }
 
-                        api.bind_image(current, vulkan::SHADER_DESCRIPTOR_SET, 0, texture);
+                        api.bind_combined_image_sampler(current, texture, trilinear_sampler, vulkan::SHADER_DESCRIPTOR_SET, 0);
                     }
                     else {
-                        api.bind_image(current, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.font_atlas);
+                        api.bind_combined_image_sampler(current, api.get_image(pass_data.font_atlas).default_view, trilinear_sampler, vulkan::SHADER_DESCRIPTOR_SET, 0);
                     }
 
                     api.bind_program(current);
@@ -675,7 +677,7 @@ static void add_procedural_sky_pass(Renderer &r)
             [pass_data   = r.procedural_sky](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.render_transmittance;
 
-                api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
+                api.bind_buffer(program, pass_data.atmosphere_params_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_program(program);
 
                 api.draw(3, 1, 0, 0);
@@ -694,9 +696,9 @@ static void add_procedural_sky_pass(Renderer &r)
                 auto multiscattering = graph.get_resolved_image(self.storage_images[0]);
                 auto program         = pass_data.compute_multiscattering_lut;
 
-                api.bind_buffer(program, 0, pass_data.atmosphere_params_pos);
-                api.bind_combined_image_sampler(program, 1, transmittance, trilinear_sampler);
-                api.bind_image(program, 2, multiscattering);
+                api.bind_buffer(program, pass_data.atmosphere_params_pos, 0);
+                api.bind_combined_image_sampler(program, api.get_image(transmittance).default_view, trilinear_sampler, 1);
+                api.bind_image(program, api.get_image(multiscattering).default_view, 2);
 
                 auto multiscattering_desc = *graph.image_descs.get(self.storage_images[0]);
                 auto size_x               = static_cast<uint>(multiscattering_desc.size.x);
@@ -717,19 +719,19 @@ static void add_procedural_sky_pass(Renderer &r)
                 auto multiscattering = graph.get_resolved_image(self.sampled_images[1]);
                 auto program         = pass_data.render_skyview;
 
-                api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
+                api.bind_buffer(program, pass_data.atmosphere_params_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
 
                 api.bind_combined_image_sampler(program,
+                                                api.get_image(transmittance).default_view,
+                                                trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
-                                                1,
-                                                transmittance,
-                                                trilinear_sampler);
+                                                1);
 
                 api.bind_combined_image_sampler(program,
+                                                api.get_image(multiscattering).default_view,
+                                                trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
-                                                2,
-                                                multiscattering,
-                                                trilinear_sampler);
+                                                2);
 
                 api.bind_program(program);
 
@@ -752,23 +754,23 @@ static void add_procedural_sky_pass(Renderer &r)
                 auto skyview         = graph.get_resolved_image(self.sampled_images[3]);
                 auto program         = pass_data.sky_raymarch;
 
-                api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
+                api.bind_buffer(program, pass_data.atmosphere_params_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
 
                 api.bind_combined_image_sampler(program,
+                                                api.get_image(transmittance).default_view,
+                                                trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
-                                                1,
-                                                transmittance,
-                                                trilinear_sampler);
+                                                1);
 
-                api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 2, skyview, trilinear_sampler);
+                api.bind_combined_image_sampler(program, api.get_image(skyview).default_view, trilinear_sampler, vulkan::SHADER_DESCRIPTOR_SET, 2);
 
-                api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 3, depth, nearest_sampler);
+                api.bind_combined_image_sampler(program, api.get_image(depth).default_view, nearest_sampler, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
                 api.bind_combined_image_sampler(program,
+                                                api.get_image(multiscattering).default_view,
+                                                trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
-                                                4,
-                                                multiscattering,
-                                                trilinear_sampler);
+                                                4);
 
                 api.bind_program(program);
 
@@ -837,8 +839,8 @@ static void add_tonemapping_pass(Renderer &r)
             auto hdr_buffer = graph.get_resolved_image(self.sampled_images[0]);
             auto program = pass_data.program;
 
-            api.bind_combined_image_sampler(program, vulkan::SHADER_DESCRIPTOR_SET, 0, hdr_buffer, default_sampler);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.params_pos);
+            api.bind_combined_image_sampler(program, api.get_image(hdr_buffer).default_view, default_sampler, vulkan::SHADER_DESCRIPTOR_SET, 0);
+            api.bind_buffer(program, pass_data.params_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
             api.bind_program(program);
 
             api.draw(3, 1, 0, 0);
@@ -1207,7 +1209,7 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
     for (uint i = 0; i < model.cached_transforms.size(); i++) {
         buffer[i]      = model.cached_transforms[i];
     }
-    api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, transforms_pos);
+    api.bind_buffer(program, transforms_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
 
     api.bind_program(program);
 
@@ -1372,8 +1374,8 @@ static void add_shadow_cascades_pass(Renderer &r)
                                  matrices_pos=r.matrices_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                             auto program = pass_data.shadow_cascade_program;
 
-                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, cascade_index_pos);
-                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, matrices_pos);
+                            api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
                             api.bind_index_buffer(pass_data.index_buffer);
                             api.bind_vertex_buffer(pass_data.vertex_buffer);
 
@@ -1443,44 +1445,42 @@ static void add_gltf_pass(Renderer &r)
 
             auto program = pass_data.shading;
 
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, voxel_data.vct_debug_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxel_data.voxel_options_pos);
+            api.bind_buffer(program, voxel_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+            api.bind_buffer(program, voxel_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
 
             api.bind_combined_image_sampler(program,
+                                            api.get_image(voxels_radiance).default_view,
+                                            trilinear_sampler,
                                             vulkan::SHADER_DESCRIPTOR_SET,
-                                            3,
-                                            voxels_radiance,
-                                            trilinear_sampler);
+                                            3);
 
             {
-            std::vector<VkImageView> views;
+                std::vector<vulkan::ImageViewH> views;
             views.reserve(voxels_directional_volumes.size());
             for (const auto &volume_h : voxels_directional_volumes) {
                 views.push_back(api.get_image(volume_h).default_view);
             }
-            api.bind_combined_images_sampler(program,
+            api.bind_combined_images_samplers(program,
+                                             views,
+                                              {trilinear_sampler},
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             4,
-                                             voxels_directional_volumes,
-                                             trilinear_sampler,
-                                             views);
+                                             4);
             }
 
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 5, depth_slices_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 6, matrices_pos);
+            api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 5);
+            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
 
             {
-            std::vector<VkImageView> views;
+                std::vector<vulkan::ImageViewH> views;
             views.reserve(shadow_cascades.size());
             for (const auto &cascade_h : shadow_cascades) {
                 views.push_back(api.get_image(cascade_h).default_view);
             }
-            api.bind_combined_images_sampler(program,
+            api.bind_combined_images_samplers(program,
+                                             views,
+                                              {trilinear_sampler},
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             7,
-                                             shadow_cascades,
-                                             trilinear_sampler,
-                                             views);
+                                             7);
             }
 
             api.bind_index_buffer(pass_data.index_buffer);
@@ -1721,10 +1721,10 @@ static void add_voxels_clear_pass(Renderer& r)
 
             auto program = pass_data.clear_voxels;
 
-            api.bind_buffer(program, 0, pass_data.voxel_options_pos);
-            api.bind_image(program, 1, voxels_albedo);
-            api.bind_image(program, 2, voxels_normal);
-            api.bind_image(program, 3, voxels_radiance);
+            api.bind_buffer(program, pass_data.voxel_options_pos, 0);
+            api.bind_image(program, api.get_image(voxels_albedo).default_view, 1);
+            api.bind_image(program, api.get_image(voxels_normal).default_view, 2);
+            api.bind_image(program, api.get_image(voxels_radiance).default_view, 3);
 
             auto count = voxel_options.res / 8;
             api.dispatch(program, count, count, count);
@@ -1792,13 +1792,13 @@ static void add_voxelization_pass(Renderer &r)
 
             api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
 
-            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.voxel_options_pos);
-            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, pass_data.projection_cameras);
+            api.bind_buffer(pass_data.voxelization, pass_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+            api.bind_buffer(pass_data.voxelization, pass_data.projection_cameras, vulkan::SHADER_DESCRIPTOR_SET, 2);
 
             auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
             auto &normal_uint = api.get_image(voxels_normal).format_views[0];
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo, albedo_uint);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal, normal_uint);
+            api.bind_image(program, albedo_uint, vulkan::SHADER_DESCRIPTOR_SET, 3);
+            api.bind_image(program, normal_uint, vulkan::SHADER_DESCRIPTOR_SET, 4);
 
             api.bind_index_buffer(model_data.index_buffer);
             api.bind_vertex_buffer(model_data.vertex_buffer);
@@ -1825,12 +1825,12 @@ static void add_voxels_visualization_pass(Renderer& r)
 
             auto program = pass_data.visualization;
 
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.vct_debug_pos);
+            api.bind_buffer(program, pass_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
+            api.bind_buffer(program, pass_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
 
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_radiance);
+            api.bind_image(program, api.get_image(voxels_albedo).default_view, vulkan::SHADER_DESCRIPTOR_SET, 2);
+            api.bind_image(program, api.get_image(voxels_normal).default_view, vulkan::SHADER_DESCRIPTOR_SET, 3);
+            api.bind_image(program, api.get_image(voxels_radiance).default_view, vulkan::SHADER_DESCRIPTOR_SET, 4);
 
             api.bind_program(program);
 
@@ -1859,11 +1859,11 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 
                 const auto &program = pass_data.inject_radiance;
 
-                api.bind_buffer(program, 1, pass_data.voxel_options_pos);
-                api.bind_buffer(program, 2, pass_data.vct_debug_pos);
-                api.bind_combined_image_sampler(program, 3, voxels_albedo, trilinear_sampler);
-                api.bind_combined_image_sampler(program, 4, voxels_normal, trilinear_sampler);
-                api.bind_image(program, 5, voxels_radiance);
+                api.bind_buffer(program, pass_data.voxel_options_pos, 1);
+                api.bind_buffer(program, pass_data.vct_debug_pos, 2);
+                api.bind_combined_image_sampler(program, api.get_image(voxels_albedo).default_view, trilinear_sampler, 3);
+                api.bind_combined_image_sampler(program, api.get_image(voxels_normal).default_view, trilinear_sampler, 4);
+                api.bind_image(program, api.get_image(voxels_radiance).default_view, 5);
 
                 auto count = voxel_options.res / 8;
                 api.dispatch(program, count, count, count);
@@ -1897,18 +1897,20 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
     auto count = r.voxel_options.res / 8; // local compute size
 
+    auto &trilinear_sampler = r.trilinear_sampler;
+
     graph.add_pass(
         {.name           = "Voxels aniso base",
          .type           = PassType::Compute,
          .sampled_images = {r.voxels_radiance},
          .storage_images = storage_images,
          .exec =
-             [pass_data = r.voxels, trilinear_sampler = r.trilinear_sampler, count, mip_pos](RenderGraph &graph,
+             [pass_data = r.voxels, trilinear_sampler, count, mip_pos](RenderGraph &graph,
                                                                                              RenderPass &self,
                                                                                              vulkan::API &api) {
                  // resolved directional volumes
                  std::vector<vulkan::ImageH> voxels_directional_volumes;
-                 std::vector<VkImageView> views;
+                 std::vector<vulkan::ImageViewH> views;
                  views.reserve(self.storage_images.size());
                  for (auto volume : self.storage_images)
                  {
@@ -1923,9 +1925,9 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
                  auto program = pass_data.generate_aniso_base;
 
-                 api.bind_buffer(program, 0, mip_pos);
-                 api.bind_combined_image_sampler(program, 1, voxels_radiance, trilinear_sampler);
-                 api.bind_images(program, 2, voxels_directional_volumes, views);
+                 api.bind_buffer(program, mip_pos, 0);
+                 api.bind_combined_image_sampler(program, api.get_image(voxels_radiance).default_view, trilinear_sampler, 1);
+                 api.bind_combined_images_samplers(program, views, {trilinear_sampler}, 2);
 
                  api.dispatch(program, count, count, count);
              }
@@ -1961,7 +1963,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
                         .sampled_images = {r.voxels_radiance},
                         .storage_images = storage_images,
                         .exec =
-                            [pass_data = r.voxels, count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
+                            [pass_data = r.voxels, trilinear_sampler,count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
                                                                                           RenderPass &self,
                                                                                           vulkan::API &api) {
                                 // resolved directional volumes
@@ -1974,11 +1976,11 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                 }
 
                                 auto program = pass_data.generate_aniso_mipmap;
-                                api.bind_buffer(program, 0, mip_pos);
-                                api.bind_buffer(program, 1, mip_src_pos);
+                                api.bind_buffer(program, mip_pos, 0);
+                                api.bind_buffer(program, mip_src_pos, 1);
 
-                                std::vector<VkImageView> src_views;
-                                std::vector<VkImageView> dst_views;
+                                std::vector<vulkan::ImageViewH> src_views;
+                                std::vector<vulkan::ImageViewH> dst_views;
                                 src_views.reserve(voxels_directional_volumes.size());
                                 dst_views.reserve(voxels_directional_volumes.size());
 
@@ -1989,8 +1991,8 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                     dst_views.push_back(image.mip_views[dst]);
                                 }
 
-                                api.bind_images(program, 2, voxels_directional_volumes, src_views);
-                                api.bind_images(program, 3, voxels_directional_volumes, dst_views);
+                                api.bind_combined_images_samplers(program, src_views, {trilinear_sampler}, 2);
+                                api.bind_combined_images_samplers(program, dst_views, {trilinear_sampler}, 3);
 
                                 api.dispatch(program, count, count, count);
                             }
@@ -2025,9 +2027,9 @@ void update_uniforms(Renderer &r)
     globals->sun_direction   = float4(-r.sun.front, 1);
     globals->sun_illuminance = float3(100.0f); //TODO: move from global and use real values (will need auto exposure)
 
-    r.api.bind_buffer({}, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+    r.api.bind_buffer({}, r.global_uniform_pos, vulkan::GLOBAL_DESCRIPTOR_SET, 0);
 
-    std::vector<VkImageView> views;
+    std::vector<vulkan::ImageViewH> views;
     std::vector<vulkan::SamplerH> samplers;
 
     for (uint i = 0; i < r.gltf.model->textures.size(); i++)
@@ -2039,7 +2041,7 @@ void update_uniforms(Renderer &r)
         samplers.push_back(r.gltf.samplers[texture.sampler]);
     }
 
-    api.bind_combined_images_samplers({}, vulkan::GLOBAL_DESCRIPTOR_SET, 1, r.gltf.images, samplers, views);
+    api.bind_combined_images_samplers({}, views, samplers, vulkan::GLOBAL_DESCRIPTOR_SET, 1);
 
     r.api.update_global_set();
 

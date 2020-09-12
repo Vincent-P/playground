@@ -12,27 +12,8 @@
 namespace my_app::vulkan
 {
 
-/// --- Render Target
-
-RenderTargetH API::create_rendertarget(const RTInfo &info)
-{
-    RenderTarget rt;
-    rt.image_h      = info.image_h;
-
-    return rendertargets.add(std::move(rt));
-}
-
-RenderTarget &API::get_rendertarget(RenderTargetH H)
-{
-    assert(H.is_valid());
-    return *rendertargets.get(H);
-}
-
-void API::destroy_rendertarget(RenderTargetH H)
-{
-    assert(H.is_valid());
-    rendertargets.remove(H);
-}
+static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range, VkFormat format);
+static void destroy_image_view(API& api, ImageViewH H);
 
 /// --- Images
 
@@ -52,9 +33,12 @@ static VkImageViewType view_type_from(VkImageType _type)
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
-Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage external = VK_NULL_HANDLE)
+static ImageH create_image_internal(vulkan::API &api, const ImageInfo &info, VkImage external = VK_NULL_HANDLE)
 {
-    Image img;
+    auto &ctx = api.ctx;
+
+    ImageH image_h = api.images.add({});
+    Image &img = *api.images.get(image_h);
 
     img.name = info.name;
     img.info = info;
@@ -66,10 +50,6 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
 
     VkImageCreateInfo image_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 
-    if (info.is_sparse)
-    {
-        image_info.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
-    }
     if (!info.extra_formats.empty())
     {
         image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
@@ -92,7 +72,7 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
     image_info.queueFamilyIndexCount = 0;
     image_info.pQueueFamilyIndices   = nullptr;
     image_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
-    image_info.tiling                = info.is_linear ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
+    image_info.tiling                = VK_IMAGE_TILING_OPTIMAL;
 
     if (info.generate_mip_levels)
     {
@@ -106,7 +86,7 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
     {
         img.vkhandle = external;
     }
-    else if (!info.is_sparse)
+    else
     {
         VmaAllocationCreateInfo alloc_info{};
         alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
@@ -119,62 +99,6 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
                                 reinterpret_cast<VkImage *>(&img.vkhandle),
                                 &img.allocation,
                                 nullptr));
-    }
-    else
-    {
-        VkPhysicalDeviceSparseImageFormatInfo2 info2
-            = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2};
-        info2.format  = image_info.format;
-        info2.type    = image_info.imageType;
-        info2.samples = image_info.samples;
-        info2.usage   = image_info.usage;
-        info2.tiling  = image_info.tiling;
-
-        uint props_count = 0;
-        std::vector<VkSparseImageFormatProperties2> props;
-        vkGetPhysicalDeviceSparseImageFormatProperties2(ctx.physical_device, &info2, &props_count, nullptr);
-        props.resize(props_count);
-        vkGetPhysicalDeviceSparseImageFormatProperties2(ctx.physical_device, &info2, &props_count, nullptr);
-
-        assert(!props.empty() && info.max_sparse_size != 0);
-
-        VK_CHECK(vkCreateImage(ctx.device, &image_info, nullptr, &img.vkhandle));
-
-        VkMemoryRequirements mem_req;
-        vkGetImageMemoryRequirements(ctx.device, img.vkhandle, &mem_req);
-
-        uint sparse_mem_req_count = 0;
-        std::vector<VkSparseImageMemoryRequirements> sparse_mem_req;
-        vkGetImageSparseMemoryRequirements(ctx.device, img.vkhandle, &sparse_mem_req_count, nullptr);
-        sparse_mem_req.resize(sparse_mem_req_count);
-        vkGetImageSparseMemoryRequirements(ctx.device, img.vkhandle, &sparse_mem_req_count, sparse_mem_req.data());
-
-        assert(!sparse_mem_req.empty());
-
-        // According to Vulkan specification, for sparse resources memReq.alignment is also page size.
-        const usize page_size = mem_req.alignment;
-
-        // TODO: max_sparse_size might not be a multiple of page_size?
-        assert(info.max_sparse_size % page_size == 0);
-        const usize page_count = info.max_sparse_size / page_size;
-
-        VkMemoryRequirements page_mem_req = mem_req;
-        page_mem_req.size                 = page_size;
-
-        VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-
-        img.sparse_allocations.resize(page_count);
-        img.allocations_infos.resize(page_count);
-        std::fill(img.sparse_allocations.begin(), img.sparse_allocations.end(), nullptr);
-        VK_CHECK(vmaAllocateMemoryPages(ctx.allocator,
-                                        &page_mem_req,
-                                        &allocCreateInfo,
-                                        page_count,
-                                        img.sparse_allocations.data(),
-                                        img.allocations_infos.data()));
-
-        img.page_size = page_size;
     }
 
     if (ENABLE_VALIDATION_LAYERS)
@@ -199,73 +123,35 @@ Image create_image_internal(vulkan::Context &ctx, const ImageInfo &info, VkImage
         img.full_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
 
-    VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    vci.flags                 = 0;
-    vci.image                 = img.vkhandle;
-    vci.format                = image_info.format;
-    vci.components.r          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.g          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.b          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.a          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.subresourceRange      = img.full_range;
-    vci.viewType              = view_type_from(image_info.imageType);
+    /// --- Create views
 
-    VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &img.default_view));
-
-    if (ENABLE_VALIDATION_LAYERS)
-    {
-        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
-        ni.objectHandle                  = reinterpret_cast<u64>(img.default_view);
-        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
-        ni.pObjectName                   = info.name;
-        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
-    }
-
-    VkImageViewCreateInfo cvci = vci;
-    if (cvci.viewType == VK_IMAGE_VIEW_TYPE_3D) {
-        cvci.subresourceRange.layerCount = image_info.extent.depth;
-        cvci.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    }
-    VK_CHECK(vkCreateImageView(ctx.device, &cvci, nullptr, &img.color_attachment_view));
-
-    if (ENABLE_VALIDATION_LAYERS)
-    {
-        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
-        ni.objectHandle                  = reinterpret_cast<u64>(img.color_attachment_view);
-        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
-        ni.pObjectName                   = info.name;
-        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
-    }
+    img.default_view = create_image_view(api, image_h, img, img.full_range, img.info.format);
 
     img.format_views.reserve(info.extra_formats.size());
     for (const auto &extra_format : info.extra_formats)
     {
-        VkImageView format_view;
-        vci.format = extra_format;
-        VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &format_view));
-        img.format_views.push_back(format_view);
+        img.format_views.push_back(create_image_view(api, image_h, img, img.full_range, extra_format));
     }
 
-    vci.format = image_info.format;
     for (u32 i = 0; i < image_info.mipLevels; i++)
     {
-        VkImageView mip_view;
-        vci.subresourceRange.baseMipLevel = i;
-        vci.subresourceRange.levelCount   = 1;
-        VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &mip_view));
-        img.mip_views.push_back(mip_view);
+        auto mip_range = img.full_range;
+        mip_range.baseMipLevel = i;
+        mip_range.levelCount = 1;
+        img.mip_views.push_back(create_image_view(api, image_h, img, mip_range, img.info.format));
     }
-    return img;
+
+    return image_h;
 }
 
 ImageH API::create_image(const ImageInfo &info)
 {
-    return images.add(create_image_internal(ctx, info));
+    return create_image_internal(*this, info);
 }
 
 ImageH API::create_image_proxy(VkImage external, const ImageInfo &info)
 {
-    return images.add(create_image_internal(ctx, info, external));
+    return create_image_internal(*this, info, external);
 }
 
 Image &API::get_image(ImageH H)
@@ -276,34 +162,22 @@ Image &API::get_image(ImageH H)
 
 void destroy_image_internal(API &api, Image &img)
 {
-    if (img.mapped_ptr.data)
-    {
-        vmaUnmapMemory(api.ctx.allocator, img.allocation);
-    }
-
     if (img.is_proxy)
     {
     }
-    else if (!img.info.is_sparse)
+    else
     {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
     }
-    else
-    {
-        vkDestroyImage(api.ctx.device, img.vkhandle, nullptr);
-        vmaFreeMemoryPages(api.ctx.allocator, img.sparse_allocations.size(), img.sparse_allocations.data());
-    }
 
-    vkDestroyImageView(api.ctx.device, img.default_view, nullptr);
-    vkDestroyImageView(api.ctx.device, img.color_attachment_view, nullptr);
-
+    destroy_image_view(api, img.default_view);
     for (auto &image_view : img.format_views)
     {
-        vkDestroyImageView(api.ctx.device, image_view, nullptr);
+        destroy_image_view(api, image_view);
     }
     for (auto &image_view : img.mip_views)
     {
-        vkDestroyImageView(api.ctx.device, image_view, nullptr);
+        destroy_image_view(api, image_view);
     }
 
     img.format_views.clear();
@@ -315,6 +189,57 @@ void API::destroy_image(ImageH H)
     Image &img = get_image(H);
     destroy_image_internal(*this, img);
     images.remove(H);
+}
+
+static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range, VkFormat format)
+{
+    auto &ctx = api.ctx;
+
+    ImageViewH view_h = api.image_views.add({});
+    ImageView &view = *api.image_views.get(view_h);
+
+    view.image_h = image_h;
+    view.range = range;
+    view.format = format;
+    view.view_type = view_type_from(image.info.type);
+
+    VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    vci.flags                 = 0;
+    vci.image                 = image.vkhandle;
+    vci.format                = view.format;
+    vci.components.r          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.g          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.b          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.a          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.subresourceRange      = view.range;
+    vci.viewType              = view.view_type;
+
+    VK_CHECK(vkCreateImageView(ctx.device, &vci, nullptr, &view.vkhandle));
+
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(view.vkhandle);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName                   = image.info.name;
+        VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
+    }
+
+    return view_h;
+}
+
+static void destroy_image_view(API& api, ImageViewH H)
+{
+    assert(H.is_valid());
+    ImageView &view = *api.image_views.get(H);
+    vkDestroyImageView(api.ctx.device, view.vkhandle, nullptr);
+    api.image_views.remove(H);
+}
+
+ImageView &API::get_image_view(ImageViewH H)
+{
+    assert(H.is_valid());
+    return *image_views.get(H);
 }
 
 void API::upload_image(ImageH H, void *data, usize len)
@@ -489,28 +414,6 @@ void API::transfer_done(ImageH H) // it's a hack for now
     vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     image.usage = ImageUsage::GraphicsShaderRead;
     cmd_buffer.submit_and_wait();
-}
-
-
-FatPtr API::read_image(ImageH H)
-{
-    auto &image = get_image(H);
-    assert(!image.info.is_sparse);
-    assert(image.info.is_linear);
-    assert(image.info.mip_levels == 1);
-    assert(image.info.memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU
-           || image.info.memory_usage == VMA_MEMORY_USAGE_CPU_ONLY);
-
-    if (!image.mapped_ptr.data)
-    {
-        vmaMapMemory(ctx.allocator, image.allocation, &image.mapped_ptr.data);
-        // TODO: return size?
-        image.mapped_ptr.size = 1;
-    }
-
-    assert(image.mapped_ptr.data);
-
-    return image.mapped_ptr;
 }
 
 /// --- Samplers
@@ -821,6 +724,9 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
     std::vector<VkDescriptorBindingFlags> flags;
     bindings.reserve(binding_set.bindings_info.size());
     flags.reserve(binding_set.bindings_info.size());
+
+
+    binding_set.binded_data.resize(binding_set.bindings_info.size());
 
     for (const auto &info_binding : binding_set.bindings_info)
     {
