@@ -1094,7 +1094,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
             .slot   = 7,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .count  = ~0u,
+            .count  = 4,
         });
 
         pinfo.push_constant({
@@ -2041,7 +2041,7 @@ void update_uniforms(Renderer &r)
 
     api.bind_combined_images_samplers({}, vulkan::GLOBAL_DESCRIPTOR_SET, 1, r.gltf.images, samplers, views);
 
-    r.api.bind_global_set();
+    r.api.update_global_set();
 
     r.voxels.vct_debug_pos = api.dynamic_uniform_buffer(sizeof(VCTDebug));
     auto *debug            = reinterpret_cast<VCTDebug *>(r.voxels.vct_debug_pos.mapped);

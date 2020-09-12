@@ -332,7 +332,7 @@ struct DescriptorSet
     usize frame_used;
 };
 
-struct ShaderBinding
+struct BindingData
 {
     u32 binding;
     VkDescriptorType type;
@@ -340,26 +340,37 @@ struct ShaderBinding
     VkBufferView buffer_view;
     VkDescriptorBufferInfo buffer_info;
 
-    bool operator==(const ShaderBinding &) const = default;
+    bool operator==(const BindingData &) const = default;
 };
+
+// A list of shader binding, basically abstracts a descriptor set
+struct ShaderBindingSet
+{
+    VkDescriptorSetLayout descriptor_layout = VK_NULL_HANDLE;
+    std::vector<DescriptorSet> descriptor_sets = {};
+    usize current_descriptor_set = 0;
+
+    std::vector<BindingInfo> bindings_info = {};
+    std::vector<std::optional<BindingData>> binded_data = {};
+    bool data_dirty = true; // dirty flag for each data to avoid updating everything?
+    std::vector<u32> dynamic_offsets = {};
+
+    inline DescriptorSet &get_descriptor_set() { return descriptor_sets[current_descriptor_set]; }
+};
+
+inline DescriptorSet &get_descriptor_set(ShaderBindingSet& binding_set) { return binding_set.descriptor_sets[binding_set.current_descriptor_set]; }
+void init_binding_set(Context &ctx, ShaderBindingSet &binding_set);
 
 struct GraphicsProgram
 {
-    std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET> descriptor_layouts;
+    std::array<ShaderBindingSet, MAX_DESCRIPTOR_SET> binding_sets_by_freq;
+
     VkPipelineLayout pipeline_layout; // layoutS??
-
-    std::array<std::vector<std::optional<ShaderBinding>>, MAX_DESCRIPTOR_SET> binded_data_by_set;
-    std::array<bool, MAX_DESCRIPTOR_SET> data_dirty_by_set;
-
-    std::array<std::vector<DescriptorSet>, MAX_DESCRIPTOR_SET> descriptor_sets;
-    std::array<usize, MAX_DESCRIPTOR_SET> current_descriptor_set;
-
     // TODO: hashmap
     std::vector<PipelineInfo> pipelines_info;
     std::vector<VkPipeline> pipelines_vk;
 
     GraphicsProgramInfo info;
-    std::array<usize, MAX_DESCRIPTOR_SET> dynamic_count_by_set;
 
     bool operator==(const GraphicsProgram &b) const
     {
@@ -371,17 +382,10 @@ using GraphicsProgramH = Handle<GraphicsProgram>;
 
 struct ComputeProgram
 {
-    VkDescriptorSetLayout descriptor_layout;
-    VkPipelineLayout pipeline_layout; // layoutS??
-
-    std::vector<std::optional<ShaderBinding>> binded_data;
-    bool data_dirty = true;
-    usize dynamic_count;
-
-    std::vector<DescriptorSet> descriptor_sets;
-    usize current_descriptor_set;
+    ShaderBindingSet binding_set;
 
     ComputeProgramInfo info;
+    VkPipelineLayout pipeline_layout; // layoutS??
     std::vector<VkComputePipelineCreateInfo> pipelines_info;
     std::vector<VkPipeline> pipelines_vk;
 
@@ -393,14 +397,7 @@ struct ComputeProgram
 
 struct GlobalBindings
 {
-    VkDescriptorSetLayout descriptor_layout;
-    VkPipelineLayout pipeline_layout;
-    std::vector<DescriptorSet> descriptor_sets;
-
-    usize current_descriptor_set;
-    std::vector<BindingInfo> bindings;
-    std::vector<std::optional<ShaderBinding>> binded_data;
-    bool data_dirty = true;
+    ShaderBindingSet binding_set;
 
     void binding(BindingInfo &&binding);
 };
@@ -500,6 +497,7 @@ struct API
     void end_pass();
     void bind_program(GraphicsProgramH H);
 
+    // storage images
     void bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
                     std::optional<VkImageView> image_view = std::nullopt);
     void bind_image(ComputeProgramH program_h, uint slot, ImageH image_h,
@@ -510,6 +508,7 @@ struct API
     void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
                      const std::vector<VkImageView> &images_view);
 
+    // sampled images
     void bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h,
                                      SamplerH sampler_h, std::optional<VkImageView> image_view = std::nullopt);
     void bind_combined_image_sampler(ComputeProgramH program_h, uint slot, ImageH image_h, SamplerH sampler_h,
@@ -527,11 +526,12 @@ struct API
     void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
                                       SamplerH sampler_h, const std::vector<VkImageView> &images_view);
 
+    // dynamic buffers
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
 
     void create_global_set();
-    void bind_global_set();
+    void update_global_set();
 
     void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);
 

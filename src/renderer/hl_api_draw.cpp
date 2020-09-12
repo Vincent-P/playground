@@ -7,7 +7,8 @@
 namespace my_app::vulkan
 {
 
-// TODO: multiple render targets, multisampling
+/// --- Renderpass
+
 static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
     for (usize i = 0; i < api.renderpasses.size(); i++) {
@@ -231,6 +232,8 @@ void API::end_pass()
     current_render_pass = u32_invalid;
 }
 
+/// --- Pipeline
+
 static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
 {
     // const auto &program_info = pipeline_info.program_info;
@@ -450,41 +453,42 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
     return program.pipelines_vk[pipeline_i];
 }
 
-static DescriptorSet &find_or_create_descriptor_set(API &api, GraphicsProgram &program, uint freq)
+/// --- Descriptor set
+
+static DescriptorSet &find_or_create_descriptor_set(API &api, ShaderBindingSet& binding_set)
 {
-    for (usize i = 0; i < program.descriptor_sets[freq-1].size(); i++) {
-        auto &descriptor_set = program.descriptor_sets[freq-1][i];
+    for (usize i = 0; i < binding_set.descriptor_sets.size(); i++) {
+        auto &descriptor_set = binding_set.descriptor_sets[i];
         if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
-            program.current_descriptor_set[freq-1] = i;
+            binding_set.current_descriptor_set = i;
             return descriptor_set;
         }
     }
 
-    DescriptorSet descriptor_set;
+    binding_set.descriptor_sets.emplace_back();
+    DescriptorSet &descriptor_set = binding_set.descriptor_sets.back();
 
     VkDescriptorSetAllocateInfo dsai = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
     dsai.descriptorPool              = api.ctx.descriptor_pool;
-    dsai.pSetLayouts                 = &program.descriptor_layouts[freq-1];
+    dsai.pSetLayouts                 = &binding_set.descriptor_layout;
     dsai.descriptorSetCount          = 1;
     api.ctx.descriptor_sets_count++;
 
     VK_CHECK(vkAllocateDescriptorSets(api.ctx.device, &dsai, &descriptor_set.set));
     descriptor_set.frame_used = api.ctx.frame_count;
 
-    program.descriptor_sets[freq-1].push_back(std::move(descriptor_set));
+    binding_set.current_descriptor_set = binding_set.descriptor_sets.size() - 1;
 
-    program.current_descriptor_set[freq-1] = program.descriptor_sets[freq-1].size() - 1;
-
-    return program.descriptor_sets[freq-1].back();
+    return binding_set.descriptor_sets.back();
 }
 
-static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
+static void undirty_descriptor_set(API &api, ShaderBindingSet &binding_set)
 {
-    if (program.data_dirty_by_set[i_set-1]) {
-        auto &descriptor_set = find_or_create_descriptor_set(api, program, i_set);
+    if (binding_set.data_dirty) {
+        auto &descriptor_set = find_or_create_descriptor_set(api, binding_set);
 
         std::vector<VkWriteDescriptorSet> writes;
-        map_transform(program.binded_data_by_set[i_set-1], writes, [&](const auto &binded_data) {
+        map_transform(binding_set.binded_data, writes, [&](const auto &binded_data) {
             assert(binded_data.has_value());
             VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
             write.dstSet               = descriptor_set.set;
@@ -499,30 +503,15 @@ static void undirty_descriptor_set(API &api, GraphicsProgram &program, uint i_se
 
         vkUpdateDescriptorSets(api.ctx.device, writes.size(), writes.data(), 0, nullptr);
 
-        program.data_dirty_by_set[i_set-1] = false;
+        binding_set.data_dirty = false;
     }
-}
-
-static void bind_descriptor_set(API &api, GraphicsProgram &program, uint i_set)
-{
-    auto &frame_resource = api.ctx.frame_resources.get_current();
-    auto &cmd             = frame_resource.command_buffer;
-
-    /// --- Find and bind descriptor set
-    undirty_descriptor_set(api, program, i_set);
-    auto &descriptor_set      = program.descriptor_sets[i_set-1][program.current_descriptor_set[i_set-1]];
-    descriptor_set.frame_used = api.ctx.frame_count;
-
-    std::vector<u32> offsets;
-    offsets.resize(program.dynamic_count_by_set[i_set-1]);
-
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, i_set, 1, &descriptor_set.set, offsets.size(), offsets.data());
 }
 
 void API::bind_program(GraphicsProgramH H)
 {
     assert(current_render_pass != u32_invalid);
     auto &frame_resource = ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
     auto &program        = get_program(H);
 
     /// --- Find and bind graphics pipeline
@@ -530,30 +519,47 @@ void API::bind_program(GraphicsProgramH H)
     VkPipeline pipeline = find_or_create_pipeline(*this, program, pipeline_info);
     vkCmdBindPipeline(frame_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    // bind_descriptor_set(*this, program, GLOBAL_DESCRIPTOR_SET);
-    VkCommandBuffer cmd = frame_resource.command_buffer;
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 0, 1, &global_bindings.descriptor_sets[global_bindings.current_descriptor_set].set, 0, nullptr);
-    bind_descriptor_set(*this, program, SHADER_DESCRIPTOR_SET);
+    // prepare global descriptor set
+    auto &global_set      = get_descriptor_set(global_bindings.binding_set);
+    global_set.frame_used = ctx.frame_count;
+
+    // prepare shader descriptor set
+    auto &binding_set = program.binding_sets_by_freq[SHADER_DESCRIPTOR_SET - 1];
+    undirty_descriptor_set(*this, binding_set);
+    auto &shader_set      = get_descriptor_set(binding_set);
+    shader_set.frame_used = ctx.frame_count;
+
+    std::array descriptor_sets = {global_set.set, shader_set.set};
+
+    // bind both sets
+    vkCmdBindDescriptorSets(cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            program.pipeline_layout,
+                            0,
+                            descriptor_sets.size(),
+                            descriptor_sets.data(),
+                            binding_set.dynamic_offsets.size(),
+                            binding_set.dynamic_offsets.data());
 
     current_program = &program;
 }
 
-static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, ShaderBindingSet &binding_set, uint slot)
 {
     assert(images_h.size() == images_view.size());
 
-    if (binded_data.size() <= slot) {
-        usize missing = slot - binded_data.size() + 1;
+    if (binding_set.binded_data.size() <= slot) {
+        usize missing = slot - binding_set.binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            binded_data.emplace_back(std::nullopt);
+            binding_set.binded_data.emplace_back(std::nullopt);
         }
     }
 
-    assert(slot < binded_data.size());
+    assert(slot < binding_set.binded_data.size());
 
-    ShaderBinding data;
+    BindingData data;
     data.binding                = slot;
-    data.type                   = bindings[slot].type;
+    data.type                   = binding_set.bindings_info[slot].type;
 
     for (usize i = 0; i < images_h.size(); i++)
     {
@@ -571,66 +577,26 @@ static void bind_image_internal(API &api, const std::vector<ImageH> &images_h, c
         image_info.imageLayout = get_src_image_access(image.usage).layout;
     }
 
-    if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
-        binded_data[slot] = std::move(data);
-        data_dirty        = true;
+    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
+        binding_set.binded_data[slot] = std::move(data);
+        binding_set.data_dirty        = true;
     }
 }
 
-void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
-{
-    auto &program = get_program(program_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_image_internal(*this, {image_h}, {view}, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
-}
-
-void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
-{
-    auto &program = get_program(program_h);
-    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_image_internal(*this, {image_h}, {view}, program.binded_data, program.info.bindings, program.data_dirty, slot);
-}
-
-void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
-{
-    if (set == GLOBAL_DESCRIPTOR_SET)
-    {
-        assert(!program_h.is_valid());
-        bind_image_internal(*this,
-                            images_h,
-                            images_view,
-                            global_bindings.binded_data,
-                            global_bindings.bindings,
-                            global_bindings.data_dirty,
-                            slot);
-    }
-    else
-    {
-        auto &program = get_program(program_h);
-        bind_image_internal(*this, images_h, images_view, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
-    }
-}
-
-void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
-{
-    auto &program = get_program(program_h);
-    bind_image_internal(*this, images_h, images_view, program.binded_data, program.info.bindings, program.data_dirty, slot);
-}
-
-static void bind_combined_image_sampler_internal(API&, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_combined_image_sampler_internal(API&, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, Sampler &sampler, ShaderBindingSet &binding_set, uint slot)
 {
     assert(images_h.size() == images_view.size());
 
-    if (binded_data.size() <= slot) {
-        usize missing = slot - binded_data.size() + 1;
+    if (binding_set.binded_data.size() <= slot) {
+        usize missing = slot - binding_set.binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            binded_data.emplace_back(std::nullopt);
+            binding_set.binded_data.emplace_back(std::nullopt);
         }
     }
 
-    ShaderBinding data;
+    BindingData data;
     data.binding                = slot;
-    data.type                   = bindings[slot].type;
+    data.type                   = binding_set.bindings_info[slot].type;
 
     for (usize i = 0; i < images_h.size(); i++)
     {
@@ -644,27 +610,27 @@ static void bind_combined_image_sampler_internal(API&, const std::vector<ImageH>
         image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
-        binded_data[slot] = std::move(data);
-        data_dirty        = true;
+    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
+        binding_set.binded_data[slot] = std::move(data);
+        binding_set.data_dirty        = true;
     }
 }
 
-static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, const std::vector<SamplerH> &samplers, std::vector<std::optional<ShaderBinding>> &binded_data, std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
+static void bind_combined_image_sampler_internal(API& api, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view, const std::vector<SamplerH> &samplers, ShaderBindingSet &binding_set, uint slot)
 {
     assert(images_h.size() == images_view.size());
     assert(images_h.size() == samplers.size());
 
-    if (binded_data.size() <= slot) {
-        usize missing = slot - binded_data.size() + 1;
+    if (binding_set.binded_data.size() <= slot) {
+        usize missing = slot - binding_set.binded_data.size() + 1;
         for (usize i = 0; i < missing; i++) {
-            binded_data.emplace_back(std::nullopt);
+            binding_set.binded_data.emplace_back(std::nullopt);
         }
     }
 
-    ShaderBinding data;
+    BindingData data;
     data.binding                = slot;
-    data.type                   = bindings[slot].type;
+    data.type                   = binding_set.bindings_info[slot].type;
 
     for (usize i = 0; i < images_h.size(); i++)
     {
@@ -679,17 +645,80 @@ static void bind_combined_image_sampler_internal(API& api, const std::vector<Ima
         image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if (!binded_data[slot].has_value() || *binded_data[slot] != data) {
-        binded_data[slot] = std::move(data);
-        data_dirty        = true;
+    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
+        binding_set.binded_data[slot] = std::move(data);
+        binding_set.data_dirty        = true;
     }
+}
+
+static void bind_buffer_internal(API & /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos, ShaderBindingSet &binding_set, uint slot)
+{
+    if (binding_set.binded_data.size() <= slot)
+    {
+        usize missing = slot - binding_set.binded_data.size() + 1;
+        for (usize i = 0; i < missing; i++)
+        {
+            binding_set.binded_data.emplace_back(std::nullopt);
+        }
+    }
+
+    assert(slot < binding_set.binded_data.size());
+
+    BindingData data;
+    data.binding            = slot;
+    data.type               = binding_set.bindings_info[slot].type;
+    data.buffer_info.buffer = buffer.vkhandle;
+    data.buffer_info.offset = buffer_pos.offset;
+    data.buffer_info.range  = buffer_pos.length;
+
+    binding_set.binded_data[slot] = std::move(data);
+    binding_set.data_dirty        = true;
+}
+
+
+void API::bind_image(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
+{
+    auto &program = get_program(program_h);
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_image_internal(*this, {image_h}, {view}, program.binding_sets_by_freq[set-1], slot);
+}
+
+void API::bind_image(ComputeProgramH program_h, uint slot, ImageH image_h, std::optional<VkImageView> image_view)
+{
+    auto &program = get_program(program_h);
+    VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
+    bind_image_internal(*this, {image_h}, {view}, program.binding_set, slot);
+}
+
+void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
+{
+    if (set == GLOBAL_DESCRIPTOR_SET)
+    {
+        assert(!program_h.is_valid());
+        bind_image_internal(*this,
+                            images_h,
+                            images_view,
+                            global_bindings.binding_set,
+                            slot);
+    }
+    else
+    {
+        auto &program = get_program(program_h);
+        bind_image_internal(*this, images_h, images_view, program.binding_sets_by_freq[set-1], slot);
+    }
+}
+
+void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h, const std::vector<VkImageView> &images_view)
+{
+    auto &program = get_program(program_h);
+    bind_image_internal(*this, images_h, images_view, program.binding_set, slot);
 }
 void API::bind_combined_image_sampler(GraphicsProgramH program_h, uint set, uint slot, ImageH image_h, SamplerH sampler_h, std::optional<VkImageView> image_view)
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
     VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
+    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binding_sets_by_freq[set-1], slot);
 }
 
 
@@ -698,7 +727,7 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, uint slot, Imag
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
     VkImageView view = image_view ? *image_view : get_image(image_h).default_view;
-    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    bind_combined_image_sampler_internal(*this, {image_h}, {view}, sampler, program.binding_set, slot);
 }
 
 
@@ -706,7 +735,7 @@ void API::bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uin
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
+    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binding_sets_by_freq[set-1], slot);
 }
 
 void API::bind_combined_images_samplers(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, const std::vector<VkImageView> &images_view)
@@ -714,12 +743,12 @@ void API::bind_combined_images_samplers(GraphicsProgramH program_h, uint set, ui
     if (set == GLOBAL_DESCRIPTOR_SET)
     {
         assert(!program_h.is_valid());
-        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, global_bindings.binded_data, global_bindings.bindings, global_bindings.data_dirty, slot);
+        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, global_bindings.binding_set, slot);
     }
     else
     {
         auto &program = get_program(program_h);
-        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
+        bind_combined_image_sampler_internal(*this, images_h, images_view, samplers, program.binding_sets_by_freq[set-1], slot);
     }
 }
 
@@ -727,33 +756,7 @@ void API::bind_combined_images_sampler(ComputeProgramH program_h, uint slot, con
 {
     auto &program = get_program(program_h);
     auto &sampler = get_sampler(sampler_h);
-    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binded_data, program.info.bindings, program.data_dirty, slot);
-}
-
-static void bind_buffer_internal(API & /*api*/, Buffer &buffer, CircularBufferPosition &buffer_pos,
-                                 std::vector<std::optional<ShaderBinding>> &binded_data,
-                                 std::vector<BindingInfo> &bindings, bool &data_dirty, uint slot)
-{
-    if (binded_data.size() <= slot)
-    {
-        usize missing = slot - binded_data.size() + 1;
-        for (usize i = 0; i < missing; i++)
-        {
-            binded_data.emplace_back(std::nullopt);
-        }
-    }
-
-    assert(slot < binded_data.size());
-
-    ShaderBinding data;
-    data.binding            = slot;
-    data.type               = bindings[slot].type;
-    data.buffer_info.buffer = buffer.vkhandle;
-    data.buffer_info.offset = buffer_pos.offset;
-    data.buffer_info.range  = buffer_pos.length;
-
-    binded_data[slot] = std::move(data);
-    data_dirty        = true;
+    bind_combined_image_sampler_internal(*this, images_h, images_view, sampler, program.binding_set, slot);
 }
 
 void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos)
@@ -763,12 +766,12 @@ void API::bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularB
     if (set == GLOBAL_DESCRIPTOR_SET)
     {
         assert(!program_h.is_valid());
-        bind_buffer_internal(*this, buffer, buffer_pos, global_bindings.binded_data, global_bindings.bindings, global_bindings.data_dirty, slot);
+        bind_buffer_internal(*this, buffer, buffer_pos, global_bindings.binding_set, slot);
     }
     else
     {
         auto &program = get_program(program_h);
-        bind_buffer_internal(*this, buffer, buffer_pos, program.binded_data_by_set[set-1], program.info.bindings_by_set[set-1], program.data_dirty_by_set[set-1], slot);
+        bind_buffer_internal(*this, buffer, buffer_pos, program.binding_sets_by_freq[set-1], slot);
     }
 }
 
@@ -777,121 +780,21 @@ void API::bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPositi
     auto &program = get_program(program_h);
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
 
-    bind_buffer_internal(*this, buffer, buffer_pos, program.binded_data, program.info.bindings, program.data_dirty, slot);
+    bind_buffer_internal(*this, buffer, buffer_pos, program.binding_set, slot);
 }
 
-
-static DescriptorSet &find_or_create_descriptor_set(API &api, GlobalBindings &globals)
-{
-    for (usize i = 0; i < globals.descriptor_sets.size(); i++) {
-        auto &descriptor_set = globals.descriptor_sets[i];
-        if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
-            globals.current_descriptor_set = i;
-            return descriptor_set;
-        }
-    }
-
-    DescriptorSet descriptor_set;
-
-    VkDescriptorSetAllocateInfo dsai = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    dsai.descriptorPool              = api.ctx.descriptor_pool;
-    dsai.pSetLayouts                 = &globals.descriptor_layout;
-    dsai.descriptorSetCount          = 1;
-    api.ctx.descriptor_sets_count++;
-
-    VK_CHECK(vkAllocateDescriptorSets(api.ctx.device, &dsai, &descriptor_set.set));
-    descriptor_set.frame_used = api.ctx.frame_count;
-
-    globals.descriptor_sets.push_back(std::move(descriptor_set));
-
-    globals.current_descriptor_set = globals.descriptor_sets.size() - 1;
-
-    return globals.descriptor_sets.back();
-}
 
 void API::create_global_set()
 {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    std::vector<VkDescriptorBindingFlags> flags;
-    bindings.reserve(global_bindings.bindings.size());
-    flags.reserve(global_bindings.bindings.size());
-
-    for (const auto &info_binding : global_bindings.bindings)
-    {
-        bindings.emplace_back();
-        auto &binding = bindings.back();
-
-        flags.emplace_back();
-        auto &flag = flags.back();
-
-        binding.binding        = info_binding.slot;
-        binding.stageFlags     = info_binding.stages;
-        binding.descriptorType = info_binding.type;
-        binding.descriptorCount = info_binding.count;
-
-        if (binding.descriptorCount > 1) {
-            flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-        }
-    }
-
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
-    flags_info.bindingCount  = static_cast<u32>(bindings.size());
-    flags_info.pBindingFlags = flags.data();
-
-    VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    layout_info.pNext                           = &flags_info;
-    layout_info.flags                           = 0;
-    layout_info.bindingCount                    = static_cast<u32>(bindings.size());
-    layout_info.pBindings                       = bindings.data();
-
-    VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &global_bindings.descriptor_layout));
-
-    VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    ci.pSetLayouts                = &global_bindings.descriptor_layout;
-    ci.setLayoutCount             = 1;
-    ci.pPushConstantRanges        = 0;
-    ci.pushConstantRangeCount     = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &global_bindings.pipeline_layout));
+    init_binding_set(ctx, global_bindings.binding_set);
 }
 
-void API::bind_global_set()
+void API::update_global_set()
 {
-    auto &frame_resource = ctx.frame_resources.get_current();
-    auto &cmd             = frame_resource.command_buffer;
-
-    /// --- Find and bind descriptor set
-    if (global_bindings.data_dirty) {
-        auto &descriptor_set = find_or_create_descriptor_set(*this, global_bindings);
-
-        std::vector<VkWriteDescriptorSet> writes;
-
-        for (const auto &binded_data : global_bindings.binded_data)
-        {
-            assert(binded_data.has_value());
-
-            writes.emplace_back();
-            VkWriteDescriptorSet &write = writes.back();
-            write                       = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-            write.dstSet                = descriptor_set.set;
-            write.dstBinding            = binded_data->binding;
-            write.descriptorCount       = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
-            write.descriptorType        = binded_data->type;
-            write.pImageInfo            = binded_data->images_info.data();
-            write.pBufferInfo           = &binded_data->buffer_info;
-            write.pTexelBufferView      = &binded_data->buffer_view;
-        }
-
-        vkUpdateDescriptorSets(ctx.device, writes.size(), writes.data(), 0, nullptr);
-
-        global_bindings.data_dirty = false;
-    }
-
-    auto &descriptor_set      = global_bindings.descriptor_sets[global_bindings.current_descriptor_set];
-    descriptor_set.frame_used = ctx.frame_count;
-
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, global_bindings.pipeline_layout, 0, 1, &descriptor_set.set, 0, nullptr);
+    undirty_descriptor_set(*this, global_bindings.binding_set);
 }
+
+/// --- Rendering API
 
 void API::bind_vertex_buffer(BufferH H, u32 offset)
 {
@@ -932,7 +835,29 @@ void API::push_constant(VkShaderStageFlags stage, u32 offset, u32 size, void *da
 
 static void pre_draw(API &api, GraphicsProgram &program)
 {
-    bind_descriptor_set(api, program, DRAW_DESCRIPTOR_SET);
+    auto &frame_resource = api.ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
+
+    auto &binding_set = program.binding_sets_by_freq[DRAW_DESCRIPTOR_SET - 1];
+
+    // CHECK early exit
+    if (binding_set.bindings_info.empty()) {
+        return;
+    }
+
+    undirty_descriptor_set(api, binding_set);
+    auto &shader_set      = get_descriptor_set(binding_set);
+    shader_set.frame_used = api.ctx.frame_count;
+
+    // bind both sets
+    vkCmdBindDescriptorSets(cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            program.pipeline_layout,
+                            0,
+                            1,
+                            &shader_set.set,
+                            binding_set.dynamic_offsets.size(),
+                            binding_set.dynamic_offsets.data());
 }
 
 void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance)
@@ -1022,34 +947,6 @@ void API::end_label()
     current_label = {};
 }
 
-static DescriptorSet &find_or_create_descriptor_set(API &api, ComputeProgram &program)
-{
-    for (usize i = 0; i < program.descriptor_sets.size(); i++) {
-        auto &descriptor_set = program.descriptor_sets[i];
-        if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
-            program.current_descriptor_set = i;
-            return descriptor_set;
-        }
-    }
-
-    DescriptorSet descriptor_set;
-
-    VkDescriptorSetAllocateInfo dsai = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    dsai.descriptorPool              = api.ctx.descriptor_pool;
-    dsai.pSetLayouts                 = &program.descriptor_layout;
-    dsai.descriptorSetCount          = 1;
-    api.ctx.descriptor_sets_count++;
-
-    VK_CHECK(vkAllocateDescriptorSets(api.ctx.device, &dsai, &descriptor_set.set));
-    descriptor_set.frame_used = api.ctx.frame_count;
-
-    program.descriptor_sets.push_back(std::move(descriptor_set));
-
-    program.current_descriptor_set = program.descriptor_sets.size() - 1;
-
-    return program.descriptor_sets.back();
-}
-
 void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
 {
     auto &program        = get_program(program_h);
@@ -1085,39 +982,10 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipelines_vk[pipeline_i]);
 
     /// --- Find and bind descriptor set
-    if (program.data_dirty) {
-        auto &descriptor_set = find_or_create_descriptor_set(*this, program);
-
-        std::vector<VkWriteDescriptorSet> writes;
-
-        for (const auto &binded_data : program.binded_data)
-        {
-            assert(binded_data.has_value());
-
-            writes.emplace_back();
-            VkWriteDescriptorSet &write = writes.back();
-            write                       = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-            write.dstSet                = descriptor_set.set;
-            write.dstBinding            = binded_data->binding;
-            write.descriptorCount       = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
-            write.descriptorType        = binded_data->type;
-            write.pImageInfo            = binded_data->images_info.data();
-            write.pBufferInfo           = &binded_data->buffer_info;
-            write.pTexelBufferView      = &binded_data->buffer_view;
-        }
-
-        vkUpdateDescriptorSets(ctx.device, writes.size(), writes.data(), 0, nullptr);
-
-        program.data_dirty = false;
-    }
-
-    auto &descriptor_set      = program.descriptor_sets[program.current_descriptor_set];
+    undirty_descriptor_set(*this, program.binding_set);
+    auto &descriptor_set      = get_descriptor_set(program.binding_set);
     descriptor_set.frame_used = ctx.frame_count;
-
-    std::vector<u32> offsets;
-    offsets.resize(program.dynamic_count);
-
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, 1, &descriptor_set.set, offsets.size(), offsets.data());
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, 1, &descriptor_set.set, program.binding_set.dynamic_offsets.size(), program.binding_set.dynamic_offsets.data());
     vkCmdDispatch(cmd, x, y, z);
 }
 } // namespace my_app::vulkan

@@ -814,6 +814,50 @@ void GraphicsProgramInfo::vertex_info(VertexInfo &&info)
     vertex_buffer_info.vertices_info.push_back(std::move(info));
 }
 
+// assume binding_set.bindings_info is already populated
+void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
+{
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    std::vector<VkDescriptorBindingFlags> flags;
+    bindings.reserve(binding_set.bindings_info.size());
+    flags.reserve(binding_set.bindings_info.size());
+
+    for (const auto &info_binding : binding_set.bindings_info)
+    {
+        bindings.emplace_back();
+        auto &binding = bindings.back();
+
+        flags.emplace_back();
+        auto &flag = flags.back();
+
+        binding.binding        = info_binding.slot;
+        binding.stageFlags     = info_binding.stages;
+        binding.descriptorType = info_binding.type;
+        binding.descriptorCount = info_binding.count;
+
+        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+        {
+            binding_set.dynamic_offsets.push_back(0); //TODO dynamic properly wtf
+        }
+
+        if (info_binding.count > 1) {
+            flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        }
+    }
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+    flags_info.bindingCount  = static_cast<u32>(bindings.size());
+    flags_info.pBindingFlags = flags.data();
+
+    VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    layout_info.pNext                           = &flags_info;
+    layout_info.flags                           = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+    layout_info.bindingCount                    = static_cast<u32>(bindings.size());
+    layout_info.pBindings                       = bindings.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &binding_set.descriptor_layout));
+}
+
 GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 {
     GraphicsProgram program;
@@ -822,51 +866,8 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
     {
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
-        std::vector<VkDescriptorBindingFlags> flags;
-        bindings.reserve(info.bindings_by_set[i].size());
-        flags.reserve(info.bindings_by_set[i].size());
-        program.dynamic_count_by_set[i] = 0;
-
-        for (const auto &info_binding : info.bindings_by_set[i])
-        {
-            bindings.emplace_back();
-            auto &binding = bindings.back();
-
-            flags.emplace_back();
-            auto &flag = flags.back();
-
-            binding.binding        = info_binding.slot;
-            binding.stageFlags     = info_binding.stages;
-            binding.descriptorType = info_binding.type;
-
-            if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
-            {
-                program.dynamic_count_by_set[i]++;
-            }
-
-            if (info_binding.count == ~0u) {
-                binding.descriptorCount = 4;
-                if (0)
-                    flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-            }
-            else {
-                binding.descriptorCount = info_binding.count;
-            }
-        }
-
-
-        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
-        flags_info.bindingCount  = static_cast<u32>(bindings.size());
-        flags_info.pBindingFlags = flags.data();
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-        layout_info.pNext                           = &flags_info;
-        layout_info.flags                           = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-        layout_info.bindingCount                    = static_cast<u32>(bindings.size());
-        layout_info.pBindings                       = bindings.data();
-
-        VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &program.descriptor_layouts[i]));
+        program.binding_sets_by_freq[i].bindings_info = std::move(info.bindings_by_set[i]);
+        init_binding_set(ctx, program.binding_sets_by_freq[i]);
     }
 
     /// --- Create pipeline layout
@@ -881,9 +882,9 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     });
 
     std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET+1/*global set*/> layouts;
-    layouts[0] = global_bindings.descriptor_layout;
-    for (uint i = 0; i < program.descriptor_layouts.size(); i++) {
-        layouts[i+1] = program.descriptor_layouts[i];
+    layouts[0] = global_bindings.binding_set.descriptor_layout;
+    for (uint i = 0; i < program.binding_sets_by_freq.size(); i++) {
+        layouts[i+1] = program.binding_sets_by_freq[i].descriptor_layout;
     }
 
     VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
@@ -895,11 +896,6 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
     program.info = std::move(info);
 
-    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
-    {
-        program.data_dirty_by_set[i] = true;
-    }
-
     return graphics_programs.add(std::move(program));
 }
 
@@ -908,40 +904,8 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     ComputeProgram program;
 
     /// --- Create descriptor set layout
-
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    program.dynamic_count = 0;
-
-    map_transform(info.bindings, bindings, [&](const auto &info_binding) {
-        VkDescriptorSetLayoutBinding binding{};
-        binding.binding        = info_binding.slot;
-        binding.stageFlags     = info_binding.stages;
-        binding.descriptorType = info_binding.type;
-
-        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
-        {
-            program.dynamic_count++;
-        }
-
-        binding.descriptorCount = info_binding.count;
-        return binding;
-    });
-
-    // clang-format off
-    std::vector<VkDescriptorBindingFlags> flags( info.bindings.size(), 0 );
-    // clang-format on
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
-        = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
-    flags_info.bindingCount  = static_cast<u32>(bindings.size());
-    flags_info.pBindingFlags = flags.data();
-
-    VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    layout_info.pNext        = &flags_info;
-    layout_info.flags        = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
-    layout_info.bindingCount = static_cast<u32>(bindings.size());
-    layout_info.pBindings    = bindings.data();
-
-    VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &program.descriptor_layout));
+    program.binding_set.bindings_info = std::move(info.bindings);
+    init_binding_set(ctx, program.binding_set);
 
     /// --- Create pipeline layout
 
@@ -955,7 +919,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     });
 
     VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    ci.pSetLayouts                = &program.descriptor_layout;
+    ci.pSetLayouts                = &program.binding_set.descriptor_layout;
     ci.setLayoutCount             = 1;
     ci.pPushConstantRanges        = pc_ranges.data();
     ci.pushConstantRangeCount     = static_cast<u32>(pc_ranges.size());
@@ -963,8 +927,6 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     VK_CHECK(vkCreatePipelineLayout(ctx.device, &ci, nullptr, &program.pipeline_layout));
 
     program.info = std::move(info);
-
-    program.data_dirty = true;
 
     /// --- Create pipeline
     const auto &compute_shader = get_shader(program.info.shader);
@@ -1011,14 +973,14 @@ ComputeProgram &API::get_program(ComputeProgramH H)
 
 void GlobalBindings::binding(BindingInfo &&binding)
 {
-    bindings.push_back(std::move(binding));
+    binding_set.bindings_info.push_back(std::move(binding));
 }
 
 void destroy_program_internal(API &api, GraphicsProgram &program)
 {
-    for (VkDescriptorSetLayout layout : program.descriptor_layouts)
+    for (auto &binding_set : program.binding_sets_by_freq)
     {
-        vkDestroyDescriptorSetLayout(api.ctx.device, layout, nullptr);
+        vkDestroyDescriptorSetLayout(api.ctx.device, binding_set.descriptor_layout, nullptr);
     }
 
     vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
@@ -1041,7 +1003,7 @@ void API::destroy_program(GraphicsProgramH H)
 
 void destroy_program_internal(API &api, ComputeProgram &program)
 {
-    vkDestroyDescriptorSetLayout(api.ctx.device, program.descriptor_layout, nullptr);
+    vkDestroyDescriptorSetLayout(api.ctx.device, program.binding_set.descriptor_layout, nullptr);
     vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
 
     for (VkPipeline pipeline : program.pipelines_vk)
