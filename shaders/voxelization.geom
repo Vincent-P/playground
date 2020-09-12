@@ -13,11 +13,11 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
 
-layout(set = 1, binding = 0) uniform VO {
+layout(set = 1, binding = 1) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 1) uniform ProjectionMatrices {
+layout(set = 1, binding = 2) uniform ProjectionMatrices {
     mat4 matrices[3];
 } voxel_projections;
 

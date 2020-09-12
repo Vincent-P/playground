@@ -77,13 +77,6 @@ struct Texture
     u32 sampler;
 };
 
-struct MaterialPushConstant
-{
-    float4 base_color_factor;
-
-    static MaterialPushConstant from(const Material &material);
-};
-
 struct Buffer
 {
     u32 byte_length;
@@ -138,7 +131,6 @@ struct Node
     usize mesh;
 
     bool dirty{true};
-    float4x4 cached_transform;
 
     float3 translation{};
     float3 scale{1.0f};
@@ -171,6 +163,9 @@ struct Model
 
     std::vector<GltfVertex> vertices;
     std::vector<u16> indices;
+
+    std::vector<u32> nodes_preorder;
+    std::vector<float4x4> cached_transforms;
 };
 
 Model load_model(const char *path);

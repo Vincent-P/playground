@@ -88,6 +88,9 @@ API API::create(const Window &window)
 
 void API::destroy()
 {
+    vkDestroyPipelineLayout(ctx.device, global_bindings.pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(ctx.device, global_bindings.descriptor_layout, nullptr);
+
     for (auto& fb : framebuffers)
     {
         vkDestroyFramebuffer(ctx.device, fb.vkhandle, nullptr);

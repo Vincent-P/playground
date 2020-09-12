@@ -801,7 +801,7 @@ void GraphicsProgramInfo::push_constant(PushConstantInfo &&push_constant)
 
 void GraphicsProgramInfo::binding(BindingInfo &&binding)
 {
-    bindings_by_set[binding.set].push_back(std::move(binding));
+    bindings_by_set[binding.set-1].push_back(std::move(binding));
 }
 
 void GraphicsProgramInfo::vertex_stride(u32 value)
@@ -880,7 +880,11 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         return range;
     });
 
-    auto &layouts = program.descriptor_layouts;
+    std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET+1/*global set*/> layouts;
+    layouts[0] = global_bindings.descriptor_layout;
+    for (uint i = 0; i < program.descriptor_layouts.size(); i++) {
+        layouts[i+1] = program.descriptor_layouts[i];
+    }
 
     VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     ci.pSetLayouts                = layouts.data();
@@ -1003,6 +1007,11 @@ ComputeProgram &API::get_program(ComputeProgramH H)
 {
     assert(H.is_valid());
     return *compute_programs.get(H);
+}
+
+void GlobalBindings::binding(BindingInfo &&binding)
+{
+    bindings.push_back(std::move(binding));
 }
 
 void destroy_program_internal(API &api, GraphicsProgram &program)

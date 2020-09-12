@@ -15,14 +15,36 @@ layout (location = 6) out vec4 outViewPos;
 
 #include "globals.h"
 
-layout (set = 2, binding = 0) uniform UBONode {
-    mat4 transform;
-} node;
+#extension GL_EXT_nonuniform_qualifier : require
+
+layout (set = 1, binding = 0) uniform UBONode {
+    float4x4 nodes_transforms[4]; // max nodes
+};
+
+struct GltfPushConstant
+{
+    // uniform
+    u32 node_idx;
+
+    // textures
+    u32 base_color_idx;
+    u32 normal_map_idx;
+    float pad00;
+
+    // material
+    float4 base_color_factor;
+};
+
+layout(push_constant) uniform GC {
+    GltfPushConstant constants;
+};
+
 
 void main()
 {
-    vec4 locPos = node.transform * vec4(inPosition, 1.0);
-    outNormal = normalize(transpose(inverse(mat3(node.transform))) * inNormal);
+    float4x4 transform = nodes_transforms[constants.node_idx];
+    vec4 locPos = transform * vec4(inPosition, 1.0);
+    outNormal = normalize(transpose(inverse(mat3(transform))) * inNormal);
     outPosition = locPos.xyz / locPos.w;
     outUV0 = inUV0;
     outUV1 = inUV1;

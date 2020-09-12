@@ -12,6 +12,8 @@
 #define int4 ivec4
 #define float4x4 mat4
 
+#define u32 uint
+
 #define PI 3.1415926535897932384626433832795f
 
 #endif

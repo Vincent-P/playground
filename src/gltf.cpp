@@ -25,13 +25,6 @@ namespace my_app
 using json   = nlohmann::json;
 namespace fs = std::filesystem;
 
-MaterialPushConstant MaterialPushConstant::from(const Material &material)
-{
-    MaterialPushConstant result;
-    result.base_color_factor = material.base_color_factor;
-    return result;
-}
-
 struct GltfPrimitiveAttribute
 {
     void *data;

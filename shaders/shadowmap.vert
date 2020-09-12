@@ -9,7 +9,30 @@ layout (location = 0) out vec2 outUV0;
 
 #include "globals.h"
 
-layout (set = 1, binding = 0) uniform CI {
+layout (set = 1, binding = 0) uniform UBONode {
+    float4x4 nodes_transforms[4]; // max nodes
+};
+
+struct GltfPushConstant
+{
+    // uniform
+    u32 node_idx;
+
+    // textures
+    u32 base_color_idx;
+    u32 normal_map_idx;
+    float pad00;
+
+    // material
+    float4 base_color_factor;
+};
+
+layout(push_constant) uniform GC {
+    GltfPushConstant constants;
+};
+
+
+layout (set = 1, binding = 1) uniform CI {
     uint cascade_index;
 };
 
@@ -19,17 +42,14 @@ struct CascadeMatrix
     float4x4 proj;
 };
 
-layout (set = 1, binding = 1) uniform CM {
+layout (set = 1, binding = 2) uniform CM {
     CascadeMatrix cascade_matrices[10];
 };
 
-layout (set = 2, binding = 0) uniform UBONode {
-    mat4 transform;
-} node;
-
 void main()
 {
-    vec4 locPos = node.transform * vec4(inPosition, 1.0);
+    float4x4 transform = nodes_transforms[constants.node_idx];
+    vec4 locPos = transform * vec4(inPosition, 1.0);
     CascadeMatrix matrices = cascade_matrices[cascade_index];
     locPos /= locPos.w;
     outUV0 = inUV0;

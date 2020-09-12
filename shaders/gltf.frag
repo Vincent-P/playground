@@ -13,23 +13,18 @@ layout (location = 4) in vec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
 layout (location = 6) in vec4 inViewPos;
 
-layout (push_constant) uniform MU
-{
-    MaterialUniform material;
-};
-
-layout (set = 1, binding = 0) uniform VCTD {
+layout (set = 1, binding = 1) uniform VCTD {
     VCTDebug debug;
 };
 
-layout (set = 1, binding = 1) uniform VO {
+layout (set = 1, binding = 2) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 2) uniform sampler3D voxels_radiance;
-layout(set = 1, binding = 3) uniform sampler3D voxels_directional_volumes[6];
+layout(set = 1, binding = 3) uniform sampler3D voxels_radiance;
+layout(set = 1, binding = 4) uniform sampler3D voxels_directional_volumes[6];
 
-layout (set = 1, binding = 4) uniform CD {
+layout (set = 1, binding = 5) uniform CD {
     float cascades_depth_slices[10];
 };
 
@@ -39,16 +34,11 @@ struct CascadeMatrix
     float4x4 proj;
 };
 
-layout (set = 1, binding = 5) uniform CM {
+layout (set = 1, binding = 6) uniform CM {
     CascadeMatrix cascade_matrices[10];
 };
 
-layout(set = 1, binding = 6) uniform sampler2D shadow_cascades[];
-
-
-layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
-layout(set = 2, binding = 2) uniform sampler2D normalTexture;
-layout(set = 2, binding = 3) uniform sampler2D metallicRoughnessTexture;
+layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
 
 layout (location = 0) out vec4 outColor;
 
@@ -163,8 +153,10 @@ vec4 Indirect(vec3 normal)
 void main()
 {
     vec3 normal = vec3(0.0);
-    getNormalM(normal, inWorldPos, inNormal, normalTexture, inUV0);
-    vec4 base_color = texture(baseColorTexture, inUV0);
+    getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
+    vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+
+    float shadow = 1.0;
 
     uint cascade_idx = 0;
     for (uint i = 0; i < 4 - 1; i++) {
@@ -179,7 +171,6 @@ void main()
     vec4 shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
     shadow_coord /= shadow_coord.w;
 
-    float shadow = 1.0;
     float bias = 0.001;
 
     float2 uv = 0.5f * (shadow_coord.xy + 1.0);

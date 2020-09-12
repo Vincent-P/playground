@@ -29,10 +29,10 @@ struct Context;
 namespace vulkan
 {
 
-inline constexpr u32 MAX_DESCRIPTOR_SET    = 3;
 inline constexpr u32 GLOBAL_DESCRIPTOR_SET = 0;
 inline constexpr u32 SHADER_DESCRIPTOR_SET = 1;
 inline constexpr u32 DRAW_DESCRIPTOR_SET   = 2;
+inline constexpr u32 MAX_DESCRIPTOR_SET    = 2; // per shader!
 
 inline constexpr VkImageUsageFlags depth_attachment_usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 inline constexpr VkImageUsageFlags color_attachment_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -375,7 +375,7 @@ struct ComputeProgram
     VkPipelineLayout pipeline_layout; // layoutS??
 
     std::vector<std::optional<ShaderBinding>> binded_data;
-    bool data_dirty;
+    bool data_dirty = true;
     usize dynamic_count;
 
     std::vector<DescriptorSet> descriptor_sets;
@@ -389,6 +389,20 @@ struct ComputeProgram
     {
         return info == b.info;
     }
+};
+
+struct GlobalBindings
+{
+    VkDescriptorSetLayout descriptor_layout;
+    VkPipelineLayout pipeline_layout;
+    std::vector<DescriptorSet> descriptor_sets;
+
+    usize current_descriptor_set;
+    std::vector<BindingInfo> bindings;
+    std::vector<std::optional<ShaderBinding>> binded_data;
+    bool data_dirty = true;
+
+    void binding(BindingInfo &&binding);
 };
 
 using ComputeProgramH = Handle<ComputeProgram>;
@@ -446,9 +460,12 @@ struct API
     SamplerH default_sampler;
 
     Pool<Buffer> buffers;
+
+    Pool<Shader> shaders;
+
+    GlobalBindings global_bindings;
     Pool<GraphicsProgram> graphics_programs;
     Pool<ComputeProgram> compute_programs;
-    Pool<Shader> shaders;
 
     // TODO: arena?
     std::vector<FrameBuffer> framebuffers;
@@ -501,11 +518,21 @@ struct API
     void bind_combined_images_sampler(GraphicsProgramH program_h, uint set, uint slot,
                                       const std::vector<ImageH> &images_h, SamplerH sampler_h,
                                       const std::vector<VkImageView> &images_view);
+
+    void bind_combined_images_samplers(GraphicsProgramH program_h, uint set, uint slot,
+                                      const std::vector<ImageH> &images_h,
+                                      const std::vector<SamplerH> &samplers,
+                                      const std::vector<VkImageView> &images_view);
+
     void bind_combined_images_sampler(ComputeProgramH program_h, uint slot, const std::vector<ImageH> &images_h,
                                       SamplerH sampler_h, const std::vector<VkImageView> &images_view);
 
     void bind_buffer(GraphicsProgramH program_h, uint set, uint slot, CircularBufferPosition buffer_pos);
     void bind_buffer(ComputeProgramH program_h, uint slot, CircularBufferPosition buffer_pos);
+
+    void create_global_set();
+    void bind_global_set();
+
     void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);
 
     /// --- Debug
@@ -522,7 +549,7 @@ struct API
     void bind_vertex_buffer(CircularBufferPosition v_pos);
     void bind_index_buffer(BufferH H, u32 offset = 0);
     void bind_index_buffer(CircularBufferPosition i_pos);
-    void push_constant(VkShaderStageFlagBits stage, u32 offset, u32 size, void *data);
+    void push_constant(VkShaderStageFlags stage, u32 offset, u32 size, void *data);
 
     void draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance);
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);

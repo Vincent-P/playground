@@ -85,6 +85,22 @@ struct Settings
     uint shadow_cascades_count = 4;
 };
 
+struct GltfPushConstant
+{
+    // uniform
+    u32 node_idx;
+
+    // textures
+    u32 base_color_idx;
+    u32 normal_map_idx;
+    float pad00;
+
+    // material
+    float4 base_color_factor;
+};
+
+assert_uniform_size(GltfPushConstant);
+
 struct Renderer
 {
     static Renderer create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui);

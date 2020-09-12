@@ -24,6 +24,7 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
 Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
 Renderer::VoxelPass create_voxel_pass(vulkan::API &/*api*/);
 
+// frame data
 Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     // where to put this code?
@@ -56,6 +57,27 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     r.p_window = &window;
     r.p_camera = &camera;
     r.p_timer  = &timer;
+
+    r.api.global_bindings.binding({
+        .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+        .slot   = 0,
+        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT |  VK_SHADER_STAGE_COMPUTE_BIT,
+        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    });
+
+    // bindless binding model, most textures are bound only once per frame
+    // - per frame/pass textures are hardcoded at the beginning of the set (immediates are 20 bit on AMD)
+    // - per draw textures are accessed with (push constant index + 1)
+    // (https://gpuopen.com/wp-content/uploads/2016/03/VulkanFastPaths.pdf)
+    r.api.global_bindings.binding({
+        .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+        .slot   = 1,
+        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count  = 128,
+    });
+
+    r.api.create_global_set();
 
     r.imgui              = create_imgui_pass(r.api);
     r.checkerboard_floor = create_floor_pass(r.api);
@@ -252,17 +274,12 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
 
-    pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
     pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
     pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
 
-    pinfo.enable_depth_write = false;
-    pinfo.depth_test         = VK_COMPARE_OP_EQUAL;
+    pinfo.enable_depth_write = true;
+    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
 
     pass.program = api.create_program(std::move(pinfo));
     }
@@ -270,11 +287,6 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     {
     vulkan::GraphicsProgramInfo pinfo{};
     pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
-
-    pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
     pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
     pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
@@ -298,11 +310,10 @@ static void add_floor_pass(Renderer &r)
         .type = PassType::Graphics,
         .color_attachments = {r.hdr_buffer},
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.checkerboard_floor, global_data=r.global_uniform_pos](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
+        .exec = [pass_data=r.checkerboard_floor](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             auto program = pass_data.program;
 
-            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
             api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
             api.bind_vertex_buffer(pass_data.vertex_buffer);
@@ -510,13 +521,6 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         pinfo.fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv");
 
         pinfo.binding({
-            .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
-        pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 0,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -530,14 +534,6 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv");
-
-        // globla uniform
-        pinfo.binding({
-            .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -564,13 +560,6 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv");
-
-        pinfo.binding({
-            .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
 
         // atmosphere params
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -683,11 +672,9 @@ static void add_procedural_sky_pass(Renderer &r)
         .type             = PassType::Graphics,
         .color_attachments = {r.transmittance_lut},
         .exec =
-            [pass_data   = r.procedural_sky,
-             global_data = r.global_uniform_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+            [pass_data   = r.procedural_sky](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.render_transmittance;
 
-                api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
                 api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
                 api.bind_program(program);
 
@@ -725,13 +712,11 @@ static void add_procedural_sky_pass(Renderer &r)
         .color_attachments = {r.skyview_lut},
         .exec =
             [pass_data         = r.procedural_sky,
-             global_data       = r.global_uniform_pos,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto transmittance   = graph.get_resolved_image(self.sampled_images[0]);
                 auto multiscattering = graph.get_resolved_image(self.sampled_images[1]);
                 auto program         = pass_data.render_skyview;
 
-                api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
                 api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
 
                 api.bind_combined_image_sampler(program,
@@ -759,7 +744,6 @@ static void add_procedural_sky_pass(Renderer &r)
         .color_attachments = {r.hdr_buffer},
         .exec =
             [pass_data         = r.procedural_sky,
-             global_data       = r.global_uniform_pos,
              trilinear_sampler = r.trilinear_sampler,
              nearest_sampler   = r.nearest_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto transmittance   = graph.get_resolved_image(self.sampled_images[0]);
@@ -768,7 +752,6 @@ static void add_procedural_sky_pass(Renderer &r)
                 auto skyview         = graph.get_resolved_image(self.sampled_images[3]);
                 auto program         = pass_data.sky_raymarch;
 
-                api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
                 api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.atmosphere_params_pos);
 
                 api.bind_combined_image_sampler(program,
@@ -871,6 +854,38 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     pass.model = _model;
 
     auto &model = *pass.model;
+
+    /// --- TODO Move
+
+    model.nodes_preorder.clear();
+    model.nodes_preorder.reserve(model.nodes.size());
+
+    model.cached_transforms.resize(model.nodes.size());
+
+    std::vector<u32> nodes_stack;
+    nodes_stack.reserve(model.nodes.size());
+    nodes_stack.push_back(model.scene[0]);
+
+    while (!nodes_stack.empty())
+    {
+        auto node_idx = nodes_stack.back();
+        nodes_stack.pop_back();
+        auto &node = model.nodes[node_idx];
+
+        node.dirty                        = false;
+        auto translation                  = glm::translate(glm::mat4(1.0f), node.translation);
+        auto rotation                     = glm::mat4(node.rotation);
+        auto scale                        = glm::scale(glm::mat4(1.0f), node.scale);
+        model.cached_transforms[node_idx] = translation * rotation * scale;
+
+        model.nodes_preorder.push_back(node_idx);
+
+        for (auto child : node.children) {
+            nodes_stack.push_back(child);
+        }
+    }
+
+    /// -- end TODO
 
     usize vbuffer_size = model.vertices.size() * sizeof(GltfVertex);
     pass.vertex_buffer = api.create_buffer({
@@ -1022,46 +1037,39 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-        pinfo.push_constant({
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size   = sizeof(MaterialPushConstant),
-        });
-
-        // global descriptor
-        pinfo.binding({
-            .set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
-        // shader descriptors
-        // vct debug
+        // transforms of each nodes for the vertex buffer
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 0,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            .stages = VK_SHADER_STAGE_VERTEX_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
-        // voxel options
+
+        // vct debug
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 1,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
         });
-        // voxel radiance
+        // voxel options
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 2,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+        });
+        // voxel radiance
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 3,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         });
         // voxel directional volumes
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 3,
+            .slot   = 4,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .count  = 6,
@@ -1069,54 +1077,30 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         // shadow splits
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 4,
+            .slot   = 5,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
         // shadow view/proj matrices
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 5,
+            .slot   = 6,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
         // shadow cascades
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 6,
+            .slot   = 7,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .count  = ~0u,
         });
 
-        // draw descriptors
-        // node transform
-        pinfo.binding({
-            .set    = vulkan::DRAW_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // base color texture
-        pinfo.binding({
-            .set    = vulkan::DRAW_DESCRIPTOR_SET,
-            .slot   = 1,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        });
-        // normal map texture
-        pinfo.binding({
-            .set    = vulkan::DRAW_DESCRIPTOR_SET,
-            .slot   = 2,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        });
-        // metallic roughness texture
-        pinfo.binding({
-            .set    = vulkan::DRAW_DESCRIPTOR_SET,
-            .slot   = 3,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        pinfo.push_constant({
+            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size   = sizeof(GltfPushConstant),
         });
 
         pinfo.vertex_stride(sizeof(GltfVertex));
@@ -1137,23 +1121,19 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
 
-        // camera uniform buffer
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+        // transforms of each nodes for the vertex buffer
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 0,
+            .stages = VK_SHADER_STAGE_VERTEX_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        });
 
-        // node transform
-        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // base color texture
-        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+        pinfo.push_constant({
+            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size   = sizeof(GltfPushConstant),
+        });
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1174,34 +1154,33 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.fragment_shader = api.create_shader("shaders/shadowmap.frag.spv");
 
         // camera uniform buffer
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+        // transforms of each nodes for the vertex buffer
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 0,
+            .stages = VK_SHADER_STAGE_VERTEX_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        });
 
         // cascade index
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
+                       .slot   = 1,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
 
         // view/projection matrices per cascade
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
+                       .slot   = 2,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
-        // node transform
-        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        // base color texture
-        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+        pinfo.push_constant({
+            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size   = sizeof(GltfPushConstant),
+        });
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1217,79 +1196,44 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     }
 
     return pass;
+
 }
 
-static void bind_texture(vulkan::API &api, const Renderer::GltfPass &pass, vulkan::GraphicsProgramH program, uint slot, std::optional<u32> i_texture)
+static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program)
 {
-    if (i_texture) {
-        auto &texture = pass.model->textures[*i_texture];
-        auto image   = pass.images[texture.image];
-        auto sampler = pass.samplers[texture.sampler];
-
-        api.bind_combined_image_sampler(program, vulkan::DRAW_DESCRIPTOR_SET, slot, image, sampler);
+    // Bind the node transforms
+    auto transforms_pos   = api.dynamic_uniform_buffer(model.nodes.size() * sizeof(float4x4));
+    auto *buffer = reinterpret_cast<float4x4 *>(transforms_pos.mapped);
+    for (uint i = 0; i < model.cached_transforms.size(); i++) {
+        buffer[i]      = model.cached_transforms[i];
     }
-    else {
-        // bind empty texture
-    }
-}
+    api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, transforms_pos);
 
-struct GltfNodeDrawOptions
-{
-    bool push_constants       = false;
-    uint textures_slot_offset = 0;
-    bool base_color           = false;
-    bool normal_map           = false;
-    bool metallic_roughness   = false;
-};
+    api.bind_program(program);
 
-static void draw_node(vulkan::API &api, Node &node, const Renderer::GltfPass &pass, vulkan::GraphicsProgramH program, GltfNodeDrawOptions &options)
-{
-    auto &model = *pass.model;
-
-    // Update transform if needed
-    if (node.dirty)
+    for (auto node_idx : model.nodes_preorder)
     {
-        node.dirty            = false;
-        auto translation      = glm::translate(glm::mat4(1.0f), node.translation);
-        auto rotation         = glm::mat4(node.rotation);
-        auto scale            = glm::scale(glm::mat4(1.0f), node.scale);
-        node.cached_transform = translation * rotation * scale;
-    }
+        const auto &node = model.nodes[node_idx];
+        const auto &mesh = model.meshes[node.mesh];
 
-    // Bind the node transform
-    auto u_pos   = api.dynamic_uniform_buffer(sizeof(float4x4));
-    auto *buffer = reinterpret_cast<float4x4 *>(u_pos.mapped);
-    *buffer      = node.cached_transform;
-    api.bind_buffer(program, vulkan::DRAW_DESCRIPTOR_SET, 0, u_pos);
-
-    // Draw the mesh
-    const auto &mesh = model.meshes[node.mesh];
-    for (const auto &primitive : mesh.primitives)
-    {
-        const auto &material = model.materials[primitive.material];
-
-        if (options.push_constants)
+        // Draw the mesh
+        for (const auto &primitive : mesh.primitives)
         {
-            MaterialPushConstant material_pc = MaterialPushConstant::from(material);
-            api.push_constant(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(material_pc), &material_pc);
-        }
+            const auto &material = model.materials[primitive.material];
 
-        if (options.base_color) {
-            bind_texture(api, pass, program, options.textures_slot_offset + 1, material.base_color_texture);
-        }
-        if (options.normal_map) {
-            bind_texture(api, pass, program, options.textures_slot_offset + 2, material.normal_texture);
-        }
-        if (options.metallic_roughness) {
-            bind_texture(api, pass, program, options.textures_slot_offset + 3, material.metallic_roughness_texture);
-        }
+            GltfPushConstant constants;
+            constants.node_idx          = node_idx;
 
-        api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
-    }
+            constants.base_color_factor = material.base_color_factor;
+            constants.base_color_idx    = *material.base_color_texture;
+            constants.normal_map_idx    = *material.normal_texture;
 
-    // TODO: transform relative to parent
-    for (auto child_i : node.children) {
-        draw_node(api, model.nodes[child_i], pass, program, options);
+            api.push_constant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                              0,
+                              sizeof(constants),
+                              &constants);
+            api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+        }
     }
 }
 
@@ -1424,24 +1368,16 @@ static void add_shadow_cascades_pass(Renderer &r)
                         .external_images  = external_images,
                         .depth_attachment = r.shadow_cascades[i],
                         .exec             = [pass_data   = r.gltf,
-                                 global_data = r.global_uniform_pos,
                                  cascade_index_pos,
                                  matrices_pos=r.matrices_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                             auto program = pass_data.shadow_cascade_program;
 
-                            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
-                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, cascade_index_pos);
-                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, matrices_pos);
-                            api.bind_program(program);
+                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, cascade_index_pos);
+                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, matrices_pos);
                             api.bind_index_buffer(pass_data.index_buffer);
                             api.bind_vertex_buffer(pass_data.vertex_buffer);
 
-                            GltfNodeDrawOptions options = {.base_color = true};
-
-                            for (usize node_i : pass_data.model->scene)
-                            {
-                                draw_node(api, pass_data.model->nodes[node_i], pass_data, program, options);
-                            }
+                            draw_model(api, *pass_data.model, program);
                         }});
     }
 }
@@ -1457,21 +1393,14 @@ static void add_gltf_prepass(Renderer &r)
         .type = PassType::Graphics,
         .external_images = external_images,
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
+        .exec = [pass_data=r.gltf](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             auto program = pass_data.prepass;
 
-            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
-            api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
             api.bind_vertex_buffer(pass_data.vertex_buffer);
 
-            GltfNodeDrawOptions options = {.base_color = true};
-
-            for (usize node_i : pass_data.model->scene)
-            {
-                draw_node(api, pass_data.model->nodes[node_i], pass_data, program, options);
-            }
+            draw_model(api, *pass_data.model, program);
         }
     });
 }
@@ -1500,7 +1429,7 @@ static void add_gltf_pass(Renderer &r)
         .sampled_images = sampled_images,
         .color_attachments = {r.hdr_buffer},
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler, depth_slices_pos, matrices_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.gltf, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler, depth_slices_pos, matrices_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
             std::vector<vulkan::ImageH> voxels_directional_volumes;
@@ -1514,13 +1443,12 @@ static void add_gltf_pass(Renderer &r)
 
             auto program = pass_data.shading;
 
-            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, voxel_data.vct_debug_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, voxel_data.voxel_options_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, voxel_data.vct_debug_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxel_data.voxel_options_pos);
 
             api.bind_combined_image_sampler(program,
                                             vulkan::SHADER_DESCRIPTOR_SET,
-                                            2,
+                                            3,
                                             voxels_radiance,
                                             trilinear_sampler);
 
@@ -1532,14 +1460,14 @@ static void add_gltf_pass(Renderer &r)
             }
             api.bind_combined_images_sampler(program,
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             3,
+                                             4,
                                              voxels_directional_volumes,
                                              trilinear_sampler,
                                              views);
             }
 
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 4, depth_slices_pos);
-            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 5, matrices_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 5, depth_slices_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 6, matrices_pos);
 
             {
             std::vector<VkImageView> views;
@@ -1549,22 +1477,16 @@ static void add_gltf_pass(Renderer &r)
             }
             api.bind_combined_images_sampler(program,
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             6,
+                                             7,
                                              shadow_cascades,
                                              trilinear_sampler,
                                              views);
             }
 
-            api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
             api.bind_vertex_buffer(pass_data.vertex_buffer);
 
-            GltfNodeDrawOptions options = {.push_constants = true, .base_color = true, .normal_map = true};
-
-            for (usize node_i : pass_data.model->scene)
-            {
-                draw_node(api, pass_data.model->nodes[node_i], pass_data, program, options);
-            }
+            draw_model(api, *pass_data.model, program);
         }
     });
 }
@@ -1581,46 +1503,41 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
     pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
 
-    // voxel options
+    // gltf nodes transform
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 0,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
+    // voxel options
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 1,
                    .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                    .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
     // projection cameras
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 1,
+                   .slot   = 2,
                    .stages = VK_SHADER_STAGE_GEOMETRY_BIT,
                    .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
     // voxels textures
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 2,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 3,
                    .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
                    .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
-    // node transform
-    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-    // color texture
-    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                   .slot   = 1,
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 4,
                    .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
-    // normal texture
-    pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
-                   .slot   = 2,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+    pinfo.push_constant({
+        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size   = sizeof(GltfPushConstant),
+    });
+
 
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1637,11 +1554,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
-
-        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxel options
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -1880,24 +1792,18 @@ static void add_voxelization_pass(Renderer &r)
 
             api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
 
-            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
-            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.projection_cameras);
+            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.voxel_options_pos);
+            api.bind_buffer(pass_data.voxelization, vulkan::SHADER_DESCRIPTOR_SET, 2, pass_data.projection_cameras);
 
             auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
             auto &normal_uint = api.get_image(voxels_normal).format_views[0];
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 2, voxels_albedo, albedo_uint);
-            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_normal, normal_uint);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 3, voxels_albedo, albedo_uint);
+            api.bind_image(program, vulkan::SHADER_DESCRIPTOR_SET, 4, voxels_normal, normal_uint);
 
-            api.bind_program(program);
             api.bind_index_buffer(model_data.index_buffer);
             api.bind_vertex_buffer(model_data.vertex_buffer);
 
-            GltfNodeDrawOptions options = {.base_color = true, .normal_map = true};
-
-            for (usize node_i : model_data.model->scene)
-            {
-                draw_node(api, model_data.model->nodes[node_i], model_data, program, options);
-            }
+            draw_model(api, *model_data.model, program);
         }
     });
 }
@@ -1911,7 +1817,7 @@ static void add_voxels_visualization_pass(Renderer& r)
         .type = PassType::Graphics,
         .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
         .color_attachments = {r.hdr_buffer},
-        .exec = [pass_data=r.voxels, global_data=r.global_uniform_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.voxels](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
             auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
@@ -1919,7 +1825,6 @@ static void add_voxels_visualization_pass(Renderer& r)
 
             auto program = pass_data.visualization;
 
-            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, pass_data.voxel_options_pos);
             api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, pass_data.vct_debug_pos);
 
@@ -1945,7 +1850,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
             .sampled_images = {r.voxels_albedo, r.voxels_normal},
             .storage_images = {r.voxels_radiance},
             .exec =
-            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data=r.global_uniform_pos]
+            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options]
             (RenderGraph &graph, RenderPass &self, vulkan::API &api)
             {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
@@ -1954,7 +1859,6 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 
                 const auto &program = pass_data.inject_radiance;
 
-                api.bind_buffer(program, 0, global_data);
                 api.bind_buffer(program, 1, pass_data.voxel_options_pos);
                 api.bind_buffer(program, 2, pass_data.vct_debug_pos);
                 api.bind_combined_image_sampler(program, 3, voxels_albedo, trilinear_sampler);
@@ -2121,6 +2025,23 @@ void update_uniforms(Renderer &r)
     globals->sun_direction   = float4(-r.sun.front, 1);
     globals->sun_illuminance = float3(100.0f); //TODO: move from global and use real values (will need auto exposure)
 
+    r.api.bind_buffer({}, vulkan::GLOBAL_DESCRIPTOR_SET, 0, r.global_uniform_pos);
+
+    std::vector<VkImageView> views;
+    std::vector<vulkan::SamplerH> samplers;
+
+    for (uint i = 0; i < r.gltf.model->textures.size(); i++)
+    {
+        const auto& texture = r.gltf.model->textures[i];
+        auto image_h = r.gltf.images[texture.image];
+        auto &image = api.get_image(image_h);
+        views.push_back(image.default_view);
+        samplers.push_back(r.gltf.samplers[texture.sampler]);
+    }
+
+    api.bind_combined_images_samplers({}, vulkan::GLOBAL_DESCRIPTOR_SET, 1, r.gltf.images, samplers, views);
+
+    r.api.bind_global_set();
 
     r.voxels.vct_debug_pos = api.dynamic_uniform_buffer(sizeof(VCTDebug));
     auto *debug            = reinterpret_cast<VCTDebug *>(r.voxels.vct_debug_pos.mapped);
