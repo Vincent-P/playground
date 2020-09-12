@@ -823,10 +823,19 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
     {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
+        std::vector<VkDescriptorBindingFlags> flags;
+        bindings.reserve(info.bindings_by_set[i].size());
+        flags.reserve(info.bindings_by_set[i].size());
         program.dynamic_count_by_set[i] = 0;
 
-        map_transform(info.bindings_by_set[i], bindings, [&](const auto &info_binding) {
-            VkDescriptorSetLayoutBinding binding{};
+        for (const auto &info_binding : info.bindings_by_set[i])
+        {
+            bindings.emplace_back();
+            auto &binding = bindings.back();
+
+            flags.emplace_back();
+            auto &flag = flags.back();
+
             binding.binding        = info_binding.slot;
             binding.stageFlags     = info_binding.stages;
             binding.descriptorType = info_binding.type;
@@ -836,16 +845,18 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
                 program.dynamic_count_by_set[i]++;
             }
 
-            binding.descriptorCount = info_binding.count;
-            return binding;
-        });
+            if (info_binding.count == ~0u) {
+                binding.descriptorCount = 4;
+                if (0)
+                    flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+            }
+            else {
+                binding.descriptorCount = info_binding.count;
+            }
+        }
 
-        // clang-format off
-        std::vector<VkDescriptorBindingFlags> flags(info.bindings_by_set[i].size(), 0);
-        // clang-format on
 
-        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
-            = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
         flags_info.bindingCount  = static_cast<u32>(bindings.size());
         flags_info.pBindingFlags = flags.data();
 

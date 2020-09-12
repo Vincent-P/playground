@@ -66,16 +66,16 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     // basic resources
 
-    r.resolution_scale = 0.25f;
-    r.resolution_scale = 1.0f;
+    r.settings = {};
+    auto resolution_scale = r.settings.resolution_scale;
     r.depth_buffer     = r.graph.image_descs.add({.name   = "Depth Buffer",
-                                              .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                              .size   = float3(resolution_scale, resolution_scale, 1.0f),
                                               .format = VK_FORMAT_D32_SFLOAT});
     r.hdr_buffer       = r.graph.image_descs.add({.name   = "HDR Buffer",
-                                            .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                            .size   = float3(resolution_scale, resolution_scale, 1.0f),
                                             .format = VK_FORMAT_R16G16B16A16_SFLOAT});
     r.ldr_buffer       = r.graph.image_descs.add({.name   = "LDR Buffer",
-                                            .size   = float3(r.resolution_scale, r.resolution_scale, 1.0f),
+                                            .size   = float3(resolution_scale, resolution_scale, 1.0f),
                                             .format = r.api.ctx.swapchain.format.format});
 
     r.trilinear_sampler = r.api.create_sampler({.mag_filter   = VK_FILTER_LINEAR,
@@ -169,6 +169,18 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
         });
     }
 
+    r.shadow_cascades.resize(r.settings.shadow_cascades_count);
+    for (auto& shadow_cascade : r.shadow_cascades)
+    {
+        shadow_cascade = r.graph.image_descs.add({
+            .name          = "Shadow cascade",
+            .size_type     = SizeType::Absolute,
+            .size          = float3(2048.0f, 2048.0f, 1.0f),
+            .type          = VK_IMAGE_TYPE_2D,
+            .format        = VK_FORMAT_D32_SFLOAT,
+        });
+    }
+
     return r;
 }
 
@@ -235,6 +247,7 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 
     /// --- Create program
 
+    {
     vulkan::GraphicsProgramInfo pinfo{};
     pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
@@ -248,11 +261,30 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
 
-    pinfo.enable_depth_write = true;
-    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-    pinfo.depth_bias         = 0.0f;
+    pinfo.enable_depth_write = false;
+    pinfo.depth_test         = VK_COMPARE_OP_EQUAL;
 
     pass.program = api.create_program(std::move(pinfo));
+    }
+
+    {
+    vulkan::GraphicsProgramInfo pinfo{};
+    pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
+
+    pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+    pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
+    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
+
+    pinfo.enable_depth_write = true;
+    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+
+    pass.prepass = api.create_program(std::move(pinfo));
+    }
 
     return pass;
 }
@@ -1005,30 +1037,56 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         });
 
         // shader descriptors
+        // vct debug
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 0,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
         });
+        // voxel options
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 1,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
         });
+        // voxel radiance
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 2,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         });
+        // voxel directional volumes
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 3,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
             .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .count  = 6,
+        });
+        // shadow splits
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 4,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        });
+        // shadow view/proj matrices
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 5,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        });
+        // shadow cascades
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 6,
+            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .count  = ~0u,
         });
 
         // draw descriptors
@@ -1110,6 +1168,54 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pass.prepass = api.create_program(std::move(pinfo));
     }
 
+    {
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/shadowmap.frag.spv");
+
+        // camera uniform buffer
+        pinfo.binding({.set    = vulkan::GLOBAL_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // cascade index
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
+        // view/projection matrices per cascade
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
+        // node transform
+        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
+        // base color texture
+        pinfo.binding({.set    = vulkan::DRAW_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+
+        pinfo.vertex_stride(sizeof(GltfVertex));
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.enable_depth_write = true;
+
+        pass.shadow_cascade_program = api.create_program(std::move(pinfo));
+    }
+
     return pass;
 }
 
@@ -1136,8 +1242,7 @@ struct GltfNodeDrawOptions
     bool metallic_roughness   = false;
 };
 
-static void draw_node(vulkan::API &api, Node &node, const Renderer::GltfPass &pass, vulkan::GraphicsProgramH program,
-                      GltfNodeDrawOptions &options)
+static void draw_node(vulkan::API &api, Node &node, const Renderer::GltfPass &pass, vulkan::GraphicsProgramH program, GltfNodeDrawOptions &options)
 {
     auto &model = *pass.model;
 
@@ -1188,6 +1293,159 @@ static void draw_node(vulkan::API &api, Node &node, const Renderer::GltfPass &pa
     }
 }
 
+static void add_shadow_cascades_pass(Renderer &r)
+{
+    auto &graph = r.graph;
+    auto &api = r.api;
+    auto &ui = *r.p_ui;
+
+    auto external_images = r.gltf.images;
+
+    auto cascades_count = r.settings.shadow_cascades_count;
+
+    std::vector<float> depth_distances;
+    auto &depth_slices = r.depth_slices;
+    auto &cascades_view = r.cascades_view;
+    auto &cascades_proj = r.cascades_proj;
+    depth_slices.resize(cascades_count);
+    depth_distances.resize(cascades_count);
+    cascades_view.resize(cascades_count);
+    cascades_proj.resize(cascades_count);
+
+    static float split_factor = 1.0f;
+    static float near_plane  = 1.f;
+    static float far_plane   = 100.0f;
+
+    if (ui.begin_window("Settings", true))
+    {
+        ImGui::SliderFloat("split", &split_factor, 0.1f, 2.f);
+        ImGui::SliderFloat("near", &near_plane, 1.0f, 50.f);
+        ImGui::SliderFloat("far", &far_plane, 10.0f, 200.f);
+        ui.end_window();
+    }
+
+    float clip_range = far_plane - near_plane;
+    float minz = near_plane;
+    float maxz = near_plane + clip_range;
+    float range = maxz - minz;
+    float ratio = maxz / minz;
+
+    // https://developer.nvidia.com/gpugems/gpugems3/gpugems3_ch10.html
+    for (uint i = 0; i < cascades_count; i++)
+    {
+        float p          = (i + 1) / static_cast<float>(cascades_count);
+        float log        = minz * std::pow(ratio, p);
+        float uniform    = minz + range * p;
+        float d          = split_factor * (log - uniform) + uniform;
+        depth_slices[i]  = (d - near_plane) / clip_range;
+    }
+
+    // compute view and projection  matrix for each cascade
+    float last_split = 0.0;
+    for (uint i = 0; i < cascades_count; i++)
+    {
+        float split = depth_slices[i];
+
+        std::array frustum_corners{
+            float3(-1.0f, 1.0f, 1.0f),
+            float3(1.0f, 1.0f, 1.0f),
+            float3(1.0f, -1.0f, 1.0f),
+            float3(-1.0f, -1.0f, 1.0f),
+            float3(-1.0f, 1.0f, 0.005f),
+            float3(1.0f, 1.0f, 0.005f),
+            float3(1.0f, -1.0f, 0.005f),
+            float3(-1.0f, -1.0f, 0.005f),
+        };
+
+        // project frustum corners into world space
+        auto cam_inv_view_pro = glm::inverse(r.p_camera->get_projection() * r.p_camera->get_view());
+        for (uint i = 0; i < 8; i++)
+        {
+            float4 world_space_corner = cam_inv_view_pro * float4(frustum_corners[i], 1.0f);
+            frustum_corners[i]   = float3(world_space_corner / world_space_corner.w);
+        }
+
+        for (uint i = 0; i < 4; i++)
+        {
+            float3 dist            = frustum_corners[i + 4] - frustum_corners[i];
+            frustum_corners[i + 4] = frustum_corners[i] + (dist * split);
+            frustum_corners[i]     = frustum_corners[i] + (dist * last_split);
+        }
+
+        // get frustum center
+        auto center = float3(0.0f);
+        for (uint i = 0; i < 8; i++) {
+            center += frustum_corners[i];
+        }
+        center /= 8.0f;
+
+        float radius = 0.0f;
+        for (uint i = 0; i < 8; i++)
+        {
+            float distance = glm::length(frustum_corners[i] - center);
+            radius         = glm::max(radius, distance);
+        }
+        radius = std::ceil(radius * 16.0f) / 16.0f;
+
+        auto max   = float3(radius);
+        float3 min = -max;
+
+        float3 light_dir = normalize(r.sun.front);
+
+        depth_distances[i] = (near_plane + split * clip_range) * -1.0f;
+        cascades_view[i] = glm::lookAt(center - light_dir * -min.z, center, float3(0.0f, 1.0f, 0.0f));
+        cascades_proj[i] = glm::ortho(min.x, max.x, min.y, max.y, max.z - min.z, 0.0f);
+
+        last_split = depth_slices[i];
+    }
+
+    r.matrices_pos = api.dynamic_uniform_buffer(2 * sizeof(float4x4) * cascades_count);
+    auto *matrices    = reinterpret_cast<float4x4 *>(r.matrices_pos.mapped);
+    for (uint i = 0; i < cascades_count; i++)
+    {
+        matrices[2 * i]     = cascades_view[i];
+        matrices[2 * i + 1] = cascades_proj[i];
+    }
+
+    r.depth_slices_pos = api.dynamic_uniform_buffer(sizeof(float) * cascades_count);
+    auto *slices    = reinterpret_cast<float *>(r.depth_slices_pos.mapped);
+    for (uint i = 0; i < cascades_count; i++) {
+        slices[i]     = depth_distances[i];
+    }
+
+    for (uint i = 0; i < cascades_count; i++)
+    {
+        auto cascade_index_pos = api.dynamic_uniform_buffer(sizeof(uint));
+        auto *cascade_index    = reinterpret_cast<uint *>(cascade_index_pos.mapped);
+        *cascade_index         = i;
+
+        graph.add_pass({.name             = "Shadow Cascade",
+                        .type             = PassType::Graphics,
+                        .external_images  = external_images,
+                        .depth_attachment = r.shadow_cascades[i],
+                        .exec             = [pass_data   = r.gltf,
+                                 global_data = r.global_uniform_pos,
+                                 cascade_index_pos,
+                                 matrices_pos=r.matrices_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                            auto program = pass_data.shadow_cascade_program;
+
+                            api.bind_buffer(program, vulkan::GLOBAL_DESCRIPTOR_SET, 0, global_data);
+                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 0, cascade_index_pos);
+                            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 1, matrices_pos);
+                            api.bind_program(program);
+                            api.bind_index_buffer(pass_data.index_buffer);
+                            api.bind_vertex_buffer(pass_data.vertex_buffer);
+
+                            GltfNodeDrawOptions options = {.base_color = true};
+
+                            for (usize node_i : pass_data.model->scene)
+                            {
+                                draw_node(api, pass_data.model->nodes[node_i], pass_data, program, options);
+                            }
+                        }});
+    }
+}
+
 static void add_gltf_prepass(Renderer &r)
 {
     auto &graph = r.graph;
@@ -1228,6 +1486,12 @@ static void add_gltf_pass(Renderer &r)
     for (auto volume : r.voxels_directional_volumes) {
         sampled_images.push_back(volume);
     }
+    for (auto cascade : r.shadow_cascades) {
+        sampled_images.push_back(cascade);
+    }
+
+    auto depth_slices_pos = r.depth_slices_pos;
+    auto matrices_pos = r.matrices_pos;
 
     graph.add_pass({
         .name = "glTF pass",
@@ -1236,12 +1500,16 @@ static void add_gltf_pass(Renderer &r)
         .sampled_images = sampled_images,
         .color_attachments = {r.hdr_buffer},
         .depth_attachment = r.depth_buffer,
-        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data=r.gltf, global_data=r.global_uniform_pos, voxel_data=r.voxels, trilinear_sampler=r.trilinear_sampler, depth_slices_pos, matrices_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
             std::vector<vulkan::ImageH> voxels_directional_volumes;
-            for (usize i = 1; i < self.sampled_images.size(); i++) {
+            std::vector<vulkan::ImageH> shadow_cascades;
+            for (usize i = 1; i < 7; i++) {
                 voxels_directional_volumes.push_back(graph.get_resolved_image(self.sampled_images[i]));
+            }
+            for (usize i = 7; i < self.sampled_images.size(); i++) {
+                shadow_cascades.push_back(graph.get_resolved_image(self.sampled_images[i]));
             }
 
             auto program = pass_data.shading;
@@ -1256,6 +1524,7 @@ static void add_gltf_pass(Renderer &r)
                                             voxels_radiance,
                                             trilinear_sampler);
 
+            {
             std::vector<VkImageView> views;
             views.reserve(voxels_directional_volumes.size());
             for (const auto &volume_h : voxels_directional_volumes) {
@@ -1267,6 +1536,24 @@ static void add_gltf_pass(Renderer &r)
                                              voxels_directional_volumes,
                                              trilinear_sampler,
                                              views);
+            }
+
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 4, depth_slices_pos);
+            api.bind_buffer(program, vulkan::SHADER_DESCRIPTOR_SET, 5, matrices_pos);
+
+            {
+            std::vector<VkImageView> views;
+            views.reserve(shadow_cascades.size());
+            for (const auto &cascade_h : shadow_cascades) {
+                views.push_back(api.get_image(cascade_h).default_view);
+            }
+            api.bind_combined_images_sampler(program,
+                                             vulkan::SHADER_DESCRIPTOR_SET,
+                                             6,
+                                             shadow_cascades,
+                                             trilinear_sampler,
+                                             views);
+            }
 
             api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
@@ -1507,14 +1794,8 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 #if 1
 static void add_voxels_clear_pass(Renderer& r)
 {
-    auto &api = r.api;
     auto &graph = r.graph;
     auto &voxel_options = r.voxel_options;
-
-    auto &pass_data = r.voxels;
-    pass_data.voxel_options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
-    auto *buffer0                   = reinterpret_cast<VoxelOptions *>(pass_data.voxel_options_pos.mapped);
-    *buffer0                        = r.voxel_options;
 
     graph.add_pass({
         .name = "Voxels clear",
@@ -1835,7 +2116,8 @@ void update_uniforms(Renderer &r)
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 
-    globals->resolution      = uint2(r.resolution_scale * api.ctx.swapchain.extent.width, r.resolution_scale * api.ctx.swapchain.extent.height);
+    auto resolution_scale = r.settings.resolution_scale;
+    globals->resolution      = uint2(resolution_scale * api.ctx.swapchain.extent.width, resolution_scale * api.ctx.swapchain.extent.height);
     globals->sun_direction   = float4(-r.sun.front, 1);
     globals->sun_illuminance = float3(100.0f); //TODO: move from global and use real values (will need auto exposure)
 
@@ -1843,6 +2125,11 @@ void update_uniforms(Renderer &r)
     r.voxels.vct_debug_pos = api.dynamic_uniform_buffer(sizeof(VCTDebug));
     auto *debug            = reinterpret_cast<VCTDebug *>(r.voxels.vct_debug_pos.mapped);
     *debug                 = r.vct_debug;
+
+
+    r.voxels.voxel_options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
+    auto *buffer0                   = reinterpret_cast<VoxelOptions *>(r.voxels.voxel_options_pos.mapped);
+    *buffer0                        = r.voxel_options;
 
     api.end_label();
 }
@@ -1865,13 +2152,6 @@ void Renderer::display_ui(UI::Context &ui)
     io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
-
-    if (ui.begin_window("ImGui", true))
-    {
-        ImGui::Text("Display size: %dx%d", (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-        ImGui::Text("Display scale: %dx%d", (int)io.DisplayFramebufferScale.x, (int)io.DisplayFramebufferScale.y);
-        ui.end_window();
-    }
 
     if (ui.begin_window("Profiler", true))
     {
@@ -1976,13 +2256,25 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
+    if (ui.begin_window("Settings"))
+    {
+        float scale = settings.resolution_scale;
+        ImGui::SliderFloat("Resolution scale", &scale, 0.25f, 1.0f);
+        (void)(scale);
+
+        int cascades_count = settings.shadow_cascades_count;
+        ImGui::InputInt("Cascades count", &cascades_count, 1, 2);
+        (void)(cascades_count);
+        p_ui->end_window();
+    }
+
     if (ui.begin_window("Global"))
     {
         ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
         p_ui->end_window();
     }
 
-    if (ui.begin_window("Voxel Cone Tracing", true))
+    if (ui.begin_window("Voxel Cone Tracing"))
     {
         ImGui::TextUnformatted("Debug display: ");
         ImGui::SameLine();
@@ -2020,6 +2312,18 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
+    if (ui.begin_window("Cascaded Shadow maps"))
+    {
+        for (auto shadow_map : shadow_cascades)
+        {
+            auto &res = graph.images.at(shadow_map);
+            if (res.resolved_img.is_valid()) {
+                ImGui::Image((void*)(u64)res.resolved_img.value(), ImVec2(1024, 1024));
+            }
+        }
+        ui.end_window();
+    }
+
     sun.update_view();
 }
 
@@ -2035,16 +2339,20 @@ void Renderer::draw()
     update_uniforms(*this);
 
     // voxel cone tracing prep
+    if (0)
+    {
     add_voxels_clear_pass(*this);
     add_voxelization_pass(*this);
     add_voxels_direct_lighting_pass(*this);
     add_voxels_aniso_filtering(*this);
+    }
 
     // color pass
+    add_shadow_cascades_pass(*this);
     add_gltf_prepass(*this);
     add_floor_pass(*this);
 
-    if (vct_debug.display_voxels)
+    if (vct_debug.display_voxels && 0)
     {
         add_voxels_visualization_pass(*this);
     }

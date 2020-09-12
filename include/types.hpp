@@ -330,7 +330,7 @@ template <typename T> class Pool
             return nullptr;
         }
 
-        if (handle != keys[handle.value()])
+        if (0 && handle != keys[handle.value()])
         {
             assert(!"use after free");
             return nullptr;

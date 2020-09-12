@@ -60,7 +60,7 @@ struct VoxelOptions
 
 struct VCTDebug
 {
-    bool display_voxels = true;
+    bool display_voxels = false;
     uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
     uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
     float pad0;
@@ -77,6 +77,12 @@ struct VCTDebug
     float trace_shadow_hit = 1.0f;
     float max_dist         = 256.f;
     float first_step       = 3.0f;
+};
+
+struct Settings
+{
+    float resolution_scale = 1.0f;
+    uint shadow_cascades_count = 4;
 };
 
 struct Renderer
@@ -99,9 +105,9 @@ struct Renderer
     RenderGraph graph;
 
     Camera sun;
+    Settings settings;
     std::shared_ptr<Model> model;
 
-    float resolution_scale = 1.0f;
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
     ImageDescH ldr_buffer;
@@ -117,6 +123,7 @@ struct Renderer
         vulkan::BufferH index_buffer;
         vulkan::BufferH vertex_buffer;
         vulkan::GraphicsProgramH program;
+        vulkan::GraphicsProgramH prepass;
     } checkerboard_floor;
 
 
@@ -152,6 +159,7 @@ struct Renderer
         vulkan::BufferH index_buffer;
         vulkan::GraphicsProgramH shading;
         vulkan::GraphicsProgramH prepass;
+        vulkan::GraphicsProgramH shadow_cascade_program;
         std::vector<vulkan::ImageH> images;
         std::vector<vulkan::SamplerH> samplers;
         std::shared_ptr<Model> model;
@@ -160,7 +168,14 @@ struct Renderer
     ImageDescH voxels_albedo;
     ImageDescH voxels_normal;
     ImageDescH voxels_radiance;
+
     std::array<ImageDescH, 6> voxels_directional_volumes;
+    std::vector<ImageDescH> shadow_cascades;
+    std::vector<float> depth_slices;
+    std::vector<float4x4> cascades_view;
+    std::vector<float4x4> cascades_proj;
+    vulkan::CircularBufferPosition matrices_pos;
+    vulkan::CircularBufferPosition depth_slices_pos;
 
     struct VoxelPass
     {

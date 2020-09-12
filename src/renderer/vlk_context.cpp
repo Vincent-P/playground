@@ -239,15 +239,16 @@ Context Context::create(const Window &window)
     /// --- The descriptor sets of the pool are recycled manually
     std::array pool_sizes{
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 16 * 1024},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 16 * 1024},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 16 * 1024},
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 16 * 1024},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 16 * 1024},
     };
 
     VkDescriptorPoolCreateInfo dpci = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     dpci.flags                      = 0;
     dpci.poolSizeCount              = pool_sizes.size();
     dpci.pPoolSizes                 = pool_sizes.data();
-    dpci.maxSets                    = 1024;
+    dpci.maxSets                    = 2 * 1024;
     VK_CHECK(vkCreateDescriptorPool(ctx.device, &dpci, nullptr, &ctx.descriptor_pool));
 
     VkQueryPoolCreateInfo qpci = {.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};

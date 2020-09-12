@@ -3,13 +3,15 @@
 #include "pbr.h"
 #include "voxels.h"
 
+#extension GL_EXT_nonuniform_qualifier : require
+
 layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 layout (location = 4) in vec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
-layout (location = 6) in vec4 inLightPosition;
+layout (location = 6) in vec4 inViewPos;
 
 layout (push_constant) uniform MU
 {
@@ -26,6 +28,23 @@ layout (set = 1, binding = 1) uniform VO {
 
 layout(set = 1, binding = 2) uniform sampler3D voxels_radiance;
 layout(set = 1, binding = 3) uniform sampler3D voxels_directional_volumes[6];
+
+layout (set = 1, binding = 4) uniform CD {
+    float cascades_depth_slices[10];
+};
+
+struct CascadeMatrix
+{
+    float4x4 view;
+    float4x4 proj;
+};
+
+layout (set = 1, binding = 5) uniform CM {
+    CascadeMatrix cascade_matrices[10];
+};
+
+layout(set = 1, binding = 6) uniform sampler2D shadow_cascades[];
+
 
 layout(set = 2, binding = 1) uniform sampler2D baseColorTexture;
 layout(set = 2, binding = 2) uniform sampler2D normalTexture;
@@ -147,6 +166,36 @@ void main()
     getNormalM(normal, inWorldPos, inNormal, normalTexture, inUV0);
     vec4 base_color = texture(baseColorTexture, inUV0);
 
+    uint cascade_idx = 0;
+    for (uint i = 0; i < 4 - 1; i++) {
+        if(inViewPos.z < cascades_depth_slices[i]) {
+            cascade_idx = i;
+        }
+    }
+
+    cascade_idx = 1;
+
+    CascadeMatrix matrices = cascade_matrices[cascade_idx];
+    vec4 shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
+    shadow_coord /= shadow_coord.w;
+
+    float shadow = 1.0;
+    float bias = 0.001;
+
+    float2 uv = 0.5f * (shadow_coord.xy + 1.0);
+
+    float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
+
+    if (dist > shadow_coord.z + bias) {
+        shadow = 0.0;
+    }
+
+    /*
+    outColor = float4(float3(dist), 1.0);
+    return;
+    */
+
+
     vec3 composite = vec3(1.0);
 
     vec3 direct = vec3(0.0);
@@ -179,7 +228,9 @@ void main()
     // no debug
     else
     {
-        indirect.rgb *= base_color.rgb;
+        indirect.rgb = vec3(0.0);
+        indirect.a = 1.0;
+        direct = shadow * base_color.rgb;
     }
 
     // to linear
