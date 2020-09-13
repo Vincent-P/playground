@@ -220,6 +220,9 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
     {
         auto &image_resource = graph.images.at(color_attachment);
         auto &vk_image       = api.get_image(image_resource.resolved_img);
+        if (!vulkan::is_image_barrier_needed(vk_image.usage, vulkan::ImageUsage::ColorAttachment)) {
+            continue;
+        }
 
         auto src = vulkan::get_src_image_access(vk_image.usage);
         auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::ColorAttachment);
@@ -237,15 +240,17 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
         auto &image_resource = graph.images.at(*renderpass.depth_attachment);
         auto &vk_image       = api.get_image(image_resource.resolved_img);
 
-        auto src = vulkan::get_src_image_access(vk_image.usage);
-        auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::DepthAttachment);
-        src_mask |= src.stage;
-        dst_mask |= dst.stage;
+        if (vulkan::is_image_barrier_needed(vk_image.usage, vulkan::ImageUsage::DepthAttachment)) {
+            auto src = vulkan::get_src_image_access(vk_image.usage);
+            auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::DepthAttachment);
+            src_mask |= src.stage;
+            dst_mask |= dst.stage;
 
-        barriers.emplace_back();
-        auto &b        = barriers.back();
-        b              = vulkan::get_image_barrier(vk_image, src, dst);
-        vk_image.usage = vulkan::ImageUsage::DepthAttachment;
+            barriers.emplace_back();
+            auto &b        = barriers.back();
+            b              = vulkan::get_image_barrier(vk_image, src, dst);
+            vk_image.usage = vulkan::ImageUsage::DepthAttachment;
+        }
     }
 
     vulkan::ImageUsage dst_usage = renderpass.type == PassType::Graphics ? vulkan::ImageUsage::GraphicsShaderRead : vulkan::ImageUsage::ComputeShaderRead;
@@ -253,6 +258,10 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
     {
         auto &image_resource = graph.images.at(sampled_image);
         auto &vk_image       = api.get_image(image_resource.resolved_img);
+
+        if (!vulkan::is_image_barrier_needed(vk_image.usage, dst_usage)) {
+            continue;
+        }
 
         auto src = vulkan::get_src_image_access(vk_image.usage);
         auto dst = vulkan::get_dst_image_access(dst_usage);
@@ -268,6 +277,10 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
     for (auto external_image : renderpass.external_images)
     {
         auto &vk_image       = api.get_image(external_image);
+
+        if (!vulkan::is_image_barrier_needed(vk_image.usage, dst_usage)) {
+            continue;
+        }
 
         auto src = vulkan::get_src_image_access(vk_image.usage);
         auto dst = vulkan::get_dst_image_access(dst_usage);
@@ -287,6 +300,10 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
         auto &image_resource = graph.images.at(storage_image);
         auto &vk_image       = api.get_image(image_resource.resolved_img);
 
+        if (!vulkan::is_image_barrier_needed(vk_image.usage, dst_usage)) {
+            continue;
+        }
+
         auto src = vulkan::get_src_image_access(vk_image.usage);
         auto dst = vulkan::get_dst_image_access(dst_usage);
         src_mask |= src.stage;
@@ -304,6 +321,7 @@ static void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier>
     auto &api = *graph.p_api;
     VkCommandBuffer cmd = api.ctx.frame_resources.get_current().command_buffer;
     vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
+    api.barriers_this_frame += barriers.size();
 }
 
 bool RenderGraph::execute()
@@ -459,6 +477,7 @@ bool RenderGraph::execute()
 
 
             vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
+            api.barriers_this_frame += barriers.size();
 
             // blit the color attachment onto the swapchain
             VkImageBlit blit;

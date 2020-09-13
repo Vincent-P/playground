@@ -27,13 +27,14 @@ struct Camera
 
     float4x4 view;
     float4x4 projection;
+    float near_plane;
+    float far_plane;
 
     float4x4 update_view();
     [[nodiscard]] inline float4x4 get_view() const { return view; }
     [[nodiscard]] inline float4x4 get_projection() const { return projection; }
 
-    float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane);
-    float4x4 ortho_square(float size, float near_plane, float far_plane);
+    static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane);
 
     static Camera create(float3 position);
 };

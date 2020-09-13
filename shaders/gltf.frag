@@ -25,7 +25,7 @@ layout(set = 1, binding = 3) uniform sampler3D voxels_radiance;
 layout(set = 1, binding = 4) uniform sampler3D voxels_directional_volumes[6];
 
 layout (set = 1, binding = 5) uniform CD {
-    float cascades_depth_slices[10];
+    float4 cascades_depth_slices[4];
 };
 
 struct CascadeMatrix
@@ -150,42 +150,41 @@ vec4 Indirect(vec3 normal)
     return diffuse;
 }
 
+const float3 cascade_colors[] = {
+    float3(1.0, 0.0, 0.0),
+    float3(0.0, 1.0, 0.0),
+    float3(0.0, 0.0, 1.0),
+    float3(0.0, 1.0, 1.0),
+    };
+
 void main()
 {
     vec3 normal = vec3(0.0);
     getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
     vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
 
+    /// --- Cascaded shadow
     float shadow = 1.0;
 
     uint cascade_idx = 0;
     for (uint i = 0; i < 4 - 1; i++) {
-        if(inViewPos.z < cascades_depth_slices[i]) {
-            cascade_idx = i;
+        float slice = 1.0 - cascades_depth_slices[i/4][i%4];
+        if(gl_FragCoord.z < slice) {
+            cascade_idx = i + 1;
         }
     }
-
-    cascade_idx = 1;
 
     CascadeMatrix matrices = cascade_matrices[cascade_idx];
     vec4 shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
     shadow_coord /= shadow_coord.w;
-
-    float bias = 0.001;
-
     float2 uv = 0.5f * (shadow_coord.xy + 1.0);
 
     float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
 
+    float bias = 0.0001;
     if (dist > shadow_coord.z + bias) {
         shadow = 0.0;
     }
-
-    /*
-    outColor = float4(float3(dist), 1.0);
-    return;
-    */
-
 
     vec3 composite = vec3(1.0);
 

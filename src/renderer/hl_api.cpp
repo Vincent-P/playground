@@ -209,6 +209,8 @@ bool API::start_frame()
 
     add_timestamp("Begin Frame");
 
+    barriers_this_frame = 0;
+
     return true;
 }
 
@@ -314,6 +316,10 @@ void API::display_ui(UI::Context &ui) const
         ImGui::Text("Shaders: %zu", shaders.size());
         ImGui::Text("RenderPasses: %zu", renderpasses.size());
         ImGui::Text("FrameBuffers: %zu", framebuffers.size());
+        ImGui::Separator();
+        ImGui::Text("Current frame");
+        ImGui::Separator();
+        ImGui::Text("Pipeline barriers: %zu", barriers_this_frame);
 
         ui.end_window();
     }

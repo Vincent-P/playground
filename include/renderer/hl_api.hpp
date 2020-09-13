@@ -453,6 +453,7 @@ struct API
     GraphicsProgram *current_program;
 
     // statistics
+    usize barriers_this_frame = 0;
     usize graphics_pipeline_count = 0;
     usize compute_pipeline_count = 0;
 
@@ -743,9 +744,7 @@ inline ImageAccess get_dst_image_access(ImageUsage usage)
 
 inline bool is_image_barrier_needed(ImageUsage src, ImageUsage dst)
 {
-    if (src == ImageUsage::GraphicsShaderRead && dst == ImageUsage::GraphicsShaderRead)
-        return false;
-    return true;
+    return !(src == ImageUsage::GraphicsShaderRead && dst == ImageUsage::GraphicsShaderRead);
 }
 
 inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &src, const ImageAccess &dst, const VkImageSubresourceRange &range)

@@ -111,14 +111,15 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
 
     float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
-    r.p_camera->perspective(60.0f, aspect_ratio, 1.0f, 200.f);
+    r.p_camera->near_plane = 1.0f;
+    r.p_camera->far_plane = 100.0f;
+    r.p_camera->projection = Camera::perspective(60.0f, aspect_ratio, r.p_camera->near_plane, r.p_camera->far_plane);
     // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.pitch = 78.0f;
     r.sun.yaw = 0.0f;
     r.sun.roll = 0.0f;
-    r.sun.ortho_square(40.f, 1.f, 100.f);
 
     // it would be nice to be able to create those in the create_procedural_sky_pass function
 
@@ -380,6 +381,7 @@ static void add_imgui_pass(Renderer &r)
     }
 
     auto &graph = r.graph;
+    auto &api = r.api;
 
     // The render graph needs to know about external images to put barriers on them correctly
     // are external images always going to be sampled or they need to be in differents categories
@@ -394,8 +396,8 @@ static void add_imgui_pass(Renderer &r)
             const auto &draw_command = cmd_list.CmdBuffer[command_index];
 
             if (draw_command.TextureId) {
-                auto image_h = vulkan::ImageH(static_cast<u32>(reinterpret_cast<u64>(draw_command.TextureId)));
-                external_images.push_back(image_h);
+                auto image_view_h = vulkan::ImageViewH(static_cast<u32>(reinterpret_cast<u64>(draw_command.TextureId)));
+                external_images.push_back(api.get_image_view(image_view_h).image_h);
             }
         }
     }
@@ -526,7 +528,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 0,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
 
         pass.render_transmittance = api.create_program(std::move(pinfo));
@@ -541,7 +543,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // transmittance LUT
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -567,7 +569,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // transmittance lut
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -602,7 +604,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         // atmosphere params
         pinfo.binding({.slot =  0,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // transmittance lut
         pinfo.binding({.slot =  1,
@@ -795,7 +797,7 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 1,
                    .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
     Renderer::TonemappingPass pass;
     pass.program    = api.create_program(std::move(pinfo));
@@ -1052,14 +1054,14 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 1,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
         // voxel options
         pinfo.binding({
             .set    = vulkan::SHADER_DESCRIPTOR_SET,
             .slot   = 2,
             .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         });
         // voxel radiance
         pinfo.binding({
@@ -1249,41 +1251,33 @@ static void add_shadow_cascades_pass(Renderer &r)
 
     auto cascades_count = r.settings.shadow_cascades_count;
 
-    std::vector<float> depth_distances;
     auto &depth_slices = r.depth_slices;
     auto &cascades_view = r.cascades_view;
     auto &cascades_proj = r.cascades_proj;
     depth_slices.resize(cascades_count);
-    depth_distances.resize(cascades_count);
     cascades_view.resize(cascades_count);
     cascades_proj.resize(cascades_count);
 
     static float split_factor = 1.0f;
-    static float near_plane  = 1.f;
-    static float far_plane   = 100.0f;
+    float near_plane  = r.p_camera->far_plane;
+    float far_plane   = r.p_camera->near_plane;
 
     if (ui.begin_window("Settings", true))
     {
         ImGui::SliderFloat("split", &split_factor, 0.1f, 2.f);
-        ImGui::SliderFloat("near", &near_plane, 1.0f, 50.f);
-        ImGui::SliderFloat("far", &far_plane, 10.0f, 200.f);
         ui.end_window();
     }
 
     float clip_range = far_plane - near_plane;
-    float minz = near_plane;
-    float maxz = near_plane + clip_range;
-    float range = maxz - minz;
-    float ratio = maxz / minz;
-
-    // https://developer.nvidia.com/gpugems/gpugems3/gpugems3_ch10.html
+    // "practical split scheme" by nvidia (https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-10-parallel-split-shadow-maps-programmable-gpus)
+    // basically a mix of log and uniform splits by a split factor
     for (uint i = 0; i < cascades_count; i++)
     {
-        float p          = (i + 1) / static_cast<float>(cascades_count);
-        float log        = minz * std::pow(ratio, p);
-        float uniform    = minz + range * p;
-        float d          = split_factor * (log - uniform) + uniform;
-        depth_slices[i]  = (d - near_plane) / clip_range;
+        float p = (i+1) / static_cast<float>(cascades_count);
+        float log = near_plane * std::pow(far_plane/near_plane, p);
+        float uniform = near_plane + clip_range * p;
+        float d = split_factor * (log - uniform) + uniform;
+        depth_slices[i] = (d - near_plane) / clip_range;
     }
 
     // compute view and projection  matrix for each cascade
@@ -1292,15 +1286,17 @@ static void add_shadow_cascades_pass(Renderer &r)
     {
         float split = depth_slices[i];
 
+        // get the frustum of the current split (near plane = 1.0f - last_split | far plane = 1.0f - split)
+        // it's a bit weird because the splits are in [0, 1] so to use reversed depth there is a 1 - depth
         std::array frustum_corners{
-            float3(-1.0f, 1.0f, 1.0f),
-            float3(1.0f, 1.0f, 1.0f),
-            float3(1.0f, -1.0f, 1.0f),
-            float3(-1.0f, -1.0f, 1.0f),
-            float3(-1.0f, 1.0f, 0.005f),
-            float3(1.0f, 1.0f, 0.005f),
-            float3(1.0f, -1.0f, 0.005f),
-            float3(-1.0f, -1.0f, 0.005f),
+            float3(-1.0f, 1.0f, 1.0f - last_split),
+            float3(1.0f, 1.0f, 1.0f - last_split),
+            float3(1.0f, -1.0f, 1.0f - last_split),
+            float3(-1.0f, -1.0f, 1.0f - last_split),
+            float3(-1.0f, 1.0f, 1.0f - split),
+            float3(1.0f, 1.0f, 1.0f - split),
+            float3(1.0f, -1.0f, 1.0f - split),
+            float3(-1.0f, -1.0f, 1.0f - split),
         };
 
         // project frustum corners into world space
@@ -1311,13 +1307,6 @@ static void add_shadow_cascades_pass(Renderer &r)
             frustum_corners[i]   = float3(world_space_corner / world_space_corner.w);
         }
 
-        for (uint i = 0; i < 4; i++)
-        {
-            float3 dist            = frustum_corners[i + 4] - frustum_corners[i];
-            frustum_corners[i + 4] = frustum_corners[i] + (dist * split);
-            frustum_corners[i]     = frustum_corners[i] + (dist * last_split);
-        }
-
         // get frustum center
         auto center = float3(0.0f);
         for (uint i = 0; i < 8; i++) {
@@ -1325,6 +1314,7 @@ static void add_shadow_cascades_pass(Renderer &r)
         }
         center /= 8.0f;
 
+        // get the radius of the frustum
         float radius = 0.0f;
         for (uint i = 0; i < 8; i++)
         {
@@ -1333,16 +1323,14 @@ static void add_shadow_cascades_pass(Renderer &r)
         }
         radius = std::ceil(radius * 16.0f) / 16.0f;
 
+        float3 light_dir = normalize(r.sun.front);
         auto max   = float3(radius);
         float3 min = -max;
 
-        float3 light_dir = normalize(r.sun.front);
+        cascades_view[i] = glm::lookAt(center - light_dir * max.z, center, float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
+        cascades_proj[i] = glm::ortho(min.x, max.x, min.y, max.y, 1 * (max.z - min.z), 0.0f); // near/far reversed
 
-        depth_distances[i] = (near_plane + split * clip_range) * -1.0f;
-        cascades_view[i] = glm::lookAt(center - light_dir * -min.z, center, float3(0.0f, 1.0f, 0.0f));
-        cascades_proj[i] = glm::ortho(min.x, max.x, min.y, max.y, max.z - min.z, 0.0f);
-
-        last_split = depth_slices[i];
+        last_split = split;
     }
 
     r.matrices_pos = api.dynamic_uniform_buffer(2 * sizeof(float4x4) * cascades_count);
@@ -1353,10 +1341,11 @@ static void add_shadow_cascades_pass(Renderer &r)
         matrices[2 * i + 1] = cascades_proj[i];
     }
 
-    r.depth_slices_pos = api.dynamic_uniform_buffer(sizeof(float) * cascades_count);
+    // slices are sent as-is and need to be reversed in shader
+    r.depth_slices_pos = r.api.dynamic_uniform_buffer(sizeof(float4) * (r.shadow_cascades.size() + 3) / 4);
     auto *slices    = reinterpret_cast<float *>(r.depth_slices_pos.mapped);
-    for (uint i = 0; i < cascades_count; i++) {
-        slices[i]     = depth_distances[i];
+    for (uint i = 0; i < r.shadow_cascades.size(); i++) {
+        slices[i]     = r.depth_slices[i];
     }
 
     for (uint i = 0; i < cascades_count; i++)
@@ -1421,7 +1410,9 @@ static void add_gltf_pass(Renderer &r)
         sampled_images.push_back(cascade);
     }
 
-    auto depth_slices_pos = r.depth_slices_pos;
+    auto &depth_slices_pos = r.depth_slices_pos;
+
+
     auto matrices_pos = r.matrices_pos;
 
     graph.add_pass({
@@ -1513,13 +1504,13 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 1,
                    .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
     // projection cameras
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 2,
                    .stages = VK_SHADER_STAGE_GEOMETRY_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
     // voxels textures
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -1559,13 +1550,13 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // debug
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // voxels textures
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -1591,7 +1582,7 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.shader = api.create_shader("shaders/voxel_clear.comp.spv");
         pinfo.binding({.slot =  0,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         pinfo.binding({.slot =  1,
                        .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
@@ -1615,17 +1606,17 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 
         pinfo.binding({.slot   = 0,
                        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // voxel options
         pinfo.binding({.slot   = 1,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // directional light
         pinfo.binding({.slot   = 2,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // voxels textures
         // albedo
@@ -1651,7 +1642,7 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // radiance
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -1676,13 +1667,13 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // mip src
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
 
         // source mip
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
@@ -2241,9 +2232,19 @@ void Renderer::display_ui(UI::Context &ui)
         {
             auto &res = graph.images.at(shadow_map);
             if (res.resolved_img.is_valid()) {
-                ImGui::Image((void*)(u64)res.resolved_img.value(), ImVec2(1024, 1024));
+                ImGui::Image((void*)(u64)(api.get_image(res.resolved_img).default_view.value()), ImVec2(1024, 1024));
             }
         }
+        ui.end_window();
+    }
+
+    if (ui.begin_window("Camera", true))
+    {
+        ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.1f, 10.0f);
+        ImGui::SliderFloat("Far plane", &p_camera->far_plane, 20.0f, 200.0f);
+
+        float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
+        p_camera->projection = Camera::perspective(60.0f, aspect_ratio, p_camera->near_plane, p_camera->far_plane);
         ui.end_window();
     }
 

@@ -291,7 +291,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         rast_i.polygonMode             = VK_POLYGON_MODE_FILL;
         rast_i.cullMode                = VK_CULL_MODE_NONE;
         rast_i.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        rast_i.depthClampEnable        = VK_FALSE;
+        rast_i.depthClampEnable        = VK_TRUE;
         rast_i.rasterizerDiscardEnable = VK_FALSE;
         rast_i.depthBiasEnable         = program_info.depth_bias != 0.0f;
         rast_i.depthBiasConstantFactor = program_info.depth_bias;

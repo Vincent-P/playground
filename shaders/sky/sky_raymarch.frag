@@ -94,7 +94,7 @@ void main()
     float2 pixel_pos = gl_FragCoord.xy;
     float2 uv = pixel_pos / global.resolution;
 
-    float3 clip_space = float3(uv * 2.0 - float2(1.0), 0.001);
+    float3 clip_space = float3(uv * 2.0 - float2(1.0), 0.0);
     float4 h_pos      = global.camera_inv_view_proj * float4(clip_space, 1.0);
     h_pos /= h_pos.w;
 
