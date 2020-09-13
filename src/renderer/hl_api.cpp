@@ -209,6 +209,7 @@ bool API::start_frame()
 
     add_timestamp("Begin Frame");
 
+    draws_this_frame = 0;
     barriers_this_frame = 0;
 
     return true;
@@ -319,6 +320,7 @@ void API::display_ui(UI::Context &ui) const
         ImGui::Separator();
         ImGui::Text("Current frame");
         ImGui::Separator();
+        ImGui::Text("Draws: %zu", draws_this_frame);
         ImGui::Text("Pipeline barriers: %zu", barriers_this_frame);
 
         ui.end_window();

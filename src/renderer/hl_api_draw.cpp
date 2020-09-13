@@ -787,6 +787,7 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
     pre_draw(*this, *current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
     vkCmdDrawIndexed(frame_resource.command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);
+    draws_this_frame++;
 }
 
 void API::draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance)
@@ -794,6 +795,7 @@ void API::draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first
     pre_draw(*this, *current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
     vkCmdDraw(frame_resource.command_buffer, vertex_count, instance_count, first_vertex, first_instance);
+    draws_this_frame++;
 }
 
 void API::set_scissor(const VkRect2D &scissor)

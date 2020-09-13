@@ -452,8 +452,9 @@ struct API
     RenderPassH current_render_pass;
     GraphicsProgram *current_program;
 
-    // statistics
+    // stats
     usize barriers_this_frame = 0;
+    usize draws_this_frame = 0;
     usize graphics_pipeline_count = 0;
     usize compute_pipeline_count = 0;
 
