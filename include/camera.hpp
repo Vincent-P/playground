@@ -53,12 +53,12 @@ struct InputCamera
     float2 dragged_mouse_start_pos;
     bool view_dirty = true;
 
-    float3 target{};
+    float3 target = {0.0f, 3.0f, 0.0f};
 
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
-    float r = 5.0f;
-    float theta = 0.0f;
-    float phi = -45.0f;
+    float r = 6.0f;
+    float theta = -78.0f;
+    float phi = -65.0f;
 
     Camera _internal;
     Window *p_window;

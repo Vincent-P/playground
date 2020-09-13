@@ -643,14 +643,14 @@ void API::bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint sl
     bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
-void API::bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageViewH> &image_views_h)
+void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
     auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
-void API::bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageViewH> &image_views_h)
+void API::bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint slot)
 {
     auto &binding_set = get_program(program_h).binding_set;
     bind_images_internal(*this, binding_set, slot, image_views_h);

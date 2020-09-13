@@ -1835,13 +1835,15 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
+    auto global_data = r.global_uniform_pos;
+
     graph.add_pass({
             .name = "Voxels direct lighting",
             .type = PassType::Compute,
             .sampled_images = {r.voxels_albedo, r.voxels_normal},
             .storage_images = {r.voxels_radiance},
             .exec =
-            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options]
+            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data]
             (RenderGraph &graph, RenderPass &self, vulkan::API &api)
             {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
@@ -1850,6 +1852,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 
                 const auto &program = pass_data.inject_radiance;
 
+                api.bind_buffer(program, global_data, 0);
                 api.bind_buffer(program, pass_data.voxel_options_pos, 1);
                 api.bind_buffer(program, pass_data.vct_debug_pos, 2);
                 api.bind_combined_image_sampler(program, api.get_image(voxels_albedo).default_view, trilinear_sampler, 3);
@@ -1918,7 +1921,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
                  api.bind_buffer(program, mip_pos, 0);
                  api.bind_combined_image_sampler(program, api.get_image(voxels_radiance).default_view, trilinear_sampler, 1);
-                 api.bind_combined_images_samplers(program, views, {trilinear_sampler}, 2);
+                 api.bind_images(program, views, 2);
 
                  api.dispatch(program, count, count, count);
              }
@@ -1954,7 +1957,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
                         .sampled_images = {r.voxels_radiance},
                         .storage_images = storage_images,
                         .exec =
-                            [pass_data = r.voxels, trilinear_sampler,count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
+                            [pass_data = r.voxels, count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
                                                                                           RenderPass &self,
                                                                                           vulkan::API &api) {
                                 // resolved directional volumes
@@ -1982,8 +1985,8 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                     dst_views.push_back(image.mip_views[dst]);
                                 }
 
-                                api.bind_combined_images_samplers(program, src_views, {trilinear_sampler}, 2);
-                                api.bind_combined_images_samplers(program, dst_views, {trilinear_sampler}, 3);
+                                api.bind_images(program, src_views, 2);
+                                api.bind_images(program, dst_views, 3);
 
                                 api.dispatch(program, count, count, count);
                             }
@@ -2263,20 +2266,17 @@ void Renderer::draw()
     update_uniforms(*this);
 
     // voxel cone tracing prep
-    if (0)
-    {
     add_voxels_clear_pass(*this);
     add_voxelization_pass(*this);
     add_voxels_direct_lighting_pass(*this);
     add_voxels_aniso_filtering(*this);
-    }
 
     // color pass
     add_shadow_cascades_pass(*this);
     add_gltf_prepass(*this);
     add_floor_pass(*this);
 
-    if (vct_debug.display_voxels && 0)
+    if (vct_debug.display_voxels)
     {
         add_voxels_visualization_pass(*this);
     }

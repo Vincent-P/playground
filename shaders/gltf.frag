@@ -183,7 +183,7 @@ void main()
 
     float bias = 0.0001;
     if (dist > shadow_coord.z + bias) {
-        shadow = 0.0;
+        shadow = 0.05;
     }
 
     vec3 composite = vec3(1.0);
@@ -219,7 +219,7 @@ void main()
     else
     {
         indirect.rgb = vec3(0.0);
-        indirect.a = 1.0;
+        indirect.a = 1.0f;
         direct = shadow * base_color.rgb;
     }
 

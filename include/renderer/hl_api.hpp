@@ -476,8 +476,8 @@ struct API
     // storage images
     void bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index = 0);
     void bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint slot, uint index = 0);
-    void bind_images(GraphicsProgramH program_h, uint set, uint slot, const std::vector<ImageViewH> &image_views_h);
-    void bind_images(ComputeProgramH program_h, uint slot, const std::vector<ImageViewH> &image_views_h);
+    void bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot);
+    void bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint slot);
 
     // sampled images
     void bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
