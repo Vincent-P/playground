@@ -127,7 +127,8 @@ void InjectDirectLighting(ivec3 voxel_pos)
     normal = normalize(DecodeNormal(normal));
 
     vec4 lighting = vec4(0.0);
-    lighting += DirectionalLighting(voxel_pos, albedo, normal, global.sun_direction.xyz);
+    lighting = albedo;
+    // lighting += DirectionalLighting(voxel_pos, albedo, normal, global.sun_direction.xyz);
     // lighting += PointLight(voxel_pos, albedo, normal, vct_debug.point_position.xyz);
     lighting.a = 1;
 

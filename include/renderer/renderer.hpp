@@ -53,8 +53,8 @@ assert_uniform_size(GlobalUniform);
 
 struct VoxelOptions
 {
-    float3 center = {-20.0f, -10.0f, -15.0f};
-    float size    = 0.2f;
+    float3 center = {-16.0f, -10.0f, -15.0f};
+    float size    = 0.13f;
     uint res      = 256;
 };
 

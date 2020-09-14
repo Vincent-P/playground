@@ -1,3 +1,5 @@
+#include "types.h"
+#include "globals.h"
 #include "voxels.h"
 #include "pbr.h"
 
@@ -15,12 +17,65 @@ layout(set = 1, binding = 1) uniform VO {
 layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
 layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
 
+layout (set = 1, binding = 5) uniform CD {
+    float4 cascades_depth_slices[4];
+};
+
+struct CascadeMatrix
+{
+    float4x4 view;
+    float4x4 proj;
+};
+
+layout (set = 1, binding = 6) uniform CM {
+    CascadeMatrix cascade_matrices[10];
+};
+
+layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
+
+
 void main()
 {
     vec4 color = texture(global_textures[constants.base_color_idx], inUV0);
     if (color.a < 0.1) {
         discard;
     }
+
+    /// --- Cascaded shadow
+    float4 screen_pos = global.camera_proj * global.camera_view * float4(inWorldPos, 1.0);
+    screen_pos /= screen_pos.w;
+    float depth = screen_pos.z;
+
+
+    uint cascade_idx = 0;
+    float4 shadow_coord = float4(0.0);
+    float2 uv = float2(-2.0);
+    for (cascade_idx = 0; cascade_idx < 4; cascade_idx++)
+    {
+        cascade_idx += 1;
+        CascadeMatrix matrices = cascade_matrices[cascade_idx];
+        shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
+        shadow_coord /= shadow_coord.w;
+        uv = 0.5f * (shadow_coord.xy + 1.0);
+
+        if (-1.0 <= uv.x && uv.x <= 1.0
+            && -1.0 <= uv.y && uv.y <= 1.0) {
+            break;
+        }
+    }
+
+
+
+    float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
+
+    const float BIAS = 0.0001;
+    float shadow = 1.0;
+    if (dist > shadow_coord.z + BIAS) {
+        shadow = 0.00;
+    }
+
+    color.rgb *= shadow;
+
     vec3 normal = vec3(0.0);
     getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
 

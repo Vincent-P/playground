@@ -63,8 +63,6 @@ const float diffuseConeWeights[] =
     3.0f * PI / 20.0f,
 };
 
-
-
 vec4 AnisotropicSample(vec3 position, float mip, uvec3 faces, vec3 weight)
 {
     float aniso_level = max(mip - 1.0, 0.0);
@@ -183,13 +181,13 @@ void main()
 
     float bias = 0.0001;
     if (dist > shadow_coord.z + bias) {
-        shadow = 0.05;
+        shadow = 0.00;
     }
 
     vec3 composite = vec3(1.0);
 
-    vec3 direct = vec3(0.0);
-    vec4 indirect = Indirect(normal);
+    vec3 direct = shadow * base_color.rgb;
+    vec4 indirect = base_color * Indirect(normal);
 
     // base color
     if (debug.gltf_debug_selected == 1)
@@ -214,13 +212,11 @@ void main()
     // indirect
     else if (debug.gltf_debug_selected == 4)
     {
+        direct = float3(0.0);
     }
     // no debug
     else
     {
-        indirect.rgb = vec3(0.0);
-        indirect.a = 1.0f;
-        direct = shadow * base_color.rgb;
     }
 
     // to linear
@@ -228,7 +224,7 @@ void main()
     // direct.rgb = pow(direct.rgb, vec3(2.2f));
 
     // composite direct and indirect lighting
-    composite = (direct + indirect.rgb) * indirect.a;
+    composite = direct + indirect.rgb * indirect.a;
 
     // to srgb
     // composite = pow(composite, vec3(1.0 / 2.2));

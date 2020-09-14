@@ -1529,6 +1529,29 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         .size   = sizeof(GltfPushConstant),
     });
 
+    // shadow splits
+    pinfo.binding({
+        .set    = vulkan::SHADER_DESCRIPTOR_SET,
+        .slot   = 5,
+        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    });
+    // shadow view/proj matrices
+    pinfo.binding({
+        .set    = vulkan::SHADER_DESCRIPTOR_SET,
+        .slot   = 6,
+        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    });
+    // shadow cascades
+    pinfo.binding({
+        .set    = vulkan::SHADER_DESCRIPTOR_SET,
+        .slot   = 7,
+        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count  = 4,
+    });
+
 
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1746,7 +1769,7 @@ static void add_voxelization_pass(Renderer &r)
     if (ui.begin_window("Voxelization"))
     {
         ImGui::SliderFloat3("Center", &r.voxel_options.center[0], -40.f, 40.f);
-        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.1f, 1.f);
+        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.05f, 0.5f);
         ui.end_window();
     }
 
@@ -1769,16 +1792,31 @@ static void add_voxelization_pass(Renderer &r)
     buffer1[1] = projection * glm::lookAt(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
     buffer1[2] = projection * glm::lookAt(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
+    std::vector<ImageDescH> sampled_images;
+    for (auto cascade : r.shadow_cascades) {
+        sampled_images.push_back(cascade);
+    }
+
+    const auto &trilinear_sampler = r.trilinear_sampler;
+    const auto &depth_slices_pos = r.depth_slices_pos;
+    const auto &matrices_pos = r.matrices_pos;
 
     graph.add_pass({
         .name = "Voxelization",
         .type = PassType::Graphics,
+        .sampled_images = sampled_images,
         .storage_images = {r.voxels_albedo, r.voxels_normal},
         .samples = VK_SAMPLE_COUNT_32_BIT,
-        .exec = [pass_data, model_data=r.gltf, voxel_options=r.voxel_options](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data, model_data=r.gltf, voxel_options=r.voxel_options, trilinear_sampler, depth_slices_pos, matrices_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
             auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
+            std::vector<vulkan::ImageH> shadow_cascades;
+            shadow_cascades.reserve(self.sampled_images.size());
+            for (auto image : self.sampled_images) {
+                shadow_cascades.push_back(graph.get_resolved_image(image));
+            }
+
             auto program = pass_data.voxelization;
 
             api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
@@ -1790,6 +1828,22 @@ static void add_voxelization_pass(Renderer &r)
             auto &normal_uint = api.get_image(voxels_normal).format_views[0];
             api.bind_image(program, albedo_uint, vulkan::SHADER_DESCRIPTOR_SET, 3);
             api.bind_image(program, normal_uint, vulkan::SHADER_DESCRIPTOR_SET, 4);
+
+            api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 5);
+            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
+
+            {
+                std::vector<vulkan::ImageViewH> views;
+                views.reserve(shadow_cascades.size());
+                for (const auto &cascade_h : shadow_cascades) {
+                    views.push_back(api.get_image(cascade_h).default_view);
+                }
+                api.bind_combined_images_samplers(program,
+                                                 views,
+                                                  {trilinear_sampler},
+                                                 vulkan::SHADER_DESCRIPTOR_SET,
+                                                 7);
+            }
 
             api.bind_index_buffer(model_data.index_buffer);
             api.bind_vertex_buffer(model_data.vertex_buffer);
@@ -2207,10 +2261,10 @@ void Renderer::display_ui(UI::Context &ui)
         {
             static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
             tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.gltf_debug_selected);
-            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 1.0f);
+            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 10.0f);
             ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
             ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
-            ImGui::SliderFloat("Start position", &vct_debug.start, 0.1f, 2.0f);
+            ImGui::SliderFloat("Start position (in voxel)", &vct_debug.start, 1.0f, 5.0f);
         }
         else
         {
@@ -2218,6 +2272,7 @@ void Renderer::display_ui(UI::Context &ui)
             tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.voxel_debug_selected);
         }
 
+        /*
         ImGui::Spacing();
         ImGui::TextUnformatted("Direct lighting:");
         ImGui::SliderFloat3("Point light position", &vct_debug.point_position[0], -10.0f, 10.0f);
@@ -2225,6 +2280,7 @@ void Renderer::display_ui(UI::Context &ui)
         ImGui::SliderFloat("Trace Shadow Hit", &vct_debug.trace_shadow_hit, 0.0f, 1.0f);
         ImGui::SliderFloat("Max Dist", &vct_debug.max_dist, 0.0f, 300.0f);
         ImGui::SliderFloat("First step", &vct_debug.first_step, 1.0f, 20.0f);
+        */
 
         ui.end_window();
     }
@@ -2265,6 +2321,8 @@ void Renderer::draw()
 
     update_uniforms(*this);
 
+    add_shadow_cascades_pass(*this);
+
     // voxel cone tracing prep
     add_voxels_clear_pass(*this);
     add_voxelization_pass(*this);
@@ -2272,7 +2330,6 @@ void Renderer::draw()
     add_voxels_aniso_filtering(*this);
 
     // color pass
-    add_shadow_cascades_pass(*this);
     add_gltf_prepass(*this);
     add_floor_pass(*this);
 
