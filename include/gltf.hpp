@@ -51,10 +51,12 @@ enum class Wrap
 
 struct Material
 {
-    float4 base_color_factor;
-    std::optional<u32> base_color_texture;
-    std::optional<u32> normal_texture;
-    std::optional<u32> metallic_roughness_texture;
+    float4 base_color_factor = float4(1.0f);
+    float metallic_factor = 1.0f;
+    float roughness_factor = 1.0f;
+    std::optional<u32> base_color_texture = {};
+    std::optional<u32> normal_texture = {};
+    std::optional<u32> metallic_roughness_texture = {};
 };
 
 struct Image

@@ -62,7 +62,7 @@ struct VCTDebug
 {
     bool display_voxels = false;
     uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
-    uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
+    uint gltf_debug_selected = 5; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting 5: direct lighting
     float pad0;
 
     // cone tracing
@@ -93,13 +93,17 @@ struct GltfPushConstant
     // textures
     u32 base_color_idx;
     u32 normal_map_idx;
-    float pad00;
+    u32 metallic_roughness_idx;
 
     // material
     float4 base_color_factor;
+    float  metallic_factor;
+    float  roughness_factor;
+    float2 pad10;
 };
 
 assert_uniform_size(GltfPushConstant);
+static_assert(sizeof(GltfPushConstant) <= 128);
 
 struct Renderer
 {

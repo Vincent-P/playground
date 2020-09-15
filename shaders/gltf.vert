@@ -14,29 +14,12 @@ layout (location = 5) out vec4 outWeight0;
 layout (location = 6) out vec4 outViewPos;
 
 #include "globals.h"
+#include "pbr.h"
 
 #extension GL_EXT_nonuniform_qualifier : require
 
 layout (set = 1, binding = 0) uniform UBONode {
     float4x4 nodes_transforms[4]; // max nodes
-};
-
-struct GltfPushConstant
-{
-    // uniform
-    u32 node_idx;
-
-    // textures
-    u32 base_color_idx;
-    u32 normal_map_idx;
-    float pad00;
-
-    // material
-    float4 base_color_factor;
-};
-
-layout(push_constant) uniform GC {
-    GltfPushConstant constants;
 };
 
 

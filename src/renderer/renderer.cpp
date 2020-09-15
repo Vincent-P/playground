@@ -1225,12 +1225,16 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
         {
             const auto &material = model.materials[primitive.material];
 
-            GltfPushConstant constants;
+            GltfPushConstant constants = {};
             constants.node_idx          = node_idx;
 
+            constants.base_color_idx         = *material.base_color_texture;
+            constants.normal_map_idx         = *material.normal_texture;
+            constants.metallic_roughness_idx = *material.metallic_roughness_texture;
+
             constants.base_color_factor = material.base_color_factor;
-            constants.base_color_idx    = *material.base_color_texture;
-            constants.normal_map_idx    = *material.normal_texture;
+            constants.metallic_factor   = material.metallic_factor;
+            constants.roughness_factor  = material.roughness_factor;
 
             api.push_constant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                               0,
@@ -1329,6 +1333,21 @@ static void add_shadow_cascades_pass(Renderer &r)
 
         cascades_view[i] = glm::lookAt(center - light_dir * max.z, center, float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
         cascades_proj[i] = glm::ortho(min.x, max.x, min.y, max.y, 1 * (max.z - min.z), 0.0f); // near/far reversed
+
+        float4x4 matrix = cascades_view[i] * cascades_proj[i];
+        float4 origin = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        origin = matrix * origin;
+        origin = origin * 2048.f / 2.0f;
+
+        float4 rounded_origin = glm::round(origin);
+        float4 rounded_offset = rounded_origin - origin;
+        rounded_offset = rounded_offset * 2.0f / 2048.f;
+        rounded_offset.z = 0.0f;
+        rounded_offset.w = 0.0f;
+
+        float4x4 proj = cascades_proj[i];
+        proj[3] += rounded_offset;
+        cascades_proj[i] = proj;
 
         last_split = split;
     }
@@ -2259,7 +2278,7 @@ void Renderer::display_ui(UI::Context &ui)
 
         if (!vct_debug.display_voxels)
         {
-            static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting"};
+            static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting", "Direct lighting"};
             tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.gltf_debug_selected);
             ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 10.0f);
             ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);

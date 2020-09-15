@@ -274,6 +274,13 @@ Model load_model(const char *c_path)
             material.base_color_factor.b = base_color_factors[2];
             material.base_color_factor.a = base_color_factors[3];
 
+            if (json_pbr.count("metallicFactor")) {
+                material.metallic_factor  = json_pbr["metallicFactor"];
+            }
+            if (json_pbr.count("roughnessFactor")) {
+                material.roughness_factor = json_pbr["roughnessFactor"];
+            }
+
             if (json_pbr.count("baseColorTexture"))
             {
                 u32 i_texture               = json_pbr["baseColorTexture"]["index"];

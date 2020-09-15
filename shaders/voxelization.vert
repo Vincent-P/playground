@@ -1,4 +1,6 @@
 #include "types.h"
+#include "pbr.h"
+
 layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
@@ -10,24 +12,6 @@ layout (location = 5) in vec4 inWeight0;
 
 layout (set = 1, binding = 0) uniform UBONode {
     float4x4 nodes_transforms[4]; // max nodes
-};
-
-struct GltfPushConstant
-{
-    // uniform
-    u32 node_idx;
-
-    // textures
-    u32 base_color_idx;
-    u32 normal_map_idx;
-    float pad00;
-
-    // material
-    float4 base_color_factor;
-};
-
-layout(push_constant) uniform GC {
-    GltfPushConstant constants;
 };
 
 layout (location = 0) out vec3 outWorldPos;

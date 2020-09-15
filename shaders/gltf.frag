@@ -157,12 +157,7 @@ const float3 cascade_colors[] = {
 
 void main()
 {
-    vec3 normal = vec3(0.0);
-    getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
-    vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
-
     /// --- Cascaded shadow
-    float shadow = 1.0;
 
     uint cascade_idx = 0;
     for (uint i = 0; i < 4 - 1; i++) {
@@ -175,59 +170,121 @@ void main()
     CascadeMatrix matrices = cascade_matrices[cascade_idx];
     vec4 shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
     shadow_coord /= shadow_coord.w;
+
+    float visibility = 1.0;
+#if 0
     float2 uv = 0.5f * (shadow_coord.xy + 1.0);
 
     float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
 
-    float bias = 0.0001;
+    const float bias = 0.0001;
     if (dist > shadow_coord.z + bias) {
-        shadow = 0.00;
+        visibility = 0.00;
+    }
+#else
+    //
+    ivec2 dim = textureSize(shadow_cascades[nonuniformEXT(cascade_idx)], 0).xy;
+    float scale = 0.75;
+    float dx = scale * 1.0 / float(dim.x);
+    float dy = scale * 1.0 / float(dim.y);
+
+    float shadow_factor = 0.0;
+    int count = 0;
+    const int range = 1;
+
+    for (int x = -range; x <= range; x++) {
+        for (int y = -range; y <= range; y++) {
+            float2 uv = 0.5f * ((shadow_coord.xy + float2(dx*x, dy*y)) + 1.0);
+
+            float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
+
+            const float bias = 0.0001;
+            float shadow = 1.0;
+            if (dist > shadow_coord.z + bias) {
+                shadow = 0.00;
+            }
+            shadow_factor += shadow;
+            count++;
+        }
     }
 
-    vec3 composite = vec3(1.0);
+    visibility = shadow_factor / count;
+#endif
 
-    vec3 direct = shadow * base_color.rgb;
-    vec4 indirect = base_color * Indirect(normal);
+    /// --- Lighting
+    float3 normal = float3(0.0);
+    getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
+    float4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+
+    // PBR
+    float3 N = normal;
+    float3 V = normalize(global.camera_pos - inWorldPos);
+    float3 albedo = base_color.rgb;
+    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
+    float metallic = metallic_roughness.b;
+    float roughness = metallic_roughness.g;
+
+    float3 L = global.sun_direction; // point towards sun
+    float3 H = normalize(V + L);
+    float3 radiance = global.sun_illuminance; // wrong unit
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G   = GeometrySmith(N, V, L, roughness);
+    float3 F0 = float3(0.04);
+    F0        = mix(F0, albedo, metallic);
+    float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 kS = F;
+    float3 kD = float3(1.0) - kS;
+    kD *= 1.0 - metallic; // disable diffuse for metallic materials
+
+    float3 numerator    = NDF * G * F;
+    float denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+    float3 specular     = numerator / max(denominator, 0.001);
+
+    float NdotL = max(dot(N, L), 0.0);
+    float3 direct = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+
+    float4 indirect = base_color * Indirect(normal);
+    indirect.a = min(indirect.a ,1.0);
 
     // base color
     if (debug.gltf_debug_selected == 1)
     {
-        indirect.rgb = vec3(0.0);
+        indirect.rgb = float3(0.0);
         indirect.a = 1.0;
         direct = base_color.rgb;
     }
     // normal
     else if (debug.gltf_debug_selected == 2)
     {
-        indirect.rgb = vec3(0.0);
+        indirect.rgb = float3(0.0);
         indirect.a = 1.0;
         direct = EncodeNormal(normal);
     }
     // ao
     else if (debug.gltf_debug_selected == 3)
     {
-        direct = vec3(0.0);
-        indirect.rgb = vec3(1.0);
+        direct = float3(0.0);
+        indirect.rgb = float3(1.0);
     }
     // indirect
     else if (debug.gltf_debug_selected == 4)
     {
         direct = float3(0.0);
     }
+    // direct
+    else if (debug.gltf_debug_selected == 5)
+    {
+        indirect.rgb = float3(0.0);
+        indirect.a = 1.0;
+    }
     // no debug
     else
     {
     }
 
-    // to linear
-    // indirect.rgb = pow(indirect.rgb, vec3(2.2f));
-    // direct.rgb = pow(direct.rgb, vec3(2.2f));
-
-    // composite direct and indirect lighting
-    composite = direct + indirect.rgb * indirect.a;
-
-    // to srgb
-    // composite = pow(composite, vec3(1.0 / 2.2));
+    float3 composite = (direct + indirect.rgb) * indirect.a;
 
     outColor = vec4(composite, 1.0);
 }

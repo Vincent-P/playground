@@ -43,11 +43,6 @@ const float3 cascade_colors[] = {
 
 void main()
 {
-    vec4 color = texture(global_textures[constants.base_color_idx], inUV0);
-    if (color.a < 0.1) {
-        discard;
-    }
-
     /// --- Cascaded shadow
     int cascade_idx = -1;
     float4 shadow_coord = float4(0.0);
@@ -67,22 +62,53 @@ void main()
         }
     }
 
-
     float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
     const float BIAS = 0.0001;
-    float shadow = 1.0;
+    float visibility = 1.0;
     if (dist > shadow_coord.z + BIAS) {
-        shadow = 0.00;
+        visibility = 0.00;
     }
 
-    color.rgb *= shadow;
+    vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+    if (base_color.a < 0.1) {
+        discard;
+    }
 
     vec3 normal = vec3(0.0);
     getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
 
+    // PBR
+    float3 N = normal;
+    float3 V = normalize(global.camera_pos - inWorldPos);
+    float3 albedo = base_color.rgb;
+    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
+    float metallic = metallic_roughness.b;
+    float roughness = metallic_roughness.g;
+
+    float3 L = global.sun_direction; // point towards sun
+    float3 H = normalize(V + L);
+    float3 radiance = global.sun_illuminance; // wrong unit
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G   = GeometrySmith(N, V, L, roughness);
+    float3 F0 = float3(0.04);
+    F0        = mix(F0, albedo, metallic);
+    float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 kS = F;
+    float3 kD = float3(1.0) - kS;
+    kD *= 1.0 - metallic; // disable diffuse for metallic materials
+
+    float3 numerator    = NDF * G * F;
+    float denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+    float3 specular     = numerator / max(denominator, 0.001);
+
+    float NdotL = max(dot(N, L), 0.0);
+    float3 color = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+
     // output:
     ivec3 voxel_pos = WorldToVoxel(inWorldPos, voxel_options);
 
-    imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, color.rgb);
+    imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, color);
     imageAtomicAverageRGBA8(voxels_normal, voxel_pos, EncodeNormal(normal));
 }
