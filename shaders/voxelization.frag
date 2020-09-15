@@ -34,6 +34,13 @@ layout (set = 1, binding = 6) uniform CM {
 layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
 
 
+const float3 cascade_colors[] = {
+    float3(1.0, 0.0, 0.0),
+    float3(0.0, 1.0, 0.0),
+    float3(0.0, 0.0, 1.0),
+    float3(0.0, 1.0, 1.0),
+    };
+
 void main()
 {
     vec4 color = texture(global_textures[constants.base_color_idx], inUV0);
@@ -42,15 +49,10 @@ void main()
     }
 
     /// --- Cascaded shadow
-    float4 screen_pos = global.camera_proj * global.camera_view * float4(inWorldPos, 1.0);
-    screen_pos /= screen_pos.w;
-    float depth = screen_pos.z;
-
-
-    uint cascade_idx = 0;
+    int cascade_idx = -1;
     float4 shadow_coord = float4(0.0);
-    float2 uv = float2(-2.0);
-    for (cascade_idx = 0; cascade_idx < 4; cascade_idx++)
+    float2 uv = float2(0.0);
+    for (cascade_idx = -1; cascade_idx < 4; cascade_idx++)
     {
         cascade_idx += 1;
         CascadeMatrix matrices = cascade_matrices[cascade_idx];
@@ -58,16 +60,15 @@ void main()
         shadow_coord /= shadow_coord.w;
         uv = 0.5f * (shadow_coord.xy + 1.0);
 
-        if (-1.0 <= uv.x && uv.x <= 1.0
-            && -1.0 <= uv.y && uv.y <= 1.0) {
+        if (0.0 < uv.x && uv.x < 1.0
+            && 0.0 < uv.y && uv.y < 1.0
+            && 0.0 <= shadow_coord.z  && shadow_coord.z <= 1.0) {
             break;
         }
     }
 
 
-
     float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
-
     const float BIAS = 0.0001;
     float shadow = 1.0;
     if (dist > shadow_coord.z + BIAS) {
