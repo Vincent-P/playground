@@ -116,7 +116,29 @@ vec4 TraceCone(vec3 origin, vec3 direction, float aperture, float max_dist)
     return vec4(cone_sampled.rgb , 1.0 - occlusion);
 }
 
-vec4 Indirect(vec3 normal)
+float3 BRDF(float3 albedo, float3 N, float3 V, float metallic, float roughness, float3 L)
+{
+    float3 H = normalize(V + L);
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G   = GeometrySmith(N, V, L, roughness);
+    float3 F0 = float3(0.04);
+    F0        = mix(F0, albedo, metallic);
+    float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 kS = F;
+    float3 kD = float3(1.0) - kS;
+    kD *= 1.0 - metallic; // disable diffuse for metallic materials
+
+    float3 numerator    = NDF * G * F;
+    float denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+    float3 specular     = numerator / max(denominator, 0.001);
+
+    float NdotL = max(dot(N, L), 0.0);
+    return (kD * albedo / PI + specular);
+}
+
+float4 Indirect(float3 albedo, float3 N, float3 V, float metallic, float roughness)
 {
     vec3 position = inWorldPos;
     vec4 diffuse = vec4(0.0);
@@ -126,23 +148,25 @@ vec4 Indirect(vec3 normal)
     // diffuse cone setup
     vec3 guide = vec3(0.0f, 1.0f, 0.0f);
 
-    if (abs(dot(normal,guide)) == 1.0f)
+    if (abs(dot(N,guide)) == 1.0f)
     {
         guide = vec3(0.0f, 0.0f, 1.0f);
     }
 
     // Find a tangent and a bitangent
-    vec3 right = normalize(guide - dot(normal, guide) * normal);
-    vec3 up = cross(right, normal);
+    vec3 right = normalize(guide - dot(N, guide) * N);
+    vec3 up = cross(right, N);
     vec3 direction;
 
     for (uint i = 0; i < 6; i++)
     {
-        direction = normal;
+        direction = N;
         direction += diffuseConeDirections[i].x * right + diffuseConeDirections[i].z * up;
         direction = normalize(direction);
 
-        diffuse += TraceCone(position, direction, aperture, debug.trace_dist) * diffuseConeWeights[i];
+        // trace_cone is L
+        // weight is N.wi
+        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, direction), 1.0) * TraceCone(position, direction, aperture, debug.trace_dist) * diffuseConeWeights[i];
     }
 
     return diffuse;
@@ -215,37 +239,22 @@ void main()
     float3 normal = float3(0.0);
     getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
     float4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
 
     // PBR
+    float3 albedo = base_color.rgb;
     float3 N = normal;
     float3 V = normalize(global.camera_pos - inWorldPos);
-    float3 albedo = base_color.rgb;
-    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
     float metallic = metallic_roughness.b;
     float roughness = metallic_roughness.g;
 
     float3 L = global.sun_direction; // point towards sun
-    float3 H = normalize(V + L);
     float3 radiance = global.sun_illuminance; // wrong unit
-
-    float NDF = DistributionGGX(N, H, roughness);
-    float G   = GeometrySmith(N, V, L, roughness);
-    float3 F0 = float3(0.04);
-    F0        = mix(F0, albedo, metallic);
-    float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
-
-    float3 kS = F;
-    float3 kD = float3(1.0) - kS;
-    kD *= 1.0 - metallic; // disable diffuse for metallic materials
-
-    float3 numerator    = NDF * G * F;
-    float denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
-    float3 specular     = numerator / max(denominator, 0.001);
-
     float NdotL = max(dot(N, L), 0.0);
-    float3 direct = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
 
-    float4 indirect = base_color * Indirect(normal);
+    float3 direct = visibility * BRDF(albedo, N, V, metallic, roughness, L) * radiance * NdotL;
+
+    float4 indirect = Indirect(albedo, N, V, metallic, roughness);
     indirect.a = min(indirect.a ,1.0);
 
     // base color
