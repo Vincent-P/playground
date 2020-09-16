@@ -552,6 +552,7 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
 
     auto &image_view = api.get_image_view(image_view_h);
     auto &image      = api.get_image(image_view.image_h);
+    (void)(image);
 
     assert(sampler
            ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
@@ -584,6 +585,7 @@ static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint s
     {
         auto &image_view = api.get_image_view(image_views_h[i]);
         auto &image = api.get_image(image_view.image_h);
+        (void)(image);
 
         assert(!samplers_h.empty()
            ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
