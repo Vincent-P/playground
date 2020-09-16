@@ -105,4 +105,26 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+float3 BRDF(float3 albedo, float3 N, float3 V, float metallic, float roughness, float3 L)
+{
+    float3 H = normalize(V + L);
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G   = GeometrySmith(N, V, L, roughness);
+    float3 F0 = float3(0.04);
+    F0        = mix(F0, albedo, metallic);
+    float3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 kS = F;
+    float3 kD = float3(1.0) - kS;
+    kD *= 1.0 - metallic; // disable diffuse for metallic materials
+
+    float3 numerator    = NDF * G * F;
+    float denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
+    float3 specular     = numerator / max(denominator, 0.001);
+
+    float NdotL = max(dot(N, L), 0.0);
+    return (kD * albedo / PI + specular);
+}
+
 #endif

@@ -46,7 +46,7 @@ struct PACKED GlobalUniform
     float pad10;
 
     float3 sun_illuminance;
-    float pad11;
+    float ambient;
 };
 
 assert_uniform_size(GlobalUniform);
@@ -62,11 +62,11 @@ struct VCTDebug
 {
     bool display_voxels = false;
     uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
-    uint gltf_debug_selected = 5; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting 5: direct lighting
-    float pad0;
+    int voxel_selected_mip = 0;
+    uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting 5: direct lighting
 
     // cone tracing
-    float trace_dist = 2.0f;
+    float trace_dist = 6.0f;
     float occlusion_lambda = 1.0f;
     float sampling_factor = 1.0f;
     float start = 1.0f;
@@ -212,6 +212,7 @@ struct Renderer
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
+    float ambient = 0.0f; // todo clean this pls
 
 };
 

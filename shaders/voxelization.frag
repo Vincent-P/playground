@@ -66,7 +66,7 @@ void main()
     const float BIAS = 0.0001;
     float visibility = 1.0;
     if (dist > shadow_coord.z + BIAS) {
-        visibility = 0.00;
+        visibility = global.ambient;
     }
 
     vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);

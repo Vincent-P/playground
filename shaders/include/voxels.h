@@ -14,8 +14,8 @@ struct VCTDebug
 {
     bool display_voxels;
     uint voxel_debug_selected; // 0: albedo 1: normal 2: radiance
+    int voxel_selected_mip;
     uint gltf_debug_selected; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
-    float pad0;
 
     // cone tracing
     float trace_dist;

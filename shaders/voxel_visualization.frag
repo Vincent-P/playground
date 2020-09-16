@@ -10,11 +10,7 @@ layout (set = 1, binding = 1) uniform UBODebug {
     VCTDebug debug;
 };
 
-
-layout(set = 1, binding = 2, rgba16) uniform image3D voxels_albedo;
-layout(set = 1, binding = 3, rgba16) uniform image3D voxels_normal;
-layout(set = 1, binding = 4, rgba8) uniform image3D voxels_radiance;
-
+layout(set = 1, binding = 2) uniform sampler3D voxels;
 
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
@@ -45,15 +41,7 @@ void main()
     int i = 0;
     float4 voxel = float4(0.0);
     for (i = 0; i < MAX_DIST; i++) {
-        if (debug.voxel_debug_selected == 0) {
-            voxel = imageLoad(voxels_albedo, mapPos);
-        }
-        else if (debug.voxel_debug_selected == 1) {
-            voxel = imageLoad(voxels_normal, mapPos);
-        }
-        else if (debug.voxel_debug_selected == 2) {
-            voxel = imageLoad(voxels_radiance, mapPos);
-        }
+        voxel = texelFetch(voxels, mapPos, debug.voxel_selected_mip);
         if (voxel.a > EPSILON) break;
         if (sideDist.x < sideDist.y) {
             if (sideDist.x < sideDist.z) {
@@ -81,12 +69,10 @@ void main()
         }
     }
 
+    float4 color = float4(0.0);
     if (voxel.a > EPSILON)
     {
-        outColor = float4(voxel.xyz, 1.0);
+        color = float4(voxel.xyz, 1.0);
     }
-    else
-    {
-        outColor = float4(0.0);
-    }
+    outColor = color;
 }
