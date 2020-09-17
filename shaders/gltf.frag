@@ -192,10 +192,26 @@ const float3 cascade_colors[] = {
     float3(0.0, 1.0, 1.0),
     };
 
+const uint poisson_samples_count = 12;
+const float2 poisson_disk[] = {
+    float2(0.972996, 0.394554),
+    float2(0.668902, 0.414059),
+    float2(0.781059, 0.644251),
+    float2(0.694336, 0.0995237),
+    float2(0.691521, 0.886042),
+    float2(0.429202, 0.8263),
+    float2(0.553658, 0.615537),
+    float2(0.156879, 0.775686),
+    float2(0.414005, 0.295563),
+    float2(0.158913, 0.50593),
+    float2(0.36004, 0.0579245),
+    float2(0.0798307, 0.29647)
+};
+
 void main()
 {
     /// --- Cascaded shadow
-
+    // TODO: move to functions in ccsm.h or something
     uint cascade_idx = 0;
     for (uint i = 0; i < 4 - 1; i++) {
         float slice = 1.0 - cascades_depth_slices[i/4][i%4];
@@ -209,44 +225,24 @@ void main()
     shadow_coord /= shadow_coord.w;
 
     float visibility = 1.0;
-#if 0
-    float2 uv = 0.5f * (shadow_coord.xy + 1.0);
-
-    float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
-
-    const float bias = 0.0001;
-    if (dist > shadow_coord.z + bias) {
-        visibility = global.ambient;
-    }
-#else
-    //
-    ivec2 dim = textureSize(shadow_cascades[nonuniformEXT(cascade_idx)], 0).xy;
-    float scale = 0.75;
-    float dx = scale * 1.0 / float(dim.x);
-    float dy = scale * 1.0 / float(dim.y);
-
     float shadow_factor = 0.0;
-    int count = 0;
-    const int range = 1;
+    // todo: change scale to smoothen out the transition between shadow cascades
+    const float scale = 1.0 / 1000.0;
+    for (uint i = 0; i < poisson_samples_count; i++)
+    {
+        float2 uv = 0.5f * (shadow_coord.xy + 1.0);
+        float2 poisson_sample = poisson_disk[i];
+        uv.xy += poisson_sample * scale;
 
-    for (int x = -range; x <= range; x++) {
-        for (int y = -range; y <= range; y++) {
-            float2 uv = 0.5f * ((shadow_coord.xy + float2(dx*x, dy*y)) + 1.0);
-
-            float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
-
-            const float bias = 0.0001;
-            float shadow = 1.0;
-            if (dist > shadow_coord.z + bias) {
-                shadow = global.ambient;
-            }
-            shadow_factor += shadow;
-            count++;
+        const float bias = 0.0001;
+        float shadow = 1.0;
+        float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
+        if (dist > shadow_coord.z + bias) {
+            shadow = global.ambient;
         }
+        shadow_factor += shadow;
     }
-
-    visibility = shadow_factor / count;
-#endif
+    visibility = shadow_factor / poisson_samples_count;
 
     /// --- Lighting
     float3 normal = float3(0.0);

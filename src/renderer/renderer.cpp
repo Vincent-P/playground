@@ -1268,7 +1268,7 @@ static void add_shadow_cascades_pass(Renderer &r)
 
     if (ui.begin_window("Settings", true))
     {
-        ImGui::SliderFloat("split", &split_factor, 0.1f, 2.f);
+        ImGui::SliderFloat("split", &split_factor, 0.0f, 1.f);
         ui.end_window();
     }
 
