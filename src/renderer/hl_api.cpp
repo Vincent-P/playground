@@ -141,6 +141,8 @@ void API::on_resize(int width, int height)
     for (auto &timestamps : timestamp_labels_per_frame) {
         timestamps.clear();
     }
+
+    // todo: delete framebuffers
 }
 
 bool API::start_frame()

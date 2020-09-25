@@ -71,19 +71,15 @@ void App::display_ui()
 
 void App::run()
 {
-    // window.register_mouse_callback([this](double xpos, double ypos) {  });
-
     while (!window.should_close()) {
         window.poll_events();
 
+        std::optional<window::event::Resize> last_resize;
         for (auto &event : window.events) {
             if (std::holds_alternative<window::event::Resize>(event))
             {
                 auto resize = std::get<window::event::Resize>(event);
-                renderer.on_resize(resize.width, resize.height);
-                if (window.minimized) {
-                    this->is_minimized = true;
-                }
+                last_resize = resize;
             }
             else if (std::holds_alternative<window::event::Scroll>(event))
             {
@@ -97,7 +93,23 @@ void App::run()
                 this->is_minimized = false;
             }
         }
+
+        if (last_resize)
+        {
+            auto resize = *last_resize;
+            if (resize.width > 0 && resize.height > 0) {
+                renderer.on_resize(resize.width, resize.height);
+            }
+            if (window.minimized) {
+                this->is_minimized = true;
+            }
+        }
+
         window.events.clear();
+
+        if (is_minimized) {
+            continue;
+        }
 
         update();
         timer.update();
