@@ -458,7 +458,7 @@ struct API
     usize graphics_pipeline_count = 0;
     usize compute_pipeline_count = 0;
 
-    static API create(const Window &window);
+    static void create(API& api, const window::Window &window);
     void destroy();
 
     void on_resize(int width, int height);

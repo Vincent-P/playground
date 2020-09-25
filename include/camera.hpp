@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include <glm/gtc/quaternion.hpp>
 
+namespace window{struct Window;}
 namespace my_app
 {
 
@@ -11,7 +12,6 @@ namespace UI
     struct Context;
 };
 
-class Window;
 class TimerData;
 
 struct Camera
@@ -36,7 +36,7 @@ struct Camera
 
     static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane);
 
-    static Camera create(float3 position);
+    static void create(Camera &camera, float3 position);
 };
 
 struct InputCamera
@@ -61,14 +61,14 @@ struct InputCamera
     float phi = -65.0f;
 
     Camera _internal;
-    Window *p_window;
+    window::Window *p_window;
     UI::Context *p_ui;
     TimerData *p_timer;
 
     double last_xpos;
     double last_ypos;
 
-    static InputCamera create(Window &window, TimerData& timer, float3 position);
+    static void create(InputCamera& camera, window::Window &window, TimerData& timer, float3 position);
     void on_mouse_movement(double xpos, double ypos);
     void on_mouse_scroll(double xoffset, double yoffset);
     void update();

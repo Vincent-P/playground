@@ -25,7 +25,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &mo
 Renderer::VoxelPass create_voxel_pass(vulkan::API &/*api*/);
 
 // frame data
-Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
+void Renderer::create(Renderer& r, const window::Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     // where to put this code?
 
@@ -36,7 +36,7 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigDockingWithShift = false;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
-    io.BackendPlatformName = "custom_glfw";
+    io.BackendPlatformName = "custom";
 
     // Add fonts
     io.Fonts->AddFontDefault();
@@ -48,9 +48,8 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
 
     //
 
-    Renderer r;
-    r.api   = vulkan::API::create(window);
-    r.graph = RenderGraph::create(r.api);
+    vulkan::API::create(r.api, window);
+    RenderGraph::create(r.graph, r.api);
     r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
 
     r.p_ui     = &ui;
@@ -203,8 +202,6 @@ Renderer Renderer::create(const Window &window, Camera &camera, TimerData &timer
             .format        = VK_FORMAT_D32_SFLOAT,
         });
     }
-
-    return r;
 }
 
 void Renderer::destroy()
@@ -243,7 +240,7 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
 
     // clang-format off
-    float height = -0.001f;
+    float height = -1.0f;
     std::array vertices =
     {
         -1.0f,  height, -1.0f,      0.0f, 0.0f,
@@ -287,7 +284,21 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 
     {
     vulkan::GraphicsProgramInfo pinfo{};
-    pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
+    pinfo.vertex_shader   = api.create_shader("shaders/floor_shadowmap.vert.spv");
+
+    // cascade index
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 0,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
+
+    // view/projection matrices per cascade
+    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                   .slot   = 1,
+                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
+                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
 
     pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
     pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
@@ -296,7 +307,7 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     pinfo.enable_depth_write = true;
     pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
 
-    pass.prepass = api.create_program(std::move(pinfo));
+    pass.shadowmap = api.create_program(std::move(pinfo));
     }
 
     return pass;
@@ -314,11 +325,9 @@ static void add_floor_pass(Renderer &r)
         .exec = [pass_data=r.checkerboard_floor](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             auto program = pass_data.program;
-
             api.bind_program(program);
             api.bind_index_buffer(pass_data.index_buffer);
             api.bind_vertex_buffer(pass_data.vertex_buffer);
-
             api.draw_indexed(6, 1, 0, 0, 0);
         }
     });
@@ -1378,16 +1387,30 @@ static void add_shadow_cascades_pass(Renderer &r)
                         .external_images  = external_images,
                         .depth_attachment = r.shadow_cascades[i],
                         .exec             = [pass_data   = r.gltf,
+                                             floor_data=r.checkerboard_floor,
                                  cascade_index_pos,
                                  matrices_pos=r.matrices_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
-                            auto program = pass_data.shadow_cascade_program;
+                            // draw floor
+                            {
+                                auto program = floor_data.shadowmap;
+                                api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
+                                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                                api.bind_program(program);
+                                api.bind_index_buffer(floor_data.index_buffer);
+                                api.bind_vertex_buffer(floor_data.vertex_buffer);
+                                api.draw_indexed(6, 1, 0, 0, 0);
+                            }
+                            // draw glTF
+                            {
+                                auto program = pass_data.shadow_cascade_program;
 
-                            api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-                            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
-                            api.bind_index_buffer(pass_data.index_buffer);
-                            api.bind_vertex_buffer(pass_data.vertex_buffer);
+                                api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                                api.bind_index_buffer(pass_data.index_buffer);
+                                api.bind_vertex_buffer(pass_data.vertex_buffer);
 
-                            draw_model(api, *pass_data.model, program);
+                                draw_model(api, *pass_data.model, program);
+                            }
                         }});
     }
 }

@@ -96,7 +96,7 @@ class App
     void display_ui();
 
     UI::Context ui;
-    Window window;
+    window::Window window;
     InputCamera camera;
     Renderer renderer;
     TimerData timer;

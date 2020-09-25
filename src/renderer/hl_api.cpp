@@ -29,10 +29,9 @@ void init_swapchain_images(API &api)
     }
 }
 
-API API::create(const Window &window)
+void API::create(API &api, const window::Window &window)
 {
-    API api;
-    api.ctx = Context::create(window);
+    Context::create(api.ctx, window);
 
     init_swapchain_images(api);
 
@@ -82,8 +81,6 @@ API API::create(const Window &window)
     }
 
     api.default_sampler = api.create_sampler({});
-
-    return api;
 }
 
 void API::destroy()

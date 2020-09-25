@@ -1,0 +1,13 @@
+// Enum name, Display name, Win32 code, Xlib code
+X(Escape,    "Escape",          VK_ESCAPE, XK_Escape)
+X(Enter,     "Enter",           VK_RETURN, XK_Return)
+X(Tab,       "Tab",             VK_TAB   , XK_Tab)
+X(Delete,    "Delete",          VK_DELETE, XK_Delete)
+X(Backspace, "Backspace",       VK_BACK  , XK_BackSpace)
+X(Home,      "Home",            VK_HOME ,  XK_Home)
+X(End,       "End",             VK_END   , XK_End)
+X(Left,      "Left arrow key",  VK_LEFT,   XK_Left)
+X(Up,        "Up arrow key",    VK_UP,     XK_Up)
+X(Right,     "Right arrow key", VK_RIGHT,  XK_Right)
+X(Down,      "Down arrow key",  VK_DOWN,   XK_Down)
+X(Count,     "INVALID",         0,         0)

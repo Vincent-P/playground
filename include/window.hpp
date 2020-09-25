@@ -1,49 +1,195 @@
 #pragma once
 #include "types.hpp"
-#include <GLFW/glfw3.h>
+
 #include <array>
-#include <functional>
-#include <vector>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <variant>
 
-namespace my_app
+#if defined(_WIN64)
+typedef struct HWND__ *HWND;
+typedef struct HGLRC__ *HGLRC;
+#else
+#include <X11/Xlib.h>
+#endif
+
+namespace window
 {
 
-class Window
+enum class VirtualKey : uint
 {
-  public:
-    explicit Window(int width, int height);
-    ~Window();
-
-    NO_COPY_NO_MOVE(Window)
-
-    void run();
-    [[nodiscard]] GLFWwindow *get_handle() const { return window; }
-    [[nodiscard]] float2 get_dpi_scale() const { return dpi_scale; }
-
-    bool should_close();
-    void update();
-
-    void register_resize_callback(const std::function<void(int, int)> &callback);
-    void register_mouse_callback(const std::function<void(double, double)> &callback);
-    void register_scroll_callback(const std::function<void(double, double)> &callback);
-    void register_minimized_callback(const std::function<void()> &callback);
-
-  private:
-    static void glfw_resize_callback(GLFWwindow *window, int width, int height);
-    static void glfw_click_callback(GLFWwindow *window, int button, int action, int thing);
-    static void glfw_cursor_position_callback(GLFWwindow *window, double xpos, double ypos);
-    static void glfw_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
-
-    std::vector<std::function<void(int, int)>> resize_callbacks;
-    std::vector<std::function<void(double, double)>> mouse_callbacks;
-    std::vector<std::function<void(double, double)>> scroll_callbacks;
-    std::vector<std::function<void()>> minimized_callbacks;
-
-    bool force_close{false};
-    GLFWwindow *window;
-    double last_xpos, last_ypos;
-    float2 dpi_scale;
-    std::array<bool, 5> mouse_just_pressed = {false, false, false, false, false};
+#define X(EnumName, DisplayName, Win32, Xlib) EnumName,
+#include "window_keys.h"
+#undef X
 };
 
-} // namespace my_app
+extern std::array<const char *, to_underlying(VirtualKey::Count) + 1> key_to_string;
+
+inline const char *virtual_key_to_string(VirtualKey key)
+{
+    return key_to_string[to_underlying(key)];
+}
+
+namespace event
+{
+
+struct Key
+{
+    enum class Action
+    {
+        Down,
+        Up
+    };
+
+    Key(VirtualKey _key, Action _action)
+        : key(_key)
+        , action(_action)
+    {
+    }
+    VirtualKey key;
+    Action action;
+};
+
+struct Char
+{
+    Char(const std::string &str)
+        : char_sequence(str)
+    {
+    }
+    std::string char_sequence;
+};
+
+struct IMEComposition
+{
+    IMEComposition(const std::string &str)
+        : composition(str)
+    {
+    }
+    std::string composition;
+};
+
+struct IMECompositionResult
+{
+    IMECompositionResult(const std::string &str)
+        : result(str)
+    {
+    }
+    std::string result;
+};
+
+struct Scroll
+{
+    Scroll(int _dx, int _dy)
+        : dx(_dx)
+        , dy(_dy)
+    {
+    }
+    int dx;
+    int dy;
+};
+
+struct MouseMove
+{
+    MouseMove(int _x, int _y)
+        : x(_x)
+        , y(_y)
+    {}
+    int x;
+    int y;
+};
+
+struct Focus
+{
+    bool focused;
+};
+
+struct Resize
+{
+    Resize(uint _width, uint _height)
+        : width(_width)
+        , height(_height)
+    {}
+    uint width;
+    uint height;
+};
+
+using Event = std::variant<Key, Char, IMEComposition, IMECompositionResult, Scroll, MouseMove, Focus, Resize>;
+
+} // namespace event
+
+using Event = event::Event;
+
+struct Caret
+{
+    int2 position;
+    int2 size;
+};
+
+struct Window;
+
+#if defined(_WIN64)
+struct Window_Win32
+{
+    HWND window;
+};
+#else
+struct Window_Xlib
+{
+    /// --- Window
+    Display *display;
+    ::Window window;
+
+    /// --- Inputs
+    int xi2_opcode;
+    int vertical_scroll_valuator{-1};
+    int horizontal_scroll_valuator{-1};
+
+    /// --- Text input
+    XIC input_context;
+};
+#endif
+
+struct Window
+{
+    static void create(Window& window, usize width, usize height, const std::string_view title);
+    ~Window() = default;
+
+    void poll_events();
+
+    // caret operations
+    void set_caret_pos(int2 pos);
+    void set_caret_size(int2 size);
+    void remove_caret();
+
+    [[nodiscard]] inline bool should_close() const { return stop; }
+    [[nodiscard]] uint2 get_dpi_scale() const;
+
+    // push events to the events vector
+    template <typename EventType, class... Args> void emit_event(Args &&... args)
+    {
+        events.emplace_back(std::in_place_type<EventType>, std::forward<Args>(args)...);
+    }
+
+    uint width;
+    uint height;
+    std::wstring title;
+
+    bool stop{false};
+    std::optional<Caret> caret{};
+
+    bool has_focus{false};
+    bool minimized{false};
+    bool maximized{false};
+    void *user_data;
+
+#if defined(_WIN64)
+    Window_Win32 win32;
+#else
+    Window_Xlib xlib;
+#endif
+
+    std::vector<Event> events;
+};
+
+} // namespace window

@@ -7,18 +7,15 @@
 namespace my_app
 {
 
-RenderGraph RenderGraph::create(vulkan::API &api)
+void RenderGraph::create(RenderGraph &render_graph, vulkan::API &api)
 {
-    RenderGraph graph = {};
-    graph.p_api = &api;
-    graph.swapchain = graph.image_descs.add({.name = "Swapchain"});
+    render_graph.p_api = &api;
+    render_graph.swapchain = render_graph.image_descs.add({.name = "Swapchain"});
 
     // how to clean this
     auto swapchain_h          = api.get_current_swapchain_h();
-    auto &image               = graph.images[graph.swapchain];
+    auto &image               = render_graph.images[render_graph.swapchain];
     image.resolved_img        = swapchain_h;
-
-    return graph;
 }
 
 void RenderGraph::destroy()

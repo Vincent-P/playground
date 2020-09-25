@@ -43,18 +43,13 @@ bool is_extension_installed(const char *wanted, const std::vector<VkExtensionPro
     return false;
 }
 
-Context Context::create(const Window &window)
+void Context::create(Context &ctx, const window::Window &window)
 {
-    Context ctx;
-
     /// --- Create Instance
     std::vector<const char *> instance_extensions;
 
-    uint32_t required_count;
-    const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_count);
-    for (size_t i = 0; i < required_count; i++) {
-        instance_extensions.push_back(required_extensions[i]);
-    }
+    instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -120,7 +115,10 @@ Context Context::create(const Window &window)
     }
 
     /// --- Create the surface
-    VK_CHECK(glfwCreateWindowSurface(ctx.instance, window.get_handle(), nullptr, &ctx.surface));
+    VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+    sci.hwnd      = window.win32.window;
+    sci.hinstance = GetModuleHandle(nullptr);
+    VK_CHECK(vkCreateWin32SurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
 
     /// --- Pick a physical device
     uint physical_devices_count = 0;
@@ -255,8 +253,6 @@ Context Context::create(const Window &window)
     qpci.queryType             = VK_QUERY_TYPE_TIMESTAMP;
     qpci.queryCount            = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
     VK_CHECK(vkCreateQueryPool(ctx.device, &qpci, nullptr, &ctx.timestamp_pool));
-
-    return ctx;
 }
 
 void Context::create_swapchain()

@@ -60,8 +60,6 @@ using uint4     = glm::uvec4;
 using float4x4 = glm::mat4;
 
 
-namespace my_app
-{
 // --- User-defined literals
 
 inline uint operator"" _K(unsigned long long value)
@@ -89,6 +87,12 @@ inline uint operator"" _GiB(unsigned long long value)
 template <typename T> inline T *ptr_offset(T *ptr, usize offset)
 {
     return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
+}
+
+template <typename E>
+inline constexpr auto to_underlying(E e) noexcept
+{
+    return static_cast<std::underlying_type_t<E>>(e);
 }
 
 template <typename vector_source, typename vector_dest, typename transform_function>
@@ -143,14 +147,13 @@ template <typename T> struct Handle
 
     friend struct ::std::hash<Handle<T>>;
 };
-}
 
 namespace std
 {
     template<typename T>
-    struct hash<my_app::Handle<T>>
+    struct hash<Handle<T>>
     {
-        std::size_t operator()(my_app::Handle<T> const& handle) const noexcept
+        std::size_t operator()(Handle<T> const& handle) const noexcept
         {
             std::size_t h1 = std::hash<u32>{}(handle.index);
             std::size_t h2 = std::hash<u32>{}(handle.gen);
@@ -159,8 +162,6 @@ namespace std
     };
 }
 
-namespace my_app
-{
 /// --- Pool allocator
 template <typename T> class Pool
 {
@@ -394,5 +395,3 @@ inline T elapsed_ms(TimePoint start, TimePoint end)
 {
     return std::chrono::duration<T, std::milli>(end-start).count();
 }
-
-} // namespace my_app

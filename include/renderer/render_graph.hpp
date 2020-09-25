@@ -103,7 +103,7 @@ struct RenderPass
 
 struct RenderGraph
 {
-    static RenderGraph create(vulkan::API &api);
+    static void create(RenderGraph &render_graph, vulkan::API &api);
     void destroy();
 
     void on_resize(int width, int height);

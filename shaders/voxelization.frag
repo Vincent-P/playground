@@ -68,6 +68,7 @@ void main()
     if (dist > shadow_coord.z + BIAS) {
         visibility = global.ambient;
     }
+    visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
 
     vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
     if (base_color.a < 0.1) {

@@ -243,6 +243,7 @@ void main()
         shadow_factor += shadow;
     }
     visibility = shadow_factor / poisson_samples_count;
+    visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
 
     /// --- Lighting
     float3 normal = float3(0.0);

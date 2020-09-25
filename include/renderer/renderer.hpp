@@ -15,6 +15,7 @@
  * The main functions are StartFrame and EndFrame and it contains
  * raw HL API calls in between to draw things or validate/cook a Render Graph.
  ***/
+namespace window {struct Window;}
 namespace my_app
 {
 namespace UI
@@ -107,7 +108,7 @@ static_assert(sizeof(GltfPushConstant) <= 128);
 
 struct Renderer
 {
-    static Renderer create(const Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
+    static void create(Renderer &r, const window::Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
     void destroy();
 
     void display_ui(UI::Context &ui);
@@ -117,7 +118,7 @@ struct Renderer
     void reload_shader(std::string_view shader_name);
 
     UI::Context *p_ui;
-    const Window *p_window;
+    const window::Window *p_window;
     Camera *p_camera;
     TimerData *p_timer;
 
@@ -143,7 +144,7 @@ struct Renderer
         vulkan::BufferH index_buffer;
         vulkan::BufferH vertex_buffer;
         vulkan::GraphicsProgramH program;
-        vulkan::GraphicsProgramH prepass;
+        vulkan::GraphicsProgramH shadowmap;
     } checkerboard_floor;
 
 

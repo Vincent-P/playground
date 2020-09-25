@@ -3,7 +3,6 @@
 #include "app.hpp"
 #include "timer.hpp"
 #include "window.hpp"
-#include <GLFW/glfw3.h>
 #if defined(ENABLE_IMGUI)
 #    include <imgui/imgui.h>
 #endif
@@ -18,23 +17,19 @@ static float CAMERA_SCROLL_SPEED = 80.0f;
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);
 
-Camera Camera::create(float3 position)
+void Camera::create(Camera &camera, float3 position)
 {
-    Camera camera{};
     camera.position = position;
     camera.front    = FRONT;
     camera.up       = UP;
     camera.update_view();
-    return camera;
 }
 
-InputCamera InputCamera::create(Window &window, TimerData &timer, float3 position)
+    void InputCamera::create(InputCamera& camera, window::Window &window, TimerData &timer, float3 position)
 {
-    InputCamera camera{};
-    camera._internal = Camera::create(position);
+    Camera::create(camera._internal, position);
     camera.p_window  = &window;
     camera.p_timer   = &timer;
-    return camera;
 }
 
 void InputCamera::on_mouse_movement(double xpos, double ypos)
@@ -101,7 +96,7 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
     }
 }
 
-    void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
+void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
 {
     float delta_t = p_timer->get_delta_time();
     switch (state)
@@ -170,11 +165,11 @@ void InputCamera::display_ui(UI::Context &ui)
 
 void InputCamera::update()
 {
-    auto *glfw_handle = p_window->get_handle();
+    // auto *glfw_handle = p_window->get_handle();
 
-    bool alt_pressed = glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
-    bool lmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-    bool rmb_pressed = glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    bool alt_pressed = false; // glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
+    bool lmb_pressed = false; // glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    bool rmb_pressed = false; // glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
     switch (state)
     {
@@ -184,18 +179,18 @@ void InputCamera::update()
             {
                 state = States::Move;
 
-                double xpos;
-                double ypos;
-                glfwGetCursorPos(glfw_handle, &xpos, &ypos);
+                double xpos = 0.0;
+                double ypos = 0.0;
+                // glfwGetCursorPos(glfw_handle, &xpos, &ypos);
                 dragged_mouse_start_pos = float2(xpos, ypos);
             }
             else if (alt_pressed && rmb_pressed)
             {
                 state = States::Orbit;
 
-                double xpos;
-                double ypos;
-                glfwGetCursorPos(glfw_handle, &xpos, &ypos);
+                double xpos = 0.0;
+                double ypos = 0.0;
+                // glfwGetCursorPos(glfw_handle, &xpos, &ypos);
                 dragged_mouse_start_pos = float2(xpos, ypos);
             }
             else if (alt_pressed)

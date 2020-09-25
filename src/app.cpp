@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include <variant>
 #if defined(ENABLE_IMGUI)
 #include <imgui/imgui.h>
 #endif
@@ -12,20 +13,15 @@ namespace my_app
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-App::App() : window(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+App::App()
 {
-    camera   = InputCamera::create(window, timer, float3(4.0f, 14.5f, 0.0f));
+    window::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+
+    InputCamera::create(camera, window, timer, float3(4.0f, 14.5f, 0.0f));
     camera._internal.yaw   = 90.0f;
     camera._internal.pitch = 0.0f;
 
-    renderer = Renderer::create(window, camera._internal, timer, ui);
-
-    renderer.graph.p_api = &renderer.api; // TODO how to fix pointers to work with static constructors???
-
-    window.register_resize_callback([this](int width, int height) { this->renderer.on_resize(width, height); });
-    window.register_minimized_callback([this]() { this->is_minimized = true; });
-    window.register_mouse_callback([this](double xpos, double ypos) { this->camera.on_mouse_movement(xpos, ypos); this->is_minimized = false; });
-    window.register_scroll_callback([this](double xoffset, double yoffset) { this->camera.on_mouse_scroll(xoffset, yoffset); });
+    Renderer::create(renderer, window, camera._internal, timer, ui);
 
 #if defined(ENABLE_IMGUI)
     ImGuiIO &io  = ImGui::GetIO();
@@ -75,13 +71,40 @@ void App::display_ui()
 
 void App::run()
 {
+    // window.register_mouse_callback([this](double xpos, double ypos) {  });
+
     while (!window.should_close()) {
-        window.update();
+        window.poll_events();
+
+        for (auto &event : window.events) {
+            if (std::holds_alternative<window::event::Resize>(event))
+            {
+                auto resize = std::get<window::event::Resize>(event);
+                renderer.on_resize(resize.width, resize.height);
+                if (window.minimized) {
+                    this->is_minimized = true;
+                }
+            }
+            else if (std::holds_alternative<window::event::Scroll>(event))
+            {
+                auto scroll = std::get<window::event::Scroll>(event);
+                this->camera.on_mouse_scroll(double(scroll.dx), double(scroll.dy));
+            }
+            else if (std::holds_alternative<window::event::MouseMove>(event))
+            {
+                auto move = std::get<window::event::MouseMove>(event);
+                this->camera.on_mouse_movement(double(move.x), double(move.y));
+                this->is_minimized = false;
+            }
+        }
+        window.events.clear();
+
         update();
         timer.update();
         display_ui();
         renderer.draw();
         watcher.update();
+
     }
 
     renderer.wait_idle();

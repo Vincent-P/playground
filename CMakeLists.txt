@@ -17,9 +17,12 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>") # Specif
 project(test-vulkan LANGUAGES CXX)
 
 add_definitions(
-  -DNOMINMAX #ty windows....
-
-  -DGLFW_INCLUDE_VULKAN
+  #ty windows....
+  -DNOMINMAX
+  -DVC_EXTRALEAN
+  -DWIN32_LEAN_AND_MEAN
+  -DUNICODE
+  -DVK_USE_PLATFORM_WIN32_KHR
 
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -36,7 +39,6 @@ add_definitions(
 # C++ Libraires, need to be installed with vcpkg
 find_package(Vulkan REQUIRED)
 find_package(glm REQUIRED)
-find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
@@ -44,7 +46,7 @@ find_package(GTest CONFIG REQUIRED)
 # Main executable
 add_executable(test-vulkan
   src/main.cpp
-  src/window.cpp
+  src/window_win32.cpp
   src/camera.cpp
   src/app.cpp
   src/tools.cpp
@@ -67,12 +69,27 @@ target_compile_options( test-vulkan PUBLIC
 target_link_libraries(test-vulkan
   PRIVATE
   Vulkan::Vulkan
-  glfw
   glm
   nlohmann_json
   nlohmann_json::nlohmann_json
   unofficial::vulkan-memory-allocator::vulkan-memory-allocator
   )
+
+if (WIN32)
+  target_link_libraries(test-vulkan
+    PRIVATE
+    Imm32 # Win32 IME for emoji picker or other IME input
+    )
+elseif(UNIX)
+  target_link_libraries(test-vulkan
+    PRIVATE
+    Threads::Threads
+    Fontconfig::Fontconfig
+    ${X11_LIBRARIES}
+    ${X11_Xi_LIB}
+    tbb
+    )
+endif()
 
 target_include_directories(test-vulkan
   PUBLIC include/
@@ -93,7 +110,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND glslc -O --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

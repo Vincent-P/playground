@@ -30,7 +30,7 @@ Linux:~/$ ./bootstrap-vcpkg.sh
 - Install the dependencies, replace `x64-windows` by `x64-linux` or `x64-osx` depending on your platform:
 
 ```
-vcpkg install glfw3 glm nlohmann-json stb vulkan-memory-allocator --triplet x64-windows
+vcpkg install glm nlohmann-json stb vulkan-memory-allocator --triplet x64-windows
 ```
 
 - You can now build the project!
