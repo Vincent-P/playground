@@ -1,8 +1,6 @@
 #include "app.hpp"
 #include <variant>
-#if defined(ENABLE_IMGUI)
 #include <imgui/imgui.h>
-#endif
 #include <iostream>
 #include <sstream>
 #include "file_watcher.hpp"
@@ -16,23 +14,13 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 App::App()
 {
     window::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    UI::Context::create(ui);
 
     InputCamera::create(camera, window, timer, float3(4.0f, 14.5f, 0.0f));
     camera._internal.yaw   = 90.0f;
     camera._internal.pitch = 0.0f;
 
     Renderer::create(renderer, window, camera._internal, timer, ui);
-
-#if defined(ENABLE_IMGUI)
-    ImGuiIO &io  = ImGui::GetIO();
-    io.DeltaTime = timer.get_delta_time();
-    io.Framerate = timer.get_average_fps();
-
-    io.DisplaySize.x             = float(renderer.api.ctx.swapchain.extent.width);
-    io.DisplaySize.y             = float(renderer.api.ctx.swapchain.extent.height);
-    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
-    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
-#endif
 
     watcher = FileWatcher::create();
 
@@ -54,7 +42,11 @@ App::App()
     is_minimized = false;
 }
 
-App::~App() { renderer.destroy(); }
+App::~App()
+{
+    ui.destroy();
+    renderer.destroy();
+}
 
 void App::update()
 {
@@ -63,7 +55,7 @@ void App::update()
 
 void App::display_ui()
 {
-    ImGui::NewFrame();
+    ui.start_frame(window);
     ui.display_ui();
     camera.display_ui(ui);
     renderer.display_ui(ui);

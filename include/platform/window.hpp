@@ -12,13 +12,31 @@
 typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
-#include <X11/Xlib.h>
+#    include <X11/Xlib.h>
 #endif
 
 namespace window
 {
+enum struct MouseButton : uint
+{
+    Left,
+    Right,
+    Middle,
+    Side1,
+    Side2,
+    Count
+};
 
-enum class VirtualKey : uint
+inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string{
+    "Left mouse button",
+    "Right mouse button",
+    "Middle mouse button (wheel)",
+    "Side mouse button 1",
+    "Side mouse button 2",
+    "COUNT"
+};
+
+enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
 #include "window_keys.h"
@@ -31,11 +49,24 @@ inline constexpr std::array<const char *, to_underlying(VirtualKey::Count) + 1> 
 #undef X
 };
 
-
 inline constexpr const char *virtual_key_to_string(VirtualKey key)
 {
     return key_to_string[to_underlying(key)];
 }
+
+enum struct Cursor
+{
+    None,
+    Arrow,
+    TextInput,
+    ResizeAll,
+    ResizeEW,
+    ResizeNS,
+    ResizeNESW,
+    ResizeNWSE,
+    Hand,
+    NotAllowed
+};
 
 namespace event
 {
@@ -100,7 +131,8 @@ struct MouseMove
     MouseMove(int _x, int _y)
         : x(_x)
         , y(_y)
-    {}
+    {
+    }
     int x;
     int y;
 };
@@ -115,7 +147,8 @@ struct Resize
     Resize(uint _width, uint _height)
         : width(_width)
         , height(_height)
-    {}
+    {
+    }
     uint width;
     uint height;
 };
@@ -158,7 +191,7 @@ struct Window_Xlib
 
 struct Window
 {
-    static void create(Window& window, usize width, usize height, const std::string_view title);
+    static void create(Window &window, usize width, usize height, const std::string_view title);
     ~Window() = default;
 
     void poll_events();
@@ -168,8 +201,17 @@ struct Window
     void set_caret_size(int2 size);
     void remove_caret();
 
-    [[nodiscard]] inline bool should_close() const { return stop; }
-    [[nodiscard]] uint2 get_dpi_scale() const;
+    // cursor operations
+    void set_cursor(Cursor cursor);
+
+    [[nodiscard]] inline bool should_close() const
+    {
+        return stop;
+    }
+
+    [[nodiscard]] float2 get_dpi_scale() const;
+
+    [[nodiscard]] bool is_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
 
     // push events to the events vector
     template <typename EventType, class... Args> void emit_event(Args &&... args)
@@ -177,9 +219,10 @@ struct Window
         events.emplace_back(std::in_place_type<EventType>, std::forward<Args>(args)...);
     }
 
+    std::string title;
     uint width;
     uint height;
-    std::wstring title;
+    float2 mouse_position;
 
     bool stop{false};
     std::optional<Caret> caret{};
@@ -187,7 +230,12 @@ struct Window
     bool has_focus{false};
     bool minimized{false};
     bool maximized{false};
-    void *user_data;
+    Cursor current_cursor;
+
+    std::vector<Event> events;
+
+    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed;
+    std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed;
 
 #if defined(_WIN64)
     Window_Win32 win32;
@@ -195,7 +243,6 @@ struct Window
     Window_Xlib xlib;
 #endif
 
-    std::vector<Event> events;
 };
 
 } // namespace window

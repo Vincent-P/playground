@@ -67,11 +67,13 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 void Window::create(Window &window, usize width, usize height, std::string_view title)
 {
+    window.title  = std::string(title);
     window.width  = width;
     window.height = height;
-    window.title  = utf8_to_utf16(title);
     window.stop   = false;
     window.events.reserve(5); // should be good enough
+
+    auto utf16_title = utf8_to_utf16(title);
 
     HINSTANCE instance = GetModuleHandle(nullptr);
 
@@ -87,7 +89,7 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     HWND &hwnd = window.win32.window;
     hwnd       = CreateWindowEx(WS_EX_TRANSPARENT,               // Optional window styles.
                           wc.lpszClassName,                // Window class
-                          window.title.c_str(),            // Window text
+                          utf16_title.c_str(),             // Window text
                           WS_BORDER | WS_OVERLAPPEDWINDOW, // Window style
                           // Position and size
                           CW_USEDEFAULT,
@@ -95,10 +97,10 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
                           // Width height
                           static_cast<int>(window.width),
                           static_cast<int>(window.height),
-                          nullptr,     // Parent window
-                          nullptr,     // Menu
-                          instance,    // Instance handle
-                          &window      // Additional application data
+                          nullptr,  // Parent window
+                          nullptr,  // Menu
+                          instance, // Instance handle
+                          &window   // Additional application data
     );
 
     if (!hwnd)
@@ -109,11 +111,11 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     ShowWindow(hwnd, SW_SHOW);
 }
 
-uint2 Window::get_dpi_scale() const
+float2 Window::get_dpi_scale() const
 {
-    // int dpi = GetDpiForWindow(win32.window);
-    int dpi = 1;
-    return uint2(dpi, dpi);
+    int dpi     = GetDpiForWindow(win32.window);
+    float scale = dpi / 96.0f;
+    return float2(scale, scale);
 }
 
 void Window::poll_events()
@@ -154,6 +156,26 @@ void Window::remove_caret()
 {
     DestroyCaret();
     caret = std::nullopt;
+}
+
+void Window::set_cursor(Cursor cursor)
+{
+    LPTSTR win32_cursor = nullptr;
+    switch (cursor)
+    {
+    case Cursor::None:         win32_cursor = nullptr; break;
+    case Cursor::Arrow:        win32_cursor = IDC_ARROW; break;
+    case Cursor::TextInput:    win32_cursor = IDC_IBEAM; break;
+    case Cursor::ResizeAll:    win32_cursor = IDC_SIZEALL; break;
+    case Cursor::ResizeEW:     win32_cursor = IDC_SIZEWE; break;
+    case Cursor::ResizeNS:     win32_cursor = IDC_SIZENS; break;
+    case Cursor::ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
+    case Cursor::ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
+    case Cursor::Hand:         win32_cursor = IDC_HAND; break;
+    case Cursor::NotAllowed:   win32_cursor = IDC_NO; break;
+    }
+    ::SetCursor(::LoadCursor(nullptr, win32_cursor));
+    current_cursor = cursor;
 }
 
 // Window callback function (handles window messages)
@@ -230,7 +252,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             return 0;
         }
 
-            /// --- Keyboard Inputs
+        /// --- Keyboard Inputs
 
         case WM_KEYUP:
         case WM_KEYDOWN:
@@ -253,6 +275,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             }
 
             window.emit_event<event::Key>(key, action);
+            window.keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
             return 0;
         }
 
@@ -373,6 +396,61 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
             window.emit_event<event::MouseMove>(x, y);
+            window.mouse_position = float2(x, y);
+            return 0;
+        }
+
+        // clang-format off
+        case WM_LBUTTONDOWN: case WM_LBUTTONDBLCLK:
+        case WM_RBUTTONDOWN: case WM_RBUTTONDBLCLK:
+        case WM_MBUTTONDOWN: case WM_MBUTTONDBLCLK:
+        case WM_XBUTTONDOWN: case WM_XBUTTONDBLCLK:
+        // clang-format on
+        {
+            int button = 0;
+            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
+            {
+                button = 0;
+            }
+            if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONDBLCLK)
+            {
+                button = 1;
+            }
+            if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONDBLCLK)
+            {
+                button = 2;
+            }
+            if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK)
+            {
+                button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+            }
+            window.mouse_buttons_pressed[button] = true;
+            return 0;
+        }
+
+        // clang-format off
+        case WM_LBUTTONUP: case WM_RBUTTONUP:
+        case WM_MBUTTONUP: case WM_XBUTTONUP:
+        // clang-format on
+        {
+            int button = 0;
+            if (uMsg == WM_LBUTTONUP)
+            {
+                button = 0;
+            }
+            if (uMsg == WM_RBUTTONUP)
+            {
+                button = 1;
+            }
+            if (uMsg == WM_MBUTTONUP)
+            {
+                button = 2;
+            }
+            if (uMsg == WM_XBUTTONUP)
+            {
+                button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+            }
+            window.mouse_buttons_pressed[button] = false;
             return 0;
         }
     }

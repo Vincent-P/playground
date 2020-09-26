@@ -118,7 +118,6 @@ struct Renderer
     void reload_shader(std::string_view shader_name);
 
     UI::Context *p_ui;
-    const window::Window *p_window;
     Camera *p_camera;
     TimerData *p_timer;
 

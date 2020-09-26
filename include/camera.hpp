@@ -61,6 +61,7 @@ struct InputCamera
     float phi = -65.0f;
 
     Camera _internal;
+
     window::Window *p_window;
     UI::Context *p_ui;
     TimerData *p_timer;

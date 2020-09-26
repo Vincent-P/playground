@@ -22,7 +22,9 @@ add_definitions(
   -DVC_EXTRALEAN
   -DWIN32_LEAN_AND_MEAN
   -DUNICODE
-  -DVK_USE_PLATFORM_WIN32_KHR
+
+  #imgui
+  -DIMGUI_USER_CONFIG="imgui_config.h"
 
   -DGLM_FORCE_RADIANS
   -DGLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -48,6 +50,7 @@ add_executable(test-vulkan
   src/main.cpp
   src/platform/window_win32.cpp
   src/camera.cpp
+  src/ui.cpp
   src/app.cpp
   src/tools.cpp
   src/timer.cpp
@@ -129,6 +132,15 @@ add_library(imgui
   third_party/imgui/imgui_demo.cpp
   third_party/imgui/imgui_draw.cpp
   third_party/imgui/imgui_widgets.cpp
+  )
+
+target_include_directories(imgui
+  PUBLIC include/
+  )
+
+target_link_libraries(imgui
+  PRIVATE
+  glm
   )
 
 target_link_libraries(test-vulkan

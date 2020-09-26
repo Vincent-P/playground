@@ -1,14 +1,16 @@
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#define VK_USE_PLATFORM_WIN32_KHR
 #define VMA_IMPLEMENTATION
 
 #include "renderer/vlk_context.hpp"
+
 #include "platform/window.hpp"
 
 #include <iostream>
+#include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
-#include <string>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 namespace my_app::vulkan
 {
@@ -115,10 +117,15 @@ void Context::create(Context &ctx, const window::Window &window)
     }
 
     /// --- Create the surface
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
     VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
     sci.hwnd      = window.win32.window;
     sci.hinstance = GetModuleHandle(nullptr);
     VK_CHECK(vkCreateWin32SurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
+#else
+    ctx.surface = VK_NULL_HANDLE;
+    assert(false);
+#endif
 
     /// --- Pick a physical device
     uint physical_devices_count = 0;

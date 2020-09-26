@@ -28,24 +28,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &/*api*/);
 void Renderer::create(Renderer& r, const window::Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     // where to put this code?
-
-    // Init context
-    ImGui::CreateContext();
-
-    auto &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigDockingWithShift = false;
-    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
-    io.BackendPlatformName = "custom";
-
-    // Add fonts
-    io.Fonts->AddFontDefault();
-    ImFontConfig config;
-    config.MergeMode                   = true;
-    config.GlyphMinAdvanceX            = 13.0f; // Use if you want to make the icon monospaced
-    static const std::array<ImWchar, 3> icon_ranges = {eva_icons::MIN, eva_icons::MAX, 0};
-    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges.data());
-
     //
 
     vulkan::API::create(r.api, window);
@@ -53,7 +35,6 @@ void Renderer::create(Renderer& r, const window::Window &window, Camera &camera,
     r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
 
     r.p_ui     = &ui;
-    r.p_window = &window;
     r.p_camera = &camera;
     r.p_timer  = &timer;
 
@@ -209,14 +190,11 @@ void Renderer::destroy()
     api.wait_idle();
     graph.destroy();
     api.destroy();
-
-    ImGui::DestroyContext();
 }
 
 void Renderer::on_resize(int width, int height)
 {
     api.on_resize(width, height);
-
     graph.on_resize(width, height);
 }
 
@@ -2187,16 +2165,10 @@ void Renderer::display_ui(UI::Context &ui)
     api.display_ui(ui);
 
     ImGuiIO &io  = ImGui::GetIO();
-    const auto &window = *p_window;
     auto &timer  = *p_timer;
 
     io.DeltaTime = timer.get_delta_time();
     io.Framerate = timer.get_average_fps();
-
-    io.DisplaySize.x             = float(api.ctx.swapchain.extent.width);
-    io.DisplaySize.y             = float(api.ctx.swapchain.extent.height);
-    io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
-    io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 
     if (ui.begin_window("Profiler", true))
     {
