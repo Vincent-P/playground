@@ -84,6 +84,13 @@ void App::run()
                 this->camera.on_mouse_movement(double(move.x), double(move.y));
                 this->is_minimized = false;
             }
+            else if (std::holds_alternative<window::event::Key>(event))
+            {
+                auto key = std::get<window::event::Key>(event);
+                if (key.key == window::VirtualKey::Escape) {
+                    window.stop = true;
+                }
+            }
         }
 
         if (last_resize)

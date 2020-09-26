@@ -211,7 +211,9 @@ struct Window
 
     [[nodiscard]] float2 get_dpi_scale() const;
 
-    [[nodiscard]] bool is_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
+    [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
+    [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const { return mouse_buttons_pressed[to_underlying(button)]; }
+    [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
 
     // push events to the events vector
     template <typename EventType, class... Args> void emit_event(Args &&... args)

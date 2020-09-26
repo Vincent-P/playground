@@ -7,6 +7,8 @@
 #    include <imgui/imgui.h>
 #endif
 
+#include <iostream>
+
 namespace my_app
 {
 
@@ -165,11 +167,11 @@ void InputCamera::display_ui(UI::Context &ui)
 
 void InputCamera::update()
 {
-    // auto *glfw_handle = p_window->get_handle();
+    auto &window = *p_window;
 
-    bool alt_pressed = false; // glfwGetKey(glfw_handle, GLFW_KEY_LEFT_ALT);
-    bool lmb_pressed = false; // glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-    bool rmb_pressed = false; // glfwGetMouseButton(glfw_handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    bool alt_pressed = window.is_key_pressed(window::VirtualKey::Alt);
+    bool lmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Left);
+    bool rmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Right);
 
     switch (state)
     {
@@ -179,19 +181,13 @@ void InputCamera::update()
             {
                 state = States::Move;
 
-                double xpos = 0.0;
-                double ypos = 0.0;
-                // glfwGetCursorPos(glfw_handle, &xpos, &ypos);
-                dragged_mouse_start_pos = float2(xpos, ypos);
+                dragged_mouse_start_pos = window.get_mouse_position();
             }
             else if (alt_pressed && rmb_pressed)
             {
                 state = States::Orbit;
 
-                double xpos = 0.0;
-                double ypos = 0.0;
-                // glfwGetCursorPos(glfw_handle, &xpos, &ypos);
-                dragged_mouse_start_pos = float2(xpos, ypos);
+                dragged_mouse_start_pos = window.get_mouse_position();
             }
             else if (alt_pressed)
             {

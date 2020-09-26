@@ -118,8 +118,32 @@ float2 Window::get_dpi_scale() const
     return float2(scale, scale);
 }
 
+static void update_key(Window &window, VirtualKey key)
+{
+    auto old = window.keys_pressed[to_underlying(key)];
+    auto virtual_key = native_to_virtual[to_underlying(key)];
+    auto pressed = GetKeyState(virtual_key) & 0x8000;
+
+    window.keys_pressed[to_underlying(key)] = pressed;
+
+    if (old != pressed)
+    {
+        auto action = event::Key::Action::Down;
+        if (old)
+        {
+            action = event::Key::Action::Up;
+        }
+        window.emit_event<event::Key>(key, action);
+    }
+}
+
 void Window::poll_events()
 {
+    // need to take care of shit, control and alt manually...
+    update_key(*this, VirtualKey::Shift);
+    update_key(*this, VirtualKey::Control);
+    update_key(*this, VirtualKey::Alt);
+
     MSG msg;
     if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
     {
@@ -271,11 +295,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             auto action = event::Key::Action::Down;
             if (uMsg == WM_KEYUP)
             {
-                action = event::Key::Action::Up;
+                 action = event::Key::Action::Up;
             }
 
             window.emit_event<event::Key>(key, action);
             window.keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
+            return 0;
+        }
+
+        case WM_SYSKEYUP:
+        case WM_SYSKEYDOWN:
+        {
             return 0;
         }
 
