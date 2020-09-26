@@ -1,6 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
-#include "types.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <cassert>

@@ -3,7 +3,7 @@
 #define VMA_IMPLEMENTATION
 
 #include "renderer/vlk_context.hpp"
-#include "window.hpp"
+#include "platform/window.hpp"
 
 #include <iostream>
 #include <vector>

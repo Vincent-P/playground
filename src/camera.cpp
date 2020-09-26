@@ -2,7 +2,7 @@
 
 #include "app.hpp"
 #include "timer.hpp"
-#include "window.hpp"
+#include "platform/window.hpp"
 #if defined(ENABLE_IMGUI)
 #    include <imgui/imgui.h>
 #endif

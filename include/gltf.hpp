@@ -1,6 +1,6 @@
 #pragma once
 #include "renderer/hl_api.hpp"
-#include "types.hpp"
+#include "base/types.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <optional>
 #include <string>

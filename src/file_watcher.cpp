@@ -19,7 +19,7 @@
 #include <cassert>
 #include <iostream>
 
-#include "types.hpp"
+#include "base/types.hpp"
 
 namespace my_app
 {

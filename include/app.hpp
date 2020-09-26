@@ -1,10 +1,10 @@
 #pragma once
 #include "camera.hpp"
-#include "types.hpp"
+#include "base/types.hpp"
 #include "file_watcher.hpp"
 #include "renderer/renderer.hpp"
 #include "timer.hpp"
-#include "window.hpp"
+#include "platform/window.hpp"
 #include <imgui/imgui.h>
 #include "eva-icons.hpp"
 #include <unordered_map>
@@ -85,8 +85,6 @@ class App
   public:
     App();
     ~App();
-
-    NO_COPY_NO_MOVE(App)
 
     void run();
 

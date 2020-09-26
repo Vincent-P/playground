@@ -1,5 +1,6 @@
 #pragma once
-#include "types.hpp"
+#include "base/types.hpp"
+#include "base/pool.hpp"
 #include <unordered_map>
 #include <vulkan/vulkan.h>
 #include <vector>

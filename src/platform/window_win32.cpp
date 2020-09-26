@@ -1,4 +1,4 @@
-#include "window.hpp"
+#include "platform/window.hpp"
 
 #include <cassert>
 #include <iomanip>
@@ -52,13 +52,7 @@ namespace window
 {
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
-#include "window_keys.h"
-#undef X
-};
-
-std::array<const char *, to_underlying(VirtualKey::Count) + 1> key_to_string{
-#define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
-#include "window_keys.h"
+#include "platform/window_keys.h"
 #undef X
 };
 

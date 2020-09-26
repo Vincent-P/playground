@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types.hpp"
+#include "base/types.hpp"
 #include <glm/gtc/quaternion.hpp>
 
 namespace window{struct Window;}

@@ -1,13 +1,14 @@
 #pragma once
 
-#include <optional>
-#include <vk_mem_alloc.h>
+#include "base/types.hpp"
 
-#include "types.hpp"
+#include <optional>
+#include <vector>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-inline const char* vkres_to_str(VkResult code)
+inline const char *vkres_to_str(VkResult code)
 {
     switch (code)
     {

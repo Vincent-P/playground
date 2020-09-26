@@ -46,7 +46,7 @@ find_package(GTest CONFIG REQUIRED)
 # Main executable
 add_executable(test-vulkan
   src/main.cpp
-  src/window_win32.cpp
+  src/platform/window_win32.cpp
   src/camera.cpp
   src/app.cpp
   src/tools.cpp
