@@ -24,3 +24,10 @@ $ ninja
 ```
 
 - The executable needs to be started from the build directory.
+
+# Dependencies
+- STB Image (https://github.com/nothings/stb)
+- simdjson (https://github.com/simdjson/simdjson)
+- Vulkan Memory Allocator (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- ImGui (https://github.com/ocornut/imgui)
+- doctest (https://github.com/onqtam/doctest)
