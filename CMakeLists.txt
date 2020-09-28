@@ -1,11 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 include(FetchContent)
 
-# Setup the vcpkg toolchain to get packages
-if(DEFINED ENV{VCPKG_ROOT})
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
-endif()
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # Put binaries at the root of the build folder
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
@@ -54,10 +49,13 @@ add_executable(test-vulkan
   src/renderer/hl_api_draw.cpp
   )
 
-target_compile_options( test-vulkan PUBLIC
-  -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
-  -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
-  )
+# currently clang doesst compile on window :(
+# target_compile_options( test-vulkan PUBLIC
+#   -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
+#   -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
+#   )
+
+target_compile_options(test-vulkan PUBLIC /std:c++latest)
 
 target_include_directories(test-vulkan
   PUBLIC include/
@@ -70,7 +68,7 @@ if (WIN32)
     PRIVATE
     Imm32 # Win32 IME for emoji picker or other IME input
     )
-elseif(UNIX)
+elseif (UNIX)
   target_link_libraries(test-vulkan
     PRIVATE
     Threads::Threads
@@ -82,17 +80,23 @@ elseif(UNIX)
 endif()
 
 
-# C++ Libraires, need to be installed with vcpkg
+# C++ Libraires
 find_package(Vulkan REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+
+# simgjson
+FetchContent_Declare(
+  simdjson
+  GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+  GIT_TAG  v0.5.0
+  GIT_SHALLOW TRUE)
+set(SIMDJSON_JUST_LIBRARY ON CACHE INTERNAL "")
+set(SIMDJSON_BUILD_STATIC ON CACHE INTERNAL "")
+FetchContent_MakeAvailable(simdjson)
 
 target_link_libraries(test-vulkan
   PRIVATE
   Vulkan::Vulkan
-  nlohmann_json
-  nlohmann_json::nlohmann_json
-  unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+  simdjson
   )
 
 #

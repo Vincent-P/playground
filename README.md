@@ -12,38 +12,15 @@ Features:
 # Installation
 
 - Install the Vulkan SDK (https://vulkan.lunarg.com/sdk/home)
-
-- Test vulkan uses `vckpg` to manage its dependencies, so first install it:
-
-```
-> git clone https://github.com/Microsoft/vcpkg.git
-> cd vcpkg
-
-PS> .\bootstrap-vcpkg.bat
-Linux:~/$ ./bootstrap-vcpkg.sh
-
-> cd ..
-```
-
-- And set the VCPKG_ROOT environment variable to the vcpkg folder.
-
-- Install the dependencies, replace `x64-windows` by `x64-linux` or `x64-osx` depending on your platform:
-
-```
-vcpkg install glm nlohmann-json stb vulkan-memory-allocator --triplet x64-windows
-```
-
 - You can now build the project!
 
 ```
-git clone https://github.com/Vincent-P/test-vulkan.git
-cd test-vulkan
-
-mkdir build
-cd build
-
-cmake -G Ninja ..
-ninja
+$ git clone https://github.com/Vincent-P/test-vulkan.git
+$ cd test-vulkan
+$ mkdir build
+$ cd build
+$ cmake -G Ninja ..
+$ ninja
 ```
 
-- The executable needs to be started from the root of the project.
+- The executable needs to be started from the build directory.

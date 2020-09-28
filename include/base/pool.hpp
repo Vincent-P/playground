@@ -34,7 +34,10 @@ template <typename T> struct Handle
         return index != u32_invalid && gen != u32_invalid;
     }
 
-    bool operator==(const Handle &b) const = default;
+    bool operator==(const Handle &b) const
+    {
+        return index == b.index && gen == b.gen;
+    }
 
   private:
     u32 index;

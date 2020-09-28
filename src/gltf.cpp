@@ -2,24 +2,22 @@
 #include "renderer/hl_api.hpp"
 
 #include <cassert>
+#include <string>
+#include <string_view>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iostream>
-#include <nlohmann/json.hpp>
+#include <simdjson.h>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "renderer/renderer.hpp"
 #include "tools.hpp"
 
-#include <stb_image.h>
-
 namespace my_app
 {
-using json   = nlohmann::json;
 namespace fs = std::filesystem;
 
 struct GltfPrimitiveAttribute
@@ -28,15 +26,16 @@ struct GltfPrimitiveAttribute
     usize len;
 };
 
-static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, const json &root,
-                                                                      const json &attributes, const char *attribute)
+static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, const simdjson::dom::element &root,
+                                                                      const simdjson::dom::element &attributes,
+                                                                      const char *attribute)
 {
-    if (attributes.count(attribute))
+    if (attributes[attribute].error() == simdjson::SUCCESS)
     {
-        uint accessor_i = attributes[attribute];
-        auto accessor   = root["accessors"][accessor_i];
-        uint view_i     = accessor["bufferView"];
-        auto view       = root["bufferViews"][view_i];
+        uint accessor_i = attributes[attribute].get_uint64();
+        auto accessor   = root["accessors"].at(accessor_i);
+        uint view_i     = accessor["bufferView"].get_uint64();
+        auto view       = root["bufferViews"].at(view_i);
         auto &buffer    = model.buffers[view["buffer"]];
 
         usize count       = accessor["count"];
@@ -53,44 +52,43 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &mod
     return std::nullopt;
 }
 
-Model load_model(const char *c_path)
+Model load_model(std::string_view path_view)
 {
+    fs::path path(path_view);
     Model model;
-    fs::path path{c_path};
 
-    std::ifstream f{path};
-    json j;
-    f >> j;
+    simdjson::dom::parser parser;
+    simdjson::dom::element doc = parser.load(std::string(path_view));
 
     // Load buffers file into memory
-    for (const auto &json_buffer : j["buffers"])
+    for (const auto &json_buffer : doc["buffers"])
     {
         Buffer buf;
-        buf.byte_length = json_buffer["byteLength"];
+        buf.byte_length = json_buffer["byteLength"].get_uint64();
 
-        const std::string buffer_name = json_buffer["uri"];
-        fs::path buffer_path          = path.replace_filename(buffer_name);
+        std::string_view buffer_name = json_buffer["uri"].get_string();
+        fs::path buffer_path          = path.replace_filename(fs::path(buffer_name));
         buf.data                      = tools::read_file(buffer_path);
 
         model.buffers.push_back(std::move(buf));
     }
 
     // Fill the model vertex and index buffers
-    for (const auto &json_mesh : j["meshes"])
+    for (const auto &json_mesh : doc["meshes"])
     {
         Mesh mesh;
         for (const auto &json_primitive : json_mesh["primitives"])
         {
             Primitive primitive;
-            primitive.material = json_primitive["material"];
-            primitive.mode     = json_primitive["mode"];
+            primitive.material = json_primitive["material"].get_uint64();
+            primitive.mode     = RenderingMode(static_cast<u8>(json_primitive["mode"].get_uint64()));
 
-            const auto &json_attributes = json_primitive["attributes"];
+            const simdjson::dom::element &json_attributes = json_primitive["attributes"];
 
             primitive.first_vertex = static_cast<u32>(model.vertices.size());
             primitive.first_index  = static_cast<u32>(model.indices.size());
 
-            auto position_attribute = gltf_primitive_attribute(model, j, json_attributes, "POSITION");
+            auto position_attribute = gltf_primitive_attribute(model, doc, json_attributes, "POSITION");
             {
                 auto *positions = reinterpret_cast<float3 *>(position_attribute->data);
 
@@ -103,7 +101,7 @@ Model load_model(const char *c_path)
                 }
             }
 
-            auto normal_attribute = gltf_primitive_attribute(model, j, json_attributes, "NORMAL");
+            auto normal_attribute = gltf_primitive_attribute(model, doc, json_attributes, "NORMAL");
             if (normal_attribute)
             {
                 auto *normals = reinterpret_cast<float3 *>(normal_attribute->data);
@@ -113,7 +111,7 @@ Model load_model(const char *c_path)
                 }
             }
 
-            auto uv0_attribute = gltf_primitive_attribute(model, j, json_attributes, "TEXCOORD_0");
+            auto uv0_attribute = gltf_primitive_attribute(model, doc, json_attributes, "TEXCOORD_0");
             if (uv0_attribute)
             {
                 auto *uvs = reinterpret_cast<float2 *>(uv0_attribute->data);
@@ -123,7 +121,7 @@ Model load_model(const char *c_path)
                 }
             }
 
-            auto uv1_attribute = gltf_primitive_attribute(model, j, json_attributes, "TEXCOORD_1");
+            auto uv1_attribute = gltf_primitive_attribute(model, doc, json_attributes, "TEXCOORD_1");
             if (uv1_attribute)
             {
                 auto *uvs = reinterpret_cast<float2 *>(uv1_attribute->data);
@@ -134,13 +132,13 @@ Model load_model(const char *c_path)
             }
 
             {
-                uint accessor_i = json_primitive["indices"];
-                auto accessor   = j["accessors"][accessor_i];
-                uint view_i     = accessor["bufferView"];
-                auto view       = j["bufferViews"][view_i];
+                uint accessor_i = json_primitive["indices"].get_uint64();
+                auto accessor   = doc["accessors"].at(accessor_i);
+                uint view_i     = accessor["bufferView"].get_uint64();
+                auto view       = doc["bufferViews"].at(view_i);
                 auto &buffer    = model.buffers[view["buffer"]];
 
-                u32 count         = accessor["count"];
+                u32 count         = accessor["count"].get_uint64();
                 usize acc_offset  = accessor["byteOffset"];
                 usize view_offset = view["byteOffset"];
                 usize offset      = acc_offset + view_offset;
@@ -159,43 +157,48 @@ Model load_model(const char *c_path)
         model.meshes.push_back(std::move(mesh));
     }
 
-    for (const auto &json_node : j["nodes"])
+    for (const auto &json_node : doc["nodes"])
     {
         Node node;
 
         node.mesh = json_node["mesh"];
 
-        if (json_node.count("matrix"))
+        if (json_node["matrix"].error() == simdjson::SUCCESS)
         {
         }
 
-        if (json_node.count("translation"))
+        if (json_node["translation"].error() == simdjson::SUCCESS)
         {
             auto translation_factors = json_node["translation"];
-            node.translation.x       = translation_factors[0];
-            node.translation.y       = translation_factors[1];
-            node.translation.z       = translation_factors[2];
+            node.translation.x       = translation_factors.at(0).get_double();
+            node.translation.y       = translation_factors.at(1).get_double();
+            node.translation.z       = translation_factors.at(2).get_double();
         }
 
-        if (json_node.count("rotation"))
+        if (json_node["rotation"].error() == simdjson::SUCCESS)
         {
             const auto &rotation = json_node["rotation"];
-            node.rotation        = float4(rotation[0], rotation[1], rotation[2], rotation[3]);
+            node.rotation        = float4(
+                rotation.at(0).get_double(),
+                rotation.at(1).get_double(),
+                rotation.at(2).get_double(),
+                rotation.at(3).get_double()
+            );
         }
 
-        if (json_node.count("scale"))
+        if (json_node["scale"].error() == simdjson::SUCCESS)
         {
             auto scale_factors = json_node["scale"];
-            node.scale.x       = scale_factors[0];
-            node.scale.y       = scale_factors[1];
-            node.scale.z       = scale_factors[2];
+            node.scale.x       = scale_factors.at(0).get_double();
+            node.scale.y       = scale_factors.at(1).get_double();
+            node.scale.z       = scale_factors.at(2).get_double();
         }
 
-        if (json_node.count("children"))
+        if (json_node["children"].error() == simdjson::SUCCESS)
         {
-            const auto &children = json_node["children"];
+            const auto &children = json_node["children"].get_array();
             node.children.reserve(children.size());
-            for (u32 child_i : children)
+            for (u64 child_i : children)
             {
                 node.children.push_back(child_i);
             }
@@ -204,25 +207,26 @@ Model load_model(const char *c_path)
         model.nodes.push_back(std::move(node));
     }
 
-    for (const auto &json_sampler : j["samplers"])
+    for (const auto &json_sampler : doc["samplers"])
     {
         Sampler sampler;
-        sampler.mag_filter = json_sampler["magFilter"];
-        sampler.min_filter = json_sampler["minFilter"];
-        sampler.wrap_s     = json_sampler["wrapS"];
-        sampler.wrap_t     = json_sampler["wrapT"];
+        sampler.mag_filter = Filter(static_cast<u32>(json_sampler["magFilter"].get_uint64()));
+        sampler.min_filter = Filter(static_cast<u32>(json_sampler["minFilter"].get_uint64()));
+        sampler.wrap_s     = Wrap(static_cast<u32>(json_sampler["wrapS"].get_uint64()));
+        sampler.wrap_t     = Wrap(static_cast<u32>(json_sampler["wrapT"].get_uint64()));
         model.samplers.push_back(std::move(sampler));
     }
 
     // Load images file into memory
     std::vector<std::future<Image>> images_data;
-    images_data.resize(j["images"].size());
+    images_data.resize(doc["images"].get_array().size());
 
-    for (uint i = 0; i < images_data.size(); i++)
+    uint i = 0;
+    for (const auto& json_image : doc["images"])
     {
-        const auto &json_image = j["images"][i];
-        std::string type       = json_image["mimeType"];
-        std::string image_name = json_image["uri"];
+        std::string_view type_view       = json_image["mimeType"].get_string();
+        std::string type(type_view);
+        std::string_view image_name = json_image["uri"].get_string();
         fs::path image_path    = path.replace_filename(image_name);
 
         if (type == "image/jpeg")
@@ -242,6 +246,8 @@ Model load_model(const char *c_path)
             image.srgb = false;
             return image;
         });
+
+        i++;
     }
 
     model.images.resize(images_data.size());
@@ -250,37 +256,39 @@ Model load_model(const char *c_path)
         model.images[i] = images_data[i].get();
     }
 
-    for (const auto &json_texture : j["textures"])
+    for (const auto &json_texture : doc["textures"])
     {
         Texture texture;
-        texture.sampler = json_texture["sampler"];
-        texture.image   = json_texture["source"];
+        texture.sampler = json_texture["sampler"].get_uint64();
+        texture.image   = json_texture["source"].get_uint64();
         model.textures.push_back(std::move(texture));
     }
 
-    for (const auto &json_material : j["materials"])
+    for (const auto &json_material : doc["materials"])
     {
         Material material;
 
-        if (json_material.count("pbrMetallicRoughness"))
+        if (json_material["pbrMetallicRoughness"].error() == simdjson::SUCCESS)
         {
             const auto &json_pbr         = json_material["pbrMetallicRoughness"];
             auto base_color_factors      = json_pbr["baseColorFactor"];
-            material.base_color_factor.r = base_color_factors[0];
-            material.base_color_factor.g = base_color_factors[1];
-            material.base_color_factor.b = base_color_factors[2];
-            material.base_color_factor.a = base_color_factors[3];
+            material.base_color_factor.r = base_color_factors.at(0).get_double();
+            material.base_color_factor.g = base_color_factors.at(1).get_double();
+            material.base_color_factor.b = base_color_factors.at(2).get_double();
+            material.base_color_factor.a = base_color_factors.at(3).get_double();
 
-            if (json_pbr.count("metallicFactor")) {
-                material.metallic_factor  = json_pbr["metallicFactor"];
-            }
-            if (json_pbr.count("roughnessFactor")) {
-                material.roughness_factor = json_pbr["roughnessFactor"];
-            }
-
-            if (json_pbr.count("baseColorTexture"))
+            if (json_pbr["metallicFactor"].error() == simdjson::SUCCESS)
             {
-                u32 i_texture               = json_pbr["baseColorTexture"]["index"];
+                material.metallic_factor  = json_pbr["metallicFactor"].get_double();
+            }
+            if (json_pbr["roughnessFactor"].error() == simdjson::SUCCESS)
+            {
+                material.roughness_factor = json_pbr["roughnessFactor"].get_double();
+            }
+
+            if (json_pbr["baseColorTexture"].error() == simdjson::SUCCESS)
+            {
+                u32 i_texture               = json_pbr["baseColorTexture"].at_key("index").get_uint64();
                 material.base_color_texture = i_texture;
 
                 auto i_image = model.textures[i_texture].image;
@@ -288,24 +296,24 @@ Model load_model(const char *c_path)
                 image.srgb   = true;
             }
 
-            if (json_pbr.count("metallicRoughnessTexture"))
+            if (json_pbr["metallicRoughnessTexture"].error() == simdjson::SUCCESS)
             {
-                u32 i_texture                       = json_pbr["metallicRoughnessTexture"]["index"];
+                u32 i_texture                       = json_pbr["metallicRoughnessTexture"].at_key("index").get_uint64();
                 material.metallic_roughness_texture = i_texture;
             }
         }
 
-        if (json_material.count("normalTexture"))
+        if (json_material["normalTexture"].error() == simdjson::SUCCESS)
         {
-            u32 i_texture           = json_material["normalTexture"]["index"];
+            u32 i_texture           = json_material["normalTexture"].at_key("index").get_uint64();
             material.normal_texture = i_texture;
         }
 
         model.materials.push_back(std::move(material));
     }
 
-    usize scene_i          = j["scene"];
-    const auto &scene_json = j["scenes"][scene_i];
+    usize scene_i          = doc["scene"];
+    const auto &scene_json = doc["scenes"].at(scene_i);
     for (usize node_i : scene_json["nodes"])
     {
         model.scene.push_back(node_i);

@@ -113,11 +113,15 @@ struct Image
 
 struct ImageView
 {
+    ImageView() = default;
+
     ImageH image_h;
     VkImageSubresourceRange range;
     VkFormat format;
     VkImageViewType view_type;
     VkImageView vkhandle;
+
+    bool operator==(const ImageView &b) const = default;
 };
 
 struct SamplerInfo
@@ -126,12 +130,21 @@ struct SamplerInfo
     VkFilter min_filter               = VK_FILTER_NEAREST;
     VkSamplerMipmapMode mip_map_mode  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     VkSamplerAddressMode address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+    bool operator==(const SamplerInfo &b) const = default;
 };
 
 struct Sampler
 {
+    Sampler() = default;
+
     VkSampler vkhandle;
     SamplerInfo info;
+
+    bool operator==(const Sampler &b) const
+    {
+        return vkhandle == b.vkhandle && info == b.info;
+    }
 };
 using SamplerH = Handle<Sampler>;
 
@@ -168,7 +181,10 @@ struct AttachmentInfo
     VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     ImageViewH image_view;
 
-    bool operator==(const AttachmentInfo &b) const = default;
+    bool operator==(const AttachmentInfo &b) const
+    {
+        return load_op == b.load_op && image_view == b.image_view;
+    }
 };
 
 struct PassInfo
@@ -180,7 +196,11 @@ struct PassInfo
     std::vector<AttachmentInfo> colors = {};
     std::optional<AttachmentInfo> depth = {};
 
-    bool operator==(const PassInfo &b) const = default;
+    bool operator==(const PassInfo &b) const
+    {
+        return samples == b.samples && colors == b.colors && depth == b.depth;
+    }
+
 };
 
 struct RenderPass

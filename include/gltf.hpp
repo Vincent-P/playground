@@ -3,6 +3,7 @@
 #include "base/types.hpp"
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace my_app
@@ -19,7 +20,7 @@ enum class RenderingMode : u8
 };
 
 // https://gist.github.com/szimek/763999
-enum class ComponentType
+enum class ComponentType : u32
 {
     Byte          = 5120,
     UnsignedByte  = 5121,
@@ -31,7 +32,7 @@ enum class ComponentType
     Double        = 5130
 };
 
-enum class Filter
+enum class Filter : u32
 {
     Nearest              = 9728,
     Linear               = 9729,
@@ -123,7 +124,7 @@ struct Primitive
 
 struct Mesh
 {
-    const char *name;
+    std::string name;
     std::vector<Primitive> primitives;
 };
 
@@ -169,5 +170,5 @@ struct Model
     std::vector<float4x4> cached_transforms;
 };
 
-Model load_model(const char *path);
+Model load_model(std::string_view path);
 } // namespace my_app

@@ -12,7 +12,11 @@
 #include <algorithm>
 #include <cstring> // for std::memcpy
 #include <future>
+
+
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
 #include <vulkan/vulkan_core.h>
 
 namespace my_app

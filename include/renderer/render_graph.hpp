@@ -63,6 +63,8 @@ struct ImageDesc
     uint samples                        = 1;
     uint levels                         = 1;
     uint layers                         = 1;
+
+    bool operator==(const ImageDesc &b) const = default;
 };
 
 struct ImageResource
@@ -100,6 +102,11 @@ struct RenderPass
 
     // ui?
     bool opened = true;
+
+    bool operator==(const RenderPass &b) const
+    {
+        return false;
+    }
 };
 
 struct RenderGraph
