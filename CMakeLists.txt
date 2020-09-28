@@ -11,10 +11,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-cmake_policy(SET CMP0091 NEW) # makes MSVC_RUNTIME_LIBRARY variable work
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>") # Specify MSVC runtime to link libraries correctly
-
 project(test-vulkan LANGUAGES CXX)
+
+# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
 add_definitions(
   #ty windows....
@@ -26,28 +25,19 @@ add_definitions(
   #imgui
   -DIMGUI_USER_CONFIG="imgui_config.h"
 
-  -DGLM_FORCE_RADIANS
-  -DGLM_FORCE_DEPTH_ZERO_TO_ONE
-
+  # VMA debug
   -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
   -DVMA_DEBUG_MARGIN=16
   -DVMA_DEBUG_DETECT_CORRUPTION=1
-
-  -DENABLE_IMGUI
   )
 
-# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
-
-# C++ Libraires, need to be installed with vcpkg
-find_package(Vulkan REQUIRED)
-find_package(glm REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
-find_package(GTest CONFIG REQUIRED)
-
+#
 # Main executable
+#
+
 add_executable(test-vulkan
   src/main.cpp
+  src/base/vectors.cpp
   src/platform/window_win32.cpp
   src/camera.cpp
   src/ui.cpp
@@ -69,15 +59,12 @@ target_compile_options( test-vulkan PUBLIC
   -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
   )
 
-target_link_libraries(test-vulkan
-  PRIVATE
-  Vulkan::Vulkan
-  glm
-  nlohmann_json
-  nlohmann_json::nlohmann_json
-  unofficial::vulkan-memory-allocator::vulkan-memory-allocator
+target_include_directories(test-vulkan
+  PUBLIC include/
+  SYSTEM PUBLIC third_party/
   )
 
+# System libraries
 if (WIN32)
   target_link_libraries(test-vulkan
     PRIVATE
@@ -94,12 +81,23 @@ elseif(UNIX)
     )
 endif()
 
-target_include_directories(test-vulkan
-  PUBLIC include/
-  SYSTEM PUBLIC third_party/
+
+# C++ Libraires, need to be installed with vcpkg
+find_package(Vulkan REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+
+target_link_libraries(test-vulkan
+  PRIVATE
+  Vulkan::Vulkan
+  nlohmann_json
+  nlohmann_json::nlohmann_json
+  unofficial::vulkan-memory-allocator::vulkan-memory-allocator
   )
 
+#
 # SHADERS
+#
 
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "shaders/*.frag"
@@ -125,7 +123,9 @@ add_custom_target(
 
 add_dependencies(test-vulkan shaders)
 
+#
 # ImGUI
+#
 
 add_library(imgui
   third_party/imgui/imgui.cpp
@@ -138,10 +138,7 @@ target_include_directories(imgui
   PUBLIC include/
   )
 
-target_link_libraries(imgui
-  PRIVATE
-  glm
-  )
+target_link_libraries(imgui)
 
 target_link_libraries(test-vulkan
   PRIVATE

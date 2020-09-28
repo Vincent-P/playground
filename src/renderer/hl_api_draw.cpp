@@ -837,10 +837,10 @@ void API::begin_label(std::string_view name, float4 color)
     auto &frame_resource = ctx.frame_resources.get_current();
     VkDebugUtilsLabelEXT info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
     info.pLabelName           = name.data();
-    info.color[0]             = color[0];
-    info.color[1]             = color[1];
-    info.color[2]             = color[2];
-    info.color[3]             = color[3];
+    info.color[0]             = color.x;
+    info.color[1]             = color.y;
+    info.color[2]             = color.z;
+    info.color[3]             = color.w;
     ctx.vkCmdBeginDebugUtilsLabelEXT(frame_resource.command_buffer, &info);
 
     current_label = name;

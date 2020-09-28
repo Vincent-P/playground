@@ -5,9 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp> // lookAt perspective
-#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
@@ -183,7 +180,7 @@ Model load_model(const char *c_path)
         if (json_node.count("rotation"))
         {
             const auto &rotation = json_node["rotation"];
-            node.rotation        = glm::quat(rotation[0], rotation[1], rotation[2], rotation[3]);
+            node.rotation        = float4(rotation[0], rotation[1], rotation[2], rotation[3]);
         }
 
         if (json_node.count("scale"))

@@ -1,7 +1,6 @@
 #pragma once
 #include "renderer/hl_api.hpp"
 #include "base/types.hpp"
-#include <glm/gtc/quaternion.hpp>
 #include <optional>
 #include <string>
 #include <vector>
@@ -136,7 +135,7 @@ struct Node
 
     float3 translation{};
     float3 scale{1.0f};
-    glm::quat rotation{};
+    float4 rotation{};
 
     std::vector<u32> children;
 };

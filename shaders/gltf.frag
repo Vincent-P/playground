@@ -271,9 +271,9 @@ void main()
     // base color
     if (debug.gltf_debug_selected == 1)
     {
-        // indirect = reflection;
-        // indirect.a = 1.0;
-        direct = float3(0.0);
+        indirect.rgb = float3(0.0);
+        indirect.a = 1.0;
+        direct = albedo;
     }
     // normal
     else if (debug.gltf_debug_selected == 2)

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "base/types.hpp"
-#include <glm/gtc/quaternion.hpp>
 
 namespace window{struct Window;}
 namespace my_app
@@ -23,18 +22,24 @@ struct Camera
     float pitch;
     float yaw;
     float roll;
-    glm::quat rotation;
 
     float4x4 view;
+    float4x4 view_inverse;
     float4x4 projection;
+    float4x4 projection_inverse;
+
     float near_plane;
     float far_plane;
 
     float4x4 update_view();
     [[nodiscard]] inline float4x4 get_view() const { return view; }
+    [[nodiscard]] inline float4x4 get_inverse_view() const { return view_inverse; }
     [[nodiscard]] inline float4x4 get_projection() const { return projection; }
+    [[nodiscard]] inline float4x4 get_inverse_projection() const { return projection_inverse; }
 
-    static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane);
+    static float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse = nullptr);
+    static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse = nullptr);
+    static float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse = nullptr);
 
     static void create(Camera &camera, float3 position);
 };
@@ -49,7 +54,7 @@ struct InputCamera
         Zoom
     };
 
-    States state;
+    States state = States::Idle;
     float2 dragged_mouse_start_pos;
     bool view_dirty = true;
 

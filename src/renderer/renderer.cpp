@@ -9,6 +9,7 @@
 #include "timer.hpp"
 #include "tools.hpp"
 
+#include <algorithm>
 #include <cstring> // for std::memcpy
 #include <future>
 #include <stb_image.h>
@@ -88,12 +89,10 @@ void Renderer::create(Renderer& r, const window::Window &window, Camera &camera,
                                               .min_filter   = VK_FILTER_NEAREST,
                                               .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST});
 
-
-
     float aspect_ratio = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
     r.p_camera->near_plane = 0.1f;
-    r.p_camera->far_plane = 100.0f;
-    r.p_camera->projection = Camera::perspective(60.0f, aspect_ratio, r.p_camera->near_plane, r.p_camera->far_plane);
+    r.p_camera->far_plane = 1000.0f;
+    r.p_camera->projection = Camera::perspective(60.0f, aspect_ratio, r.p_camera->near_plane, r.p_camera->far_plane, &r.p_camera->projection_inverse);
     // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
@@ -218,13 +217,13 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
 
     // clang-format off
-    float height = -1.0f;
+    float height = 0.0f;
     std::array vertices =
     {
-        -1.0f,  height, -1.0f,      0.0f, 0.0f,
+        -1.0f,  height, -1.0f,     0.0f, 0.0f,
         1.0f,  height, -1.0f,      1.0f, 0.0f,
         1.0f,  height,  1.0f,      1.0f, 1.0f,
-        -1.0f,  height,  1.0f,      0.0f, 1.0f,
+        -1.0f,  height,  1.0f,     0.0f, 1.0f,
     };
     // clang-format on
 
@@ -418,10 +417,10 @@ static void add_imgui_pass(Renderer &r)
             }
 
             float4 scale_and_translation;
-            scale_and_translation[0] = 2.0f / data->DisplaySize.x;                            // X Scale
-            scale_and_translation[1] = 2.0f / data->DisplaySize.y;                            // Y Scale
-            scale_and_translation[2] = -1.0f - data->DisplayPos.x * scale_and_translation[0]; // X Translation
-            scale_and_translation[3] = -1.0f - data->DisplayPos.y * scale_and_translation[1]; // Y Translation
+            scale_and_translation.raw[0] = 2.0f / data->DisplaySize.x;                            // X Scale
+            scale_and_translation.raw[1] = 2.0f / data->DisplaySize.y;                            // Y Scale
+            scale_and_translation.raw[2] = -1.0f - data->DisplayPos.x * scale_and_translation.raw[0]; // X Translation
+            scale_and_translation.raw[3] = -1.0f - data->DisplayPos.y * scale_and_translation.raw[1]; // Y Translation
 
             // Will project scissor/clipping rectangles into framebuffer space
             ImVec2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
@@ -864,9 +863,12 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         auto &node = model.nodes[node_idx];
 
         node.dirty                        = false;
-        auto translation                  = glm::translate(glm::mat4(1.0f), node.translation);
-        auto rotation                     = glm::mat4(node.rotation);
-        auto scale                        = glm::scale(glm::mat4(1.0f), node.scale);
+        auto translation                  = float4x4::identity(); //glm::translate(glm::mat4(1.0f), node.translation);
+        auto rotation                     = float4x4::identity(); //glm::mat4(node.rotation);
+        auto scale                        = float4x4::identity(); // assume uniform scale
+        scale.at(0, 0) = node.scale.x;
+        scale.at(1, 1) = node.scale.y;
+        scale.at(2, 2) = node.scale.z;
         model.cached_transforms[node_idx] = translation * rotation * scale;
 
         model.nodes_preorder.push_back(node_idx);
@@ -1291,49 +1293,56 @@ static void add_shadow_cascades_pass(Renderer &r)
         };
 
         // project frustum corners into world space
-        auto cam_inv_view_pro = glm::inverse(r.p_camera->get_projection() * r.p_camera->get_view());
+        auto cam_inv_view_pro = r.p_camera->get_inverse_view() * r.p_camera->get_inverse_projection();
         for (uint i = 0; i < 8; i++)
         {
             float4 world_space_corner = cam_inv_view_pro * float4(frustum_corners[i], 1.0f);
-            frustum_corners[i]   = float3(world_space_corner / world_space_corner.w);
+            frustum_corners[i]   = (1.0f / world_space_corner.w) * world_space_corner.xyz();
         }
 
         // get frustum center
         auto center = float3(0.0f);
         for (uint i = 0; i < 8; i++) {
-            center += frustum_corners[i];
+            center = center + frustum_corners[i];
         }
-        center /= 8.0f;
+        center = (1.0f / 8.0f) * center;
 
         // get the radius of the frustum
         float radius = 0.0f;
         for (uint i = 0; i < 8; i++)
         {
-            float distance = glm::length(frustum_corners[i] - center);
-            radius         = glm::max(radius, distance);
+            float distance = (frustum_corners[i] - center).norm();
+            radius         = std::max(radius, distance);
         }
         radius = std::ceil(radius * 16.0f) / 16.0f;
 
         float3 light_dir = normalize(r.sun.front);
         auto max   = float3(radius);
-        float3 min = -max;
+        float3 min = -1.0f * max;
 
-        cascades_view[i] = glm::lookAt(center - light_dir * max.z, center, float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
-        cascades_proj[i] = glm::ortho(min.x, max.x, min.y, max.y, 1 * (max.z - min.z), 0.0f); // near/far reversed
+        cascades_view[i] = Camera::look_at(center - light_dir * max.z, center, float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
+
+        // reverse depth
+        min.z = (max.z - min.z);
+        max.z = 0.0f;
+        cascades_proj[i] = Camera::ortho(min, max);
 
         float4x4 matrix = cascades_view[i] * cascades_proj[i];
         float4 origin = float4(0.0f, 0.0f, 0.0f, 1.0f);
         origin = matrix * origin;
-        origin = origin * 2048.f / 2.0f;
+        origin = (2048.f / 2.0f) * origin;
 
-        float4 rounded_origin = glm::round(origin);
+        float4 rounded_origin = round(origin);
         float4 rounded_offset = rounded_origin - origin;
-        rounded_offset = rounded_offset * 2.0f / 2048.f;
+        rounded_offset =  (2.0f / 2048.f) * rounded_offset;
         rounded_offset.z = 0.0f;
         rounded_offset.w = 0.0f;
 
         float4x4 proj = cascades_proj[i];
-        proj[3] += rounded_offset;
+        proj.at(0, 3) += rounded_offset.x;
+        proj.at(1, 3) += rounded_offset.y;
+        proj.at(2, 3) += rounded_offset.z;
+        proj.at(3, 3) += rounded_offset.w;
         cascades_proj[i] = proj;
 
         last_split = split;
@@ -1778,7 +1787,7 @@ static void add_voxelization_pass(Renderer &r)
 
     if (ui.begin_window("Voxelization"))
     {
-        ImGui::SliderFloat3("Center", &r.voxel_options.center[0], -40.f, 40.f);
+        ImGui::SliderFloat3("Center", &r.voxel_options.center.raw[0], -40.f, 40.f);
         ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.05f, 0.5f);
         ui.end_window();
     }
@@ -1797,10 +1806,12 @@ static void add_voxelization_pass(Renderer &r)
     float res      = r.voxel_options.res * r.voxel_options.size;
     float halfsize = res / 2;
     auto center = r.voxel_options.center + float3(halfsize);
-    auto projection = glm::ortho(-halfsize, halfsize, -halfsize, halfsize, 0.0f, res);
-    buffer1[0] = projection * glm::lookAt(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
-    buffer1[1] = projection * glm::lookAt(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
-    buffer1[2] = projection * glm::lookAt(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
+    float3 min_clip = float3(-halfsize, -halfsize, 0.0f);
+    float3 max_clip = float3( halfsize,  halfsize,  res);
+    auto projection = Camera::ortho(min_clip, max_clip);
+    buffer1[0] = projection * Camera::look_at(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
+    buffer1[1] = projection * Camera::look_at(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
+    buffer1[2] = projection * Camera::look_at(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
     std::vector<ImageDescH> sampled_images;
     for (auto cascade : r.shadow_cascades) {
@@ -2116,14 +2127,14 @@ void update_uniforms(Renderer &r)
     globals->camera_pos      = r.p_camera->position;
     globals->camera_view     = r.p_camera->get_view();
     globals->camera_proj     = r.p_camera->get_projection();
-    globals->camera_inv_proj = glm::inverse(globals->camera_proj);
-    globals->camera_inv_view_proj = glm::inverse(globals->camera_proj * globals->camera_view);
+    globals->camera_inv_proj = r.p_camera->get_inverse_projection();
+    globals->camera_inv_view_proj = r.p_camera->get_inverse_view() * r.p_camera->get_inverse_projection();
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 
     auto resolution_scale = r.settings.resolution_scale;
-    globals->resolution      = uint2(resolution_scale * api.ctx.swapchain.extent.width, resolution_scale * api.ctx.swapchain.extent.height);
-    globals->sun_direction   = float4(-r.sun.front, 1);
+    globals->resolution      = {static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.width), static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.height)};
+    globals->sun_direction   = -1.0f * r.sun.front;
     globals->sun_illuminance = float3(100.0f); // TODO: move from global and use real values (will need auto exposure)
     globals->ambient         = r.ambient;
 
@@ -2358,11 +2369,11 @@ void Renderer::display_ui(UI::Context &ui)
 
     if (ui.begin_window("Camera", true))
     {
-        ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.1f, 10.0f);
-        ImGui::SliderFloat("Far plane", &p_camera->far_plane, 20.0f, 200.0f);
+        ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.1f, 100.0f);
+        ImGui::SliderFloat("Far plane", &p_camera->far_plane, 100.0f, 1000.0f);
 
         float aspect_ratio = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
-        p_camera->projection = Camera::perspective(60.0f, aspect_ratio, p_camera->near_plane, p_camera->far_plane);
+        p_camera->projection = Camera::perspective(60.0f, aspect_ratio, p_camera->near_plane, p_camera->far_plane, &p_camera->projection_inverse);
         ui.end_window();
     }
 
@@ -2380,6 +2391,8 @@ void Renderer::draw()
 
     update_uniforms(*this);
 
+    if (1)
+    {
     add_shadow_cascades_pass(*this);
 
     // voxel cone tracing prep
@@ -2402,6 +2415,11 @@ void Renderer::draw()
     }
 
     add_procedural_sky_pass(*this);
+    }
+    else
+    {
+    add_floor_pass(*this);
+    }
 
     add_tonemapping_pass(*this);
 

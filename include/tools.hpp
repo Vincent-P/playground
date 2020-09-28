@@ -1,9 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#if defined(ENABLE_IMGUI)
 #include <imgui/imgui.h>
-#endif
 #include <iostream>
 #include <string>
 #include <vector>
