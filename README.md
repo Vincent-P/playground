@@ -1,6 +1,6 @@
 # Vulkan glTF renderer
 
-This project was made to learn the graphics programming using the Vulkan API.
+This project was made to learn graphics programming using the Vulkan API.
 
 Features:
 - Physically Based Rendering
