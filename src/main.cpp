@@ -19,9 +19,6 @@ int main(int argc, char ** argv)
         return res;
     }
 
-    int start = 0;
-    std::cin >> start;
-
     my_app::App app;
     app.run();
     return 0;

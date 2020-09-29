@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include <algorithm>
 #include <variant>
 #include <imgui/imgui.h>
 #include <iostream>
@@ -59,6 +60,75 @@ void App::display_ui()
     ui.display_ui();
     camera.display_ui(ui);
     renderer.display_ui(ui);
+
+    auto flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar;
+    ImGui::Begin("Gizmo", nullptr, flags);
+
+    float s_fov = 60.f;
+    float s_size = 50.f;
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    const ImGuiCol red   = ImGui::GetColorU32(float4(255.f/256.f, 56.f/256.f, 86.f/256.f, 1.0f));
+    const ImGuiCol green = ImGui::GetColorU32(float4(143.f/256.f, 226.f/256.f, 10.f/256.f, 1.0f));
+    const ImGuiCol blue  = ImGui::GetColorU32(float4(52.f/256.f, 146.f/256.f, 246.f/256.f, 1.0f));
+    const ImGuiCol white  = ImGui::GetColorU32(float4(1.0f));
+    const ImGuiCol black  = ImGui::GetColorU32(float4(0.0f, 0.0f, 0.0f, 1.0f));
+
+    float3 camera_forward = normalize(camera.target - camera._internal.position);
+
+    auto view = Camera::look_at(float3(0.0f) - 2.0f * camera_forward, float3(0.0f), camera._internal.up);
+    auto proj = Camera::perspective(s_fov, 1.f, 0.01f, 10.0f);
+
+    auto project_point = [&](float3 p) {
+        float4 projected_p = proj * view * float4(p, 1.0f);
+        projected_p = (1.0f / projected_p.w) * projected_p;
+        return projected_p.xy();
+    };
+
+    // from [-1, 1] to [-s_size, s_size]
+    float2 x       = 0.9f * s_size * project_point(float3(1.0f, 0.0f, 0.0f));
+    float2 y       = 0.9f * s_size * project_point(float3(0.0f, 1.0f, 0.0f));
+    float2 z       = 0.9f * s_size * project_point(float3(0.0f, 0.0f, 1.0f));
+    float2 minus_x = 0.9f * s_size * project_point(float3(-1.0f, 0.0f, 0.0f));
+    float2 minus_y = 0.9f * s_size * project_point(float3(0.0f, -1.0f, 0.0f));
+    float2 minus_z = 0.9f * s_size * project_point(float3(0.0f, 0.0f, -1.0f));
+
+    float2 p = ImGui::GetCursorScreenPos();
+
+    // ceenter p
+    p = p + float2(s_size);
+
+    // draw origin as white circle
+    draw_list->AddCircle(p, 5.f, white);
+
+    auto font_size = ImGui::GetFontSize();
+    float2 half_size = float2(font_size/2.f);
+    half_size.x /= 2;
+
+    auto draw_axis_circle = [&](const char* label, float2 screen_point, ImGuiCol color) {
+        draw_list->AddCircleFilled(p + screen_point, 7.f, color);
+        if (label)
+            draw_list->AddText(p + screen_point - half_size, black, label);
+    };
+
+
+    // draw axis as line with a circle at the end
+    auto draw_axis = [&](const char* label, float2 screen_point, ImGuiCol color) {
+        draw_list->AddLine(p, p + screen_point, color, 3.0f);
+        draw_axis_circle(label, screen_point, color);
+    };
+
+    draw_axis("X", x, red);
+    draw_axis_circle(nullptr, minus_x, red);
+    draw_axis("Y", y, green);
+    draw_axis_circle(nullptr, minus_y, green);
+    draw_axis("Z", z, blue);
+    draw_axis_circle(nullptr, minus_z, blue);
+
+    ImGui::Dummy(float2(2 * s_size));
+
+    ImGui::End();
 }
 
 void App::run()
