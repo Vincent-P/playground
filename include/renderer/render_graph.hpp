@@ -103,7 +103,7 @@ struct RenderPass
     // ui?
     bool opened = true;
 
-    bool operator==(const RenderPass &b) const
+    bool operator==(const RenderPass &/*b*/) const
     {
         return false;
     }

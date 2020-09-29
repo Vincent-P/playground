@@ -1,20 +1,20 @@
 #include "gltf.hpp"
+
 #include "renderer/hl_api.hpp"
+#include "renderer/renderer.hpp"
+#include "tools.hpp"
 
 #include <cassert>
-#include <string>
-#include <string_view>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iostream>
-#include <simdjson.h>
+#include <simdjson/simdjson.h>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-
-#include "renderer/renderer.hpp"
-#include "tools.hpp"
 
 namespace my_app
 {

@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.17)
-include(FetchContent)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # Put binaries at the root of the build folder
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_COMPILER "clang")
 
 project(test-vulkan LANGUAGES CXX)
 
@@ -24,6 +24,10 @@ add_definitions(
   -DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1
   -DVMA_DEBUG_MARGIN=16
   -DVMA_DEBUG_DETECT_CORRUPTION=1
+  )
+
+add_compile_options(
+  -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
   )
 
 #
@@ -49,18 +53,13 @@ add_executable(test-vulkan
   src/renderer/hl_api_draw.cpp
   )
 
-# currently clang doesst compile on window :(
-# target_compile_options( test-vulkan PUBLIC
-#   -fcolor-diagnostics -fansi-escape-codes # colored output when using ninja
-#   -Werror -Wall -Wextra -Wno-c++98-compat -Wno-exit-time-destructors -Wno-global-constructors # warnings
-#   )
+target_compile_options(test-vulkan
+  PUBLIC
+  -Werror -Wall -Wextra# warnings
+)
 
-target_compile_options(test-vulkan PUBLIC /std:c++latest)
-
-target_include_directories(test-vulkan
-  PUBLIC include/
-  SYSTEM PUBLIC third_party/
-  )
+target_include_directories(test-vulkan PUBLIC include/)
+target_include_directories(test-vulkan SYSTEM PUBLIC third_party/)
 
 # System libraries
 if (WIN32)
@@ -83,21 +82,7 @@ endif()
 # C++ Libraires
 find_package(Vulkan REQUIRED)
 
-# simgjson
-FetchContent_Declare(
-  simdjson
-  GIT_REPOSITORY https://github.com/simdjson/simdjson.git
-  GIT_TAG  v0.5.0
-  GIT_SHALLOW TRUE)
-set(SIMDJSON_JUST_LIBRARY ON CACHE INTERNAL "")
-set(SIMDJSON_BUILD_STATIC ON CACHE INTERNAL "")
-FetchContent_MakeAvailable(simdjson)
-
-target_link_libraries(test-vulkan
-  PRIVATE
-  Vulkan::Vulkan
-  simdjson
-  )
+target_link_libraries(test-vulkan PRIVATE Vulkan::Vulkan)
 
 #
 # SHADERS
@@ -142,9 +127,13 @@ target_include_directories(imgui
   PUBLIC include/
   )
 
-target_link_libraries(imgui)
-
 target_link_libraries(test-vulkan
   PRIVATE
   imgui
   )
+
+#
+# simdjson
+#
+add_library(simdjson third_party/simdjson/simdjson.cpp)
+target_link_libraries(test-vulkan PRIVATE simdjson)
