@@ -320,10 +320,10 @@ float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, fl
     float z1 = -near_plane * far_on_range;
 
     float4x4 projection{{
-        x,    0.0f, 0.0f,  0.0f,
-        0.0f,    y, 0.0f,  0.0f,
-        0.0f, 0.0f,  z0, -1.0f,
-        0.0f, 0.0f,  z1,  0.0f,
+        x,    0.0f,  0.0f,  0.0f,
+        0.0f,    y,  0.0f,  0.0f,
+        0.0f, 0.0f,    z0,    z1,
+        0.0f, 0.0f, -1.0f,  0.0f,
     }};
 
     if (inverse)
@@ -331,14 +331,10 @@ float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, fl
         *inverse = float4x4({
              1/x, 0.0f,  0.0f,  0.0f,
             0.0f,  1/y,  0.0f,  0.0f,
-            0.0f, 0.0f,  0.0f,  1/z1,
-            0.0f, 0.0f, -1.0f, z0/z1,
+            0.0f, 0.0f,  0.0f, -1.0f,
+            0.0f, 0.0f,  1/z1, z0/z1,
         });
-
-        *inverse = transpose(*inverse);
     }
-
-    projection = transpose(projection);
 
     return projection;
 }
@@ -352,7 +348,8 @@ float4x4 Camera::ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
     float4x4 projection {{
             2.0f / x_range,           0.0f,           0.0f, -1.0f * (max_clip.x+min_clip.x)/x_range,
                       0.0f, 2.0f / y_range,           0.0f, -1.0f * (max_clip.y+min_clip.y)/y_range,
-                      0.0f,           0.0f, 1.0f / z_range, -1.0f * (max_clip.z+min_clip.z)/y_range,
+                      0.0f,           0.0f, -1.0f / z_range, 1.0f * (max_clip.z+min_clip.z)/y_range,
+                      0.0f,           0.0f,           0.0f,                                    1.0f
         }};
 
     assert(!inverse);

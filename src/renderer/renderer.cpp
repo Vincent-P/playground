@@ -100,9 +100,9 @@ void Renderer::create(Renderer& r, const window::Window &window, Camera &camera,
     // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
-    r.sun.pitch = 78.0f;
-    r.sun.yaw = 0.0f;
-    r.sun.roll = 0.0f;
+    r.sun.pitch    = 0.0f;
+    r.sun.yaw      = 25.0f;
+    r.sun.roll     = 80.0f;
 
     // it would be nice to be able to create those in the create_procedural_sky_pass function
 
@@ -221,7 +221,7 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
 
     // clang-format off
-    float height = 0.0f;
+    float height = -1.00f;
     std::array vertices =
     {
         -1.0f,  height, -1.0f,     0.0f, 0.0f,
