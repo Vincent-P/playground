@@ -192,51 +192,85 @@ const float3 cascade_colors[] = {
     float3(0.0, 1.0, 1.0),
     };
 
-const uint poisson_samples_count = 12;
+const uint poisson_samples_count = 34;
 const float2 poisson_disk[] = {
-    float2(0.972996, 0.394554),
-    float2(0.668902, 0.414059),
-    float2(0.781059, 0.644251),
-    float2(0.694336, 0.0995237),
-    float2(0.691521, 0.886042),
-    float2(0.429202, 0.8263),
-    float2(0.553658, 0.615537),
-    float2(0.156879, 0.775686),
-    float2(0.414005, 0.295563),
-    float2(0.158913, 0.50593),
-    float2(0.36004, 0.0579245),
-    float2(0.0798307, 0.29647)
+float2(0.406502, 0.756506),
+float2(0.279631, 0.696462),
+float2(0.567672, 0.941495),
+float2(0.360208, 0.903442),
+float2(0.555281, 0.689364),
+float2(0.235924, 0.869388),
+float2(0.518792, 0.817887),
+float2(0.435682, 0.595854),
+float2(0.678636, 0.6115),
+float2(0.311392, 0.551959),
+float2(0.554119, 0.409778),
+float2(0.39846, 0.362876),
+float2(0.134518, 0.65794),
+float2(0.268294, 0.433624),
+float2(0.0947823, 0.435277),
+float2(0.763794, 0.839655),
+float2(0.361944, 0.152046),
+float2(0.512214, 0.241411),
+float2(0.27699, 0.279191),
+float2(0.0299073, 0.56727),
+float2(0.694992, 0.303407),
+float2(0.659453, 0.113724),
+float2(0.480078, 0.0794042),
+float2(0.785598, 0.176082),
+float2(0.734869, 0.437344),
+float2(0.871331, 0.480215),
+float2(0.911736, 0.3239),
+float2(0.131012, 0.796879),
+float2(0.187693, 0.119393),
+float2(0.100313, 0.294991),
+float2(0.552311, 0.540461),
+float2(0.849799, 0.615725),
+float2(0.99468, 0.435264),
+float2(0.977751, 0.587308),
 };
+
+#define EPSILON 0.01
 
 void main()
 {
     /// --- Cascaded shadow
-    // TODO: move to functions in ccsm.h or something
-    uint cascade_idx = 0;
-    for (uint i = 0; i < 4 - 1; i++) {
-        float slice = 1.0 - cascades_depth_slices[i/4][i%4];
-        if(gl_FragCoord.z < slice) {
-            cascade_idx = i + 1;
+    int cascade_idx = 0;
+    float4 shadow_coord = float4(0.0);
+    float2 uv = float2(0.0);
+    for (cascade_idx = 0; cascade_idx < 4; cascade_idx++)
+    {
+        CascadeMatrix matrices = cascade_matrices[cascade_idx];
+        shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
+        shadow_coord /= shadow_coord.w;
+        uv = 0.5f * (shadow_coord.xy + 1.0);
+
+        if (0.0 + EPSILON < uv.x && uv.x + EPSILON < 1.0
+            && 0.0 + EPSILON < uv.y && uv.y + EPSILON < 1.0
+            && 0.0 <= shadow_coord.z && shadow_coord.z <= 1.0) {
+            break;
         }
     }
 
-    CascadeMatrix matrices = cascade_matrices[cascade_idx];
-    vec4 shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
-    shadow_coord /= shadow_coord.w;
+    cascade_idx = min(cascade_idx, 4 - 1);
+
+    float distance_from_border = 0.1 * pow(2, (4 - 1) - cascade_idx) / 8.0;
+    bool should_blend_shadows =
+        uv.x <= distance_from_border || uv.x > 1.0 - distance_from_border
+        || uv.y <= distance_from_border || uv.y > 1.0 - distance_from_border;
 
     float visibility = 1.0;
     float shadow_factor = 0.0;
     // todo: change scale to smoothen out the transition between shadow cascades
-    const float scale = 1.0 / 1000.0;
+    float scale = 1.0 / ((cascade_idx+1) * 200.0);
     for (uint i = 0; i < poisson_samples_count; i++)
     {
-        float2 uv = 0.5f * (shadow_coord.xy + 1.0);
         float2 poisson_sample = poisson_disk[i];
-        uv.xy += poisson_sample * scale;
+        float2 offsted_uv = uv + poisson_sample * scale;
 
         const float bias = 0.0001;
         float shadow = 1.0;
-        float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r;
+        float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], offsted_uv).r;
         if (dist > shadow_coord.z + bias) {
             shadow = global.ambient;
         }
@@ -252,7 +286,7 @@ void main()
     float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
 
     // PBR
-    float3 albedo = base_color.rgb;
+    float3 albedo = base_color.rgb /* * cascade_colors[cascade_idx] */;
     float3 N = normal;
     float3 V = normalize(global.camera_pos - inWorldPos);
     float metallic = metallic_roughness.b;

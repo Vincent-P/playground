@@ -41,23 +41,24 @@ const float3 cascade_colors[] = {
     float3(0.0, 1.0, 1.0),
     };
 
+#define EPSILON 0.01
+
 void main()
 {
     /// --- Cascaded shadow
-    int cascade_idx = -1;
+    int cascade_idx = 0;
     float4 shadow_coord = float4(0.0);
     float2 uv = float2(0.0);
-    for (cascade_idx = -1; cascade_idx < 4; cascade_idx++)
+    for (cascade_idx = 0; cascade_idx < 4; cascade_idx++)
     {
-        cascade_idx += 1;
         CascadeMatrix matrices = cascade_matrices[cascade_idx];
         shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
         shadow_coord /= shadow_coord.w;
         uv = 0.5f * (shadow_coord.xy + 1.0);
 
-        if (0.0 < uv.x && uv.x < 1.0
-            && 0.0 < uv.y && uv.y < 1.0
-            && 0.0 <= shadow_coord.z  && shadow_coord.z <= 1.0) {
+        if (0.0 + EPSILON < uv.x && uv.x + EPSILON < 1.0
+            && 0.0 + EPSILON < uv.y && uv.y + EPSILON < 1.0
+            && 0.0 <= shadow_coord.z && shadow_coord.z <= 1.0) {
             break;
         }
     }
