@@ -350,6 +350,7 @@ struct ShaderBindingSet
     std::vector<std::optional<BindingData>> binded_data = {};
     bool data_dirty = true; // dirty flag for each data to avoid updating everything?
     std::vector<u32> dynamic_offsets = {};
+    std::vector<u32> dynamic_bindings = {};
 
     inline DescriptorSet &get_descriptor_set() { return descriptor_sets[current_descriptor_set]; }
 };

@@ -513,6 +513,9 @@ void API::bind_program(GraphicsProgramH H)
 
     std::array descriptor_sets = {global_set.set, shader_set.set};
 
+    auto dynamic_offsets = global_bindings.binding_set.dynamic_offsets;
+    dynamic_offsets.insert(dynamic_offsets.end(), binding_set.dynamic_offsets.begin(), binding_set.dynamic_offsets.end());
+
     // bind both sets
     vkCmdBindDescriptorSets(cmd,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -520,8 +523,8 @@ void API::bind_program(GraphicsProgramH H)
                             0,
                             descriptor_sets.size(),
                             descriptor_sets.data(),
-                            binding_set.dynamic_offsets.size(),
-                            binding_set.dynamic_offsets.data());
+                            dynamic_offsets.size(),
+                            dynamic_offsets.data());
 
     current_program = &program;
 }
@@ -619,15 +622,34 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
 {
     assert(slot < binding_set.binded_data.size());
 
-    BindingData data;
-    data.binding            = slot;
-    data.type               = binding_set.bindings_info[slot].type;
-    data.buffer_info.buffer = buffer.vkhandle;
-    data.buffer_info.offset = buffer_pos.offset;
-    data.buffer_info.range  = buffer_pos.length;
+    auto binding_type = binding_set.bindings_info[slot].type;
+    bool is_dynamic = binding_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    assert(is_dynamic);
 
-    binding_set.binded_data[slot] = std::move(data);
-    binding_set.data_dirty        = true;
+    if (!binding_set.binded_data[slot])
+    {
+        BindingData data;
+        data.binding            = slot;
+        data.type               = binding_type;
+        data.buffer_info.buffer = buffer.vkhandle;
+        data.buffer_info.offset = 0;
+        data.buffer_info.range  = buffer_pos.length;
+
+        binding_set.binded_data[slot] = std::move(data);
+        binding_set.data_dirty        = true;
+    }
+
+    if (is_dynamic)
+    {
+        usize offset_idx = 0;
+        for (usize i = 0; i < binding_set.dynamic_bindings.size(); i++) {
+            if (binding_set.dynamic_bindings[i] == slot) {
+                offset_idx = i;
+                break;
+            }
+        }
+        binding_set.dynamic_offsets[offset_idx] = buffer_pos.offset;
+    }
 }
 
 

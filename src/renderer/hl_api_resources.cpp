@@ -728,6 +728,7 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
 
     binding_set.binded_data.resize(binding_set.bindings_info.size());
 
+    usize i = 0;
     for (const auto &info_binding : binding_set.bindings_info)
     {
         bindings.emplace_back();
@@ -743,12 +744,14 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
 
         if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
         {
-            binding_set.dynamic_offsets.push_back(0); //TODO dynamic properly wtf
+            binding_set.dynamic_offsets.push_back(0);
+            binding_set.dynamic_bindings.push_back(i);
         }
 
         if (info_binding.count > 1) {
             flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
         }
+        i++;
     }
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
