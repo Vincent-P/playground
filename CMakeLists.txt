@@ -37,6 +37,7 @@ add_compile_options(
 add_executable(test-vulkan
   src/main.cpp
   src/base/vectors.cpp
+  src/ecs.cpp
   src/platform/window_win32.cpp
   src/camera.cpp
   src/ui.cpp
