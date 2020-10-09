@@ -3,6 +3,19 @@
 #include <variant>
 #include <vector>
 
+/**
+   A Pool is a linear allocator with a free-list.
+   Performance:
+     Adding/removing elements is O(1).
+     Iterating is O(capacity) and elements are NOT tighly packed because of the free-list.
+
+   Handle is (u32 index, u32 gen).
+
+   Pool is (vector<variant<T, Handle>> elements, vector<Handle> keys).
+   std::variant is used to make the free-list.
+   keys are separated to check use-after-free. (this is bad :()
+ **/
+
 /// --- Handle type (Typed index that can be invalid)
 template <typename T> struct Handle
 {
@@ -20,9 +33,10 @@ template <typename T> struct Handle
     explicit Handle(u32 i)
         : index(i)
     {
-        assert(index != u32_invalid);
         static u32 cur_gen = 0;
         gen                = cur_gen++;
+
+        assert(index != u32_invalid);
     }
 
     [[nodiscard]] u32 value() const
@@ -45,20 +59,6 @@ template <typename T> struct Handle
 
     friend struct ::std::hash<Handle<T>>;
 };
-
-namespace std
-{
-    template<typename T>
-    struct hash<Handle<T>>
-    {
-        std::size_t operator()(Handle<T> const& handle) const noexcept
-        {
-            std::size_t h1 = std::hash<u32>{}(handle.index);
-            std::size_t h2 = std::hash<u32>{}(handle.gen);
-            return h1 ^ (h2 << 1); // or use boost::hash_combine
-        }
-    };
-}
 
 /// --- Pool allocator
 template <typename T> class Pool
@@ -229,7 +229,7 @@ template <typename T> class Pool
             return nullptr;
         }
 
-        if (0 && handle != keys[handle.value()])
+        if (handle != keys[handle.value()])
         {
             assert(!"use after free");
             return nullptr;
@@ -283,3 +283,17 @@ template <typename T> class Pool
 
     friend class Iterator;
 };
+
+namespace std
+{
+    template<typename T>
+    struct hash<Handle<T>>
+    {
+        std::size_t operator()(Handle<T> const& handle) const noexcept
+        {
+            std::size_t h1 = std::hash<u32>{}(handle.index);
+            std::size_t h2 = std::hash<u32>{}(handle.gen);
+            return h1 ^ (h2 << 1); // or use boost::hash_combine
+        }
+    };
+}
