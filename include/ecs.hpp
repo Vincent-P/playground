@@ -1,6 +1,7 @@
 #pragma once
 #include "base/pool.hpp"
 #include "base/types.hpp"
+#include "ui.hpp"
 
 #include <unordered_map>
 #include <utility>
@@ -29,7 +30,7 @@ namespace my_app::ECS
 namespace
 {
 // from EnTT, generates a unique unsigned integer per type
-class family
+struct family
 {
     static u64 identifier() noexcept
     {
@@ -37,7 +38,6 @@ class family
         return value++;
     }
 
-  public:
     template <typename> static u64 type() noexcept
     {
         static const u64 value = identifier();
@@ -141,6 +141,18 @@ struct EntityRecord
     usize row;
 };
 
+/// --- Components
+struct InternalComponent
+{
+    // size of the type of the component in bytes
+    usize size;
+};
+
+struct InternalId
+{
+    const char *name;
+};
+
 namespace impl
 {
 template <typename... ComponentTypes> Archetype create_archetype()
@@ -158,7 +170,7 @@ ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const A
 usize add_entity(ArchetypeStorage &storage, EntityId entity);
 void add_component(ArchetypeStorage &storage, usize i_component, void *data, usize len);
 
-std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
+inline std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
 {
     u32 component_idx = 0;
     for (auto type_id : type)
@@ -180,16 +192,19 @@ std::optional<usize> get_component_idx(Archetype type)
 }
 } // namespace impl
 
+using EntityIndex = std::unordered_map<EntityId, EntityRecord>;
 struct World
 {
     World();
+
+    void display_ui(UI::Context &ctx);
 
     /// --- Entities
 
     // Create an entity with a list of components
     template <typename... ComponentTypes> EntityId create_entity(ComponentTypes &&... components)
     {
-        EntityId new_entity = 0;
+        EntityId new_entity = family::identifier();
         auto archetype      = impl::create_archetype<ComponentTypes...>();
 
         // find or create a new bucket for this archetype
@@ -217,15 +232,15 @@ struct World
         // get the entity information in its record
         auto &record = entity_index.at(entity);
 
-        // find the bucket corresponding to its archetype
-        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
-        auto old_row      = record.row;
-
         // find a new bucket for its new archetype
         auto new_storage_h = impl::find_or_create_archetype_storage_removing_component(archetypes,
                                                                                        record.archetype,
                                                                                        family::type<Component>());
         auto &new_storage  = *archetypes.archetype_storages.get(new_storage_h);
+
+        // find the bucket corresponding to its old archetype
+        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
+        auto old_row      = record.row;
 
         /// --- Copy components to a new storage
 
@@ -294,15 +309,15 @@ struct World
         // get the entity information in its record
         auto &record = entity_index.at(entity);
 
-        // find the bucket corresponding to its archetype
-        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
-        auto old_row      = record.row;
-
         // find a new bucket for its new archetype
         auto new_storage_h = impl::find_or_create_archetype_storage_adding_component(archetypes,
                                                                                        record.archetype,
                                                                                        family::type<Component>());
         auto &new_storage  = *archetypes.archetype_storages.get(new_storage_h);
+
+        // find the bucket corresponding to its old archetype
+        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
+        auto old_row      = record.row;
 
         /// --- Copy components to a new storage
 
@@ -391,6 +406,29 @@ struct World
         std::memcpy(dst, &component, sizeof(Component));
     }
 
+    inline bool has_component(EntityId entity, ComponentId component)
+    {
+        const auto& record = entity_index.at(entity);
+        const auto &archetype_storage = *archetypes.archetype_storages.get(record.archetype);
+        for (auto component_id : archetype_storage.type) {
+            if (component_id == component) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template <typename Component>
+    bool has_component(EntityId entity)
+    {
+        return has_component(entity, family::type<Component>());
+    }
+
+    bool is_component(EntityId entity)
+    {
+        return has_component(entity, family::type<InternalComponent>());
+    }
+
     // Get a component from an entity, returns nullptr if not found
     template <typename Component> Component *get_component(EntityId entity)
     {
@@ -415,7 +453,7 @@ struct World
 
   private:
     // Metadata of entites
-    std::unordered_map<EntityId, EntityRecord> entity_index;
+    EntityIndex entity_index;
     Archetypes archetypes;
 };
 

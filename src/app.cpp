@@ -32,7 +32,6 @@ App::App()
             return;
         }
 
-
         std::stringstream shader_name_stream;
         shader_name_stream << "shaders/" << event.name;
         std::string shader_name = shader_name_stream.str();
@@ -60,6 +59,7 @@ void App::display_ui()
     ui.display_ui();
     camera.display_ui(ui);
     renderer.display_ui(ui);
+    ecs.display_ui(ui);
 
     constexpr float fov  = 60.f;
     constexpr float size = 50.f;

@@ -6,6 +6,7 @@
 #include "renderer/renderer.hpp"
 #include "timer.hpp"
 #include "ui.hpp"
+#include "ecs.hpp"
 
 namespace my_app
 {
@@ -28,6 +29,7 @@ class App
     InputCamera camera;
     Renderer renderer;
     TimerData timer;
+    ECS::World ecs;
 
     FileWatcher watcher;
     Watch shaders_watch;

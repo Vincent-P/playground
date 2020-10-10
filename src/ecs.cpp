@@ -33,6 +33,7 @@ ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph
     if (!next_h.is_valid())
     {
         next_h = graph.archetype_storages.add({});
+        entity_storage = graph.archetype_storages.get(entity_archetype); // pointer was invalidated because of add()
 
         auto *new_storage = graph.archetype_storages.get(next_h);
 
@@ -81,6 +82,7 @@ ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, 
     if (!next_h.is_valid())
     {
         next_h = graph.archetype_storages.add({});
+        entity_storage = graph.archetype_storages.get(entity_archetype); // pointer was invalidated because of add()
 
         auto *new_storage = graph.archetype_storages.get(next_h);
 
@@ -142,7 +144,10 @@ void add_component(ArchetypeStorage &storage, usize i_component, void *data, usi
     if (total_size > component_storage.data.size())
     {
         component_storage.data.reserve(total_size - component_storage.data.size() + 1);
-        component_storage.data.resize(total_size);
+        while (component_storage.data.size() < total_size)
+        {
+            component_storage.data.push_back(0);
+        }
     }
 
     auto *dst = &component_storage.data[storage.size * component_storage.component_size];
@@ -151,9 +156,102 @@ void add_component(ArchetypeStorage &storage, usize i_component, void *data, usi
 }
 } // namespace impl
 
+
+ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, ComponentId component_id, usize component_size)
+{
+    EntityId new_entity = component_id;
+    auto archetype      = {ComponentId(family::type<InternalComponent>())};
+
+    // find or create a new bucket for this archetype
+    auto storage_h = impl::find_or_create_archetype_storage_from_root(archetypes, archetype);
+    auto &storage  = *archetypes.archetype_storages.get(storage_h);
+
+    // add the entity to the entity array
+    auto row = impl::add_entity(storage, new_entity);
+
+    impl::add_component(storage, 0, &component_size, sizeof(usize));
+    storage.size++;
+
+    // put the entity record in the entity index
+    entity_index[new_entity] = EntityRecord{.archetype = storage_h, .row = row};
+
+    return new_entity;
+}
+
+template <typename Component>
+ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes)
+{
+    auto component_id = create_component(entity_index, archetypes, family::type<Component>(), sizeof(Component));
+    assert(component_id.raw == family::type<Component>());
+    return component_id;
+}
+
 World::World()
 {
     archetypes.root = archetypes.archetype_storages.add({});
+
+    // bootstrap the InternalComponent component
+    auto internal_component = create_component<InternalComponent>(entity_index, archetypes);
+    auto internal_id = create_component<InternalId>(entity_index, archetypes);
+
+    add_component(internal_component, InternalId{"InternalComponentComponent"});
+    add_component(internal_id, InternalId{"InternalIdComponent"});
+}
+
+void World::display_ui(UI::Context &ctx)
+{
+    if (ctx.begin_window("ECS", true))
+    {
+        for (auto &[storage_h, storage] : archetypes.archetype_storages)
+        {
+            ImGui::Separator();
+            ImGui::Text("Storage handle: %u", storage_h.value());
+            ImGui::TextUnformatted("Archetype: [");
+            ImGui::SameLine();
+            for (usize i_type_id = 0; i_type_id < storage->type.size(); i_type_id++) {
+                auto component_id = storage->type[i_type_id];
+
+                auto *internal_id = get_component<InternalId>(component_id);
+                if (internal_id)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("%s", internal_id->name);
+                }
+                else
+                {
+                    ImGui::Text("Component #%zu", component_id.raw);
+                }
+
+                ImGui::SameLine();
+                if (i_type_id < storage->type.size()-1) {
+                    ImGui::TextUnformatted(",");
+                    ImGui::SameLine();
+                }
+            }
+            ImGui::TextUnformatted("]");
+            ImGui::TextUnformatted("Entities:");
+            for (usize i_entity = 0; i_entity < storage->entity_ids.size(); i_entity++)
+            {
+                auto entity = storage->entity_ids[i_entity];
+                ImGui::Text("#%zu", entity.raw);
+
+                auto *internal_id = get_component<InternalId>(entity);
+                if (internal_id)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("%s", internal_id->name);
+                }
+
+                auto *internal_component = get_component<InternalComponent>(entity);
+                if (internal_component)
+                {
+                    ImGui::Text("  Component size: %zu", internal_component->size);
+                }
+            }
+        }
+
+        ctx.end_window();
+    }
 }
 
 namespace test
