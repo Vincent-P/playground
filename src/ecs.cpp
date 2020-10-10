@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <doctest.h>
+#include <iostream>
 
 namespace my_app::ECS
 {
@@ -135,11 +136,7 @@ void add_component(ArchetypeStorage &storage, usize i_component, void *data, usi
         component_storage.component_size = len;
     }
 
-    auto previous_size = storage.size;
-
-    storage.size += 1;
-
-    usize total_size = storage.size * component_storage.component_size;
+    usize total_size = (storage.size+1) * component_storage.component_size;
 
     // reserve enough space to add a component
     if (total_size > component_storage.data.size())
@@ -148,7 +145,7 @@ void add_component(ArchetypeStorage &storage, usize i_component, void *data, usi
         component_storage.data.resize(total_size);
     }
 
-    auto *dst = &component_storage.data[previous_size * component_storage.component_size];
+    auto *dst = &component_storage.data[storage.size * component_storage.component_size];
 
     std::memcpy(dst, data, len);
 }
@@ -159,25 +156,35 @@ World::World()
     archetypes.root = archetypes.archetype_storages.add({});
 }
 
+namespace test
+{
+
+struct Position
+{
+    uint a;
+};
+
+struct Rotation
+{
+    uint a;
+};
+
+struct Transform
+{
+    uint a{0};
+    bool operator==(const Transform &other) const = default;
+};
+
+std::ostream& operator<<(std::ostream& os, const Transform &t)
+{
+    os << t.a;
+    return os;
+}
+
 TEST_SUITE("ECS")
 {
     TEST_CASE("Archetypes")
     {
-        struct Transform
-        {
-            uint a;
-        };
-
-        struct Position
-        {
-            uint a;
-        };
-
-        struct Rotation
-        {
-            uint a;
-        };
-
         auto archetype_tp  = impl::create_archetype<Transform, Position>();
         auto archetype_tpr = impl::create_archetype<Transform, Position, Rotation>();
 
@@ -189,19 +196,36 @@ TEST_SUITE("ECS")
 
     TEST_CASE("Entity")
     {
-        struct Transform
-        {
-            uint a{0};
-            bool operator==(const Transform &other) const = default;
-        };
-
         World world{};
+
+        // Create an entity with a list of components
         auto my_entity            = world.create_entity(Transform{42});
         auto *my_entity_transform = world.get_component<Transform>(my_entity);
 
         CHECK(my_entity_transform != nullptr);
         CHECK(*my_entity_transform == Transform{.a = 42});
+
+        // Remove a component from an entity
+        world.remove_component<Transform>(my_entity);
+        auto *my_removed_entity_transform = world.get_component<Transform>(my_entity);
+
+        CHECK(my_removed_entity_transform == nullptr);
+
+        // Add a component to an entity
+        world.add_component(my_entity, Transform{43});
+        auto *my_new_entity_transform = world.get_component<Transform>(my_entity);
+
+        CHECK(my_new_entity_transform != nullptr);
+        CHECK(*my_new_entity_transform == Transform{.a = 43});
+
+        // Set the value of a component
+        world.set_component(my_entity, Transform{34});
+        auto *my_changed_entity_transform = world.get_component<Transform>(my_entity);
+
+        CHECK(my_changed_entity_transform != nullptr);
+        CHECK(*my_changed_entity_transform == Transform{.a = 34});
     }
+}
 }
 
 } // namespace my_app::ECS
