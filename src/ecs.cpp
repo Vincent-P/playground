@@ -11,6 +11,25 @@ namespace my_app::ECS
 namespace impl
 {
 
+/// --- Archetype impl
+
+std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
+{
+    u32 component_idx = 0;
+    for (auto type_id : type)
+    {
+        if (component_id == type_id)
+        {
+            return std::make_optional<usize>(component_idx);
+            break;
+        }
+        component_idx++;
+    }
+    return std::nullopt;
+}
+
+/// --- ArchetypeStorage impl
+
 ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph, ArchetypeH entity_archetype,
                                                                ComponentId component_type)
 {
@@ -119,14 +138,14 @@ ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const A
     return current_archetype;
 }
 
-usize add_entity(ArchetypeStorage &storage, EntityId entity)
+usize add_entity_id_to_storage(ArchetypeStorage &storage, EntityId entity)
 {
     usize row = storage.entity_ids.size();
     storage.entity_ids.push_back(entity);
     return row;
 }
 
-void add_component(ArchetypeStorage &storage, usize i_component, void *data, usize len)
+void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void *data, usize len)
 {
 
     auto &component_storage = storage.components[i_component];
@@ -154,10 +173,202 @@ void add_component(ArchetypeStorage &storage, usize i_component, void *data, usi
 
     std::memcpy(dst, data, len);
 }
+
+void remove_entity_from_storage(ArchetypeStorage &storage, usize entity_row)
+{
+    auto entity_count = storage.entity_ids.size();
+
+    // copy the last element to the old row
+    if (entity_row < entity_count - 1)
+    {
+        storage.entity_ids[entity_row] = storage.entity_ids[entity_count - 1];
+        for (usize i_component = 0; i_component < storage.type.size(); i_component++)
+        {
+            auto &component_storage = storage.components[i_component];
+            auto stride             = component_storage.component_size;
+
+            for (usize i_byte = 0; i_byte < stride; i_byte++)
+            {
+                component_storage.data[entity_row * stride + i_byte]
+                    = component_storage.data[(entity_count - 1) * stride + i_byte];
+            }
+        }
+    }
+
+    storage.entity_ids.pop_back();
+    for (usize i_component = 0; i_component < storage.type.size(); i_component++)
+    {
+        auto &component_storage = storage.components[i_component];
+        for (usize i_byte = 0; i_byte < component_storage.component_size; i_byte++)
+        {
+            component_storage.data.pop_back();
+        }
+    }
+
+    storage.size -= 1;
+}
+
+/// --- Components impl
+
+void add_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size)
+{
+    // get the entity information in its record
+    auto &record = world.entity_index.at(entity);
+
+    // find a new bucket for its new archetype
+    auto new_storage_h = find_or_create_archetype_storage_adding_component(world.archetypes,
+                                                                                   record.archetype,
+                                                                                   component_id);
+    auto &new_storage  = *world.archetypes.archetype_storages.get(new_storage_h);
+
+    // find the bucket corresponding to its old archetype
+    auto &old_storage = *world.archetypes.archetype_storages.get(record.archetype);
+    auto old_row      = record.row;
+
+    // copy components to its new bucket
+    auto new_row = add_entity_id_to_storage(new_storage, entity);
+    usize i_old_component = 0;
+    for (auto component_id : old_storage.type)
+    {
+        auto &component_storage = old_storage.components[i_old_component++];
+        void *src = &component_storage.data[old_row * component_storage.component_size];
+        usize component_size = component_storage.component_size;
+
+        auto i_new_component = *get_component_idx(new_storage.type, component_id);
+        add_component_to_storage(new_storage, i_new_component, src, component_size);
+    }
+
+    // add the new component
+    auto i_new_component = *get_component_idx(new_storage.type, component_id);
+    add_component_to_storage(new_storage, i_new_component, component_data, component_size);
+
+    new_storage.size += 1; // /!\ DO THIS AFTER add_component
+
+    /// --- Remove from previous storage
+    std::optional<EntityId> swapped_entity;
+    if (old_row != old_storage.entity_ids.size()-1) {
+        swapped_entity = std::make_optional(old_storage.entity_ids.back());
+    }
+
+    remove_entity_from_storage(old_storage, old_row);
+
+    /// --- Update entities' row
+    record.row = new_row;
+    record.archetype = new_storage_h;
+
+    if (swapped_entity)
+    {
+        auto &swapped_entity_record = world.entity_index.at(*swapped_entity);
+        swapped_entity_record.row   = old_row;
+    }
+}
+
+void remove_component(World &world, EntityId entity, ComponentId component_id)
+{
+    auto &record = world.entity_index.at(entity);
+
+    // find a new bucket
+    auto new_storage_h = find_or_create_archetype_storage_removing_component(world.archetypes,
+                                                                                   record.archetype,
+                                                                                   component_id);
+    auto &new_storage  = *world.archetypes.archetype_storages.get(new_storage_h);
+
+    // find the bucket corresponding to its old archetype
+    auto &old_storage = *world.archetypes.archetype_storages.get(record.archetype);
+    auto old_row      = record.row;
+
+    // copy components to a its new bucket
+    auto new_row = add_entity_id_to_storage(new_storage, entity);
+    usize i_new_component = 0;
+    for (auto component_id : new_storage.type)
+    {
+        auto i_old_component = *get_component_idx(old_storage.type, component_id);
+        auto &component_storage = old_storage.components[i_old_component];
+        void *src = &component_storage.data[old_row * component_storage.component_size];
+        usize component_size = component_storage.component_size;
+
+        add_component_to_storage(new_storage, i_new_component++, src, component_size);
+    }
+
+    new_storage.size += 1; // /!\ DO THIS AFTER add_component
+
+    // remove from previous storage
+    std::optional<EntityId> swapped_entity;
+    if (old_row != old_storage.entity_ids.size()-1) {
+        swapped_entity = std::make_optional(old_storage.entity_ids.back());
+    }
+
+    remove_entity_from_storage(old_storage, old_row);
+
+    /// --- Update entities' row
+    record.row = new_row;
+    record.archetype = new_storage_h;
+
+    if (swapped_entity)
+    {
+        auto &swapped_entity_record = world.entity_index.at(*swapped_entity);
+        swapped_entity_record.row   = old_row;
+    }
+}
+
+void set_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size)
+{
+    const auto &record = world.entity_index.at(entity);
+    auto &archetype_storage = *world.archetypes.archetype_storages.get(record.archetype);
+    auto component_idx     = get_component_idx(archetype_storage.type, component_id);
+    if (!component_idx)
+    {
+        add_component(world, entity, component_id, component_data, component_size);
+        return;
+    }
+
+    auto &component_storage = archetype_storage.components[*component_idx];
+
+    auto *dst = &component_storage.data[record.row * component_storage.component_size];
+    std::memcpy(dst, component_data, component_size);
+}
+
+bool has_component(World &world, EntityId entity, ComponentId component)
+{
+    const auto& record = world.entity_index.at(entity);
+    const auto &archetype_storage = *world.archetypes.archetype_storages.get(record.archetype);
+    for (auto component_id : archetype_storage.type) {
+        if (component_id == component) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void *get_component(World &world, EntityId entity, ComponentId component_id)
+{
+    // get the entity information in its record
+    const auto &record = world.entity_index.at(entity);
+
+    // find the bucket corresponding to its archetype
+    auto &archetype_storage = *world.archetypes.archetype_storages.get(record.archetype);
+
+    // each component is stored in a SoA so we need to find the right array
+    auto component_idx     = get_component_idx(archetype_storage.type, component_id);
+    if (!component_idx) {
+        return nullptr;
+    }
+
+    auto &component_storage = archetype_storage.components[*component_idx];
+
+    // get the component data from the right array
+    usize component_byte_idx = record.row * component_storage.component_size;
+    return &component_storage.data[component_byte_idx];
+}
+
+
+
 } // namespace impl
 
 
-ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, ComponentId component_id, usize component_size)
+/// --- Internal components
+
+static ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, ComponentId component_id, usize component_size)
 {
     EntityId new_entity = component_id;
     auto archetype      = {ComponentId(family::type<InternalComponent>())};
@@ -167,9 +378,9 @@ ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, 
     auto &storage  = *archetypes.archetype_storages.get(storage_h);
 
     // add the entity to the entity array
-    auto row = impl::add_entity(storage, new_entity);
+    auto row = impl::add_entity_id_to_storage(storage, new_entity);
 
-    impl::add_component(storage, 0, &component_size, sizeof(usize));
+    impl::add_component_to_storage(storage, 0, &component_size, sizeof(usize));
     storage.size++;
 
     // put the entity record in the entity index
@@ -179,12 +390,14 @@ ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, 
 }
 
 template <typename Component>
-ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes)
+static ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes)
 {
     auto component_id = create_component(entity_index, archetypes, family::type<Component>(), sizeof(Component));
     assert(component_id.raw == family::type<Component>());
     return component_id;
 }
+
+/// --- Public API
 
 World::World()
 {

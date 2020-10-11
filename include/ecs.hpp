@@ -4,7 +4,6 @@
 #include "ui.hpp"
 
 #include <unordered_map>
-#include <utility>
 #include <vector>
 #include <optional>
 
@@ -113,15 +112,14 @@ struct ArchetypeStorage
     std::vector<ComponentStorage> components;
     usize size;
 
+    // Edges to archetype if we add/remove the indexed component type
+    // (e.g edges[family::type<MyComponent>()] contains a handle to "this archetype + MyComponent" and "this archetype -
+    // MyComponent")
     struct Edge
     {
         ArchetypeH add;
         ArchetypeH remove;
     };
-
-    // Edges to archetype if we add/remove the indexed component type
-    // (e.g edges[family::type<MyComponent>()] contains a handle to "this archetype + MyComponent" and "this archetype -
-    // MyComponent")
     std::vector<Edge> edges;
 };
 
@@ -141,7 +139,10 @@ struct EntityRecord
     usize row;
 };
 
-/// --- Components
+using EntityIndex = std::unordered_map<EntityId, EntityRecord>;
+
+/// --- Builtin Components
+
 struct InternalComponent
 {
     // size of the type of the component in bytes
@@ -153,46 +154,46 @@ struct InternalId
     const char *name;
 };
 
+struct World;
+
 namespace impl
 {
+// Archetype
 template <typename... ComponentTypes> Archetype create_archetype()
 {
     Archetype result;
     (result.push_back(family::type<ComponentTypes>()), ...);
     return result;
 }
+std::optional<usize> get_component_idx(Archetype type, ComponentId component_id);
 
+// ArchetypeStorage
 // traverse the graph and returns or create the ArchetypeStorage matching the Archetype
 ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph, ArchetypeH entity_archetype, ComponentId component_type);
 ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, ArchetypeH entity_archetype, ComponentId component_type);
 ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const Archetype &type);
+// add an entity id to a storage
+usize add_entity_id_to_storage(ArchetypeStorage &storage, EntityId entity);
+// add a single component to the i_component storage
+void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void *data, usize len);
+// remove an entity (id + components) from the storage, if entity's row is not last it will be swapped with last
+void remove_entity_from_storage(ArchetypeStorage &storage, usize entity_row);
 
-usize add_entity(ArchetypeStorage &storage, EntityId entity);
-void add_component(ArchetypeStorage &storage, usize i_component, void *data, usize len);
-
-inline std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
-{
-    u32 component_idx = 0;
-    for (auto type_id : type)
-    {
-        if (component_id == type_id)
-        {
-            return std::make_optional<usize>(component_idx);
-            break;
-        }
-        component_idx++;
-    }
-    return std::nullopt;
-}
+// Components
+void add_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size);
+void remove_component(World &world, EntityId entity, ComponentId component_id);
+void set_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size);
+bool has_component(World &world, EntityId entity, ComponentId component);
+void *get_component(World &world, EntityId entity, ComponentId component_id);
 
 template <typename Component>
 std::optional<usize> get_component_idx(Archetype type)
 {
     return get_component_idx(type, family::type<Component>());
 }
+
 } // namespace impl
 
-using EntityIndex = std::unordered_map<EntityId, EntityRecord>;
 struct World
 {
     World();
@@ -212,11 +213,12 @@ struct World
         auto &storage  = *archetypes.archetype_storages.get(storage_h);
 
         // add the entity to the entity array
-        auto row = impl::add_entity(storage, new_entity);
+        auto row = impl::add_entity_id_to_storage(storage, new_entity);
 
         // add the component to every component array, fold expression black magic...
         uint component_i = 0;
-        ((impl::add_component(storage, component_i++, &components, sizeof(ComponentTypes)), storage.size++), ...);
+        (impl::add_component_to_storage(storage, component_i++, &components, sizeof(ComponentTypes)), ...);
+        storage.size += 1;
 
         // put the entity record in the entity index
         entity_index[new_entity] = EntityRecord{.archetype = storage_h, .row = row};
@@ -226,232 +228,41 @@ struct World
 
     /// --- Components
 
-    // Remove a component from an entity
-    template <typename Component> void remove_component(EntityId entity)
-    {
-        // get the entity information in its record
-        auto &record = entity_index.at(entity);
-
-        // find a new bucket for its new archetype
-        auto new_storage_h = impl::find_or_create_archetype_storage_removing_component(archetypes,
-                                                                                       record.archetype,
-                                                                                       family::type<Component>());
-        auto &new_storage  = *archetypes.archetype_storages.get(new_storage_h);
-
-        // find the bucket corresponding to its old archetype
-        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
-        auto old_row      = record.row;
-
-        /// --- Copy components to a new storage
-
-        // copy old_storage[component_id] to new_storage[component_id]
-        auto new_row = impl::add_entity(new_storage, entity);
-        usize i_new_component = 0;
-        for (auto component_id : new_storage.type)
-        {
-            auto i_old_component = *impl::get_component_idx(old_storage.type, component_id);
-            auto &component_storage = old_storage.components[i_old_component];
-            void *src = &component_storage.data[old_row * component_storage.component_size];
-            usize component_size = component_storage.component_size;
-
-            impl::add_component(new_storage, i_new_component++, src, component_size);
-        }
-        new_storage.size += 1;
-
-        /// --- Remove from previous storage
-        auto entity_count = old_storage.entity_ids.size();
-
-        // copy the last element to the old row
-        if (old_row < entity_count - 1)
-        {
-            old_storage.entity_ids[old_row] = old_storage.entity_ids[entity_count - 1];
-            for (usize i_component = 0; i_component < old_storage.type.size(); i_component++)
-            {
-                auto &component_storage = old_storage.components[i_component];
-                auto stride             = component_storage.component_size;
-
-                for (usize i_byte = 0; i_byte < stride; i_byte++)
-                {
-                    component_storage.data[old_row * stride + i_byte]
-                        = component_storage.data[(entity_count - 1) * stride + i_byte];
-                }
-            }
-        }
-
-        // pop the last element to effectively remove the entity from the old storage
-        auto *entity_to_update = old_storage.entity_ids.size() > 1 ? &old_storage.entity_ids.back() : nullptr;
-
-        old_storage.entity_ids.pop_back();
-        for (usize i_component = 0; i_component < old_storage.type.size(); i_component++)
-        {
-            auto &component_storage = old_storage.components[i_component];
-            for (usize i_byte = 0; i_byte < component_storage.component_size; i_byte++)
-            {
-                component_storage.data.pop_back();
-            }
-        }
-        old_storage.size -= 1;
-
-        /// --- Update entities' row
-        record.row = new_row;
-        record.archetype = new_storage_h;
-
-        if (entity_to_update)
-        {
-            auto &entity_to_update_record = entity_index.at(*entity_to_update);
-            entity_to_update_record.row   = old_row;
-        }
-    }
-
     // Add a component to an entity, the entity SHOULD NOT already have that component
     template <typename Component> void add_component(EntityId entity, Component component)
     {
-        // get the entity information in its record
-        auto &record = entity_index.at(entity);
+        impl::add_component(*this, entity, family::type<Component>(), &component, sizeof(Component));
+    }
 
-        // find a new bucket for its new archetype
-        auto new_storage_h = impl::find_or_create_archetype_storage_adding_component(archetypes,
-                                                                                       record.archetype,
-                                                                                       family::type<Component>());
-        auto &new_storage  = *archetypes.archetype_storages.get(new_storage_h);
-
-        // find the bucket corresponding to its old archetype
-        auto &old_storage = *archetypes.archetype_storages.get(record.archetype);
-        auto old_row      = record.row;
-
-        /// --- Copy components to a new storage
-
-        // copy old_storage[component_id] to new_storage[component_id]
-        auto new_row = impl::add_entity(new_storage, entity);
-        usize i_old_component = 0;
-        for (auto component_id : old_storage.type)
-        {
-            auto &component_storage = old_storage.components[i_old_component++];
-            void *src = &component_storage.data[old_row * component_storage.component_size];
-            usize component_size = component_storage.component_size;
-
-            auto i_new_component = *impl::get_component_idx(new_storage.type, component_id);
-            impl::add_component(new_storage, i_new_component, src, component_size);
-        }
-
-        // add new component
-        {
-            auto i_new_component = *impl::get_component_idx<Component>(new_storage.type);
-            impl::add_component(new_storage, i_new_component, &component, sizeof(Component));
-        }
-
-        new_storage.size += 1; // /!\ DO THIS AFTER add_component
-
-        /// --- Remove from previous storage
-        auto entity_count = old_storage.entity_ids.size();
-
-        // copy the last element to the old row
-        if (old_row < entity_count - 1)
-        {
-            old_storage.entity_ids[old_row] = old_storage.entity_ids[entity_count - 1];
-            for (usize i_component = 0; i_component < old_storage.type.size(); i_component++)
-            {
-                auto &component_storage = old_storage.components[i_component];
-                auto stride             = component_storage.component_size;
-
-                for (usize i_byte = 0; i_byte < stride; i_byte++)
-                {
-                    component_storage.data[old_row * stride + i_byte]
-                        = component_storage.data[(entity_count - 1) * stride + i_byte];
-                }
-            }
-        }
-
-        // pop the last element to effectively remove the entity from the old storage
-        auto *entity_to_update = old_storage.entity_ids.size() > 1 ? &old_storage.entity_ids.back() : nullptr;
-
-        old_storage.entity_ids.pop_back();
-        for (usize i_component = 0; i_component < old_storage.type.size(); i_component++)
-        {
-            auto &component_storage = old_storage.components[i_component];
-            for (usize i_byte = 0; i_byte < component_storage.component_size; i_byte++)
-            {
-                component_storage.data.pop_back();
-            }
-        }
-
-        old_storage.size -= 1;
-
-        /// --- Update entities' row
-        record.row = new_row;
-        record.archetype = new_storage_h;
-
-        if (entity_to_update)
-        {
-            auto &entity_to_update_record = entity_index.at(*entity_to_update);
-            entity_to_update_record.row   = old_row;
-        }
+    // Remove a component from an entity
+    template <typename Component> void remove_component(EntityId entity)
+    {
+        impl::remove_component(*this, entity, family::type<Component>());
     }
 
     // Set the value of a component or add it to an entity
     template <typename Component> void set_component(EntityId entity, Component component)
     {
-        const auto &record = entity_index.at(entity);
-        auto &archetype_storage = *archetypes.archetype_storages.get(record.archetype);
-        auto component_idx     = impl::get_component_idx<Component>(archetype_storage.type);
-        if (!component_idx)
-        {
-            add_component(entity, component);
-            return;
-        }
-
-        auto &component_storage = archetype_storage.components[*component_idx];
-
-        auto *dst = &component_storage.data[record.row * component_storage.component_size];
-        std::memcpy(dst, &component, sizeof(Component));
-    }
-
-    inline bool has_component(EntityId entity, ComponentId component)
-    {
-        const auto& record = entity_index.at(entity);
-        const auto &archetype_storage = *archetypes.archetype_storages.get(record.archetype);
-        for (auto component_id : archetype_storage.type) {
-            if (component_id == component) {
-                return true;
-            }
-        }
-        return false;
+        impl::set_component(*this, entity, family::type<Component>(), &component, sizeof(Component));
     }
 
     template <typename Component>
     bool has_component(EntityId entity)
     {
-        return has_component(entity, family::type<Component>());
+        return impl::has_component(*this, entity, family::type<Component>());
     }
 
     bool is_component(EntityId entity)
     {
-        return has_component(entity, family::type<InternalComponent>());
+        return impl::has_component(*this, entity, family::type<InternalComponent>());
     }
 
     // Get a component from an entity, returns nullptr if not found
     template <typename Component> Component *get_component(EntityId entity)
     {
-        // get the entity information in its record
-        const auto &record = entity_index.at(entity);
-
-        // find the bucket corresponding to its archetype
-        auto &archetype_storage = *archetypes.archetype_storages.get(record.archetype);
-
-        // each component is stored in a SoA so we need to find the right array
-        auto component_idx     = impl::get_component_idx<Component>(archetype_storage.type);
-        if (!component_idx) {
-            return nullptr;
-        }
-
-        auto &component_storage = archetype_storage.components[*component_idx];
-
-        // get the component data from the right array
-        usize component_byte_idx = record.row * component_storage.component_size;
-        return reinterpret_cast<Component *>(&component_storage.data[component_byte_idx]);
+        return reinterpret_cast<Component *>(impl::get_component(*this, entity, family::type<Component>()));
     }
 
-  private:
     // Metadata of entites
     EntityIndex entity_index;
     Archetypes archetypes;
