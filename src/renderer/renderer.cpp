@@ -1596,31 +1596,35 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 
     pass.voxelization = api.create_program(std::move(pinfo));
     }
-
     {
         vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/voxel_visualization.frag.spv");
+        pinfo.vertex_shader   = api.create_shader("shaders/voxel_points.vert.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/voxel_points.frag.spv");
 
         // voxel options
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 0,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // debug
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 1,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // voxels textures
         pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                        .slot   = 2,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
-        pass.visualization = api.create_program(std::move(pinfo));
+        pinfo.topology = vulkan::PrimitiveTopology::PointList;
+
+        pinfo.enable_depth_write = true;
+        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+
+        pass.debug_visualization = api.create_program(std::move(pinfo));
     }
 
     {
@@ -1878,7 +1882,7 @@ static void add_voxelization_pass(Renderer &r)
     });
 }
 
-static void add_voxels_visualization_pass(Renderer& r)
+static void add_voxels_debug_visualization_pass(Renderer& r)
 {
     auto &graph = r.graph;
     auto &api = r.api;
@@ -1886,33 +1890,33 @@ static void add_voxels_visualization_pass(Renderer& r)
     auto options = r.voxel_options;
 
     auto voxels = r.voxels_albedo;
-    if (r.vct_debug.voxel_debug_selected == 1) {
+    if (r.vct_debug.display_selected == 1) {
         voxels = r.voxels_normal;
     }
-    else if (r.vct_debug.voxel_debug_selected == 2) {
+    else if (r.vct_debug.display_selected == 2) {
         voxels = r.voxels_radiance;
     }
-    else if (r.vct_debug.voxel_debug_selected == 3) {
+    else if (r.vct_debug.display_selected == 3) {
         voxels = r.voxels_directional_volumes[0];
         options.size *= 2;
     }
-    else if (r.vct_debug.voxel_debug_selected == 4) {
+    else if (r.vct_debug.display_selected == 4) {
         voxels = r.voxels_directional_volumes[1];
         options.size *= 2;
     }
-    else if (r.vct_debug.voxel_debug_selected == 5) {
+    else if (r.vct_debug.display_selected == 5) {
         voxels = r.voxels_directional_volumes[2];
         options.size *= 2;
     }
-    else if (r.vct_debug.voxel_debug_selected == 6) {
+    else if (r.vct_debug.display_selected == 6) {
         voxels = r.voxels_directional_volumes[3];
         options.size *= 2;
     }
-    else if (r.vct_debug.voxel_debug_selected == 7) {
+    else if (r.vct_debug.display_selected == 7) {
         voxels = r.voxels_directional_volumes[4];
         options.size *= 2;
     }
-    else if (r.vct_debug.voxel_debug_selected == 8) {
+    else if (r.vct_debug.display_selected == 8) {
         voxels = r.voxels_directional_volumes[5];
         options.size *= 2;
     }
@@ -1924,19 +1928,22 @@ static void add_voxels_visualization_pass(Renderer& r)
     }
 
     auto options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
-    auto *buffer0                   = reinterpret_cast<VoxelOptions *>(options_pos.mapped);
-    *buffer0                        = options;
+    auto *buffer0    = reinterpret_cast<VoxelOptions *>(options_pos.mapped);
+    *buffer0         = options;
+
+    auto vertex_count = r.voxel_options.res * r.voxel_options.res * r.voxel_options.res;
 
     graph.add_pass({
-        .name = "Voxels visualization",
+        .name = "Voxels debug visualization",
         .type = PassType::Graphics,
         .sampled_images = { voxels },
         .color_attachments = {r.hdr_buffer},
-        .exec = [pass_data=r.voxels, sampler=r.trilinear_sampler, options_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .depth_attachment = r.depth_buffer,
+        .exec = [pass_data=r.voxels, sampler=r.trilinear_sampler, options_pos, vertex_count](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels = graph.get_resolved_image(self.sampled_images[0]);
 
-            auto program = pass_data.visualization;
+            auto program = pass_data.debug_visualization;
 
             api.bind_buffer(program, options_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
             api.bind_buffer(program, pass_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
@@ -1945,7 +1952,7 @@ static void add_voxels_visualization_pass(Renderer& r)
 
             api.bind_program(program);
 
-            api.draw(3, 1, 0, 0);
+            api.draw(vertex_count, 1, 0, 0);
         }
     });
 
@@ -2311,18 +2318,22 @@ void Renderer::display_ui(UI::Context &ui)
     {
         ImGui::TextUnformatted("Debug display: ");
         ImGui::SameLine();
-        if (ImGui::RadioButton("glTF", !vct_debug.display_voxels)) {
-            vct_debug.display_voxels = false;
+        if (ImGui::RadioButton("glTF", vct_debug.display == 0)) {
+            vct_debug.display = 0;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("voxels", vct_debug.display_voxels)) {
-            vct_debug.display_voxels = true;
+        if (ImGui::RadioButton("voxels", vct_debug.display == 1)) {
+            vct_debug.display = 1;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("custom", vct_debug.display == 2)) {
+            vct_debug.display = 2;
         }
 
-        if (!vct_debug.display_voxels)
+        if (vct_debug.display == 0)
         {
             static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting", "Direct lighting"};
-            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.gltf_debug_selected);
+            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
             ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 10.0f);
             ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
             ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
@@ -2341,20 +2352,10 @@ void Renderer::display_ui(UI::Context &ui)
                 "Voxels volume -Z",
                 "Voxels volume +Z",
             };
-            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.voxel_debug_selected);
+            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
 
             ImGui::SliderInt("Mip level", &vct_debug.voxel_selected_mip, 0, 10);
         }
-
-        /*
-        ImGui::Spacing();
-        ImGui::TextUnformatted("Direct lighting:");
-        ImGui::SliderFloat3("Point light position", &vct_debug.point_position[0], -10.0f, 10.0f);
-        ImGui::SliderFloat("Point light scale", &vct_debug.point_scale, 0.1f, 10.f);
-        ImGui::SliderFloat("Trace Shadow Hit", &vct_debug.trace_shadow_hit, 0.0f, 1.0f);
-        ImGui::SliderFloat("Max Dist", &vct_debug.max_dist, 0.0f, 300.0f);
-        ImGui::SliderFloat("First step", &vct_debug.first_step, 1.0f, 20.0f);
-        */
 
         ui.end_window();
     }
@@ -2410,15 +2411,15 @@ void Renderer::draw()
     add_voxels_aniso_filtering(*this);
 
     // color pass
-    add_gltf_prepass(*this);
     add_floor_pass(*this);
 
-    if (vct_debug.display_voxels)
+    if (vct_debug.display != 0)
     {
-        add_voxels_visualization_pass(*this);
+        add_voxels_debug_visualization_pass(*this);
     }
     else
     {
+        add_gltf_prepass(*this);
         add_gltf_pass(*this);
     }
 

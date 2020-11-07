@@ -273,7 +273,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
         asm_i.flags                  = 0;
         asm_i.primitiveRestartEnable = VK_FALSE;
-        asm_i.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        asm_i.topology               = vk_topology_from_enum(program.info.topology);
 
         VkPipelineRasterizationConservativeStateCreateInfoEXT conservative = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT};
 

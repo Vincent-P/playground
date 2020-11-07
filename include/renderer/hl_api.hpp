@@ -271,6 +271,12 @@ struct VertexBufferInfo
     bool operator==(const VertexBufferInfo &) const = default;
 };
 
+enum struct PrimitiveTopology
+{
+    TriangleList,
+    PointList
+};
+
 struct GraphicsProgramInfo
 {
     ShaderH vertex_shader;
@@ -288,6 +294,8 @@ struct GraphicsProgramInfo
     bool enable_depth_write{false};
     bool enable_conservative_rasterization{false};
     float depth_bias{0.0f};
+
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
 
     bool operator==(const GraphicsProgramInfo &) const = default;
 
@@ -786,6 +794,17 @@ inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &
 inline VkImageMemoryBarrier get_image_barrier(const Image &image, const ImageAccess &src, const ImageAccess &dst)
 {
     return get_image_barrier(image.vkhandle, src, dst, image.full_range);
+}
+
+inline VkPrimitiveTopology vk_topology_from_enum(PrimitiveTopology topology)
+{
+    switch (topology)
+    {
+    case PrimitiveTopology::TriangleList: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    case PrimitiveTopology::PointList: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    }
+
+    return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 }
 
 } // namespace vulkan

@@ -12,10 +12,10 @@ struct VoxelOptions
 
 struct VCTDebug
 {
-    bool display_voxels;
-    uint voxel_debug_selected; // 0: albedo 1: normal 2: radiance
-    int voxel_selected_mip;
-    uint gltf_debug_selected; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting
+    uint display; // 0: glTF 1: voxels 2: custom
+    uint display_selected; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
+    int  voxel_selected_mip;
+    uint padding00;
 
     // cone tracing
     float trace_dist;
@@ -66,19 +66,24 @@ struct VCTDebug
 
 int3 WorldToVoxel(float3 world_pos, VoxelOptions options)
 {
-    float3 voxel_pos = (world_pos - floor(options.center)) / options.size;
+    float3 voxel_pos = (world_pos - options.center) / options.size;
     return int3(floor(voxel_pos));
 }
 
 float3 WorldToVoxelTex(float3 world_pos, VoxelOptions options)
 {
-    float3 voxel_pos = (world_pos - floor(options.center)) / options.size;
-    return voxel_pos / options.res;
+    float3 voxel_pos = (world_pos - options.center) / options.size;
+    return voxel_pos / float(options.res);
 }
 
 float3 VoxelToWorld(int3 voxel_pos, VoxelOptions options)
 {
-    return (options.size * voxel_pos) + options.center;
+    return (options.size * float3(voxel_pos)) + options.center;
+}
+
+float3 VoxelCenterToWorld(int3 voxel_pos, VoxelOptions options)
+{
+    return (options.size * float3(voxel_pos)) + options.center + float3(options.size);
 }
 
 float3 EncodeNormal(float3 normal)

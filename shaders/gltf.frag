@@ -303,32 +303,32 @@ void main()
     // float4 reflection = trace_reflection(albedo, N, V, metallic, roughness);
 
     // base color
-    if (debug.gltf_debug_selected == 1)
+    if (debug.display_selected == 1)
     {
         indirect.rgb = float3(0.0);
         indirect.a = 1.0;
         direct = albedo;
     }
     // normal
-    else if (debug.gltf_debug_selected == 2)
+    else if (debug.display_selected == 2)
     {
         indirect.rgb = float3(0.0);
         indirect.a = 1.0;
         direct = EncodeNormal(normal);
     }
     // ao
-    else if (debug.gltf_debug_selected == 3)
+    else if (debug.display_selected == 3)
     {
         direct = float3(0.0);
         indirect.rgb = float3(1.0);
     }
     // indirect
-    else if (debug.gltf_debug_selected == 4)
+    else if (debug.display_selected == 4)
     {
         direct = float3(0.0);
     }
     // direct
-    else if (debug.gltf_debug_selected == 5)
+    else if (debug.display_selected == 5)
     {
         indirect.rgb = float3(0.0);
         indirect.a = 1.0;

@@ -61,10 +61,10 @@ struct VoxelOptions
 
 struct VCTDebug
 {
-    bool display_voxels = false;
-    uint voxel_debug_selected = 0; // 0: albedo 1: normal 2: radiance
-    int voxel_selected_mip = 0;
-    uint gltf_debug_selected = 0; // 0: nothing 1: base color 2: normal 3: ao 4: indirect lighting 5: direct lighting
+    uint display = 1; // 0: glTF 1: voxels 2: custom
+    uint display_selected = 1; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
+    int  voxel_selected_mip = 0;
+    uint padding00 = 1;
 
     // cone tracing
     float trace_dist = 6.0f;
@@ -200,7 +200,7 @@ struct Renderer
     struct VoxelPass
     {
         vulkan::GraphicsProgramH voxelization;
-        vulkan::GraphicsProgramH visualization;
+        vulkan::GraphicsProgramH debug_visualization;
         vulkan::ComputeProgramH clear_voxels;
         vulkan::ComputeProgramH inject_radiance;
         vulkan::ComputeProgramH generate_aniso_base;

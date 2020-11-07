@@ -341,6 +341,7 @@ float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, fl
 
 float4x4 Camera::ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 {
+    (void)(inverse);
     float x_range = max_clip.x - min_clip.x;
     float y_range = max_clip.y - min_clip.y;
     float z_range = max_clip.z - min_clip.z;
