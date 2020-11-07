@@ -6,6 +6,7 @@ Features:
 - Physically Based Rendering
 - Voxel Cone Tracing for global illumination. (Cyril Crassin, "Interactive Indirect Illumination Using Voxel Cone Tracing" https://maverick.inria.fr/Publications/2011/CNSGE11b/GIVoxels-pg2011-authors.pdf)
 - State-of-the-art Procedural Sky and Atmosphere rendering. (Sébastien Hillaire, "A Scalable and Production ReadySky and Atmosphere Rendering Technique" https://sebh.github.io/publications/egsr2020.pdf)
+- Voxel debug visualization using "A Ray-Box Intersection Algorithm and Efficient Dynamic Voxel Rendering" (http://www.jcgt.org/published/0007/03/04/)
 
 ![Screen shot of Sponza, a scene often used in tech demos](https://media.discordapp.net/attachments/707881265751261244/755893378184642634/unknown.png?width=1183&height=684)
 
