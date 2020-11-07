@@ -216,36 +216,6 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 {
     Renderer::CheckerBoardFloorPass pass;
 
-    /// --- Create the index and vertex buffer
-
-    std::array<u16, 6> indices = {0, 1, 2, 0, 2, 3};
-
-    // clang-format off
-    float height = -1.00f;
-    std::array vertices =
-    {
-        -1.0f,  height, -1.0f,     0.0f, 0.0f,
-        1.0f,  height, -1.0f,      1.0f, 0.0f,
-        1.0f,  height,  1.0f,      1.0f, 1.0f,
-        -1.0f,  height,  1.0f,     0.0f, 1.0f,
-    };
-    // clang-format on
-
-    pass.index_buffer = api.create_buffer({
-        .name  = "Floor Index buffer",
-        .size  = indices.size() * sizeof(u16),
-        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-    });
-
-    pass.vertex_buffer = api.create_buffer({
-        .name  = "Floor Vertex buffer",
-        .size  = vertices.size() * sizeof(float),
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-    });
-
-    api.upload_buffer(pass.index_buffer, indices.data(), indices.size() * sizeof(u16));
-    api.upload_buffer(pass.vertex_buffer, vertices.data(), vertices.size() * sizeof(float));
-
     /// --- Create program
 
     {
@@ -253,42 +223,9 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
 
-    pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
-    pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
-    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
-
-    pinfo.enable_depth_write = true;
     pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
 
     pass.program = api.create_program(std::move(pinfo));
-    }
-
-    {
-    vulkan::GraphicsProgramInfo pinfo{};
-    pinfo.vertex_shader   = api.create_shader("shaders/floor_shadowmap.vert.spv");
-
-    // cascade index
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-
-    // view/projection matrices per cascade
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 1,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-
-    pinfo.vertex_stride(3 * sizeof(float) + 2 * sizeof(float));
-    pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0});
-    pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = 3 * sizeof(float)});
-
-    pinfo.enable_depth_write = true;
-    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-
-    pass.shadowmap = api.create_program(std::move(pinfo));
     }
 
     return pass;
@@ -301,15 +238,13 @@ static void add_floor_pass(Renderer &r)
     graph.add_pass({
         .name = "Checkerboard Floor pass",
         .type = PassType::Graphics,
-        .color_attachments = {r.hdr_buffer},
+        .color_attachments = {graph.swapchain},
         .depth_attachment = r.depth_buffer,
         .exec = [pass_data=r.checkerboard_floor](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &api)
         {
             auto program = pass_data.program;
             api.bind_program(program);
-            api.bind_index_buffer(pass_data.index_buffer);
-            api.bind_vertex_buffer(pass_data.vertex_buffer);
-            api.draw_indexed(6, 1, 0, 0, 0);
+            api.draw(6, 1, 0, 0);
         }
     });
 }
@@ -1378,19 +1313,8 @@ static void add_shadow_cascades_pass(Renderer &r)
                         .external_images  = external_images,
                         .depth_attachment = r.shadow_cascades[i],
                         .exec             = [pass_data   = r.gltf,
-                                             floor_data=r.checkerboard_floor,
                                  cascade_index_pos,
                                  matrices_pos=r.matrices_pos](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
-                            // draw floor
-                            {
-                                auto program = floor_data.shadowmap;
-                                api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
-                                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-                                api.bind_program(program);
-                                api.bind_index_buffer(floor_data.index_buffer);
-                                api.bind_vertex_buffer(floor_data.vertex_buffer);
-                                api.draw_indexed(6, 1, 0, 0, 0);
-                            }
                             // draw glTF
                             {
                                 auto program = pass_data.shadow_cascade_program;
@@ -2140,6 +2064,8 @@ void update_uniforms(Renderer &r)
     globals->camera_proj     = r.p_camera->get_projection();
     globals->camera_inv_proj = r.p_camera->get_inverse_projection();
     globals->camera_inv_view_proj = r.p_camera->get_inverse_view() * r.p_camera->get_inverse_projection();
+    globals->camera_near     = r.p_camera->near_plane;
+    globals->camera_far      = r.p_camera->far_plane;
     globals->sun_view        = r.sun.get_view();
     globals->sun_proj        = r.sun.get_projection();
 
@@ -2400,8 +2326,6 @@ void Renderer::draw()
 
     update_uniforms(*this);
 
-    if (1)
-    {
     add_shadow_cascades_pass(*this);
 
     // voxel cone tracing prep
@@ -2409,9 +2333,6 @@ void Renderer::draw()
     add_voxelization_pass(*this);
     add_voxels_direct_lighting_pass(*this);
     add_voxels_aniso_filtering(*this);
-
-    // color pass
-    add_floor_pass(*this);
 
     if (vct_debug.display != 0)
     {
@@ -2424,11 +2345,6 @@ void Renderer::draw()
     }
 
     add_procedural_sky_pass(*this);
-    }
-    else
-    {
-    add_floor_pass(*this);
-    }
 
     add_tonemapping_pass(*this);
 
@@ -2437,6 +2353,8 @@ void Renderer::draw()
         .type = PassType::BlitToSwapchain,
         .color_attachments = {ldr_buffer}
     });
+
+    add_floor_pass(*this);
 
     add_imgui_pass(*this);
 

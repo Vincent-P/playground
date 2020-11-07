@@ -12,7 +12,8 @@ layout (set = 0, binding = 0) uniform GlobalUniform {
     float pad00;
 
     uint2 resolution;
-    float2 pad01;
+    float camera_near;
+    float camera_far;
 
 
     float3 sun_direction;

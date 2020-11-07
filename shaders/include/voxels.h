@@ -83,7 +83,7 @@ float3 VoxelToWorld(int3 voxel_pos, VoxelOptions options)
 
 float3 VoxelCenterToWorld(int3 voxel_pos, VoxelOptions options)
 {
-    return (options.size * float3(voxel_pos)) + options.center + float3(options.size);
+    return (options.size * float3(voxel_pos)) + options.center + float3(options.size / 2);
 }
 
 float3 EncodeNormal(float3 normal)
