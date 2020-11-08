@@ -11,7 +11,13 @@ float4 grid(float3 world_pos, float line_width, float grid_spacing)
     float2 wrapped = fract(coords - 0.5) - 0.5;
     float2 range = abs(wrapped);
 
-    float2 deritatives = fwidth(coords);
+
+    // more precise than deritatives = fwidth(coords)
+    float4 deltas = float4(dFdx(coords), dFdy(coords));
+    float2 deritatives = sqrt(float2(
+                      dot(deltas.xz, deltas.xz),
+                      dot(deltas.yw, deltas.yw)
+                      ));
 
     float2 pixel_range = range / deritatives;
     float line_weight = clamp(min(pixel_range.x, pixel_range.y) - (line_width - 1), 0, 1);
@@ -55,13 +61,13 @@ void main()
     gl_FragDepth = projected_pos.z / projected_pos.w;
 
     // Fade the grid based on the distance from the camera
-    const float SCALE = 100;
     float3 camera_to_point = world_pos.xyz - global.camera_pos;
-    camera_to_point /= SCALE;
     float squared_d = camera_to_point.x * camera_to_point.x + camera_to_point.y * camera_to_point.y + camera_to_point.z * camera_to_point.z;
 
-    float fade = 1 / (squared_d + 1);
-    o_color.a *= fade;
+    // Use 1/d^2 attenuation
+    const float SCALE = 100;
+    float fade = SCALE / (squared_d + 1);
+    o_color.a *= clamp(fade, 0, 1);
 
     if (o_color.a < 0.01) {
         discard;
