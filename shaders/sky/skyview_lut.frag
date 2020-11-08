@@ -9,7 +9,7 @@ layout (set = 1, binding = 0) uniform AtmosphereUniform {
 layout(set = 1, binding = 1) uniform sampler2D transmittance_lut; // sampler linear clamp
 layout(set = 1, binding = 2) uniform sampler2D multiscattering_lut;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 o_color;
 
 float3 integrate_luminance(AtmosphereParameters atmosphere, float3 p, float3 dir, float3 sun_dir)
 {
@@ -30,6 +30,7 @@ float3 integrate_luminance(AtmosphereParameters atmosphere, float3 p, float3 dir
     float tBottom = ray_sphere_nearest_intersection(p, dir, float3(0.0), atmosphere.bottom_radius);
     float tTop    = ray_sphere_nearest_intersection(p, dir, float3(0.0), atmosphere.top_radius);
     float tMax    = 0.0f;
+
     if (tBottom < 0.0f)
     {
         if (tTop < 0.0f)
@@ -90,6 +91,7 @@ void main()
     const float2 LUT_SIZE = float2(192.0,108.0); // TODO: uniform?
     float2 pixel_pos = gl_FragCoord.xy;
     float2 uv = pixel_pos / LUT_SIZE;
+
     float3 clip_space;
     clip_space.xy = uv * 2.0 - float2(1.0);
     clip_space.z = 1;
@@ -106,25 +108,26 @@ void main()
 
     float3 up = world_pos / r;
     float mu_s = dot(up, global.sun_direction);
-    float3 sun_dir = normalize(float3(sqrt(1.0 - mu_s * mu_s), mu_s, 0.0));
+    float3 sun_dir = normalize(float3(safe_sqrt(1.0 - mu_s * mu_s), mu_s, 0.0));
 
     world_pos = float3(0.0, r, 0.0);
 
-    float sin_theta = sqrt(1.0 - mu * mu);
+    float sin_theta = safe_sqrt(1.0 - mu * mu);
 
     world_dir = float3(
         sin_theta * cos_lightview,
         mu,
-        sin_theta * sqrt(1.0 - cos_lightview * cos_lightview)
+        sin_theta * safe_sqrt(1.0 - cos_lightview * cos_lightview)
         );
+
 
     if (!move_to_top_atmosphere(atmosphere, world_pos, world_dir))
     {
         // Ray is not intersecting the atmosphere
-        outColor = float4(1, 0, 0, 1);
+        o_color = float4(1, 0, 0, 1);
         return;
     }
 
     float3 L = integrate_luminance(atmosphere, world_pos, world_dir, sun_dir);
-    outColor = float4(L, 1.0);
+    o_color = float4(L, 1.0);
 }
