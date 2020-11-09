@@ -36,7 +36,7 @@ layout (set = 1, binding = 6) uniform CM {
     CascadeMatrix cascade_matrices[10];
 };
 
-layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
+layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[4];
 
 layout (location = 0) out vec4 outColor;
 

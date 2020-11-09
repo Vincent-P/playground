@@ -30,7 +30,7 @@ VERSION HISTORY
 #ifndef SPIRV_REFLECT_H
 #define SPIRV_REFLECT_H
 
-#include "./include/spirv/unified1/spirv.h"
+#include <spirv-headers/spirv.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -1400,7 +1400,7 @@ inline ShaderModule::ShaderModule(size_t size, const void* p_code) {
 /*! @fn ShaderModule
 
   @param  code
-  
+
 */
 inline ShaderModule::ShaderModule(const std::vector<uint8_t>& code) {
   m_result = spvReflectCreateShaderModule(
@@ -1412,7 +1412,7 @@ inline ShaderModule::ShaderModule(const std::vector<uint8_t>& code) {
 /*! @fn ShaderModule
 
   @param  code
-  
+
 */
 inline ShaderModule::ShaderModule(const std::vector<uint32_t>& code) {
   m_result = spvReflectCreateShaderModule(

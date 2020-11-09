@@ -263,11 +263,6 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
 
     pinfo.push_constant({.stages = VK_SHADER_STAGE_VERTEX_BIT, .size = 4 * sizeof(float)});
 
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
     pinfo.vertex_stride(sizeof(ImDrawVert));
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
@@ -449,13 +444,6 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv");
 
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
         pass.render_transmittance = api.create_program(std::move(pinfo));
     }
 
@@ -463,25 +451,6 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv");
-
-        // atmosphere params
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // transmittance LUT
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // multiscattering LUT
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
         pass.render_skyview = api.create_program(std::move(pinfo));
     }
 
@@ -489,61 +458,12 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv");
-
-        // atmosphere params
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // transmittance lut
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // skyview lut
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // depth
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 3,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // multiscattering
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 4,
-                       .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
         pass.sky_raymarch = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
-        // atmosphere params
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // transmittance lut
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // multiscattering lut
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
         pass.compute_multiscattering_lut = api.create_program(std::move(pinfo));
     }
 
@@ -716,16 +636,6 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
     vulkan::GraphicsProgramInfo pinfo{};
     pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv");
-
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 1,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
     Renderer::TonemappingPass pass;
     pass.program    = api.create_program(std::move(pinfo));
@@ -972,66 +882,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-        // transforms of each nodes for the vertex buffer
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
-        // vct debug
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 1,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // voxel options
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 2,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // voxel radiance
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 3,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        });
-        // voxel directional volumes
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 4,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .count  = 6,
-        });
-        // shadow splits
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 5,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // shadow view/proj matrices
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 6,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // shadow cascades
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 7,
-            .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .count  = 4,
-        });
-
         pinfo.push_constant({
             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             .offset = 0,
@@ -1056,14 +906,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
 
-        // transforms of each nodes for the vertex buffer
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
         pinfo.push_constant({
             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             .offset = 0,
@@ -1087,29 +929,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/shadowmap.frag.spv");
-
-        // camera uniform buffer
-        // transforms of each nodes for the vertex buffer
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 0,
-            .stages = VK_SHADER_STAGE_VERTEX_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-
-        // cascade index
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-
-        // view/projection matrices per cascade
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
 
         pinfo.push_constant({
             .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1454,35 +1273,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
     pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
 
-    // gltf nodes transform
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 0,
-                   .stages = VK_SHADER_STAGE_VERTEX_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-    // voxel options
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 1,
-                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-    // voxel cube projection cameras
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 2,
-                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-    // voxels textures
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 3,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-    pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                   .slot   = 4,
-                   .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-                   .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
     pinfo.push_constant({
         .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         .offset = 0,
@@ -1504,24 +1294,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.vertex_shader   = api.create_shader("shaders/voxel_points.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/voxel_points.frag.spv");
 
-        // voxel options
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // debug
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // voxels textures
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
         pinfo.topology = vulkan::PrimitiveTopology::PointList;
 
         pinfo.enable_depth_write = true;
@@ -1533,142 +1305,24 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_clear.comp.spv");
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 3,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
         pass.clear_voxels = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
-
-        // voxel options
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // voxel debug
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-
-        // voxels textures
-        // albedo
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-        // normal
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 3,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-        // radiance
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 4,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
-
-        // shadow splits
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 5,
-            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // shadow view/proj matrices
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 6,
-            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        });
-        // shadow cascades
-        pinfo.binding({
-            .set    = vulkan::SHADER_DESCRIPTOR_SET,
-            .slot   = 7,
-            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .count  = 4,
-        });
-
         pass.inject_radiance = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
-        // voxel options
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // radiance
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
-
-        // aniso volumes
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                       .count  = 6});
         pass.generate_aniso_base = api.create_program(std::move(pinfo));
     }
 
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
-
-        // voxel options
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 0,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // mip src
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 1,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
-        // source mip
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 2,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                       .count  = 6});
-
-        // dst mip
-        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
-                       .slot   = 3,
-                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                       .count  = 6});
         pass.generate_aniso_mipmap = api.create_program(std::move(pinfo));
     }
 

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_COMPILER "clang")
 
-project(test-vulkan LANGUAGES CXX)
+project(test-vulkan LANGUAGES C CXX)
 
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
@@ -101,7 +101,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND glslc -O --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
@@ -140,8 +140,8 @@ add_library(simdjson third_party/simdjson/simdjson.cpp)
 target_link_libraries(test-vulkan PRIVATE simdjson)
 
 #
-# simdjson
+# spirv-reflect
 #
 add_library(spirv-reflect third_party/SPIRV-Reflect/spirv_reflect.c)
-set_target_properties(spirv-reflect PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(spirv-reflect PRIVATE Vulkan::Vulkan)
 target_link_libraries(test-vulkan PRIVATE spirv-reflect)

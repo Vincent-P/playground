@@ -28,7 +28,7 @@ layout (set = 1, binding = 6) uniform CM {
     CascadeMatrix cascade_matrices[10];
 };
 
-layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
+layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[4];
 
 
 float ray_trace_voxel_occlusion(int3 voxel_origin, float3 direction)

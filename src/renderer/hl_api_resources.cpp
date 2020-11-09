@@ -8,6 +8,7 @@
 #include <iostream>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+#include <SPIRV-Reflect/spirv_reflect.h>
 
 namespace my_app::vulkan
 {
@@ -723,7 +724,6 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
     bindings.reserve(binding_set.bindings_info.size());
     flags.reserve(binding_set.bindings_info.size());
 
-
     binding_set.binded_data.resize(binding_set.bindings_info.size());
 
     usize i = 0;
@@ -770,12 +770,151 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     GraphicsProgram program;
 
     /// --- Create descriptor set layout
+    constexpr usize shader_count = 3;
+    std::array<SpvReflectShaderModule, shader_count> shader_modules;
 
-    for (uint i = 0; i < MAX_DESCRIPTOR_SET; i++)
+    std::array<VkShaderStageFlags, shader_count> shader_stage_flags = {
+        VK_SHADER_STAGE_VERTEX_BIT,
+        VK_SHADER_STAGE_GEOMETRY_BIT,
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+
+    std::array<ShaderH, shader_count> shader_handles = {
+        info.vertex_shader,
+        info.geom_shader,
+        info.fragment_shader,
+    };
+
+    SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
+    for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {
-        program.binding_sets_by_freq[i].bindings_info = std::move(info.bindings_by_set[i]);
-        init_binding_set(ctx, program.binding_sets_by_freq[i]);
+        if (!shader_handles[i_shader].is_valid()) continue;
+        const auto &shader = get_shader(shader_handles[i_shader]);
+        result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_modules[i_shader]);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
     }
+
+    constexpr usize MAX_DESCRIPTOR_SETS = 3;
+    std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
+    std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
+    std::array<std::vector<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
+
+    for (uint i_shader = 0; i_shader < shader_count; i_shader++)
+    {
+        if (!shader_handles[i_shader].is_valid()) continue;
+
+        u32 count = 0;
+        result         = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
+        result = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, descriptor_sets.data());
+        assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+        for (usize i_set = 0; i_set < descriptor_sets.size(); i_set++)
+        {
+            const SpvReflectDescriptorSet &refl_set = *(descriptor_sets[i_set]);
+
+            usize set_number = refl_set.set; // actual set index
+            assert(set_number < MAX_DESCRIPTOR_SETS && "The engine only supports 3 descriptor sets.");
+
+
+
+            for (u32 i_binding = 0; i_binding < refl_set.binding_count; i_binding++)
+            {
+                const SpvReflectDescriptorBinding &refl_binding = *(refl_set.bindings[i_binding]);
+
+                auto slot = refl_binding.binding;
+
+                if (slot >= bindings_per_set[set_number].size())
+                {
+                    bindings_per_set[set_number].resize(slot+1);
+                    bindings_initialized_per_set[set_number].resize(slot+1);
+                    binding_flags_per_set[set_number].resize(slot+1);
+                }
+
+                auto &binding = bindings_per_set[set_number][slot];
+                auto &flag = binding_flags_per_set[set_number][slot];
+                int &is_initialized = bindings_initialized_per_set[set_number][slot];
+
+                auto descriptorType = static_cast<VkDescriptorType>(refl_binding.descriptor_type);
+
+                // all uniform buffers are dynamic
+                if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                    descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+                }
+
+                u32 descriptorCount = 1;
+                for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++) {
+                    descriptorCount *= refl_binding.array.dims[i_dim];
+                }
+                auto stageFlags = static_cast<VkShaderStageFlagBits>(shader_modules[i_shader].shader_stage);
+
+                if (is_initialized)
+                {
+                    binding.stageFlags |= shader_stage_flags[i_shader];
+                    if (binding.binding != slot
+                        || binding.descriptorType != descriptorType
+                        || binding.descriptorCount != descriptorCount)
+                    {
+                        assert(false && "The binding is different in another stage.");
+                    }
+                }
+                else
+                {
+                    binding.binding         = slot;
+                    binding.descriptorType  = descriptorType;
+                    binding.descriptorCount = descriptorCount;
+                    binding.stageFlags      = stageFlags;
+                    flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    is_initialized = 1;
+                }
+            }
+        }
+    }
+
+    // Init binding set
+    for (usize i_set = SHADER_DESCRIPTOR_SET; i_set < bindings_per_set.size(); i_set++)
+    {
+        auto &binding_set = program.binding_sets_by_freq[i_set - 1];
+
+        const auto &flags = binding_flags_per_set[i_set];
+        const auto &bindings = bindings_per_set[i_set];
+        binding_set.binded_data.resize(bindings.size());
+
+        binding_set.bindings_info.resize(bindings.size());
+        for (usize i_binding = 0; i_binding < bindings.size(); i_binding++)
+        {
+            const auto &binding = bindings[i_binding];
+
+            auto &binding_info = binding_set.bindings_info[i_binding];
+            binding_info.count = binding.descriptorCount;
+            binding_info.set = i_set;
+            binding_info.slot = i_binding;
+            binding_info.stages = binding.stageFlags;
+            binding_info.type = binding.descriptorType;
+
+            if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+            {
+                binding_set.dynamic_offsets.push_back(0);
+                binding_set.dynamic_bindings.push_back(i_binding);
+            }
+        }
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+        flags_info.bindingCount  = static_cast<u32>(bindings.size());
+        flags_info.pBindingFlags = flags.data();
+
+        VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        layout_info.pNext                           = &flags_info;
+        layout_info.flags                           = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+        layout_info.bindingCount                    = static_cast<u32>(bindings.size());
+        layout_info.pBindings                       = bindings.data();
+
+        VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &binding_set.descriptor_layout));
+    }
+
+    /// ---
 
     /// --- Create pipeline layout
 
@@ -811,8 +950,104 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     ComputeProgram program;
 
     /// --- Create descriptor set layout
-    program.binding_set.bindings_info = std::move(info.bindings);
-    init_binding_set(ctx, program.binding_set);
+    SpvReflectShaderModule shader_module;
+
+    SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
+    const auto &shader = get_shader(info.shader);
+    result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_module);
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    std::vector<VkDescriptorBindingFlags> binding_flags;
+
+    u32 count = 0;
+    result         = spvReflectEnumerateDescriptorSets(&shader_module, &count, nullptr);
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
+    result = spvReflectEnumerateDescriptorSets(&shader_module, &count, descriptor_sets.data());
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    for (usize i_set = 0; i_set < descriptor_sets.size(); i_set++)
+    {
+        const SpvReflectDescriptorSet &refl_set = *(descriptor_sets[i_set]);
+
+        usize set_number = refl_set.set; // actual set index
+        if (set_number != SHADER_DESCRIPTOR_SET) continue;
+
+        for (u32 i_binding = 0; i_binding < refl_set.binding_count; i_binding++)
+        {
+            const SpvReflectDescriptorBinding &refl_binding = *(refl_set.bindings[i_binding]);
+
+            auto slot = refl_binding.binding;
+
+            if (slot >= bindings.size())
+            {
+                bindings.resize(slot+1);
+                binding_flags.resize(slot+1);
+            }
+
+            auto &binding = bindings[slot];
+            auto &flag = binding_flags[slot];
+
+            auto descriptorType = static_cast<VkDescriptorType>(refl_binding.descriptor_type);
+
+            // all uniform buffers are dynamic
+            if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+            }
+
+            u32 descriptorCount = 1;
+            for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++) {
+                descriptorCount *= refl_binding.array.dims[i_dim];
+            }
+            auto stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+            binding.binding         = slot;
+            binding.descriptorType  = descriptorType;
+            binding.descriptorCount = descriptorCount;
+            binding.stageFlags      = stageFlags;
+
+            flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        }
+    }
+
+    // Init binding set
+    auto &binding_set = program.binding_set;
+    const auto &flags = binding_flags;
+
+    binding_set.binded_data.resize(bindings.size());
+
+    binding_set.bindings_info.resize(bindings.size());
+    for (usize i_binding = 0; i_binding < bindings.size(); i_binding++)
+    {
+        const auto &binding = bindings[i_binding];
+
+        auto &binding_info = binding_set.bindings_info[i_binding];
+        binding_info.count = binding.descriptorCount;
+        binding_info.set = 1;
+        binding_info.slot = i_binding;
+        binding_info.stages = binding.stageFlags;
+        binding_info.type = binding.descriptorType;
+
+        if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+        {
+            binding_set.dynamic_offsets.push_back(0);
+            binding_set.dynamic_bindings.push_back(i_binding);
+        }
+    }
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+    flags_info.bindingCount  = static_cast<u32>(bindings.size());
+    flags_info.pBindingFlags = flags.data();
+
+    VkDescriptorSetLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    layout_info.pNext                           = &flags_info;
+    layout_info.flags                           = {/*vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool*/};
+    layout_info.bindingCount                    = static_cast<u32>(bindings.size());
+    layout_info.pBindings                       = bindings.data();
+
+    VK_CHECK(vkCreateDescriptorSetLayout(ctx.device, &layout_info, nullptr, &binding_set.descriptor_layout));
 
     /// --- Create pipeline layout
 
