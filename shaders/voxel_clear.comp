@@ -3,13 +3,13 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(set = 0, binding = 0) uniform VO {
+layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 0, binding = 1) writeonly uniform image3D voxels_albedo;
-layout(set = 0, binding = 2) writeonly uniform image3D voxels_normal;
-layout(set = 0, binding = 3) writeonly uniform image3D voxels_radiance;
+layout(set = 1, binding = 1) writeonly uniform image3D voxels_albedo;
+layout(set = 1, binding = 2) writeonly uniform image3D voxels_normal;
+layout(set = 1, binding = 3) writeonly uniform image3D voxels_radiance;
 // layout(set = 0, binding = 3) writeonly uniform image3D voxels_radiance;
 
 void main()

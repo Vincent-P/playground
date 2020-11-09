@@ -37,7 +37,7 @@ void Renderer::create(Renderer& r, const window::Window &window, Camera &camera,
 
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
-    r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
+    r.model = std::make_shared<Model>(load_model("../models/SponzaBlender/SponzaBlender.gltf")); // TODO: where??
 
     r.p_ui     = &ui;
     r.p_camera = &camera;
@@ -321,7 +321,7 @@ static void add_imgui_pass(Renderer &r)
             const auto &draw_command = cmd_list.CmdBuffer[command_index];
 
             if (draw_command.TextureId) {
-                auto image_view_h = vulkan::ImageViewH(static_cast<u32>(reinterpret_cast<u64>(draw_command.TextureId)));
+                const auto& image_view_h = *reinterpret_cast<const vulkan::ImageViewH*>(&draw_command.TextureId);
                 external_images.push_back(api.get_image_view(image_view_h).image_h);
             }
         }
@@ -389,12 +389,12 @@ static void add_imgui_pass(Renderer &r)
                 const auto &cmd_list = *data->CmdLists[list];
 
                 for (int command_index = 0; command_index < cmd_list.CmdBuffer.Size; command_index++) {
-                    const auto &draw_command = &cmd_list.CmdBuffer[command_index];
+                    const auto &draw_command = cmd_list.CmdBuffer[command_index];
 
                     vulkan::GraphicsProgramH current = pass_data.float_program;
 
-                    if (draw_command->TextureId) {
-                        auto texture = vulkan::ImageViewH(static_cast<u32>(reinterpret_cast<u64>(draw_command->TextureId)));
+                    if (draw_command.TextureId) {
+                        const auto& texture = *reinterpret_cast<const vulkan::ImageViewH*>(&draw_command.TextureId);
                         auto& image_view = api.get_image_view(texture);
 
                         if (image_view.format == VK_FORMAT_R32_UINT)
@@ -413,10 +413,10 @@ static void add_imgui_pass(Renderer &r)
 
                     // Project scissor/clipping rectangles into framebuffer space
                     ImVec4 clip_rect;
-                    clip_rect.x = (draw_command->ClipRect.x - clip_off.x) * clip_scale.x;
-                    clip_rect.y = (draw_command->ClipRect.y - clip_off.y) * clip_scale.y;
-                    clip_rect.z = (draw_command->ClipRect.z - clip_off.x) * clip_scale.x;
-                    clip_rect.w = (draw_command->ClipRect.w - clip_off.y) * clip_scale.y;
+                    clip_rect.x = (draw_command.ClipRect.x - clip_off.x) * clip_scale.x;
+                    clip_rect.y = (draw_command.ClipRect.y - clip_off.y) * clip_scale.y;
+                    clip_rect.z = (draw_command.ClipRect.z - clip_off.x) * clip_scale.x;
+                    clip_rect.w = (draw_command.ClipRect.w - clip_off.y) * clip_scale.y;
 
                     // Apply scissor/clipping rectangle
                     // FIXME: We could clamp width/height based on clamped min/max values.
@@ -428,9 +428,9 @@ static void add_imgui_pass(Renderer &r)
 
                     api.set_scissor(scissor);
 
-                    api.draw_indexed(draw_command->ElemCount, 1, index_offset, vertex_offset, 0);
+                    api.draw_indexed(draw_command.ElemCount, 1, index_offset, vertex_offset, 0);
 
-                    index_offset += draw_command->ElemCount;
+                    index_offset += draw_command.ElemCount;
                 }
                 vertex_offset += cmd_list.VtxBuffer.Size;
             }
@@ -527,19 +527,22 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
         // atmosphere params
-        pinfo.binding({.slot =  0,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
         // transmittance lut
-        pinfo.binding({.slot =  1,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
 
         // multiscattering lut
-        pinfo.binding({.slot =  2,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         pass.compute_multiscattering_lut = api.create_program(std::move(pinfo));
     }
@@ -1156,9 +1159,9 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
             GltfPushConstant constants = {};
             constants.node_idx          = node_idx;
 
-            constants.base_color_idx         = *material.base_color_texture;
-            constants.normal_map_idx         = *material.normal_texture;
-            constants.metallic_roughness_idx = *material.metallic_roughness_texture;
+            constants.base_color_idx         = material.base_color_texture ? *material.base_color_texture : u32_invalid;
+            constants.normal_map_idx         = material.normal_texture ? *material.normal_texture : u32_invalid;
+            constants.metallic_roughness_idx = material.metallic_roughness_texture ? *material.metallic_roughness_texture : u32_invalid;
 
             constants.base_color_factor = material.base_color_factor;
             constants.metallic_factor   = material.metallic_factor;
@@ -1463,10 +1466,10 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
                    .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                    .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-    // projection cameras
+    // voxel cube projection cameras
     pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
                    .slot   = 2,
-                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT,
+                   .stages = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                    .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
     // voxels textures
@@ -1485,30 +1488,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         .offset = 0,
         .size   = sizeof(GltfPushConstant),
     });
-
-    // shadow splits
-    pinfo.binding({
-        .set    = vulkan::SHADER_DESCRIPTOR_SET,
-        .slot   = 5,
-        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-    });
-    // shadow view/proj matrices
-    pinfo.binding({
-        .set    = vulkan::SHADER_DESCRIPTOR_SET,
-        .slot   = 6,
-        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-    });
-    // shadow cascades
-    pinfo.binding({
-        .set    = vulkan::SHADER_DESCRIPTOR_SET,
-        .slot   = 7,
-        .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .count  = 4,
-    });
-
 
     pinfo.vertex_stride(sizeof(GltfVertex));
     pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1554,21 +1533,25 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     {
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_clear.comp.spv");
-        pinfo.binding({.slot =  0,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        pinfo.binding({.slot =  1,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
-        pinfo.binding({.slot =  2,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
-        pinfo.binding({.slot =  3,
-                       .stages =  VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type =  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
+                       .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
 
         pass.clear_voxels = api.create_program(std::move(pinfo));
     }
@@ -1577,34 +1560,58 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         vulkan::ComputeProgramInfo pinfo{};
         pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
 
-
-        pinfo.binding({.slot   = 0,
-                       .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
-
         // voxel options
-        pinfo.binding({.slot   = 1,
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 0,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
 
-        // directional light
-        pinfo.binding({.slot   = 2,
+        // voxel debug
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 1,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC});
+
 
         // voxels textures
         // albedo
-        pinfo.binding({.slot   = 3,
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 2,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
         // normal
-        pinfo.binding({.slot   = 4,
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 3,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER});
         // radiance
-        pinfo.binding({.slot   = 5,
+        pinfo.binding({.set    = vulkan::SHADER_DESCRIPTOR_SET,
+                       .slot   = 4,
                        .stages = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type   = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE});
+
+        // shadow splits
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 5,
+            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+        });
+        // shadow view/proj matrices
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 6,
+            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+        });
+        // shadow cascades
+        pinfo.binding({
+            .set    = vulkan::SHADER_DESCRIPTOR_SET,
+            .slot   = 7,
+            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+            .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .count  = 4,
+        });
 
         pass.inject_radiance = api.create_program(std::move(pinfo));
     }
@@ -1745,30 +1752,16 @@ static void add_voxelization_pass(Renderer &r)
     buffer1[1] = projection * Camera::look_at(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
     buffer1[2] = projection * Camera::look_at(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
-    std::vector<ImageDescH> sampled_images;
-    for (auto cascade : r.shadow_cascades) {
-        sampled_images.push_back(cascade);
-    }
-
-    const auto &trilinear_sampler = r.trilinear_sampler;
-    const auto &depth_slices_pos = r.depth_slices_pos;
-    const auto &matrices_pos = r.matrices_pos;
 
     graph.add_pass({
         .name = "Voxelization",
         .type = PassType::Graphics,
-        .sampled_images = sampled_images,
         .storage_images = {r.voxels_albedo, r.voxels_normal},
         .samples = VK_SAMPLE_COUNT_32_BIT,
-        .exec = [pass_data, model_data=r.gltf, voxel_options=r.voxel_options, trilinear_sampler, depth_slices_pos, matrices_pos](RenderGraph& graph, RenderPass &self, vulkan::API &api)
+        .exec = [pass_data, model_data=r.gltf, voxel_options=r.voxel_options](RenderGraph& graph, RenderPass &self, vulkan::API &api)
         {
             auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
             auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
-            std::vector<vulkan::ImageH> shadow_cascades;
-            shadow_cascades.reserve(self.sampled_images.size());
-            for (auto image : self.sampled_images) {
-                shadow_cascades.push_back(graph.get_resolved_image(image));
-            }
 
             auto program = pass_data.voxelization;
 
@@ -1781,22 +1774,6 @@ static void add_voxelization_pass(Renderer &r)
             auto &normal_uint = api.get_image(voxels_normal).format_views[0];
             api.bind_image(program, albedo_uint, vulkan::SHADER_DESCRIPTOR_SET, 3);
             api.bind_image(program, normal_uint, vulkan::SHADER_DESCRIPTOR_SET, 4);
-
-            api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 5);
-            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
-
-            {
-                std::vector<vulkan::ImageViewH> views;
-                views.reserve(shadow_cascades.size());
-                for (const auto &cascade_h : shadow_cascades) {
-                    views.push_back(api.get_image(cascade_h).default_view);
-                }
-                api.bind_combined_images_samplers(program,
-                                                 views,
-                                                  {trilinear_sampler},
-                                                 vulkan::SHADER_DESCRIPTOR_SET,
-                                                 7);
-            }
 
             api.bind_index_buffer(model_data.index_buffer);
             api.bind_vertex_buffer(model_data.vertex_buffer);
@@ -1886,29 +1863,56 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
-    auto global_data = r.global_uniform_pos;
+    const auto &depth_slices_pos = r.depth_slices_pos;
+    const auto &matrices_pos = r.matrices_pos;
+
+    std::vector<ImageDescH> sampled_images = {r.voxels_albedo, r.voxels_normal};
+    for (auto cascade : r.shadow_cascades) {
+        sampled_images.push_back(cascade);
+    }
 
     graph.add_pass({
             .name = "Voxels direct lighting",
             .type = PassType::Compute,
-            .sampled_images = {r.voxels_albedo, r.voxels_normal},
+            .sampled_images = sampled_images,
             .storage_images = {r.voxels_radiance},
             .exec =
-            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, global_data]
+            [pass_data=r.voxels, trilinear_sampler=r.trilinear_sampler, voxel_options=r.voxel_options, depth_slices_pos, matrices_pos]
             (RenderGraph &graph, RenderPass &self, vulkan::API &api)
             {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
                 auto voxels_normal = graph.get_resolved_image(self.sampled_images[1]);
+                std::vector<vulkan::ImageH> shadow_cascades;
+                shadow_cascades.reserve(self.sampled_images.size() - 2);
+                for (usize i = 2; i < self.sampled_images.size(); i++) {
+                    shadow_cascades.push_back(graph.get_resolved_image(self.sampled_images[i]));
+                }
+
                 auto voxels_radiance = graph.get_resolved_image(self.storage_images[0]);
 
                 const auto &program = pass_data.inject_radiance;
 
-                api.bind_buffer(program, global_data, 0);
-                api.bind_buffer(program, pass_data.voxel_options_pos, 1);
-                api.bind_buffer(program, pass_data.vct_debug_pos, 2);
-                api.bind_combined_image_sampler(program, api.get_image(voxels_albedo).default_view, trilinear_sampler, 3);
-                api.bind_combined_image_sampler(program, api.get_image(voxels_normal).default_view, trilinear_sampler, 4);
-                api.bind_image(program, api.get_image(voxels_radiance).default_view, 5);
+                api.bind_buffer(program, pass_data.voxel_options_pos, 0);
+                api.bind_buffer(program, pass_data.vct_debug_pos, 1);
+                api.bind_combined_image_sampler(program, api.get_image(voxels_albedo).default_view, trilinear_sampler, 2);
+                api.bind_combined_image_sampler(program, api.get_image(voxels_normal).default_view, trilinear_sampler, 3);
+                api.bind_image(program, api.get_image(voxels_radiance).default_view, 4);
+
+                api.bind_buffer(program, depth_slices_pos, 5);
+                api.bind_buffer(program, matrices_pos, 6);
+
+                {
+                    std::vector<vulkan::ImageViewH> views;
+                    views.reserve(shadow_cascades.size());
+                    for (const auto &cascade_h : shadow_cascades) {
+                        views.push_back(api.get_image(cascade_h).default_view);
+                    }
+                    api.bind_combined_images_samplers(program,
+                                                     views,
+                                                      {trilinear_sampler},
+                                                     7);
+                }
+
 
                 auto count = voxel_options.res / 8;
                 api.dispatch(program, count, count, count);
@@ -2072,7 +2076,7 @@ void update_uniforms(Renderer &r)
     auto resolution_scale = r.settings.resolution_scale;
     globals->resolution      = {static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.width), static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.height)};
     globals->sun_direction   = -1.0f * r.sun.front;
-    globals->sun_illuminance = float3(100.0f); // TODO: move from global and use real values (will need auto exposure)
+    globals->sun_illuminance = r.sun_illuminance; // TODO: move from global and use real values (will need auto exposure)
     globals->ambient         = r.ambient;
 
     r.api.bind_buffer({}, r.global_uniform_pos, vulkan::GLOBAL_DESCRIPTOR_SET, 0);
@@ -2235,8 +2239,14 @@ void Renderer::display_ui(UI::Context &ui)
 
     if (ui.begin_window("Global"))
     {
+        ImGui::SliderFloat("Sun Illuminance", &sun_illuminance.x, 1.0f, 100.0f);
+
+        sun_illuminance.y = sun_illuminance.x;
+        sun_illuminance.z = sun_illuminance.x;
+
         ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
         ImGui::SliderFloat("Ambient", &ambient, 0.0f, 1.0f);
+
         p_ui->end_window();
     }
 
@@ -2260,7 +2270,7 @@ void Renderer::display_ui(UI::Context &ui)
         {
             static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting", "Direct lighting"};
             tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
-            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 10.0f);
+            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 30.0f);
             ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
             ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
             ImGui::SliderFloat("Start position (in voxel)", &vct_debug.start, 0.0f, 2.0f);
@@ -2296,7 +2306,7 @@ void Renderer::display_ui(UI::Context &ui)
         {
             auto &res = graph.images.at(shadow_map);
             if (res.resolved_img.is_valid()) {
-                ImGui::Image((void*)(u64)(api.get_image(res.resolved_img).default_view.value()), ImVec2(512, 512));
+                ImGui::Image((void*)(api.get_image(res.resolved_img).default_view.hash()), ImVec2(512, 512));
             }
         }
         ui.end_window();

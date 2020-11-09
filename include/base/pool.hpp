@@ -43,6 +43,12 @@ template <typename T> struct Handle
     {
         return index;
     }
+
+    [[nodiscard]] u64 hash() const
+    {
+        return u64(index) << 32 | gen;
+    }
+
     [[nodiscard]] bool is_valid() const
     {
         return index != u32_invalid && gen != u32_invalid;

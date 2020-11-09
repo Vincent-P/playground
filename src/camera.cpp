@@ -74,7 +74,7 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
             {
                 theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
 
-                constexpr auto low = -90.0f;
+                constexpr auto low = -179.0f;
                 constexpr auto high = 0.0f;
                 if (low <= phi && phi < high)
                 {

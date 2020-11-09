@@ -2,12 +2,12 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(set = 0, binding = 0) uniform VO {
+layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 0, binding = 1) uniform sampler3D voxels_radiance;
-layout(set = 0, binding = 2, rgba8) uniform image3D voxels_directional_volumes[6];
+layout(set = 1, binding = 1) uniform sampler3D voxels_radiance;
+layout(set = 1, binding = 2, rgba8) uniform image3D voxels_directional_volumes[6];
 
 #define DirIntegration(from, to) (from + to * (1 - from.a))
 

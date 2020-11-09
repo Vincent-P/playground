@@ -662,14 +662,12 @@ CircularBufferPosition API::dynamic_index_buffer(usize len)
 ShaderH API::create_shader(std::string_view path)
 {
     Shader shader;
-
-    shader.name = path;
-    auto code   = tools::read_file(path);
-    // keep code for reflection?
+    shader.name     = path;
+    shader.bytecode = tools::read_file(path);
 
     VkShaderModuleCreateInfo info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    info.codeSize                 = code.size();
-    info.pCode                    = reinterpret_cast<const u32 *>(code.data());
+    info.codeSize                 = shader.bytecode.size();
+    info.pCode                    = reinterpret_cast<const u32 *>(shader.bytecode.data());
 
     VK_CHECK(vkCreateShaderModule(ctx.device, &info, nullptr, &shader.vkhandle));
 
@@ -827,9 +825,14 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         return range;
     });
 
+    std::array<VkDescriptorSetLayout, 1 + 1 /*global set*/> layouts = {
+        global_bindings.binding_set.descriptor_layout,
+        program.binding_set.descriptor_layout,
+    };
+
     VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    ci.pSetLayouts                = &program.binding_set.descriptor_layout;
-    ci.setLayoutCount             = 1;
+    ci.pSetLayouts                = layouts.data();
+    ci.setLayoutCount             = layouts.size();
     ci.pPushConstantRanges        = pc_ranges.data();
     ci.pushConstantRangeCount     = static_cast<u32>(pc_ranges.size());
 

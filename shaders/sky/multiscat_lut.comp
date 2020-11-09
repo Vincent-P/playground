@@ -1,12 +1,12 @@
 #include "globals.h"
 #include "atmosphere.h"
 
-layout (set = 0, binding = 0) uniform AtmosphereUniform {
+layout (set = 1, binding = 0) uniform AtmosphereUniform {
     AtmosphereParameters atmosphere;
 };
 
-layout(set = 0, binding = 1) uniform sampler2D transmittance_lut; // sampler linear clamp
-layout(set = 0, binding = 2) uniform writeonly image2D multiscattering_lut;
+layout(set = 1, binding = 1) uniform sampler2D transmittance_lut; // sampler linear clamp
+layout(set = 1, binding = 2) uniform writeonly image2D multiscattering_lut;
 
 void preintegrate_multiscattering(AtmosphereParameters atmosphere, out float3 L, out float3 Lf, float3 p, float3 dir, float3 sun_dir)
 {

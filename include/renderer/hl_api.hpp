@@ -225,6 +225,7 @@ struct Shader
 {
     std::string name;
     VkShaderModule vkhandle;
+    std::vector<u8> bytecode;
 
     bool operator==(const Shader &b) const = default;
 };

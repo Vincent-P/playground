@@ -210,7 +210,10 @@ struct Renderer
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
-    float ambient = 0.0f; // todo clean this pls
+
+    // todo clean this pls
+    float ambient = 0.0f;
+    float3 sun_illuminance = 100.0f;
 
 };
 

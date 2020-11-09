@@ -8,6 +8,7 @@ layout (location = 5) in vec4 inWeight0;
 layout (location = 0) out vec2 outUV0;
 
 #include "globals.h"
+#define PBR_NO_NORMALS
 #include "pbr.h"
 
 layout (set = 1, binding = 0) uniform UBONode {

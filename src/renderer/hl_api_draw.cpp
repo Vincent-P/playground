@@ -933,7 +933,18 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     undirty_descriptor_set(*this, program.binding_set);
     auto &descriptor_set      = get_descriptor_set(program.binding_set);
     descriptor_set.frame_used = ctx.frame_count;
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, 1, &descriptor_set.set, program.binding_set.dynamic_offsets.size(), program.binding_set.dynamic_offsets.data());
+
+    auto &global_set      = get_descriptor_set(global_bindings.binding_set);
+    global_set.frame_used = ctx.frame_count;
+
+    std::array descriptor_sets = {global_set.set, descriptor_set.set};
+
+    auto dynamic_offsets = global_bindings.binding_set.dynamic_offsets;
+    dynamic_offsets.insert(dynamic_offsets.end(), program.binding_set.dynamic_offsets.begin(), program.binding_set.dynamic_offsets.end());
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, descriptor_sets.size(), descriptor_sets.data(), dynamic_offsets.size(), dynamic_offsets.data());
+
+
     vkCmdDispatch(cmd, x, y, z);
 }
 } // namespace my_app::vulkan

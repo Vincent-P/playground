@@ -54,9 +54,9 @@ struct Material
     float4 base_color_factor = float4(1.0f);
     float metallic_factor = 1.0f;
     float roughness_factor = 1.0f;
-    std::optional<u32> base_color_texture = {};
-    std::optional<u32> normal_texture = {};
-    std::optional<u32> metallic_roughness_texture = {};
+    std::optional<u32> base_color_texture = std::nullopt;
+    std::optional<u32> normal_texture = std::nullopt;
+    std::optional<u32> metallic_roughness_texture = std::nullopt;
 };
 
 struct Image
@@ -67,10 +67,10 @@ struct Image
 
 struct Sampler
 {
-    Filter mag_filter;
-    Filter min_filter;
-    Wrap wrap_s;
-    Wrap wrap_t;
+    Filter mag_filter = Filter::Linear;
+    Filter min_filter = Filter::Linear;
+    Wrap wrap_s = Wrap::Repeat;
+    Wrap wrap_t = Wrap::Repeat;
 };
 
 struct Texture
@@ -114,7 +114,7 @@ inline std::optional<AccessorType> accessor_type_from_str(const std::string &str
 
 struct Primitive
 {
-    RenderingMode mode;
+    RenderingMode mode = RenderingMode::Triangles;
     u32 material;
 
     u32 first_index;

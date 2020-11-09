@@ -3,11 +3,11 @@
 #include "globals.h"
 #include "pbr.h"
 
-layout (location = 0) in vec2 inUV0;
+layout (location = 0) in float2 i_uv;
 
 void main()
 {
-    vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+    float4 base_color = get_base_color(i_uv);
     if (base_color.a < 0.5) {
         discard;
     }

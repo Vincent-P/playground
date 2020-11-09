@@ -1,147 +1,85 @@
 #include "types.h"
 #include "voxels.h"
 #include "globals.h"
+#include "maths.h"
+#include "csm.h"
+
+#extension GL_EXT_nonuniform_qualifier : require
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(set = 0, binding = 1) uniform VO {
+layout(set = 1, binding = 0) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 0, binding = 2) uniform VCTD {
+layout(set = 1, binding = 1) uniform VCTD {
     VCTDebug vct_debug;
 };
 
-layout(set = 0, binding = 3) uniform sampler3D voxels_albedo;
-layout(set = 0, binding = 4) uniform sampler3D voxels_normal;
-layout(set = 0, binding = 5, rgba8) uniform image3D voxels_radiance;
+layout(set = 1, binding = 2) uniform sampler3D voxels_albedo;
+layout(set = 1, binding = 3) uniform sampler3D voxels_normal;
+layout(set = 1, binding = 4, rgba8) uniform image3D voxels_radiance;
 
-#define EPSILON 0.001
+layout (set = 1, binding = 5) uniform CD {
+    float4 cascades_depth_slices[4];
+};
 
-float TraceShadow(vec3 position, vec3 direction, float maxTracingDistance)
+layout (set = 1, binding = 6) uniform CM {
+    CascadeMatrix cascade_matrices[10];
+};
+
+layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
+
+
+float ray_trace_voxel_occlusion(int3 voxel_origin, float3 direction)
 {
-    // scaling factor
-    float k = vct_debug.trace_shadow_hit * vct_debug.trace_shadow_hit;
+    float occlusion = 0.0;
 
-    float step = voxel_options.size;
-    float t = step * floor(vct_debug.first_step); // avoid self shadowing
+    float3 origin = float3(voxel_origin) / float3(voxel_options.res);
+    float step = 0.5 * 1 / voxel_options.res;
 
-    vec3 p = position;
+    float t = 1.2 * step;
 
-    float occlusion = 0.0f;
-    float sampled = 0.0f;
-
-    while (occlusion <= 1.0f && t < maxTracingDistance)
+    for (uint iter = 0; iter < 5000 && occlusion < 1.0; iter++)
     {
-        p = position + direction * t;
+        float3 p = origin + t * direction;
 
-        vec3 voxel_pos = WorldToVoxelTex(p, voxel_options);
-        if (voxel_pos.x < 0.0f || voxel_pos.y < 0.0f || voxel_pos.z < 0.0f
-            || voxel_pos.x > 1.0f || voxel_pos.y > 1.0f || voxel_pos.z > 1.0f)
+        if (any(greaterThan(p, float3(1.0))) || any(lessThan(p, float3(0.0))))
         {
             break;
         }
 
-        sampled = ceil(texture(voxels_albedo, voxel_pos).a) * k;
+        float sampled = float(texture(voxels_albedo, p).a > 0.001);
 
-        // hard shadows mode
-        if(sampled > 1.0f - EPSILON) { return 0.0f; }
+        occlusion += sampled * 1 / 5;
 
-        // accumulate
-        // occlusion += (1.0f - occlusion) * sampled / t;
-
-        // move further into volume
         t += step;
-
     }
 
-    occlusion = 1.0 - occlusion;
-    return max(occlusion, 0.0);
-}
-
-vec3 BRDF(vec3 albedo, vec3 normal, vec3 direction)
-{
-    float nDotL = 0.0f;
-#if 1
-    vec3 weight = normal * normal;
-    // calculate directional normal attenuation
-    float rDotL = dot(vec3(1.0, 0.0, 0.0), direction);
-    float uDotL = dot(vec3(0.0, 1.0, 0.0), direction);
-    float fDotL = dot(vec3(0.0, 0.0, 1.0), direction);
-
-    rDotL = normal.x > 0.0 ? max(rDotL, 0.0) : max(-rDotL, 0.0);
-    uDotL = normal.y > 0.0 ? max(uDotL, 0.0) : max(-uDotL, 0.0);
-    fDotL = normal.z > 0.0 ? max(fDotL, 0.0) : max(-fDotL, 0.0);
-    // voxel shading average from all front sides
-    nDotL = rDotL * weight.x + uDotL * weight.y + fDotL * weight.z;
-    nDotL = min(nDotL + 0.25, 1.0);
-#else
-    nDotL = dot(normal, direction);
-#endif
-    return albedo * vec3(nDotL);
-}
-
-vec4 DirectionalLighting(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_direction)
-{
-    vec3 position = VoxelToWorld(voxel_pos, voxel_options);
-    // position += normal * 0.5 * voxel_options.size;
-    vec3 direction = normalize(light_direction);
-
-    float visibility = TraceShadow(position, direction, 100.0f);
-    if (visibility < 0) {
-        return vec4(0.0);
-    }
-    return vec4(10*BRDF(albedo.rgb, normal, direction)*visibility, 1.0);
-}
-
-vec4 PointLight(ivec3 voxel_pos, vec4 albedo, vec3 normal, vec3 light_center)
-{
-    vec3 position = VoxelToWorld(voxel_pos, voxel_options);
-    position += normal * 1 * voxel_options.size;
-
-    vec3 light_pos = light_center;
-
-    vec3 direction = light_pos - position;
-    float distance = length(direction);
-    direction = normalize(direction);
-
-    float falloff = 1 / (distance*distance);
-    falloff *= vct_debug.point_scale;
-
-    float visibility = TraceShadow(position, direction, distance) * falloff;
-
-    if (visibility < 0) {
-        return vec4(0.0);
-    }
-
-    return vec4(BRDF(albedo.rgb, normal, direction)*visibility, visibility);
-}
-
-void InjectDirectLighting(ivec3 voxel_pos)
-{
-    vec4 albedo = texelFetch(voxels_albedo, voxel_pos, 0);
-
-    if (albedo.a < EPSILON) return;
-
-    vec3 normal = texelFetch(voxels_normal, voxel_pos, 0).xyz;
-    normal = normalize(DecodeNormal(normal));
-
-    vec4 lighting = vec4(0.0);
-    lighting = albedo;
-    // lighting += DirectionalLighting(voxel_pos, albedo, normal, global.sun_direction.xyz);
-    // lighting += PointLight(voxel_pos, albedo, normal, vct_debug.point_position.xyz);
-    lighting.a = 1;
-
-    imageStore(voxels_radiance, voxel_pos, lighting);
+    return clamp(occlusion, 0, 1);
 }
 
 void main()
 {
     ivec3 voxel_pos = ivec3(gl_GlobalInvocationID);
-
     if (voxel_pos.x > voxel_options.res || voxel_pos.y > voxel_options.res || voxel_pos.z > voxel_options.res) {
         return;
     }
 
-    InjectDirectLighting(voxel_pos);
+    vec4 albedo = texelFetch(voxels_albedo, voxel_pos, 0);
+
+    if (albedo.a <= 0.001) {
+        return;
+    }
+
+    vec3 normal = texelFetch(voxels_normal, voxel_pos, 0).xyz;
+    normal = normalize(DecodeNormal(normal));
+
+    float3 world_pos = VoxelCenterToWorld(voxel_pos, voxel_options);
+
+    float occlusion = ray_trace_voxel_occlusion(voxel_pos, global.sun_direction);
+    float visibility = 1.0 - occlusion;
+    float4 lighting = float4(visibility * global.sun_illuminance * albedo.rgb, 1.0);
+
+    imageStore(voxels_radiance, voxel_pos, lighting);
 }

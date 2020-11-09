@@ -3,8 +3,6 @@
 #include "pbr.h"
 #include "voxels.h"
 
-#extension GL_EXT_nonuniform_qualifier : require
-
 layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
@@ -74,23 +72,25 @@ float4 trace_cone(float3 origin, float3 direction, float aperture, float max_dis
     float4 cone_sampled = float4(0.0);
     float occlusion = 0.0;
     float sampling_factor = debug.sampling_factor < 0.2 ? 0.2 : debug.sampling_factor;
-    float mip_level = 0.0;
 
-    while (cone_sampled.a < 1.0f && d < max_dist)
+    uint iteration = 0;
+    while (cone_sampled.a < 1.0f && d < max_dist && iteration < 5000)
     {
         p = origin + d * direction;
 
         float diameter = 2.0 * aperture * d;
-        mip_level = log2(diameter / voxel_options.size);
+        float mip_level = log2(diameter / voxel_options.size);
 
         vec3 voxel_pos = WorldToVoxelTex(p, voxel_options);
 
         vec4 sampled = anisotropic_sample(voxel_pos, mip_level, direction, weight);
 
-        cone_sampled += (1.0 - cone_sampled) * sampled;
-        occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + debug.occlusion_lambda * diameter);
+        occlusion += ((1.0 - occlusion) * sampled.a)/* / ( 1.0 + debug.occlusion_lambda * diameter)*/;
+        // cone_sampled = occlusion * cone_sampled + (1.0 - occlusion) *sampled;
+        cone_sampled = cone_sampled + (1.0 - cone_sampled.a) * sampled;
 
         d += diameter * sampling_factor;
+        iteration += 1;
     }
 
     return float4(cone_sampled.rgb, 1.0 - occlusion);
@@ -119,7 +119,7 @@ const float diffuse_cone_weights[] =
 
 float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, float roughness)
 {
-    vec3 cone_origin = inWorldPos;
+    vec3 cone_origin = inWorldPos + voxel_options.size * N;
     vec4 diffuse = vec4(0.0);
 
     // tan(60 degres / 2), 6 cones of 60 degres each are used for the diffuse lighting
@@ -133,15 +133,15 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     vec3 right = normalize(guide - dot(N, guide) * N);
     vec3 up = cross(right, N);
 
-    vec3 direction;
+    vec3 cone_direction;
 
     for (uint i = 0; i < 6; i++)
     {
-        direction = N;
-        direction += diffuse_cone_directions[i].x * right + diffuse_cone_directions[i].z * up;
-        direction = normalize(direction);
+        cone_direction = N;
+        cone_direction += diffuse_cone_directions[i].x * right + diffuse_cone_directions[i].z * up;
+        cone_direction = normalize(cone_direction);
 
-        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, direction), 1.0) * trace_cone(cone_origin, direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
+        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) *  trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
     }
 
     return diffuse;
@@ -164,22 +164,9 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     {
         vec3 position = inWorldPos;
 
-        float aperture = roughnessToVoxelConeTracingApertureAngle(0.01);
+        float aperture = tan(roughness);
 
-        float3 cone_direction = normalize(float3(-V.x, 1.0, -V.z));
-
-        // Find a tangent and a bitangent
-        vec3 guide = vec3(0.0f, 1.0f, 0.0f);
-        if (abs(dot(N,guide)) == 1.0f) {
-            guide = vec3(0.0f, 0.0f, 1.0f);
-        }
-        vec3 right = normalize(guide - dot(N, guide) * N);
-        vec3 up = cross(right, N);
-        vec3 direction;
-
-        direction = N;
-        direction += cone_direction.x * right + cone_direction.z * up;
-        direction = normalize(direction);
+        float3 direction = normalize(reflect(-V, N));
 
         return /* float4(BRDF(albedo, N, V, metallic, roughness, direction), 1.0) * */ trace_cone(position, direction, aperture, debug.trace_dist);
     }
@@ -194,40 +181,40 @@ const float3 cascade_colors[] = {
 
 const uint poisson_samples_count = 34;
 const float2 poisson_disk[] = {
-float2(0.406502, 0.756506),
-float2(0.279631, 0.696462),
-float2(0.567672, 0.941495),
-float2(0.360208, 0.903442),
-float2(0.555281, 0.689364),
-float2(0.235924, 0.869388),
-float2(0.518792, 0.817887),
-float2(0.435682, 0.595854),
-float2(0.678636, 0.6115),
-float2(0.311392, 0.551959),
-float2(0.554119, 0.409778),
-float2(0.39846, 0.362876),
-float2(0.134518, 0.65794),
-float2(0.268294, 0.433624),
-float2(0.0947823, 0.435277),
-float2(0.763794, 0.839655),
-float2(0.361944, 0.152046),
-float2(0.512214, 0.241411),
-float2(0.27699, 0.279191),
-float2(0.0299073, 0.56727),
-float2(0.694992, 0.303407),
-float2(0.659453, 0.113724),
-float2(0.480078, 0.0794042),
-float2(0.785598, 0.176082),
-float2(0.734869, 0.437344),
-float2(0.871331, 0.480215),
-float2(0.911736, 0.3239),
-float2(0.131012, 0.796879),
-float2(0.187693, 0.119393),
-float2(0.100313, 0.294991),
-float2(0.552311, 0.540461),
-float2(0.849799, 0.615725),
-float2(0.99468, 0.435264),
-float2(0.977751, 0.587308),
+    float2(0.406502, 0.756506),
+    float2(0.279631, 0.696462),
+    float2(0.567672, 0.941495),
+    float2(0.360208, 0.903442),
+    float2(0.555281, 0.689364),
+    float2(0.235924, 0.869388),
+    float2(0.518792, 0.817887),
+    float2(0.435682, 0.595854),
+    float2(0.678636, 0.6115),
+    float2(0.311392, 0.551959),
+    float2(0.554119, 0.409778),
+    float2(0.39846, 0.362876),
+    float2(0.134518, 0.65794),
+    float2(0.268294, 0.433624),
+    float2(0.0947823, 0.435277),
+    float2(0.763794, 0.839655),
+    float2(0.361944, 0.152046),
+    float2(0.512214, 0.241411),
+    float2(0.27699, 0.279191),
+    float2(0.0299073, 0.56727),
+    float2(0.694992, 0.303407),
+    float2(0.659453, 0.113724),
+    float2(0.480078, 0.0794042),
+    float2(0.785598, 0.176082),
+    float2(0.734869, 0.437344),
+    float2(0.871331, 0.480215),
+    float2(0.911736, 0.3239),
+    float2(0.131012, 0.796879),
+    float2(0.187693, 0.119393),
+    float2(0.100313, 0.294991),
+    float2(0.552311, 0.540461),
+    float2(0.849799, 0.615725),
+    float2(0.99468, 0.435264),
+    float2(0.977751, 0.587308),
 };
 
 #define EPSILON 0.01
@@ -280,16 +267,15 @@ void main()
     visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
 
     /// --- Lighting
-    float3 normal = float3(0.0);
-    getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
-    float4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
-    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
+    float3 normal = get_normal(inWorldPos, inNormal, inUV0);
+    float4 base_color = get_base_color(inUV0);
+    float2 metallic_roughness = get_metallic_roughness(inUV0);
 
     // PBR
     float3 albedo = base_color.rgb /* * cascade_colors[cascade_idx] */;
     float3 N = normal;
     float3 V = normalize(global.camera_pos - inWorldPos);
-    float metallic = metallic_roughness.b;
+    float metallic = metallic_roughness.r;
     float roughness = metallic_roughness.g;
 
     float3 L = global.sun_direction; // point towards sun
@@ -298,9 +284,9 @@ void main()
 
     float3 direct = visibility * BRDF(albedo, N, V, metallic, roughness, L) * radiance * NdotL;
 
-    float4 indirect = indirect_lighting(albedo, N, V, metallic, roughness);
+    float4 indirect =  indirect_lighting(albedo, N, V, metallic, roughness);
 
-    // float4 reflection = trace_reflection(albedo, N, V, metallic, roughness);
+    float4 reflection = float4(0); // trace_reflection(albedo, inNormal, V, metallic, roughness);
 
     // base color
     if (debug.display_selected == 1)
@@ -336,7 +322,6 @@ void main()
     // no debug
     else
     {
-        // indirect += reflection;
     }
 
     float3 composite = (direct + indirect.rgb) * indirect.a;

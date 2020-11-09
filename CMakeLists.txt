@@ -101,7 +101,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
+    COMMAND glslc -O --target-env=vulkan1.2 -std=460 ${GLSL} -o ${SPIRV} -I "../shaders/include" # relative to build directory
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
@@ -138,3 +138,10 @@ target_link_libraries(test-vulkan
 #
 add_library(simdjson third_party/simdjson/simdjson.cpp)
 target_link_libraries(test-vulkan PRIVATE simdjson)
+
+#
+# simdjson
+#
+add_library(spirv-reflect third_party/SPIRV-Reflect/spirv_reflect.c)
+set_target_properties(spirv-reflect PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(test-vulkan PRIVATE spirv-reflect)

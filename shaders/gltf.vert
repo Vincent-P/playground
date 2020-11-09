@@ -14,6 +14,7 @@ layout (location = 5) out vec4 outWeight0;
 layout (location = 6) out vec4 outViewPos;
 
 #include "globals.h"
+#define PBR_NO_NORMALS
 #include "pbr.h"
 
 #extension GL_EXT_nonuniform_qualifier : require

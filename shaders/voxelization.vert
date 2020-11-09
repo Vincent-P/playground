@@ -1,4 +1,5 @@
 #include "types.h"
+#define PBR_NO_NORMALS
 #include "pbr.h"
 
 layout (location = 0) in vec3 inPosition;

@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "voxels.h"
 #include "pbr.h"
+#include "csm.h"
 
 #extension GL_EXT_nonuniform_qualifier : require
 
@@ -17,34 +18,11 @@ layout(set = 1, binding = 1) uniform VO {
 layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
 layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
 
-layout (set = 1, binding = 5) uniform CD {
-    float4 cascades_depth_slices[4];
-};
-
-struct CascadeMatrix
-{
-    float4x4 view;
-    float4x4 proj;
-};
-
-layout (set = 1, binding = 6) uniform CM {
-    CascadeMatrix cascade_matrices[10];
-};
-
-layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[];
-
-
-const float3 cascade_colors[] = {
-    float3(1.0, 0.0, 0.0),
-    float3(0.0, 1.0, 0.0),
-    float3(0.0, 0.0, 1.0),
-    float3(0.0, 1.0, 1.0),
-    };
-
 #define EPSILON 0.01
 
 void main()
 {
+#if 0
     /// --- Cascaded shadow
     int cascade_idx = 0;
     float4 shadow_coord = float4(0.0);
@@ -71,19 +49,18 @@ void main()
     }
     visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
 
-    vec4 base_color = texture(global_textures[constants.base_color_idx], inUV0);
+    float4 base_color = get_base_color(inUV0);
     if (base_color.a < 0.1) {
         discard;
     }
 
-    vec3 normal = vec3(0.0);
-    getNormalM(normal, inWorldPos, inNormal, global_textures[constants.normal_map_idx], inUV0);
+    vec3 normal = get_normal(inWorldPos, inNormal, inUV0);
 
     // PBR
     float3 N = normal;
     float3 V = normalize(global.camera_pos - inWorldPos);
     float3 albedo = base_color.rgb;
-    float4 metallic_roughness = texture(global_textures[constants.metallic_roughness_idx], inUV0);
+    float2 metallic_roughness = get_metallic_roughness(inUV0);
     float metallic = metallic_roughness.b;
     float roughness = metallic_roughness.g;
 
@@ -107,10 +84,18 @@ void main()
 
     float NdotL = max(dot(N, L), 0.0);
     float3 color = visibility * (kD * albedo / PI + specular) * radiance * NdotL;
+#else
+    float4 base_color = get_base_color(inUV0);
+    if (base_color.a < 0.1) {
+        discard;
+    }
+
+    float3 normal = get_normal(inWorldPos, inNormal, inUV0);
+#endif
 
     // output:
     ivec3 voxel_pos = WorldToVoxel(inWorldPos, voxel_options);
 
-    imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, color);
+    imageAtomicAverageRGBA8(voxels_albedo, voxel_pos, base_color.rgb);
     imageAtomicAverageRGBA8(voxels_normal, voxel_pos, EncodeNormal(normal));
 }
