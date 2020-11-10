@@ -808,5 +808,18 @@ inline VkPrimitiveTopology vk_topology_from_enum(PrimitiveTopology topology)
     return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 }
 
+inline usize vk_format_size(VkFormat format)
+{
+    constexpr usize SFLOAT_SIZE = 4;
+    switch (format)
+    {
+    case VK_FORMAT_R8G8B8A8_UNORM: return 4 * 1;
+    case VK_FORMAT_R32G32_SFLOAT: return 2 * SFLOAT_SIZE;
+    default: break;
+    }
+    assert(false);
+    return 4;
+}
+
 } // namespace vulkan
 } // namespace my_app

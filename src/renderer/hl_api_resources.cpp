@@ -788,7 +788,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {
-        if (!shader_handles[i_shader].is_valid()) continue;
+        if (!shader_handles[i_shader].is_valid()) { continue; }
         const auto &shader = get_shader(shader_handles[i_shader]);
         result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_modules[i_shader]);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
@@ -801,7 +801,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {
-        if (!shader_handles[i_shader].is_valid()) continue;
+        if (!shader_handles[i_shader].is_valid()) { continue; }
 
         u32 count = 0;
         result         = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
@@ -811,14 +811,12 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         result = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, descriptor_sets.data());
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-        for (usize i_set = 0; i_set < descriptor_sets.size(); i_set++)
+        for (const auto *p_refl_set : descriptor_sets)
         {
-            const SpvReflectDescriptorSet &refl_set = *(descriptor_sets[i_set]);
+            const SpvReflectDescriptorSet &refl_set = *p_refl_set;
 
             usize set_number = refl_set.set; // actual set index
             assert(set_number < MAX_DESCRIPTOR_SETS && "The engine only supports 3 descriptor sets.");
-
-
 
             for (u32 i_binding = 0; i_binding < refl_set.binding_count; i_binding++)
             {
@@ -871,6 +869,12 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
                 }
             }
         }
+    }
+
+    for (uint i_shader = 0; i_shader < shader_count; i_shader++)
+    {
+        if (!shader_handles[i_shader].is_valid()) { continue; }
+        spvReflectDestroyShaderModule(&shader_modules[i_shader]);
     }
 
     // Init binding set
@@ -1011,6 +1015,9 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
             flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
         }
     }
+
+    spvReflectDestroyShaderModule(&shader_module);
+
 
     // Init binding set
     auto &binding_set = program.binding_set;

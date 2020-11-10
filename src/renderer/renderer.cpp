@@ -216,17 +216,11 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 {
     Renderer::CheckerBoardFloorPass pass;
 
-    /// --- Create program
-
-    {
-    vulkan::GraphicsProgramInfo pinfo{};
-    pinfo.vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv");
-    pinfo.fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv");
-
-    pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-
-    pass.program = api.create_program(std::move(pinfo));
-    }
+    pass.program = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv"),
+        .depth_test      = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    });
 
     return pass;
 }
@@ -439,33 +433,24 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
 {
     Renderer::ProceduralSkyPass pass;
 
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv");
+    pass.render_transmittance = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv"),
+    });
 
-        pass.render_transmittance = api.create_program(std::move(pinfo));
-    }
+    pass.render_skyview = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv"),
+    });
 
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv");
-        pass.render_skyview = api.create_program(std::move(pinfo));
-    }
+    pass.sky_raymarch = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv"),
+    });
 
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv");
-        pass.sky_raymarch = api.create_program(std::move(pinfo));
-    }
-
-    {
-        vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = api.create_shader("shaders/multiscat_lut.comp.spv");
-        pass.compute_multiscattering_lut = api.create_program(std::move(pinfo));
-    }
+    pass.compute_multiscattering_lut = api.create_program({
+        .shader = api.create_shader("shaders/multiscat_lut.comp.spv"),
+    });
 
     return pass;
 }
@@ -633,13 +618,15 @@ static void add_procedural_sky_pass(Renderer &r)
 
 Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
 {
-    vulkan::GraphicsProgramInfo pinfo{};
-    pinfo.vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv");
-    pinfo.fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv");
-
     Renderer::TonemappingPass pass;
-    pass.program    = api.create_program(std::move(pinfo));
+
+    pass.program = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv"),
+    });
+
     pass.params_pos = {};
+
     return pass;
 }
 
@@ -895,6 +882,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, weight0)});
+
         pinfo.depth_test         = VK_COMPARE_OP_EQUAL; // equal because depth prepass
         pinfo.enable_depth_write = false;
 
@@ -919,6 +907,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+
         pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
         pinfo.enable_depth_write = true;
 
@@ -943,6 +932,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+
         pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
         pinfo.enable_depth_write = true;
 
@@ -1268,27 +1258,28 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     Renderer::VoxelPass pass;
 
     {
-    vulkan::GraphicsProgramInfo pinfo{};
-    pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
-    pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
-    pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
+        vulkan::GraphicsProgramInfo pinfo{};
+        pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
+        pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
+        pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
 
-    pinfo.push_constant({
-        .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        .offset = 0,
-        .size   = sizeof(GltfPushConstant),
-    });
+        pinfo.push_constant({
+            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .offset = 0,
+            .size   = sizeof(GltfPushConstant),
+        });
 
-    pinfo.vertex_stride(sizeof(GltfVertex));
-    pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
-    pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
-    pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
-    pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
-    pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
-    pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
+        pinfo.vertex_stride(sizeof(GltfVertex));
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
+        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
 
-    pass.voxelization = api.create_program(std::move(pinfo));
+        pass.voxelization = api.create_program(std::move(pinfo));
     }
+
     {
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/voxel_points.vert.spv");
@@ -1302,29 +1293,21 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pass.debug_visualization = api.create_program(std::move(pinfo));
     }
 
-    {
-        vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = api.create_shader("shaders/voxel_clear.comp.spv");
-        pass.clear_voxels = api.create_program(std::move(pinfo));
-    }
+    pass.clear_voxels = api.create_program({
+        .shader = api.create_shader("shaders/voxel_clear.comp.spv"),
+    });
 
-    {
-        vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv");
-        pass.inject_radiance = api.create_program(std::move(pinfo));
-    }
+    pass.inject_radiance = api.create_program({
+        .shader = api.create_shader("shaders/voxel_inject_direct_lighting.comp.spv"),
+    });
 
-    {
-        vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv");
-        pass.generate_aniso_base = api.create_program(std::move(pinfo));
-    }
+    pass.generate_aniso_base = api.create_program({
+        .shader = api.create_shader("shaders/voxel_gen_aniso_base.comp.spv"),
+    });
 
-    {
-        vulkan::ComputeProgramInfo pinfo{};
-        pinfo.shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv");
-        pass.generate_aniso_mipmap = api.create_program(std::move(pinfo));
-    }
+    pass.generate_aniso_mipmap = api.create_program({
+        .shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv"),
+    });
 
     return pass;
 }
