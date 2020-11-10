@@ -6,9 +6,11 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <iterator>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #include <SPIRV-Reflect/spirv_reflect.h>
+#include <spirv_cross/spirv_cross.hpp>
 
 namespace my_app::vulkan
 {
@@ -701,11 +703,6 @@ void GraphicsProgramInfo::push_constant(PushConstantInfo &&push_constant)
     push_constants.push_back(std::move(push_constant));
 }
 
-void GraphicsProgramInfo::binding(BindingInfo &&binding)
-{
-    bindings_by_set[binding.set-1].push_back(std::move(binding));
-}
-
 void GraphicsProgramInfo::vertex_stride(u32 value)
 {
     vertex_buffer_info.stride = value;
@@ -786,22 +783,18 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     };
 
     SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
+    constexpr usize MAX_DESCRIPTOR_SETS = 3;
+    std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
+    std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
+    std::array<std::vector<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
+    std::optional<PushConstantInfo> push_constant = {};
+
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {
         if (!shader_handles[i_shader].is_valid()) { continue; }
         const auto &shader = get_shader(shader_handles[i_shader]);
         result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_modules[i_shader]);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
-    }
-
-    constexpr usize MAX_DESCRIPTOR_SETS = 3;
-    std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
-    std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
-    std::array<std::vector<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
-
-    for (uint i_shader = 0; i_shader < shader_count; i_shader++)
-    {
-        if (!shader_handles[i_shader].is_valid()) { continue; }
 
         u32 count = 0;
         result         = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
@@ -869,12 +862,40 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
                 }
             }
         }
+
+        u32 push_constant_count = 0;
+        spvReflectEnumeratePushConstantBlocks(&shader_modules[i_shader], &push_constant_count, nullptr);
+        assert(push_constant_count == 0 || push_constant_count == 1);
+
+        SpvReflectBlockVariable* p_pc_block = nullptr;
+        spvReflectEnumeratePushConstantBlocks(&shader_modules[i_shader], &push_constant_count, &p_pc_block);
+
+        if (p_pc_block)
+        {
+            if (push_constant)
+            {
+                push_constant->stages |= shader_stage_flags[i_shader];
+                if (p_pc_block->offset != push_constant->offset
+                    || p_pc_block->size != push_constant->size)
+                {
+                    assert(false && "The push constant is different in another stage.");
+                }
+            }
+            else
+            {
+                push_constant = PushConstantInfo{
+                    .stages = shader_stage_flags[i_shader],
+                    .offset = p_pc_block->offset,
+                    .size   = p_pc_block->size,
+                };
+            }
+        }
+        spvReflectDestroyShaderModule(&shader_modules[i_shader]);
     }
 
-    for (uint i_shader = 0; i_shader < shader_count; i_shader++)
+    if (push_constant)
     {
-        if (!shader_handles[i_shader].is_valid()) { continue; }
-        spvReflectDestroyShaderModule(&shader_modules[i_shader]);
+        info.push_constants.push_back(*push_constant);
     }
 
     // Init binding set
@@ -1016,8 +1037,24 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         }
     }
 
-    spvReflectDestroyShaderModule(&shader_module);
 
+    u32 push_constant_count = 0;
+    spvReflectEnumeratePushConstantBlocks(&shader_module, &push_constant_count, nullptr);
+    assert(push_constant_count == 0 || push_constant_count == 1);
+
+    SpvReflectBlockVariable* p_pc_block = nullptr;
+    spvReflectEnumeratePushConstantBlocks(&shader_module, &push_constant_count, &p_pc_block);
+
+    if (p_pc_block)
+    {
+        program.info.push_constants.push_back(PushConstantInfo{
+            .stages = VK_SHADER_STAGE_COMPUTE_BIT,
+            .offset = p_pc_block->offset,
+            .size   = p_pc_block->size,
+        });
+    }
+
+    spvReflectDestroyShaderModule(&shader_module);
 
     // Init binding set
     auto &binding_set = program.binding_set;
@@ -1104,11 +1141,6 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 void ComputeProgramInfo::push_constant(PushConstantInfo &&push_constant)
 {
     push_constants.push_back(std::move(push_constant));
-}
-
-void ComputeProgramInfo::binding(BindingInfo &&binding)
-{
-    bindings.push_back(std::move(binding));
 }
 
 GraphicsProgram &API::get_program(GraphicsProgramH H)

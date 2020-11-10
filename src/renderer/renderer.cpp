@@ -255,8 +255,6 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
     pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
     pinfo.fragment_shader = api.create_shader("shaders/gui.frag.spv");
 
-    pinfo.push_constant({.stages = VK_SHADER_STAGE_VERTEX_BIT, .size = 4 * sizeof(float)});
-
     pinfo.vertex_stride(sizeof(ImDrawVert));
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, pos)});
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
@@ -869,12 +867,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
 
-        pinfo.push_constant({
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size   = sizeof(GltfPushConstant),
-        });
-
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, position)});
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, normal)});
@@ -894,12 +886,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
 
-        pinfo.push_constant({
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size   = sizeof(GltfPushConstant),
-        });
-
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
@@ -918,12 +904,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         vulkan::GraphicsProgramInfo pinfo{};
         pinfo.vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/shadowmap.frag.spv");
-
-        pinfo.push_constant({
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size   = sizeof(GltfPushConstant),
-        });
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
@@ -1262,12 +1242,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
         pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
         pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
-
-        pinfo.push_constant({
-            .stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .offset = 0,
-            .size   = sizeof(GltfPushConstant),
-        });
 
         pinfo.vertex_stride(sizeof(GltfVertex));
         pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
