@@ -278,6 +278,28 @@ enum struct PrimitiveTopology
     PointList
 };
 
+struct DepthState
+{
+    std::optional<VkCompareOp> test = std::nullopt;
+    bool enable_write = false;
+    float bias = 0.0f;
+
+    bool operator==(const DepthState &) const = default;
+};
+
+struct RasterizationState
+{
+    bool enable_conservative_rasterization{false};
+
+    bool operator==(const RasterizationState &) const = default;
+};
+
+struct InputAssemblyState
+{
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    bool operator==(const InputAssemblyState &) const = default;
+};
+
 struct GraphicsProgramInfo
 {
     ShaderH vertex_shader;
@@ -288,20 +310,13 @@ struct GraphicsProgramInfo
     std::array<std::vector<BindingInfo>, MAX_DESCRIPTOR_SET> bindings_by_set;
     VertexBufferInfo vertex_buffer_info;
 
-    // TODO: is it the right struct for this?
-    // Either we create different programs in user code OR we implicitly handle them here
-    // and keep track of dynamic states
-    std::optional<VkCompareOp> depth_test;
-    bool enable_depth_write{false};
-    bool enable_conservative_rasterization{false};
-    float depth_bias{0.0f};
-
-    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    DepthState depth;
+    RasterizationState rasterization;
+    InputAssemblyState input_assembly;
 
     bool operator==(const GraphicsProgramInfo &) const = default;
 
     void push_constant(PushConstantInfo &&push_constant);
-    void binding(BindingInfo &&binding);
     void vertex_stride(u32 value);
     void vertex_info(VertexInfo &&info);
 };
@@ -316,7 +331,6 @@ struct ComputeProgramInfo
     bool operator==(const ComputeProgramInfo &) const = default;
 
     void push_constant(PushConstantInfo &&push_constant);
-    void binding(BindingInfo &&binding);
 };
 
 // TODO: smart fields
@@ -404,7 +418,6 @@ struct ComputeProgram
 struct GlobalBindings
 {
     ShaderBindingSet binding_set;
-
     void binding(BindingInfo &&binding);
 };
 

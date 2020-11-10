@@ -216,10 +216,13 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
 {
     Renderer::CheckerBoardFloorPass pass;
 
+    vulkan::DepthState depth = {
+        .test = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    };
     pass.program = api.create_program({
         .vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv"),
         .fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv"),
-        .depth_test      = VK_COMPARE_OP_GREATER_OR_EQUAL,
+        .depth           = depth,
     });
 
     return pass;
@@ -875,8 +878,8 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, weight0)});
 
-        pinfo.depth_test         = VK_COMPARE_OP_EQUAL; // equal because depth prepass
-        pinfo.enable_depth_write = false;
+        pinfo.depth.test         = VK_COMPARE_OP_EQUAL; // equal because depth prepass
+        pinfo.depth.enable_write = false;
 
         pass.shading = api.create_program(std::move(pinfo));
     }
@@ -894,8 +897,8 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
 
-        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.enable_depth_write = true;
+        pinfo.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.depth.enable_write = true;
 
         pass.prepass = api.create_program(std::move(pinfo));
     }
@@ -913,8 +916,8 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
         pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
 
-        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.enable_depth_write = true;
+        pinfo.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.depth.enable_write = true;
 
         pass.shadow_cascade_program = api.create_program(std::move(pinfo));
     }
@@ -1259,10 +1262,10 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
         pinfo.vertex_shader   = api.create_shader("shaders/voxel_points.vert.spv");
         pinfo.fragment_shader = api.create_shader("shaders/voxel_points.frag.spv");
 
-        pinfo.topology = vulkan::PrimitiveTopology::PointList;
+        pinfo.input_assembly.topology = vulkan::PrimitiveTopology::PointList;
 
-        pinfo.enable_depth_write = true;
-        pinfo.depth_test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        pinfo.depth.enable_write = true;
+        pinfo.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
 
         pass.debug_visualization = api.create_program(std::move(pinfo));
     }
@@ -1286,7 +1289,6 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     return pass;
 }
 
-#if 1
 static void add_voxels_clear_pass(Renderer& r)
 {
     auto &graph = r.graph;
@@ -1314,20 +1316,6 @@ static void add_voxels_clear_pass(Renderer& r)
         }
     });
 }
-#else
-static void add_voxels_clear_pass(Renderer& r)
-{
-    auto &graph = r.graph;
-
-    graph.add_pass({
-        .name = "Voxels clear",
-        .type = PassType::Graphics,
-        .color_attachments = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
-        .exec = [](RenderGraph& /*graph*/, RenderPass &/*self*/, vulkan::API &/*api*/) {}
-    });
-
-}
-#endif
 
 static void add_voxelization_pass(Renderer &r)
 {

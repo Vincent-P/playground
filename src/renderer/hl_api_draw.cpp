@@ -262,42 +262,42 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             location++;
         }
 
-        VkPipelineVertexInputStateCreateInfo vert_i
-            = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-        vert_i.vertexBindingDescriptionCount   = attributes.empty() ? 0 : bindings.size();
-        vert_i.pVertexBindingDescriptions      = bindings.data();
-        vert_i.vertexAttributeDescriptionCount = static_cast<u32>(attributes.size());
-        vert_i.pVertexAttributeDescriptions    = attributes.data();
+        VkPipelineVertexInputStateCreateInfo vert_i = {
+            .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .vertexBindingDescriptionCount   = static_cast<u32>(attributes.empty() ? 0 : bindings.size()),
+            .pVertexBindingDescriptions      = bindings.data(),
+            .vertexAttributeDescriptionCount = static_cast<u32>(attributes.size()),
+            .pVertexAttributeDescriptions    = attributes.data(),
+        };
 
-        VkPipelineInputAssemblyStateCreateInfo asm_i
-            = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-        asm_i.flags                  = 0;
-        asm_i.primitiveRestartEnable = VK_FALSE;
-        asm_i.topology               = vk_topology_from_enum(program.info.topology);
+        VkPipelineInputAssemblyStateCreateInfo asm_i = {
+            .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .flags                  = 0,
+            .topology               = vk_topology_from_enum(program.info.input_assembly.topology),
+            .primitiveRestartEnable = VK_FALSE,
+        };
 
-        VkPipelineRasterizationConservativeStateCreateInfoEXT conservative = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT};
+        VkPipelineRasterizationConservativeStateCreateInfoEXT conservative = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT,
+            .conservativeRasterizationMode    = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT,
+            .extraPrimitiveOverestimationSize = 0.1, // in pixels
+        };
 
-        VkPipelineRasterizationStateCreateInfo rast_i
-            = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-
-        if (program_info.enable_conservative_rasterization)
-        {
-            rast_i.pNext = &conservative;
-            conservative.conservativeRasterizationMode = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
-            conservative.extraPrimitiveOverestimationSize = 0.1; // in pixels
-        }
-
-        rast_i.flags                   = 0;
-        rast_i.polygonMode             = VK_POLYGON_MODE_FILL;
-        rast_i.cullMode                = VK_CULL_MODE_NONE;
-        rast_i.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        rast_i.depthClampEnable        = VK_TRUE;
-        rast_i.rasterizerDiscardEnable = VK_FALSE;
-        rast_i.depthBiasEnable         = program_info.depth_bias != 0.0f;
-        rast_i.depthBiasConstantFactor = program_info.depth_bias;
-        rast_i.depthBiasClamp          = 0;
-        rast_i.depthBiasSlopeFactor    = 0;
-        rast_i.lineWidth               = 1.0f;
+        VkPipelineRasterizationStateCreateInfo rast_i = {
+            .sType            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .pNext            = program_info.rasterization.enable_conservative_rasterization ? &conservative : nullptr,
+            .flags            = 0,
+            .depthClampEnable = VK_TRUE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode             = VK_POLYGON_MODE_FILL,
+            .cullMode                = VK_CULL_MODE_NONE,
+            .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+            .depthBiasEnable         = program_info.depth.bias != 0.0f,
+            .depthBiasConstantFactor = program_info.depth.bias,
+            .depthBiasClamp          = 0,
+            .depthBiasSlopeFactor    = 0,
+            .lineWidth               = 1.0f,
+        };
 
         // TODO: from render_pass
         std::vector<VkPipelineColorBlendAttachmentState> att_states;
@@ -341,10 +341,9 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         VkPipelineDepthStencilStateCreateInfo ds_i
             = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
         ds_i.flags            = 0;
-        ds_i.depthTestEnable  = pipeline_info.program_info.depth_test ? VK_TRUE : VK_FALSE;
-        ds_i.depthWriteEnable = pipeline_info.program_info.enable_depth_write ? VK_TRUE : VK_FALSE;
-        ds_i.depthCompareOp
-            = pipeline_info.program_info.depth_test ? *pipeline_info.program_info.depth_test : VK_COMPARE_OP_NEVER;
+        ds_i.depthTestEnable  = pipeline_info.program_info.depth.test ? VK_TRUE : VK_FALSE;
+        ds_i.depthWriteEnable = pipeline_info.program_info.depth.enable_write ? VK_TRUE : VK_FALSE;
+        ds_i.depthCompareOp = pipeline_info.program_info.depth.test ? *pipeline_info.program_info.depth.test : VK_COMPARE_OP_NEVER;
         ds_i.depthBoundsTestEnable = VK_FALSE;
         ds_i.minDepthBounds        = 0.0f;
         ds_i.maxDepthBounds        = 0.0f;
