@@ -901,33 +901,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd             = frame_resource.command_buffer;
 
-    const auto &compute_shader = get_shader(program.info.shader);
-
-    VkComputePipelineCreateInfo pinfo = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    pinfo.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-    pinfo.stage.stage                 = VK_SHADER_STAGE_COMPUTE_BIT;
-    pinfo.stage.module                = compute_shader.vkhandle;
-    pinfo.stage.pName                 = "main";
-    pinfo.layout                      = program.pipeline_layout;
-
-    usize pipeline_i = ~0u;
-    for (usize i = 0; i < program.pipelines_info.size(); i++)
-    {
-        if (program.pipelines_info[i] == pinfo) {
-            pipeline_i = i;
-        }
-    }
-
-    if (pipeline_i == ~0u)
-    {
-        pipeline_i = program.pipelines_vk.size();
-        program.pipelines_vk.emplace_back();
-        auto &pipeline = program.pipelines_vk.back();
-        VK_CHECK(vkCreateComputePipelines(ctx.device, VK_NULL_HANDLE, 1, &pinfo, nullptr, &pipeline));
-        compute_pipeline_count++;
-    }
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipelines_vk[pipeline_i]);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_vk);
 
     /// --- Find and bind descriptor set
     undirty_descriptor_set(*this, program.binding_set);

@@ -1085,20 +1085,18 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     /// --- Create pipeline
     const auto &compute_shader = get_shader(program.info.shader);
 
-    VkComputePipelineCreateInfo pinfo = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    pinfo.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-    pinfo.stage.stage                 = VK_SHADER_STAGE_COMPUTE_BIT;
-    pinfo.stage.module                = compute_shader.vkhandle;
-    pinfo.stage.pName                 = "main";
-    pinfo.layout                      = program.pipeline_layout;
+    auto &pinfo = program.pipeline_info;
+    pinfo              = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+    pinfo.stage        = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    pinfo.stage.module = compute_shader.vkhandle;
+    pinfo.stage.pName  = "main";
+    pinfo.layout       = program.pipeline_layout;
 
-    program.pipelines_vk.emplace_back();
-    auto &pipeline = program.pipelines_vk.back();
+    auto &pipeline = program.pipeline_vk;
 
     VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));
     compute_pipeline_count++;
-
-    program.pipelines_info.push_back(std::move(pinfo));
 
     return compute_programs.add(std::move(program));
 }
@@ -1159,12 +1157,8 @@ void destroy_program_internal(API &api, ComputeProgram &program)
 {
     vkDestroyDescriptorSetLayout(api.ctx.device, program.binding_set.descriptor_layout, nullptr);
     vkDestroyPipelineLayout(api.ctx.device, program.pipeline_layout, nullptr);
-
-    for (VkPipeline pipeline : program.pipelines_vk)
-    {
-        vkDestroyPipeline(api.ctx.device, pipeline, nullptr);
-        api.compute_pipeline_count--;
-    }
+    vkDestroyPipeline(api.ctx.device, program.pipeline_vk, nullptr);
+    api.compute_pipeline_count--;
 }
 
 void API::destroy_program(ComputeProgramH H)

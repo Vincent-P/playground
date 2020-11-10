@@ -392,8 +392,8 @@ struct ComputeProgram
 
     ComputeProgramInfo info;
     VkPipelineLayout pipeline_layout; // layoutS??
-    std::vector<VkComputePipelineCreateInfo> pipelines_info;
-    std::vector<VkPipeline> pipelines_vk;
+    VkComputePipelineCreateInfo pipeline_info;
+    VkPipeline pipeline_vk;
 
     bool operator==(const ComputeProgram &b) const
     {
