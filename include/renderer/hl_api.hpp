@@ -307,7 +307,6 @@ struct GraphicsProgramInfo
     ShaderH fragment_shader;
 
     std::vector<PushConstantInfo> push_constants;
-    std::array<std::vector<BindingInfo>, MAX_DESCRIPTOR_SET> bindings_by_set;
     VertexBufferInfo vertex_buffer_info;
 
     DepthState depth;
@@ -326,7 +325,6 @@ struct ComputeProgramInfo
     ShaderH shader;
 
     std::vector<PushConstantInfo> push_constants;
-    std::vector<BindingInfo> bindings;
 
     bool operator==(const ComputeProgramInfo &) const = default;
 
@@ -353,8 +351,6 @@ struct DescriptorSet
 
 struct BindingData
 {
-    u32 binding;
-    VkDescriptorType type;
     std::vector<VkDescriptorImageInfo> images_info;
     VkBufferView buffer_view;
     VkDescriptorBufferInfo buffer_info;

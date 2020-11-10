@@ -468,19 +468,26 @@ static void undirty_descriptor_set(API &api, ShaderBindingSet &binding_set)
     if (binding_set.data_dirty) {
         auto &descriptor_set = find_or_create_descriptor_set(api, binding_set);
 
-        std::vector<VkWriteDescriptorSet> writes;
-        map_transform(binding_set.binded_data, writes, [&](const auto &binded_data) {
+        usize binding_count = binding_set.bindings_info.size();
+        std::vector<VkWriteDescriptorSet> writes(binding_count);
+
+        for (uint slot = 0; slot < binding_count; slot++)
+        {
+            const auto &binded_data  = binding_set.binded_data[slot];
+            const auto &binding_info = binding_set.bindings_info[slot];
+
             assert(binded_data.has_value());
-            VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+
+            auto &write = writes[slot];
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet               = descriptor_set.set;
-            write.dstBinding           = binded_data->binding;
+            write.dstBinding           = binding_info.slot;
             write.descriptorCount      = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
-            write.descriptorType       = binded_data->type;
+            write.descriptorType       = binding_info.type;
             write.pImageInfo           = binded_data->images_info.data();
             write.pBufferInfo          = &binded_data->buffer_info;
             write.pTexelBufferView     = &binded_data->buffer_view;
-            return write;
-        });
+        }
 
         vkUpdateDescriptorSets(api.ctx.device, writes.size(), writes.data(), 0, nullptr);
 
@@ -546,11 +553,9 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
     }
 
     auto &data = binding_set.binded_data[slot];
+    auto &info = binding_set.bindings_info[slot];
 
-    data->binding = slot;
-    data->type    = binding_set.bindings_info[slot].type;
-
-    assert(sampler ? data->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : data->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    assert(sampler ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     auto &image_view = api.get_image_view(image_view_h);
     auto &image      = api.get_image(image_view.image_h);
@@ -577,12 +582,11 @@ static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint s
     assert(slot < binding_set.binded_data.size());
     assert(samplers_h.empty() || samplers_h.size() == 1 || samplers_h.size() == image_views_h.size());
 
+    auto &info = binding_set.bindings_info[slot];
+
+    assert(!samplers_h.empty() ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
     BindingData data;
-    data.binding = slot;
-    data.type    = binding_set.bindings_info[slot].type;
-
-    assert(!samplers_h.empty() ? data.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : data.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-
     for (usize i = 0; i < image_views_h.size(); i++)
     {
         auto &image_view = api.get_image_view(image_views_h[i]);
@@ -628,8 +632,6 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     if (!binding_set.binded_data[slot])
     {
         BindingData data;
-        data.binding            = slot;
-        data.type               = binding_type;
         data.buffer_info.buffer = buffer.vkhandle;
         data.buffer_info.offset = 0;
         data.buffer_info.range  = buffer_pos.length;
