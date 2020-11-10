@@ -620,26 +620,32 @@ static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint s
     }
 }
 
-// todo handle dynamic buffer correctly wtf
-static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, Buffer &buffer, CircularBufferPosition &buffer_pos, uint slot)
+static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, Buffer &buffer, CircularBufferPosition *buffer_pos, uint slot)
 {
     assert(slot < binding_set.binded_data.size());
 
     auto binding_type = binding_set.bindings_info[slot].type;
+
     bool is_dynamic = binding_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    assert(is_dynamic);
+    assert(is_dynamic && buffer_pos || binding_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-    if (!binding_set.binded_data[slot])
-    {
-        BindingData data;
-        data.buffer_info.buffer = buffer.vkhandle;
-        data.buffer_info.offset = 0;
-        data.buffer_info.range  = buffer_pos.length;
+    auto size = is_dynamic ? buffer_pos->length : buffer.size;
 
-        binding_set.binded_data[slot] = std::move(data);
-        binding_set.data_dirty        = true;
+    bool should_bind = !binding_set.binded_data[slot] || !is_dynamic;
+    if (!binding_set.binded_data[slot]) {
+        binding_set.binded_data[slot].emplace();
     }
 
+    if (should_bind)
+    {
+        auto &data              = *binding_set.binded_data[slot];
+        data.buffer_info.buffer = buffer.vkhandle;
+        data.buffer_info.offset = 0;
+        data.buffer_info.range  = size;
+        binding_set.data_dirty  = true;
+    }
+
+    // update dynamic offset
     if (is_dynamic)
     {
         usize offset_idx = 0;
@@ -649,7 +655,7 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
                 break;
             }
         }
-        binding_set.dynamic_offsets[offset_idx] = buffer_pos.offset;
+        binding_set.dynamic_offsets[offset_idx] = buffer_pos->offset;
     }
 }
 
@@ -720,16 +726,23 @@ void API::bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
     auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
-    bind_buffer_internal(*this, binding_set, buffer, buffer_pos, slot);
+    bind_buffer_internal(*this, binding_set, buffer, &buffer_pos, slot);
 }
 
 void API::bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot)
 {
     auto &buffer  = get_buffer(buffer_pos.buffer_h);
     auto &binding_set = get_program(program_h).binding_set;
-    bind_buffer_internal(*this, binding_set, buffer, buffer_pos, slot);
+    bind_buffer_internal(*this, binding_set, buffer, &buffer_pos, slot);
 }
 
+void API::bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, uint slot)
+{
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &buffer  = get_buffer(buffer_h);
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    bind_buffer_internal(*this, binding_set, buffer, nullptr, slot);
+}
 
 void API::create_global_set()
 {

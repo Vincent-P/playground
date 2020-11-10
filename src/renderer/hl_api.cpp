@@ -38,7 +38,7 @@ void API::create(API &api, const window::Window &window)
     {
 	BufferInfo binfo;
 	binfo.name                  = "Staging Buffer";
-	binfo.size                  = 16 * 1024 * 1024;
+	binfo.size                  = 64_MiB;
 	binfo.usage                 = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	api.staging_buffer.buffer_h = api.create_buffer(binfo);
@@ -48,7 +48,7 @@ void API::create(API &api, const window::Window &window)
     {
 	BufferInfo binfo;
 	binfo.name                     = "Dynamic Vertex Buffer";
-	binfo.size                     = 64 * 1024 * 1024;
+	binfo.size                     = 64_MiB;
 	binfo.usage                    = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	binfo.memory_usage             = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	api.dyn_vertex_buffer.buffer_h = api.create_buffer(binfo);
@@ -58,7 +58,7 @@ void API::create(API &api, const window::Window &window)
     {
 	BufferInfo binfo;
 	binfo.name                      = "Dynamic Uniform Buffer";
-	binfo.size                      = 64 * 1024 * 1024;
+	binfo.size                      = 64_MiB;
 	binfo.usage                     = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	binfo.memory_usage              = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	api.dyn_uniform_buffer.buffer_h = api.create_buffer(binfo);
@@ -68,7 +68,7 @@ void API::create(API &api, const window::Window &window)
     {
 	BufferInfo binfo;
 	binfo.name                    = "Dynamic Index Buffer";
-	binfo.size                    = 16 * 1024 * 1024;
+	binfo.size                    = 16_MiB;
 	binfo.usage                   = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	binfo.memory_usage            = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	api.dyn_index_buffer.buffer_h = api.create_buffer(binfo);

@@ -724,7 +724,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     pass.vertex_buffer = api.create_buffer({
         .name  = "glTF Vertex Buffer",
         .size  = vbuffer_size,
-        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
     });
     api.upload_buffer(pass.vertex_buffer, model.vertices.data(), vbuffer_size);
 
@@ -865,65 +865,32 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     }
 
     /// --- Create programs
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/gltf.frag.spv");
+    vulkan::DepthState depth_state = {
+        .test         = VK_COMPARE_OP_EQUAL,
+        .enable_write = false,
+    };
 
-        pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({.format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = MEMBER_OFFSET(GltfVertex, weight0)});
+    pass.shading = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/gltf.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/gltf.frag.spv"),
+        .depth           = depth_state,
+    });
 
-        pinfo.depth.test         = VK_COMPARE_OP_EQUAL; // equal because depth prepass
-        pinfo.depth.enable_write = false;
+    depth_state.test = VK_COMPARE_OP_GREATER_OR_EQUAL;
+    depth_state.enable_write = true;
 
-        pass.shading = api.create_program(std::move(pinfo));
-    }
+    pass.prepass = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/gltf.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv"),
+        .depth           = depth_state,
+    });
 
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/gltf.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/gltf_prepass.frag.spv");
-
-        pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
-
-        pinfo.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.depth.enable_write = true;
-
-        pass.prepass = api.create_program(std::move(pinfo));
-    }
-
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/shadowmap.frag.spv");
-
-        pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
-
-        pinfo.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        pinfo.depth.enable_write = true;
-
-        pass.shadow_cascade_program = api.create_program(std::move(pinfo));
-    }
+    pass.shadow_cascade_program = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/shadowmap.frag.spv"),
+    });
 
     return pass;
-
 }
 
 static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program)
@@ -934,7 +901,7 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
     for (uint i = 0; i < model.cached_transforms.size(); i++) {
         buffer[i]      = model.cached_transforms[i];
     }
-    api.bind_buffer(program, transforms_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
+    api.bind_buffer(program, transforms_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
 
     api.bind_program(program);
 
@@ -949,10 +916,11 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
             const auto &material = model.materials[primitive.material];
 
             GltfPushConstant constants = {};
-            constants.node_idx          = node_idx;
+            constants.node_idx         = node_idx;
+            constants.vertex_offset    = primitive.first_vertex;
 
-            constants.base_color_idx         = material.base_color_texture ? *material.base_color_texture : u32_invalid;
-            constants.normal_map_idx         = material.normal_texture ? *material.normal_texture : u32_invalid;
+            constants.base_color_idx = material.base_color_texture ? *material.base_color_texture : u32_invalid;
+            constants.normal_map_idx = material.normal_texture ? *material.normal_texture : u32_invalid;
             constants.metallic_roughness_idx = material.metallic_roughness_texture ? *material.metallic_roughness_texture : u32_invalid;
 
             constants.base_color_factor = material.base_color_factor;
@@ -963,7 +931,7 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
                               0,
                               sizeof(constants),
                               &constants);
-            api.draw_indexed(primitive.index_count, 1, primitive.first_index, static_cast<i32>(primitive.first_vertex), 0);
+            api.draw_indexed(primitive.index_count, 1, primitive.first_index, 0, 0);
         }
     }
 }
@@ -1114,10 +1082,10 @@ static void add_shadow_cascades_pass(Renderer &r)
                             {
                                 auto program = pass_data.shadow_cascade_program;
 
-                                api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-                                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                                api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
+                                api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 3);
                                 api.bind_index_buffer(pass_data.index_buffer);
-                                api.bind_vertex_buffer(pass_data.vertex_buffer);
 
                                 draw_model(api, *pass_data.model, program);
                             }
@@ -1140,8 +1108,8 @@ static void add_gltf_prepass(Renderer &r)
         {
             auto program = pass_data.prepass;
 
+            api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
             api.bind_index_buffer(pass_data.index_buffer);
-            api.bind_vertex_buffer(pass_data.vertex_buffer);
 
             draw_model(api, *pass_data.model, program);
         }
@@ -1188,14 +1156,16 @@ static void add_gltf_pass(Renderer &r)
 
             auto program = pass_data.shading;
 
-            api.bind_buffer(program, voxel_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-            api.bind_buffer(program, voxel_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+            api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
+            // transforms will go in #1
+            api.bind_buffer(program, voxel_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+            api.bind_buffer(program, voxel_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
             api.bind_combined_image_sampler(program,
                                             api.get_image(voxels_radiance).default_view,
                                             trilinear_sampler,
                                             vulkan::SHADER_DESCRIPTOR_SET,
-                                            3);
+                                            4);
 
             {
                 std::vector<vulkan::ImageViewH> views;
@@ -1207,11 +1177,11 @@ static void add_gltf_pass(Renderer &r)
                                              views,
                                               {trilinear_sampler},
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             4);
+                                             5);
             }
 
-            api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 5);
-            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
+            api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
+            api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 7);
 
             {
                 std::vector<vulkan::ImageViewH> views;
@@ -1223,11 +1193,10 @@ static void add_gltf_pass(Renderer &r)
                                              views,
                                               {trilinear_sampler},
                                              vulkan::SHADER_DESCRIPTOR_SET,
-                                             7);
+                                             8);
             }
 
             api.bind_index_buffer(pass_data.index_buffer);
-            api.bind_vertex_buffer(pass_data.vertex_buffer);
 
             draw_model(api, *pass_data.model, program);
         }
@@ -1240,22 +1209,11 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 {
     Renderer::VoxelPass pass;
 
-    {
-        vulkan::GraphicsProgramInfo pinfo{};
-        pinfo.vertex_shader   = api.create_shader("shaders/voxelization.vert.spv");
-        pinfo.geom_shader     = api.create_shader("shaders/voxelization.geom.spv");
-        pinfo.fragment_shader = api.create_shader("shaders/voxelization.frag.spv");
-
-        pinfo.vertex_stride(sizeof(GltfVertex));
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, position)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32_SFLOAT, MEMBER_OFFSET(GltfVertex, normal)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32_SFLOAT, MEMBER_OFFSET(GltfVertex, uv1)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, joint0)});
-        pinfo.vertex_info({VK_FORMAT_R32G32B32A32_SFLOAT, MEMBER_OFFSET(GltfVertex, weight0)});
-
-        pass.voxelization = api.create_program(std::move(pinfo));
-    }
+    pass.voxelization = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/voxelization.vert.spv"),
+        .geom_shader     = api.create_shader("shaders/voxelization.geom.spv"),
+        .fragment_shader = api.create_shader("shaders/voxelization.frag.spv"),
+    });
 
     {
         vulkan::GraphicsProgramInfo pinfo{};
@@ -1366,16 +1324,17 @@ static void add_voxelization_pass(Renderer &r)
 
             api.set_viewport_and_scissor(voxel_options.res, voxel_options.res);
 
-            api.bind_buffer(pass_data.voxelization, pass_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-            api.bind_buffer(pass_data.voxelization, pass_data.projection_cameras, vulkan::SHADER_DESCRIPTOR_SET, 2);
+            api.bind_buffer(program, model_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
+
+            api.bind_buffer(pass_data.voxelization, pass_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
+            api.bind_buffer(pass_data.voxelization, pass_data.projection_cameras, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
             auto &albedo_uint = api.get_image(voxels_albedo).format_views[0];
             auto &normal_uint = api.get_image(voxels_normal).format_views[0];
-            api.bind_image(program, albedo_uint, vulkan::SHADER_DESCRIPTOR_SET, 3);
-            api.bind_image(program, normal_uint, vulkan::SHADER_DESCRIPTOR_SET, 4);
+            api.bind_image(program, albedo_uint, vulkan::SHADER_DESCRIPTOR_SET, 4);
+            api.bind_image(program, normal_uint, vulkan::SHADER_DESCRIPTOR_SET, 5);
 
             api.bind_index_buffer(model_data.index_buffer);
-            api.bind_vertex_buffer(model_data.vertex_buffer);
 
             draw_model(api, *model_data.model, program);
         }

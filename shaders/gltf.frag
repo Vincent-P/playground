@@ -9,20 +9,19 @@ layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 layout (location = 4) in vec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
-layout (location = 6) in vec4 inViewPos;
 
-layout (set = 1, binding = 1) uniform VCTD {
+layout (set = 1, binding = 2) uniform VCTD {
     VCTDebug debug;
 };
 
-layout (set = 1, binding = 2) uniform VO {
+layout (set = 1, binding = 3) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 3) uniform sampler3D voxels_radiance;
-layout(set = 1, binding = 4) uniform sampler3D voxels_directional_volumes[6];
+layout(set = 1, binding = 4) uniform sampler3D voxels_radiance;
+layout(set = 1, binding = 5) uniform sampler3D voxels_directional_volumes[6];
 
-layout (set = 1, binding = 5) uniform CD {
+layout (set = 1, binding = 6) uniform CD {
     float4 cascades_depth_slices[4];
 };
 
@@ -32,11 +31,11 @@ struct CascadeMatrix
     float4x4 proj;
 };
 
-layout (set = 1, binding = 6) uniform CM {
+layout (set = 1, binding = 7) uniform CM {
     CascadeMatrix cascade_matrices[10];
 };
 
-layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[4];
+layout(set = 1, binding = 8) uniform sampler2D shadow_cascades[4];
 
 layout (location = 0) out vec4 outColor;
 

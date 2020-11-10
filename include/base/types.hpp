@@ -57,18 +57,18 @@ inline uint operator"" _K(unsigned long long value)
 
 inline uint operator"" _KiB(unsigned long long value)
 {
-    return value * 1024u;
+    return value << 10;
 }
 
 inline uint operator"" _MiB(unsigned long long value)
 {
-    return value * 1024u * 1024u;
+    return value << 20;
 }
 
 
 inline uint operator"" _GiB(unsigned long long value)
 {
-    return value * 1024u * 1024u * 1024;
+    return value << 30;
 }
 
 /// --- Utility functions

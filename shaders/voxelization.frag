@@ -11,12 +11,12 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
 
-layout(set = 1, binding = 1) uniform VO {
+layout(set = 1, binding = 2) uniform VO {
     VoxelOptions voxel_options;
 };
 
-layout(set = 1, binding = 3, r32ui) uniform uimage3D voxels_albedo;
-layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_normal;
+layout(set = 1, binding = 4, r32ui) uniform uimage3D voxels_albedo;
+layout(set = 1, binding = 5, r32ui) uniform uimage3D voxels_normal;
 
 #define EPSILON 0.01
 

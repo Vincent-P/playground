@@ -1,17 +1,11 @@
-layout (location = 0) in vec3 inPosition;
-layout (location = 1) in vec3 inNormal;
-layout (location = 2) in vec2 inUV0;
-layout (location = 3) in vec2 inUV1;
-layout (location = 4) in vec4 inJoint0;
-layout (location = 5) in vec4 inWeight0;
+#include "types.h"
 
-layout (location = 0) out vec3 outPosition;
-layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec2 outUV0;
-layout (location = 3) out vec2 outUV1;
-layout (location = 4) out vec4 outJoint0;
-layout (location = 5) out vec4 outWeight0;
-layout (location = 6) out vec4 outViewPos;
+layout (location = 0) out float3 out_position;
+layout (location = 1) out float3 out_normal;
+layout (location = 2) out float2 out_uv0;
+layout (location = 3) out float2 out_uv1;
+layout (location = 4) out float4 out_joint0;
+layout (location = 5) out float4 out_weight0;
 
 #include "globals.h"
 #define PBR_NO_NORMALS
@@ -19,7 +13,23 @@ layout (location = 6) out vec4 outViewPos;
 
 #extension GL_EXT_nonuniform_qualifier : require
 
-layout (set = 1, binding = 0) uniform UBONode {
+struct GltfVertex
+{
+    float3 position;
+    float pad00;
+    float3 normal;
+    float pad01;
+    float2 uv0;
+    float2 uv1;
+    float4 joint0;
+    float4 weight0;
+};
+
+layout(set = 1, binding = 0) buffer GltfVertexBuffer {
+    GltfVertex vertices[];
+};
+
+layout (set = 1, binding = 1) uniform UBONode {
     float4x4 nodes_transforms[4]; // max nodes
 };
 
@@ -27,15 +37,16 @@ layout (set = 1, binding = 0) uniform UBONode {
 void main()
 {
     float4x4 transform = nodes_transforms[constants.node_idx];
-    vec4 locPos = transform * vec4(inPosition, 1.0);
-    outNormal = normalize(transpose(inverse(mat3(transform))) * inNormal);
-    outPosition = locPos.xyz / locPos.w;
-    outUV0 = inUV0;
-    outUV1 = inUV1;
-    outJoint0 = inJoint0;
-    outWeight0 = inWeight0;
-    gl_Position = global.camera_proj * global.camera_view * vec4(outPosition, 1.0);
-    outViewPos = global.camera_view * vec4(outPosition, 1.0);
+    GltfVertex vertex = vertices[gl_VertexIndex + constants.vertex_offset];
+
+    float4 locPos = transform * float4(vertex.position, 1.0);
+    out_normal = normalize(transpose(inverse(mat3(transform))) * vertex.normal);
+    out_position = locPos.xyz / locPos.w;
+    out_uv0 = vertex.uv0;
+    out_uv1 = vertex.uv1;
+    out_joint0 = vertex.joint0;
+    out_weight0 = vertex.weight0;
+    gl_Position = global.camera_proj * global.camera_view * float4(out_position, 1.0);
     // debug shadow map :)
     // gl_Position = outLightPosition;
 }

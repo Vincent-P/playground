@@ -532,6 +532,7 @@ struct API
     // dynamic buffers
     void bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot);
     void bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot);
+    void bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, uint slot);
 
     void create_global_set();
     void update_global_set();
@@ -828,6 +829,18 @@ inline usize vk_format_size(VkFormat format)
     }
     assert(false);
     return 4;
+}
+
+inline VkBufferUsageFlagBits vk_buffer_usage_from_descriptor_type(VkDescriptorType desc_type)
+{
+    switch (desc_type)
+    {
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    default: break;
+    }
+    assert(false);
+    return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 }
 
 } // namespace vulkan

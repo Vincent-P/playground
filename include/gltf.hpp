@@ -141,10 +141,12 @@ struct Node
     std::vector<u32> children;
 };
 
-struct GltfVertex
+struct PACKED GltfVertex
 {
     float3 position;
+    float pad00;
     float3 normal;
+    float pad01;
     float2 uv0;
     float2 uv1;
     float4 joint0;

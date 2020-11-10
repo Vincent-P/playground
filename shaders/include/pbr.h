@@ -11,6 +11,7 @@ struct GltfPushConstant
 {
     // uniform
     u32 node_idx;
+    u32 vertex_offset;
 
     // textures
     u32 base_color_idx;
@@ -18,10 +19,10 @@ struct GltfPushConstant
     u32 metallic_roughness_idx;
 
     // material
+    float metallic_factor;
+    float roughness_factor;
+    float pad00;
     float4 base_color_factor;
-    float  metallic_factor;
-    float  roughness_factor;
-    float2 pad10;
 };
 
 layout(push_constant) uniform GC {
