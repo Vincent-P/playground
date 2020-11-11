@@ -111,6 +111,10 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     ShowWindow(hwnd, SW_SHOW);
 }
 
+void Window::destroy()
+{
+}
+
 float2 Window::get_dpi_scale() const
 {
     int dpi     = GetDpiForWindow(win32.window);
@@ -140,9 +144,12 @@ static void update_key(Window &window, VirtualKey key)
 void Window::poll_events()
 {
     // need to take care of shit, control and alt manually...
-    update_key(*this, VirtualKey::Shift);
-    update_key(*this, VirtualKey::Control);
-    update_key(*this, VirtualKey::Alt);
+    update_key(*this, VirtualKey::LShift);
+    update_key(*this, VirtualKey::RShift);
+    update_key(*this, VirtualKey::LControl);
+    update_key(*this, VirtualKey::RControl);
+    update_key(*this, VirtualKey::LAlt);
+    update_key(*this, VirtualKey::RAlt);
 
     MSG msg;
     if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
