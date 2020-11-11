@@ -1,6 +1,7 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
 #include <cstddef>
+#include <set>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -102,22 +103,26 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
     VkFramebufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
     ci.renderPass              = render_pass.vkhandle;
 
-    std::vector<VkImageView> attachments;
+    std::vector<u64> attachments;
 
     for (const auto &color_attachment : render_pass.info.colors)
     {
         const auto &color_view = api.get_image_view(color_attachment.image_view);
-        attachments.push_back(color_view.vkhandle);
+        attachments.push_back(reinterpret_cast<u64>(color_view.vkhandle));
     }
 
     if (render_pass.info.depth)
     {
         const auto &depth_view = api.get_image_view(render_pass.info.depth->image_view);
-        attachments.push_back(depth_view.vkhandle);
+        attachments.push_back(reinterpret_cast<u64>(depth_view.vkhandle));
     }
 
-    ci.attachmentCount = static_cast<u32>(attachments.size());
-    ci.pAttachments    = attachments.data();
+    static std::set<std::vector<u64>> s_attachments;
+    auto [iter, _] = s_attachments.insert(attachments);
+    const auto &attachments_in_set = *iter;
+
+    ci.attachmentCount = static_cast<u32>(attachments_in_set.size());
+    ci.pAttachments    = reinterpret_cast<const VkImageView*>(attachments_in_set.data());
 
     for (const auto &color_attachment : render_pass.info.colors)
     {
