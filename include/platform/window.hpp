@@ -12,8 +12,10 @@
 typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
-#    include <X11/Xlib.h>
-#undef None
+#include <xcb/xcb.h>
+struct xkb_context;
+struct xkb_keymap;
+struct xkb_state;
 #endif
 
 namespace window
@@ -23,8 +25,8 @@ enum struct MouseButton : uint
     Left,
     Right,
     Middle,
-    Side1,
-    Side2,
+    SideForward,
+    SideBackward,
     Count
 };
 
@@ -32,8 +34,8 @@ inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1>
     "Left mouse button",
     "Right mouse button",
     "Middle mouse button (wheel)",
-    "Side mouse button 1",
-    "Side mouse button 2",
+    "Side mouse button forward",
+    "Side mouse button backward",
     "COUNT"
 };
 
@@ -174,19 +176,16 @@ struct Window_Win32
     HWND window;
 };
 #else
-struct Window_Xlib
+struct Window_Xcb
 {
-    /// --- Window
-    Display *display;
-    ::Window window;
+    xcb_connection_t *connection;
+    xcb_window_t window;
 
-    /// --- Inputs
-    int xi2_opcode;
-    int vertical_scroll_valuator{-1};
-    int horizontal_scroll_valuator{-1};
-
-    /// --- Text input
-    XIC input_context;
+    int device_id;
+    xkb_context *kb_ctx;
+    xkb_state *kb_state;
+    xkb_keymap *keymap;
+    xcb_intern_atom_reply_t *close_reply;
 };
 #endif
 
@@ -194,6 +193,8 @@ struct Window
 {
     static void create(Window &window, usize width, usize height, const std::string_view title);
     ~Window() = default;
+
+    void destroy();
 
     void poll_events();
 
@@ -237,13 +238,13 @@ struct Window
 
     std::vector<Event> events;
 
-    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed;
-    std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed;
+    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed = {};
+    std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};
 
 #if defined(_WIN64)
     Window_Win32 win32;
 #else
-    Window_Xlib xlib;
+    Window_Xcb xcb;
 #endif
 
 };

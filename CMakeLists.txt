@@ -4,9 +4,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}) # Put binaries at the ro
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_COMPILER "clang")
 
-project(test-vulkan LANGUAGES C CXX)
+project(test-vulkan LANGUAGES CXX C)
 
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
@@ -61,6 +60,7 @@ if (WIN32)
 elseif (UNIX)
 	set(SOURCE_FILES
 		${SOURCE_FILES}
+		src/platform/window_xcb.cpp
 		)
 else()
 endif()
@@ -69,7 +69,7 @@ add_executable(test-vulkan ${SOURCE_FILES})
 
 target_compile_options(test-vulkan
   PUBLIC
-  -Werror -Wall -Wextra# warnings
+  -Werror -Wall -Wextra # warnings
 )
 
 target_include_directories(test-vulkan PUBLIC include/)
@@ -82,23 +82,24 @@ if (WIN32)
     Imm32 # Win32 IME for emoji picker or other IME input
     )
 elseif (UNIX)
-  find_package(Threads)
-  find_package(Fontconfig)
   target_link_libraries(test-vulkan
     PRIVATE
-    Threads::Threads
-    Fontconfig::Fontconfig
-    ${X11_LIBRARIES}
-    ${X11_Xi_LIB}
-    tbb
+    xcb
+    xkbcommon
+    xkbcommon-x11
     )
 endif()
 
 
 # C++ Libraires
 find_package(Vulkan REQUIRED)
+find_package(Threads)
 
-target_link_libraries(test-vulkan PRIVATE Vulkan::Vulkan)
+target_link_libraries(test-vulkan
+  PRIVATE
+  Vulkan::Vulkan
+  Threads::Threads
+  )
 
 #
 # SHADERS

@@ -5,12 +5,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <cmath>
 #include <iostream>
 #include <iterator>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #include <SPIRV-Reflect/spirv_reflect.h>
-#include <spirv_cross/spirv_cross.hpp>
 
 namespace my_app::vulkan
 {

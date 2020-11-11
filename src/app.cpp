@@ -46,6 +46,7 @@ App::~App()
 {
     ui.destroy();
     renderer.destroy();
+    window.destroy();
 }
 
 void App::update()

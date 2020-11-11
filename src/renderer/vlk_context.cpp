@@ -1,4 +1,9 @@
-#define VK_USE_PLATFORM_WIN32_KHR
+#if defined(_WIN32)
+#    define VK_USE_PLATFORM_WIN32_KHR
+#else
+#    define VK_USE_PLATFORM_XCB_KHR
+#endif
+
 #define VMA_IMPLEMENTATION
 
 #include "renderer/vlk_context.hpp"
@@ -15,10 +20,10 @@
 namespace my_app::vulkan
 {
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
-                                                         VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                                     void * /*unused*/)
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+                                                     VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
+                                                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                 void * /*unused*/)
 {
     std::cerr << pCallbackData->pMessage << "\n";
 
@@ -51,7 +56,14 @@ void Context::create(Context &ctx, const window::Window &window)
     std::vector<const char *> instance_extensions;
 
     instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
     instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+    instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#else
+    assert(false);
+#endif
 
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -123,8 +135,10 @@ void Context::create(Context &ctx, const window::Window &window)
     sci.hinstance = GetModuleHandle(nullptr);
     VK_CHECK(vkCreateWin32SurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
 #else
-    ctx.surface = VK_NULL_HANDLE;
-    assert(false);
+    VkXcbSurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+    sci.connection = window.xcb.connection;
+    sci.window = window.xcb.window;
+    VK_CHECK(vkCreateXcbSurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
 #endif
 
     /// --- Pick a physical device

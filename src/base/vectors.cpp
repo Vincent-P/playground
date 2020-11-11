@@ -232,14 +232,14 @@ TEST_SUITE("Vectors")
 
     TEST_CASE("members functions")
     {
-        CHECK(float2(1.0f, 2.0f).squared_norm() == 5.0f);
-        CHECK(float2(1.0f, 2.0f).norm() == sqrt(5.0f));
+        CHECK(float2(1.0f, 2.0f).squared_norm() == doctest::Approx(5.0f));
+        CHECK(float2(1.0f, 2.0f).norm() == doctest::Approx(sqrt(5.0f)));
 
-        CHECK(float3(1.0f, 2.0f, 3.0f).squared_norm() == 14.0f);
-        CHECK(float3(1.0f, 2.0f, 3.0f).norm() == sqrt(14.0f));
+        CHECK(float3(1.0f, 2.0f, 3.0f).squared_norm() == doctest::Approx(14.0f));
+        CHECK(float3(1.0f, 2.0f, 3.0f).norm() == doctest::Approx(sqrt(14.0f)));
 
-        CHECK(float4(1.0f, 2.0f, 3.0f, 4.0f).squared_norm() == 30.0f);
-        CHECK(float4(1.0f, 2.0f, 3.0f, 4.0f).norm() == sqrt(30.0f));
+        CHECK(float4(1.0f, 2.0f, 3.0f, 4.0f).squared_norm() == doctest::Approx(30.0f));
+        CHECK(float4(1.0f, 2.0f, 3.0f, 4.0f).norm() == doctest::Approx(sqrt(30.0f)));
     }
 
     TEST_CASE("maths")

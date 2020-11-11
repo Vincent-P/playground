@@ -174,7 +174,7 @@ void InputCamera::update()
 {
     auto &window = *p_window;
 
-    bool alt_pressed = window.is_key_pressed(window::VirtualKey::Alt);
+    bool alt_pressed = window.is_key_pressed(window::VirtualKey::LAlt) || window.is_key_pressed(window::VirtualKey::RAlt);
     bool lmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Left);
     bool rmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Right);
 

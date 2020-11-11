@@ -54,7 +54,7 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &mod
         auto &buffer    = model.buffers[view["buffer"]];
 
         usize count       = accessor["count"];
-        usize acc_offset  = json_get_or<usize>(accessor, "byteOffset", 0);
+        usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
         usize view_offset = view["byteOffset"];
         usize offset      = acc_offset + view_offset;
 
@@ -280,7 +280,7 @@ Model load_model(std::string_view path_view)
                 auto &buffer    = model.buffers[view["buffer"]];
 
                 u32 count         = accessor["count"].get_uint64();
-                usize acc_offset  = json_get_or(accessor, "byteOffset", 0);
+                usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
                 usize view_offset = view["byteOffset"];
                 usize offset      = acc_offset + view_offset;
 

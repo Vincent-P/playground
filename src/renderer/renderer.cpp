@@ -37,7 +37,7 @@ void Renderer::create(Renderer& r, const window::Window &window, Camera &camera,
 
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
-    r.model = std::make_shared<Model>(load_model("../models/SponzaBlender/SponzaBlender.gltf")); // TODO: where??
+    r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
 
     r.p_ui     = &ui;
     r.p_camera = &camera;
