@@ -34,11 +34,10 @@ add_compile_options(
 # Main executable
 #
 
-add_executable(test-vulkan
+set(SOURCE_FILES
   src/main.cpp
   src/base/vectors.cpp
   src/ecs.cpp
-  src/platform/window_win32.cpp
   src/camera.cpp
   src/ui.cpp
   src/app.cpp
@@ -52,7 +51,21 @@ add_executable(test-vulkan
   src/renderer/hl_api.cpp
   src/renderer/hl_api_resources.cpp
   src/renderer/hl_api_draw.cpp
-  )
+)
+
+if (WIN32)
+	set(SOURCE_FILES
+		${SOURCE_FILES}
+		src/platform/window_win32.cpp
+		)
+elseif (UNIX)
+	set(SOURCE_FILES
+		${SOURCE_FILES}
+		)
+else()
+endif()
+
+add_executable(test-vulkan ${SOURCE_FILES})
 
 target_compile_options(test-vulkan
   PUBLIC
@@ -69,6 +82,8 @@ if (WIN32)
     Imm32 # Win32 IME for emoji picker or other IME input
     )
 elseif (UNIX)
+  find_package(Threads)
+  find_package(Fontconfig)
   target_link_libraries(test-vulkan
     PRIVATE
     Threads::Threads

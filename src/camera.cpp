@@ -6,6 +6,7 @@
 #include <imgui/imgui.h>
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
 namespace my_app
 {

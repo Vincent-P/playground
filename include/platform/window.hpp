@@ -13,6 +13,7 @@ typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
 #    include <X11/Xlib.h>
+#undef None
 #endif
 
 namespace window
