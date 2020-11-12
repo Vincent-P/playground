@@ -22,16 +22,19 @@ namespace my_app::vulkan
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
                                                      VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
-                                                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                                 void * /*unused*/)
+                                                     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                     void * /*unused*/)
 {
     std::cerr << pCallbackData->pMessage << "\n";
 
-    if (pCallbackData->objectCount) {
+    if (pCallbackData->objectCount)
+    {
         std::cerr << "Objects: \n";
-        for (size_t i = 0; i < pCallbackData->objectCount; i++) {
+        for (size_t i = 0; i < pCallbackData->objectCount; i++)
+        {
             const auto &object = pCallbackData->pObjects[i];
-            std::cerr << "\t [" << i << "] " << /*Vkto_string(static_cast<VkObjectType>(object.objectType)) <<*/ " " << (object.pObjectName ? object.pObjectName : "NoName") << std::endl;
+            std::cerr << "\t [" << i << "] " << /*Vkto_string(static_cast<VkObjectType>(object.objectType)) <<*/ " "
+                      << (object.pObjectName ? object.pObjectName : "NoName") << std::endl;
         }
     }
 
@@ -74,7 +77,8 @@ void Context::create(Context &ctx, const window::Window &window)
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_instance_layers.data()));
 
     std::vector<const char *> instance_layers;
-    if (ENABLE_VALIDATION_LAYERS) {
+    if (ENABLE_VALIDATION_LAYERS)
+    {
         instance_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
 
@@ -116,12 +120,12 @@ void Context::create(Context &ctx, const window::Window &window)
     if (ENABLE_VALIDATION_LAYERS)
     {
         VkDebugUtilsMessengerCreateInfoEXT ci = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-        ci.flags            = 0;
-        ci.messageSeverity  = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        ci.flags                              = 0;
+        ci.messageSeverity                    = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
         ci.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        ci.messageType      = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+        ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
         // ci.messageType     |= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        ci.pfnUserCallback  = debug_callback;
+        ci.pfnUserCallback = debug_callback;
 
         VkDebugUtilsMessengerEXT messenger;
         VK_CHECK(ctx.vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
@@ -131,13 +135,13 @@ void Context::create(Context &ctx, const window::Window &window)
     /// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-    sci.hwnd      = window.win32.window;
-    sci.hinstance = GetModuleHandle(nullptr);
+    sci.hwnd                        = window.win32.window;
+    sci.hinstance                   = GetModuleHandle(nullptr);
     VK_CHECK(vkCreateWin32SurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
 #else
     VkXcbSurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-    sci.connection = window.xcb.connection;
-    sci.window = window.xcb.window;
+    sci.connection                = window.xcb.connection;
+    sci.window                    = window.xcb.window;
     VK_CHECK(vkCreateXcbSurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
 #endif
 
@@ -149,11 +153,13 @@ void Context::create(Context &ctx, const window::Window &window)
     VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, physical_devices.data()));
 
     ctx.physical_device = physical_devices[0];
-    for (const auto &physical_device : physical_devices) {
+    for (const auto &physical_device : physical_devices)
+    {
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(physical_device, &properties);
         std::cout << "Device: " << properties.deviceName << "\n";
-        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
             std::cout << "Selected: " << properties.deviceName << "\n";
             ctx.physical_device = physical_device;
         }
@@ -162,14 +168,21 @@ void Context::create(Context &ctx, const window::Window &window)
     /// --- Create the logical device
     std::vector<VkExtensionProperties> installed_device_extensions;
     uint installed_device_extensions_count = 0;
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device, nullptr, &installed_device_extensions_count, nullptr));
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device,
+                                                  nullptr,
+                                                  &installed_device_extensions_count,
+                                                  nullptr));
     installed_device_extensions.resize(installed_device_extensions_count);
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device, nullptr, &installed_device_extensions_count, installed_device_extensions.data()));
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device,
+                                                  nullptr,
+                                                  &installed_device_extensions_count,
+                                                  installed_device_extensions.data()));
 
     std::vector<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-    if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions)) {
+    if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions))
+    {
         device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
     }
 
@@ -189,40 +202,45 @@ void Context::create(Context &ctx, const window::Window &window)
 
     bool has_graphics = false;
     bool has_present  = false;
-    for (uint32_t i = 0; i < queue_families.size(); i++) {
-        if (!has_graphics && queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+    for (uint32_t i = 0; i < queue_families.size(); i++)
+    {
+        if (!has_graphics && queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
             // Create a single graphics queue.
             queue_create_infos.emplace_back();
-            auto &queue_create_info = queue_create_infos.back();
+            auto &queue_create_info            = queue_create_infos.back();
             queue_create_info                  = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
             queue_create_info.queueFamilyIndex = i;
             queue_create_info.queueCount       = 1;
             queue_create_info.pQueuePriorities = &priority;
-            has_graphics            = true;
-            ctx.graphics_family_idx = i;
+            has_graphics                       = true;
+            ctx.graphics_family_idx            = i;
         }
 
         VkBool32 surface_support = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(ctx.physical_device, i, ctx.surface, &surface_support);
 
-        if (!has_present && surface_support) {
+        if (!has_present && surface_support)
+        {
             // Create a single graphics queue.
             queue_create_infos.emplace_back();
-            auto &queue_create_info = queue_create_infos.back();
+            auto &queue_create_info            = queue_create_infos.back();
             queue_create_info                  = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
             queue_create_info.queueFamilyIndex = i;
             queue_create_info.queueCount       = 1;
             queue_create_info.pQueuePriorities = &priority;
-            has_present            = true;
-            ctx.present_family_idx = i;
+            has_present                        = true;
+            ctx.present_family_idx             = i;
         }
     }
 
-    if (!has_present || !has_graphics) {
+    if (!has_present || !has_graphics)
+    {
         throw std::runtime_error("failed to find a graphics and present queue.");
     }
 
-    if (ctx.present_family_idx == ctx.graphics_family_idx) {
+    if (ctx.present_family_idx == ctx.graphics_family_idx)
+    {
         queue_create_infos.pop_back();
     }
 
@@ -288,21 +306,30 @@ void Context::create_swapchain()
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
     uint present_modes_count = 0;
     std::vector<VkPresentModeKHR> present_modes;
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
+    VK_CHECK(
+        vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
     present_modes.resize(present_modes_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, present_modes.data()));
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device,
+                                                       ctx.surface,
+                                                       &present_modes_count,
+                                                       present_modes.data()));
     ctx.swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
-    for (auto &pm : present_modes) {
-        if (pm == VK_PRESENT_MODE_MAILBOX_KHR) {
+    for (auto &pm : present_modes)
+    {
+        if (pm == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
             ctx.swapchain.present_mode = pm;
             break;
         }
     }
 
-    if (ctx.swapchain.present_mode == VK_PRESENT_MODE_FIFO_KHR) {
-        for (auto &pm : present_modes) {
-            if (pm == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+    if (ctx.swapchain.present_mode == VK_PRESENT_MODE_FIFO_KHR)
+    {
+        for (auto &pm : present_modes)
+        {
+            if (pm == VK_PRESENT_MODE_IMMEDIATE_KHR)
+            {
                 ctx.swapchain.present_mode = pm;
                 break;
             }
@@ -316,13 +343,17 @@ void Context::create_swapchain()
     formats.resize(formats_count);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx.physical_device, ctx.surface, &formats_count, formats.data()));
     ctx.swapchain.format = formats[0];
-    if (ctx.swapchain.format.format == VK_FORMAT_UNDEFINED) {
+    if (ctx.swapchain.format.format == VK_FORMAT_UNDEFINED)
+    {
         ctx.swapchain.format.format     = VK_FORMAT_B8G8R8A8_UNORM;
         ctx.swapchain.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     }
-    else {
-        for (const auto &f : formats) {
-            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+    else
+    {
+        for (const auto &f : formats)
+        {
+            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            {
                 ctx.swapchain.format = f;
                 break;
             }
@@ -330,10 +361,10 @@ void Context::create_swapchain()
     }
 
     auto image_count = capabilities.minImageCount + 2u;
-    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
+    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
+    {
         image_count = capabilities.maxImageCount;
     }
-
 
     VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     ci.surface                  = ctx.surface;
@@ -342,7 +373,8 @@ void Context::create_swapchain()
     ci.imageColorSpace          = ctx.swapchain.format.colorSpace;
     ci.imageExtent              = ctx.swapchain.extent;
     ci.imageArrayLayers         = 1;
-    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+                    | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     if (ctx.graphics_family_idx != ctx.present_family_idx)
     {
@@ -351,7 +383,8 @@ void Context::create_swapchain()
         ci.queueFamilyIndexCount = indices.size();
         ci.pQueueFamilyIndices   = indices.data();
     }
-    else {
+    else
+    {
         ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
@@ -365,7 +398,10 @@ void Context::create_swapchain()
     ctx.swapchain.images_count = 0;
     VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &ctx.swapchain.images_count, nullptr));
     ctx.swapchain.images.resize(ctx.swapchain.images_count);
-    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device, ctx.swapchain.handle, &ctx.swapchain.images_count, ctx.swapchain.images.data()));
+    VK_CHECK(vkGetSwapchainImagesKHR(ctx.device,
+                                     ctx.swapchain.handle,
+                                     &ctx.swapchain.images_count,
+                                     ctx.swapchain.images.data()));
 }
 
 void Context::destroy_swapchain()
@@ -379,7 +415,8 @@ void Context::create_frame_resources(usize count)
     frame_resources.current = 0;
     frame_resources.data.resize(count);
 
-    for (usize i = 0; i < count; i++) {
+    for (usize i = 0; i < count; i++)
+    {
         auto &frame_resource = frame_resources.data[i];
 
         VkFenceCreateInfo fci = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
@@ -405,7 +442,8 @@ void Context::destroy()
     vkDestroyQueryPool(device, timestamp_pool, nullptr);
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
 
-    for (auto &frame : frame_resources.data) {
+    for (auto &frame : frame_resources.data)
+    {
         vkDestroyFence(device, frame.fence, nullptr);
         vkDestroySemaphore(device, frame.image_available, nullptr);
         vkDestroySemaphore(device, frame.rendering_finished, nullptr);
@@ -418,7 +456,8 @@ void Context::destroy()
     vmaDestroyAllocator(allocator);
     vkDestroyDevice(device, nullptr);
 
-    if (ENABLE_VALIDATION_LAYERS) {
+    if (ENABLE_VALIDATION_LAYERS)
+    {
         vkDestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);
     }
 
@@ -455,54 +494,45 @@ void Context::on_resize(int /*width*/, int /*height*/)
 
 bool operator==(const VkPipelineShaderStageCreateInfo &a, const VkPipelineShaderStageCreateInfo &b)
 {
-    return a.flags == b.flags
-        && a.stage == b.stage
-        && a.module == b.module
-        && a.pName == b.pName // TODO: strcmp?
-        && a.pSpecializationInfo == b.pSpecializationInfo; // TODO: deep cmp?
+    return a.flags == b.flags && a.stage == b.stage && a.module == b.module && a.pName == b.pName // TODO: strcmp?
+           && a.pSpecializationInfo == b.pSpecializationInfo;                                     // TODO: deep cmp?
 }
 
 bool operator==(const VkDescriptorBufferInfo &a, const VkDescriptorBufferInfo &b)
 {
-    return a.buffer == b.buffer
-        && a.offset == b.offset
-        && a.range == b.range;
+    return a.buffer == b.buffer && a.offset == b.offset && a.range == b.range;
 }
 
 bool operator==(const VkDescriptorImageInfo &a, const VkDescriptorImageInfo &b)
 {
-    return a.sampler == b.sampler
-        && a.imageView == b.imageView
-        && a.imageLayout == b.imageLayout;
+    return a.sampler == b.sampler && a.imageView == b.imageView && a.imageLayout == b.imageLayout;
 }
 
 bool operator==(const VkExtent3D &a, const VkExtent3D &b)
 {
-    return a.width == b.width
-        && a.height == b.height
-        && a.depth == b.depth;
+    return a.width == b.width && a.height == b.height && a.depth == b.depth;
 }
 
 bool operator==(const VkImageSubresourceRange &a, const VkImageSubresourceRange &b)
 {
-    return a.aspectMask == b.aspectMask
-        && a.baseMipLevel == b.baseMipLevel
-        && a.levelCount == b.levelCount
-        && a.baseArrayLayer == b.baseArrayLayer
-        && a.layerCount == b.layerCount;
+    return a.aspectMask == b.aspectMask && a.baseMipLevel == b.baseMipLevel && a.levelCount == b.levelCount
+           && a.baseArrayLayer == b.baseArrayLayer && a.layerCount == b.layerCount;
 }
 
 bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b)
 {
     bool same = a.queueFamilyIndexCount == b.queueFamilyIndexCount;
-    if (!same) {
+    if (!same)
+    {
         return false;
     }
 
     if (a.pQueueFamilyIndices && b.pQueueFamilyIndices)
     {
-        for (usize i = 0; i < a.queueFamilyIndexCount; i++) {
-            if (a.pQueueFamilyIndices[i] != b.pQueueFamilyIndices[i]) {
+        for (usize i = 0; i < a.queueFamilyIndexCount; i++)
+        {
+            if (a.pQueueFamilyIndices[i] != b.pQueueFamilyIndices[i])
+            {
                 return false;
             }
         }
@@ -512,44 +542,33 @@ bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b)
         same = a.pQueueFamilyIndices == b.pQueueFamilyIndices;
     }
 
-    return same
-        && a.flags == b.flags
-        && a.imageType == b.imageType
-        && a.format == b.format
-        && a.extent == b.extent
-        && a.mipLevels == b.mipLevels
-        && a.arrayLayers == b.arrayLayers
-        && a.samples == b.samples
-        && a.tiling == b.tiling
-        && a.usage == b.usage
-        && a.sharingMode == b.sharingMode
-        && a.initialLayout == b.initialLayout;
+    return same && a.flags == b.flags && a.imageType == b.imageType && a.format == b.format && a.extent == b.extent
+           && a.mipLevels == b.mipLevels && a.arrayLayers == b.arrayLayers && a.samples == b.samples
+           && a.tiling == b.tiling && a.usage == b.usage && a.sharingMode == b.sharingMode
+           && a.initialLayout == b.initialLayout;
 }
 
 bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b)
 {
-    return a.flags == b.flags
-        && a.stage == b.stage
-        && a.layout == b.layout
-        && a.basePipelineHandle == b.basePipelineHandle
-        && a.basePipelineIndex == b.basePipelineIndex;
+    return a.flags == b.flags && a.stage == b.stage && a.layout == b.layout
+           && a.basePipelineHandle == b.basePipelineHandle && a.basePipelineIndex == b.basePipelineIndex;
 }
 
 bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b)
 {
-    if (a.attachmentCount != b.attachmentCount) {
+    if (a.attachmentCount != b.attachmentCount)
+    {
         return false;
     }
 
-    for (uint i = 0; i < a.attachmentCount; i++) {
-        if (a.pAttachments[i] != b.pAttachments[i]) {
+    for (uint i = 0; i < a.attachmentCount; i++)
+    {
+        if (a.pAttachments[i] != b.pAttachments[i])
+        {
             return false;
         }
     }
 
-    return a.flags == b.flags
-        && a.renderPass == b.renderPass
-        && a.width == b.width
-        && a.height == b.height
-        && a.layers == b.layers;
+    return a.flags == b.flags && a.renderPass == b.renderPass && a.width == b.width && a.height == b.height
+           && a.layers == b.layers;
 }

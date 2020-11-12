@@ -1,9 +1,10 @@
 #pragma once
-#include <algorithm>
-#include <cstddef>
-#include <cassert>
 #include "base/numerics.hpp"
 #include "base/vectors.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
 
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
 
@@ -50,26 +51,13 @@ struct uint2
 
 // --- User-defined literals
 
-inline uint operator"" _K(unsigned long long value)
-{
-    return value * 1000u;
-}
+inline uint operator"" _K(unsigned long long value) { return value * 1000u; }
 
-inline uint operator"" _KiB(unsigned long long value)
-{
-    return value << 10;
-}
+inline uint operator"" _KiB(unsigned long long value) { return value << 10; }
 
-inline uint operator"" _MiB(unsigned long long value)
-{
-    return value << 20;
-}
+inline uint operator"" _MiB(unsigned long long value) { return value << 20; }
 
-
-inline uint operator"" _GiB(unsigned long long value)
-{
-    return value << 30;
-}
+inline uint operator"" _GiB(unsigned long long value) { return value << 30; }
 
 /// --- Utility functions
 
@@ -78,8 +66,7 @@ template <typename T> inline T *ptr_offset(T *ptr, usize offset)
     return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
 }
 
-template <typename E>
-inline constexpr auto to_underlying(E e) noexcept
+template <typename E> inline constexpr auto to_underlying(E e) noexcept
 {
     return static_cast<std::underlying_type_t<E>>(e);
 }

@@ -1,10 +1,12 @@
 #include "app.hpp"
+
+#include "file_watcher.hpp"
+
 #include <algorithm>
-#include <variant>
 #include <imgui/imgui.h>
 #include <iostream>
 #include <sstream>
-#include "file_watcher.hpp"
+#include <variant>
 
 namespace my_app
 {
@@ -28,7 +30,8 @@ App::App()
     shaders_watch = watcher.add_watch("shaders");
 
     watcher.on_file_change([&](const auto &watch, const auto &event) {
-        if (watch.wd != shaders_watch.wd) {
+        if (watch.wd != shaders_watch.wd)
+        {
             return;
         }
 
@@ -49,10 +52,7 @@ App::~App()
     window.destroy();
 }
 
-void App::update()
-{
-    camera.update();
-}
+void App::update() { camera.update(); }
 
 void App::display_ui()
 {
@@ -69,11 +69,11 @@ void App::display_ui()
     const ImGuiCol blue  = ImGui::GetColorU32(float4(52.f / 256.f, 146.f / 256.f, 246.f / 256.f, 1.0f));
     const ImGuiCol black = ImGui::GetColorU32(float4(0.0f, 0.0f, 0.0f, 1.0f));
 
-    float3 camera_forward = normalize(camera.target - camera._internal.position);
-    float3 origin = float3(0.f);
+    float3 camera_forward  = normalize(camera.target - camera._internal.position);
+    float3 origin          = float3(0.f);
     float3 camera_position = origin - 2.0f * camera_forward;
-    auto view = Camera::look_at(camera_position, origin, camera._internal.up);
-    auto proj = Camera::perspective(fov, 1.f, 0.01f, 10.0f);
+    auto view              = Camera::look_at(camera_position, origin, camera._internal.up);
+    auto proj              = Camera::perspective(fov, 1.f, 0.01f, 10.0f);
 
     struct GizmoAxis
     {
@@ -97,38 +97,43 @@ void App::display_ui()
     {
         // project 3d point to 2d
         float4 projected_p = proj * view * float4(axis.axis, 1.0f);
-        projected_p = (1.0f / projected_p.w) * projected_p;
+        projected_p        = (1.0f / projected_p.w) * projected_p;
 
         // remap [-1, 1] to [-0.9 * size, 0.9 * size] to fit the canvas
         axis.projected_point = 0.9f * size * projected_p.xy();
     }
 
     // sort by distance to the camera
-    std::sort(std::begin(axes), std::end(axes), [&](const GizmoAxis &a, const GizmoAxis &b) { return (camera_position - a.axis).squared_norm() > (camera_position - b.axis).squared_norm();  });
+    std::sort(std::begin(axes), std::end(axes), [&](const GizmoAxis &a, const GizmoAxis &b) {
+        return (camera_position - a.axis).squared_norm() > (camera_position - b.axis).squared_norm();
+    });
 
-    auto flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar;
+    auto flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize
+                 | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar;
     ImGui::Begin("Gizmo", nullptr, flags);
 
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    float2 p = ImGui::GetCursorScreenPos();
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    float2 p              = ImGui::GetCursorScreenPos();
 
     // ceenter p
     p = p + float2(size);
 
-    auto font_size = ImGui::GetFontSize();
-    float2 half_size = float2(font_size/2.f);
+    auto font_size   = ImGui::GetFontSize();
+    float2 half_size = float2(font_size / 2.f);
     half_size.x /= 2;
 
     // draw each axis
     for (const auto &axis : axes)
     {
-        if (axis.draw_line) {
+        if (axis.draw_line)
+        {
             draw_list->AddLine(p, p + axis.projected_point, axis.color, 3.0f);
         }
 
         draw_list->AddCircleFilled(p + axis.projected_point, 7.f, axis.color);
 
-        if (axis.draw_line && axis.label) {
+        if (axis.draw_line && axis.label)
+        {
             draw_list->AddText(p + axis.projected_point - half_size, black, axis.label);
         }
     }
@@ -140,11 +145,13 @@ void App::display_ui()
 
 void App::run()
 {
-    while (!window.should_close()) {
+    while (!window.should_close())
+    {
         window.poll_events();
 
         std::optional<window::event::Resize> last_resize;
-        for (auto &event : window.events) {
+        for (auto &event : window.events)
+        {
             if (std::holds_alternative<window::event::Resize>(event))
             {
                 auto resize = std::get<window::event::Resize>(event);
@@ -164,7 +171,8 @@ void App::run()
             else if (std::holds_alternative<window::event::Key>(event))
             {
                 auto key = std::get<window::event::Key>(event);
-                if (key.key == window::VirtualKey::Escape) {
+                if (key.key == window::VirtualKey::Escape)
+                {
                     window.stop = true;
                 }
             }
@@ -173,17 +181,20 @@ void App::run()
         if (last_resize)
         {
             auto resize = *last_resize;
-            if (resize.width > 0 && resize.height > 0) {
+            if (resize.width > 0 && resize.height > 0)
+            {
                 renderer.on_resize(resize.width, resize.height);
             }
-            if (window.minimized) {
+            if (window.minimized)
+            {
                 this->is_minimized = true;
             }
         }
 
         window.events.clear();
 
-        if (is_minimized) {
+        if (is_minimized)
+        {
             continue;
         }
 
@@ -192,7 +203,6 @@ void App::run()
         display_ui();
         renderer.draw();
         watcher.update();
-
     }
 
     renderer.wait_idle();

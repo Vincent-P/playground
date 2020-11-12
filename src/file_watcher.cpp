@@ -4,22 +4,22 @@
 
 #ifdef __linux__
 
-#include <fcntl.h>
-#include <sys/inotify.h>
-#include <unistd.h>
+#    include <fcntl.h>
+#    include <sys/inotify.h>
+#    include <unistd.h>
 
-#elif defined (_WIN64)
+#elif defined(_WIN64)
 
-#include <Windows.h>
+#    include <Windows.h>
 
 #endif
 
-#include <array>
+#include "base/types.hpp"
+
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <iostream>
-
-#include "base/types.hpp"
 
 namespace my_app
 {
@@ -42,17 +42,17 @@ static FileWatcher create_internal()
     return fw;
 }
 
-static void destroy_internal(FileWatcher& fw)
+static void destroy_internal(FileWatcher &fw)
 {
     assert(fw.inotify_fd > 0);
     fw.inotify_fd = -1;
 }
 
-static Watch add_watch_internal(FileWatcher &fw, const char* path)
+static Watch add_watch_internal(FileWatcher &fw, const char *path)
 {
     Watch watch;
     watch.path = path;
-    watch.wd = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
+    watch.wd   = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
     assert(watch.wd > 0);
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
@@ -62,8 +62,9 @@ static void fetch_events_internal(FileWatcher &fw)
 {
     std::array<u8, 2048> buffer;
     ssize_t sbread = read(fw.inotify_fd, buffer.data(), buffer.size());
-    if (sbread <= 0) {
-	return;
+    if (sbread <= 0)
+    {
+        return;
     }
 
     usize bread = sbread;
@@ -71,18 +72,19 @@ static void fetch_events_internal(FileWatcher &fw)
     u8 *p_buffer = buffer.data();
     usize offset = 0;
 
-    while (offset + sizeof(inotify_event) < bread) {
-	auto *p_event    = reinterpret_cast<inotify_event *>(ptr_offset(p_buffer, offset));
-	usize event_size = offsetof(inotify_event, name) + p_event->len;
+    while (offset + sizeof(inotify_event) < bread)
+    {
+        auto *p_event    = reinterpret_cast<inotify_event *>(ptr_offset(p_buffer, offset));
+        usize event_size = offsetof(inotify_event, name) + p_event->len;
 
-	Event event;
-	event.wd     = p_event->wd;
-	event.mask   = p_event->mask;
-	event.cookie = p_event->cookie;
-	event.name   = std::string{p_event->name};
-	fw.current_events.push_back(std::move(event));
+        Event event;
+        event.wd     = p_event->wd;
+        event.mask   = p_event->mask;
+        event.cookie = p_event->cookie;
+        event.name   = std::string{p_event->name};
+        fw.current_events.push_back(std::move(event));
 
-	offset += event_size;
+        offset += event_size;
     }
 }
 
@@ -95,47 +97,41 @@ static FileWatcher create_internal()
     return fw;
 }
 
-static void destroy_internal(FileWatcher& fw)
+static void destroy_internal(FileWatcher &fw)
 {
-    for (auto& watch: fw.watches)
+    for (auto &watch : fw.watches)
     {
         (void)(watch); // TODO: custom assert, unused variable on release
         assert(CloseHandle(watch.directory_handle));
     }
 }
 
-static Watch add_watch_internal(FileWatcher &fw, const char* path)
+static Watch add_watch_internal(FileWatcher &fw, const char *path)
 {
     static int last_wd = 0;
     Watch watch;
     watch.path = path;
-    watch.wd = last_wd++;
+    watch.wd   = last_wd++;
 
-    watch.directory_handle = CreateFileA(
-        path,
-        GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr,
-        OPEN_EXISTING,
-        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED , // needed to get changes
-        nullptr
-        );
+    watch.directory_handle = CreateFileA(path,
+                                         GENERIC_READ,
+                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                         nullptr,
+                                         OPEN_EXISTING,
+                                         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, // needed to get changes
+                                         nullptr);
 
     watch.overlapped = {};
-    watch.buffer = {};
+    watch.buffer     = {};
 
-    assert(
-        ReadDirectoryChangesW(
-            watch.directory_handle,
-            watch.buffer.data(),
-            watch.buffer.size(),
-            true,
-            FILE_NOTIFY_CHANGE_LAST_WRITE,
-            nullptr,
-            &watch.overlapped,
-            nullptr
-            )
-        );
+    assert(ReadDirectoryChangesW(watch.directory_handle,
+                                 watch.buffer.data(),
+                                 watch.buffer.size(),
+                                 true,
+                                 FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 nullptr,
+                                 &watch.overlapped,
+                                 nullptr));
 
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
@@ -143,11 +139,11 @@ static Watch add_watch_internal(FileWatcher &fw, const char* path)
 
 static void fetch_events_internal(FileWatcher &fw)
 {
-    for (auto& watch : fw.watches)
+    for (auto &watch : fw.watches)
     {
 
         DWORD bread = 0;
-        auto res = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
+        auto res    = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
         if (!res)
         {
             auto error = GetLastError();
@@ -158,60 +154,56 @@ static void fetch_events_internal(FileWatcher &fw)
         u8 *p_buffer = watch.buffer.data();
         usize offset = 0;
 
-        while (offset + sizeof(FILE_NOTIFY_INFORMATION) < bread) {
-            auto *p_event    = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(ptr_offset(p_buffer, offset));
+        while (offset + sizeof(FILE_NOTIFY_INFORMATION) < bread)
+        {
+            auto *p_event = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(ptr_offset(p_buffer, offset));
 
             Event event;
-            event.wd     = watch.wd;
+            event.wd = watch.wd;
 
             std::wstring wname{p_event->FileName};
-            event.name   = std::string{wname.begin(), wname.end()};
+            event.name = std::string{wname.begin(), wname.end()};
             fw.current_events.push_back(std::move(event));
 
-            if (p_event->NextEntryOffset == 0) {
+            if (p_event->NextEntryOffset == 0)
+            {
                 break;
             }
             offset += p_event->NextEntryOffset;
         }
 
-        assert(
-            ReadDirectoryChangesW(
-                watch.directory_handle,
-                watch.buffer.data(),
-                watch.buffer.size(),
-                true,
-                FILE_NOTIFY_CHANGE_LAST_WRITE,
-                nullptr,
-                &watch.overlapped,
-                nullptr
-                )
-            );
+        assert(ReadDirectoryChangesW(watch.directory_handle,
+                                     watch.buffer.data(),
+                                     watch.buffer.size(),
+                                     true,
+                                     FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                     nullptr,
+                                     &watch.overlapped,
+                                     nullptr));
     }
 }
 #endif
 
-static const Watch& watch_from_event_internal(const FileWatcher &fw, const Event &event)
+static const Watch &watch_from_event_internal(const FileWatcher &fw, const Event &event)
 {
-    return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
+    return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) {
+        return watch.wd == event.wd;
+    });
 }
 
-FileWatcher FileWatcher::create()
-{
-    return create_internal();
-}
+FileWatcher FileWatcher::create() { return create_internal(); }
 
-Watch FileWatcher::add_watch(const char *path)
-{
-    return add_watch_internal(*this, path);
-}
+Watch FileWatcher::add_watch(const char *path) { return add_watch_internal(*this, path); }
 
 void FileWatcher::update()
 {
     fetch_events_internal(*this);
 
-    for (const auto &event : current_events) {
+    for (const auto &event : current_events)
+    {
         const auto &watch = watch_from_event_internal(*this, event);
-        for (const auto &cb : callbacks) {
+        for (const auto &cb : callbacks)
+        {
             cb(watch, event);
         }
     }
@@ -219,14 +211,8 @@ void FileWatcher::update()
     current_events.clear();
 }
 
-void FileWatcher::on_file_change(const FileEventF &f)
-{
-    callbacks.push_back(f);
-}
+void FileWatcher::on_file_change(const FileEventF &f) { callbacks.push_back(f); }
 
-void FileWatcher::destroy()
-{
-    destroy_internal(*this);
-}
+void FileWatcher::destroy() { destroy_internal(*this); }
 
 } // namespace my_app

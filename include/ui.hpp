@@ -9,7 +9,7 @@
 
 namespace window
 {
-    struct Window;
+struct Window;
 };
 
 namespace my_app
@@ -34,6 +34,6 @@ struct Context
     void end_window();
     std::unordered_map<std::string_view, Window> windows;
 };
-}
+} // namespace UI
 
-}
+} // namespace my_app

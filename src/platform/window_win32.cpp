@@ -39,14 +39,8 @@ static std::string utf16_to_utf8(const std::wstring_view &wstr)
     return result;
 }
 
-inline bool is_high_surrogate(wchar_t c)
-{
-    return 0xD800 <= c && c <= 0xDBFF;
-}
-inline bool is_low_surrogate(wchar_t c)
-{
-    return 0xDC00 <= c && c <= 0xDFFF;
-}
+inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
+inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
 namespace window
 {
@@ -111,9 +105,7 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     ShowWindow(hwnd, SW_SHOW);
 }
 
-void Window::destroy()
-{
-}
+void Window::destroy() {}
 
 float2 Window::get_dpi_scale() const
 {
@@ -124,9 +116,9 @@ float2 Window::get_dpi_scale() const
 
 static void update_key(Window &window, VirtualKey key)
 {
-    auto old = window.keys_pressed[to_underlying(key)];
+    auto old         = window.keys_pressed[to_underlying(key)];
     auto virtual_key = native_to_virtual[to_underlying(key)];
-    auto pressed = GetKeyState(virtual_key) & 0x8000;
+    auto pressed     = GetKeyState(virtual_key) & 0x8000;
 
     window.keys_pressed[to_underlying(key)] = pressed;
 
@@ -194,16 +186,36 @@ void Window::set_cursor(Cursor cursor)
     LPTSTR win32_cursor = nullptr;
     switch (cursor)
     {
-    case Cursor::None:         win32_cursor = nullptr; break;
-    case Cursor::Arrow:        win32_cursor = IDC_ARROW; break;
-    case Cursor::TextInput:    win32_cursor = IDC_IBEAM; break;
-    case Cursor::ResizeAll:    win32_cursor = IDC_SIZEALL; break;
-    case Cursor::ResizeEW:     win32_cursor = IDC_SIZEWE; break;
-    case Cursor::ResizeNS:     win32_cursor = IDC_SIZENS; break;
-    case Cursor::ResizeNESW:   win32_cursor = IDC_SIZENESW; break;
-    case Cursor::ResizeNWSE:   win32_cursor = IDC_SIZENWSE; break;
-    case Cursor::Hand:         win32_cursor = IDC_HAND; break;
-    case Cursor::NotAllowed:   win32_cursor = IDC_NO; break;
+        case Cursor::None:
+            win32_cursor = nullptr;
+            break;
+        case Cursor::Arrow:
+            win32_cursor = IDC_ARROW;
+            break;
+        case Cursor::TextInput:
+            win32_cursor = IDC_IBEAM;
+            break;
+        case Cursor::ResizeAll:
+            win32_cursor = IDC_SIZEALL;
+            break;
+        case Cursor::ResizeEW:
+            win32_cursor = IDC_SIZEWE;
+            break;
+        case Cursor::ResizeNS:
+            win32_cursor = IDC_SIZENS;
+            break;
+        case Cursor::ResizeNESW:
+            win32_cursor = IDC_SIZENESW;
+            break;
+        case Cursor::ResizeNWSE:
+            win32_cursor = IDC_SIZENWSE;
+            break;
+        case Cursor::Hand:
+            win32_cursor = IDC_HAND;
+            break;
+        case Cursor::NotAllowed:
+            win32_cursor = IDC_NO;
+            break;
     }
     ::SetCursor(::LoadCursor(nullptr, win32_cursor));
     current_cursor = cursor;
@@ -283,7 +295,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             return 0;
         }
 
-        /// --- Keyboard Inputs
+            /// --- Keyboard Inputs
 
         case WM_KEYUP:
         case WM_KEYDOWN:
@@ -302,7 +314,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             auto action = event::Key::Action::Down;
             if (uMsg == WM_KEYUP)
             {
-                 action = event::Key::Action::Up;
+                action = event::Key::Action::Up;
             }
 
             window.emit_event<event::Key>(key, action);
@@ -418,7 +430,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             window.emit_event<event::IMEComposition>("");
         }
 
-        /// --- Mouse inputs
+            /// --- Mouse inputs
 
         case WM_MOUSEWHEEL:
         {
@@ -442,54 +454,54 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         case WM_RBUTTONDOWN: case WM_RBUTTONDBLCLK:
         case WM_MBUTTONDOWN: case WM_MBUTTONDBLCLK:
         case WM_XBUTTONDOWN: case WM_XBUTTONDBLCLK:
-        // clang-format on
-        {
-            int button = 0;
-            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
+            // clang-format on
             {
-                button = 0;
+                int button = 0;
+                if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
+                {
+                    button = 0;
+                }
+                if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONDBLCLK)
+                {
+                    button = 1;
+                }
+                if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONDBLCLK)
+                {
+                    button = 2;
+                }
+                if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK)
+                {
+                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+                }
+                window.mouse_buttons_pressed[button] = true;
+                return 0;
             }
-            if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONDBLCLK)
-            {
-                button = 1;
-            }
-            if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONDBLCLK)
-            {
-                button = 2;
-            }
-            if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK)
-            {
-                button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
-            }
-            window.mouse_buttons_pressed[button] = true;
-            return 0;
-        }
 
         // clang-format off
         case WM_LBUTTONUP: case WM_RBUTTONUP:
         case WM_MBUTTONUP: case WM_XBUTTONUP:
-        // clang-format on
-        {
-            int button = 0;
-            if (uMsg == WM_LBUTTONUP)
+            // clang-format on
             {
-                button = 0;
+                int button = 0;
+                if (uMsg == WM_LBUTTONUP)
+                {
+                    button = 0;
+                }
+                if (uMsg == WM_RBUTTONUP)
+                {
+                    button = 1;
+                }
+                if (uMsg == WM_MBUTTONUP)
+                {
+                    button = 2;
+                }
+                if (uMsg == WM_XBUTTONUP)
+                {
+                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+                }
+                window.mouse_buttons_pressed[button] = false;
+                return 0;
             }
-            if (uMsg == WM_RBUTTONUP)
-            {
-                button = 1;
-            }
-            if (uMsg == WM_MBUTTONUP)
-            {
-                button = 2;
-            }
-            if (uMsg == WM_XBUTTONUP)
-            {
-                button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
-            }
-            window.mouse_buttons_pressed[button] = false;
-            return 0;
-        }
     }
 
     // default message handling

@@ -31,7 +31,7 @@ inline bool json_has(const simdjson::dom::element &object, const char *field_nam
     return object[field_name].error() == simdjson::SUCCESS;
 }
 
-template<typename T>
+template <typename T>
 inline T json_get_or(const simdjson::dom::element &object, const char *field_name, T default_value)
 {
     if (json_has(object, field_name))
@@ -47,11 +47,11 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &mod
 {
     if (attributes[attribute].error() == simdjson::SUCCESS)
     {
-        uint accessor_i = attributes[attribute].get_uint64();
-        simdjson::dom::element accessor   = root["accessors"].at(accessor_i);
-        uint view_i     = accessor["bufferView"].get_uint64();
-        auto view       = root["bufferViews"].at(view_i);
-        auto &buffer    = model.buffers[view["buffer"]];
+        uint accessor_i                 = attributes[attribute].get_uint64();
+        simdjson::dom::element accessor = root["accessors"].at(accessor_i);
+        uint view_i                     = accessor["bufferView"].get_uint64();
+        auto view                       = root["bufferViews"].at(view_i);
+        auto &buffer                    = model.buffers[view["buffer"]];
 
         usize count       = accessor["count"];
         usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
@@ -82,8 +82,8 @@ Model load_model(std::string_view path_view)
         buf.byte_length = json_buffer["byteLength"].get_uint64();
 
         std::string_view buffer_name = json_buffer["uri"].get_string();
-        fs::path buffer_path          = path.replace_filename(fs::path(buffer_name));
-        buf.data                      = tools::read_file(buffer_path);
+        fs::path buffer_path         = path.replace_filename(fs::path(buffer_name));
+        buf.data                     = tools::read_file(buffer_path);
 
         model.buffers.push_back(std::move(buf));
     }
@@ -103,12 +103,11 @@ Model load_model(std::string_view path_view)
     // add a fallback sampler for images without one
     model.samplers.emplace_back();
 
-
     assert(model.samplers.size() > 0);
     for (const auto &json_texture : doc["textures"])
     {
         Texture texture;
-        texture.sampler = json_get_or<u64>(json_texture, "sampler", model.samplers.size()-1);
+        texture.sampler = json_get_or<u64>(json_texture, "sampler", model.samplers.size() - 1);
         texture.image   = json_texture["source"].get_uint64();
         model.textures.push_back(std::move(texture));
     }
@@ -118,16 +117,14 @@ Model load_model(std::string_view path_view)
     images_data.resize(doc["images"].get_array().size());
 
     uint i = 0;
-    for (const auto& json_image : doc["images"])
+    for (const auto &json_image : doc["images"])
     {
-        std::string_view type_view       = json_image["mimeType"].get_string();
+        std::string_view type_view = json_image["mimeType"].get_string();
         std::string type(type_view);
         std::string_view image_name = json_image["uri"].get_string();
-        fs::path image_path    = path.replace_filename(image_name);
+        fs::path image_path         = path.replace_filename(image_name);
 
-        if (type == "image/jpeg")
-        {
-        }
+        if (type == "image/jpeg") {}
         else if (type == "image/png")
         {
         }
@@ -152,7 +149,6 @@ Model load_model(std::string_view path_view)
         model.images[i] = images_data[i].get();
     }
 
-
     for (const auto &json_material : doc["materials"])
     {
         Material material{};
@@ -168,7 +164,7 @@ Model load_model(std::string_view path_view)
 
             if (json_pbr["metallicFactor"].error() == simdjson::SUCCESS)
             {
-                material.metallic_factor  = json_pbr["metallicFactor"].get_double();
+                material.metallic_factor = json_pbr["metallicFactor"].get_double();
             }
             if (json_pbr["roughnessFactor"].error() == simdjson::SUCCESS)
             {
@@ -203,7 +199,6 @@ Model load_model(std::string_view path_view)
     // fallback material
     model.materials.emplace_back();
 
-
     // Fill the model vertex and index buffers
     for (const auto &json_mesh : doc["meshes"])
     {
@@ -217,11 +212,12 @@ Model load_model(std::string_view path_view)
             }
             else
             {
-                primitive.material = model.materials.size()-1;
+                primitive.material = model.materials.size() - 1;
             }
 
-            if (json_has(json_primitive, "mode")) {
-                primitive.mode     = RenderingMode(static_cast<u8>(json_primitive["mode"].get_uint64()));
+            if (json_has(json_primitive, "mode"))
+            {
+                primitive.mode = RenderingMode(static_cast<u8>(json_primitive["mode"].get_uint64()));
             }
 
             const simdjson::dom::element &json_attributes = json_primitive["attributes"];
@@ -273,11 +269,11 @@ Model load_model(std::string_view path_view)
             }
 
             {
-                uint accessor_i = json_primitive["indices"].get_uint64();
-                simdjson::dom::element accessor   = doc["accessors"].at(accessor_i);
-                uint view_i     = accessor["bufferView"].get_uint64();
-                auto view       = doc["bufferViews"].at(view_i);
-                auto &buffer    = model.buffers[view["buffer"]];
+                uint accessor_i                 = json_primitive["indices"].get_uint64();
+                simdjson::dom::element accessor = doc["accessors"].at(accessor_i);
+                uint view_i                     = accessor["bufferView"].get_uint64();
+                auto view                       = doc["bufferViews"].at(view_i);
+                auto &buffer                    = model.buffers[view["buffer"]];
 
                 u32 count         = accessor["count"].get_uint64();
                 usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
@@ -304,9 +300,7 @@ Model load_model(std::string_view path_view)
 
         node.mesh = json_node["mesh"];
 
-        if (json_node["matrix"].error() == simdjson::SUCCESS)
-        {
-        }
+        if (json_node["matrix"].error() == simdjson::SUCCESS) {}
 
         if (json_node["translation"].error() == simdjson::SUCCESS)
         {
@@ -319,12 +313,10 @@ Model load_model(std::string_view path_view)
         if (json_node["rotation"].error() == simdjson::SUCCESS)
         {
             const auto &rotation = json_node["rotation"];
-            node.rotation        = float4(
-                rotation.at(0).get_double(),
-                rotation.at(1).get_double(),
-                rotation.at(2).get_double(),
-                rotation.at(3).get_double()
-            );
+            node.rotation        = float4(rotation.at(0).get_double(),
+                                   rotation.at(1).get_double(),
+                                   rotation.at(2).get_double(),
+                                   rotation.at(3).get_double());
         }
 
         if (json_node["scale"].error() == simdjson::SUCCESS)

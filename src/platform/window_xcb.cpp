@@ -1,11 +1,12 @@
 #include "base/types.hpp"
 #include "platform/window.hpp"
+
 #include <cstdio>
 #include <iostream>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
-#include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
+#include <xkbcommon/xkbcommon.h>
 
 namespace window
 {
@@ -23,34 +24,32 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     window.stop   = false;
     window.events.reserve(5); // should be good enough
 
-    int screen_num = 0;
+    int screen_num        = 0;
     window.xcb.connection = xcb_connect(nullptr, &screen_num);
 
-    const xcb_setup_t *setup   = xcb_get_setup(window.xcb.connection);
+    const xcb_setup_t *setup = xcb_get_setup(window.xcb.connection);
 
     /// --- Get the active screen to create the window
 
     xcb_screen_iterator_t iter = xcb_setup_roots_iterator(setup);
     // skip iterator to go the the screen returnes by xcb_connect
-    for (int i = 0; i < screen_num; i++) {
+    for (int i = 0; i < screen_num; i++)
+    {
         xcb_screen_next(&iter);
     }
     xcb_screen_t *screen = iter.data;
 
-
     /// --- Create the window
     // specify which event we are listening to
     const static u32 values[] = {
-        XCB_EVENT_MASK_EXPOSURE
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY
-        | XCB_EVENT_MASK_POINTER_MOTION // mouse motion
-        | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE // mouse button
-        | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE, // keyboard inputs
+        XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_POINTER_MOTION // mouse motion
+            | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE                         // mouse button
+            | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE,                              // keyboard inputs
     };
 
     window.xcb.window = xcb_generate_id(window.xcb.connection);
     xcb_create_window(window.xcb.connection, /* Pointer to the xcb_connection_t structure */
-                      0,  /* Depth of the screen */
+                      0,                     /* Depth of the screen */
                       window.xcb.window,     /* Id of the window */
                       screen->root,          /* Id of an existing window that should be the parent of the new window */
                       0,                     /* X position of the top-left corner of the window (in pixels) */
@@ -76,9 +75,16 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     xcb_intern_atom_reply_t *reply  = xcb_intern_atom_reply(window.xcb.connection, cookie, nullptr);
 
     xcb_intern_atom_cookie_t cookie2 = xcb_intern_atom(window.xcb.connection, 0, 16, "WM_DELETE_WINDOW");
-    window.xcb.close_reply  = xcb_intern_atom_reply(window.xcb.connection, cookie2, nullptr);
+    window.xcb.close_reply           = xcb_intern_atom_reply(window.xcb.connection, cookie2, nullptr);
 
-    xcb_change_property(window.xcb.connection, XCB_PROP_MODE_REPLACE, window.xcb.window, reply->atom, 4, 32, 1, &window.xcb.close_reply->atom);
+    xcb_change_property(window.xcb.connection,
+                        XCB_PROP_MODE_REPLACE,
+                        window.xcb.window,
+                        reply->atom,
+                        4,
+                        32,
+                        1,
+                        &window.xcb.close_reply->atom);
 
     // show window
     xcb_map_window(window.xcb.connection, window.xcb.window);
@@ -100,16 +106,14 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     else
     {
         struct xkb_rule_names names = {};
-        window.xcb.keymap = xkb_keymap_new_from_names(window.xcb.kb_ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        window.xcb.keymap           = xkb_keymap_new_from_names(window.xcb.kb_ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
     }
 
     assert(window.xcb.keymap);
     if (window.xcb.device_id != -1)
     {
-        window.xcb.kb_state = xkb_x11_state_new_from_device(
-            window.xcb.keymap,
-            window.xcb.connection,
-            window.xcb.device_id);
+        window.xcb.kb_state
+            = xkb_x11_state_new_from_device(window.xcb.keymap, window.xcb.connection, window.xcb.device_id);
     }
     else
     {
@@ -165,14 +169,25 @@ void Window::poll_events()
                 MouseButton pressed = MouseButton::Count;
                 switch (button_press->detail)
                 {
-                case 1: pressed = MouseButton::Left; break;
-                case 2: pressed = MouseButton::Middle; break;
-                case 3: pressed = MouseButton::Right; break;
-                case 8: pressed = MouseButton::SideBackward; break;
-                case 9: pressed = MouseButton::SideForward; break;
+                    case 1:
+                        pressed = MouseButton::Left;
+                        break;
+                    case 2:
+                        pressed = MouseButton::Middle;
+                        break;
+                    case 3:
+                        pressed = MouseButton::Right;
+                        break;
+                    case 8:
+                        pressed = MouseButton::SideBackward;
+                        break;
+                    case 9:
+                        pressed = MouseButton::SideForward;
+                        break;
                 }
 
-                if (pressed != MouseButton::Count) {
+                if (pressed != MouseButton::Count)
+                {
                     mouse_buttons_pressed[to_underlying(pressed)] = true;
                 }
 
@@ -186,15 +201,27 @@ void Window::poll_events()
                 MouseButton released = MouseButton::Count;
                 switch (button_release->detail)
                 {
-                case 1: released = MouseButton::Left; break;
-                case 2: released = MouseButton::Middle; break;
-                case 3: released = MouseButton::Right; break;
-                case 8: released = MouseButton::SideBackward; break;
-                case 9: released = MouseButton::SideForward; break;
-                default: break;
+                    case 1:
+                        released = MouseButton::Left;
+                        break;
+                    case 2:
+                        released = MouseButton::Middle;
+                        break;
+                    case 3:
+                        released = MouseButton::Right;
+                        break;
+                    case 8:
+                        released = MouseButton::SideBackward;
+                        break;
+                    case 9:
+                        released = MouseButton::SideForward;
+                        break;
+                    default:
+                        break;
                 }
 
-                if (released != MouseButton::Count) {
+                if (released != MouseButton::Count)
+                {
                     mouse_buttons_pressed[to_underlying(released)] = false;
                 }
                 break;
@@ -203,8 +230,8 @@ void Window::poll_events()
             case XCB_MOTION_NOTIFY:
             {
                 auto *motion = reinterpret_cast<xcb_motion_notify_event_t *>(ev);
-                auto x = motion->event_x;
-                auto y = motion->event_y;
+                auto x       = motion->event_x;
+                auto y       = motion->event_y;
                 emit_event<event::MouseMove>(x, y);
                 mouse_position = float2(x, y);
                 break;
@@ -215,8 +242,8 @@ void Window::poll_events()
             {
                 // xcb_key_release_event_t is typedef'd to key_press
                 auto *key_press = reinterpret_cast<xcb_key_press_event_t *>(ev);
-                auto keycode = key_press->detail;
-                auto keysym = xkb_state_key_get_one_sym(xcb.kb_state, keycode);
+                auto keycode    = key_press->detail;
+                auto keysym     = xkb_state_key_get_one_sym(xcb.kb_state, keycode);
 
                 auto key = VirtualKey::Count;
                 for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
@@ -248,29 +275,15 @@ void Window::poll_events()
     }
 }
 
-void Window::set_caret_pos(int2)
-{
-}
+void Window::set_caret_pos(int2) {}
 
-void Window::set_caret_size(int2)
-{
-}
+void Window::set_caret_size(int2) {}
 
-void Window::remove_caret()
-{
-}
+void Window::remove_caret() {}
 
-void Window::set_cursor(Cursor)
-{
-}
+void Window::set_cursor(Cursor) {}
 
-[[nodiscard]] float2 Window::get_dpi_scale() const
-{
-    return float2(1.0f);
-}
+[[nodiscard]] float2 Window::get_dpi_scale() const { return float2(1.0f); }
 
-void Window::destroy()
-{
-    xcb_disconnect(xcb.connection);
-}
+void Window::destroy() { xcb_disconnect(xcb.connection); }
 } // namespace window

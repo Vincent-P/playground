@@ -1,4 +1,5 @@
 #include "timer.hpp"
+
 #include "base/types.hpp"
 
 namespace my_app
@@ -19,44 +20,49 @@ std::array<float, 10> const &TimerData::get_fps_histogram() const { return fps_h
 void TimerData::update()
 {
     {
-	auto previous_time = time;
-	time               = clock_t::now();
-	delta_time         = clock_t::now() - previous_time;
+        auto previous_time = time;
+        time               = clock_t::now();
+        delta_time         = clock_t::now() - previous_time;
     }
     {
-	auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
-	float_time        = static_cast<float>(milliseconds);
-	float_delta_time  = delta_time.count();
+        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
+        float_time        = static_cast<float>(milliseconds);
+        float_delta_time  = delta_time.count();
     }
     {
-	static usize previous_second = 0;
-	usize current_second
-	    = static_cast<usize>(std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count());
+        static usize previous_second = 0;
+        usize current_second
+            = static_cast<usize>(std::chrono::duration_cast<std::chrono::seconds>(time.time_since_epoch()).count());
 
-	if (current_second != previous_second) {
-	    average_fps = current_second_fps;
-	    for (usize i = 1; i < fps_histogram.size(); ++i) {
-		average_fps += fps_histogram[i];
-		fps_histogram[i - 1]        = fps_histogram[i];
-		delta_time_histogram[i - 1] = delta_time_histogram[i];
-	    }
-	    fps_histogram[9]        = current_second_fps;
-	    delta_time_histogram[9] = 1000.0f / current_second_fps;
-	    average_fps *= 0.1f;
-	    average_delta_time = 1000.0f / average_fps;
-	    current_second_fps = 0.0f;
-	}
-	current_second_fps += 1.0f;
-	previous_second = current_second;
+        if (current_second != previous_second)
+        {
+            average_fps = current_second_fps;
+            for (usize i = 1; i < fps_histogram.size(); ++i)
+            {
+                average_fps += fps_histogram[i];
+                fps_histogram[i - 1]        = fps_histogram[i];
+                delta_time_histogram[i - 1] = delta_time_histogram[i];
+            }
+            fps_histogram[9]        = current_second_fps;
+            delta_time_histogram[9] = 1000.0f / current_second_fps;
+            average_fps *= 0.1f;
+            average_delta_time = 1000.0f / average_fps;
+            current_second_fps = 0.0f;
+        }
+        current_second_fps += 1.0f;
+        previous_second = current_second;
     }
 }
 
-TimerData::TimerData() : time(clock_t::now()), delta_time(clock_t::now() - clock_t::now())
+TimerData::TimerData()
+    : time(clock_t::now())
+    , delta_time(clock_t::now() - clock_t::now())
 {
 
-    for (usize i = 0; i < fps_histogram.size(); ++i) {
-	fps_histogram[i]        = 10.0f;
-	delta_time_histogram[i] = 10.0f;
+    for (usize i = 0; i < fps_histogram.size(); ++i)
+    {
+        fps_histogram[i]        = 10.0f;
+        delta_time_histogram[i] = 10.0f;
     }
 
     update();

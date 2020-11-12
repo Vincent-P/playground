@@ -9,8 +9,8 @@ AlignEscapedNewlines: Right
 AlignTrailingComments: true
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortBlocksOnASingleLine: false
-AllowShortFunctionsOnASingleLine: false
+AllowShortBlocksOnASingleLine: true
+AllowShortFunctionsOnASingleLine: true
 BinPackArguments: false
 BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Allman

@@ -12,7 +12,7 @@
 typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
-#include <xcb/xcb.h>
+#    include <xcb/xcb.h>
 struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
@@ -36,7 +36,7 @@ inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1>
     "Middle mouse button (wheel)",
     "Side mouse button forward",
     "Side mouse button backward",
-    "COUNT"
+    "COUNT",
 };
 
 enum struct VirtualKey : uint
@@ -52,10 +52,7 @@ inline constexpr std::array<const char *, to_underlying(VirtualKey::Count) + 1> 
 #undef X
 };
 
-inline constexpr const char *virtual_key_to_string(VirtualKey key)
-{
-    return key_to_string[to_underlying(key)];
-}
+inline constexpr const char *virtual_key_to_string(VirtualKey key) { return key_to_string[to_underlying(key)]; }
 
 enum struct Cursor
 {
@@ -206,19 +203,19 @@ struct Window
     // cursor operations
     void set_cursor(Cursor cursor);
 
-    [[nodiscard]] inline bool should_close() const
-    {
-        return stop;
-    }
+    [[nodiscard]] inline bool should_close() const { return stop; }
 
     [[nodiscard]] float2 get_dpi_scale() const;
 
     [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
-    [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const { return mouse_buttons_pressed[to_underlying(button)]; }
+    [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const
+    {
+        return mouse_buttons_pressed[to_underlying(button)];
+    }
     [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
 
     // push events to the events vector
-    template <typename EventType, class... Args> void emit_event(Args &&... args)
+    template <typename EventType, class... Args> void emit_event(Args &&...args)
     {
         events.emplace_back(std::in_place_type<EventType>, std::forward<Args>(args)...);
     }
@@ -238,7 +235,7 @@ struct Window
 
     std::vector<Event> events;
 
-    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed = {};
+    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed           = {};
     std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};
 
 #if defined(_WIN64)
@@ -246,7 +243,6 @@ struct Window
 #else
     Window_Xcb xcb;
 #endif
-
 };
 
 } // namespace window

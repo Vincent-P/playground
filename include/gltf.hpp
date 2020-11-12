@@ -1,6 +1,7 @@
 #pragma once
-#include "renderer/hl_api.hpp"
 #include "base/types.hpp"
+#include "renderer/hl_api.hpp"
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -51,11 +52,11 @@ enum class Wrap
 
 struct Material
 {
-    float4 base_color_factor = float4(1.0f);
-    float metallic_factor = 1.0f;
-    float roughness_factor = 1.0f;
-    std::optional<u32> base_color_texture = std::nullopt;
-    std::optional<u32> normal_texture = std::nullopt;
+    float4 base_color_factor                      = float4(1.0f);
+    float metallic_factor                         = 1.0f;
+    float roughness_factor                        = 1.0f;
+    std::optional<u32> base_color_texture         = std::nullopt;
+    std::optional<u32> normal_texture             = std::nullopt;
     std::optional<u32> metallic_roughness_texture = std::nullopt;
 };
 
@@ -69,8 +70,8 @@ struct Sampler
 {
     Filter mag_filter = Filter::Linear;
     Filter min_filter = Filter::Linear;
-    Wrap wrap_s = Wrap::Repeat;
-    Wrap wrap_t = Wrap::Repeat;
+    Wrap wrap_s       = Wrap::Repeat;
+    Wrap wrap_t       = Wrap::Repeat;
 };
 
 struct Texture
@@ -96,17 +97,21 @@ enum class AccessorType
 
 inline std::optional<AccessorType> accessor_type_from_str(const std::string &string)
 {
-    if (string == "SCALAR") {
-	return AccessorType::Scalar;
+    if (string == "SCALAR")
+    {
+        return AccessorType::Scalar;
     }
-    if (string == "VEC3") {
-	return AccessorType::Vec3;
+    if (string == "VEC3")
+    {
+        return AccessorType::Vec3;
     }
-    if (string == "VEC4") {
-	return AccessorType::Vec4;
+    if (string == "VEC4")
+    {
+        return AccessorType::Vec4;
     }
-    if (string == "MAT4") {
-	return AccessorType::Mat4;
+    if (string == "MAT4")
+    {
+        return AccessorType::Mat4;
     }
 
     return std::nullopt;

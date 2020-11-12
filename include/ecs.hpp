@@ -3,9 +3,9 @@
 #include "base/types.hpp"
 #include "ui.hpp"
 
+#include <optional>
 #include <unordered_map>
 #include <vector>
-#include <optional>
 
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
@@ -52,20 +52,14 @@ struct EntityId
         : raw(_raw)
     {
     }
-    bool operator==(EntityId other) const
-    {
-        return raw == other.raw;
-    }
+    bool operator==(EntityId other) const { return raw == other.raw; }
 
     union
     {
         u64 raw;
     };
 
-    operator u64() const
-    {
-        return raw;
-    }
+    operator u64() const { return raw; }
 };
 } // namespace my_app::ECS
 
@@ -73,10 +67,7 @@ namespace std
 {
 template <> struct hash<my_app::ECS::EntityId>
 {
-    std::size_t operator()(my_app::ECS::EntityId const &id) const noexcept
-    {
-        return std::hash<u64>{}(id.raw);
-    }
+    std::size_t operator()(my_app::ECS::EntityId const &id) const noexcept { return std::hash<u64>{}(id.raw); }
 };
 } // namespace std
 
@@ -169,8 +160,10 @@ std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
 
 // ArchetypeStorage
 // traverse the graph and returns or create the ArchetypeStorage matching the Archetype
-ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph, ArchetypeH entity_archetype, ComponentId component_type);
-ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, ArchetypeH entity_archetype, ComponentId component_type);
+ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph, ArchetypeH entity_archetype,
+                                                               ComponentId component_type);
+ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, ArchetypeH entity_archetype,
+                                                             ComponentId component_type);
 ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const Archetype &type);
 // add an entity id to a storage
 usize add_entity_id_to_storage(ArchetypeStorage &storage, EntityId entity);
@@ -180,14 +173,13 @@ void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void
 void remove_entity_from_storage(ArchetypeStorage &storage, usize entity_row);
 
 // Components
-void add_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size);
+void add_component(World &world, EntityId entity, ComponentId component_id, void *component_data, usize component_size);
 void remove_component(World &world, EntityId entity, ComponentId component_id);
-void set_component(World &world, EntityId entity, ComponentId component_id, void* component_data, usize component_size);
+void set_component(World &world, EntityId entity, ComponentId component_id, void *component_data, usize component_size);
 bool has_component(World &world, EntityId entity, ComponentId component);
 void *get_component(World &world, EntityId entity, ComponentId component_id);
 
-template <typename Component>
-std::optional<usize> get_component_idx(Archetype type)
+template <typename Component> std::optional<usize> get_component_idx(Archetype type)
 {
     return get_component_idx(type, family::type<Component>());
 }
@@ -203,7 +195,7 @@ struct World
     /// --- Entities
 
     // Create an entity with a list of components
-    template <typename... ComponentTypes> EntityId create_entity(ComponentTypes &&... components)
+    template <typename... ComponentTypes> EntityId create_entity(ComponentTypes &&...components)
     {
         EntityId new_entity = family::identifier();
         auto archetype      = impl::create_archetype<ComponentTypes...>();
@@ -246,16 +238,12 @@ struct World
         impl::set_component(*this, entity, family::type<Component>(), &component, sizeof(Component));
     }
 
-    template <typename Component>
-    bool has_component(EntityId entity)
+    template <typename Component> bool has_component(EntityId entity)
     {
         return impl::has_component(*this, entity, family::type<Component>());
     }
 
-    bool is_component(EntityId entity)
-    {
-        return impl::has_component(*this, entity, family::type<InternalComponent>());
-    }
+    bool is_component(EntityId entity) { return impl::has_component(*this, entity, family::type<InternalComponent>()); }
 
     // Get a component from an entity, returns nullptr if not found
     template <typename Component> Component *get_component(EntityId entity)

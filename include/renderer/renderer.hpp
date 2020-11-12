@@ -116,7 +116,7 @@ struct Renderer
     void display_ui(UI::Context &ui);
     void draw();
     void on_resize(int width, int height);
-    void wait_idle();
+    void wait_idle() const;
     void reload_shader(std::string_view shader_name);
 
     UI::Context *p_ui;

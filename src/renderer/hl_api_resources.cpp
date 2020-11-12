@@ -1,22 +1,23 @@
+#include "base/types.hpp"
 #include "renderer/hl_api.hpp"
 #include "tools.hpp"
-#include "base/types.hpp"
 
+#include <SPIRV-Reflect/spirv_reflect.h>
 #include <algorithm>
 #include <cassert>
-#include <cstring>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <iterator>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include <SPIRV-Reflect/spirv_reflect.h>
 
 namespace my_app::vulkan
 {
 
-static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range, VkFormat format);
-static void destroy_image_view(API& api, ImageViewH H);
+static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range,
+                                    VkFormat format);
+static void destroy_image_view(API &api, ImageViewH H);
 
 /// --- Images
 
@@ -41,24 +42,25 @@ static ImageH create_image_internal(vulkan::API &api, const ImageInfo &info, VkI
     auto &ctx = api.ctx;
 
     ImageH image_h = api.images.add({});
-    Image &img = *api.images.get(image_h);
+    Image &img     = *api.images.get(image_h);
 
-    img.name = info.name;
-    img.info = info;
+    img.name     = info.name;
+    img.info     = info;
     img.is_proxy = external != VK_NULL_HANDLE;
 
-    img.extra_formats    = info.extra_formats;
+    img.extra_formats = info.extra_formats;
 
     assert(info.mip_levels == 1 || !info.generate_mip_levels);
 
-    VkImageCreateInfo image_info = { .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    VkImageCreateInfo image_info = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 
     if (!info.extra_formats.empty())
     {
         image_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
     }
 
-    if (info.type == VK_IMAGE_TYPE_3D) {
+    if (info.type == VK_IMAGE_TYPE_3D)
+    {
         image_info.flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
     }
 
@@ -138,19 +140,16 @@ static ImageH create_image_internal(vulkan::API &api, const ImageInfo &info, VkI
 
     for (u32 i = 0; i < image_info.mipLevels; i++)
     {
-        auto mip_range = img.full_range;
+        auto mip_range         = img.full_range;
         mip_range.baseMipLevel = i;
-        mip_range.levelCount = 1;
+        mip_range.levelCount   = 1;
         img.mip_views.push_back(create_image_view(api, image_h, img, mip_range, img.info.format));
     }
 
     return image_h;
 }
 
-ImageH API::create_image(const ImageInfo &info)
-{
-    return create_image_internal(*this, info);
-}
+ImageH API::create_image(const ImageInfo &info) { return create_image_internal(*this, info); }
 
 ImageH API::create_image_proxy(VkImage external, const ImageInfo &info)
 {
@@ -165,9 +164,7 @@ Image &API::get_image(ImageH H)
 
 void destroy_image_internal(API &api, Image &img)
 {
-    if (img.is_proxy)
-    {
-    }
+    if (img.is_proxy) {}
     else
     {
         vmaDestroyImage(api.ctx.allocator, img.vkhandle, img.allocation);
@@ -194,16 +191,17 @@ void API::destroy_image(ImageH H)
     images.remove(H);
 }
 
-static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range, VkFormat format)
+static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image, const VkImageSubresourceRange &range,
+                                    VkFormat format)
 {
     auto &ctx = api.ctx;
 
     ImageViewH view_h = api.image_views.add({});
-    ImageView &view = *api.image_views.get(view_h);
+    ImageView &view   = *api.image_views.get(view_h);
 
-    view.image_h = image_h;
-    view.range = range;
-    view.format = format;
+    view.image_h   = image_h;
+    view.range     = range;
+    view.format    = format;
     view.view_type = view_type_from(image.info.type);
 
     VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -231,7 +229,7 @@ static ImageViewH create_image_view(API &api, ImageH image_h, const Image &image
     return view_h;
 }
 
-static void destroy_image_view(API& api, ImageViewH H)
+static void destroy_image_view(API &api, ImageViewH H)
 {
     assert(H.is_valid());
     ImageView &view = *api.image_views.get(H);
@@ -283,7 +281,7 @@ void API::upload_image(ImageH H, void *data, usize len)
         copy.imageSubresource.mipLevel       = i;
         copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
         copy.imageSubresource.layerCount     = range.layerCount;
-        copy.imageExtent                     = { image.info.width, image.info.height, image.info.depth };
+        copy.imageExtent                     = {image.info.width, image.info.height, image.info.depth};
         copies.push_back(std::move(copy));
     }
 
@@ -413,7 +411,7 @@ void API::transfer_done(ImageH H) // it's a hack for now
 
     auto src = get_src_image_access(image.usage);
     auto dst = get_dst_image_access(ImageUsage::GraphicsShaderRead);
-    auto b = get_image_barrier(image, src, dst);
+    auto b   = get_image_barrier(image, src, dst);
     vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     image.usage = ImageUsage::GraphicsShaderRead;
     cmd_buffer.submit_and_wait();
@@ -450,7 +448,6 @@ Sampler &API::get_sampler(SamplerH H)
     assert(H.is_valid());
     return *samplers.get(H);
 }
-
 
 void destroy_sampler_internal(API &api, Sampler &sampler)
 {
@@ -703,10 +700,7 @@ void GraphicsProgramInfo::push_constant(PushConstantInfo &&push_constant)
     push_constants.push_back(std::move(push_constant));
 }
 
-void GraphicsProgramInfo::vertex_stride(u32 value)
-{
-    vertex_buffer_info.stride = value;
-}
+void GraphicsProgramInfo::vertex_stride(u32 value) { vertex_buffer_info.stride = value; }
 
 void GraphicsProgramInfo::vertex_info(VertexInfo &&info)
 {
@@ -732,9 +726,9 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
         flags.emplace_back();
         auto &flag = flags.back();
 
-        binding.binding        = info_binding.slot;
-        binding.stageFlags     = info_binding.stages;
-        binding.descriptorType = info_binding.type;
+        binding.binding         = info_binding.slot;
+        binding.stageFlags      = info_binding.stages;
+        binding.descriptorType  = info_binding.type;
         binding.descriptorCount = info_binding.count;
 
         if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
@@ -743,13 +737,15 @@ void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
             binding_set.dynamic_bindings.push_back(i);
         }
 
-        if (info_binding.count > 1) {
+        if (info_binding.count > 1)
+        {
             flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
         }
         i++;
     }
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
+        = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
@@ -782,7 +778,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         info.fragment_shader,
     };
 
-    SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
+    SpvReflectResult result             = SPV_REFLECT_RESULT_SUCCESS;
     constexpr usize MAX_DESCRIPTOR_SETS = 3;
     std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
     std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
@@ -791,13 +787,17 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {
-        if (!shader_handles[i_shader].is_valid()) { continue; }
+        if (!shader_handles[i_shader].is_valid())
+        {
+            continue;
+        }
         const auto &shader = get_shader(shader_handles[i_shader]);
-        result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_modules[i_shader]);
+        result
+            = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_modules[i_shader]);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
         u32 count = 0;
-        result         = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
+        result    = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
         std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
@@ -819,24 +819,26 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
                 if (slot >= bindings_per_set[set_number].size())
                 {
-                    bindings_per_set[set_number].resize(slot+1);
-                    bindings_initialized_per_set[set_number].resize(slot+1);
-                    binding_flags_per_set[set_number].resize(slot+1);
+                    bindings_per_set[set_number].resize(slot + 1);
+                    bindings_initialized_per_set[set_number].resize(slot + 1);
+                    binding_flags_per_set[set_number].resize(slot + 1);
                 }
 
-                auto &binding = bindings_per_set[set_number][slot];
-                auto &flag = binding_flags_per_set[set_number][slot];
+                auto &binding       = bindings_per_set[set_number][slot];
+                auto &flag          = binding_flags_per_set[set_number][slot];
                 int &is_initialized = bindings_initialized_per_set[set_number][slot];
 
                 auto descriptorType = static_cast<VkDescriptorType>(refl_binding.descriptor_type);
 
                 // all uniform buffers are dynamic
-                if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+                if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                {
                     descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
                 }
 
                 u32 descriptorCount = 1;
-                for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++) {
+                for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++)
+                {
                     descriptorCount *= refl_binding.array.dims[i_dim];
                 }
                 auto stageFlags = static_cast<VkShaderStageFlagBits>(shader_modules[i_shader].shader_stage);
@@ -844,8 +846,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
                 if (is_initialized)
                 {
                     binding.stageFlags |= shader_stage_flags[i_shader];
-                    if (binding.binding != slot
-                        || binding.descriptorType != descriptorType
+                    if (binding.binding != slot || binding.descriptorType != descriptorType
                         || binding.descriptorCount != descriptorCount)
                     {
                         assert(false && "The binding is different in another stage.");
@@ -857,8 +858,8 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
                     binding.descriptorType  = descriptorType;
                     binding.descriptorCount = descriptorCount;
                     binding.stageFlags      = stageFlags;
-                    flag = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-                    is_initialized = 1;
+                    flag                    = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    is_initialized          = 1;
                 }
             }
         }
@@ -867,7 +868,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         spvReflectEnumeratePushConstantBlocks(&shader_modules[i_shader], &push_constant_count, nullptr);
         assert(push_constant_count == 0 || push_constant_count == 1);
 
-        SpvReflectBlockVariable* p_pc_block = nullptr;
+        SpvReflectBlockVariable *p_pc_block = nullptr;
         spvReflectEnumeratePushConstantBlocks(&shader_modules[i_shader], &push_constant_count, &p_pc_block);
 
         if (p_pc_block)
@@ -875,8 +876,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
             if (push_constant)
             {
                 push_constant->stages |= shader_stage_flags[i_shader];
-                if (p_pc_block->offset != push_constant->offset
-                    || p_pc_block->size != push_constant->size)
+                if (p_pc_block->offset != push_constant->offset || p_pc_block->size != push_constant->size)
                 {
                     assert(false && "The push constant is different in another stage.");
                 }
@@ -903,7 +903,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     {
         auto &binding_set = program.binding_sets_by_freq[i_set - 1];
 
-        const auto &flags = binding_flags_per_set[i_set];
+        const auto &flags    = binding_flags_per_set[i_set];
         const auto &bindings = bindings_per_set[i_set];
         binding_set.binded_data.resize(bindings.size());
 
@@ -912,12 +912,12 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         {
             const auto &binding = bindings[i_binding];
 
-            auto &binding_info = binding_set.bindings_info[i_binding];
-            binding_info.count = binding.descriptorCount;
-            binding_info.set = i_set;
-            binding_info.slot = i_binding;
+            auto &binding_info  = binding_set.bindings_info[i_binding];
+            binding_info.count  = binding.descriptorCount;
+            binding_info.set    = i_set;
+            binding_info.slot   = i_binding;
             binding_info.stages = binding.stageFlags;
-            binding_info.type = binding.descriptorType;
+            binding_info.type   = binding.descriptorType;
 
             if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
             {
@@ -926,7 +926,8 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
             }
         }
 
-        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
+            = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
         flags_info.bindingCount  = static_cast<u32>(bindings.size());
         flags_info.pBindingFlags = flags.data();
 
@@ -952,10 +953,11 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         return range;
     });
 
-    std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET+1/*global set*/> layouts;
+    std::array<VkDescriptorSetLayout, MAX_DESCRIPTOR_SET + 1 /*global set*/> layouts;
     layouts[0] = global_bindings.binding_set.descriptor_layout;
-    for (uint i = 0; i < program.binding_sets_by_freq.size(); i++) {
-        layouts[i+1] = program.binding_sets_by_freq[i].descriptor_layout;
+    for (uint i = 0; i < program.binding_sets_by_freq.size(); i++)
+    {
+        layouts[i + 1] = program.binding_sets_by_freq[i].descriptor_layout;
     }
 
     VkPipelineLayoutCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
@@ -978,7 +980,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     SpvReflectShaderModule shader_module;
 
     SpvReflectResult result = SPV_REFLECT_RESULT_SUCCESS;
-    const auto &shader = get_shader(info.shader);
+    const auto &shader      = get_shader(info.shader);
     result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_module);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
@@ -986,7 +988,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     std::vector<VkDescriptorBindingFlags> binding_flags;
 
     u32 count = 0;
-    result         = spvReflectEnumerateDescriptorSets(&shader_module, &count, nullptr);
+    result    = spvReflectEnumerateDescriptorSets(&shader_module, &count, nullptr);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
     std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
@@ -998,7 +1000,8 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         const SpvReflectDescriptorSet &refl_set = *(descriptor_sets[i_set]);
 
         usize set_number = refl_set.set; // actual set index
-        if (set_number != SHADER_DESCRIPTOR_SET) continue;
+        if (set_number != SHADER_DESCRIPTOR_SET)
+            continue;
 
         for (u32 i_binding = 0; i_binding < refl_set.binding_count; i_binding++)
         {
@@ -1008,22 +1011,24 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 
             if (slot >= bindings.size())
             {
-                bindings.resize(slot+1);
-                binding_flags.resize(slot+1);
+                bindings.resize(slot + 1);
+                binding_flags.resize(slot + 1);
             }
 
             auto &binding = bindings[slot];
-            auto &flag = binding_flags[slot];
+            auto &flag    = binding_flags[slot];
 
             auto descriptorType = static_cast<VkDescriptorType>(refl_binding.descriptor_type);
 
             // all uniform buffers are dynamic
-            if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+            if (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+            {
                 descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             }
 
             u32 descriptorCount = 1;
-            for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++) {
+            for (u32 i_dim = 0; i_dim < refl_binding.array.dims_count; i_dim++)
+            {
                 descriptorCount *= refl_binding.array.dims[i_dim];
             }
             auto stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -1037,12 +1042,11 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         }
     }
 
-
     u32 push_constant_count = 0;
     spvReflectEnumeratePushConstantBlocks(&shader_module, &push_constant_count, nullptr);
     assert(push_constant_count == 0 || push_constant_count == 1);
 
-    SpvReflectBlockVariable* p_pc_block = nullptr;
+    SpvReflectBlockVariable *p_pc_block = nullptr;
     spvReflectEnumeratePushConstantBlocks(&shader_module, &push_constant_count, &p_pc_block);
 
     if (p_pc_block)
@@ -1067,12 +1071,12 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     {
         const auto &binding = bindings[i_binding];
 
-        auto &binding_info = binding_set.bindings_info[i_binding];
-        binding_info.count = binding.descriptorCount;
-        binding_info.set = 1;
-        binding_info.slot = i_binding;
+        auto &binding_info  = binding_set.bindings_info[i_binding];
+        binding_info.count  = binding.descriptorCount;
+        binding_info.set    = 1;
+        binding_info.slot   = i_binding;
         binding_info.stages = binding.stageFlags;
-        binding_info.type = binding.descriptorType;
+        binding_info.type   = binding.descriptorType;
 
         if (binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
         {
@@ -1081,7 +1085,8 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
         }
     }
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
+        = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
     flags_info.bindingCount  = static_cast<u32>(bindings.size());
     flags_info.pBindingFlags = flags.data();
 
@@ -1122,7 +1127,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     /// --- Create pipeline
     const auto &compute_shader = get_shader(program.info.shader);
 
-    auto &pinfo = program.pipeline_info;
+    auto &pinfo        = program.pipeline_info;
     pinfo              = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
     pinfo.stage        = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
     pinfo.stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -1155,10 +1160,7 @@ ComputeProgram &API::get_program(ComputeProgramH H)
     return *compute_programs.get(H);
 }
 
-void GlobalBindings::binding(BindingInfo &&binding)
-{
-    binding_set.bindings_info.push_back(std::move(binding));
-}
+void GlobalBindings::binding(BindingInfo &&binding) { binding_set.bindings_info.push_back(std::move(binding)); }
 
 void destroy_program_internal(API &api, GraphicsProgram &program)
 {
@@ -1184,7 +1186,6 @@ void API::destroy_program(GraphicsProgramH H)
     graphics_programs.remove(H);
 }
 
-
 void destroy_program_internal(API &api, ComputeProgram &program)
 {
     vkDestroyDescriptorSetLayout(api.ctx.device, program.binding_set.descriptor_layout, nullptr);
@@ -1204,7 +1205,7 @@ void API::destroy_program(ComputeProgramH H)
 void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
 {
     auto &frame_resource = ctx.frame_resources.get_current();
-    VkCommandBuffer cmd             = frame_resource.command_buffer;
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
     auto &image          = get_image(H);
 
     auto src = get_src_image_access(image.usage);

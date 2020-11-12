@@ -1,12 +1,13 @@
 #include "camera.hpp"
 
 #include "app.hpp"
-#include "timer.hpp"
 #include "platform/window.hpp"
-#include <imgui/imgui.h>
+#include "timer.hpp"
+
 #include <algorithm>
-#include <iostream>
 #include <cmath>
+#include <imgui/imgui.h>
+#include <iostream>
 
 namespace my_app
 {
@@ -18,7 +19,6 @@ static float CAMERA_SCROLL_SPEED = 80.0f;
 static constexpr float3 UP    = float3(0, 1, 0);
 static constexpr float3 FRONT = float3(0, 0, 1);
 
-
 void Camera::create(Camera &camera, float3 position)
 {
     camera.position = position;
@@ -27,11 +27,11 @@ void Camera::create(Camera &camera, float3 position)
     camera.update_view();
 }
 
-void InputCamera::create(InputCamera& camera, window::Window &window, TimerData &timer, float3 position)
+void InputCamera::create(InputCamera &camera, window::Window &window, TimerData &timer, float3 position)
 {
     Camera::create(camera._internal, position);
-    camera.p_window  = &window;
-    camera.p_timer   = &timer;
+    camera.p_window = &window;
+    camera.p_timer  = &timer;
 }
 
 void InputCamera::on_mouse_movement(double xpos, double ypos)
@@ -55,8 +55,8 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
                 auto camera_right         = cross(_internal.up, _internal.front);
                 auto camera_plane_right   = normalize(float3(camera_right.x, 0.0f, camera_right.z));
 
-                target = target + CAMERA_MOVE_SPEED * delta_t * right  * camera_plane_right;
-                target = target + CAMERA_MOVE_SPEED * delta_t * up     * camera_plane_forward;
+                target = target + CAMERA_MOVE_SPEED * delta_t * right * camera_plane_right;
+                target = target + CAMERA_MOVE_SPEED * delta_t * up * camera_plane_forward;
 
                 view_dirty = true;
 
@@ -75,7 +75,7 @@ void InputCamera::on_mouse_movement(double xpos, double ypos)
             {
                 theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
 
-                constexpr auto low = -179.0f;
+                constexpr auto low  = -179.0f;
                 constexpr auto high = 0.0f;
                 if (low <= phi && phi < high)
                 {
@@ -121,7 +121,7 @@ void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
         case States::Zoom:
         {
             r += (CAMERA_SCROLL_SPEED * delta_t) * -yoffset;
-            r = std::max(r, 0.1f);
+            r          = std::max(r, 0.1f);
             view_dirty = true;
             break;
         }
@@ -174,7 +174,8 @@ void InputCamera::update()
 {
     auto &window = *p_window;
 
-    bool alt_pressed = window.is_key_pressed(window::VirtualKey::LAlt) || window.is_key_pressed(window::VirtualKey::RAlt);
+    bool alt_pressed
+        = window.is_key_pressed(window::VirtualKey::LAlt) || window.is_key_pressed(window::VirtualKey::RAlt);
     bool lmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Left);
     bool rmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Right);
 
@@ -227,8 +228,8 @@ void InputCamera::update()
     }
 
     {
-        float theta_rad   = to_radians(theta);
-        float phi_rad     = to_radians(phi);
+        float theta_rad = to_radians(theta);
+        float phi_rad   = to_radians(phi);
 
         float3 pos;
         pos.x = r * std::sin(phi_rad) * std::sin(theta_rad);
@@ -256,19 +257,19 @@ float4x4 Camera::update_view()
     auto y = to_radians(-yaw);
     auto r = to_radians(roll);
 
-    auto y_m = float4x4::identity();
+    auto y_m     = float4x4::identity();
     y_m.at(0, 0) = cos(y);
     y_m.at(0, 1) = -sin(y);
     y_m.at(1, 0) = sin(y);
     y_m.at(1, 1) = cos(y);
 
-    auto p_m = float4x4::identity();
+    auto p_m     = float4x4::identity();
     p_m.at(0, 0) = cos(p);
     p_m.at(0, 2) = sin(p);
     p_m.at(2, 0) = -sin(p);
     p_m.at(2, 2) = cos(p);
 
-    auto r_m = float4x4::identity();
+    auto r_m     = float4x4::identity();
     r_m.at(1, 1) = cos(r);
     r_m.at(1, 2) = -sin(r);
     r_m.at(2, 1) = sin(r);
@@ -279,7 +280,7 @@ float4x4 Camera::update_view()
     front = (R * float4(FRONT, 1.0f)).xyz();
     up    = (R * float4(UP, 1.0f)).xyz();
 
-    view  = Camera::look_at(position, position + front, UP, &view_inverse);
+    view = Camera::look_at(position, position + front, UP, &view_inverse);
 
     return view;
 }
@@ -291,19 +292,43 @@ float4x4 Camera::look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
     float3 y_axis = cross(x_axis, z_axis);
 
     float4x4 result = float4x4({
-        x_axis.x,  x_axis.y,  x_axis.z,  -dot(eye, x_axis),
-        y_axis.x,  y_axis.y,  y_axis.z,  -dot(eye, y_axis),
-       -z_axis.x, -z_axis.y, -z_axis.z,   dot(eye, z_axis),
-            0.0f,      0.0f,      0.0f,               1.0f,
-        });
+        x_axis.x,
+        x_axis.y,
+        x_axis.z,
+        -dot(eye, x_axis),
+        y_axis.x,
+        y_axis.y,
+        y_axis.z,
+        -dot(eye, y_axis),
+        -z_axis.x,
+        -z_axis.y,
+        -z_axis.z,
+        dot(eye, z_axis),
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+    });
 
     if (inverse)
     {
         *inverse = float4x4({
-            x_axis.x, y_axis.x, -z_axis.x,  eye.x,
-            x_axis.y, y_axis.y, -z_axis.y,  eye.y,
-            x_axis.z, y_axis.z, -z_axis.z,  eye.z,
-                0.0f,     0.0f,     0.0f,   1.0f,
+            x_axis.x,
+            y_axis.x,
+            -z_axis.x,
+            eye.x,
+            x_axis.y,
+            y_axis.y,
+            -z_axis.y,
+            eye.y,
+            x_axis.z,
+            y_axis.z,
+            -z_axis.z,
+            eye.z,
+            0.0f,
+            0.0f,
+            0.0f,
+            1.0f,
         });
     }
 
@@ -312,7 +337,7 @@ float4x4 Camera::look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 
 float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse)
 {
-    float f    = 1.0f / std::tan(to_radians(fov) / 2.0f);
+    float f            = 1.0f / std::tan(to_radians(fov) / 2.0f);
     float far_on_range = far_plane / (near_plane - far_plane);
 
     float x  = f / aspect_ratio;
@@ -321,19 +346,43 @@ float4x4 Camera::perspective(float fov, float aspect_ratio, float near_plane, fl
     float z1 = -near_plane * far_on_range;
 
     float4x4 projection{{
-        x,    0.0f,  0.0f,  0.0f,
-        0.0f,    y,  0.0f,  0.0f,
-        0.0f, 0.0f,    z0,    z1,
-        0.0f, 0.0f, -1.0f,  0.0f,
+        x,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        y,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        z0,
+        z1,
+        0.0f,
+        0.0f,
+        -1.0f,
+        0.0f,
     }};
 
     if (inverse)
     {
         *inverse = float4x4({
-             1/x, 0.0f,  0.0f,  0.0f,
-            0.0f,  1/y,  0.0f,  0.0f,
-            0.0f, 0.0f,  0.0f, -1.0f,
-            0.0f, 0.0f,  1/z1, z0/z1,
+            1 / x,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            1 / y,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f,
+            -1.0f,
+            0.0f,
+            0.0f,
+            1 / z1,
+            z0 / z1,
         });
     }
 
@@ -347,12 +396,22 @@ float4x4 Camera::ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
     float y_range = max_clip.y - min_clip.y;
     float z_range = max_clip.z - min_clip.z;
 
-    float4x4 projection {{
-            2.0f / x_range,           0.0f,           0.0f, -1.0f * (max_clip.x+min_clip.x)/x_range,
-                      0.0f, 2.0f / y_range,           0.0f, -1.0f * (max_clip.y+min_clip.y)/y_range,
-                      0.0f,           0.0f, -1.0f / z_range, 1.0f * (max_clip.z+min_clip.z)/y_range,
-                      0.0f,           0.0f,           0.0f,                                    1.0f
-        }};
+    float4x4 projection{{2.0f / x_range,
+                         0.0f,
+                         0.0f,
+                         -1.0f * (max_clip.x + min_clip.x) / x_range,
+                         0.0f,
+                         2.0f / y_range,
+                         0.0f,
+                         -1.0f * (max_clip.y + min_clip.y) / y_range,
+                         0.0f,
+                         0.0f,
+                         -1.0f / z_range,
+                         1.0f * (max_clip.z + min_clip.z) / y_range,
+                         0.0f,
+                         0.0f,
+                         0.0f,
+                         1.0f}};
 
     assert(!inverse);
 

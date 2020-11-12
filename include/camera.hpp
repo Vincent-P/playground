@@ -2,13 +2,16 @@
 
 #include "base/types.hpp"
 
-namespace window{struct Window;}
+namespace window
+{
+struct Window;
+}
 namespace my_app
 {
 
 namespace UI
 {
-    struct Context;
+struct Context;
 };
 
 class TimerData;
@@ -38,7 +41,8 @@ struct Camera
     [[nodiscard]] inline float4x4 get_inverse_projection() const { return projection_inverse; }
 
     static float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse = nullptr);
-    static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse = nullptr);
+    static float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane,
+                                float4x4 *inverse = nullptr);
     static float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse = nullptr);
 
     static void create(Camera &camera, float3 position);
@@ -61,9 +65,9 @@ struct InputCamera
     float3 target = {0.0f, 3.0f, 0.0f};
 
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
-    float r = 6.0f;
+    float r     = 6.0f;
     float theta = -78.0f;
-    float phi = -65.0f;
+    float phi   = -65.0f;
 
     Camera _internal;
 
@@ -74,7 +78,7 @@ struct InputCamera
     double last_xpos;
     double last_ypos;
 
-    static void create(InputCamera& camera, window::Window &window, TimerData& timer, float3 position);
+    static void create(InputCamera &camera, window::Window &window, TimerData &timer, float3 position);
     void on_mouse_movement(double xpos, double ypos);
     void on_mouse_scroll(double xoffset, double yoffset);
     void update();

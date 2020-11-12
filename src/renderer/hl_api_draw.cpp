@@ -1,5 +1,6 @@
 #include "renderer/hl_api.hpp"
 #include "renderer/vlk_context.hpp"
+
 #include <cstddef>
 #include <set>
 #include <vulkan/vulkan.h>
@@ -12,10 +13,12 @@ namespace my_app::vulkan
 
 static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
 {
-    for (usize i = 0; i < api.renderpasses.size(); i++) {
+    for (usize i = 0; i < api.renderpasses.size(); i++)
+    {
         const auto &render_pass = api.renderpasses[i];
-        if (render_pass.info == info) {
-             return i;
+        if (render_pass.info == info)
+        {
+            return i;
         }
     }
 
@@ -33,12 +36,12 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         auto &color_ref = color_refs.back();
 
         color_ref.attachment = static_cast<u32>(attachments.size());
-        color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         const auto &color_view = api.get_image_view(color_attachment.image_view);
 
         attachments.emplace_back();
-        auto &attachment = attachments.back();
+        auto &attachment          = attachments.back();
         attachment.flags          = 0;
         attachment.format         = color_view.format;
         attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -46,16 +49,23 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout  = attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : color_ref.layout;
-        attachment.finalLayout    = color_ref.layout;
+        attachment.initialLayout
+            = attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : color_ref.layout;
+        attachment.finalLayout = color_ref.layout;
     }
 
     bool separateDepthStencilLayouts = api.ctx.vulkan12_features.separateDepthStencilLayouts;
-    VkAttachmentReference depth_ref{.attachment = 0, .layout = separateDepthStencilLayouts ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL};
-    if (rp.info.depth) {
+    VkAttachmentReference depth_ref{
+        .attachment = 0,
+        .layout
+        = separateDepthStencilLayouts ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL,
+    };
+
+    if (rp.info.depth)
+    {
         depth_ref.attachment = static_cast<u32>(attachments.size());
 
-        const auto &depth_view    = api.get_image_view(rp.info.depth->image_view);
+        const auto &depth_view = api.get_image_view(rp.info.depth->image_view);
 
         VkAttachmentDescription attachment;
         attachment.format         = depth_view.format;
@@ -64,9 +74,10 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
         attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout  = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : depth_ref.layout;
-        attachment.finalLayout    = depth_ref.layout;
-        attachment.flags          = {};
+        attachment.initialLayout
+            = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : depth_ref.layout;
+        attachment.finalLayout = depth_ref.layout;
+        attachment.flags       = {};
         attachments.push_back(std::move(attachment));
     }
 
@@ -118,11 +129,11 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
     }
 
     static std::set<std::vector<u64>> s_attachments;
-    auto [iter, _] = s_attachments.insert(attachments);
+    auto [iter, _]                 = s_attachments.insert(attachments);
     const auto &attachments_in_set = *iter;
 
     ci.attachmentCount = static_cast<u32>(attachments_in_set.size());
-    ci.pAttachments    = reinterpret_cast<const VkImageView*>(attachments_in_set.data());
+    ci.pAttachments    = reinterpret_cast<const VkImageView *>(attachments_in_set.data());
 
     for (const auto &color_attachment : render_pass.info.colors)
     {
@@ -135,8 +146,8 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
 
     if (render_pass.info.depth)
     {
-        const auto &depth_view    = api.get_image_view(render_pass.info.depth->image_view);
-        const auto &image = api.get_image(depth_view.image_h);
+        const auto &depth_view = api.get_image_view(render_pass.info.depth->image_view);
+        const auto &image      = api.get_image(depth_view.image_h);
         ci.layers              = image.info.layers;
         ci.width               = image.info.width;
         ci.height              = image.info.height;
@@ -144,13 +155,15 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
     else if (ci.width == 0 || ci.height == 0)
     {
         // shouldnt happen
-        ci.layers              = 1;
-        ci.width               = 4096;
-        ci.height              = 4096;
+        ci.layers = 1;
+        ci.width  = 4096;
+        ci.height = 4096;
     }
 
-    for (auto &framebuffer : api.framebuffers) {
-        if (framebuffer.create_info == ci) {
+    for (auto &framebuffer : api.framebuffers)
+    {
+        if (framebuffer.create_info == ci)
+        {
             return framebuffer;
         }
     }
@@ -165,7 +178,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
 void API::begin_pass(PassInfo &&info)
 {
     auto render_pass_h = find_or_create_render_pass(*this, std::move(info));
-    auto &render_pass = renderpasses[render_pass_h];
+    auto &render_pass  = renderpasses[render_pass_h];
 
     auto &frame_buffer = find_or_create_frame_buffer(*this, render_pass);
 
@@ -175,22 +188,28 @@ void API::begin_pass(PassInfo &&info)
 
     std::vector<VkClearValue> clear_values;
 
-    for (auto &color_attachment : render_pass.info.colors) {
-        if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+    for (auto &color_attachment : render_pass.info.colors)
+    {
+        if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
+        {
             clear_values.emplace_back();
             auto &clear = clear_values.back();
-            clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
+            clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
         }
     }
 
-    if (render_pass.info.depth && render_pass.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+    if (render_pass.info.depth && render_pass.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
+    {
         // maybe push clear colors even when there is no need to clear attachments?
-        if (!render_pass.info.colors.empty() && clear_values.empty()) {
-            for (auto &color_attachment : render_pass.info.colors) {
-                if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR) {
+        if (!render_pass.info.colors.empty() && clear_values.empty())
+        {
+            for (auto &color_attachment : render_pass.info.colors)
+            {
+                if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
+                {
                     clear_values.emplace_back();
                     auto &clear = clear_values.back();
-                    clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f} };
+                    clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
                 }
             }
         }
@@ -225,17 +244,20 @@ void API::end_pass()
 static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, PipelineInfo &pipeline_info)
 {
     // const auto &program_info = pipeline_info.program_info;
-    u32 pipeline_i           = u32_invalid;
+    u32 pipeline_i = u32_invalid;
 
-    for (u32 i = 0; i < program.pipelines_info.size(); i++) {
+    for (u32 i = 0; i < program.pipelines_info.size(); i++)
+    {
         const auto &cur_pipeline_info = program.pipelines_info[i];
-        if (cur_pipeline_info == pipeline_info) {
+        if (cur_pipeline_info == pipeline_info)
+        {
             pipeline_i = i;
             break;
         }
     }
 
-    if (pipeline_i == u32_invalid) {
+    if (pipeline_i == u32_invalid)
+    {
         std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
         VkPipelineDynamicStateCreateInfo dyn_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
@@ -257,7 +279,8 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         attributes.reserve(vertex_buffer_info.vertices_info.size());
 
         u32 location = 0;
-        for (const auto &vertex_info : vertex_buffer_info.vertices_info) {
+        for (const auto &vertex_info : vertex_buffer_info.vertices_info)
+        {
             VkVertexInputAttributeDescription attribute;
             attribute.binding  = bindings[0].binding;
             attribute.location = location;
@@ -313,8 +336,9 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             auto &color_view = api.get_image_view(color_attachment.image_view);
 
             att_states.emplace_back();
-            auto &state = att_states.back();
-            state.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            auto &state          = att_states.back();
+            state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
+                                   | VK_COLOR_COMPONENT_A_BIT;
             state.blendEnable         = color_view.format != VK_FORMAT_R8_UINT; // TODO: disable for all uint
             state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
             state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -348,7 +372,8 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         ds_i.flags            = 0;
         ds_i.depthTestEnable  = pipeline_info.program_info.depth.test ? VK_TRUE : VK_FALSE;
         ds_i.depthWriteEnable = pipeline_info.program_info.depth.enable_write ? VK_TRUE : VK_FALSE;
-        ds_i.depthCompareOp = pipeline_info.program_info.depth.test ? *pipeline_info.program_info.depth.test : VK_COMPARE_OP_NEVER;
+        ds_i.depthCompareOp
+            = pipeline_info.program_info.depth.test ? *pipeline_info.program_info.depth.test : VK_COMPARE_OP_NEVER;
         ds_i.depthBoundsTestEnable = VK_FALSE;
         ds_i.minDepthBounds        = 0.0f;
         ds_i.maxDepthBounds        = 0.0f;
@@ -432,8 +457,6 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         VK_CHECK(vkCreateGraphicsPipelines(api.ctx.device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
         api.graphics_pipeline_count++;
         pipeline_i = static_cast<u32>(program.pipelines_vk.size()) - 1;
-
-        std::cout << "new pipeline #" << pipeline_i << std::endl;
     }
 
     return program.pipelines_vk[pipeline_i];
@@ -441,11 +464,13 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
 /// --- Descriptor set
 
-static DescriptorSet &find_or_create_descriptor_set(API &api, ShaderBindingSet& binding_set)
+static DescriptorSet &find_or_create_descriptor_set(API &api, ShaderBindingSet &binding_set)
 {
-    for (usize i = 0; i < binding_set.descriptor_sets.size(); i++) {
+    for (usize i = 0; i < binding_set.descriptor_sets.size(); i++)
+    {
         auto &descriptor_set = binding_set.descriptor_sets[i];
-        if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count) {
+        if (descriptor_set.frame_used + api.ctx.frame_resources.data.size() < api.ctx.frame_count)
+        {
             binding_set.current_descriptor_set = i;
             return descriptor_set;
         }
@@ -470,7 +495,8 @@ static DescriptorSet &find_or_create_descriptor_set(API &api, ShaderBindingSet& 
 
 static void undirty_descriptor_set(API &api, ShaderBindingSet &binding_set)
 {
-    if (binding_set.data_dirty) {
+    if (binding_set.data_dirty)
+    {
         auto &descriptor_set = find_or_create_descriptor_set(api, binding_set);
 
         usize binding_count = binding_set.bindings_info.size();
@@ -483,15 +509,15 @@ static void undirty_descriptor_set(API &api, ShaderBindingSet &binding_set)
 
             assert(binded_data.has_value());
 
-            auto &write = writes[slot];
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet               = descriptor_set.set;
-            write.dstBinding           = binding_info.slot;
-            write.descriptorCount      = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
-            write.descriptorType       = binding_info.type;
-            write.pImageInfo           = binded_data->images_info.data();
-            write.pBufferInfo          = &binded_data->buffer_info;
-            write.pTexelBufferView     = &binded_data->buffer_view;
+            auto &write            = writes[slot];
+            write.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet           = descriptor_set.set;
+            write.dstBinding       = binding_info.slot;
+            write.descriptorCount  = binded_data->images_info.empty() ? 1 : binded_data->images_info.size();
+            write.descriptorType   = binding_info.type;
+            write.pImageInfo       = binded_data->images_info.data();
+            write.pBufferInfo      = &binded_data->buffer_info;
+            write.pTexelBufferView = &binded_data->buffer_view;
         }
 
         vkUpdateDescriptorSets(api.ctx.device, writes.size(), writes.data(), 0, nullptr);
@@ -525,7 +551,9 @@ void API::bind_program(GraphicsProgramH H)
     std::array descriptor_sets = {global_set.set, shader_set.set};
 
     auto dynamic_offsets = global_bindings.binding_set.dynamic_offsets;
-    dynamic_offsets.insert(dynamic_offsets.end(), binding_set.dynamic_offsets.begin(), binding_set.dynamic_offsets.end());
+    dynamic_offsets.insert(dynamic_offsets.end(),
+                           binding_set.dynamic_offsets.begin(),
+                           binding_set.dynamic_offsets.end());
 
     // bind both sets
     vkCmdBindDescriptorSets(cmd,
@@ -543,7 +571,8 @@ void API::bind_program(GraphicsProgramH H)
 // bind one image
 // sampler ? => combined image sampler descriptor
 // else storage image
-static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint slot, uint index, ImageViewH &image_view_h, std::optional<SamplerH> sampler = std::nullopt)
+static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint slot, uint index,
+                                ImageViewH &image_view_h, std::optional<SamplerH> sampler = std::nullopt)
 {
     assert(slot < binding_set.binded_data.size());
 
@@ -560,15 +589,16 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
     auto &data = binding_set.binded_data[slot];
     auto &info = binding_set.bindings_info[slot];
 
-    assert(sampler ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    assert(sampler ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                   : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     auto &image_view = api.get_image_view(image_view_h);
     auto &image      = api.get_image(image_view.image_h);
     (void)(image);
 
-    assert(sampler
-           ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
-           : image.usage == ImageUsage::GraphicsShaderReadWrite || image.usage == ImageUsage::ComputeShaderReadWrite);
+    assert(sampler ? (image.usage == ImageUsage::GraphicsShaderRead || image.usage == ImageUsage::ComputeShaderRead)
+                   : (image.usage == ImageUsage::GraphicsShaderReadWrite
+                      || image.usage == ImageUsage::ComputeShaderReadWrite));
 
     auto &image_info       = data->images_info[index];
     image_info.imageView   = image_view.vkhandle;
@@ -582,32 +612,37 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
 // if samplers.size == 0 then bind several storage images
 // if samplers.size == 1 then bind several combined image samplers with the same sampler
 // else bind several combined image samplers with a diferent sampler for each image
-static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint slot, const std::vector<ImageViewH> &image_views_h, const std::vector<SamplerH> &samplers_h = {})
+static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint slot,
+                                 const std::vector<ImageViewH> &image_views_h,
+                                 const std::vector<SamplerH> &samplers_h = {})
 {
     assert(slot < binding_set.binded_data.size());
     assert(samplers_h.empty() || samplers_h.size() == 1 || samplers_h.size() == image_views_h.size());
 
     auto &info = binding_set.bindings_info[slot];
 
-    assert(!samplers_h.empty() ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    assert(!samplers_h.empty() ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                               : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     BindingData data;
     for (usize i = 0; i < image_views_h.size(); i++)
     {
         auto &image_view = api.get_image_view(image_views_h[i]);
-        auto &image = api.get_image(image_view.image_h);
+        auto &image      = api.get_image(image_view.image_h);
         (void)(image);
 
         assert(!samplers_h.empty()
-           ? image.usage == ImageUsage::GraphicsShaderRead      || image.usage == ImageUsage::ComputeShaderRead
-           : image.usage == ImageUsage::GraphicsShaderReadWrite || image.usage == ImageUsage::ComputeShaderReadWrite);
+                   ? image.usage == ImageUsage::GraphicsShaderRead || image.usage == ImageUsage::ComputeShaderRead
+                   : image.usage == ImageUsage::GraphicsShaderReadWrite
+                         || image.usage == ImageUsage::ComputeShaderReadWrite);
 
         data.images_info.push_back({});
         auto &image_info = data.images_info.back();
 
-        image_info.imageView   = image_view.vkhandle;
-        image_info.imageLayout = !samplers_h.empty() ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-        image_info.sampler     = VK_NULL_HANDLE;
+        image_info.imageView = image_view.vkhandle;
+        image_info.imageLayout
+            = !samplers_h.empty() ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+        image_info.sampler = VK_NULL_HANDLE;
 
         if (samplers_h.size() == 1)
         {
@@ -619,13 +654,15 @@ static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint s
         }
     }
 
-    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data) {
+    if (!binding_set.binded_data[slot].has_value() || *binding_set.binded_data[slot] != data)
+    {
         binding_set.binded_data[slot] = std::move(data);
         binding_set.data_dirty        = true;
     }
 }
 
-static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, Buffer &buffer, CircularBufferPosition *buffer_pos, uint slot)
+static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, Buffer &buffer,
+                                 CircularBufferPosition *buffer_pos, uint slot)
 {
     assert(slot < binding_set.binded_data.size());
 
@@ -637,7 +674,8 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     auto size = is_dynamic ? buffer_pos->length : buffer.size;
 
     bool should_bind = !binding_set.binded_data[slot] || !is_dynamic;
-    if (!binding_set.binded_data[slot]) {
+    if (!binding_set.binded_data[slot])
+    {
         binding_set.binded_data[slot].emplace();
     }
 
@@ -654,8 +692,10 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     if (is_dynamic)
     {
         usize offset_idx = 0;
-        for (usize i = 0; i < binding_set.dynamic_bindings.size(); i++) {
-            if (binding_set.dynamic_bindings[i] == slot) {
+        for (usize i = 0; i < binding_set.dynamic_bindings.size(); i++)
+        {
+            if (binding_set.dynamic_bindings[i] == slot)
+            {
                 offset_idx = i;
                 break;
             }
@@ -664,12 +704,12 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     }
 }
 
-
 // storage images
 void API::bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
@@ -682,7 +722,8 @@ void API::bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint sl
 void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
@@ -693,50 +734,49 @@ void API::bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &
 }
 
 // sampled images
-void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index)
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set,
+                                      uint slot, uint index)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
 }
 
-void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot, uint index)
+void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot,
+                                      uint index)
 {
     auto &binding_set = get_program(program_h).binding_set;
     bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
 }
 
-void API::bind_combined_images_samplers(GraphicsProgramH program_h,
-                                        const std::vector<ImageViewH> &image_views_h,
-                                        const std::vector<SamplerH> &samplers,
-                                        uint set,
-                                        uint slot)
+void API::bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
+                                        const std::vector<SamplerH> &samplers, uint set, uint slot)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
-void API::bind_combined_images_samplers(ComputeProgramH program_h,
-                                        const std::vector<ImageViewH> &image_views_h,
-                                        const std::vector<SamplerH> &samplers,
-                                        uint slot)
+void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
+                                        const std::vector<SamplerH> &samplers, uint slot)
 {
     auto &binding_set = get_program(program_h).binding_set;
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
-
 
 void API::bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &buffer  = get_buffer(buffer_pos.buffer_h);
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &buffer      = get_buffer(buffer_pos.buffer_h);
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_buffer_internal(*this, binding_set, buffer, &buffer_pos, slot);
 }
 
 void API::bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot)
 {
-    auto &buffer  = get_buffer(buffer_pos.buffer_h);
+    auto &buffer      = get_buffer(buffer_pos.buffer_h);
     auto &binding_set = get_program(program_h).binding_set;
     bind_buffer_internal(*this, binding_set, buffer, &buffer_pos, slot);
 }
@@ -744,27 +784,22 @@ void API::bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_p
 void API::bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, uint slot)
 {
     assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &buffer  = get_buffer(buffer_h);
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set : get_program(program_h).binding_sets_by_freq[set-1];
+    auto &buffer      = get_buffer(buffer_h);
+    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
+                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_buffer_internal(*this, binding_set, buffer, nullptr, slot);
 }
 
-void API::create_global_set()
-{
-    init_binding_set(ctx, global_bindings.binding_set);
-}
+void API::create_global_set() { init_binding_set(ctx, global_bindings.binding_set); }
 
-void API::update_global_set()
-{
-    undirty_descriptor_set(*this, global_bindings.binding_set);
-}
+void API::update_global_set() { undirty_descriptor_set(*this, global_bindings.binding_set); }
 
 /// --- Rendering API
 
 void API::bind_vertex_buffer(BufferH H, u32 offset)
 {
-    const auto &vertex_buffer = get_buffer(H);
-    auto &frame_resource      = ctx.frame_resources.get_current();
+    const auto &vertex_buffer  = get_buffer(H);
+    auto &frame_resource       = ctx.frame_resources.get_current();
     VkDeviceSize device_offset = offset;
     vkCmdBindVertexBuffers(frame_resource.command_buffer, 0, 1, &vertex_buffer.vkhandle, &device_offset);
 }
@@ -806,7 +841,8 @@ static void pre_draw(API &api, GraphicsProgram &program)
     auto &binding_set = program.binding_sets_by_freq[DRAW_DESCRIPTOR_SET - 1];
 
     // CHECK early exit
-    if (binding_set.bindings_info.empty()) {
+    if (binding_set.bindings_info.empty())
+    {
         return;
     }
 
@@ -829,7 +865,12 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
 {
     pre_draw(*this, *current_program);
     auto &frame_resource = ctx.frame_resources.get_current();
-    vkCmdDrawIndexed(frame_resource.command_buffer, index_count, instance_count, first_index, vertex_offset, first_instance);
+    vkCmdDrawIndexed(frame_resource.command_buffer,
+                     index_count,
+                     instance_count,
+                     first_index,
+                     vertex_offset,
+                     first_instance);
     draws_this_frame++;
 }
 
@@ -875,7 +916,7 @@ void API::begin_label(std::string_view name, float4 color)
     assert(!name.empty());
     assert(current_label.empty());
 
-    auto &frame_resource = ctx.frame_resources.get_current();
+    auto &frame_resource      = ctx.frame_resources.get_current();
     VkDebugUtilsLabelEXT info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
     info.pLabelName           = name.data();
     info.color[0]             = color.x;
@@ -889,13 +930,16 @@ void API::begin_label(std::string_view name, float4 color)
 
 void API::add_timestamp(std::string_view label)
 {
-    auto &frame_resource = ctx.frame_resources.get_current();
-    u32 frame_idx = ctx.frame_count % FRAMES_IN_FLIGHT;
+    auto &frame_resource           = ctx.frame_resources.get_current();
+    u32 frame_idx                  = ctx.frame_count % FRAMES_IN_FLIGHT;
     auto &current_timestamp_labels = timestamp_labels_per_frame[frame_idx];
-    u32 offset    = frame_idx * MAX_TIMESTAMP_PER_FRAME + current_timestamp_labels.size();
+    u32 offset                     = frame_idx * MAX_TIMESTAMP_PER_FRAME + current_timestamp_labels.size();
 
     // write gpu timestamp
-    vkCmdWriteTimestamp(frame_resource.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, ctx.timestamp_pool, offset);
+    vkCmdWriteTimestamp(frame_resource.command_buffer,
+                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                        ctx.timestamp_pool,
+                        offset);
 
     // write cpu timestamp
     auto &cpu_timestamps = cpu_timestamps_per_frame[frame_idx];
@@ -918,7 +962,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
 {
     auto &program        = get_program(program_h);
     auto &frame_resource = ctx.frame_resources.get_current();
-    auto &cmd             = frame_resource.command_buffer;
+    auto &cmd            = frame_resource.command_buffer;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_vk);
 
@@ -933,10 +977,18 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     std::array descriptor_sets = {global_set.set, descriptor_set.set};
 
     auto dynamic_offsets = global_bindings.binding_set.dynamic_offsets;
-    dynamic_offsets.insert(dynamic_offsets.end(), program.binding_set.dynamic_offsets.begin(), program.binding_set.dynamic_offsets.end());
+    dynamic_offsets.insert(dynamic_offsets.end(),
+                           program.binding_set.dynamic_offsets.begin(),
+                           program.binding_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, descriptor_sets.size(), descriptor_sets.data(), dynamic_offsets.size(), dynamic_offsets.data());
-
+    vkCmdBindDescriptorSets(cmd,
+                            VK_PIPELINE_BIND_POINT_COMPUTE,
+                            program.pipeline_layout,
+                            0,
+                            descriptor_sets.size(),
+                            descriptor_sets.data(),
+                            dynamic_offsets.size(),
+                            dynamic_offsets.data());
 
     vkCmdDispatch(cmd, x, y, z);
 }
