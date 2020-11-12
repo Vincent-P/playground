@@ -140,14 +140,8 @@ add_library(imgui
   third_party/imgui/imgui_widgets.cpp
   )
 
-target_include_directories(imgui
-  PUBLIC include/
-  )
-
-target_link_libraries(test-vulkan
-  PRIVATE
-  imgui
-  )
+target_include_directories(imgui PUBLIC include/)
+target_link_libraries(test-vulkan PRIVATE imgui)
 
 #
 # simdjson
