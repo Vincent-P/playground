@@ -83,7 +83,8 @@ struct VCTDebug
 
 struct Settings
 {
-    float resolution_scale = 1.0f;
+    float resolution_scale     = 0.5f;
+    bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
 };
 
@@ -115,7 +116,7 @@ struct Renderer
 
     void display_ui(UI::Context &ui);
     void draw();
-    void on_resize(int width, int height);
+    void on_resize(int window_width, int window_height);
     void wait_idle() const;
     void reload_shader(std::string_view shader_name);
 

@@ -134,11 +134,11 @@ void API::destroy()
     ctx.destroy();
 }
 
-void API::on_resize(int width, int height)
+void API::on_resize(int window_width, int window_height)
 {
     // submit all command buffers?
 
-    ctx.on_resize(width, height);
+    ctx.on_resize(window_width, window_height);
 
     init_swapchain_images(*this);
 

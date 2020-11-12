@@ -212,10 +212,12 @@ void Renderer::destroy()
     api.destroy();
 }
 
-void Renderer::on_resize(int width, int height)
+void Renderer::on_resize(int window_width, int window_height)
 {
-    api.on_resize(width, height);
-    graph.on_resize(width, height);
+    api.on_resize(window_width, window_height);
+
+    auto extent = api.ctx.swapchain.extent;
+    graph.on_resize(extent.width * settings.resolution_scale, extent.height * settings.resolution_scale);
 }
 
 void Renderer::wait_idle() const { api.wait_idle(); }
@@ -1892,9 +1894,12 @@ void Renderer::display_ui(UI::Context &ui)
 
     if (ui.begin_window("Settings"))
     {
-        float scale = settings.resolution_scale;
-        ImGui::SliderFloat("Resolution scale", &scale, 0.25f, 1.0f);
-        (void)(scale);
+        auto old_scale = settings.resolution_scale;
+        ImGui::SliderFloat("Resolution scale", &settings.resolution_scale, 0.25f, 1.0f);
+        if (settings.resolution_scale != old_scale)
+        {
+            settings.resolution_dirty = true;
+        }
 
         int cascades_count = settings.shadow_cascades_count;
         ImGui::InputInt("Cascades count", &cascades_count, 1, 2);
@@ -1982,6 +1987,22 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
+    ImGuiWindowFlags fb_flags = 0;
+    if (ui.begin_window("Framebuffer", true, fb_flags))
+    {
+        float2 max = ImGui::GetWindowContentRegionMax();
+        float2 min = ImGui::GetWindowContentRegionMin();
+        float2 size = max - min;
+
+        auto image = graph.get_resolved_image(ldr_buffer);
+        if (image.is_valid())
+        {
+            ImGui::Image((void *)(api.get_image(image).default_view.hash()), size);
+        }
+
+        ui.end_window();
+    }
+
     if (ui.begin_window("Camera", true))
     {
         ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.0f, 1.0f);
@@ -2001,6 +2022,15 @@ void Renderer::display_ui(UI::Context &ui)
 
 void Renderer::draw()
 {
+
+    if (settings.resolution_dirty)
+    {
+        wait_idle();
+        auto extent = api.ctx.swapchain.extent;
+        graph.on_resize(extent.width * settings.resolution_scale, extent.height * settings.resolution_scale);
+        settings.resolution_dirty = false;
+    }
+
     bool is_ok = api.start_frame();
     if (!is_ok)
     {

@@ -1,7 +1,3 @@
-* Render graph
-to generate automatic barriers (hopefully it will fix all synchronization errors)
-and clean the global descriptor set too to be able to bind it only once per frame...
-
 * Command buffer management
 Make a command buffer abstraction to avoid putting everything in =API=?
 How does it handle (multiple command buffers, submission, dependency, multithreading)?

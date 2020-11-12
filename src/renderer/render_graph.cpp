@@ -32,8 +32,11 @@ void RenderGraph::destroy()
     }
 }
 
-void RenderGraph::on_resize(int /*width*/, int /*height*/)
+void RenderGraph::on_resize(int render_width, int render_height)
 {
+    this->render_width  = render_width;
+    this->render_height = render_height;
+
     auto &api = *p_api;
 
     // how to clean this
@@ -54,12 +57,10 @@ void RenderGraph::on_resize(int /*width*/, int /*height*/)
         }
 
         auto &desc = *image_descs.get(desc_h);
-        if (desc.size_type != SizeType::SwapchainRelative)
+        if (desc.size_type != SizeType::RenderRelative)
         {
             continue;
         }
-
-        auto swapchain_extent = api.ctx.swapchain.extent;
 
         bool is_sampled_image    = !image.resource.sampled_images_in.empty();
         bool is_storage_image    = !image.resource.storage_images_in.empty();
@@ -89,14 +90,14 @@ void RenderGraph::on_resize(int /*width*/, int /*height*/)
             .type   = desc.type,
             .format = desc.format,
             .width  = static_cast<u32>(
-                desc.size_type == SizeType::SwapchainRelative ? desc.size.x * swapchain_extent.width : desc.size.x),
+                desc.size_type == SizeType::RenderRelative ? desc.size.x * render_width : desc.size.x),
             .height = static_cast<u32>(
-                desc.size_type == SizeType::SwapchainRelative ? desc.size.y * swapchain_extent.height : desc.size.y),
+                desc.size_type == SizeType::RenderRelative ? desc.size.y * render_height : desc.size.y),
             .depth  = static_cast<u32>(desc.size.z),
             .usages = usage,
         };
 
-        std::cout << "Updating image " << desc.name << std::endl;
+        std::cout << "Updating image " << desc.name << "to " << image_info.width << "x" << image_info.height << std::endl;
         api.destroy_image(image.resolved_img);
         image.resolved_img = api.create_image(image_info);
     }
@@ -172,8 +173,6 @@ static void resolve_images(RenderGraph &graph)
 
         auto &desc = *graph.image_descs.get(desc_h);
 
-        auto swapchain_extent = api.ctx.swapchain.extent;
-
         bool is_sampled_image    = !image.resource.sampled_images_in.empty();
         bool is_storage_image    = !image.resource.storage_images_in.empty();
         bool is_color_attachment = !image.resource.color_attachment_in.empty();
@@ -204,9 +203,9 @@ static void resolve_images(RenderGraph &graph)
             .format        = desc.format,
             .extra_formats = desc.extra_formats,
             .width         = static_cast<u32>(
-                desc.size_type == SizeType::SwapchainRelative ? desc.size.x * swapchain_extent.width : desc.size.x),
+                desc.size_type == SizeType::RenderRelative ? desc.size.x * graph.render_width : desc.size.x),
             .height = static_cast<u32>(
-                desc.size_type == SizeType::SwapchainRelative ? desc.size.y * swapchain_extent.height : desc.size.y),
+                desc.size_type == SizeType::RenderRelative ? desc.size.y * graph.render_height : desc.size.y),
             .depth      = static_cast<u32>(desc.size.z),
             .mip_levels = desc.levels,
             .usages     = usage,
@@ -433,25 +432,24 @@ bool RenderGraph::execute()
                 usize viewport_width  = 0;
                 usize viewport_height = 0;
 
-                auto swapchain_extent = api.ctx.swapchain.extent;
                 for (auto color_attachment : renderpass.color_attachments)
                 {
                     auto &desc      = *image_descs.get(color_attachment);
-                    viewport_width  = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative
-                                                             ? desc.size.x * swapchain_extent.width
+                    viewport_width  = static_cast<usize>(desc.size_type == SizeType::RenderRelative
+                                                             ? desc.size.x * render_width
                                                              : desc.size.x);
-                    viewport_height = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative
-                                                             ? desc.size.y * swapchain_extent.height
+                    viewport_height = static_cast<usize>(desc.size_type == SizeType::RenderRelative
+                                                             ? desc.size.y * render_height
                                                              : desc.size.y);
                 }
                 if (renderpass.depth_attachment)
                 {
                     auto &desc      = *image_descs.get(*renderpass.depth_attachment);
-                    viewport_width  = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative
-                                                             ? desc.size.x * swapchain_extent.width
+                    viewport_width  = static_cast<usize>(desc.size_type == SizeType::RenderRelative
+                                                             ? desc.size.x * render_width
                                                              : desc.size.x);
-                    viewport_height = static_cast<usize>(desc.size_type == SizeType::SwapchainRelative
-                                                             ? desc.size.y * swapchain_extent.height
+                    viewport_height = static_cast<usize>(desc.size_type == SizeType::RenderRelative
+                                                             ? desc.size.y * render_height
                                                              : desc.size.y);
                 }
 
@@ -539,14 +537,21 @@ bool RenderGraph::execute()
                 blit.srcSubresource.layerCount     = 1;
                 blit.srcSubresource.mipLevel       = 0;
                 blit.srcOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
-                blit.srcOffsets[1] = {.x = (i32)vk_image.info.width, .y = (i32)vk_image.info.height, .z = 1};
+                blit.srcOffsets[1]                 = {
+                    .x = (i32)vk_image.info.width,
+                    .y = (i32)vk_image.info.height,
+                    .z = 1,
+                };
                 blit.dstSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
                 blit.dstSubresource.baseArrayLayer = 0;
                 blit.dstSubresource.layerCount     = 1;
                 blit.dstSubresource.mipLevel       = 0;
                 blit.dstOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
-                blit.dstOffsets[1]
-                    = {.x = (i32)api.ctx.swapchain.extent.width, .y = (i32)api.ctx.swapchain.extent.height, .z = 1};
+                blit.dstOffsets[1]                 = {
+                    .x = (i32)api.ctx.swapchain.extent.width,
+                    .y = (i32)api.ctx.swapchain.extent.height,
+                    .z = 1,
+                };
 
                 vkCmdBlitImage(cmd,
                                vk_image.vkhandle,
@@ -563,6 +568,11 @@ bool RenderGraph::execute()
     }
 
     return true;
+}
+
+static void display_image(const vulkan::Image &vk_image)
+{
+  ImGui::Text("Size: %ux%u", vk_image.info.width, vk_image.info.height);
 }
 
 void RenderGraph::display_ui(UI::Context &ui)
@@ -623,7 +633,10 @@ void RenderGraph::display_ui(UI::Context &ui)
                 for (auto color_attachment : renderpass.color_attachments)
                 {
                     const auto &desc = *image_descs.get(color_attachment);
+                    const auto &resolved = get_resolved_image(color_attachment);
+                    const auto &image = api.get_image(resolved);
                     ImGui::Text(" - Color attachment: %s", desc.name.data());
+                    display_image(image);
                 }
 
                 if (renderpass.depth_attachment)

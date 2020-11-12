@@ -502,7 +502,7 @@ struct API
     static void create(API& api, const window::Window &window);
     void destroy();
 
-    void on_resize(int width, int height);
+    void on_resize(int window_width, int window_height);
     bool start_frame();
     void end_frame();
     bool start_present();

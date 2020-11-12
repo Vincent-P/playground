@@ -48,14 +48,14 @@ struct RenderResource
 enum struct SizeType
 {
     Absolute,
-    SwapchainRelative
+    RenderRelative // relative to render resolution
 };
 
 // almost same fields as vulkan::ImageInfo
 struct ImageDesc
 {
     std::string_view name               = "No name";
-    SizeType size_type                  = SizeType::SwapchainRelative;
+    SizeType size_type                  = SizeType::RenderRelative;
     float3 size                         = float3(1.0f);
     VkImageType type                    = VK_IMAGE_TYPE_2D;
     VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
@@ -114,7 +114,7 @@ struct RenderGraph
     static void create(RenderGraph &render_graph, vulkan::API &api);
     void destroy();
 
-    void on_resize(int width, int height);
+    void on_resize(int render_width, int render_height);
     void display_ui(UI::Context &ui);
 
     void clear();
@@ -129,5 +129,7 @@ struct RenderGraph
     Pool<RenderPass> passes;
     Pool<ImageDesc> image_descs;
     std::unordered_map<ImageDescH, ImageResource> images;
+    int render_width;
+    int render_height;
 };
 } // namespace my_app
