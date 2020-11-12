@@ -3,6 +3,7 @@
 #include "base/types.hpp"
 #include "platform/window.hpp"
 
+#include <imgui/imgui.h>
 #include <iostream>
 
 namespace my_app
@@ -30,6 +31,50 @@ void Context::create(Context & /*ctx*/)
     io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges.data());
 }
 
+static window::Cursor cursor_from_imgui()
+{
+    ImGuiIO &io                   = ImGui::GetIO();
+    ImGuiMouseCursor imgui_cursor = io.MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
+    window::Cursor cursor         = window::Cursor::None;
+    switch (imgui_cursor)
+    {
+        case ImGuiMouseCursor_Arrow:
+            cursor = window::Cursor::Arrow;
+            break;
+        case ImGuiMouseCursor_TextInput:
+            cursor = window::Cursor::TextInput;
+            break;
+        case ImGuiMouseCursor_ResizeAll:
+            cursor = window::Cursor::ResizeAll;
+            break;
+        case ImGuiMouseCursor_ResizeEW:
+            cursor = window::Cursor::ResizeEW;
+            break;
+        case ImGuiMouseCursor_ResizeNS:
+            cursor = window::Cursor::ResizeNS;
+            break;
+        case ImGuiMouseCursor_ResizeNESW:
+            cursor = window::Cursor::ResizeNESW;
+            break;
+        case ImGuiMouseCursor_ResizeNWSE:
+            cursor = window::Cursor::ResizeNWSE;
+            break;
+        case ImGuiMouseCursor_Hand:
+            cursor = window::Cursor::Hand;
+            break;
+        case ImGuiMouseCursor_NotAllowed:
+            cursor = window::Cursor::NotAllowed;
+            break;
+    }
+    return cursor;
+}
+
+void Context::on_mouse_movement(::window::Window &window, double /*xpos*/, double /*ypos*/)
+{
+    auto cursor = cursor_from_imgui();
+    window.set_cursor(cursor);
+}
+
 void Context::start_frame(::window::Window &window)
 {
     ImGuiIO &io                  = ImGui::GetIO();
@@ -37,9 +82,6 @@ void Context::start_frame(::window::Window &window)
     io.DisplaySize.y             = window.height;
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
-
-    // NewFrame() has to be called before giving the inputs to imgui
-    ImGui::NewFrame();
 
     io.MousePos = window.mouse_position;
 
@@ -49,79 +91,42 @@ void Context::start_frame(::window::Window &window)
         io.MouseDown[i] = window.mouse_buttons_pressed[i];
     }
 
-    if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) == 0)
+    auto cursor = cursor_from_imgui();
+    static auto s_last = cursor;
+    if (s_last != cursor)
     {
-        ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
-        window::Cursor cursor         = window::Cursor::None;
-        if (!io.MouseDrawCursor)
-        {
-            switch (imgui_cursor)
-            {
-                case ImGuiMouseCursor_Arrow:
-                    cursor = window::Cursor::Arrow;
-                    break;
-                case ImGuiMouseCursor_TextInput:
-                    cursor = window::Cursor::TextInput;
-                    break;
-                case ImGuiMouseCursor_ResizeAll:
-                    cursor = window::Cursor::ResizeAll;
-                    break;
-                case ImGuiMouseCursor_ResizeEW:
-                    cursor = window::Cursor::ResizeEW;
-                    break;
-                case ImGuiMouseCursor_ResizeNS:
-                    cursor = window::Cursor::ResizeNS;
-                    break;
-                case ImGuiMouseCursor_ResizeNESW:
-                    cursor = window::Cursor::ResizeNESW;
-                    break;
-                case ImGuiMouseCursor_ResizeNWSE:
-                    cursor = window::Cursor::ResizeNWSE;
-                    break;
-                case ImGuiMouseCursor_Hand:
-                    cursor = window::Cursor::Hand;
-                    break;
-                case ImGuiMouseCursor_NotAllowed:
-                    cursor = window::Cursor::NotAllowed;
-                    break;
-            }
-        }
         window.set_cursor(cursor);
+        s_last = cursor;
     }
+
+    // NewFrame() has to be called before giving the inputs to imgui
+    ImGui::NewFrame();
 }
 
 void Context::destroy() { ImGui::DestroyContext(); }
 
 void Context::display_ui()
 {
-    const auto &io = ImGui::GetIO();
+    // const auto &io = ImGui::GetIO();
+
     if (ImGui::BeginMainMenuBar())
     {
-        auto display_width = io.DisplaySize.x * io.DisplayFramebufferScale.x;
-        ImGui::Dummy(ImVec2(display_width / 2 - 100.0f * io.DisplayFramebufferScale.x, 0.0f));
-
-        ImGui::TextUnformatted("|");
-        if (ImGui::BeginMenu(EVA_MENU " Menu"))
+        if (!windows.empty())
         {
-            for (auto &[_, window] : windows)
-            {
-                ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
-            }
-            ImGui::EndMenu();
+            ImGui::TextUnformatted("|");
         }
-
         for (auto &[_, window] : windows)
         {
             if (window.is_visible)
             {
-                ImGui::TextUnformatted("|");
-                ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
+                ImGui::TextUnformatted("o");
             }
+            ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
+            ImGui::TextUnformatted("|");
         }
-        ImGui::TextUnformatted("|");
 
         ImGui::EndMainMenuBar();
-    }
+  }
 }
 
 bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFlags flags)

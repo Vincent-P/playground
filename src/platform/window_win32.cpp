@@ -10,6 +10,7 @@
 // clang-format off
 #include <imm.h>
 // clang-format on
+#include <imgui/imgui.h>
 
 /// --- Text utils functions
 
@@ -187,7 +188,6 @@ void Window::set_cursor(Cursor cursor)
     switch (cursor)
     {
         case Cursor::None:
-            win32_cursor = nullptr;
             break;
         case Cursor::Arrow:
             win32_cursor = IDC_ARROW;
@@ -217,7 +217,7 @@ void Window::set_cursor(Cursor cursor)
             win32_cursor = IDC_NO;
             break;
     }
-    ::SetCursor(::LoadCursor(nullptr, win32_cursor));
+    ::SetCursor(cursor == Cursor::None ? nullptr : ::LoadCursor(nullptr, win32_cursor));
     current_cursor = cursor;
 }
 

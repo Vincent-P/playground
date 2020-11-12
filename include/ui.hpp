@@ -29,6 +29,7 @@ struct Context
 
     void start_frame(::window::Window &window);
     void display_ui();
+    void on_mouse_movement(::window::Window &window, double xpos, double ypos);
 
     bool begin_window(std::string_view name, bool is_visible = false, ImGuiWindowFlags flags = 0);
     void end_window();

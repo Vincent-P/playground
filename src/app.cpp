@@ -166,6 +166,8 @@ void App::run()
             {
                 auto move = std::get<window::event::MouseMove>(event);
                 this->camera.on_mouse_movement(double(move.x), double(move.y));
+                this->ui.on_mouse_movement(window, double(move.x), double(move.y));
+
                 this->is_minimized = false;
             }
             else if (std::holds_alternative<window::event::Key>(event))
