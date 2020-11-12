@@ -1,4 +1,4 @@
-# Vulkan glTF renderer
+# My own toy renderer
 
 This project was made to learn graphics programming using the Vulkan API.
 
