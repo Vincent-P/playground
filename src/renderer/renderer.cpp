@@ -73,25 +73,10 @@ void Renderer::create(Renderer &r, const window::Window &window, Camera &camera,
     // basic resources
 
     r.settings            = {};
-    auto resolution_scale = r.settings.resolution_scale;
 
-    r.depth_buffer = r.graph.image_descs.add({
-        .name   = "Depth Buffer",
-        .size   = float3(resolution_scale, resolution_scale, 1.0f),
-        .format = VK_FORMAT_D32_SFLOAT,
-    });
-
-    r.hdr_buffer = r.graph.image_descs.add({
-        .name   = "HDR Buffer",
-        .size   = float3(resolution_scale, resolution_scale, 1.0f),
-        .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.ldr_buffer = r.graph.image_descs.add({
-        .name   = "LDR Buffer",
-        .size   = float3(resolution_scale, resolution_scale, 1.0f),
-        .format = r.api.ctx.swapchain.format.format,
-    });
+    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
+    r.hdr_buffer = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.ldr_buffer = r.graph.image_descs.add({.name = "LDR Buffer", .format = r.api.ctx.swapchain.format.format});
 
     r.trilinear_sampler = r.api.create_sampler({
         .mag_filter   = VK_FILTER_LINEAR,
@@ -249,7 +234,7 @@ static void add_floor_pass(Renderer &r)
     graph.add_pass({
         .name              = "Checkerboard Floor pass",
         .type              = PassType::Graphics,
-        .color_attachments = {graph.swapchain},
+        .color_attachments = {r.ldr_buffer},
         .depth_attachment  = r.depth_buffer,
         .exec =
             [pass_data = r.checkerboard_floor](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
@@ -1740,12 +1725,14 @@ void update_uniforms(Renderer &r)
     globals->sun_proj             = r.sun.get_projection();
 
     auto resolution_scale  = r.settings.resolution_scale;
-    globals->resolution    = {static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.width),
-                           static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.height)};
+    globals->resolution    = {
+        static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.width),
+        static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.height)
+    };
     globals->sun_direction = -1.0f * r.sun.front;
-    globals->sun_illuminance
-        = r.sun_illuminance; // TODO: move from global and use real values (will need auto exposure)
-    globals->ambient = r.ambient;
+    // TODO: move from global and use real values (will need auto exposure)
+    globals->sun_illuminance = r.sun_illuminance;
+    globals->ambient         = r.ambient;
 
     r.api.bind_buffer({}, r.global_uniform_pos, vulkan::GLOBAL_DESCRIPTOR_SET, 0);
 
@@ -2063,9 +2050,9 @@ void Renderer::draw()
 
     add_tonemapping_pass(*this);
 
-    graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
-
     add_floor_pass(*this);
+
+    graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
 
     add_imgui_pass(*this);
 

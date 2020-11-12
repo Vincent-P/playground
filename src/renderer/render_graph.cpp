@@ -89,15 +89,13 @@ void RenderGraph::on_resize(int render_width, int render_height)
             .name   = desc.name.data(),
             .type   = desc.type,
             .format = desc.format,
-            .width  = static_cast<u32>(
-                desc.size_type == SizeType::RenderRelative ? desc.size.x * render_width : desc.size.x),
-            .height = static_cast<u32>(
-                desc.size_type == SizeType::RenderRelative ? desc.size.y * render_height : desc.size.y),
+            .width  = static_cast<u32>(desc.size_type == SizeType::RenderRelative ? desc.size.x * render_width : desc.size.x),
+            .height = static_cast<u32>(desc.size_type == SizeType::RenderRelative ? desc.size.y * render_height : desc.size.y),
             .depth  = static_cast<u32>(desc.size.z),
             .usages = usage,
         };
 
-        std::cout << "Updating image " << desc.name << "to " << image_info.width << "x" << image_info.height << std::endl;
+        std::cout << "Updating image " << desc.name << " to " << image_info.width << "x" << image_info.height << std::endl;
         api.destroy_image(image.resolved_img);
         image.resolved_img = api.create_image(image_info);
     }
@@ -636,6 +634,7 @@ void RenderGraph::display_ui(UI::Context &ui)
                     const auto &resolved = get_resolved_image(color_attachment);
                     const auto &image = api.get_image(resolved);
                     ImGui::Text(" - Color attachment: %s", desc.name.data());
+                    ImGui::Text("Desc size: %0.fx%0.fx%0.f", desc.size.x, desc.size.y, desc.size.z);
                     display_image(image);
                 }
 
