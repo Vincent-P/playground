@@ -83,7 +83,8 @@ struct VCTDebug
 
 struct Settings
 {
-    float resolution_scale     = 0.5f;
+    uint2 render_resolution     = {.x = 0, .y = 0};
+    float resolution_scale     = 1.0;
     bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
 };

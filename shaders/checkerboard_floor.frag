@@ -22,7 +22,7 @@ float4 grid(float3 world_pos, float line_width, float grid_spacing)
     float2 pixel_range = range / deritatives;
     float line_weight = clamp(min(pixel_range.x, pixel_range.y) - (line_width - 1), 0, 1);
 
-    float3 line_color = float3(0.5);
+    float3 line_color = float3(0.8);
     float line_opacity = 1.0 - min(line_weight, 1.0);
 
     float half_space = grid_spacing * line_width * min(deritatives.y, 1);
@@ -54,7 +54,8 @@ void main()
 
     // one grid for meters and one for 0.1 meters
     o_color = 0.5 * grid(world_pos.xyz, 1.5, 1.0)
-        + 0.5 * grid(world_pos.xyz, 1.0, 0.1);
+        /* + 0.5 * grid(world_pos.xyz, 1.0, 0.1) */
+        ;
 
     // Project the point of the grid to write the depth correctly (is it needed?)
     float4 projected_pos = global.camera_proj * global.camera_view * world_pos;

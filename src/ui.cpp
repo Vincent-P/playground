@@ -108,6 +108,7 @@ void Context::destroy() { ImGui::DestroyContext(); }
 void Context::display_ui()
 {
     // const auto &io = ImGui::GetIO();
+    return;
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -134,7 +135,7 @@ bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFl
     if (windows.count(name))
     {
         auto &window = windows.at(name);
-        if (window.is_visible)
+        if (true || window.is_visible)
         {
             ImGui::Begin(name.data(), &window.is_visible, flags);
             return true;

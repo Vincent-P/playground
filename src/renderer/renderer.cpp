@@ -73,6 +73,9 @@ void Renderer::create(Renderer &r, const window::Window &window, Camera &camera,
     // basic resources
 
     r.settings            = {};
+    r.settings.render_resolution = {.x = r.api.ctx.swapchain.extent.width, .y = r.api.ctx.swapchain.extent.height};
+
+    r.graph.on_resize(r.settings.render_resolution.x * r.settings.resolution_scale, r.settings.render_resolution.y * r.settings.resolution_scale);
 
     r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
     r.hdr_buffer = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
@@ -199,10 +202,8 @@ void Renderer::destroy()
 
 void Renderer::on_resize(int window_width, int window_height)
 {
+    // resize swapchain
     api.on_resize(window_width, window_height);
-
-    auto extent = api.ctx.swapchain.extent;
-    graph.on_resize(extent.width * settings.resolution_scale, extent.height * settings.resolution_scale);
 }
 
 void Renderer::wait_idle() const { api.wait_idle(); }
@@ -328,6 +329,12 @@ static void add_imgui_pass(Renderer &r)
         .color_attachments = {graph.swapchain},
         .exec =
             [pass_data = r.imgui, trilinear_sampler](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                bool success = api.start_present();
+                if (!success) {
+                    std::cout << "ERROR\n";
+                    return;
+                }
+
                 ImDrawData *data = ImGui::GetDrawData();
 
                 /// --- Prepare index and vertex buffer
@@ -1891,6 +1898,9 @@ void Renderer::display_ui(UI::Context &ui)
         int cascades_count = settings.shadow_cascades_count;
         ImGui::InputInt("Cascades count", &cascades_count, 1, 2);
         (void)(cascades_count);
+
+        ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
+
         p_ui->end_window();
     }
 
@@ -1974,12 +1984,19 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
-    ImGuiWindowFlags fb_flags = 0;
+    ImGuiWindowFlags fb_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav;
     if (ui.begin_window("Framebuffer", true, fb_flags))
     {
         float2 max = ImGui::GetWindowContentRegionMax();
         float2 min = ImGui::GetWindowContentRegionMin();
         float2 size = max - min;
+
+        if (static_cast<uint>(size.x) != settings.render_resolution.x || static_cast<uint>(size.y) != settings.render_resolution.y)
+        {
+            settings.render_resolution.x = static_cast<uint>(size.x);
+            settings.render_resolution.y = static_cast<uint>(size.y);
+            settings.resolution_dirty = true;
+        }
 
         auto image = graph.get_resolved_image(ldr_buffer);
         if (image.is_valid())
@@ -1995,7 +2012,7 @@ void Renderer::display_ui(UI::Context &ui)
         ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.0f, 1.0f);
         ImGui::SliderFloat("Far plane", &p_camera->far_plane, 100.0f, 1000.0f);
 
-        float aspect_ratio   = api.ctx.swapchain.extent.width / float(api.ctx.swapchain.extent.height);
+        float aspect_ratio   = settings.render_resolution.x / float(settings.render_resolution.y);
         p_camera->projection = Camera::perspective(60.0f,
                                                    aspect_ratio,
                                                    p_camera->near_plane,
@@ -2013,8 +2030,7 @@ void Renderer::draw()
     if (settings.resolution_dirty)
     {
         wait_idle();
-        auto extent = api.ctx.swapchain.extent;
-        graph.on_resize(extent.width * settings.resolution_scale, extent.height * settings.resolution_scale);
+        graph.on_resize(settings.render_resolution.x * settings.resolution_scale, settings.render_resolution.y * settings.resolution_scale);
         settings.resolution_dirty = false;
     }
 
@@ -2052,7 +2068,7 @@ void Renderer::draw()
 
     add_floor_pass(*this);
 
-    graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
+    // graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
 
     add_imgui_pass(*this);
 

@@ -57,6 +57,7 @@ void App::update() { camera.update(); }
 void App::display_ui()
 {
     ui.start_frame(window);
+    ImGui::DockSpaceOverViewport();
     ui.display_ui();
     camera.display_ui(ui);
     renderer.display_ui(ui);
