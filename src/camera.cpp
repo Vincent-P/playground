@@ -128,6 +128,7 @@ void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
     }
 }
 
+#if 0
 void InputCamera::display_ui(UI::Context &ui)
 {
     if (ui.begin_window("Camera"))
@@ -169,6 +170,7 @@ void InputCamera::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
+#endif
 
 void InputCamera::update()
 {

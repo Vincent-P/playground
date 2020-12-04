@@ -690,11 +690,14 @@ static void add_tonemapping_pass(Renderer &r)
     static uint s_selected  = 1;
     static float s_exposure = 1.0f;
 
-    if (ui.begin_window("HDR Shader"))
+    if (ui.begin_window("Shaders"))
     {
-        static std::array options{"Reinhard", "Exposure", "Clamp"};
-        tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
-        ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 2.0f);
+        if (ImGui::CollapsingHeader("Tonemapping"))
+        {
+            static std::array options{"Reinhard", "Exposure", "Clamp"};
+            tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
+            ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 2.0f);
+        }
         ui.end_window();
     }
 
@@ -998,7 +1001,6 @@ static void add_shadow_cascades_pass(Renderer &r)
 {
     auto &graph = r.graph;
     auto &api   = r.api;
-    auto &ui    = *r.p_ui;
 
     auto external_images = r.gltf.images;
 
@@ -1011,15 +1013,9 @@ static void add_shadow_cascades_pass(Renderer &r)
     cascades_view.resize(cascades_count);
     cascades_proj.resize(cascades_count);
 
-    static float split_factor = 1.0f;
+    const float split_factor = 0.9f;
     float near_plane          = r.p_camera->far_plane;
     float far_plane           = r.p_camera->near_plane;
-
-    if (ui.begin_window("Settings", true))
-    {
-        ImGui::SliderFloat("split", &split_factor, 0.0f, 1.f);
-        ui.end_window();
-    }
 
     float clip_range = far_plane - near_plane;
     // "practical split scheme" by nvidia
@@ -1357,10 +1353,14 @@ static void add_voxelization_pass(Renderer &r)
     auto &graph = r.graph;
     auto &ui    = *r.p_ui;
 
-    if (ui.begin_window("Voxelization"))
+    if (ui.begin_window("Shaders"))
     {
-        ImGui::SliderFloat3("Center", &r.voxel_options.center.raw[0], -40.f, 40.f);
-        ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.05f, 0.5f);
+
+        if (ImGui::CollapsingHeader("Voxelization"))
+        {
+            ImGui::SliderFloat3("Center", &r.voxel_options.center.raw[0], -40.f, 40.f);
+            ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.05f, 0.5f);
+        }
         ui.end_window();
     }
 
@@ -1775,7 +1775,6 @@ void update_uniforms(Renderer &r)
 void Renderer::display_ui(UI::Context &ui)
 {
     graph.display_ui(ui);
-    api.display_ui(ui);
 
     ImGuiIO &io = ImGui::GetIO();
     auto &timer = *p_timer;
@@ -1886,101 +1885,114 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
-    if (ui.begin_window("Settings"))
+    if (ui.begin_window("Renderer"))
     {
-        auto old_scale = settings.resolution_scale;
-        ImGui::SliderFloat("Resolution scale", &settings.resolution_scale, 0.25f, 1.0f);
-        if (settings.resolution_scale != old_scale)
+        if (ImGui::CollapsingHeader("API"))
         {
-            settings.resolution_dirty = true;
+            api.display_ui(ui);
         }
-
-        int cascades_count = settings.shadow_cascades_count;
-        ImGui::InputInt("Cascades count", &cascades_count, 1, 2);
-        (void)(cascades_count);
-
-        ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
-
-        p_ui->end_window();
-    }
-
-    if (ui.begin_window("Global"))
-    {
-        ImGui::SliderFloat("Sun Illuminance", &sun_illuminance.x, 1.0f, 100.0f);
-
-        sun_illuminance.y = sun_illuminance.x;
-        sun_illuminance.z = sun_illuminance.x;
-
-        ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
-        ImGui::SliderFloat("Ambient", &ambient, 0.0f, 1.0f);
-
-        p_ui->end_window();
-    }
-
-    if (ui.begin_window("Voxel Cone Tracing", true))
-    {
-        ImGui::TextUnformatted("Debug display: ");
-        ImGui::SameLine();
-        if (ImGui::RadioButton("glTF", vct_debug.display == 0))
+        if (ImGui::CollapsingHeader("Settings"))
         {
-            vct_debug.display = 0;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("voxels", vct_debug.display == 1))
-        {
-            vct_debug.display = 1;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("custom", vct_debug.display == 2))
-        {
-            vct_debug.display = 2;
-        }
-
-        if (vct_debug.display == 0)
-        {
-            static std::array options{"Nothing", "BaseColor", "Normals", "AO", "Indirect lighting", "Direct lighting"};
-            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
-            ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 30.0f);
-            ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
-            ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
-            ImGui::SliderFloat("Start position (in voxel)", &vct_debug.start, 0.0f, 2.0f);
-        }
-        else
-        {
-            static std::array options{
-                "Albedo",
-                "Normal",
-                "Radiance",
-                "Voxels volume -X",
-                "Voxels volume +X",
-                "Voxels volume -Y",
-                "Voxels volume +Y",
-                "Voxels volume -Z",
-                "Voxels volume +Z",
-            };
-            tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
-
-            ImGui::SliderInt("Mip level", &vct_debug.voxel_selected_mip, 0, 10);
-        }
-
-        ui.end_window();
-    }
-
-    if (ui.begin_window("Cascaded Shadow maps"))
-    {
-        ImGui::TextUnformatted("Depth slices:");
-        for (auto depth_slice : depth_slices)
-        {
-            ImGui::Text("  %f", depth_slice);
-        }
-        for (auto shadow_map : shadow_cascades)
-        {
-            auto &res = graph.images.at(shadow_map);
-            if (res.resolved_img.is_valid())
+            auto old_scale = settings.resolution_scale;
+            ImGui::SliderFloat("Resolution scale", &settings.resolution_scale, 0.25f, 1.0f);
+            if (settings.resolution_scale != old_scale)
             {
-                ImGui::Image((void *)(api.get_image(res.resolved_img).default_view.hash()), ImVec2(512, 512));
+                settings.resolution_dirty = true;
+            }
+
+            int cascades_count = settings.shadow_cascades_count;
+            ImGui::InputInt("Cascades count", &cascades_count, 1, 2);
+            (void)(cascades_count);
+
+            ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
+        }
+
+        if (ImGui::CollapsingHeader("Global"))
+        {
+            ImGui::SliderFloat("Sun Illuminance", &sun_illuminance.x, 1.0f, 100.0f);
+
+            sun_illuminance.y = sun_illuminance.x;
+            sun_illuminance.z = sun_illuminance.x;
+
+            ImGui::SliderFloat3("Sun rotation", &sun.pitch, -180.0f, 180.0f);
+            ImGui::SliderFloat("Ambient", &ambient, 0.0f, 1.0f);
+        }
+
+        if (ImGui::CollapsingHeader("Cascaded Shadow maps"))
+        {
+            ImGui::TextUnformatted("Depth slices:");
+            for (auto depth_slice : depth_slices)
+            {
+                ImGui::Text("  %f", depth_slice);
+            }
+            for (auto shadow_map : shadow_cascades)
+            {
+                auto &res = graph.images.at(shadow_map);
+                if (res.resolved_img.is_valid())
+                {
+                    ImGui::Image((void *)(api.get_image(res.resolved_img).default_view.hash()), ImVec2(512, 512));
+                }
             }
         }
+
+
+        p_ui->end_window();
+    }
+
+    if (ui.begin_window("Shaders", true))
+    {
+        if (ImGui::CollapsingHeader("Voxel Cone Tracing"))
+        {
+            ImGui::TextUnformatted("Debug display: ");
+            ImGui::SameLine();
+            if (ImGui::RadioButton("glTF", vct_debug.display == 0))
+            {
+                vct_debug.display = 0;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("voxels", vct_debug.display == 1))
+            {
+                vct_debug.display = 1;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("custom", vct_debug.display == 2))
+            {
+                vct_debug.display = 2;
+            }
+
+            if (vct_debug.display == 0)
+            {
+                static std::array options{"Nothing",
+                                          "BaseColor",
+                                          "Normals",
+                                          "AO",
+                                          "Indirect lighting",
+                                          "Direct lighting"};
+                tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
+                ImGui::SliderFloat("Trace dist.", &vct_debug.trace_dist, 0.0f, 30.0f);
+                ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
+                ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
+                ImGui::SliderFloat("Start position (in voxel)", &vct_debug.start, 0.0f, 2.0f);
+            }
+            else
+            {
+                static std::array options{
+                    "Albedo",
+                    "Normal",
+                    "Radiance",
+                    "Voxels volume -X",
+                    "Voxels volume +X",
+                    "Voxels volume -Y",
+                    "Voxels volume +Y",
+                    "Voxels volume -Z",
+                    "Voxels volume +Z",
+                };
+                tools::imgui_select("Debug output", options.data(), options.size(), vct_debug.display_selected);
+
+                ImGui::SliderInt("Mip level", &vct_debug.voxel_selected_mip, 0, 10);
+            }
+        }
+
         ui.end_window();
     }
 
@@ -2007,6 +2019,7 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
+#if 0
     if (ui.begin_window("Camera", true))
     {
         ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.0f, 1.0f);
@@ -2020,6 +2033,7 @@ void Renderer::display_ui(UI::Context &ui)
                                                    &p_camera->projection_inverse);
         ui.end_window();
     }
+#endif
 
     sun.update_view();
 }

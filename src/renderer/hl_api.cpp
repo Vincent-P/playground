@@ -306,38 +306,33 @@ void API::end_frame()
 
 void API::wait_idle() const { VK_CHECK(vkDeviceWaitIdle(ctx.device)); }
 
-void API::display_ui(UI::Context &ui) const
+void API::display_ui(UI::Context &/*ui*/) const
 {
-    if (ui.begin_window("API"))
-    {
-        ImGui::Separator();
-        ImGui::Text("Vulkan context");
-        ImGui::Separator();
-        ImGui::Text("Validation layers: %s", ENABLE_VALIDATION_LAYERS ? "enabled" : "disabled");
-        ImGui::Text("Frames in flight: %u", FRAMES_IN_FLIGHT);
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Text("Resources");
-        ImGui::Separator();
-        ImGui::Text("Images: %zu", images.size());
-        ImGui::Text("Image views: %zu", image_views.size());
-        ImGui::Text("Buffers: %zu", buffers.size());
-        ImGui::Text("Samplers: %zu", samplers.size());
-        ImGui::Text("Graphics Programs: %zu", graphics_programs.size());
-        ImGui::Text("Graphics Pipelines: %zu", graphics_programs.size());
-        ImGui::Text("Compute Programs: %zu", compute_programs.size());
-        ImGui::Text("Compute Pipelines: %zu", compute_programs.size());
-        ImGui::Text("Shaders: %zu", shaders.size());
-        ImGui::Text("RenderPasses: %zu", renderpasses.size());
-        ImGui::Text("FrameBuffers: %zu", framebuffers.size());
-        ImGui::Separator();
-        ImGui::Text("Current frame");
-        ImGui::Separator();
-        ImGui::Text("Draws: %zu", draws_this_frame);
-        ImGui::Text("Pipeline barriers: %zu", barriers_this_frame);
-
-        ui.end_window();
-    }
+    ImGui::Separator();
+    ImGui::Text("Vulkan context");
+    ImGui::Separator();
+    ImGui::Text("Validation layers: %s", ENABLE_VALIDATION_LAYERS ? "enabled" : "disabled");
+    ImGui::Text("Frames in flight: %u", FRAMES_IN_FLIGHT);
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Text("Resources");
+    ImGui::Separator();
+    ImGui::Text("Images: %zu", images.size());
+    ImGui::Text("Image views: %zu", image_views.size());
+    ImGui::Text("Buffers: %zu", buffers.size());
+    ImGui::Text("Samplers: %zu", samplers.size());
+    ImGui::Text("Graphics Programs: %zu", graphics_programs.size());
+    ImGui::Text("Graphics Pipelines: %zu", graphics_programs.size());
+    ImGui::Text("Compute Programs: %zu", compute_programs.size());
+    ImGui::Text("Compute Pipelines: %zu", compute_programs.size());
+    ImGui::Text("Shaders: %zu", shaders.size());
+    ImGui::Text("RenderPasses: %zu", renderpasses.size());
+    ImGui::Text("FrameBuffers: %zu", framebuffers.size());
+    ImGui::Separator();
+    ImGui::Text("Current frame");
+    ImGui::Separator();
+    ImGui::Text("Draws: %zu", draws_this_frame);
+    ImGui::Text("Pipeline barriers: %zu", barriers_this_frame);
 }
 
 } // namespace my_app::vulkan

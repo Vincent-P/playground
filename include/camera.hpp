@@ -82,7 +82,9 @@ struct InputCamera
     void on_mouse_movement(double xpos, double ypos);
     void on_mouse_scroll(double xoffset, double yoffset);
     void update();
+#if 0
     void display_ui(UI::Context &ui);
+#endif
 };
 
 } // namespace my_app
