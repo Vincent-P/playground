@@ -1,5 +1,6 @@
 #include "ecs.hpp"
 
+#include <array>
 #include <algorithm>
 #include <cstring>
 #include <doctest.h>
@@ -474,23 +475,37 @@ namespace test
 
 struct Position
 {
-    uint a;
+    uint a = 0;
+    bool operator==(const Position &other) const = default;
 };
 
 struct Rotation
 {
-    uint a;
+    uint a = 0;
+    bool operator==(const Rotation &other) const = default;
 };
 
 struct Transform
 {
-    uint a{0};
+    uint a = 0;
     bool operator==(const Transform &other) const = default;
 };
 
+std::ostream &operator<<(std::ostream &os, const Position &t)
+{
+    os << "Position{" << t.a << "}";
+    return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const Rotation &t)
+{
+    os << "Rotation{" << t.a << "}";
+    return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const Transform &t)
 {
-    os << t.a;
+    os << "Transform{" << t.a << "}";
     return os;
 }
 
@@ -537,6 +552,80 @@ TEST_SUITE("ECS")
 
         CHECK(my_changed_entity_transform != nullptr);
         CHECK(*my_changed_entity_transform == Transform{.a = 34});
+    }
+
+    TEST_CASE("Queries")
+    {
+        World world{};
+        world.create_entity(Transform{42}, Position{21});
+        world.create_entity(Transform{42});
+        world.create_entity(Transform{42}, Rotation{21});
+
+        world.create_entity(Transform{82}, Position{42});
+        world.create_entity(Transform{84});
+        world.create_entity(Transform{82}, Rotation{42});
+
+        auto transforms = world.get_components_tuples<Transform>();
+        auto positions = world.get_components_tuples<Position>();
+        auto rotations = world.get_components_tuples<Rotation>();
+        auto transform_positions = world.get_components_tuples<Transform, Position>();
+        auto transform_rotations = world.get_components_tuples<Transform, Rotation>();
+
+        CHECK(transforms.size() == 6);
+        CHECK(positions.size() == 2);
+        CHECK(rotations.size() == 2);
+        CHECK(transform_positions.size() == 2);
+        CHECK(transform_rotations.size() == 2);
+
+
+        std::array<int, 256> values{};
+
+        // count the transforms
+        {
+            values.fill(0);
+
+            for (const auto &[transform_component] : transforms)
+            {
+                int transform_value = transform_component->a;
+
+                values[transform_value] += 1;
+            }
+
+            CHECK(values[42] == 3);
+            CHECK(values[82] == 2);
+            CHECK(values[84] == 1);
+        }
+
+        // count the position
+        {
+            values.fill(0);
+
+            for (const auto &[position_component] : positions)
+            {
+                int position_value = position_component->a;
+
+                values[position_value] += 1;
+            }
+
+            CHECK(values[21] == 1);
+            CHECK(values[42] == 1);
+        }
+
+        // count the rotation
+        {
+            values.fill(0);
+
+            for (const auto &[rotation_component] : rotations)
+            {
+                int rotation_value = rotation_component->a;
+
+                values[rotation_value] += 1;
+            }
+
+            CHECK(values[21] == 1);
+            CHECK(values[42] == 1);
+        }
+
     }
 }
 } // namespace test

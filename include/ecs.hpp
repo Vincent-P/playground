@@ -152,10 +152,47 @@ namespace impl
 // Archetype
 template <typename... ComponentTypes> Archetype create_archetype()
 {
+    constexpr usize component_count = sizeof...(ComponentTypes);
     Archetype result;
-    (result.push_back(family::type<ComponentTypes>()), ...);
+    result.resize(component_count);
+    usize i = 0;
+    ((result[i++] = family::type<ComponentTypes>()), ...);
     return result;
 }
+
+inline std::tuple<bool, std::vector<u32>> archetype_contains(const Archetype &query, const Archetype &archetype)
+{
+    std::vector<u32> found(query.size(), u32_invalid);
+
+    if (query.size() > archetype.size())
+    {
+        return std::make_tuple(false, found);
+    }
+
+    for (usize i_archetype = 0; i_archetype < archetype.size(); i_archetype++)
+    {
+        auto component_id = archetype[i_archetype];
+        for (usize i_query = 0; i_query < query.size(); i_query++)
+        {
+            if (component_id == query[i_query])
+            {
+                found[i_query] = i_archetype;
+                break;
+            }
+        }
+    }
+
+    for (const auto component_found : found)
+    {
+        if (component_found == u32_invalid)
+        {
+            return std::make_tuple(false, found);
+        }
+    }
+
+    return std::make_tuple(true, found);
+}
+
 std::optional<usize> get_component_idx(Archetype type, ComponentId component_id);
 
 // ArchetypeStorage
@@ -183,6 +220,18 @@ template <typename Component> std::optional<usize> get_component_idx(Archetype t
 {
     return get_component_idx(type, family::type<Component>());
 }
+
+// returns a pointer to a component from a query, used to simulate a constexpr loop in get_components_tuples
+template <typename Component> Component *tuple_element_component(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
+{
+    const usize i_component = query_indices[i_query];
+    auto &component_storage = storage.components[i_component];
+    const usize component_byte_idx = i_row * component_storage.component_size;
+
+    i_query += 1; // for next call
+    return reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
+}
+
 
 } // namespace impl
 
@@ -249,6 +298,36 @@ struct World
     template <typename Component> Component *get_component(EntityId entity)
     {
         return reinterpret_cast<Component *>(impl::get_component(*this, entity, family::type<Component>()));
+    }
+
+    // Returns a list of component tuples, basically the query system of this ecs.
+    // Usage: for (auto &[position, rotation] : world.get_components_tuples<Position, Rotation>()) {}
+    template <typename... ComponentTypes> std::vector<std::tuple<ComponentTypes*...>> get_components_tuples()
+    {
+        auto query = impl::create_archetype<ComponentTypes...>();
+        std::vector<std::tuple<ComponentTypes*...>> components_tuples;
+        components_tuples.reserve(entity_index.size());
+
+        for (auto &[h, storage] : archetypes.archetype_storages)
+        {
+            auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
+            if (contains)
+            {
+                // This archetype contains the queries components
+                // add them to the tuples
+
+                //TODO: is it better to add them in a different order? probably, but impossible to do with templates?
+
+                for (usize i_row = 0; i_row < storage->size; i_row++)
+                {
+                    usize i_query = 0;
+                    components_tuples.push_back(std::make_tuple(impl::tuple_element_component<ComponentTypes>(i_query, i_row, query_indices, *storage)...));
+                }
+
+            }
+        }
+
+        return components_tuples;
     }
 
     // Metadata of entites
