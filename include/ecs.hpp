@@ -238,15 +238,15 @@ template <Componentable Component> std::optional<usize> get_component_idx(Archet
     return get_component_idx(type, family::type<Component>());
 }
 
-// returns a pointer to a component from a query, used to simulate a constexpr loop in get_components_tuples
-template <Componentable Component> Component *tuple_element_component(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
+// returns a reference to a component from a query, used to simulate a constexpr loop in for_each
+template <Componentable Component> Component &component_ref(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
 {
     const usize i_component = query_indices[i_query];
     auto &component_storage = storage.components[i_component];
     const usize component_byte_idx = i_row * component_storage.component_size;
 
     i_query += 1; // for next call
-    return reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
+    return *reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
 }
 
 } // namespace impl
@@ -358,8 +358,7 @@ struct World
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
                     usize i_query = 0;
-                    auto components_tuple = std::make_tuple(impl::tuple_element_component<ComponentTypes>(i_query, i_row, query_indices, *storage)...);
-                    lambda(components_tuple);
+                    lambda(impl::component_ref<ComponentTypes>(i_query, i_row, query_indices, *storage)...);
                 }
 
             }

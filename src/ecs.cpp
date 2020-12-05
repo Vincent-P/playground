@@ -580,9 +580,8 @@ TEST_SUITE("ECS")
         {
             values.fill(0);
 
-            world.for_each<Transform>([&](const auto &components) {
-                auto &[transform_component] = components;
-                int transform_value = transform_component->a;
+            world.for_each<Transform>([&](const auto &transform) {
+                int transform_value = transform.a;
                 values[transform_value] += 1;
             });
 
@@ -595,9 +594,8 @@ TEST_SUITE("ECS")
         {
             values.fill(0);
 
-            world.for_each<Position>([&](const auto &components) {
-                auto &[position_component] = components;
-                int position_value = position_component->a;
+            world.for_each<Position>([&](const auto &position) {
+                int position_value = position.a;
                 values[position_value] += 1;
             });
 
@@ -609,9 +607,8 @@ TEST_SUITE("ECS")
         {
             values.fill(0);
 
-            world.for_each<Rotation>([&](const auto &components) {
-                auto &[rotation_component] = components;
-                int rotation_value = rotation_component->a;
+            world.for_each<Rotation>([&](const auto &rotation) {
+                int rotation_value = rotation.a;
                 values[rotation_value] += 1;
             });
 
