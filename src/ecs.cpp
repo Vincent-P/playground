@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <doctest.h>
+#include <imgui/imgui.h>
 #include <iostream>
 
 namespace my_app::ECS
@@ -38,16 +39,16 @@ ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph
 
     auto &edges = entity_storage->edges;
     // Add links if there is not enough space for the component_type
-    if (component_type >= edges.size())
+    if (component_type.id >= edges.size())
     {
-        edges.reserve(component_type - edges.size() + 1);
-        while (component_type >= edges.size())
+        edges.reserve(component_type.id - edges.size() + 1);
+        while (component_type.id >= edges.size())
         {
             edges.emplace_back();
         }
     }
 
-    auto &next_h = edges[component_type].remove;
+    auto &next_h = edges[component_type.id].remove;
 
     // create a new storage if needed
     if (!next_h.is_valid())
@@ -63,12 +64,12 @@ ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph
         (void)(new_end);
 
         // Add links if there is not enough space for the component_type
-        new_storage->edges.reserve(component_type - new_storage->edges.size() + 1);
-        while (component_type >= new_storage->edges.size())
+        new_storage->edges.reserve(component_type.id - new_storage->edges.size() + 1);
+        while (component_type.id >= new_storage->edges.size())
         {
             new_storage->edges.emplace_back();
         }
-        new_storage->edges[component_type].add = entity_archetype;
+        new_storage->edges[component_type.id].add = entity_archetype;
 
         new_storage->components.resize(new_storage->type.size());
         for (usize i_component = 0; i_component < new_storage->components.size(); i_component++)
@@ -87,16 +88,16 @@ ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, 
 
     auto &edges = entity_storage->edges;
     // Add links if there is not enough space for the component_type
-    if (component_type >= edges.size())
+    if (component_type.id >= edges.size())
     {
-        edges.reserve(component_type - edges.size() + 1);
-        while (component_type >= edges.size())
+        edges.reserve(component_type.id - edges.size() + 1);
+        while (component_type.id >= edges.size())
         {
             edges.emplace_back();
         }
     }
 
-    auto &next_h = edges[component_type].add;
+    auto &next_h = edges[component_type.id].add;
 
     // create a new storage if needed
     if (!next_h.is_valid())
@@ -111,12 +112,12 @@ ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, 
         new_storage->type.push_back(component_type);
 
         // Add links if there is not enough space for the component_type
-        new_storage->edges.reserve(component_type - new_storage->edges.size() + 1);
-        while (component_type >= new_storage->edges.size())
+        new_storage->edges.reserve(component_type.id - new_storage->edges.size() + 1);
+        while (component_type.id >= new_storage->edges.size())
         {
             new_storage->edges.emplace_back();
         }
-        new_storage->edges[component_type].remove = entity_archetype;
+        new_storage->edges[component_type.id].remove = entity_archetype;
 
         new_storage->components.resize(new_storage->type.size());
         for (usize i_component = 0; i_component < new_storage->components.size(); i_component++)
@@ -345,6 +346,8 @@ bool has_component(World &world, EntityId entity, ComponentId component)
 
 void *get_component(World &world, EntityId entity, ComponentId component_id)
 {
+    assert(world.entity_index.contains(entity));
+
     // get the entity information in its record
     const auto &record = world.entity_index.at(entity);
 
@@ -367,37 +370,6 @@ void *get_component(World &world, EntityId entity, ComponentId component_id)
 
 } // namespace impl
 
-/// --- Internal components
-
-static ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes, ComponentId component_id,
-                                    usize component_size)
-{
-    EntityId new_entity = component_id;
-    auto archetype      = {ComponentId(family::type<InternalComponent>())};
-
-    // find or create a new bucket for this archetype
-    auto storage_h = impl::find_or_create_archetype_storage_from_root(archetypes, archetype);
-    auto &storage  = *archetypes.archetype_storages.get(storage_h);
-
-    // add the entity to the entity array
-    auto row = impl::add_entity_id_to_storage(storage, new_entity);
-
-    impl::add_component_to_storage(storage, 0, &component_size, sizeof(usize));
-    storage.size++;
-
-    // put the entity record in the entity index
-    entity_index[new_entity] = EntityRecord{.archetype = storage_h, .row = row};
-
-    return new_entity;
-}
-
-template <typename Component> static ComponentId create_component(EntityIndex &entity_index, Archetypes &archetypes)
-{
-    auto component_id = create_component(entity_index, archetypes, family::type<Component>(), sizeof(Component));
-    assert(component_id.raw == family::type<Component>());
-    return component_id;
-}
-
 /// --- Public API
 
 World::World()
@@ -405,8 +377,8 @@ World::World()
     archetypes.root = archetypes.archetype_storages.add({});
 
     // bootstrap the InternalComponent component
-    auto internal_component = create_component<InternalComponent>(entity_index, archetypes);
-    auto internal_id        = create_component<InternalId>(entity_index, archetypes);
+    auto internal_component = create_entity_internal(EntityId::component<InternalComponent>(), InternalComponent{sizeof(InternalComponent)});
+    auto internal_id        = create_entity_internal(EntityId::component<InternalId>(), InternalComponent{sizeof(InternalId)});
 
     add_component(internal_component, InternalId{"InternalComponentComponent"});
     add_component(internal_id, InternalId{"InternalIdComponent"});
@@ -416,52 +388,86 @@ void World::display_ui(UI::Context &ctx)
 {
     if (ctx.begin_window("ECS"))
     {
-        for (auto &[storage_h, storage] : archetypes.archetype_storages)
+        if (ImGui::CollapsingHeader("Archetypes"))
         {
-            ImGui::Separator();
-            ImGui::Text("Storage handle: %u", storage_h.value());
-            ImGui::TextUnformatted("Archetype: [");
-            ImGui::SameLine();
-            for (usize i_type_id = 0; i_type_id < storage->type.size(); i_type_id++)
+            usize entity_count = 0;
+            usize component_memory = 0;
+
+            for (auto &[storage_h, storage] : archetypes.archetype_storages)
             {
-                auto component_id = storage->type[i_type_id];
-
-                auto *internal_id = get_component<InternalId>(component_id);
-                if (internal_id)
-                {
-                    ImGui::SameLine();
-                    ImGui::Text("%s", internal_id->name);
-                }
-                else
-                {
-                    ImGui::Text("Component #%zu", component_id.raw);
-                }
-
+                ImGui::Separator();
+                ImGui::Text("Storage handle: %u", storage_h.value());
+                ImGui::TextUnformatted("Archetype: [");
                 ImGui::SameLine();
-                if (i_type_id < storage->type.size() - 1)
+                for (usize i_type_id = 0; i_type_id < storage->type.size(); i_type_id++)
                 {
-                    ImGui::TextUnformatted(",");
+                    const auto component_id = storage->type[i_type_id];
+
+                    const auto *internal_id = get_component<InternalId>(component_id);
+                    if (internal_id)
+                    {
+                        ImGui::SameLine();
+                        ImGui::Text("%s", internal_id->tag);
+                    }
+                    else
+                    {
+                        ImGui::Text("Component #%zu", component_id.raw);
+                    }
+
                     ImGui::SameLine();
+                    if (i_type_id < storage->type.size() - 1)
+                    {
+                        ImGui::TextUnformatted(",");
+                        ImGui::SameLine();
+                    }
                 }
+                ImGui::TextUnformatted("]");
+                ImGui::TextUnformatted("Entities:");
+                for (usize i_entity = 0; i_entity < storage->entity_ids.size(); i_entity++)
+                {
+                    const auto entity = storage->entity_ids[i_entity];
+                    ImGui::Text("#%zu", entity.raw);
+
+                    if (const auto *internal_id = get_component<InternalId>(entity))
+                    {
+                        ImGui::SameLine();
+                        ImGui::Text("%s", internal_id->tag);
+                    }
+
+                    if (const auto *internal_component = get_component<InternalComponent>(entity))
+                    {
+                        ImGui::Text("  Component size: %zu", internal_component->size);
+                    }
+                }
+
+                usize total_archetype_size = 0;
+                for (const auto &component_storage : storage->components)
+                {
+                    total_archetype_size += component_storage.component_size;
+                }
+                total_archetype_size *= storage->size;
+
+                component_memory += total_archetype_size;
+                entity_count += storage->size;
             }
-            ImGui::TextUnformatted("]");
-            ImGui::TextUnformatted("Entities:");
-            for (usize i_entity = 0; i_entity < storage->entity_ids.size(); i_entity++)
-            {
-                auto entity = storage->entity_ids[i_entity];
-                ImGui::Text("#%zu", entity.raw);
 
-                auto *internal_id = get_component<InternalId>(entity);
-                if (internal_id)
+            ImGui::Separator();
+            ImGui::Text("Total component size: %zu", component_memory);
+            ImGui::Text("Entity count: %zu", entity_count);
+        }
+
+        if (ImGui::CollapsingHeader("Entities"))
+        {
+            for (const auto &[entity_id, entity_record] : entity_index)
+            {
+                // components are entities for the world
+                if (has_component<InternalComponent>(entity_id)) { continue; }
+
+                ImGui::Text("#%zu", entity_id.raw);
+                if (const auto *internal_id = get_component<InternalId>(entity_id))
                 {
                     ImGui::SameLine();
-                    ImGui::Text("%s", internal_id->name);
-                }
-
-                auto *internal_component = get_component<InternalComponent>(entity);
-                if (internal_component)
-                {
-                    ImGui::Text("  Component size: %zu", internal_component->size);
+                    ImGui::Text("%s", internal_id->tag);
                 }
             }
         }
@@ -477,18 +483,21 @@ struct Position
 {
     uint a = 0;
     bool operator==(const Position &other) const = default;
+    static const char *type_name() { return "Position"; }
 };
 
 struct Rotation
 {
     uint a = 0;
     bool operator==(const Rotation &other) const = default;
+    static const char *type_name() { return "Rotation"; }
 };
 
 struct Transform
 {
     uint a = 0;
     bool operator==(const Transform &other) const = default;
+    static const char *type_name() { return "Transform"; }
 };
 
 std::ostream &operator<<(std::ostream &os, const Position &t)

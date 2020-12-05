@@ -5,8 +5,8 @@
 
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
-
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
    Archetype-based ECS seems easier to implement than something like EnTT that uses sparse sets.
@@ -25,6 +25,11 @@
 
 namespace my_app::ECS
 {
+
+template<typename Component>
+concept Componentable = requires(Component c) {
+    { Component::type_name() } -> std::same_as<const char*>;
+};
 
 namespace
 {
@@ -47,19 +52,27 @@ struct family
 
 struct EntityId
 {
-    EntityId() = default;
-    EntityId(u64 _raw)
-        : raw(_raw)
+    static EntityId create()
     {
+        return {.is_component = 0, .id = family::identifier()};
     }
+
+    template<Componentable T> static EntityId component()
+    {
+        return {.is_component = 1, .id = family::type<T>()};
+    }
+
     bool operator==(EntityId other) const { return raw == other.raw; }
 
     union
     {
+        struct
+        {
+            u64 id : 63;
+            u64 is_component : 1;
+        };
         u64 raw;
     };
-
-    operator u64() const { return raw; }
 };
 } // namespace my_app::ECS
 
@@ -138,11 +151,15 @@ struct InternalComponent
 {
     // size of the type of the component in bytes
     usize size;
+
+    static const char *type_name() { return "InternalComponent"; }
 };
 
 struct InternalId
 {
-    const char *name;
+    const char *tag;
+
+    static const char *type_name() { return "InternalId"; }
 };
 
 struct World;
@@ -150,13 +167,13 @@ struct World;
 namespace impl
 {
 // Archetype
-template <typename... ComponentTypes> Archetype create_archetype()
+template <Componentable... ComponentTypes> Archetype create_archetype()
 {
     constexpr usize component_count = sizeof...(ComponentTypes);
     Archetype result;
     result.resize(component_count);
     usize i = 0;
-    ((result[i++] = family::type<ComponentTypes>()), ...);
+    ((result[i++] = ComponentId::component<ComponentTypes>()), ...);
     return result;
 }
 
@@ -216,13 +233,13 @@ void set_component(World &world, EntityId entity, ComponentId component_id, void
 bool has_component(World &world, EntityId entity, ComponentId component);
 void *get_component(World &world, EntityId entity, ComponentId component_id);
 
-template <typename Component> std::optional<usize> get_component_idx(Archetype type)
+template <Componentable Component> std::optional<usize> get_component_idx(Archetype type)
 {
     return get_component_idx(type, family::type<Component>());
 }
 
 // returns a pointer to a component from a query, used to simulate a constexpr loop in get_components_tuples
-template <typename Component> Component *tuple_element_component(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
+template <Componentable Component> Component *tuple_element_component(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
 {
     const usize i_component = query_indices[i_query];
     auto &component_storage = storage.components[i_component];
@@ -231,7 +248,6 @@ template <typename Component> Component *tuple_element_component(usize &i_query,
     i_query += 1; // for next call
     return reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
 }
-
 
 } // namespace impl
 
@@ -243,11 +259,10 @@ struct World
 
     /// --- Entities
 
-    // Create an entity with a list of components
-    template <typename... ComponentTypes> EntityId create_entity(ComponentTypes &&...components)
+    template <Componentable... ComponentTypes>
+    EntityId create_entity_internal(EntityId new_entity, ComponentTypes &&...components)
     {
-        EntityId new_entity = family::identifier();
-        auto archetype      = impl::create_archetype<ComponentTypes...>();
+        auto archetype = impl::create_archetype<ComponentTypes...>();
 
         // find or create a new bucket for this archetype
         auto storage_h = impl::find_or_create_archetype_storage_from_root(archetypes, archetype);
@@ -267,40 +282,66 @@ struct World
         return new_entity;
     }
 
+    template <Componentable Component> void create_component_if_needed_internal()
+    {
+        auto component_id = EntityId::component<Component>();
+        if (!entity_index.contains(component_id))
+        {
+            auto [it, inserted] = string_interner.insert(std::string{Component::type_name()});
+            create_entity_internal(component_id, InternalComponent{sizeof(Component)}, InternalId{it->c_str()});
+        }
+    }
+
+    // Create an entity with a list of components
+    template <Componentable... ComponentTypes> EntityId create_entity(ComponentTypes &&...components)
+    {
+        (create_component_if_needed_internal<ComponentTypes>(), ...);
+
+        return create_entity_internal(EntityId::create(), std::forward<ComponentTypes>(components)...);
+    }
+
+    // Create an entity with a name and a list of components
+    template <Componentable... ComponentTypes> EntityId create_entity(std::string_view name, ComponentTypes &&...components)
+    {
+        auto [it, inserted] = string_interner.insert(std::string{name});
+        return create_entity<InternalId, ComponentTypes...>(InternalId{it->c_str()}, std::forward<ComponentTypes>(components)...);
+    }
+
+
     /// --- Components
 
     // Add a component to an entity, the entity SHOULD NOT already have that component
-    template <typename Component> void add_component(EntityId entity, Component component)
+    template <Componentable Component> void add_component(EntityId entity, Component component)
     {
-        impl::add_component(*this, entity, family::type<Component>(), &component, sizeof(Component));
+        impl::add_component(*this, entity, ComponentId::component<Component>(), &component, sizeof(Component));
     }
 
     // Remove a component from an entity
-    template <typename Component> void remove_component(EntityId entity)
+    template <Componentable Component> void remove_component(EntityId entity)
     {
-        impl::remove_component(*this, entity, family::type<Component>());
+        impl::remove_component(*this, entity, ComponentId::component<Component>());
     }
 
     // Set the value of a component or add it to an entity
-    template <typename Component> void set_component(EntityId entity, Component component)
+    template <Componentable Component> void set_component(EntityId entity, Component component)
     {
-        impl::set_component(*this, entity, family::type<Component>(), &component, sizeof(Component));
+        impl::set_component(*this, entity, ComponentId::component<Component>(), &component, sizeof(Component));
     }
 
-    template <typename Component> bool has_component(EntityId entity)
+    template <Componentable Component> bool has_component(EntityId entity)
     {
-        return impl::has_component(*this, entity, family::type<Component>());
+        return impl::has_component(*this, entity, ComponentId::component<Component>());
     }
 
-    bool is_component(EntityId entity) { return impl::has_component(*this, entity, family::type<InternalComponent>()); }
+    bool is_component(EntityId entity) { return entity.is_component; }
 
     // Get a component from an entity, returns nullptr if not found
-    template <typename Component> Component *get_component(EntityId entity)
+    template <Componentable Component> Component *get_component(EntityId entity)
     {
-        return reinterpret_cast<Component *>(impl::get_component(*this, entity, family::type<Component>()));
+        return reinterpret_cast<Component *>(impl::get_component(*this, entity, ComponentId::component<Component>()));
     }
 
-    template <typename... ComponentTypes, typename Lambda> void for_each(Lambda lambda)
+    template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda)
     {
         auto query = impl::create_archetype<ComponentTypes...>();
 
@@ -328,6 +369,7 @@ struct World
     // Metadata of entites
     EntityIndex entity_index;
     Archetypes archetypes;
+    std::unordered_set<std::string> string_interner;
 };
 
 }; // namespace my_app::ECS

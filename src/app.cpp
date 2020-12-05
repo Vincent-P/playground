@@ -43,6 +43,8 @@ App::App()
     });
 
     is_minimized = false;
+
+    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{});
 }
 
 App::~App()

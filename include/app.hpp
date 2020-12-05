@@ -11,6 +11,12 @@
 namespace my_app
 {
 
+struct CameraComponent
+{
+    u8 nice = 38;
+    static const char *type_name() { return "CameraComponent"; }
+};
+
 class App
 {
   public:
