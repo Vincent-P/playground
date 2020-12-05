@@ -300,13 +300,9 @@ struct World
         return reinterpret_cast<Component *>(impl::get_component(*this, entity, family::type<Component>()));
     }
 
-    // Returns a list of component tuples, basically the query system of this ecs.
-    // Usage: for (auto &[position, rotation] : world.get_components_tuples<Position, Rotation>()) {}
-    template <typename... ComponentTypes> std::vector<std::tuple<ComponentTypes*...>> get_components_tuples()
+    template <typename... ComponentTypes, typename Lambda> void for_each(Lambda lambda)
     {
         auto query = impl::create_archetype<ComponentTypes...>();
-        std::vector<std::tuple<ComponentTypes*...>> components_tuples;
-        components_tuples.reserve(entity_index.size());
 
         for (auto &[h, storage] : archetypes.archetype_storages)
         {
@@ -321,13 +317,12 @@ struct World
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
                     usize i_query = 0;
-                    components_tuples.push_back(std::make_tuple(impl::tuple_element_component<ComponentTypes>(i_query, i_row, query_indices, *storage)...));
+                    auto components_tuple = std::make_tuple(impl::tuple_element_component<ComponentTypes>(i_query, i_row, query_indices, *storage)...);
+                    lambda(components_tuple);
                 }
 
             }
         }
-
-        return components_tuples;
     }
 
     // Metadata of entites

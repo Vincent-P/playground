@@ -565,31 +565,17 @@ TEST_SUITE("ECS")
         world.create_entity(Transform{84});
         world.create_entity(Transform{82}, Rotation{42});
 
-        auto transforms = world.get_components_tuples<Transform>();
-        auto positions = world.get_components_tuples<Position>();
-        auto rotations = world.get_components_tuples<Rotation>();
-        auto transform_positions = world.get_components_tuples<Transform, Position>();
-        auto transform_rotations = world.get_components_tuples<Transform, Rotation>();
-
-        CHECK(transforms.size() == 6);
-        CHECK(positions.size() == 2);
-        CHECK(rotations.size() == 2);
-        CHECK(transform_positions.size() == 2);
-        CHECK(transform_rotations.size() == 2);
-
-
         std::array<int, 256> values{};
 
         // count the transforms
         {
             values.fill(0);
 
-            for (const auto &[transform_component] : transforms)
-            {
+            world.for_each<Transform>([&](const auto &components) {
+                auto &[transform_component] = components;
                 int transform_value = transform_component->a;
-
                 values[transform_value] += 1;
-            }
+            });
 
             CHECK(values[42] == 3);
             CHECK(values[82] == 2);
@@ -600,12 +586,11 @@ TEST_SUITE("ECS")
         {
             values.fill(0);
 
-            for (const auto &[position_component] : positions)
-            {
+            world.for_each<Position>([&](const auto &components) {
+                auto &[position_component] = components;
                 int position_value = position_component->a;
-
                 values[position_value] += 1;
-            }
+            });
 
             CHECK(values[21] == 1);
             CHECK(values[42] == 1);
@@ -615,12 +600,11 @@ TEST_SUITE("ECS")
         {
             values.fill(0);
 
-            for (const auto &[rotation_component] : rotations)
-            {
+            world.for_each<Rotation>([&](const auto &components) {
+                auto &[rotation_component] = components;
                 int rotation_value = rotation_component->a;
-
                 values[rotation_value] += 1;
-            }
+            });
 
             CHECK(values[21] == 1);
             CHECK(values[42] == 1);
