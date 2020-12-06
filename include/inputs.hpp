@@ -12,16 +12,23 @@ namespace my_app
 {
 
 // clang-format off
-    namespace UI { struct Context; };
+namespace UI { struct Context; };
 // clang-format on
 
 enum struct Action : uint
 {
-    QuitApp,
-    CameraModifier,
-    CameraMove,
-    CameraOrbit,
+#define X(display_name, enum) enum,
+#include "input_bindings.def"
+#undef X
 };
+
+inline constexpr std::array<const char *, to_underlying(Action::Count) + 1> action_to_string_array{
+#define X(display_name, enum) display_name,
+#include "input_bindings.def"
+#undef X
+};
+
+inline constexpr const char *to_string(Action action) { return action_to_string_array[to_underlying(action)]; }
 
 struct KeyBinding
 {

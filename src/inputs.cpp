@@ -118,26 +118,50 @@ void Inputs::display_ui(UI::Context &ui)
 {
     if (ui.begin_window("Inputs"))
     {
-        ImGui::Text("Keys");
-        for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
+        if (ImGui::CollapsingHeader("Keys"))
         {
-            auto key = static_cast<VirtualKey>(i);
-            ImGui::Text("%s: %s", virtual_key_to_string(key), is_pressed(key) ? "Pressed" : "Released");
+            for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
+            {
+                auto key = static_cast<VirtualKey>(i);
+                ImGui::Text("%s: %s", to_string(key), is_pressed(key) ? "Pressed" : "Released");
+            }
         }
-        ImGui::Separator();
-        ImGui::Text("Mouse buttons");
-        for (uint i = 0; i < to_underlying(MouseButton::Count); i++)
+
+        if (ImGui::CollapsingHeader("Mouse buttons"))
         {
-            auto button = static_cast<MouseButton>(i);
-            ImGui::Text("%s: %s", mouse_button_to_string(button), is_pressed(button) ? "Pressed" : "Released");
+            for (uint i = 0; i < to_underlying(MouseButton::Count); i++)
+            {
+                auto button = static_cast<MouseButton>(i);
+                ImGui::Text("%s: %s", to_string(button), is_pressed(button) ? "Pressed" : "Released");
+            }
         }
-        ImGui::Separator();
-        ImGui::Text("Mouse");
-        ImGui::Text("position: %dx%d", mouse_position.x, mouse_position.y);
-        display_optional("delta: ", mouse_delta);
-        display_optional("mouse drag start: ", mouse_drag_start);
-        display_optional("mouse drag delta: ", mouse_drag_delta);
-        display_optional("scroll: ", scroll_this_frame);
+
+        if (ImGui::CollapsingHeader("Mouse"))
+        {
+            ImGui::Text("position: %dx%d", mouse_position.x, mouse_position.y);
+            display_optional("delta: ", mouse_delta);
+            display_optional("mouse drag start: ", mouse_drag_start);
+            display_optional("mouse drag delta: ", mouse_drag_delta);
+            display_optional("scroll: ", scroll_this_frame);
+        }
+
+        if (ImGui::CollapsingHeader("Bindings"))
+        {
+            for (const auto &[action, binding] : bindings)
+            {
+                ImGui::Text("%s: ", to_string(action));
+                for (const auto &key : binding.keys)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("%s ", to_string(key));
+                }
+                for (const auto &mouse_button : binding.mouse_buttons)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("%s ", to_string(mouse_button));
+                }
+            }
+        }
 
         ui.end_window();
     }
