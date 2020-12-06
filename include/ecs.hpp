@@ -246,13 +246,17 @@ template <Componentable Component> std::optional<usize> get_component_idx(Archet
 }
 
 // returns a reference to a component from a query, used to simulate a constexpr loop in for_each
-template <Componentable Component> Component &component_ref(usize &i_query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
+template <Componentable Component> Component &component_ref(const Archetype &query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
 {
-    const usize i_component = query_indices[i_query];
+    const auto component_id = EntityId::component<Component>();
+    usize i_query = 0;
+    for (; query[i_query] != component_id; i_query++) {}
+    assert(i_query < query.size());
+
+    usize i_component = query_indices[i_query];
     auto &component_storage = storage.components[i_component];
     const usize component_byte_idx = i_row * component_storage.component_size;
 
-    i_query += 1; // for next call
     return *reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
 }
 
@@ -357,15 +361,12 @@ struct World
             auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
             if (contains)
             {
-                // This archetype contains the queries components
-                // add them to the tuples
-
-                //TODO: is it better to add them in a different order? probably, but impossible to do with templates?
 
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
-                    usize i_query = 0;
-                    lambda(impl::component_ref<ComponentTypes>(i_query, i_row, query_indices, *storage)...);
+                    // TODO: there is a loop over query in component_ref that could be removed if it was possible
+                    // to loop over ComponentTypes for each query and then pass that as arguments to the lambda
+                    lambda(impl::component_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
 
             }
