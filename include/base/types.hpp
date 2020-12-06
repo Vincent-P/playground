@@ -43,6 +43,9 @@ struct int2
     int y;
 };
 
+inline int2 operator+(const int2 &a, const int2 &b) { return {a.x + b.x, a.y + b.y}; }
+inline int2 operator-(const int2 &a, const int2 &b) { return {a.x - b.x, a.y - b.y}; }
+
 struct uint2
 {
     uint x;

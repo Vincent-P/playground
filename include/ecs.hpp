@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <type_traits>
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
    Archetype-based ECS seems easier to implement than something like EnTT that uses sparse sets.
@@ -26,10 +27,16 @@
 namespace my_app::ECS
 {
 
-template<typename Component>
-concept Componentable = requires(Component c) {
-    { Component::type_name() } -> std::same_as<const char*>;
+template<typename T>
+concept Nameable = requires(T o) {
+    { T::type_name() } -> std::same_as<const char*>;
 };
+
+template<typename T>
+concept TriviallyCopyable = std::is_trivially_copyable<T>::value;
+
+template<typename Component>
+concept Componentable = Nameable<Component> && TriviallyCopyable<Component>;
 
 namespace
 {

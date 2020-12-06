@@ -21,7 +21,7 @@ namespace my_app
 {
 
 // frame data
-void Renderer::create(Renderer &r, const window::Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
+void Renderer::create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
 {
     // where to put this code?
     //

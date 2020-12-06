@@ -2,6 +2,7 @@
 
 #include "app.hpp"
 #include "platform/window.hpp"
+#include "inputs.hpp"
 #include "timer.hpp"
 
 #include <algorithm>
@@ -27,108 +28,14 @@ void Camera::create(Camera &camera, float3 position)
     camera.update_view();
 }
 
-void InputCamera::create(InputCamera &camera, window::Window &window, TimerData &timer, float3 position)
+void InputCamera::create(InputCamera &camera, platform::Window &window, TimerData &timer, Inputs &inputs, float3 position)
 {
     Camera::create(camera._internal, position);
     camera.p_window = &window;
     camera.p_timer  = &timer;
+    camera.p_inputs = &inputs;
 }
 
-void InputCamera::on_mouse_movement(double xpos, double ypos)
-{
-    float delta_t = p_timer->get_delta_time();
-
-    switch (state)
-    {
-        case States::Idle:
-        {
-            break;
-        }
-        case States::Move:
-        {
-            float up    = ypos - dragged_mouse_start_pos.y;
-            float right = xpos - dragged_mouse_start_pos.x;
-
-            if (up != 0.0f || right != 0.0f)
-            {
-                auto camera_plane_forward = normalize(float3(_internal.front.x, 0.0f, _internal.front.z));
-                auto camera_right         = cross(_internal.up, _internal.front);
-                auto camera_plane_right   = normalize(float3(camera_right.x, 0.0f, camera_right.z));
-
-                target = target + CAMERA_MOVE_SPEED * delta_t * right * camera_plane_right;
-                target = target + CAMERA_MOVE_SPEED * delta_t * up * camera_plane_forward;
-
-                view_dirty = true;
-
-                // reset drag?
-                dragged_mouse_start_pos = float2(xpos, ypos);
-            }
-
-            break;
-        }
-        case States::Orbit:
-        {
-            float up    = ypos - dragged_mouse_start_pos.y;
-            float right = dragged_mouse_start_pos.x - xpos;
-
-            if (up != 0.0f || right != 0.0f)
-            {
-                theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
-
-                constexpr auto low  = -179.0f;
-                constexpr auto high = 0.0f;
-                if (low <= phi && phi < high)
-                {
-                    phi += (CAMERA_ROTATE_SPEED * delta_t) * up;
-                    phi = std::clamp(phi, low, high - 1.0f);
-                }
-
-                view_dirty = true;
-
-                // reset drag?
-                dragged_mouse_start_pos = float2(xpos, ypos);
-            }
-
-            break;
-        }
-        case States::Zoom:
-        {
-            break;
-        }
-    }
-}
-
-void InputCamera::on_mouse_scroll(double /*xoffset*/, double yoffset)
-{
-    float delta_t = p_timer->get_delta_time();
-    switch (state)
-    {
-        case States::Idle:
-        {
-            target.y += (CAMERA_SCROLL_SPEED * delta_t) * yoffset;
-            view_dirty = true;
-            break;
-        }
-        case States::Move:
-        {
-            break;
-        }
-        case States::Orbit:
-        {
-
-            break;
-        }
-        case States::Zoom:
-        {
-            r += (CAMERA_SCROLL_SPEED * delta_t) * -yoffset;
-            r          = std::max(r, 0.1f);
-            view_dirty = true;
-            break;
-        }
-    }
-}
-
-#if 0
 void InputCamera::display_ui(UI::Context &ui)
 {
     if (ui.begin_window("Camera"))
@@ -170,60 +77,127 @@ void InputCamera::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
-#endif
 
 void InputCamera::update()
 {
     auto &window = *p_window;
 
-    bool alt_pressed
-        = window.is_key_pressed(window::VirtualKey::LAlt) || window.is_key_pressed(window::VirtualKey::RAlt);
-    bool lmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Left);
-    bool rmb_pressed = window.is_mouse_button_pressed(window::MouseButton::Right);
+    float delta_t = p_timer->get_delta_time();
+    bool camera_active = p_inputs->is_pressed(Action::CameraModifier);
+    bool camera_move = p_inputs->is_pressed(Action::CameraMove);
+    bool camera_orbit = p_inputs->is_pressed(Action::CameraOrbit);
 
+    // state transition
     switch (state)
     {
         case States::Idle:
         {
-            if (alt_pressed && lmb_pressed)
+            if (camera_active && camera_move)
             {
                 state = States::Move;
 
                 dragged_mouse_start_pos = window.get_mouse_position();
             }
-            else if (alt_pressed && rmb_pressed)
+            else if (camera_active && camera_orbit)
             {
                 state = States::Orbit;
 
                 dragged_mouse_start_pos = window.get_mouse_position();
             }
-            else if (alt_pressed)
+            else if (camera_active)
             {
                 state = States::Zoom;
             }
+            else
+            {
+
+                // handle inputs
+                if (auto scroll = p_inputs->get_scroll_this_frame())
+                {
+                    target.y += (CAMERA_SCROLL_SPEED * delta_t) * scroll->y;
+                    view_dirty = true;
+                }
+
+            }
+
             break;
         }
         case States::Move:
         {
-            if (!alt_pressed || !lmb_pressed)
+            if (!camera_active || !camera_move)
             {
                 state = States::Idle;
+            }
+            else
+            {
+
+                // handle inputs
+                if (auto mouse_delta = p_inputs->get_mouse_delta())
+                {
+                    float up    = float(mouse_delta->y);
+                    float right = float(mouse_delta->x);
+
+                    auto camera_plane_forward = normalize(float3(_internal.front.x, 0.0f, _internal.front.z));
+                    auto camera_right         = cross(_internal.up, _internal.front);
+                    auto camera_plane_right   = normalize(float3(camera_right.x, 0.0f, camera_right.z));
+
+                    target = target + CAMERA_MOVE_SPEED * delta_t * right * camera_plane_right;
+                    target = target + CAMERA_MOVE_SPEED * delta_t * up * camera_plane_forward;
+
+                    view_dirty = true;
+                }
+
             }
             break;
         }
         case States::Orbit:
         {
-            if (!alt_pressed || !rmb_pressed)
+            if (!camera_active || !camera_orbit)
             {
                 state = States::Idle;
+            }
+            else
+            {
+
+                // handle inputs
+                if (auto mouse_delta = p_inputs->get_mouse_delta())
+                {
+                    float up    = float(mouse_delta->y);
+                    float right = -1.0f * float(mouse_delta->x);
+
+                    theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
+
+                    constexpr auto low  = -179.0f;
+                    constexpr auto high = 0.0f;
+                    if (low <= phi && phi < high)
+                    {
+                        phi += (CAMERA_ROTATE_SPEED * delta_t) * up;
+                        phi = std::clamp(phi, low, high - 1.0f);
+                    }
+
+                    view_dirty = true;
+                }
+
             }
             break;
         }
         case States::Zoom:
         {
-            if (!alt_pressed || lmb_pressed || rmb_pressed)
+            if (!camera_active || camera_move || camera_orbit)
             {
                 state = States::Idle;
+            }
+            else
+            {
+
+                // handle inputs
+                if (auto scroll = p_inputs->get_scroll_this_frame())
+                {
+                    r += (CAMERA_SCROLL_SPEED * delta_t) * scroll->y;
+                    r          = std::max(r, 0.1f);
+                    view_dirty = true;
+                }
+
             }
             break;
         }

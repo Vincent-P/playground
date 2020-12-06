@@ -77,9 +77,9 @@ bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b);
 bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b);
 bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b);
 
-namespace window {struct Window;}
 namespace my_app
 {
+namespace platform {struct Window;}
 
 namespace vulkan
 {
@@ -149,7 +149,7 @@ struct Context
     // query pool for timestamps
     VkQueryPool timestamp_pool;
 
-    static void create(Context &ctx, const window::Window &window);
+    static void create(Context &ctx, const platform::Window &window);
     void create_swapchain();
     void create_frame_resources(usize count = 1);
     void destroy_swapchain();

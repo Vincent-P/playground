@@ -33,7 +33,7 @@ void init_swapchain_images(API &api)
     }
 }
 
-void API::create(API &api, const window::Window &window)
+void API::create(API &api, const platform::Window &window)
 {
     Context::create(api.ctx, window);
 

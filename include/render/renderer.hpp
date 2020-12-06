@@ -15,14 +15,12 @@
  * The main functions are StartFrame and EndFrame and it contains
  * raw HL API calls in between to draw things or validate/cook a Render Graph.
  ***/
-namespace window {struct Window;}
 namespace my_app
 {
-namespace UI
-{
-struct Context;
-};
 
+// fwd
+namespace platform {struct Window;}
+namespace UI { struct Context; };
 struct Model;
 struct Event;
 class TimerData;
@@ -112,7 +110,7 @@ static_assert(sizeof(GltfPushConstant) <= 128);
 
 struct Renderer
 {
-    static void create(Renderer &r, const window::Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
+    static void create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
     void destroy();
 
     void display_ui(UI::Context &ui);

@@ -16,10 +16,10 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App()
 {
-    window::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     UI::Context::create(ui);
 
-    InputCamera::create(camera, window, timer, float3(4.0f, 14.5f, 0.0f));
+    InputCamera::create(camera, window, timer, inputs, float3(4.0f, 14.5f, 0.0f));
     camera._internal.yaw   = 90.0f;
     camera._internal.pitch = 0.0f;
 
@@ -45,6 +45,10 @@ App::App()
     is_minimized = false;
 
     ecs.create_entity(std::string_view{"Camera"}, CameraComponent{}, InputCameraComponent{});
+    inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
+    inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
+    inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
+    inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
 }
 
 App::~App()
@@ -58,13 +62,15 @@ void App::update() { camera.update(); }
 
 void App::display_ui()
 {
-    ui.start_frame(window);
+    ui.start_frame(window, inputs);
 
     ImGui::DockSpaceOverViewport();
 
     ui.display_ui();
     renderer.display_ui(ui);
     ecs.display_ui(ui);
+    camera.display_ui(ui);
+    inputs.display_ui(ui);
 
     constexpr float fov  = 60.f;
     constexpr float size = 50.f;
@@ -122,8 +128,8 @@ void App::display_ui()
     // ceenter p
     p = p + float2(size);
 
-    auto font_size   = ImGui::GetFontSize();
-    float2 half_size = float2(font_size / 2.f);
+    auto font_size = ImGui::GetFontSize();
+    auto half_size = float2(font_size / 2.f);
     half_size.x /= 2;
 
     // draw each axis
@@ -153,35 +159,28 @@ void App::run()
     {
         window.poll_events();
 
-        std::optional<window::event::Resize> last_resize;
+        std::optional<platform::event::Resize> last_resize;
         for (auto &event : window.events)
         {
-            if (std::holds_alternative<window::event::Resize>(event))
+            if (std::holds_alternative<platform::event::Resize>(event))
             {
-                auto resize = std::get<window::event::Resize>(event);
+                auto resize = std::get<platform::event::Resize>(event);
                 last_resize = resize;
             }
-            else if (std::holds_alternative<window::event::Scroll>(event))
+            else if (std::holds_alternative<platform::event::MouseMove>(event))
             {
-                auto scroll = std::get<window::event::Scroll>(event);
-                this->camera.on_mouse_scroll(double(scroll.dx), double(scroll.dy));
-            }
-            else if (std::holds_alternative<window::event::MouseMove>(event))
-            {
-                auto move = std::get<window::event::MouseMove>(event);
-                this->camera.on_mouse_movement(double(move.x), double(move.y));
+                auto move = std::get<platform::event::MouseMove>(event);
                 this->ui.on_mouse_movement(window, double(move.x), double(move.y));
 
                 this->is_minimized = false;
             }
-            else if (std::holds_alternative<window::event::Key>(event))
-            {
-                auto key = std::get<window::event::Key>(event);
-                if (key.key == window::VirtualKey::Escape)
-                {
-                    window.stop = true;
-                }
-            }
+        }
+
+        inputs.process(window.events);
+
+        if (inputs.is_pressed(Action::QuitApp))
+        {
+            window.stop = true;
         }
 
         if (last_resize)

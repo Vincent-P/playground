@@ -7,13 +7,11 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace window
-{
-struct Window;
-};
-
 namespace my_app
 {
+namespace platform { struct Window; }
+
+class Inputs;
 namespace UI
 {
 struct Window
@@ -27,9 +25,9 @@ struct Context
     static void create(Context &ctx);
     void destroy();
 
-    void start_frame(::window::Window &window);
+    void start_frame(platform::Window &window, Inputs &inputs);
     void display_ui();
-    void on_mouse_movement(::window::Window &window, double xpos, double ypos);
+    void on_mouse_movement(platform::Window &window, double xpos, double ypos);
 
     bool begin_window(std::string_view name, bool is_visible = false, ImGuiWindowFlags flags = 0);
     void end_window();

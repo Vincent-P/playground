@@ -37,6 +37,7 @@ set(SOURCE_FILES
   src/main.cpp
   src/base/vectors.cpp
   src/ecs.cpp
+  src/inputs.cpp
   src/camera.cpp
   src/ui.cpp
   src/app.cpp

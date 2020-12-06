@@ -2,19 +2,16 @@
 
 #include "base/types.hpp"
 
-namespace window
-{
-struct Window;
-}
 namespace my_app
 {
 
-namespace UI
-{
-struct Context;
-};
+// clang-format off
+namespace platform { struct Window; }
+namespace UI { struct Context; };
+// clang-format on
 
 class TimerData;
+class Inputs;
 
 struct Camera
 {
@@ -71,20 +68,17 @@ struct InputCamera
 
     Camera _internal;
 
-    window::Window *p_window;
+    platform::Window *p_window;
+    Inputs *p_inputs;
     UI::Context *p_ui;
     TimerData *p_timer;
 
     double last_xpos;
     double last_ypos;
 
-    static void create(InputCamera &camera, window::Window &window, TimerData &timer, float3 position);
-    void on_mouse_movement(double xpos, double ypos);
-    void on_mouse_scroll(double xoffset, double yoffset);
+    static void create(InputCamera &camera, platform::Window &window, TimerData &timer, Inputs &inputs, float3 position);
     void update();
-#if 0
     void display_ui(UI::Context &ui);
-#endif
 };
 
 } // namespace my_app

@@ -18,7 +18,7 @@ struct xkb_keymap;
 struct xkb_state;
 #endif
 
-namespace window
+namespace my_app
 {
 enum struct MouseButton : uint
 {
@@ -30,7 +30,7 @@ enum struct MouseButton : uint
     Count
 };
 
-inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string{
+inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string_arr{
     "Left mouse button",
     "Right mouse button",
     "Middle mouse button (wheel)",
@@ -38,6 +38,8 @@ inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1>
     "Side mouse button backward",
     "COUNT",
 };
+
+inline constexpr const char *mouse_button_to_string(MouseButton button) { return mouse_button_to_string_arr[to_underlying(button)]; }
 
 enum struct VirtualKey : uint
 {
@@ -53,6 +55,15 @@ inline constexpr std::array<const char *, to_underlying(VirtualKey::Count) + 1> 
 };
 
 inline constexpr const char *virtual_key_to_string(VirtualKey key) { return key_to_string[to_underlying(key)]; }
+
+enum class ButtonState
+{
+    Pressed,
+    Released
+};
+
+namespace platform
+{
 
 enum struct Cursor
 {
@@ -73,14 +84,14 @@ namespace event
 
 struct Key
 {
-    enum class Action
-    {
-        Down,
-        Up
-    };
-
     VirtualKey key;
-    Action action;
+    ButtonState state;
+};
+
+struct MouseClick
+{
+    MouseButton button;
+    ButtonState state;
 };
 
 struct Char
@@ -121,11 +132,9 @@ struct Resize
     uint height;
 };
 
-using Event = std::variant<Key, Char, IMEComposition, IMECompositionResult, Scroll, MouseMove, Focus, Resize>;
+using Event = std::variant<Key, MouseClick, Char, IMEComposition, IMECompositionResult, Scroll, MouseMove, Focus, Resize>;
 
 } // namespace event
-
-using Event = event::Event;
 
 struct Caret
 {
@@ -183,10 +192,7 @@ struct Window
     [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
 
     // push events to the events vector
-    template <typename EventType> void push_event(EventType && event)
-    {
-        events.push_back(std::move(event));
-    }
+    template <typename EventType> void push_event(EventType &&event) { events.push_back(std::move(event)); }
 
     std::string title;
     uint width;
@@ -201,7 +207,7 @@ struct Window
     bool maximized{false};
     Cursor current_cursor;
 
-    std::vector<Event> events;
+    std::vector<event::Event> events;
 
     std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed           = {};
     std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};
@@ -213,4 +219,6 @@ struct Window
 #endif
 };
 
-} // namespace window
+} // namespace platform
+
+} // namespace my_app

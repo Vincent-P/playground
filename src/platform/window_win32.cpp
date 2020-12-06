@@ -10,7 +10,6 @@
 // clang-format off
 #include <imm.h>
 // clang-format on
-#include <imgui/imgui.h>
 
 /// --- Text utils functions
 
@@ -43,13 +42,16 @@ static std::string utf16_to_utf8(const std::wstring_view &wstr)
 inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
-namespace window
+namespace my_app
 {
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
 #include "platform/window_keys.h"
 #undef X
 };
+
+namespace platform
+{
 
 inline Window *get_window_from_handle(HWND hwnd)
 {
@@ -118,19 +120,19 @@ float2 Window::get_dpi_scale() const
 static void update_key(Window &window, VirtualKey key)
 {
     auto old         = window.keys_pressed[to_underlying(key)];
-    auto virtual_key = native_to_virtual[to_underlying(key)];
-    auto pressed     = GetKeyState(virtual_key) & 0x8000;
+    auto native_key  = native_to_virtual[to_underlying(key)];
+    auto pressed     = (GetKeyState(native_key) & 0x8000) != 0;
 
     window.keys_pressed[to_underlying(key)] = pressed;
 
     if (old != pressed)
     {
-        auto action = event::Key::Action::Down;
+        auto state = ButtonState::Pressed;
         if (old)
         {
-            action = event::Key::Action::Up;
+            state = ButtonState::Released;
         }
-        window.push_event<event::Key>({.key = key, .action = action});
+        window.push_event<event::Key>({.key = key, .state = state});
     }
 }
 
@@ -311,14 +313,14 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 }
             }
 
-            auto action = event::Key::Action::Down;
+            auto state = ButtonState::Pressed;
             if (uMsg == WM_KEYUP)
             {
-                action = event::Key::Action::Up;
+                state = ButtonState::Released;
             }
 
-            window.push_event<event::Key>({.key = key, .action = action});
-            window.keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
+            window.push_event<event::Key>({.key = key, .state = state});
+            window.keys_pressed[to_underlying(key)] = state == ButtonState::Pressed;
             return 0;
         }
 
@@ -456,24 +458,25 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         case WM_XBUTTONDOWN: case WM_XBUTTONDBLCLK:
             // clang-format on
             {
-                int button = 0;
+                MouseButton button = MouseButton::Count;
                 if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
                 {
-                    button = 0;
+                    button = MouseButton::Left;
                 }
                 if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONDBLCLK)
                 {
-                    button = 1;
+                    button = MouseButton::Right;
                 }
                 if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONDBLCLK)
                 {
-                    button = 2;
+                    button = MouseButton::Middle;
                 }
                 if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK)
                 {
-                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
-                window.mouse_buttons_pressed[button] = true;
+                window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Pressed});
+                window.mouse_buttons_pressed[to_underlying(button)] = true;
                 return 0;
             }
 
@@ -482,24 +485,25 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         case WM_MBUTTONUP: case WM_XBUTTONUP:
             // clang-format on
             {
-                int button = 0;
+                MouseButton button = MouseButton::Count;
                 if (uMsg == WM_LBUTTONUP)
                 {
-                    button = 0;
+                    button = MouseButton::Left;
                 }
                 if (uMsg == WM_RBUTTONUP)
                 {
-                    button = 1;
+                    button = MouseButton::Right;
                 }
                 if (uMsg == WM_MBUTTONUP)
                 {
-                    button = 2;
+                    button = MouseButton::Middle;
                 }
                 if (uMsg == WM_XBUTTONUP)
                 {
-                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? 3 : 4;
+                    button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
-                window.mouse_buttons_pressed[button] = false;
+                window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Released});
+                window.mouse_buttons_pressed[to_underlying(button)] = true;
                 return 0;
             }
     }
@@ -508,4 +512,5 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-} // namespace window
+} // namespace platform
+} // namespace my_app

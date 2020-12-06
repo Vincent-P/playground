@@ -53,7 +53,7 @@ bool is_extension_installed(const char *wanted, const std::vector<VkExtensionPro
     return false;
 }
 
-void Context::create(Context &ctx, const window::Window &window)
+void Context::create(Context &ctx, const platform::Window &window)
 {
     /// --- Create Instance
     std::vector<const char *> instance_extensions;
