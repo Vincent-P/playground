@@ -1,8 +1,8 @@
-#include "renderer/hl_api.hpp"
+#include "render/hl_api.hpp"
 
 #include "app.hpp"
 #include "imgui/imgui.h"
-#include "renderer/vlk_context.hpp"
+#include "render/vlk_context.hpp"
 
 #include <iostream>
 #include <vulkan/vulkan.h>

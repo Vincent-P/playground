@@ -44,7 +44,7 @@ App::App()
 
     is_minimized = false;
 
-    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{});
+    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{}, InputCameraComponent{});
 }
 
 App::~App()
@@ -63,9 +63,6 @@ void App::display_ui()
     ImGui::DockSpaceOverViewport();
 
     ui.display_ui();
-#if 0
-    camera.display_ui(ui);
-#endif
     renderer.display_ui(ui);
     ecs.display_ui(ui);
 

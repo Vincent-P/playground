@@ -1,6 +1,6 @@
 #pragma once
 #include "base/types.hpp"
-#include "renderer/hl_api.hpp"
+#include "render/hl_api.hpp"
 
 #include <optional>
 #include <string>

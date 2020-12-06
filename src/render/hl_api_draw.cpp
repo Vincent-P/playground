@@ -1,5 +1,5 @@
-#include "renderer/hl_api.hpp"
-#include "renderer/vlk_context.hpp"
+#include "render/hl_api.hpp"
+#include "render/vlk_context.hpp"
 
 #include <cstddef>
 #include <set>

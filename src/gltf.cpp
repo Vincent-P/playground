@@ -1,7 +1,7 @@
 #include "gltf.hpp"
 
-#include "renderer/hl_api.hpp"
-#include "renderer/renderer.hpp"
+#include "render/hl_api.hpp"
+#include "render/renderer.hpp"
 #include "tools.hpp"
 
 #include <cassert>

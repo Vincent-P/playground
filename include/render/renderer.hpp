@@ -2,8 +2,8 @@
 #include <string>
 #include "camera.hpp"
 #include "gltf.hpp"
-#include "renderer/hl_api.hpp"
-#include "renderer/vlk_context.hpp"
+#include "render/hl_api.hpp"
+#include "render/vlk_context.hpp"
 #include "render_graph.hpp"
 #include <memory>
 
@@ -219,5 +219,18 @@ struct Renderer
     float3 sun_illuminance = 100.0f;
 
 };
+
+// render passes
+Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api);
+void add_floor_pass(Renderer &r);
+Renderer::ImGuiPass create_imgui_pass(vulkan::API &api);
+void add_imgui_pass(Renderer &r);
+Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api);
+void add_procedural_sky_pass(Renderer &r);
+Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
+void add_tonemapping_pass(Renderer &r);
+Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
+Renderer::VoxelPass create_voxel_pass(vulkan::API & /*api*/);
+
 
 } // namespace my_app

@@ -1,8 +1,8 @@
-#include "renderer/render_graph.hpp"
+#include "render/render_graph.hpp"
 
 #include "app.hpp"
 #include "imgui/imgui.h"
-#include "renderer/hl_api.hpp"
+#include "render/hl_api.hpp"
 
 #include <vulkan/vulkan_core.h>
 

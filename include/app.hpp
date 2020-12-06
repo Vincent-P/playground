@@ -4,7 +4,7 @@
 #include "ecs.hpp"
 #include "file_watcher.hpp"
 #include "platform/window.hpp"
-#include "renderer/renderer.hpp"
+#include "render/renderer.hpp"
 #include "timer.hpp"
 #include "ui.hpp"
 

@@ -44,12 +44,16 @@ set(SOURCE_FILES
   src/timer.cpp
   src/gltf.cpp
   src/file_watcher.cpp
-  src/renderer/vlk_context.cpp
-  src/renderer/renderer.cpp
-  src/renderer/render_graph.cpp
-  src/renderer/hl_api.cpp
-  src/renderer/hl_api_resources.cpp
-  src/renderer/hl_api_draw.cpp
+  src/render/vlk_context.cpp
+  src/render/renderer.cpp
+  src/render/sky_pass.cpp
+  src/render/imgui_pass.cpp
+  src/render/grid_pass.cpp
+  src/render/tonemap_pass.cpp
+  src/render/render_graph.cpp
+  src/render/hl_api.cpp
+  src/render/hl_api_resources.cpp
+  src/render/hl_api_draw.cpp
 )
 
 if (WIN32)
