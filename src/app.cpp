@@ -14,64 +14,8 @@ namespace my_app
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-App::App()
+static void draw_gizmo(const InputCamera& camera)
 {
-    platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
-    UI::Context::create(ui);
-
-    InputCamera::create(camera, window, timer, inputs, float3(4.0f, 14.5f, 0.0f));
-    camera._internal.yaw   = 90.0f;
-    camera._internal.pitch = 0.0f;
-
-    Renderer::create(renderer, window, camera._internal, timer, ui);
-
-    watcher = FileWatcher::create();
-
-    shaders_watch = watcher.add_watch("shaders");
-
-    watcher.on_file_change([&](const auto &watch, const auto &event) {
-        if (watch.wd != shaders_watch.wd)
-        {
-            return;
-        }
-
-        std::stringstream shader_name_stream;
-        shader_name_stream << "shaders/" << event.name;
-        std::string shader_name = shader_name_stream.str();
-
-        this->renderer.reload_shader(shader_name);
-    });
-
-    is_minimized = false;
-
-    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{}, InputCameraComponent{});
-    inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
-    inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
-    inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
-    inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
-}
-
-App::~App()
-{
-    ui.destroy();
-    renderer.destroy();
-    window.destroy();
-}
-
-void App::update() { camera.update(); }
-
-void App::display_ui()
-{
-    ui.start_frame(window, inputs);
-
-    ImGui::DockSpaceOverViewport();
-
-    ui.display_ui();
-    renderer.display_ui(ui);
-    ecs.display_ui(ui);
-    camera.display_ui(ui);
-    inputs.display_ui(ui);
-
     constexpr float fov  = 60.f;
     constexpr float size = 50.f;
     const ImGuiCol red   = ImGui::GetColorU32(float4(255.f / 256.f, 56.f / 256.f, 86.f / 256.f, 1.0f));
@@ -151,6 +95,67 @@ void App::display_ui()
     ImGui::Dummy(float2(2 * size));
 
     ImGui::End();
+}
+
+App::App()
+{
+    platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    UI::Context::create(ui);
+
+    InputCamera::create(camera, window, timer, inputs, float3(4.0f, 14.5f, 0.0f));
+    camera._internal.yaw   = 90.0f;
+    camera._internal.pitch = 0.0f;
+
+    Renderer::create(renderer, window, camera._internal, timer, ui);
+
+    watcher = FileWatcher::create();
+
+    shaders_watch = watcher.add_watch("shaders");
+
+    watcher.on_file_change([&](const auto &watch, const auto &event) {
+        if (watch.wd != shaders_watch.wd)
+        {
+            return;
+        }
+
+        std::stringstream shader_name_stream;
+        shader_name_stream << "shaders/" << event.name;
+        std::string shader_name = shader_name_stream.str();
+
+        this->renderer.reload_shader(shader_name);
+    });
+
+    is_minimized = false;
+
+    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{}, InputCameraComponent{});
+
+    inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
+    inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
+    inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
+    inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
+}
+
+App::~App()
+{
+    ui.destroy();
+    renderer.destroy();
+    window.destroy();
+}
+
+void App::update() { camera.update(); }
+
+void App::display_ui()
+{
+    ui.start_frame(window, inputs);
+
+    ImGui::DockSpaceOverViewport();
+
+    ui.display_ui();
+    renderer.display_ui(ui);
+    ecs.display_ui(ui);
+    camera.display_ui(ui);
+    inputs.display_ui(ui);
+    draw_gizmo(camera);
 }
 
 void App::run()
