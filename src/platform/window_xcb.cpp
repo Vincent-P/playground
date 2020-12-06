@@ -12,7 +12,7 @@ namespace window
 {
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
-#include "platform/window_keys.h"
+#include "platform/window_keys.def"
 #undef X
 };
 

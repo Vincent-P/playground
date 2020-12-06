@@ -30,7 +30,7 @@ enum struct MouseButton : uint
     Count
 };
 
-inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string_arr{
+inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string{
     "Left mouse button",
     "Right mouse button",
     "Middle mouse button (wheel)",
@@ -39,22 +39,22 @@ inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1>
     "COUNT",
 };
 
-inline constexpr const char *mouse_button_to_string(MouseButton button) { return mouse_button_to_string_arr[to_underlying(button)]; }
+inline constexpr const char *to_string(MouseButton button) { return mouse_button_to_string[to_underlying(button)]; }
 
 enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
-#include "window_keys.h"
+#include "platform/window_keys.def"
 #undef X
 };
 
 inline constexpr std::array<const char *, to_underlying(VirtualKey::Count) + 1> key_to_string{
 #define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
-#include "platform/window_keys.h"
+#include "platform/window_keys.def"
 #undef X
 };
 
-inline constexpr const char *virtual_key_to_string(VirtualKey key) { return key_to_string[to_underlying(key)]; }
+inline constexpr const char *to_string(VirtualKey key) { return key_to_string[to_underlying(key)]; }
 
 enum class ButtonState
 {

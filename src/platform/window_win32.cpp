@@ -46,7 +46,7 @@ namespace my_app
 {
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
-#include "platform/window_keys.h"
+#include "platform/window_keys.def"
 #undef X
 };
 
