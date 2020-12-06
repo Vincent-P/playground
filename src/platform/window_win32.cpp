@@ -130,7 +130,7 @@ static void update_key(Window &window, VirtualKey key)
         {
             action = event::Key::Action::Up;
         }
-        window.emit_event<event::Key>(key, action);
+        window.push_event<event::Key>({.key = key, .action = action});
     }
 }
 
@@ -291,7 +291,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
             window.width  = LOWORD(lParam);
             window.height = HIWORD(lParam);
-            window.emit_event<event::Resize>(window.width, window.height);
+            window.push_event<event::Resize>({.width = window.width, .height = window.height});
             return 0;
         }
 
@@ -317,7 +317,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 action = event::Key::Action::Up;
             }
 
-            window.emit_event<event::Key>(key, action);
+            window.push_event<event::Key>({.key = key, .action = action});
             window.keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
             return 0;
         }
@@ -357,7 +357,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 case 0x0D:
                 {
                     // Process a carriage return.
-                    window.emit_event<event::Char>("\n");
+                    window.push_event<event::Char>({"\n"});
                     break;
                 }
                 default:
@@ -385,7 +385,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
                     if (clear)
                     {
-                        window.emit_event<event::Char>(utf16_to_utf8(buffer.data()));
+                        window.push_event<event::Char>({utf16_to_utf8(buffer.data())});
                         buffer.fill(0);
                     }
                     break;
@@ -407,7 +407,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     std::wstring result;
                     result.resize(size);
                     ImmGetCompositionStringW(himc, GCS_COMPSTR, reinterpret_cast<void *>(result.data()), size);
-                    window.emit_event<event::IMEComposition>(utf16_to_utf8(result));
+                    window.push_event<event::IMEComposition>({utf16_to_utf8(result)});
                 }
             }
             else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
@@ -418,7 +418,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     std::wstring result;
                     result.resize(size);
                     ImmGetCompositionStringW(himc, GCS_RESULTSTR, reinterpret_cast<void *>(result.data()), size);
-                    window.emit_event<event::IMECompositionResult>(utf16_to_utf8(result));
+                    window.push_event<event::IMECompositionResult>({utf16_to_utf8(result)});
                 }
             }
 
@@ -427,7 +427,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         case WM_IME_ENDCOMPOSITION:
         {
-            window.emit_event<event::IMEComposition>("");
+            window.push_event<event::IMEComposition>({""});
         }
 
             /// --- Mouse inputs
@@ -436,7 +436,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             // fwKeys = GET_KEYSTATE_WPARAM(wParam);
             int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
-            window.emit_event<event::Scroll>(0, -delta);
+            window.push_event<event::Scroll>({.dx = 0, .dy = -delta});
             return 0;
         }
 
@@ -444,7 +444,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
-            window.emit_event<event::MouseMove>(x, y);
+            window.push_event<event::MouseMove>({x, y});
             window.mouse_position = float2(x, y);
             return 0;
         }

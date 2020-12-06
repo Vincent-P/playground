@@ -79,60 +79,33 @@ struct Key
         Up
     };
 
-    Key(VirtualKey _key, Action _action)
-        : key(_key)
-        , action(_action)
-    {
-    }
     VirtualKey key;
     Action action;
 };
 
 struct Char
 {
-    Char(const std::string &str)
-        : char_sequence(str)
-    {
-    }
     std::string char_sequence;
 };
 
 struct IMEComposition
 {
-    IMEComposition(const std::string &str)
-        : composition(str)
-    {
-    }
     std::string composition;
 };
 
 struct IMECompositionResult
 {
-    IMECompositionResult(const std::string &str)
-        : result(str)
-    {
-    }
     std::string result;
 };
 
 struct Scroll
 {
-    Scroll(int _dx, int _dy)
-        : dx(_dx)
-        , dy(_dy)
-    {
-    }
     int dx;
     int dy;
 };
 
 struct MouseMove
 {
-    MouseMove(int _x, int _y)
-        : x(_x)
-        , y(_y)
-    {
-    }
     int x;
     int y;
 };
@@ -144,11 +117,6 @@ struct Focus
 
 struct Resize
 {
-    Resize(uint _width, uint _height)
-        : width(_width)
-        , height(_height)
-    {
-    }
     uint width;
     uint height;
 };
@@ -215,9 +183,9 @@ struct Window
     [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
 
     // push events to the events vector
-    template <typename EventType, class... Args> void emit_event(Args &&...args)
+    template <typename EventType> void push_event(EventType && event)
     {
-        events.emplace_back(std::in_place_type<EventType>, std::forward<Args>(args)...);
+        events.push_back(std::move(event));
     }
 
     std::string title;

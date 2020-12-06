@@ -157,12 +157,12 @@ void Window::poll_events()
 
                 if (button_press->detail == 4)
                 {
-                    emit_event<event::Scroll>(0, -1);
+                    push_event<event::Scroll>({.dx = 0, .dy = -1});
                     break;
                 }
                 else if (button_press->detail == 5)
                 {
-                    emit_event<event::Scroll>(0, 1);
+                    push_event<event::Scroll>({.dx = 0, .dy = 1});
                     break;
                 }
 
@@ -232,7 +232,7 @@ void Window::poll_events()
                 auto *motion = reinterpret_cast<xcb_motion_notify_event_t *>(ev);
                 auto x       = motion->event_x;
                 auto y       = motion->event_y;
-                emit_event<event::MouseMove>(x, y);
+                push_event<event::MouseMove>({x, y});
                 mouse_position = float2(x, y);
                 break;
             }
@@ -258,7 +258,7 @@ void Window::poll_events()
 
                 auto action = ev->response_type == XCB_KEY_PRESS ? event::Key::Action::Down : event::Key::Action::Up;
 
-                emit_event<event::Key>(key, action);
+                push_event<event::Key>({.key = key, .action = action});
                 keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
 
                 break;
