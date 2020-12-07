@@ -1,12 +1,12 @@
 #pragma once
-#include <string>
-#include "camera.hpp"
-#include "gltf.hpp"
-#include "render/hl_api.hpp"
-#include "render/vlk_context.hpp"
-#include "render_graph.hpp"
-#include <memory>
 
+#include "base/types.hpp"
+#include "camera.hpp"
+#include "render/hl_api.hpp"
+#include "render_graph.hpp"
+
+#include <memory>
+#include <string_view>
 
 #define assert_uniform_size(T) static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!")
 
@@ -79,6 +79,12 @@ struct VCTDebug
     float first_step       = 3.0f;
 };
 
+struct TonemapDebug
+{
+    uint selected = 1;
+    float exposure = 1.0f;
+};
+
 struct Settings
 {
     uint2 render_resolution     = {.x = 0, .y = 0};
@@ -110,7 +116,7 @@ static_assert(sizeof(GltfPushConstant) <= 128);
 
 struct Renderer
 {
-    static void create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer, UI::Context &ui);
+    static void create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer);
     void destroy();
 
     void display_ui(UI::Context &ui);
@@ -119,7 +125,6 @@ struct Renderer
     void wait_idle() const;
     void reload_shader(std::string_view shader_name);
 
-    UI::Context *p_ui;
     Camera *p_camera;
     TimerData *p_timer;
 
@@ -211,6 +216,7 @@ struct Renderer
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
+    TonemapDebug tonemap_debug;
 
     // todo clean this pls
     float ambient = 0.0f;

@@ -106,12 +106,10 @@ App::App()
     camera._internal.yaw   = 90.0f;
     camera._internal.pitch = 0.0f;
 
-    Renderer::create(renderer, window, camera._internal, timer, ui);
+    Renderer::create(renderer, window, camera._internal, timer);
 
-    watcher = FileWatcher::create();
-
+    watcher       = FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");
-
     watcher.on_file_change([&](const auto &watch, const auto &event) {
         if (watch.wd != shaders_watch.wd)
         {

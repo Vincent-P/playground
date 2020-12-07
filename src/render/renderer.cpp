@@ -1,27 +1,21 @@
 #include "render/renderer.hpp"
 
-#include "app.hpp"
-#include "base/types.hpp"
-#include "camera.hpp"
 #include "gltf.hpp"
 #include "imgui/imgui.h"
-#include "render/hl_api.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
+#include "ui.hpp"
 
-#include <algorithm>
-#include <cstring> // for std::memcpy
 #include <future>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include <vulkan/vulkan_core.h>
 
 namespace my_app
 {
 
 // frame data
-void Renderer::create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer, UI::Context &ui)
+void Renderer::create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer)
 {
     // where to put this code?
     //
@@ -30,7 +24,6 @@ void Renderer::create(Renderer &r, const platform::Window &window, Camera &camer
     RenderGraph::create(r.graph, r.api);
     r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
 
-    r.p_ui     = &ui;
     r.p_camera = &camera;
     r.p_timer  = &timer;
 
@@ -93,7 +86,6 @@ void Renderer::create(Renderer &r, const platform::Window &window, Camera &camer
                                                  r.p_camera->near_plane,
                                                  r.p_camera->far_plane,
                                                  &r.p_camera->projection_inverse);
-    // r.p_camera->update_view();
 
     r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.pitch    = 0.0f;
@@ -819,19 +811,6 @@ static void add_voxelization_pass(Renderer &r)
 {
     auto &api   = r.api;
     auto &graph = r.graph;
-    auto &ui    = *r.p_ui;
-
-    if (ui.begin_window("Shaders"))
-    {
-
-        if (ImGui::CollapsingHeader("Voxelization"))
-        {
-            ImGui::SliderFloat3("Center", &r.voxel_options.center.raw[0], -40.f, 40.f);
-            ImGui::SliderFloat("Voxel size (m)", &r.voxel_options.size, 0.05f, 0.5f);
-        }
-        ui.end_window();
-    }
-
     auto &pass_data = r.voxels;
 
     // Upload voxel debug
@@ -1182,6 +1161,15 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
 void update_uniforms(Renderer &r)
 {
+    float aspect_ratio   = r.settings.render_resolution.x / float(r.settings.render_resolution.y);
+    r.p_camera->projection = Camera::perspective(60.0f,
+                                               aspect_ratio,
+                                               r.p_camera->near_plane,
+                                               r.p_camera->far_plane,
+                                               &r.p_camera->projection_inverse);
+
+    r.sun.update_view();
+
     auto &api = r.api;
     api.begin_label("Update uniforms");
 
@@ -1403,8 +1391,7 @@ void Renderer::display_ui(UI::Context &ui)
             }
         }
 
-
-        p_ui->end_window();
+        ui.end_window();
     }
 
     if (ui.begin_window("Shaders", true))
@@ -1461,6 +1448,20 @@ void Renderer::display_ui(UI::Context &ui)
             }
         }
 
+        if (ImGui::CollapsingHeader("Voxelization"))
+        {
+            ImGui::SliderFloat3("Center", &voxel_options.center.raw[0], -40.f, 40.f);
+            ImGui::SliderFloat("Voxel size (m)", &voxel_options.size, 0.05f, 0.5f);
+        }
+
+
+        if (ImGui::CollapsingHeader("Tonemapping"))
+        {
+            static std::array options{"Reinhard", "Exposure", "Clamp"};
+            tools::imgui_select("Tonemap", options.data(), options.size(), tonemap_debug.selected);
+            ImGui::SliderFloat("Exposure", &tonemap_debug.exposure, 0.0f, 2.0f);
+        }
+
         ui.end_window();
     }
 
@@ -1486,24 +1487,6 @@ void Renderer::display_ui(UI::Context &ui)
 
         ui.end_window();
     }
-
-#if 0
-    if (ui.begin_window("Camera", true))
-    {
-        ImGui::SliderFloat("Near plane", &p_camera->near_plane, 0.0f, 1.0f);
-        ImGui::SliderFloat("Far plane", &p_camera->far_plane, 100.0f, 1000.0f);
-
-        float aspect_ratio   = settings.render_resolution.x / float(settings.render_resolution.y);
-        p_camera->projection = Camera::perspective(60.0f,
-                                                   aspect_ratio,
-                                                   p_camera->near_plane,
-                                                   p_camera->far_plane,
-                                                   &p_camera->projection_inverse);
-        ui.end_window();
-    }
-#endif
-
-    sun.update_view();
 }
 
 void Renderer::draw()

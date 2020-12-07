@@ -1,6 +1,4 @@
 #include "render/renderer.hpp"
-#include "ui.hpp"
-#include "tools.hpp"
 
 namespace my_app
 {
@@ -22,30 +20,15 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
 void add_tonemapping_pass(Renderer &r)
 {
     auto &api   = r.api;
-    auto &ui    = *r.p_ui;
     auto &graph = r.graph;
-
-    static uint s_selected  = 1;
-    static float s_exposure = 1.0f;
-
-    if (ui.begin_window("Shaders"))
-    {
-        if (ImGui::CollapsingHeader("Tonemapping"))
-        {
-            static std::array options{"Reinhard", "Exposure", "Clamp"};
-            tools::imgui_select("Tonemap", options.data(), options.size(), s_selected);
-            ImGui::SliderFloat("Exposure", &s_exposure, 0.0f, 2.0f);
-        }
-        ui.end_window();
-    }
 
     // Make a shader debugging window and its own uniform buffer
     {
         r.tonemapping.params_pos = api.dynamic_uniform_buffer(sizeof(uint) + sizeof(float));
         auto *buffer             = reinterpret_cast<uint *>(r.tonemapping.params_pos.mapped);
-        buffer[0]                = s_selected;
+        buffer[0]                = r.tonemap_debug.selected;
         auto *floatbuffer        = reinterpret_cast<float *>(buffer + 1);
-        floatbuffer[0]           = s_exposure;
+        floatbuffer[0]           = r.tonemap_debug.exposure;
     }
 
     graph.add_pass({
