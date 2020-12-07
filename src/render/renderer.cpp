@@ -1189,8 +1189,8 @@ void update_uniforms(Renderer &r)
 
     auto resolution_scale  = r.settings.resolution_scale;
     globals->resolution    = {
-        static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.width),
-        static_cast<uint>(resolution_scale * api.ctx.swapchain.extent.height)
+        static_cast<uint>(resolution_scale * r.settings.render_resolution.x),
+        static_cast<uint>(resolution_scale * r.settings.render_resolution.y)
     };
     globals->sun_direction = -1.0f * r.sun.front;
     // TODO: move from global and use real values (will need auto exposure)
