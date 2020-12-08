@@ -67,6 +67,19 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
         return (camera_position - a.axis).squared_norm() > (camera_position - b.axis).squared_norm();
     });
 
+
+    // Set the window position to match the framebuffer right corner
+    ImGui::Begin("Framebuffer");
+    float2 max = ImGui::GetWindowContentRegionMax();
+    float2 min = ImGui::GetWindowContentRegionMin();
+    float2 fb_size = float2(min.x < max.x ? max.x - min.x : min.x, min.y < max.y ? max.y - min.y : min.y);
+    float2 fb_pos = ImGui::GetWindowPos();
+    fb_pos.x += fb_size.x - 2 * size - 10;
+    fb_pos.y += 10;
+    ImGui::End();
+
+    ImGui::SetNextWindowPos(fb_pos);
+
     auto flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize
                  | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar;
     ImGui::Begin("Gizmo", nullptr, flags);
@@ -297,8 +310,6 @@ void App::update()
 void App::display_ui()
 {
     ui.start_frame(window, inputs);
-
-    ImGui::DockSpaceOverViewport();
 
     ui.display_ui();
     renderer.display_ui(ui);

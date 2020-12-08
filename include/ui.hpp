@@ -3,6 +3,7 @@
 #include "eva-icons.hpp"
 
 #include <imgui/imgui.h>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -14,10 +15,11 @@ namespace platform { struct Window; }
 class Inputs;
 namespace UI
 {
+
 struct Window
 {
-    std::string name;
-    bool is_visible;
+    std::string name                = "no-name";
+    bool is_visible                 = true;
 };
 
 struct Context
@@ -29,8 +31,9 @@ struct Context
     void display_ui();
     void on_mouse_movement(platform::Window &window, double xpos, double ypos);
 
-    bool begin_window(std::string_view name, bool is_visible = false, ImGuiWindowFlags flags = 0);
+    bool begin_window(std::string_view name, bool is_visible = true, ImGuiWindowFlags flags = 0);
     void end_window();
+
     std::unordered_map<std::string_view, Window> windows;
 };
 } // namespace UI

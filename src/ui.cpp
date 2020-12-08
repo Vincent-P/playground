@@ -1,10 +1,11 @@
 #include "ui.hpp"
 
 #include "base/types.hpp"
-#include "platform/window.hpp"
 #include "inputs.hpp"
+#include "platform/window.hpp"
 
 #include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>
 #include <iostream>
 
 namespace my_app
@@ -36,7 +37,7 @@ static platform::Cursor cursor_from_imgui()
 {
     ImGuiIO &io                   = ImGui::GetIO();
     ImGuiMouseCursor imgui_cursor = io.MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
-    platform::Cursor cursor         = platform::Cursor::None;
+    platform::Cursor cursor       = platform::Cursor::None;
     switch (imgui_cursor)
     {
         case ImGuiMouseCursor_Arrow:
@@ -92,7 +93,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
         io.MouseDown[i] = inputs.is_pressed(static_cast<MouseButton>(i));
     }
 
-    auto cursor = cursor_from_imgui();
+    auto cursor        = cursor_from_imgui();
     static auto s_last = cursor;
     if (s_last != cursor)
     {
@@ -102,43 +103,105 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
 
     // NewFrame() has to be called before giving the inputs to imgui
     ImGui::NewFrame();
+
+
+    auto *viewport = ImGui::GetMainViewport();
+
+    ImGui::SetNextWindowPos(viewport->GetWorkPos());
+    ImGui::SetNextWindowSize(viewport->GetWorkSize());
+    ImGui::SetNextWindowViewport(viewport->ID);
+
+    ImGuiWindowFlags host_window_flags = 0;
+    host_window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking;
+    host_window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("Fullscreen Window", nullptr, host_window_flags);
+    ImGui::PopStyleVar(3);
+
+    ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f));
+
+    static bool ran = false;
+    if (!ran)
+    {
+        ran = true;
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, io.DisplaySize);
+
+        float left_col_width = 0.20f;
+        float left_bottom_height = 0.33f;
+        float toolbar_height = 0.30f;
+        float bottom_height = 0.30f;
+        float right_col_width = 0.20f;
+        float right_bottom_height = 0.33f;
+
+        ImGuiID dock_main_id   = dockspace_id;
+        ImGuiID dock_id_left   = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, left_col_width, nullptr, &dock_main_id);
+        ImGuiID dock_id_left_bottom   = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, left_bottom_height, nullptr, &dock_id_left);
+        ImGuiID dock_id_right  = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, right_col_width, nullptr, &dock_main_id);
+        ImGuiID dock_id_right_bottom   = ImGui::DockBuilderSplitNode(dock_id_right, ImGuiDir_Down, right_bottom_height, nullptr, &dock_id_right);
+        ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, bottom_height, nullptr, &dock_main_id);
+        ImGuiID dock_id_up     = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, toolbar_height, nullptr, &dock_main_id);
+        (void)(dock_id_left);
+        (void)(dock_id_left_bottom);
+        (void)(dock_id_right);
+        (void)(dock_id_right_bottom);
+        (void)(dock_id_bottom);
+        (void)(dock_id_up);
+
+        ImGui::DockBuilderDockWindow("ECS", dock_id_left);
+        ImGui::DockBuilderDockWindow("Inputs", dock_id_left);
+        ImGui::DockBuilderDockWindow("Render Graph", dock_id_left);
+        ImGui::DockBuilderDockWindow("Renderer", dock_id_left);
+
+        ImGui::DockBuilderDockWindow("Shaders", dock_id_left_bottom);
+
+        ImGui::DockBuilderDockWindow("Profiler", dock_id_right);
+
+        ImGui::DockBuilderDockWindow("Framebuffer", dock_main_id);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+
+        if (ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockspace_id)) {
+           node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
+        }
+    }
+    ImGui::End();
 }
 
 void Context::destroy() { ImGui::DestroyContext(); }
 
 void Context::display_ui()
 {
-    // const auto &io = ImGui::GetIO();
-    return;
-
     if (ImGui::BeginMainMenuBar())
     {
-        if (!windows.empty())
+        if (ImGui::BeginMenu("Windows"))
         {
-            ImGui::TextUnformatted("|");
-        }
-        for (auto &[_, window] : windows)
-        {
-            if (window.is_visible)
+            for (auto &[_, window] : windows)
             {
-                ImGui::TextUnformatted("o");
+                ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
             }
-            ImGui::MenuItem(window.name.c_str(), nullptr, &window.is_visible);
-            ImGui::TextUnformatted("|");
+
+            ImGui::EndMenu();
         }
 
         ImGui::EndMainMenuBar();
-  }
+    }
 }
 
-bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFlags flags)
+bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFlags /*flags*/)
 {
     if (windows.count(name))
     {
         auto &window = windows.at(name);
-        if (true || window.is_visible)
+        if (window.is_visible)
         {
-            ImGui::Begin(name.data(), &window.is_visible, flags);
+            ImGui::Begin(name.data(), &window.is_visible, 0);
             return true;
         }
     }

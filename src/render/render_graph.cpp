@@ -1,9 +1,9 @@
 #include "render/render_graph.hpp"
 
 #include "app.hpp"
-#include "imgui/imgui.h"
 #include "render/hl_api.hpp"
 
+#include <imgui/imgui.h>
 #include <vulkan/vulkan_core.h>
 
 namespace my_app
@@ -576,7 +576,7 @@ static void display_image(const vulkan::Image &vk_image)
 void RenderGraph::display_ui(UI::Context &ui)
 {
     auto &api = *p_api;
-    if (ui.begin_window("Render Graph"))
+    if (ui.begin_window("Render Graph", true))
     {
         for (const auto &[pass_h, p_pass] : passes)
         {

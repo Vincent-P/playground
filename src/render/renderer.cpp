@@ -3,12 +3,12 @@
 #include "app.hpp" // TODO: extract components and include "components/camera_component.hpp"
 #include "camera.hpp"
 #include "gltf.hpp"
-#include "imgui/imgui.h"
 #include "timer.hpp"
 #include "tools.hpp"
 #include "ui.hpp"
 
 #include <future>
+#include <imgui/imgui.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -1364,7 +1364,7 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
-    if (ui.begin_window("Renderer"))
+    if (ui.begin_window("Renderer", true))
     {
         if (ImGui::CollapsingHeader("API"))
         {
@@ -1488,12 +1488,12 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
-    ImGuiWindowFlags fb_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav;
+    ImGuiWindowFlags fb_flags = ImGuiWindowFlags_NoDecoration;
     if (ui.begin_window("Framebuffer", true, fb_flags))
     {
         float2 max = ImGui::GetWindowContentRegionMax();
         float2 min = ImGui::GetWindowContentRegionMin();
-        float2 size = max - min;
+        float2 size = float2(min.x < max.x ? max.x - min.x : min.x, min.y < max.y ? max.y - min.y : min.y);
 
         if (static_cast<uint>(size.x) != settings.render_resolution.x || static_cast<uint>(size.y) != settings.render_resolution.y)
         {

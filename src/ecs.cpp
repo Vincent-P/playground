@@ -1,4 +1,5 @@
 #include "ecs.hpp"
+#include "ui.hpp"
 
 #include <array>
 #include <algorithm>
@@ -386,7 +387,7 @@ World::World()
 
 void World::display_ui(UI::Context &ctx)
 {
-    if (ctx.begin_window("ECS"))
+    if (ctx.begin_window("ECS", true))
     {
         if (ImGui::CollapsingHeader("Archetypes"))
         {
