@@ -398,6 +398,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     pass.shadow_cascade_program = api.create_program({
         .vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv"),
         .fragment_shader = api.create_shader("shaders/shadowmap.frag.spv"),
+        .depth           = depth_state,
     });
 
     return pass;
