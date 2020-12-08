@@ -164,7 +164,7 @@ void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void
     // reserve enough space to add a component
     if (total_size > component_storage.data.size())
     {
-        component_storage.data.reserve(total_size - component_storage.data.size() + 1);
+        component_storage.data.reserve(total_size - component_storage.data.size());
         while (component_storage.data.size() < total_size)
         {
             component_storage.data.push_back(0);

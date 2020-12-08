@@ -1,5 +1,7 @@
 #include "render/renderer.hpp"
 
+#include "app.hpp" // TODO: extract components and include "components/camera_component.hpp"
+#include "camera.hpp"
 #include "gltf.hpp"
 #include "imgui/imgui.h"
 #include "timer.hpp"
@@ -15,7 +17,7 @@ namespace my_app
 {
 
 // frame data
-void Renderer::create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer)
+void Renderer::create(Renderer &r, const platform::Window &window, TimerData &timer)
 {
     // where to put this code?
     //
@@ -24,7 +26,6 @@ void Renderer::create(Renderer &r, const platform::Window &window, Camera &camer
     RenderGraph::create(r.graph, r.api);
     r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
 
-    r.p_camera = &camera;
     r.p_timer  = &timer;
 
     r.api.global_bindings.binding({
@@ -78,16 +79,6 @@ void Renderer::create(Renderer &r, const platform::Window &window, Camera &camer
         .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
     });
 
-    float aspect_ratio     = r.api.ctx.swapchain.extent.width / float(r.api.ctx.swapchain.extent.height);
-    r.p_camera->near_plane = 0.4f;
-    r.p_camera->far_plane  = 1000.0f;
-    r.p_camera->projection = Camera::perspective(60.0f,
-                                                 aspect_ratio,
-                                                 r.p_camera->near_plane,
-                                                 r.p_camera->far_plane,
-                                                 &r.p_camera->projection_inverse);
-
-    r.sun.position = float3(0.0f, 40.0f, 0.0f);
     r.sun.pitch    = 0.0f;
     r.sun.yaw      = 25.0f;
     r.sun.roll     = 80.0f;
@@ -457,7 +448,7 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
     }
 }
 
-static void add_shadow_cascades_pass(Renderer &r)
+static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_camera)
 {
     auto &graph = r.graph;
     auto &api   = r.api;
@@ -474,8 +465,8 @@ static void add_shadow_cascades_pass(Renderer &r)
     cascades_proj.resize(cascades_count);
 
     const float split_factor = 0.9f;
-    float near_plane          = r.p_camera->far_plane;
-    float far_plane           = r.p_camera->near_plane;
+    float near_plane          = main_camera.far_plane;
+    float far_plane           = main_camera.near_plane;
 
     float clip_range = far_plane - near_plane;
     // "practical split scheme" by nvidia
@@ -510,7 +501,7 @@ static void add_shadow_cascades_pass(Renderer &r)
         };
 
         // project frustum corners into world space
-        auto cam_inv_view_pro = r.p_camera->get_inverse_view() * r.p_camera->get_inverse_projection();
+        auto cam_inv_view_pro = main_camera.view_inverse * main_camera.projection_inverse;
         for (uint i = 0; i < 8; i++)
         {
             float4 world_space_corner = cam_inv_view_pro * float4(frustum_corners[i], 1.0f);
@@ -539,14 +530,14 @@ static void add_shadow_cascades_pass(Renderer &r)
         float3 min       = -1.0f * max;
 
         cascades_view[i]
-            = Camera::look_at(center - light_dir * max.z,
+            = camera::look_at(center - light_dir * max.z,
                               center,
                               float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
 
         // reverse depth
         min.z            = (max.z - min.z);
         max.z            = 0.0f;
-        cascades_proj[i] = Camera::ortho(min, max);
+        cascades_proj[i] = camera::ortho(min, max);
 
         float4x4 matrix = cascades_view[i] * cascades_proj[i];
         float4 origin   = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -826,10 +817,10 @@ static void add_voxelization_pass(Renderer &r)
     auto center                  = r.voxel_options.center + float3(halfsize);
     float3 min_clip              = float3(-halfsize, -halfsize, 0.0f);
     float3 max_clip              = float3(halfsize, halfsize, res);
-    auto projection              = Camera::ortho(min_clip, max_clip);
-    buffer1[0] = projection * Camera::look_at(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
-    buffer1[1] = projection * Camera::look_at(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
-    buffer1[2] = projection * Camera::look_at(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
+    auto projection              = camera::ortho(min_clip, max_clip);
+    buffer1[0] = projection * camera::look_at(center + float3(halfsize, 0.f, 0.f), center, float3(0.f, 1.f, 0.f));
+    buffer1[1] = projection * camera::look_at(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
+    buffer1[2] = projection * camera::look_at(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
     graph.add_pass({
         .name           = "Voxelization",
@@ -1159,16 +1150,20 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
 /// ---
 
-void update_uniforms(Renderer &r)
+void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
 {
-    float aspect_ratio   = r.settings.render_resolution.x / float(r.settings.render_resolution.y);
-    r.p_camera->projection = Camera::perspective(60.0f,
-                                               aspect_ratio,
-                                               r.p_camera->near_plane,
-                                               r.p_camera->far_plane,
-                                               &r.p_camera->projection_inverse);
+    const auto &camera_transform = *world.get_component<TransformComponent>(main_camera);
+    const auto &input_camera = *world.get_component<InputCameraComponent>(main_camera);
+    auto &camera = *world.get_component<CameraComponent>(main_camera);
 
-    r.sun.update_view();
+    float aspect_ratio = r.settings.render_resolution.x / float(r.settings.render_resolution.y);
+
+    camera.view = camera::look_at(camera_transform.position, input_camera.target, float3_UP, &camera.view_inverse);
+    camera.projection  = camera::perspective(camera.fov,
+                                            aspect_ratio,
+                                            camera.near_plane,
+                                            camera.far_plane,
+                                            &camera.projection_inverse);
 
     auto &api = r.api;
     api.begin_label("Update uniforms");
@@ -1177,21 +1172,49 @@ void update_uniforms(Renderer &r)
     auto *globals        = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
 
-    globals->camera_pos           = r.p_camera->position;
-    globals->camera_view          = r.p_camera->get_view();
-    globals->camera_proj          = r.p_camera->get_projection();
-    globals->camera_inv_proj      = r.p_camera->get_inverse_projection();
-    globals->camera_inv_view_proj = r.p_camera->get_inverse_view() * r.p_camera->get_inverse_projection();
-    globals->camera_near          = r.p_camera->near_plane;
-    globals->camera_far           = r.p_camera->far_plane;
-    globals->sun_view             = r.sun.get_view();
-    globals->sun_proj             = r.sun.get_projection();
+    globals->camera_pos           = camera_transform.position;
+    globals->camera_view          = camera.view;
+    globals->camera_proj          = camera.projection;
+    globals->camera_inv_proj      = camera.projection_inverse;
+    globals->camera_inv_view_proj = camera.view_inverse * camera.projection_inverse;
+    globals->camera_near          = camera.near_plane;
+    globals->camera_far           = camera.far_plane;
+    globals->sun_view             = float4x4(0.0f);
+    globals->sun_proj             = float4x4(0.0f);
 
     auto resolution_scale  = r.settings.resolution_scale;
     globals->resolution    = {
         static_cast<uint>(resolution_scale * r.settings.render_resolution.x),
         static_cast<uint>(resolution_scale * r.settings.render_resolution.y)
     };
+
+    {
+        auto pitch = to_radians(r.sun.pitch);
+        auto yaw = to_radians(-r.sun.yaw);
+        auto roll = to_radians(r.sun.roll);
+
+        auto y_m     = float4x4::identity();
+        y_m.at(0, 0) = cos(yaw);
+        y_m.at(0, 1) = -sin(yaw);
+        y_m.at(1, 0) = sin(yaw);
+        y_m.at(1, 1) = cos(yaw);
+
+        auto p_m     = float4x4::identity();
+        p_m.at(0, 0) = cos(pitch);
+        p_m.at(0, 2) = sin(pitch);
+        p_m.at(2, 0) = -sin(pitch);
+        p_m.at(2, 2) = cos(pitch);
+
+        auto r_m     = float4x4::identity();
+        r_m.at(1, 1) = cos(roll);
+        r_m.at(1, 2) = -sin(roll);
+        r_m.at(2, 1) = sin(roll);
+        r_m.at(2, 2) = cos(roll);
+
+        auto R = y_m * p_m * r_m;
+
+        r.sun.front = (R * float4(float3(0.0f, 0.0f, 1.0f), 1.0f)).xyz();
+    }
     globals->sun_direction = -1.0f * r.sun.front;
     // TODO: move from global and use real values (will need auto exposure)
     globals->sun_illuminance = r.sun_illuminance;
@@ -1489,7 +1512,7 @@ void Renderer::display_ui(UI::Context &ui)
     }
 }
 
-void Renderer::draw()
+void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 {
 
     if (settings.resolution_dirty)
@@ -1507,9 +1530,9 @@ void Renderer::draw()
     }
     graph.clear(); // start_frame() ?
 
-    update_uniforms(*this);
+    update_uniforms(*this, world, main_camera);
 
-    add_shadow_cascades_pass(*this);
+    add_shadow_cascades_pass(*this, *world.get_component<CameraComponent>(main_camera));
 
     // voxel cone tracing prep
     add_voxels_clear_pass(*this);

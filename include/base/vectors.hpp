@@ -197,3 +197,7 @@ float4x4 operator-(const float4x4 &a, const float4x4 &b);
 float4x4 operator*(float a, const float4x4 &m);
 float4x4 operator*(const float4x4 &a, const float4x4 &b);
 float4 operator*(const float4x4 &m, const float4 &v);
+
+inline constexpr auto float3_RIGHT   = float3(1, 0, 0);
+inline constexpr auto float3_UP      = float3(0, 1, 0);
+inline constexpr auto float3_FORWARD = float3(0, 0, -1);

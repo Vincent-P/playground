@@ -1,5 +1,7 @@
 #include "app.hpp"
 
+#include "camera.hpp"
+#include "ecs.hpp"
 #include "file_watcher.hpp"
 
 #include <algorithm>
@@ -14,8 +16,11 @@ namespace my_app
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-static void draw_gizmo(const InputCamera& camera)
+static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
 {
+    const auto &camera_transform = *world.get_component<TransformComponent>(main_camera);
+    const auto &input_camera = *world.get_component<InputCameraComponent>(main_camera);
+
     constexpr float fov  = 60.f;
     constexpr float size = 50.f;
     const ImGuiCol red   = ImGui::GetColorU32(float4(255.f / 256.f, 56.f / 256.f, 86.f / 256.f, 1.0f));
@@ -23,11 +28,11 @@ static void draw_gizmo(const InputCamera& camera)
     const ImGuiCol blue  = ImGui::GetColorU32(float4(52.f / 256.f, 146.f / 256.f, 246.f / 256.f, 1.0f));
     const ImGuiCol black = ImGui::GetColorU32(float4(0.0f, 0.0f, 0.0f, 1.0f));
 
-    float3 camera_forward  = normalize(camera.target - camera._internal.position);
+    float3 camera_forward  = normalize(input_camera.target - camera_transform.position);
     float3 origin          = float3(0.f);
     float3 camera_position = origin - 2.0f * camera_forward;
-    auto view              = Camera::look_at(camera_position, origin, camera._internal.up);
-    auto proj              = Camera::perspective(fov, 1.f, 0.01f, 10.0f);
+    auto view              = camera::look_at(camera_position, origin, camera_transform.up);
+    auto proj              = camera::perspective(fov, 1.f, 0.01f, 10.0f);
 
     struct GizmoAxis
     {
@@ -102,11 +107,7 @@ App::App()
     platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     UI::Context::create(ui);
 
-    InputCamera::create(camera, window, timer, inputs, float3(4.0f, 14.5f, 0.0f));
-    camera._internal.yaw   = 90.0f;
-    camera._internal.pitch = 0.0f;
-
-    Renderer::create(renderer, window, camera._internal, timer);
+    Renderer::create(renderer, window, timer);
 
     watcher       = FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");
@@ -125,7 +126,7 @@ App::App()
 
     is_minimized = false;
 
-    ecs.create_entity(std::string_view{"Camera"}, CameraComponent{}, InputCameraComponent{});
+    main_camera = ecs.create_entity(std::string_view{"Camera"}, TransformComponent{}, CameraComponent{}, InputCameraComponent{});
 
     inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
     inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
@@ -140,7 +141,158 @@ App::~App()
     window.destroy();
 }
 
-void App::update() { camera.update(); }
+void App::update()
+{
+    constexpr float CAMERA_MOVE_SPEED   = 5.0f;
+    constexpr float CAMERA_ROTATE_SPEED = 80.0f;
+    constexpr float CAMERA_SCROLL_SPEED = 80.0f;
+
+    // InputCamera inputs
+    ecs.for_each<TransformComponent, InputCameraComponent>([&](const auto &transform, auto &input_camera) {
+        using States = InputCameraComponent::States;
+
+        float delta_t      = timer.get_delta_time();
+        bool camera_active = inputs.is_pressed(Action::CameraModifier);
+        bool camera_move   = inputs.is_pressed(Action::CameraMove);
+        bool camera_orbit  = inputs.is_pressed(Action::CameraOrbit);
+
+        // TODO: transition table DSL?
+        // state transition
+        switch (input_camera.state)
+        {
+            case States::Idle:
+            {
+                if (camera_active && camera_move)
+                {
+                    input_camera.state = States::Move;
+                }
+                else if (camera_active && camera_orbit)
+                {
+                    input_camera.state = States::Orbit;
+                }
+                else if (camera_active)
+                {
+                    input_camera.state = States::Zoom;
+                }
+                else
+                {
+
+                    // handle inputs
+                    if (auto scroll = inputs.get_scroll_this_frame())
+                    {
+                        input_camera.target.y += (CAMERA_SCROLL_SPEED * delta_t) * scroll->y;
+                    }
+                }
+
+                break;
+            }
+            case States::Move:
+            {
+                if (!camera_active || !camera_move)
+                {
+                    input_camera.state = States::Idle;
+                }
+                else
+                {
+
+                    // handle inputs
+                    if (auto mouse_delta = inputs.get_mouse_delta())
+                    {
+                        float up    = float(mouse_delta->y);
+                        float right = float(mouse_delta->x);
+
+                        auto camera_plane_forward = normalize(float3(transform.front.x, 0.0f, transform.front.z));
+                        auto camera_right         = cross(transform.up, transform.front);
+                        auto camera_plane_right   = normalize(float3(camera_right.x, 0.0f, camera_right.z));
+
+                        input_camera.target
+                            = input_camera.target + CAMERA_MOVE_SPEED * delta_t * right * camera_plane_right;
+                        input_camera.target
+                            = input_camera.target + CAMERA_MOVE_SPEED * delta_t * up * camera_plane_forward;
+                    }
+                }
+                break;
+            }
+            case States::Orbit:
+            {
+                if (!camera_active || !camera_orbit)
+                {
+                    input_camera.state = States::Idle;
+                }
+                else
+                {
+
+                    // handle inputs
+                    if (auto mouse_delta = inputs.get_mouse_delta())
+                    {
+                        float up    = float(mouse_delta->y);
+                        float right = -1.0f * float(mouse_delta->x);
+
+                        input_camera.theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
+
+                        constexpr auto low  = -179.0f;
+                        constexpr auto high = 0.0f;
+                        if (low <= input_camera.phi && input_camera.phi < high)
+                        {
+                            input_camera.phi += (CAMERA_ROTATE_SPEED * delta_t) * up;
+                            input_camera.phi = std::clamp(input_camera.phi, low, high - 1.0f);
+                        }
+                    }
+                }
+                break;
+            }
+            case States::Zoom:
+            {
+                if (!camera_active || camera_move || camera_orbit)
+                {
+                    input_camera.state = States::Idle;
+                }
+                else
+                {
+
+                    // handle inputs
+                    if (auto scroll = inputs.get_scroll_this_frame())
+                    {
+                        input_camera.r += (CAMERA_SCROLL_SPEED * delta_t) * scroll->y;
+                        input_camera.r = std::max(input_camera.r, 0.1f);
+                    }
+                }
+                break;
+            }
+        }
+    });
+
+    // Apply Input camera to Transform system
+    ecs.for_each<TransformComponent, InputCameraComponent>([&](auto &transform, const auto &input_camera) {
+
+        auto r         = input_camera.r;
+        auto theta_rad = to_radians(input_camera.theta);
+        auto phi_rad   = to_radians(input_camera.phi);
+
+        auto spherical_coords = float3(r * std::sin(phi_rad) * std::sin(theta_rad),
+                                       r * std::cos(phi_rad),
+                                       r * std::sin(phi_rad) * std::cos(theta_rad));
+
+        transform.position = input_camera.target + spherical_coords;
+
+
+        transform.front = float3(-1.0f * std::sin(phi_rad) * std::sin(theta_rad),
+                                 -1.0f * std::cos(phi_rad),
+                                 -1.0f * std::sin(phi_rad) * std::cos(theta_rad));
+
+        transform.up = float3(std::sin(PI / 2 + phi_rad) * std::sin(theta_rad),
+                              std::cos(PI / 2 + phi_rad),
+                              std::sin(PI / 2 + phi_rad) * std::cos(theta_rad));
+    });
+
+    // Update view matrix system
+    ecs.for_each<TransformComponent, CameraComponent, InputCameraComponent>([](const auto &transform,
+                                                                               auto &camera,
+                                                                               const auto &input_camera) {
+        camera.view = camera::look_at(transform.position, input_camera.target, float3_UP, &camera.view_inverse);
+        // projection will be updated in the renderer
+    });
+}
 
 void App::display_ui()
 {
@@ -151,9 +303,8 @@ void App::display_ui()
     ui.display_ui();
     renderer.display_ui(ui);
     ecs.display_ui(ui);
-    camera.display_ui(ui);
     inputs.display_ui(ui);
-    draw_gizmo(camera);
+    draw_gizmo(ecs, main_camera);
 }
 
 void App::run()
@@ -209,7 +360,7 @@ void App::run()
         update();
         timer.update();
         display_ui();
-        renderer.draw();
+        renderer.draw(ecs, main_camera);
         watcher.update();
     }
 

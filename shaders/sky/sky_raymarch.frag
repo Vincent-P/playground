@@ -109,7 +109,7 @@ void main()
 
     float3 L_sun = get_sun_luminance(world_pos, world_dir, atmosphere.bottom_radius);
 
-    if (r < atmosphere.top_radius && depth <= 0.001)
+    if (r < atmosphere.top_radius && depth <= 0.0000001)
     {
 
         float cos_lightview;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "camera.hpp"
+#include "ecs.hpp"
 #include "render/hl_api.hpp"
 #include "render_graph.hpp"
 
@@ -24,6 +24,7 @@ namespace UI { struct Context; };
 struct Model;
 struct Event;
 class TimerData;
+struct CameraComponent;
 
 struct PACKED GlobalUniform
 {
@@ -114,24 +115,32 @@ struct GltfPushConstant
 assert_uniform_size(GltfPushConstant);
 static_assert(sizeof(GltfPushConstant) <= 128);
 
+// Replace with directional light tagged "sun"
+struct Sun
+{
+    float pitch;
+    float yaw;
+    float roll;
+    float3 front;
+};
+
 struct Renderer
 {
-    static void create(Renderer &r, const platform::Window &window, Camera &camera, TimerData &timer);
+    static void create(Renderer &r, const platform::Window &window, TimerData &timer);
     void destroy();
 
     void display_ui(UI::Context &ui);
-    void draw();
+    void draw(ECS::World &world, ECS::EntityId main_camera);
     void on_resize(int window_width, int window_height);
     void wait_idle() const;
     void reload_shader(std::string_view shader_name);
 
-    Camera *p_camera;
     TimerData *p_timer;
 
     vulkan::API api;
     RenderGraph graph;
 
-    Camera sun;
+    Sun sun;
     Settings settings;
     std::shared_ptr<Model> model;
 

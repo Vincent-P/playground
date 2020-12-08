@@ -1,6 +1,5 @@
 #pragma once
 #include "base/types.hpp"
-#include "camera.hpp"
 #include "ecs.hpp"
 #include "file_watcher.hpp"
 #include "platform/window.hpp"
@@ -12,11 +11,23 @@
 namespace my_app
 {
 
+struct TransformComponent
+{
+    float3 position = float3(0.0);
+    float3 front    = float3_FORWARD;
+    float3 up       = float3_UP;
+    static const char *type_name() { return "TransformComponent"; }
+};
+
 struct CameraComponent
 {
-    float near_plane = 0.0f;
-    float far_plane = 100.0f;
-    float fov = 90.0f;
+    float near_plane = 0.1f;
+    float far_plane  = 1000.0f;
+    float fov        = 60.0f;
+    float4x4 view;
+    float4x4 view_inverse;
+    float4x4 projection;
+    float4x4 projection_inverse;
     static const char *type_name() { return "CameraComponent"; }
 };
 
@@ -35,6 +46,7 @@ struct InputCameraComponent
     float r     = 6.0f;
     float theta = -78.0f;
     float phi   = -65.0f;
+    float3 target;
     static const char *type_name() { return "InputCameraComponent"; }
 };
 
@@ -54,7 +66,7 @@ class App
     UI::Context ui;
     platform::Window window;
     Inputs inputs;
-    InputCamera camera;
+    ECS::EntityId main_camera;
     Renderer renderer;
     TimerData timer;
     ECS::World ecs;
