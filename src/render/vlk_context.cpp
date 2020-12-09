@@ -16,6 +16,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+#include <fmt/core.h>
 
 namespace my_app::vulkan
 {
@@ -157,10 +158,11 @@ void Context::create(Context &ctx, const platform::Window &window)
     {
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(physical_device, &properties);
-        std::cout << "Device: " << properties.deviceName << "\n";
+
+        fmt::print("Device: {}\n", properties.deviceName);
         if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
-            std::cout << "Selected: " << properties.deviceName << "\n";
+            fmt::print("Selected: {}\n", properties.deviceName);
             ctx.physical_device = physical_device;
         }
     }

@@ -160,3 +160,9 @@ target_link_libraries(test-vulkan PRIVATE simdjson)
 add_library(spirv-reflect third_party/SPIRV-Reflect/spirv_reflect.c)
 target_link_libraries(spirv-reflect PRIVATE Vulkan::Vulkan)
 target_link_libraries(test-vulkan PRIVATE spirv-reflect)
+
+#
+# fmt
+#
+add_subdirectory(third_party/fmt EXCLUDE_FROM_ALL)
+target_link_libraries(test-vulkan PRIVATE fmt::fmt)
