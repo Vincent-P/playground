@@ -346,11 +346,12 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
             if (program_info.alpha_blending)
             {
+                // for now alpha_blending means "premultiplied alpha" for color and "additive" for alpha
                 state.blendEnable         = VK_TRUE;
-                state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                state.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
                 state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
                 state.colorBlendOp        = VK_BLEND_OP_ADD;
-                state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+                state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
                 state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
                 state.alphaBlendOp        = VK_BLEND_OP_ADD;
             }
