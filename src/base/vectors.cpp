@@ -5,7 +5,6 @@
 #include <doctest.h>
 #include <iostream>
 
-
 float dot(const float2 &a, const float2 &b)
 {
     return a.x*b.x + a.y*b.y;
@@ -71,6 +70,7 @@ float3 cross(const float3 &a, const float3 &b)
         a.x * b.y - b.x * a.y
     };
 }
+
 // clang-format off
 float float2::squared_norm() const { return dot(*this, *this); }
 float float3::squared_norm() const { return dot(*this, *this); }

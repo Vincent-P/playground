@@ -10,7 +10,6 @@
 
 #include "platform/window.hpp"
 
-#include <iostream>
 #include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
@@ -26,16 +25,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
-    std::cerr << pCallbackData->pMessage << "\n";
+    fmt::print(stderr, "{}\n", pCallbackData->pMessage);
 
     if (pCallbackData->objectCount)
     {
-        std::cerr << "Objects: \n";
+        fmt::print(stderr, "Objects:\n");
         for (size_t i = 0; i < pCallbackData->objectCount; i++)
         {
             const auto &object = pCallbackData->pObjects[i];
-            std::cerr << "\t [" << i << "] " << /*Vkto_string(static_cast<VkObjectType>(object.objectType)) <<*/ " "
-                      << (object.pObjectName ? object.pObjectName : "NoName") << std::endl;
+            fmt::print(stderr, "\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
         }
     }
 

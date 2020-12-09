@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <iomanip>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <windows.h>

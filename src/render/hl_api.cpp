@@ -3,8 +3,9 @@
 #include "app.hpp"
 #include "render/vlk_context.hpp"
 
+#include <fmt/core.h>
 #include <imgui/imgui.h>
-#include <iostream>
+#include <stdexcept>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 

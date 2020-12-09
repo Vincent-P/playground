@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <iostream>
+#include <fmt/core.h>
 #include <iterator>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>

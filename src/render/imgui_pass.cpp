@@ -1,6 +1,7 @@
 #include "render/renderer.hpp"
 
 #include <imgui/imgui.h>
+#include <fmt/core.h>
 
 namespace my_app
 {
@@ -90,7 +91,7 @@ void add_imgui_pass(Renderer &r)
             [pass_data = r.imgui, trilinear_sampler](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 bool success = api.start_present();
                 if (!success) {
-                    std::cout << "ERROR\n";
+                    fmt::print(stderr, "ERROR\n");
                     return;
                 }
 

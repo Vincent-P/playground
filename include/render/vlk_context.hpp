@@ -63,7 +63,7 @@ inline const char *vkres_to_str(VkResult code)
         if (err)                                                                                                       \
         {                                                                                                              \
             const char *err_msg = vkres_to_str(err);                                                                   \
-            std::cerr << "Vulkan function returned " << err_msg << std::endl;                                          \
+            fmt::print(stderr, "Vulkan function returned {}\n", err_msg);                                              \
             throw std::runtime_error(err_msg);                                                                         \
         }                                                                                                              \
     } while (0)

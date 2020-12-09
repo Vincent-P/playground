@@ -5,7 +5,6 @@
 #include "base/pool.hpp"
 #include "base/time.hpp"
 
-#include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>

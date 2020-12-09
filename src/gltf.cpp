@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <iostream>
 #include <simdjson/simdjson.h>
 #include <string>
 #include <string_view>

@@ -3,6 +3,7 @@
 #include "app.hpp"
 #include "render/hl_api.hpp"
 
+#include <fmt/core.h>
 #include <imgui/imgui.h>
 #include <vulkan/vulkan_core.h>
 
@@ -95,7 +96,7 @@ void RenderGraph::on_resize(int render_width, int render_height)
             .usages = usage,
         };
 
-        std::cout << "Updating image " << desc.name << " to " << image_info.width << "x" << image_info.height << std::endl;
+        fmt::print("Updating image {} to {}x{}\n", desc.name, image_info.width, image_info.height);
         api.destroy_image(image.resolved_img);
         image.resolved_img = api.create_image(image_info);
     }
@@ -209,12 +210,12 @@ static void resolve_images(RenderGraph &graph)
             .usages     = usage,
         };
 
-        std::cout << "Resolving image for " << desc.name << std::endl;
+        fmt::print("Resolving image for {}\n", desc.name);
         image.resolved_img = api.create_image(image_info);
 
         if (is_color_attachment || is_depth_attachment)
         {
-            std::cout << "Resolving render target for " << desc.name << std::endl;
+            fmt::print("Resolving render target for {}\n", desc.name);
         }
     }
 }

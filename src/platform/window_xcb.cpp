@@ -2,7 +2,6 @@
 #include "platform/window.hpp"
 
 #include <cstdio>
-#include <iostream>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-x11.h>
