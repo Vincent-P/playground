@@ -1,12 +1,20 @@
 #ifndef MATHS_H
 #define MATHS_H
 
+float max2(vec2 values) {
+    return max(values.x, values.y);
+}
+
 float max3(vec3 values) {
     return max(values.x, max(values.y, values.z));
 }
 
 float max4(vec4 values) {
     return max(max(values.x, values.y), max(values.z, values.w));
+}
+
+float min2(vec2 values) {
+    return min(values.x, values.y);
 }
 
 float min3(vec3 values) {

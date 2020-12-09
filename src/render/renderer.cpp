@@ -9,6 +9,8 @@
 
 #include <future>
 #include <imgui/imgui.h>
+#include <random>
+#include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -71,13 +73,39 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
         .mag_filter   = VK_FILTER_LINEAR,
         .min_filter   = VK_FILTER_LINEAR,
         .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
     });
 
     r.nearest_sampler = r.api.create_sampler({
         .mag_filter   = VK_FILTER_NEAREST,
         .min_filter   = VK_FILTER_NEAREST,
         .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
     });
+
+    r.random_rotations = r.api.create_image({
+        .name                = "Random rotations",
+        .type                = VK_IMAGE_TYPE_3D,
+        .format              = VK_FORMAT_R32G32_SFLOAT,
+        .width               = 32,
+        .height              = 32,
+        .depth               = 32,
+    });
+
+    constexpr usize rotations_count = 32*32*32;
+    std::array<float2, rotations_count> rotations;
+
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+    for (auto &rotation : rotations)
+    {
+        auto angle = dis(gen) * 2.0f * PI;
+        rotation = float2(std::cos(angle), std::sin(angle));
+    }
+
+    r.api.upload_image(r.random_rotations, rotations.data(), sizeof(rotations));
+    r.api.transfer_done(r.random_rotations);
 
     r.sun.pitch    = 0.0f;
     r.sun.yaw      = 25.0f;
@@ -404,7 +432,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     return pass;
 }
 
-static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program)
+static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program, u32 rotation_idx)
 {
     // Bind the node transforms
     auto transforms_pos = api.dynamic_uniform_buffer(model.nodes.size() * sizeof(float4x4));
@@ -431,6 +459,7 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
             constants.node_idx         = node_idx;
             constants.vertex_offset    = primitive.first_vertex;
 
+            constants.random_rotations_idx = rotation_idx;
             constants.base_color_idx = material.base_color_texture ? *material.base_color_texture : u32_invalid;
             constants.normal_map_idx = material.normal_texture ? *material.normal_texture : u32_invalid;
             constants.metallic_roughness_idx
@@ -465,21 +494,37 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
     cascades_view.resize(cascades_count);
     cascades_proj.resize(cascades_count);
 
-    const float split_factor = 0.9f;
-    float near_plane          = main_camera.far_plane;
-    float far_plane           = main_camera.near_plane;
 
-    float clip_range = far_plane - near_plane;
     // "practical split scheme" by nvidia
     // (https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-10-parallel-split-shadow-maps-programmable-gpus)
     // basically a mix of log and uniform splits by a split factor
+    float n = main_camera.far_plane;
+    float f = main_camera.near_plane;
+    auto N = cascades_count;
     for (uint i = 0; i < cascades_count; i++)
     {
-        float p         = (i + 1) / static_cast<float>(cascades_count);
-        float log       = near_plane * std::pow(far_plane / near_plane, p);
-        float uniform   = near_plane + clip_range * p;
-        float d         = split_factor * (log - uniform) + uniform;
-        depth_slices[i] = 1.0f - (d - near_plane) / clip_range;
+        auto lambda = r.settings.split_factor;
+        auto i_N = float(i) / (N);
+        depth_slices[i] = lambda * n * std::pow(f / n, i_N) + (1 - lambda) * (n + (i_N) * (f - n));
+    }
+
+    // float far_on_range = main_camera.far_plane / (main_camera.near_plane - main_camera.far_plane);
+    // float z0 = -far_on_range - 1.0f;
+    // float z1 = -main_camera.near_plane * far_on_range;
+
+    // z0 = -(f/n-f) - 1
+    // z1 = - n * (f/n-f)
+    // f(x) = x * (-(f/n-f) - 1) - n * (f/n-f) = 0
+
+    for (uint i = 0; i < cascades_count; i++) {
+        auto projected = main_camera.projection *  float4(0.0f, 0.0f, -depth_slices[i], 1.0f);
+        depth_slices[i] = projected.z / projected.w;
+    }
+
+    // reverse the depth values
+    auto copy = depth_slices;
+    for (uint i = 0; i < cascades_count; i++) {
+        depth_slices[i] = copy[cascades_count-1-i];
     }
 
     // compute view and projection  matrix for each cascade
@@ -570,9 +615,9 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
     }
 
     // slices are sent as-is and need to be reversed in shader
-    r.depth_slices_pos = r.api.dynamic_uniform_buffer(sizeof(float4) * (r.shadow_cascades.size() + 3) / 4);
+    r.depth_slices_pos = r.api.dynamic_uniform_buffer(sizeof(float4) * 2);
     auto *slices       = reinterpret_cast<float *>(r.depth_slices_pos.mapped);
-    for (uint i = 0; i < r.shadow_cascades.size(); i++)
+    for (uint i = 0; i < cascades_count; i++)
     {
         slices[i] = r.depth_slices[i];
     }
@@ -589,7 +634,7 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
             .external_images  = external_images,
             .depth_attachment = r.shadow_cascades[i],
             .exec =
-                [pass_data = r.gltf, cascade_index_pos, matrices_pos = r.matrices_pos](RenderGraph & /*graph*/,
+            [pass_data = r.gltf, cascade_index_pos, matrices_pos = r.matrices_pos, rotation_idx=r.random_rotation_idx](RenderGraph & /*graph*/,
                                                                                        RenderPass & /*self*/,
                                                                                        vulkan::API &api) {
                     // draw glTF
@@ -601,7 +646,7 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
                         api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 3);
                         api.bind_index_buffer(pass_data.index_buffer);
 
-                        draw_model(api, *pass_data.model, program);
+                        draw_model(api, *pass_data.model, program, rotation_idx);
                     }
                 },
         });
@@ -620,13 +665,13 @@ static void add_gltf_prepass(Renderer &r)
         .external_images  = external_images,
         .depth_attachment = r.depth_buffer,
         .exec =
-            [pass_data = r.gltf](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+        [pass_data = r.gltf, rotation_idx=r.random_rotation_idx](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.prepass;
 
                 api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_index_buffer(pass_data.index_buffer);
 
-                draw_model(api, *pass_data.model, program);
+                draw_model(api, *pass_data.model, program, rotation_idx);
             },
     });
 }
@@ -663,7 +708,7 @@ static void add_gltf_pass(Renderer &r)
              voxel_data        = r.voxels,
              trilinear_sampler = r.trilinear_sampler,
              depth_slices_pos,
-             matrices_pos](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+             matrices_pos, rotation_idx=r.random_rotation_idx](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
                 std::vector<vulkan::ImageH> voxels_directional_volumes;
                 std::vector<vulkan::ImageH> shadow_cascades;
@@ -722,7 +767,7 @@ static void add_gltf_pass(Renderer &r)
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
-                draw_model(api, *pass_data.model, program);
+                draw_model(api, *pass_data.model, program, rotation_idx);
             },
     });
 }
@@ -829,7 +874,7 @@ static void add_voxelization_pass(Renderer &r)
         .storage_images = {r.voxels_albedo, r.voxels_normal},
         .samples        = VK_SAMPLE_COUNT_32_BIT,
         .exec =
-            [pass_data, model_data = r.gltf, voxel_options = r.voxel_options](RenderGraph &graph,
+        [pass_data, model_data = r.gltf, voxel_options = r.voxel_options, rotation_idx=r.random_rotation_idx](RenderGraph &graph,
                                                                               RenderPass &self,
                                                                               vulkan::API &api) {
                 auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
@@ -851,7 +896,7 @@ static void add_voxelization_pass(Renderer &r)
 
                 api.bind_index_buffer(model_data.index_buffer);
 
-                draw_model(api, *model_data.model, program);
+                draw_model(api, *model_data.model, program, rotation_idx);
             },
     });
 }
@@ -1235,6 +1280,10 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
         samplers.push_back(r.gltf.samplers[texture.sampler]);
     }
 
+    r.random_rotation_idx = views.size();
+    views.push_back(r.api.get_image(r.random_rotations).default_view);
+    samplers.push_back(r.nearest_sampler);
+
     api.bind_combined_images_samplers({}, views, samplers, vulkan::GLOBAL_DESCRIPTOR_SET, 1);
 
     r.api.update_global_set();
@@ -1385,6 +1434,7 @@ void Renderer::display_ui(UI::Context &ui)
             (void)(cascades_count);
 
             ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
+            ImGui::SliderFloat("Split factor", &settings.split_factor, 0.1f, 1.0f);
         }
 
         if (ImGui::CollapsingHeader("Global"))

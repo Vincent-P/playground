@@ -387,7 +387,7 @@ World::World()
 
 void World::display_ui(UI::Context &ctx)
 {
-    if (ctx.begin_window("ECS", true))
+    if (ctx.begin_window("ECS"))
     {
         if (ImGui::CollapsingHeader("Archetypes"))
         {

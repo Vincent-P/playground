@@ -6,6 +6,7 @@
 #include "types.h"
 
 layout (set = 0, binding = 1) uniform sampler2D global_textures[];
+layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
 
 struct GltfPushConstant
 {
@@ -14,6 +15,7 @@ struct GltfPushConstant
     u32 vertex_offset;
 
     // textures
+    u32 random_rotations_idx;
     u32 base_color_idx;
     u32 normal_map_idx;
     u32 metallic_roughness_idx;
@@ -21,7 +23,6 @@ struct GltfPushConstant
     // material
     float metallic_factor;
     float roughness_factor;
-    float pad00;
     float4 base_color_factor;
 };
 

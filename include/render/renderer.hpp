@@ -61,8 +61,8 @@ struct VoxelOptions
 
 struct VCTDebug
 {
-    uint display = 1; // 0: glTF 1: voxels 2: custom
-    uint display_selected = 1; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
+    uint display = 0; // 0: glTF 1: voxels 2: custom
+    uint display_selected = 5; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
     int  voxel_selected_mip = 0;
     uint padding00 = 1;
 
@@ -92,6 +92,7 @@ struct Settings
     float resolution_scale     = 1.0;
     bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
+    float split_factor         = 0.80f;
 };
 
 struct GltfPushConstant
@@ -101,6 +102,7 @@ struct GltfPushConstant
     u32 vertex_offset;
 
     // textures
+    u32 random_rotations_idx;
     u32 base_color_idx;
     u32 normal_map_idx;
     u32 metallic_roughness_idx;
@@ -108,7 +110,6 @@ struct GltfPushConstant
     // material
     float metallic_factor;
     float roughness_factor;
-    float pad00;
     float4 base_color_factor;
 };
 
@@ -151,6 +152,9 @@ struct Renderer
     vulkan::CircularBufferPosition global_uniform_pos;
     vulkan::SamplerH nearest_sampler;
     vulkan::SamplerH trilinear_sampler;
+
+    vulkan::ImageH random_rotations;
+    u32 random_rotation_idx;
 
     /// --- Render Passes
 

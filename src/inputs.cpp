@@ -116,7 +116,7 @@ static void display_optional(const char *label, std::optional<int2> vector)
 
 void Inputs::display_ui(UI::Context &ui)
 {
-    if (ui.begin_window("Inputs", true))
+    if (ui.begin_window("Inputs"))
     {
         if (ImGui::CollapsingHeader("Keys"))
         {

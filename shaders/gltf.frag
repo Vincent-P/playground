@@ -2,6 +2,8 @@
 #include "globals.h"
 #include "pbr.h"
 #include "voxels.h"
+#include "csm.h"
+#include "maths.h"
 
 layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
@@ -23,12 +25,6 @@ layout(set = 1, binding = 5) uniform sampler3D voxels_directional_volumes[6];
 
 layout (set = 1, binding = 6) uniform CD {
     float4 cascades_depth_slices[4];
-};
-
-struct CascadeMatrix
-{
-    float4x4 view;
-    float4x4 proj;
 };
 
 layout (set = 1, binding = 7) uniform CM {
@@ -171,107 +167,36 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     }
 /// --- WIP end
 
-const float3 cascade_colors[] = {
-    float3(1.0, 0.0, 0.0),
-    float3(0.0, 1.0, 0.0),
-    float3(0.0, 0.0, 1.0),
-    float3(0.0, 1.0, 1.0),
-    };
-
-const uint poisson_samples_count = 34;
+const uint poisson_samples_count = 16;
 const float2 poisson_disk[] = {
-    float2(0.406502, 0.756506),
-    float2(0.279631, 0.696462),
-    float2(0.567672, 0.941495),
-    float2(0.360208, 0.903442),
-    float2(0.555281, 0.689364),
-    float2(0.235924, 0.869388),
-    float2(0.518792, 0.817887),
-    float2(0.435682, 0.595854),
-    float2(0.678636, 0.6115),
-    float2(0.311392, 0.551959),
-    float2(0.554119, 0.409778),
-    float2(0.39846, 0.362876),
-    float2(0.134518, 0.65794),
-    float2(0.268294, 0.433624),
-    float2(0.0947823, 0.435277),
-    float2(0.763794, 0.839655),
-    float2(0.361944, 0.152046),
-    float2(0.512214, 0.241411),
-    float2(0.27699, 0.279191),
-    float2(0.0299073, 0.56727),
-    float2(0.694992, 0.303407),
-    float2(0.659453, 0.113724),
-    float2(0.480078, 0.0794042),
-    float2(0.785598, 0.176082),
-    float2(0.734869, 0.437344),
-    float2(0.871331, 0.480215),
-    float2(0.911736, 0.3239),
-    float2(0.131012, 0.796879),
-    float2(0.187693, 0.119393),
-    float2(0.100313, 0.294991),
-    float2(0.552311, 0.540461),
-    float2(0.849799, 0.615725),
-    float2(0.99468, 0.435264),
-    float2(0.977751, 0.587308),
+float2( -0.94201624, -0.39906216 ),
+float2( 0.94558609, -0.76890725 ),
+float2( -0.094184101, -0.92938870 ),
+float2( 0.34495938, 0.29387760 ),
+float2( -0.91588581, 0.45771432 ),
+float2( -0.81544232, -0.87912464 ),
+float2( -0.38277543, 0.27676845 ),
+float2( 0.97484398, 0.75648379 ),
+float2( 0.44323325, -0.97511554 ),
+float2( 0.53742981, -0.47373420 ),
+float2( -0.26496911, -0.41893023 ),
+float2( 0.79197514, 0.19090188 ),
+float2( -0.24188840, 0.99706507 ),
+float2( -0.81409955, 0.91437590 ),
+float2( 0.19984126, 0.78641367 ),
+float2( 0.14383161, -0.14100790 )
 };
 
 #define EPSILON 0.01
 
 void main()
 {
-    /// --- Cascaded shadow
-    int cascade_idx = 0;
-    float4 shadow_coord = float4(0.0);
-    float2 uv = float2(0.0);
-    for (cascade_idx = 0; cascade_idx < 4; cascade_idx++)
-    {
-        CascadeMatrix matrices = cascade_matrices[cascade_idx];
-        shadow_coord = (matrices.proj * matrices.view) * vec4(inWorldPos, 1.0);
-        shadow_coord /= shadow_coord.w;
-        uv = 0.5f * (shadow_coord.xy + 1.0);
-
-        if (0.0 + EPSILON < uv.x && uv.x + EPSILON < 1.0
-            && 0.0 + EPSILON < uv.y && uv.y + EPSILON < 1.0
-            && 0.0 <= shadow_coord.z && shadow_coord.z <= 1.0) {
-            break;
-        }
-    }
-
-    cascade_idx = min(cascade_idx, 4 - 1);
-
-    float distance_from_border = 0.1 * pow(2, (4 - 1) - cascade_idx) / 8.0;
-    bool should_blend_shadows =
-        uv.x <= distance_from_border || uv.x > 1.0 - distance_from_border
-        || uv.y <= distance_from_border || uv.y > 1.0 - distance_from_border;
-
-    float visibility = 1.0;
-    float shadow_factor = 0.0;
-    // todo: change scale to smoothen out the transition between shadow cascades
-    float scale = 1.0 / ((cascade_idx+1) * 200.0);
-    for (uint i = 0; i < poisson_samples_count; i++)
-    {
-        float2 poisson_sample = poisson_disk[i];
-        float2 offsted_uv = uv + poisson_sample * scale;
-
-        const float bias = 0.0001;
-        float shadow = 1.0;
-        float dist = texture(shadow_cascades[nonuniformEXT(cascade_idx)], offsted_uv).r;
-        if (dist > shadow_coord.z + bias) {
-            shadow = global.ambient;
-        }
-        shadow_factor += shadow;
-    }
-    visibility = shadow_factor / poisson_samples_count;
-    visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
-
-    /// --- Lighting
     float3 normal = get_normal(inWorldPos, inNormal, inUV0);
     float4 base_color = get_base_color(inUV0);
     float2 metallic_roughness = get_metallic_roughness(inUV0);
 
     // PBR
-    float3 albedo = base_color.rgb /* * cascade_colors[cascade_idx] */;
+    float3 albedo = base_color.rgb;
     float3 N = normal;
     float3 V = normalize(global.camera_pos - inWorldPos);
     float metallic = metallic_roughness.r;
@@ -280,6 +205,45 @@ void main()
     float3 L = global.sun_direction; // point towards sun
     float3 radiance = global.sun_illuminance; // wrong unit
     float NdotL = max(dot(N, L), 0.0);
+
+    /// --- Cascaded shadow
+    int cascade_idx = 0;
+    for (cascade_idx = 0; cascade_idx < 2; cascade_idx++)
+    {
+        if (gl_FragCoord.z > cascades_depth_slices[0][cascade_idx]) {
+            break;
+        }
+    }
+
+    CascadeMatrix matrices = cascade_matrices[cascade_idx];
+    float4 shadow_coord = (matrices.proj * matrices.view) * float4(inWorldPos, 1.0);
+    shadow_coord /= shadow_coord.w;
+    float2 uv = 0.5 * (shadow_coord.xy + 1.0);
+
+    const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
+
+    float3 random_angle_uv = (inWorldPos.xyz*1000)/32;
+    float2 random_cos_sin = texture(global_textures_3d[constants.random_rotations_idx], random_angle_uv).xy;
+
+    float shadow = 0.0;
+    for (uint i_tap = 0; i_tap < poisson_samples_count; i_tap++)
+    {
+        float2 offset = float2(
+            random_cos_sin[0] * poisson_disk[i_tap].x - random_cos_sin[1] * poisson_disk[i_tap].y,
+            random_cos_sin[1] * poisson_disk[i_tap].x + random_cos_sin[0] * poisson_disk[i_tap].y
+            );
+
+        const float SIZE = 0.001;
+
+        float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv + SIZE * offset).r;
+        if (shadow_map_depth > shadow_coord.z + bias) {
+            shadow += 1.0;
+        }
+    }
+
+    float visibility = 1.0 - (shadow / (poisson_samples_count));
+
+    /// --- Lighting
 
     float3 direct = visibility * BRDF(albedo, N, V, metallic, roughness, L) * radiance * NdotL;
 
@@ -324,6 +288,8 @@ void main()
     }
 
     float3 composite = (direct + indirect.rgb) * indirect.a;
+
+    // composite.rgb *= cascade_colors[cascade_idx];
 
     outColor = vec4(composite, 1.0);
 }

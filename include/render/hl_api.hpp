@@ -312,6 +312,7 @@ struct GraphicsProgramInfo
     DepthState depth;
     RasterizationState rasterization;
     InputAssemblyState input_assembly;
+    bool alpha_blending = false;
 
     bool operator==(const GraphicsProgramInfo &) const = default;
 
