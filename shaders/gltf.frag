@@ -241,7 +241,7 @@ void main()
         }
     }
 
-    float visibility = 1.0 - (shadow / (poisson_samples_count));
+    float visibility = 1.01 - (shadow / (poisson_samples_count));
 
     /// --- Lighting
 

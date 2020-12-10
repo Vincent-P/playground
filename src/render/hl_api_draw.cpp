@@ -799,6 +799,13 @@ void API::bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, ui
     bind_buffer_internal(*this, binding_set, buffer, nullptr, slot);
 }
 
+void API::bind_buffer(ComputeProgramH program_h, BufferH buffer_h, uint slot)
+{
+    auto &buffer      = get_buffer(buffer_h);
+    auto &binding_set = get_program(program_h).binding_set;
+    bind_buffer_internal(*this, binding_set, buffer, nullptr, slot);
+}
+
 void API::create_global_set() { init_binding_set(ctx, global_bindings.binding_set); }
 
 void API::update_global_set() { undirty_descriptor_set(*this, global_bindings.binding_set); }

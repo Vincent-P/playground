@@ -51,6 +51,7 @@ set(SOURCE_FILES
   src/render/imgui_pass.cpp
   src/render/grid_pass.cpp
   src/render/tonemap_pass.cpp
+  src/render/luminance_pass.cpp
   src/render/render_graph.cpp
   src/render/hl_api.cpp
   src/render/hl_api_resources.cpp

@@ -1,3 +1,4 @@
+#include "render/hl_api.hpp"
 #include "render/renderer.hpp"
 
 namespace my_app
@@ -35,11 +36,14 @@ void add_tonemapping_pass(Renderer &r)
         .name              = "Tonemapping",
         .type              = PassType::Graphics,
         .sampled_images    = {r.hdr_buffer},
+        .storage_images    = {r.average_luminance},
         .color_attachments = {r.ldr_buffer},
         .exec =
             [pass_data       = r.tonemapping,
              default_sampler = r.nearest_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto hdr_buffer = graph.get_resolved_image(self.sampled_images[0]);
+                auto average_luminance       = graph.get_resolved_image(self.storage_images[0]);
+                auto average_luminance_image = api.get_image(average_luminance);
                 auto program    = pass_data.program;
 
                 api.bind_combined_image_sampler(program,
@@ -48,6 +52,7 @@ void add_tonemapping_pass(Renderer &r)
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 0);
                 api.bind_buffer(program, pass_data.params_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                api.bind_image(program, average_luminance_image.default_view, vulkan::SHADER_DESCRIPTOR_SET, 2);
                 api.bind_program(program);
 
                 api.draw(3, 1, 0, 0);

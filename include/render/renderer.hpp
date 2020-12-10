@@ -37,7 +37,7 @@ struct PACKED GlobalUniform
     float4x4 sun_proj;
 
     float3 camera_pos;
-    float pad00;
+    float  delta_t;
 
     uint2 resolution;
     float camera_near;
@@ -83,7 +83,7 @@ struct VCTDebug
 
 struct TonemapDebug
 {
-    uint selected = 1;
+    uint selected = 0;
     float exposure = 1.0f;
 };
 
@@ -229,6 +229,15 @@ struct Renderer
         vulkan::CircularBufferPosition vct_debug_pos;
     } voxels;
 
+    struct LuminancePass
+    {
+        vulkan::BufferH histogram_buffer;
+        vulkan::ComputeProgramH build_histo;
+        vulkan::ComputeProgramH average_histo;
+    } luminance;
+    ImageDescH average_luminance;
+
+
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
     TonemapDebug tonemap_debug;
@@ -249,7 +258,9 @@ void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmo
 Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
 void add_tonemapping_pass(Renderer &r);
 Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
-Renderer::VoxelPass create_voxel_pass(vulkan::API & /*api*/);
+Renderer::VoxelPass create_voxel_pass(vulkan::API & api);
+Renderer::LuminancePass create_luminance_pass(vulkan::API & api);
+void add_luminance_pass(Renderer &r);
 
 
 } // namespace my_app

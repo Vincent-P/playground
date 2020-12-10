@@ -1224,4 +1224,36 @@ void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
     vkCmdClearColorImage(cmd, image.vkhandle, dst.layout, &clear_color, 1, &image.full_range);
 }
 
+void API::clear_buffer(BufferH H, u32 data)
+{
+    auto &frame_resource = ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
+    auto &buffer          = get_buffer(H);
+
+    {
+        VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+        b.srcAccessMask         = 0;
+        b.dstAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
+        b.buffer                = buffer.vkhandle;
+        b.offset                = 0;
+        b.size                  = buffer.size;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
+    }
+
+    vkCmdFillBuffer(cmd, buffer.vkhandle, 0, buffer.size, data);
+
+
+    {
+        VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+        b.srcAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
+        b.dstAccessMask         = 0;
+        b.buffer                = buffer.vkhandle;
+        b.offset                = 0;
+        b.size                  = buffer.size;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
+    }
+
+}
 } // namespace my_app::vulkan

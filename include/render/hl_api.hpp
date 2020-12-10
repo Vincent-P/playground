@@ -533,6 +533,7 @@ struct API
     void bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot);
     void bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_pos, uint slot);
     void bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, uint slot);
+    void bind_buffer(ComputeProgramH program_h, BufferH buffer_h, uint slot);
 
     void create_global_set();
     void update_global_set();
@@ -563,6 +564,7 @@ struct API
     void set_viewport_and_scissor(u32 width, u32 height);
 
     void clear_image(ImageH H, const VkClearColorValue &clear_color);
+    void clear_buffer(BufferH H, u32 data);
 
     /// ---
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);

@@ -60,6 +60,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     r.tonemapping        = create_tonemapping_pass(r.api);
     r.gltf               = create_gltf_pass(r.api, r.model);
     r.voxels             = create_voxel_pass(r.api);
+    r.luminance          = create_luminance_pass(r.api);
 
     // basic resources
 
@@ -162,6 +163,15 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
         .type      = VK_IMAGE_TYPE_3D,
         .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
     });
+
+    r.average_luminance = r.graph.image_descs.add({
+        .name          = "Average luminance",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(1.0f),
+        .type          = VK_IMAGE_TYPE_2D,
+        .format        = VK_FORMAT_R32_SFLOAT,
+    });
+
 
     usize name_i     = 0;
     std::array names = {
@@ -1221,6 +1231,7 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
     auto *globals        = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
     std::memset(globals, 0, sizeof(GlobalUniform));
 
+    globals->delta_t              = r.p_timer->get_delta_time();
     globals->camera_pos           = camera_transform.position;
     globals->camera_view          = camera.view;
     globals->camera_proj          = camera.projection;
@@ -1610,6 +1621,8 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     {
         add_procedural_sky_pass(*this, *sky_atmosphere);
     }
+
+    add_luminance_pass(*this);
 
     add_tonemapping_pass(*this);
 
