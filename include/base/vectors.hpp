@@ -20,6 +20,7 @@ struct float2
 
     float squared_norm() const;
     float norm() const;
+    inline float *data() { return raw; }
 
     union
     {
@@ -57,6 +58,7 @@ struct float3
 
     float squared_norm() const;
     float norm() const;
+    inline float *data() { return raw; }
 
     union
     {
@@ -103,6 +105,7 @@ struct float4
 
     float squared_norm() const;
     float norm() const;
+    inline float *data() { return raw; }
 
     union
     {

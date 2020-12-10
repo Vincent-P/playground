@@ -28,6 +28,10 @@ namespace my_app::ECS
 {
 
 template<typename T>
+concept UIable = requires(T o) {
+    { o.display_ui() } -> std::same_as<void>;
+};
+template<typename T>
 concept Nameable = requires(T o) {
     { T::type_name() } -> std::same_as<const char*>;
 };
@@ -36,7 +40,7 @@ template<typename T>
 concept TriviallyCopyable = std::is_trivially_copyable<T>::value;
 
 template<typename Component>
-concept Componentable = Nameable<Component> && TriviallyCopyable<Component>;
+concept Componentable = UIable<Component> && Nameable<Component> && TriviallyCopyable<Component>;
 
 namespace
 {
@@ -160,6 +164,7 @@ struct InternalComponent
     usize size;
 
     static const char *type_name() { return "InternalComponent"; }
+    void display_ui() {}
 };
 
 struct InternalId
@@ -167,6 +172,7 @@ struct InternalId
     const char *tag;
 
     static const char *type_name() { return "InternalId"; }
+    void display_ui() {}
 };
 
 struct World;
@@ -373,9 +379,41 @@ struct World
         }
     }
 
+    /// --- Duplicate for "singleton" components
+
+    // Add a component to an entity, the entity SHOULD NOT already have that component
+    template <Componentable Component> void singleton_add_component(Component component)
+    {
+        impl::add_component(*this, singleton, ComponentId::component<Component>(), &component, sizeof(Component));
+    }
+
+    // Remove a component from an entity
+    template <Componentable Component> void singleton_remove_component()
+    {
+        impl::remove_component(*this, singleton, ComponentId::component<Component>());
+    }
+
+    // Set the value of a component or add it to an entity
+    template <Componentable Component> void singleton_set_component(Component component)
+    {
+        impl::set_component(*this, singleton, ComponentId::component<Component>(), &component, sizeof(Component));
+    }
+
+    template <Componentable Component> bool singleton_has_component()
+    {
+        return impl::has_component(*this, singleton, ComponentId::component<Component>());
+    }
+
+    // Get a component from an entity, returns nullptr if not found
+    template <Componentable Component> Component *singleton_get_component()
+    {
+        return reinterpret_cast<Component *>(impl::get_component(*this, singleton, ComponentId::component<Component>()));
+    }
+
     // Metadata of entites
     EntityIndex entity_index;
     Archetypes archetypes;
+    EntityId singleton;
     std::unordered_set<std::string> string_interner;
 };
 

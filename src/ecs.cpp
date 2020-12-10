@@ -383,6 +383,8 @@ World::World()
 
     add_component(internal_component, InternalId{"InternalComponentComponent"});
     add_component(internal_id, InternalId{"InternalIdComponent"});
+
+    singleton = create_entity("World");
 }
 
 void World::display_ui(UI::Context &ctx)
@@ -485,6 +487,7 @@ struct Position
     uint a = 0;
     bool operator==(const Position &other) const = default;
     static const char *type_name() { return "Position"; }
+    void display_ui() {}
 };
 
 struct Rotation
@@ -492,6 +495,7 @@ struct Rotation
     uint a = 0;
     bool operator==(const Rotation &other) const = default;
     static const char *type_name() { return "Rotation"; }
+    void display_ui() {}
 };
 
 struct Transform
@@ -499,6 +503,7 @@ struct Transform
     uint a = 0;
     bool operator==(const Transform &other) const = default;
     static const char *type_name() { return "Transform"; }
+    void display_ui() {}
 };
 
 std::ostream &operator<<(std::ostream &os, const Position &t)

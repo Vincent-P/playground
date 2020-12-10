@@ -25,6 +25,7 @@ struct Model;
 struct Event;
 class TimerData;
 struct CameraComponent;
+struct SkyAtmosphereComponent;
 
 struct PACKED GlobalUniform
 {
@@ -93,6 +94,7 @@ struct Settings
     bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
     float split_factor         = 0.80f;
+    bool show_grid             = true;
 };
 
 struct GltfPushConstant
@@ -243,7 +245,7 @@ void add_floor_pass(Renderer &r);
 Renderer::ImGuiPass create_imgui_pass(vulkan::API &api);
 void add_imgui_pass(Renderer &r);
 Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api);
-void add_procedural_sky_pass(Renderer &r);
+void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmosphere);
 Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
 void add_tonemapping_pass(Renderer &r);
 Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);

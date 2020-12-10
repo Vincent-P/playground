@@ -1,5 +1,5 @@
 #include "render/renderer.hpp"
-#include "../shaders/include/atmosphere.h"
+#include "components/sky_atmosphere_component.hpp"
 
 namespace my_app
 {
@@ -30,7 +30,7 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
     return pass;
 }
 
-void add_procedural_sky_pass(Renderer &r)
+void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmosphere)
 {
     auto &api   = r.api;
     auto &graph = r.graph;
@@ -40,55 +40,7 @@ void add_procedural_sky_pass(Renderer &r)
 
     r.procedural_sky.atmosphere_params_pos = api.dynamic_uniform_buffer(sizeof(AtmosphereParameters));
     auto *p = reinterpret_cast<AtmosphereParameters *>(r.procedural_sky.atmosphere_params_pos.mapped);
-
-    {
-        // info.solar_irradiance = { 1.474000f, 1.850400f, 1.911980f };
-
-        // Using a normalise sun illuminance. This is to make sure the LUTs acts as a
-        // transfert factor to apply the runtime computed sun irradiance over.
-        p->solar_irradiance   = {1.0f, 1.0f, 1.0f};
-        p->sun_angular_radius = 0.004675f;
-
-        // Earth
-        p->bottom_radius = 6360000.0f;
-        p->top_radius    = 6460000.0f;
-        p->ground_albedo = {0.0f, 0.0f, 0.0f};
-
-        // Raleigh scattering
-        constexpr double kRayleighScaleHeight = 8000.0;
-        constexpr double kMieScaleHeight      = 1200.0;
-
-        p->rayleigh_density.width     = 0.0f;
-        p->rayleigh_density.layers[0] = DensityProfileLayer{
-            .exp_term  = 1.0f,
-            .exp_scale = -1.0f / kRayleighScaleHeight,
-        };
-        p->rayleigh_scattering = {0.000005802f, 0.000013558f, 0.000033100f};
-
-        // Mie scattering
-        p->mie_density.width     = 0.0f;
-        p->mie_density.layers[0] = DensityProfileLayer{.exp_term = 1.0f, .exp_scale = -1.0f / kMieScaleHeight};
-
-        p->mie_scattering       = {0.000003996f, 0.000003996f, 0.000003996f};
-        p->mie_extinction       = {0.000004440f, 0.000004440f, 0.000004440f};
-        p->mie_phase_function_g = 0.8f;
-
-        // Ozone absorption
-        p->absorption_density.width     = 25000.0f;
-        p->absorption_density.layers[0] = DensityProfileLayer{
-            .linear_term   = 1.0f / 15000.0f,
-            .constant_term = -2.0f / 3.0f,
-        };
-
-        p->absorption_density.layers[1] = DensityProfileLayer{
-            .linear_term   = -1.0f / 15000.0f,
-            .constant_term = 8.0f / 3.0f,
-        };
-        p->absorption_extinction = {0.000000650f, 0.000001881f, 0.000000085f};
-
-        const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
-        p->mu_s_min                       = (float)cos(max_sun_zenith_angle);
-    }
+    *p = parameters_from_component(sky_atmosphere);
 
     graph.add_pass({
         .name              = "Transmittance LUT",

@@ -1,10 +1,15 @@
 #include "app.hpp"
 
 #include "camera.hpp"
+#include "components/camera_component.hpp"
+#include "components/input_camera_component.hpp"
+#include "components/sky_atmosphere_component.hpp"
+#include "components/transform_component.hpp"
 #include "ecs.hpp"
 #include "file_watcher.hpp"
 
 #include <algorithm>
+#include <fmt/core.h>
 #include <imgui/imgui.h>
 #include <sstream>
 #include <variant>
@@ -139,6 +144,7 @@ App::App()
     is_minimized = false;
 
     main_camera = ecs.create_entity(std::string_view{"Camera"}, TransformComponent{}, CameraComponent{}, InputCameraComponent{});
+    ecs.singleton_add_component(SkyAtmosphereComponent{});
 
     inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
     inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
@@ -271,6 +277,7 @@ void App::update()
                 }
                 break;
             }
+        case States::Count: break;
         }
     });
 
@@ -315,6 +322,63 @@ void App::display_ui()
     ecs.display_ui(ui);
     inputs.display_ui(ui);
     draw_gizmo(ecs, main_camera);
+
+    static std::optional<ECS::EntityId> selected_entity;
+    const auto display_component = []<ECS::Componentable Component>(ECS::World &world, ECS::EntityId entity) {
+        auto *component = world.get_component<Component>(entity);
+        if (component)
+        {
+            ImGui::Separator();
+            ImGui::TextUnformatted(Component::type_name());
+            ImGui::Separator();
+            component->display_ui();
+            ImGui::Spacing();
+        }
+    };
+
+    if (ui.begin_window("Scene"))
+    {
+        (void)(display_component);
+
+        for (auto& [entity, _] : ecs.entity_index)
+        {
+            if (ecs.is_component(entity)) { continue; }
+
+            const char *tag = "";
+            if (const auto *internal_id = ecs.get_component<ECS::InternalId>(entity))
+            {
+                tag = internal_id->tag;
+            }
+
+            auto formatted_name = fmt::format("{}##{}", tag, entity.raw);
+            bool is_selected = selected_entity && *selected_entity == entity;
+            if (ImGui::Selectable(formatted_name.c_str(), &is_selected))
+            {
+                selected_entity = entity;
+            }
+        }
+
+        ui.end_window();
+    }
+
+    if (ui.begin_window("Inspector"))
+    {
+        if (selected_entity)
+        {
+            const char *tag = "<No name>";
+            if (const auto *internal_id = ecs.get_component<ECS::InternalId>(*selected_entity))
+            {
+                tag = internal_id->tag;
+            }
+            ImGui::Text("Selected: %s", tag);
+
+            display_component.template operator()<TransformComponent>(ecs, *selected_entity);
+            display_component.template operator()<CameraComponent>(ecs, *selected_entity);
+            display_component.template operator()<InputCameraComponent>(ecs, *selected_entity);
+            display_component.template operator()<SkyAtmosphereComponent>(ecs, *selected_entity);
+        }
+        ui.end_window();
+    }
 }
 
 void App::run()

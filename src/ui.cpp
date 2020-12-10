@@ -157,8 +157,10 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
         ImGui::DockBuilderDockWindow("Inputs", dock_id_left);
         ImGui::DockBuilderDockWindow("Render Graph", dock_id_left);
         ImGui::DockBuilderDockWindow("Renderer", dock_id_left);
+        ImGui::DockBuilderDockWindow("Scene", dock_id_left);
 
         ImGui::DockBuilderDockWindow("Shaders", dock_id_left_bottom);
+        ImGui::DockBuilderDockWindow("Inspector", dock_id_left_bottom);
 
         ImGui::DockBuilderDockWindow("Profiler", dock_id_right);
 

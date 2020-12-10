@@ -1,7 +1,10 @@
 #include "render/renderer.hpp"
 
-#include "app.hpp" // TODO: extract components and include "components/camera_component.hpp"
 #include "camera.hpp"
+#include "components/camera_component.hpp"
+#include "components/input_camera_component.hpp"
+#include "components/transform_component.hpp"
+#include "components/sky_atmosphere_component.hpp"
 #include "gltf.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
@@ -1435,6 +1438,7 @@ void Renderer::display_ui(UI::Context &ui)
 
             ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
             ImGui::SliderFloat("Split factor", &settings.split_factor, 0.1f, 1.0f);
+            ImGui::Checkbox("Display grid", &settings.show_grid);
         }
 
         if (ImGui::CollapsingHeader("Global"))
@@ -1601,11 +1605,18 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
         add_gltf_pass(*this);
     }
 
-    add_procedural_sky_pass(*this);
+    auto *sky_atmosphere = world.singleton_get_component<SkyAtmosphereComponent>();
+    if (sky_atmosphere)
+    {
+        add_procedural_sky_pass(*this, *sky_atmosphere);
+    }
 
     add_tonemapping_pass(*this);
 
-    add_floor_pass(*this);
+    if (settings.show_grid)
+    {
+        add_floor_pass(*this);
+    }
 
     // graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
 
