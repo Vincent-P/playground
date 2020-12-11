@@ -414,7 +414,12 @@ bool move_to_top_atmosphere(AtmosphereParameters atmosphere, inout float3 world_
 
 float3 get_sun_luminance(float3 world_pos, float3 world_dir, float radius)
 {
-    if (dot(world_dir, global.sun_direction) > cos(0.5*0.505*3.14159 / 180.0))
+    const float sun_angular_diameter = 0.545;
+    const float sun_angular_radius = 0.5 * sun_angular_diameter;
+    const float sun_agular_radius_radian = sun_angular_radius * 3.14159 / 180.0;
+
+    // if the angle between the view direction and the sun is in the sun angular radius
+    if (dot(world_dir, global.sun_direction) > cos(sun_agular_radius_radian))
     {
         float t = ray_sphere_nearest_intersection(world_pos, world_dir, float3(0.0f, 0.0f, 0.0f), radius);
         if (t < 0.0f) // no intersection
@@ -423,6 +428,7 @@ float3 get_sun_luminance(float3 world_pos, float3 world_dir, float radius)
             return sun_luminance;
         }
     }
+
     return float3(0.0);
 }
 
