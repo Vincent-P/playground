@@ -3,6 +3,7 @@
 #include "base/types.hpp"
 
 #include <imgui/imgui.h>
+#include <cmath>
 
 namespace my_app
 {
@@ -139,7 +140,7 @@ inline AtmosphereParameters parameters_from_component(const SkyAtmosphereCompone
     params.ground_albedo = component.ground_albedo;
 
     const double max_sun_zenith_angle = PI * 120.0 / 180.0; // (use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
-    params.mu_s_min                   = (float)cos(max_sun_zenith_angle);
+    params.mu_s_min                   = (float)std::cos(max_sun_zenith_angle);
 
     return params;
 }

@@ -7,7 +7,7 @@
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon.h>
 
-namespace window
+namespace my_app
 {
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
@@ -15,6 +15,8 @@ std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #undef X
 };
 
+namespace platform
+{
 void Window::create(Window &window, usize width, usize height, std::string_view title)
 {
     window.title  = std::string(title);
@@ -187,6 +189,7 @@ void Window::poll_events()
 
                 if (pressed != MouseButton::Count)
                 {
+                    push_event<event::MouseClick>({.button = pressed, .state = ButtonState::Pressed});
                     mouse_buttons_pressed[to_underlying(pressed)] = true;
                 }
 
@@ -221,6 +224,7 @@ void Window::poll_events()
 
                 if (released != MouseButton::Count)
                 {
+                    push_event<event::MouseClick>({.button = released, .state = ButtonState::Released});
                     mouse_buttons_pressed[to_underlying(released)] = false;
                 }
                 break;
@@ -255,10 +259,10 @@ void Window::poll_events()
                     }
                 }
 
-                auto action = ev->response_type == XCB_KEY_PRESS ? event::Key::Action::Down : event::Key::Action::Up;
+                auto state = ev->response_type == XCB_KEY_PRESS ? ButtonState::Pressed : ButtonState::Released;
 
-                push_event<event::Key>({.key = key, .action = action});
-                keys_pressed[to_underlying(key)] = action == event::Key::Action::Down;
+                push_event<event::Key>({.key = key, .state = state});
+                keys_pressed[to_underlying(key)] = state == ButtonState::Pressed;
 
                 break;
             }
@@ -285,4 +289,5 @@ void Window::set_cursor(Cursor) {}
 [[nodiscard]] float2 Window::get_dpi_scale() const { return float2(1.0f); }
 
 void Window::destroy() { xcb_disconnect(xcb.connection); }
-} // namespace window
+} // namespace platform
+} // namespace my_app

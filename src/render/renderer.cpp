@@ -3,13 +3,14 @@
 #include "camera.hpp"
 #include "components/camera_component.hpp"
 #include "components/input_camera_component.hpp"
-#include "components/transform_component.hpp"
 #include "components/sky_atmosphere_component.hpp"
+#include "components/transform_component.hpp"
 #include "gltf.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
 #include "ui.hpp"
 
+#include <cstring> // for memset
 #include <future>
 #include <imgui/imgui.h>
 #include <random>
