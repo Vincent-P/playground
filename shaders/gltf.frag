@@ -80,8 +80,8 @@ float4 trace_cone(float3 origin, float3 direction, float aperture, float max_dis
 
         vec4 sampled = anisotropic_sample(voxel_pos, mip_level, direction, weight);
 
-        occlusion += ((1.0 - occlusion) * sampled.a)/* / ( 1.0 + debug.occlusion_lambda * diameter)*/;
-        // cone_sampled = occlusion * cone_sampled + (1.0 - occlusion) *sampled;
+        occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + debug.occlusion_lambda * diameter);
+
         cone_sampled = cone_sampled + (1.0 - cone_sampled.a) * sampled;
 
         d += diameter * sampling_factor;
@@ -114,7 +114,8 @@ const float diffuse_cone_weights[] =
 
 float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, float roughness)
 {
-    vec3 cone_origin = inWorldPos + voxel_options.size * N;
+    float3 surface_normal = inNormal;
+    vec3 cone_origin = inWorldPos + voxel_options.size * surface_normal;
     vec4 diffuse = vec4(0.0);
 
     // tan(60 degres / 2), 6 cones of 60 degres each are used for the diffuse lighting
@@ -125,18 +126,18 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     if (abs(dot(N,guide)) == 1.0f) {
         guide = vec3(0.0f, 0.0f, 1.0f);
     }
-    vec3 right = normalize(guide - dot(N, guide) * N);
-    vec3 up = cross(right, N);
+    vec3 right = normalize(guide - dot(surface_normal, guide) * surface_normal);
+    vec3 up = cross(right, surface_normal);
 
     vec3 cone_direction;
 
     for (uint i = 0; i < 6; i++)
     {
-        cone_direction = N;
+        cone_direction = surface_normal;
         cone_direction += diffuse_cone_directions[i].x * right + diffuse_cone_directions[i].z * up;
         cone_direction = normalize(cone_direction);
 
-        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) *  trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
+        diffuse += /*float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) * */  trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
     }
 
     return diffuse;
@@ -248,6 +249,7 @@ void main()
     float3 direct = visibility * BRDF(albedo, N, V, metallic, roughness, L) * radiance * NdotL;
 
     float4 indirect =  indirect_lighting(albedo, N, V, metallic, roughness);
+    indirect.rgb *= albedo / PI;
 
     float4 reflection = float4(0); // trace_reflection(albedo, inNormal, V, metallic, roughness);
 
@@ -287,7 +289,7 @@ void main()
     {
     }
 
-    float3 composite = (direct + indirect.rgb) * indirect.a;
+    float3 composite = direct + indirect.rgb * indirect.a;
 
     // composite.rgb *= cascade_colors[cascade_idx];
 

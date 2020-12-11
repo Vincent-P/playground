@@ -8,7 +8,7 @@ layout(set = 1, binding = 1) uniform DO
     float exposure;
 } debug;
 
-layout (set = 1, binding = 2, r32f) uniform readonly image2D luminance_output;
+layout (set = 1, binding = 2) uniform sampler2D luminance_output;
 
 layout (location = 0) in vec2 inUV;
 layout (location = 0) out vec4 outColor;
@@ -56,7 +56,7 @@ void main()
     float3 hdr = texture(hdr_buffer, inUV).rgb;
     float3 ldr = float3(0.0);
 
-    float average_luminance = imageLoad(luminance_output, int2(0, 0)).r;
+    float average_luminance = texelFetch(luminance_output, int2(0, 0), 0).r;
     float3 exposure_adjusted = hdr / (9.6 * average_luminance);
 
     // reinhard

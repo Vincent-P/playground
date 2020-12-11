@@ -1247,12 +1247,12 @@ void API::clear_buffer(BufferH H, u32 data)
     {
         VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
         b.srcAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
-        b.dstAccessMask         = 0;
+        b.dstAccessMask         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
         b.buffer                = buffer.vkhandle;
         b.offset                = 0;
         b.size                  = buffer.size;
 
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
     }
 
 }

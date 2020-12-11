@@ -63,7 +63,7 @@ struct VoxelOptions
 struct VCTDebug
 {
     uint display = 0; // 0: glTF 1: voxels 2: custom
-    uint display_selected = 5; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
+    uint display_selected = 0; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
     int  voxel_selected_mip = 0;
     uint padding00 = 1;
 
