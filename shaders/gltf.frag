@@ -123,9 +123,10 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
 
     // Find a tangent and a bitangent
     vec3 guide = vec3(0.0f, 1.0f, 0.0f);
-    if (abs(dot(N,guide)) == 1.0f) {
+    if (abs(dot(N,guide)) > 0.99) {
         guide = vec3(0.0f, 0.0f, 1.0f);
     }
+
     vec3 right = normalize(guide - dot(surface_normal, guide) * surface_normal);
     vec3 up = cross(right, surface_normal);
 
