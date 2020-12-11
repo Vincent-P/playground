@@ -1543,10 +1543,9 @@ void Renderer::display_ui(UI::Context &ui)
             ImGui::SliderFloat("Voxel size (m)", &voxel_options.size, 0.05f, 0.5f);
         }
 
-
         if (ImGui::CollapsingHeader("Tonemapping"))
         {
-            static std::array options{"Reinhard", "Exposure", "Clamp"};
+            static std::array options{"Reinhard", "Exposure", "Clamp", "ACES"};
             tools::imgui_select("Tonemap", options.data(), options.size(), tonemap_debug.selected);
             ImGui::SliderFloat("Exposure", &tonemap_debug.exposure, 0.0f, 2.0f);
         }

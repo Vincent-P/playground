@@ -11,6 +11,7 @@
 #define int3 ivec3
 #define int4 ivec4
 #define float4x4 mat4
+#define float3x3 mat3
 
 #define u32 uint
 #define u32_invalid u32(~0u)
