@@ -7,8 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(test-vulkan LANGUAGES CXX C)
 
-# set(CMAKE_CXX_CLANG_TIDY clang-tidy)
-
 add_definitions(
   #ty windows....
   -DNOMINMAX
@@ -72,6 +70,8 @@ else()
 endif()
 
 add_executable(test-vulkan ${SOURCE_FILES})
+
+# set_property(TARGET test-vulkan PROPERTY CXX_CLANG_TIDY clang-tidy)
 
 target_compile_options(test-vulkan
   PUBLIC
