@@ -211,7 +211,30 @@ static void resolve_images(RenderGraph &graph)
         };
 
         fmt::print("Resolving image for {}\n", desc.name);
+
         image.resolved_img = api.create_image(image_info);
+
+        auto &vk_image = api.get_image(image.resolved_img);
+
+        // clear new images to prevent sampling random things (happened with RADV)
+        if ((vk_image.info.usages & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0
+            && (vk_image.info.usages & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0)
+        {
+            VkClearColorValue color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
+            if (vulkan::is_uint(desc.format)) {
+                color.uint32[0] = 0u;
+                color.uint32[1] = 0u;
+                color.uint32[2] = 0u;
+                color.uint32[3] = 1u;
+            }
+            else if (vulkan::is_sint(desc.format)) {
+                color.int32[0] = 0;
+                color.int32[1] = 0;
+                color.int32[2] = 0;
+                color.int32[3] = 1;
+            }
+            api.clear_image(image.resolved_img, color);
+        }
 
         if (is_color_attachment || is_depth_attachment)
         {
@@ -242,6 +265,13 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
         }
 
         auto src = vulkan::get_src_image_access(vk_image.usage);
+
+
+        if (vk_image.usage == vulkan::ImageUsage::None)
+        {
+            fmt::print("WARNING: image ({}) usage is None!\n", vk_image.name);
+        }
+
         auto dst = vulkan::get_dst_image_access(vulkan::ImageUsage::ColorAttachment);
         src_mask |= src.stage;
         dst_mask |= dst.stage;
