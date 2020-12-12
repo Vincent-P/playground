@@ -206,7 +206,7 @@ void API::begin_pass(PassInfo &&info)
         {
             for (auto &color_attachment : render_pass.info.colors)
             {
-                if (color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
+                if (true || color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
                 {
                     clear_values.emplace_back();
                     auto &clear = clear_values.back();
@@ -597,6 +597,7 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
 
     auto &data = binding_set.binded_data[slot];
     auto &info = binding_set.bindings_info[slot];
+    (void)(info);
 
     assert(sampler ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
                    : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -629,6 +630,7 @@ static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint s
     assert(samplers_h.empty() || samplers_h.size() == 1 || samplers_h.size() == image_views_h.size());
 
     auto &info = binding_set.bindings_info[slot];
+    (void)(info);
 
     assert(!samplers_h.empty() ? info.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
                                : info.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
