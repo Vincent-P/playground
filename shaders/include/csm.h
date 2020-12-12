@@ -12,7 +12,7 @@ const float3 cascade_colors[] = {
     float3(1.0, 0.0, 0.0),
     float3(0.0, 1.0, 0.0),
     float3(0.0, 0.0, 1.0),
-    float3(0.0, 1.0, 1.0),
+    float3(1.0, 1.0, 0.0),
     };
 
 #endif
