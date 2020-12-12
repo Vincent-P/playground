@@ -5,12 +5,12 @@
 #include "csm.h"
 #include "maths.h"
 
-layout (location = 0) in vec3 inWorldPos;
-layout (location = 1) in vec3 inNormal;
-layout (location = 2) in vec2 inUV0;
-layout (location = 3) in vec2 inUV1;
-layout (location = 4) in vec4 inJoint0;
-layout (location = 5) in vec4 inWeight0;
+layout (location = 0) in float3 i_world_pos;
+layout (location = 1) in float3 i_normal;
+layout (location = 2) in float2 i_uv0;
+layout (location = 3) in float2 i_uv1;
+layout (location = 4) in float4 i_joint0;
+layout (location = 5) in float4 i_weight0;
 
 layout (set = 1, binding = 2) uniform VCTD {
     VCTDebug debug;
@@ -33,21 +33,21 @@ layout (set = 1, binding = 7) uniform CM {
 
 layout(set = 1, binding = 8) uniform sampler2D shadow_cascades[4];
 
-layout (location = 0) out vec4 outColor;
+layout (location = 0) out float4 o_color;
 
-vec4 anisotropic_sample(vec3 position, float mip, float3 direction, vec3 weight)
+float4 anisotropic_sample(float3 position, float mip, float3 direction, float3 weight)
 {
     float aniso_level = max(mip - 1.0, 0.0);
 
     // Important: the refactor `textureLod(direction.x < 0.0 ? 0 : 1, position, aniso_level)` DOES NOT work and produce artifacts!!
-    vec4 sampled =
+    float4 sampled =
 		  weight.x * (direction.x < 0.0 ? textureLod(voxels_directional_volumes[0], position, aniso_level) : textureLod(voxels_directional_volumes[1], position, aniso_level))
 		+ weight.y * (direction.y < 0.0 ? textureLod(voxels_directional_volumes[2], position, aniso_level) : textureLod(voxels_directional_volumes[3], position, aniso_level))
 		+ weight.z * (direction.z < 0.0 ? textureLod(voxels_directional_volumes[4], position, aniso_level) : textureLod(voxels_directional_volumes[5], position, aniso_level))
 		;
     if (mip < 1.0)
     {
-        vec4 sampled0 = texture(voxels_radiance, position);
+        float4 sampled0 = texture(voxels_radiance, position);
         sampled = mix(sampled0, sampled, clamp(mip, 0.0, 1.0));
     }
 
@@ -61,7 +61,7 @@ float4 trace_cone(float3 origin, float3 direction, float aperture, float max_dis
     float3 weight = direction * direction;
     weight = float3(0.0, 0.0, 1.0);
 
-    vec3 p = origin;
+    float3 p = origin;
     float d = max(debug.start * voxel_options.size, 0.1);
 
     float4 cone_sampled = float4(0.0);
@@ -76,9 +76,9 @@ float4 trace_cone(float3 origin, float3 direction, float aperture, float max_dis
         float diameter = 2.0 * aperture * d;
         float mip_level = log2(diameter / voxel_options.size);
 
-        vec3 voxel_pos = WorldToVoxelTex(p, voxel_options);
+        float3 voxel_pos = WorldToVoxelTex(p, voxel_options);
 
-        vec4 sampled = anisotropic_sample(voxel_pos, mip_level, direction, weight);
+        float4 sampled = anisotropic_sample(voxel_pos, mip_level, direction, weight);
 
         occlusion += ((1.0 - occlusion) * sampled.a) / ( 1.0 + debug.occlusion_lambda * diameter);
 
@@ -114,23 +114,23 @@ const float diffuse_cone_weights[] =
 
 float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, float roughness)
 {
-    float3 surface_normal = inNormal;
-    vec3 cone_origin = inWorldPos + voxel_options.size * surface_normal;
-    vec4 diffuse = vec4(0.0);
+    float3 surface_normal = i_normal;
+    float3 cone_origin = i_world_pos + voxel_options.size * surface_normal;
+    float4 diffuse = float4(0.0);
 
     // tan(60 degres / 2), 6 cones of 60 degres each are used for the diffuse lighting
     const float aperture = 0.57735f;
 
     // Find a tangent and a bitangent
-    vec3 guide = vec3(0.0f, 1.0f, 0.0f);
+    float3 guide = float3(0.0f, 1.0f, 0.0f);
     if (abs(dot(N,guide)) > 0.99) {
-        guide = vec3(0.0f, 0.0f, 1.0f);
+        guide = float3(0.0f, 0.0f, 1.0f);
     }
 
-    vec3 right = normalize(guide - dot(surface_normal, guide) * surface_normal);
-    vec3 up = cross(right, surface_normal);
+    float3 right = normalize(guide - dot(surface_normal, guide) * surface_normal);
+    float3 up = cross(right, surface_normal);
 
-    vec3 cone_direction;
+    float3 cone_direction;
 
     for (uint i = 0; i < 6; i++)
     {
@@ -159,7 +159,7 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
 
     float4 trace_reflection(float3 albedo, float3 N, float3 V, float metallic, float roughness)
     {
-        vec3 position = inWorldPos;
+        float3 position = i_world_pos;
 
         float aperture = tan(roughness);
 
@@ -193,14 +193,14 @@ float2( 0.14383161, -0.14100790 )
 
 void main()
 {
-    float3 normal = get_normal(inWorldPos, inNormal, inUV0);
-    float4 base_color = get_base_color(inUV0);
-    float2 metallic_roughness = get_metallic_roughness(inUV0);
+    float3 normal = get_normal(i_world_pos, i_normal, i_uv0);
+    float4 base_color = get_base_color(i_uv0);
+    float2 metallic_roughness = get_metallic_roughness(i_uv0);
 
     // PBR
     float3 albedo = base_color.rgb;
-    float3 N = normal;
-    float3 V = normalize(global.camera_pos - inWorldPos);
+    float3 N = i_normal;
+    float3 V = normalize(global.camera_pos - i_world_pos);
     float metallic = metallic_roughness.r;
     float roughness = metallic_roughness.g;
 
@@ -217,33 +217,59 @@ void main()
         }
     }
 
+
     CascadeMatrix matrices = cascade_matrices[cascade_idx];
-    float4 shadow_coord = (matrices.proj * matrices.view) * float4(inWorldPos, 1.0);
+    float4 shadow_coord = (matrices.proj * matrices.view) * float4(i_world_pos, 1.0);
     shadow_coord /= shadow_coord.w;
     float2 uv = 0.5 * (shadow_coord.xy + 1.0);
 
     const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
 
-    float3 random_angle_uv = (inWorldPos.xyz*1000)/32;
+    float3 random_angle_uv = (i_world_pos.xyz*1000)/32;
     float2 random_cos_sin = texture(global_textures_3d[constants.random_rotations_idx], random_angle_uv).xy;
 
     float shadow = 0.0;
-    for (uint i_tap = 0; i_tap < poisson_samples_count; i_tap++)
+    for (uint i_tap = 0; i_tap < 16; i_tap++)
     {
+        uint i_disk = i_tap;
         float2 offset = float2(
-            random_cos_sin[0] * poisson_disk[i_tap].x - random_cos_sin[1] * poisson_disk[i_tap].y,
-            random_cos_sin[1] * poisson_disk[i_tap].x + random_cos_sin[0] * poisson_disk[i_tap].y
+            random_cos_sin[0] * poisson_disk[i_disk].x - random_cos_sin[1] * poisson_disk[i_disk].y,
+            random_cos_sin[1] * poisson_disk[i_disk].x + random_cos_sin[0] * poisson_disk[i_disk].y
             );
 
         const float SIZE = 0.001;
 
+#if 1
+        float shadow_map_depth = 0.0;
+        if (cascade_idx == 0)
+        {
+            shadow_map_depth = texture(shadow_cascades[0], uv + SIZE * offset).r;
+        }
+        else if (cascade_idx == 1)
+        {
+            shadow_map_depth = texture(shadow_cascades[1], uv + SIZE * offset).r;
+        }
+        else if (cascade_idx == 2)
+        {
+            shadow_map_depth = texture(shadow_cascades[2], uv + SIZE * offset).r;
+        }
+        else if (cascade_idx == 3)
+        {
+            shadow_map_depth = texture(shadow_cascades[3], uv + SIZE * offset).r;
+        }
+#else
         float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv + SIZE * offset).r;
+#endif
+
         if (shadow_map_depth > shadow_coord.z + bias) {
             shadow += 1.0;
         }
+
     }
 
     float visibility = 1.0 - (shadow / (poisson_samples_count));
+
+
 
     /// --- Lighting
 
@@ -252,7 +278,7 @@ void main()
     float4 indirect =  indirect_lighting(albedo, N, V, metallic, roughness);
     indirect.rgb *= albedo / PI;
 
-    float4 reflection = float4(0); // trace_reflection(albedo, inNormal, V, metallic, roughness);
+    float4 reflection = float4(0); // trace_reflection(albedo, i_normal, V, metallic, roughness);
 
     // base color
     if (debug.display_selected == 1)
@@ -294,5 +320,5 @@ void main()
 
     // composite.rgb *= cascade_colors[cascade_idx];
 
-    outColor = vec4(composite, 1.0);
+    o_color = float4(composite, 1.0);
 }
