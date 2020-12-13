@@ -20,16 +20,6 @@ layout(set = 1, binding = 2) uniform sampler3D voxels_albedo;
 layout(set = 1, binding = 3) uniform sampler3D voxels_normal;
 layout(set = 1, binding = 4, rgba8) uniform image3D voxels_radiance;
 
-layout (set = 1, binding = 5) uniform CD {
-    float4 cascades_depth_slices[4];
-};
-
-layout (set = 1, binding = 6) uniform CM {
-    CascadeMatrix cascade_matrices[10];
-};
-
-layout(set = 1, binding = 7) uniform sampler2D shadow_cascades[4];
-
 
 float ray_trace_voxel_occlusion(int3 voxel_origin, float3 direction)
 {

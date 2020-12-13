@@ -50,6 +50,7 @@ set(SOURCE_FILES
   src/render/grid_pass.cpp
   src/render/tonemap_pass.cpp
   src/render/luminance_pass.cpp
+  src/render/cascades_bounds_pass.cpp
   src/render/render_graph.cpp
   src/render/hl_api.cpp
   src/render/hl_api_resources.cpp
@@ -116,6 +117,7 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
   "shaders/*.vert"
   "shaders/*.geom"
   "shaders/*.comp"
+  "shaders/*.glsl"
   )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})

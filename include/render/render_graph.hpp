@@ -1,12 +1,13 @@
 #pragma once
-#include "base/types.hpp"
 #include "base/pool.hpp"
-#include <unordered_map>
-#include <vulkan/vulkan.h>
-#include <vector>
-#include <optional>
+#include "base/types.hpp"
+#include "render/hl_api.hpp"
+
 #include <functional>
-#include <vulkan/vulkan_core.h>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+#include <vulkan/vulkan.h>
 
 namespace my_app
 {
@@ -42,7 +43,6 @@ struct RenderResource
     std::vector<RenderPassH> storage_images_in;
     std::vector<RenderPassH> color_attachment_in;
     std::vector<RenderPassH> depth_attachment_in;
-    std::vector<RenderPassH> transfer_dst_in;
 };
 
 enum struct SizeType
@@ -76,8 +76,7 @@ struct ImageResource
 enum struct PassType
 {
     Graphics,
-    Compute,
-    BlitToSwapchain
+    Compute
     // Transfer?
 };
 
@@ -117,11 +116,34 @@ struct RenderGraph
     void on_resize(int render_width, int render_height);
     void display_ui(UI::Context &ui);
 
-    void clear();
+    void start_frame();
     void add_pass(RenderPass&&);
     bool execute();
 
-    vulkan::ImageH get_resolved_image(ImageDescH desc_h) const;
+    [[nodiscard]]
+    inline vulkan::ImageH get_resolved_image(ImageDescH desc_h) const
+    {
+        const auto &image = images.at(desc_h);
+        assert(image.resolved_img.is_valid());
+        return image.resolved_img;
+    }
+
+    [[nodiscard]]
+    inline uint2 get_image_desc_size(const ImageDesc &desc) const
+    {
+        float width  = desc.size.x;
+        float height = desc.size.x;
+        if (desc.size_type == SizeType::RenderRelative)
+        {
+            width  = std::ceil(width * render_width);
+            height = std::ceil(height * render_height);
+        }
+        return {
+            .x = static_cast<u32>(width),
+            .y = static_cast<u32>(height)
+        };
+    }
+
 
     vulkan::API *p_api;
 
@@ -129,6 +151,7 @@ struct RenderGraph
     Pool<RenderPass> passes;
     Pool<ImageDesc> image_descs;
     std::unordered_map<ImageDescH, ImageResource> images;
+    std::vector<std::tuple<vulkan::ImageInfo, vulkan::ImageH, bool>> cache;
     int render_width;
     int render_height;
 };

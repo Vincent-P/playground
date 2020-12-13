@@ -18,7 +18,7 @@ Renderer::LuminancePass create_luminance_pass(vulkan::API &api)
 
     pass.histogram_buffer = api.create_buffer({
         .name  = "Luminance histogram",
-        .size  = 256 * sizeof(float) * 4 /*debug*/,
+        .size  = 256 * sizeof(float),
         .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
     });
     return pass;
@@ -65,8 +65,8 @@ void add_luminance_pass(Renderer &r)
 
                 api.clear_buffer(pass_data.histogram_buffer, 0u);
 
-                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16);
-                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16);
+                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 == 1);
+                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 == 1);
                 api.dispatch(program, size_x, size_y, 1);
             },
     });

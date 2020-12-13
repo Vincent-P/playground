@@ -62,6 +62,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     r.gltf               = create_gltf_pass(r.api, r.model);
     r.voxels             = create_voxel_pass(r.api);
     r.luminance          = create_luminance_pass(r.api);
+    r.cascades_bounds    = create_cascades_bounds_pass(r.api);
 
     // basic resources
 
@@ -69,10 +70,6 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     r.settings.render_resolution = {.x = r.api.ctx.swapchain.extent.width, .y = r.api.ctx.swapchain.extent.height};
 
     r.graph.on_resize(r.settings.render_resolution.x * r.settings.resolution_scale, r.settings.render_resolution.y * r.settings.resolution_scale);
-
-    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
-    r.hdr_buffer = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
-    r.ldr_buffer = r.graph.image_descs.add({.name = "LDR Buffer", .format = r.api.ctx.swapchain.format.format});
 
     r.trilinear_sampler = r.api.create_sampler({
         .mag_filter   = VK_FILTER_LINEAR,
@@ -118,96 +115,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     // it would be nice to be able to create those in the create_procedural_sky_pass function
 
-    r.transmittance_lut = r.graph.image_descs.add({
-        .name      = "Transmittance LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(256, 64, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
 
-    r.skyview_lut = r.graph.image_descs.add({
-        .name      = "Skyview LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(192, 108, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.multiscattering_lut = r.graph.image_descs.add({
-        .name      = "Multiscattering LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(32, 32, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.voxels_albedo = r.graph.image_descs.add({
-        .name          = "Voxels albedo",
-        .size_type     = SizeType::Absolute,
-        .size          = float3(r.voxel_options.res),
-        .type          = VK_IMAGE_TYPE_3D,
-        .format        = VK_FORMAT_R8G8B8A8_UNORM,
-        .extra_formats = {VK_FORMAT_R32_UINT},
-    });
-
-    r.voxels_normal = r.graph.image_descs.add({
-        .name          = "Voxels normal",
-        .size_type     = SizeType::Absolute,
-        .size          = float3(r.voxel_options.res),
-        .type          = VK_IMAGE_TYPE_3D,
-        .format        = VK_FORMAT_R8G8B8A8_UNORM,
-        .extra_formats = {VK_FORMAT_R32_UINT},
-    });
-
-    r.voxels_radiance = r.graph.image_descs.add({
-        .name      = "Voxels radiance",
-        .size_type = SizeType::Absolute,
-        .size      = float3(r.voxel_options.res),
-        .type      = VK_IMAGE_TYPE_3D,
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.average_luminance = r.graph.image_descs.add({
-        .name          = "Average luminance",
-        .size_type     = SizeType::Absolute,
-        .size          = float3(1.0f),
-        .type          = VK_IMAGE_TYPE_2D,
-        .format        = VK_FORMAT_R32_SFLOAT,
-    });
-
-
-    usize name_i     = 0;
-    std::array names = {
-        "Voxels volume -X",
-        "Voxels volume +X",
-        "Voxels volume -Y",
-        "Voxels volume +Y",
-        "Voxels volume -Z",
-        "Voxels volume +Z",
-    };
-
-    for (auto &volume : r.voxels_directional_volumes)
-    {
-        u32 size = r.voxel_options.res / 2;
-        volume   = r.graph.image_descs.add({
-            .name      = names[name_i++],
-            .size_type = SizeType::Absolute,
-            .size      = float3(size),
-            .type      = VK_IMAGE_TYPE_3D,
-            .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-            .levels    = static_cast<u32>(std::floor(std::log2(size)) + 1.0),
-        });
-    }
-
-    r.shadow_cascades.resize(r.settings.shadow_cascades_count);
-    for (auto &shadow_cascade : r.shadow_cascades)
-    {
-        shadow_cascade = r.graph.image_descs.add({
-            .name      = "Shadow cascade",
-            .size_type = SizeType::Absolute,
-            .size      = float3(2048.0f, 2048.0f, 1.0f),
-            .type      = VK_IMAGE_TYPE_2D,
-            .format    = VK_FORMAT_D32_SFLOAT,
-        });
-    }
 }
 
 void Renderer::destroy()
@@ -1010,14 +918,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
-    const auto &depth_slices_pos = r.depth_slices_pos;
-    const auto &matrices_pos     = r.matrices_pos;
-
     std::vector<ImageDescH> sampled_images = {r.voxels_albedo, r.voxels_normal};
-    for (auto cascade : r.shadow_cascades)
-    {
-        sampled_images.push_back(cascade);
-    }
 
     graph.add_pass({
         .name           = "Voxels direct lighting",
@@ -1027,18 +928,9 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
         .exec =
             [pass_data         = r.voxels,
              trilinear_sampler = r.trilinear_sampler,
-             voxel_options     = r.voxel_options,
-             depth_slices_pos,
-             matrices_pos](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+             voxel_options     = r.voxel_options](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
                 auto voxels_normal = graph.get_resolved_image(self.sampled_images[1]);
-                std::vector<vulkan::ImageH> shadow_cascades;
-                shadow_cascades.reserve(self.sampled_images.size() - 2);
-                for (usize i = 2; i < self.sampled_images.size(); i++)
-                {
-                    shadow_cascades.push_back(graph.get_resolved_image(self.sampled_images[i]));
-                }
-
                 auto voxels_radiance = graph.get_resolved_image(self.storage_images[0]);
 
                 const auto &program = pass_data.inject_radiance;
@@ -1054,19 +946,6 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
                                                 trilinear_sampler,
                                                 3);
                 api.bind_image(program, api.get_image(voxels_radiance).default_view, 4);
-
-                api.bind_buffer(program, depth_slices_pos, 5);
-                api.bind_buffer(program, matrices_pos, 6);
-
-                {
-                    std::vector<vulkan::ImageViewH> views;
-                    views.reserve(shadow_cascades.size());
-                    for (const auto &cascade_h : shadow_cascades)
-                    {
-                        views.push_back(api.get_image(cascade_h).default_view);
-                    }
-                    api.bind_combined_images_samplers(program, views, {trilinear_sampler}, 7);
-                }
 
                 auto count = voxel_options.res / 8;
                 api.dispatch(program, count, count, count);
@@ -1578,6 +1457,103 @@ void Renderer::display_ui(UI::Context &ui)
     }
 }
 
+static void create_graph_images(Renderer &r)
+{
+    r.depth_buffer = r.graph.image_descs.add({.name = "Depth Buffer", .format = VK_FORMAT_D32_SFLOAT});
+    r.hdr_buffer = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.ldr_buffer = r.graph.image_descs.add({.name = "LDR Buffer", .format = r.api.ctx.swapchain.format.format});
+
+    r.transmittance_lut = r.graph.image_descs.add({
+        .name      = "Transmittance LUT",
+        .size_type = SizeType::Absolute,
+        .size      = float3(256, 64, 1),
+        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+    });
+
+    r.skyview_lut = r.graph.image_descs.add({
+        .name      = "Skyview LUT",
+        .size_type = SizeType::Absolute,
+        .size      = float3(192, 108, 1),
+        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+    });
+
+    r.multiscattering_lut = r.graph.image_descs.add({
+        .name      = "Multiscattering LUT",
+        .size_type = SizeType::Absolute,
+        .size      = float3(32, 32, 1),
+        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+    });
+
+    r.voxels_albedo = r.graph.image_descs.add({
+        .name          = "Voxels albedo",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(r.voxel_options.res),
+        .type          = VK_IMAGE_TYPE_3D,
+        .format        = VK_FORMAT_R8G8B8A8_UNORM,
+        .extra_formats = {VK_FORMAT_R32_UINT},
+    });
+
+    r.voxels_normal = r.graph.image_descs.add({
+        .name          = "Voxels normal",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(r.voxel_options.res),
+        .type          = VK_IMAGE_TYPE_3D,
+        .format        = VK_FORMAT_R8G8B8A8_UNORM,
+        .extra_formats = {VK_FORMAT_R32_UINT},
+    });
+
+    r.voxels_radiance = r.graph.image_descs.add({
+        .name      = "Voxels radiance",
+        .size_type = SizeType::Absolute,
+        .size      = float3(r.voxel_options.res),
+        .type      = VK_IMAGE_TYPE_3D,
+        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+    });
+
+    r.average_luminance = r.graph.image_descs.add({
+        .name          = "Average luminance",
+        .size_type     = SizeType::Absolute,
+        .size          = float3(1.0f),
+        .type          = VK_IMAGE_TYPE_2D,
+        .format        = VK_FORMAT_R32_SFLOAT,
+    });
+
+    usize name_i     = 0;
+    std::array names = {
+        "Voxels volume -X",
+        "Voxels volume +X",
+        "Voxels volume -Y",
+        "Voxels volume +Y",
+        "Voxels volume -Z",
+        "Voxels volume +Z",
+    };
+
+    for (auto &volume : r.voxels_directional_volumes)
+    {
+        u32 size = r.voxel_options.res / 2;
+        volume   = r.graph.image_descs.add({
+            .name      = names[name_i++],
+            .size_type = SizeType::Absolute,
+            .size      = float3(size),
+            .type      = VK_IMAGE_TYPE_3D,
+            .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .levels    = static_cast<u32>(std::floor(std::log2(size)) + 1.0),
+        });
+    }
+
+    r.shadow_cascades.resize(r.settings.shadow_cascades_count);
+    for (auto &shadow_cascade : r.shadow_cascades)
+    {
+        shadow_cascade = r.graph.image_descs.add({
+            .name      = "Shadow cascade",
+            .size_type = SizeType::Absolute,
+            .size      = float3(2048.0f, 2048.0f, 1.0f),
+            .type      = VK_IMAGE_TYPE_2D,
+            .format    = VK_FORMAT_D32_SFLOAT,
+        });
+    }
+}
+
 void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 {
 
@@ -1594,11 +1570,11 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
         ImGui::EndFrame();
         return;
     }
-    graph.clear(); // start_frame() ?
+    graph.start_frame(); // start_frame() ?
+
+    create_graph_images(*this);
 
     update_uniforms(*this, world, main_camera);
-
-    add_shadow_cascades_pass(*this, *world.get_component<CameraComponent>(main_camera));
 
     // voxel cone tracing prep
     add_voxels_clear_pass(*this);
@@ -1613,6 +1589,9 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     else
     {
         add_gltf_prepass(*this);
+        add_cascades_bounds_pass(*this);
+        add_shadow_cascades_pass(*this, *world.get_component<CameraComponent>(main_camera));
+
         add_gltf_pass(*this);
     }
 

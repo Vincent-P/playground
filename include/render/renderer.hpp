@@ -237,6 +237,13 @@ struct Renderer
     } luminance;
     ImageDescH average_luminance;
 
+    struct CascadesBoundsPass
+    {
+        vulkan::ComputeProgramH depth_reduction_0;
+        vulkan::ComputeProgramH depth_reduction_1;
+        vulkan::ComputeProgramH compute_bounds;
+    } cascades_bounds;
+    std::vector<ImageDescH> depth_reduction_maps;
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
@@ -261,6 +268,8 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &mo
 Renderer::VoxelPass create_voxel_pass(vulkan::API & api);
 Renderer::LuminancePass create_luminance_pass(vulkan::API & api);
 void add_luminance_pass(Renderer &r);
+Renderer::CascadesBoundsPass create_cascades_bounds_pass(vulkan::API &api);
+void add_cascades_bounds_pass(Renderer &r);
 
 
 } // namespace my_app

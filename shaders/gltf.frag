@@ -225,6 +225,9 @@ void main()
 
     const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
 
+#define POISSON_DISK 0
+
+#if POISSON_DISK
     float3 random_angle_uv = (i_world_pos.xyz*1000)/32;
     float2 random_cos_sin = texture(global_textures_3d[constants.random_rotations_idx], random_angle_uv).xy;
 
@@ -268,8 +271,9 @@ void main()
     }
 
     float visibility = 1.0 - (shadow / (poisson_samples_count));
-
-
+#else
+    float visibility = 1.0 - float(texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r > shadow_coord.z + bias);
+#endif
 
     /// --- Lighting
 
