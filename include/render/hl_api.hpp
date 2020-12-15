@@ -23,10 +23,7 @@
 
 namespace my_app
 {
-namespace UI
-{
-struct Context;
-}
+namespace UI { struct Context; }
 namespace vulkan
 {
 
@@ -520,6 +517,11 @@ struct API
     void bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot);
     void bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint slot);
 
+    void bind_image(GraphicsProgramH program_h, ImageH image_h, uint set, uint slot, uint index = 0);
+    void bind_image(ComputeProgramH program_h, ImageH image_h, uint slot, uint index = 0);
+    void bind_images(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, uint set, uint slot);
+    void bind_images(ComputeProgramH program_h, const std::vector<ImageH> &images_h, uint slot);
+
     // sampled images
     void bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
     void bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot, uint index = 0);
@@ -527,6 +529,14 @@ struct API
     void bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
                                        const std::vector<SamplerH> &samplers, uint set, uint slot);
     void bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
+                                       const std::vector<SamplerH> &samplers, uint slot);
+
+    void bind_combined_image_sampler(GraphicsProgramH program_h, ImageH image_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
+    void bind_combined_image_sampler(ComputeProgramH program_h, ImageH image_h, SamplerH sampler_h, uint slot, uint index = 0);
+
+    void bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageH> &images_h,
+                                       const std::vector<SamplerH> &samplers, uint set, uint slot);
+    void bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageH> &images_h,
                                        const std::vector<SamplerH> &samplers, uint slot);
 
     // dynamic buffers

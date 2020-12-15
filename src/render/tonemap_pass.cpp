@@ -45,7 +45,7 @@ void add_tonemapping_pass(Renderer &r)
                 auto program    = pass_data.program;
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(hdr_buffer).default_view,
+                                                hdr_buffer,
                                                 default_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 0);
@@ -53,7 +53,7 @@ void add_tonemapping_pass(Renderer &r)
                 api.bind_buffer(program, pass_data.params_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(average_luminance).default_view,
+                                                average_luminance,
                                                 default_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 2);

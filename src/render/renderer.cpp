@@ -244,6 +244,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     }
 
     /// --- Create images
+
     struct GltfImageInfo
     {
         int width;
@@ -325,6 +326,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     }
 
     /// --- Create programs
+
     vulkan::DepthState depth_state = {
         .test         = VK_COMPARE_OP_EQUAL,
         .enable_write = false,
@@ -651,41 +653,25 @@ static void add_gltf_pass(Renderer &r)
                 api.bind_buffer(program, voxel_data.voxel_options_pos, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(voxels_radiance).default_view,
+                                                voxels_radiance,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 4);
 
-                {
-                    std::vector<vulkan::ImageViewH> views;
-                    views.reserve(voxels_directional_volumes.size());
-                    for (const auto &volume_h : voxels_directional_volumes)
-                    {
-                        views.push_back(api.get_image(volume_h).default_view);
-                    }
-                    api.bind_combined_images_samplers(program,
-                                                      views,
-                                                      {trilinear_sampler},
-                                                      vulkan::SHADER_DESCRIPTOR_SET,
-                                                      5);
-                }
+                api.bind_combined_images_samplers(program,
+                                                  voxels_directional_volumes,
+                                                  {trilinear_sampler},
+                                                  vulkan::SHADER_DESCRIPTOR_SET,
+                                                  5);
 
                 api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
                 api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 7);
 
-                {
-                    std::vector<vulkan::ImageViewH> views;
-                    views.reserve(shadow_cascades.size());
-                    for (const auto &cascade_h : shadow_cascades)
-                    {
-                        views.push_back(api.get_image(cascade_h).default_view);
-                    }
-                    api.bind_combined_images_samplers(program,
-                                                      views,
-                                                      {trilinear_sampler},
-                                                      vulkan::SHADER_DESCRIPTOR_SET,
-                                                      8);
-                }
+                api.bind_combined_images_samplers(program,
+                                                  shadow_cascades,
+                                                  {trilinear_sampler},
+                                                  vulkan::SHADER_DESCRIPTOR_SET,
+                                                  8);
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
@@ -756,9 +742,9 @@ static void add_voxels_clear_pass(Renderer &r)
                 auto program = pass_data.clear_voxels;
 
                 api.bind_buffer(program, pass_data.voxel_options_pos, 0);
-                api.bind_image(program, api.get_image(voxels_albedo).default_view, 1);
-                api.bind_image(program, api.get_image(voxels_normal).default_view, 2);
-                api.bind_image(program, api.get_image(voxels_radiance).default_view, 3);
+                api.bind_image(program, voxels_albedo, 1);
+                api.bind_image(program, voxels_normal, 2);
+                api.bind_image(program, voxels_radiance, 3);
 
                 auto count = voxel_options.res / 8;
                 api.dispatch(program, count, count, count);
@@ -902,7 +888,7 @@ static void add_voxels_debug_visualization_pass(Renderer &r)
                 api.bind_buffer(program, pass_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(voxels).default_view,
+                                                voxels,
                                                 sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 2);
@@ -938,14 +924,14 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
                 api.bind_buffer(program, pass_data.voxel_options_pos, 0);
                 api.bind_buffer(program, pass_data.vct_debug_pos, 1);
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(voxels_albedo).default_view,
+                                                voxels_albedo,
                                                 trilinear_sampler,
                                                 2);
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(voxels_normal).default_view,
+                                                voxels_normal,
                                                 trilinear_sampler,
                                                 3);
-                api.bind_image(program, api.get_image(voxels_radiance).default_view, 4);
+                api.bind_image(program, voxels_radiance, 4);
 
                 auto count = voxel_options.res / 8;
                 api.dispatch(program, count, count, count);
@@ -1009,7 +995,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
 
                 api.bind_buffer(program, mip_pos, 0);
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(voxels_radiance).default_view,
+                                                voxels_radiance,
                                                 trilinear_sampler,
                                                 1);
                 api.bind_images(program, views, 2);

@@ -180,7 +180,7 @@ void add_imgui_pass(Renderer &r)
                         else
                         {
                             api.bind_combined_image_sampler(current,
-                                                            api.get_image(pass_data.font_atlas).default_view,
+                                                            pass_data.font_atlas,
                                                             trilinear_sampler,
                                                             vulkan::SHADER_DESCRIPTOR_SET,
                                                             0);

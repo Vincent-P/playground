@@ -577,7 +577,7 @@ void API::bind_program(GraphicsProgramH H)
     current_program = &program;
 }
 
-// bind one image
+// bind only one image
 // sampler ? => combined image sampler descriptor
 // else storage image
 static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint slot, uint index,
@@ -715,12 +715,18 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     }
 }
 
+static ShaderBindingSet &get_graphics_binding_set(API &api, GraphicsProgramH program_h, uint set)
+{
+    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    return set == GLOBAL_DESCRIPTOR_SET
+        ? api.global_bindings.binding_set
+        : api.get_program(program_h).binding_sets_by_freq[set - 1];
+}
+
 // storage images
 void API::bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
@@ -732,9 +738,7 @@ void API::bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint sl
 
 void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
@@ -744,13 +748,29 @@ void API::bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
+
+static std::vector<ImageViewH> default_views_from_images(API& api, const std::vector<ImageH> &images_h)
+{
+    std::vector<ImageViewH> views;
+    views.reserve(images_h.size());
+    for (auto h : images_h) {
+        views.push_back(api.get_image(h).default_view);
+    }
+    return views;
+}
+
+// clang-format off
+void API::bind_image(GraphicsProgramH program_h, ImageH image_h, uint set, uint slot, uint index) { bind_image(program_h, get_image(image_h).default_view, set, slot, index); }
+void API::bind_image(ComputeProgramH program_h, ImageH image_h, uint slot, uint index) { bind_image(program_h, get_image(image_h).default_view, slot, index); }
+void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, uint set, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), set, slot); }
+void API::bind_images(ComputeProgramH program_h, const std::vector<ImageH> &images_h, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), slot); }
+// clang-format on
+
 // sampled images
 void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set,
                                       uint slot, uint index)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
 }
 
@@ -764,9 +784,7 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH imag
 void API::bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
                                         const std::vector<SamplerH> &samplers, uint set, uint slot)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
 void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
@@ -776,12 +794,23 @@ void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::ve
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
 
+// clang-format off
+void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageH image_h, SamplerH sampler_h, uint set, uint slot, uint index) { bind_combined_image_sampler(program_h, get_image(image_h).default_view, sampler_h, set, slot, index); }
+void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageH image_h, SamplerH sampler_h, uint slot, uint index) { bind_combined_image_sampler(program_h, get_image(image_h).default_view, sampler_h, slot, index); }
+void API::bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, uint set, uint slot)
+{
+    bind_combined_images_samplers(program_h, default_views_from_images(*this, images_h), samplers, set, slot);
+}
+void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, uint slot)
+{
+    bind_combined_images_samplers(program_h, default_views_from_images(*this, images_h), samplers, slot);
+}
+// clang-format on
+
 void API::bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     auto &buffer      = get_buffer(buffer_pos.buffer_h);
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_buffer_internal(*this, binding_set, buffer, &buffer_pos, slot);
 }
 
@@ -794,10 +823,8 @@ void API::bind_buffer(ComputeProgramH program_h, CircularBufferPosition buffer_p
 
 void API::bind_buffer(GraphicsProgramH program_h, BufferH buffer_h, uint set, uint slot)
 {
-    assert(!(program_h.is_valid() && set == GLOBAL_DESCRIPTOR_SET));
+    auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     auto &buffer      = get_buffer(buffer_h);
-    auto &binding_set = set == GLOBAL_DESCRIPTOR_SET ? global_bindings.binding_set
-                                                     : get_program(program_h).binding_sets_by_freq[set - 1];
     bind_buffer_internal(*this, binding_set, buffer, nullptr, slot);
 }
 

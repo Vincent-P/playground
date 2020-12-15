@@ -71,10 +71,10 @@ void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmo
 
                 api.bind_buffer(program, pass_data.atmosphere_params_pos, 0);
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(transmittance).default_view,
+                                                transmittance,
                                                 trilinear_sampler,
                                                 1);
-                api.bind_image(program, api.get_image(multiscattering).default_view, 2);
+                api.bind_image(program, multiscattering, 2);
 
                 auto multiscattering_desc = *graph.image_descs.get(self.storage_images[0]);
                 auto size_x               = static_cast<uint>(multiscattering_desc.size.x);
@@ -98,13 +98,13 @@ void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmo
                 api.bind_buffer(program, pass_data.atmosphere_params_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(transmittance).default_view,
+                                                transmittance,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 1);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(multiscattering).default_view,
+                                                multiscattering,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 2);
@@ -133,25 +133,25 @@ void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmo
                 api.bind_buffer(program, pass_data.atmosphere_params_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(transmittance).default_view,
+                                                transmittance,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 1);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(skyview).default_view,
+                                                skyview,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 2);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(depth).default_view,
+                                                depth,
                                                 nearest_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 3);
 
                 api.bind_combined_image_sampler(program,
-                                                api.get_image(multiscattering).default_view,
+                                                multiscattering,
                                                 trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 4);

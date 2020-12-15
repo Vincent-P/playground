@@ -41,7 +41,7 @@ void add_luminance_pass(Renderer &r)
                 auto hdr_buffer_image = api.get_image(hdr_buffer);
 
                 api.bind_combined_image_sampler(program,
-                                                hdr_buffer_image.default_view,
+                                                hdr_buffer,
                                                 trilinear_sampler,
                                                 0);
 
@@ -81,9 +81,8 @@ void add_luminance_pass(Renderer &r)
         [pass_data = r.luminance, pixel_count](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto program                 = pass_data.average_histo;
                 auto average_luminance       = graph.get_resolved_image(self.storage_images[0]);
-                auto average_luminance_image = api.get_image(average_luminance);
 
-                api.bind_image(program, average_luminance_image.default_view, 0);
+                api.bind_image(program, average_luminance, 0);
 
                 api.bind_buffer(program, pass_data.histogram_buffer, 1);
 

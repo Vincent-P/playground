@@ -50,14 +50,13 @@ void add_cascades_bounds_pass(Renderer &r)
             [pass_data         = r.cascades_bounds,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto depth_buffer        = graph.get_resolved_image(self.sampled_images[0]);
-                auto depth_buffer_image  = api.get_image(depth_buffer);
                 auto reduction_map       = graph.get_resolved_image(self.storage_images[0]);
-                auto reduction_map_image = api.get_image(reduction_map);
+                auto reduction_map_image       = api.get_image(reduction_map);
 
                 auto program = pass_data.depth_reduction_0;
 
-                api.bind_combined_image_sampler(program, depth_buffer_image.default_view, trilinear_sampler, 0);
-                api.bind_image(program, reduction_map_image.default_view, 1);
+                api.bind_combined_image_sampler(program, depth_buffer, trilinear_sampler, 0);
+                api.bind_image(program, reduction_map, 1);
 
                 api.dispatch(program, reduction_map_image.info.width, reduction_map_image.info.height, 1);
             },
@@ -73,14 +72,13 @@ void add_cascades_bounds_pass(Renderer &r)
             .exec =
             [pass_data = r.cascades_bounds, trilinear_sampler=r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                     auto input        = graph.get_resolved_image(self.sampled_images[0]);
-                    auto input_image  = api.get_image(input);
                     auto output       = graph.get_resolved_image(self.storage_images[0]);
                     auto output_image = api.get_image(output);
 
                     auto program = pass_data.depth_reduction_1;
 
-                    api.bind_combined_image_sampler(program, input_image.default_view, trilinear_sampler, 0);
-                    api.bind_image(program, output_image.default_view, 1);
+                    api.bind_combined_image_sampler(program, input, trilinear_sampler, 0);
+                    api.bind_image(program, output, 1);
 
                     api.dispatch(program, output_image.info.width, output_image.info.height, 1);
                 },

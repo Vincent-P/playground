@@ -20,7 +20,7 @@ namespace my_app
 
 // fwd
 namespace platform {struct Window;}
-namespace UI { struct Context; };
+namespace UI {struct Context;}
 struct Model;
 struct Event;
 class TimerData;
@@ -89,7 +89,7 @@ struct TonemapDebug
 
 struct Settings
 {
-    uint2 render_resolution     = {.x = 0, .y = 0};
+    uint2 render_resolution    = {.x = 0, .y = 0};
     float resolution_scale     = 1.0;
     bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
