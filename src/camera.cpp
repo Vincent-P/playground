@@ -37,15 +37,21 @@ float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 
 float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse)
 {
-    float f = 1.0f / std::tan(to_radians(fov) / 2.0f);
+    // reversed depth only needs to reverse near and far for the projecton matrix
+    auto n = far_plane;
+    auto f = near_plane;
 
-    assert((near_plane - far_plane) != 0.0f);
-    float far_on_range = far_plane / (near_plane - far_plane);
+    float tan = std::tan(to_radians(fov) / 2.0f); // = height / n
+    // aspect_ratio = width/height
 
-    float x  = f / aspect_ratio;
-    float y  = -f;
-    float z0 = -far_on_range - 1.0f;
-    float z1 = -near_plane * far_on_range;
+    float x  = 2.0f / (tan * aspect_ratio); // 2*(n/height)*(height/width) => 2n/width
+    float y  = - 2.0 / tan; // -2n/height
+
+    assert((n - f) != 0.0f);
+    float f_on_n_minus_f = - f / (n - f); // why do i need a '-' here? :(
+
+    float z0 = f_on_n_minus_f;
+    float z1 = -n * f_on_n_minus_f;
 
     // bad things will happen in the inverse
     assert(z1 != 0.0f);

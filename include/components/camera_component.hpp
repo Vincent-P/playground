@@ -9,7 +9,7 @@ struct CameraComponent
 {
     float near_plane = 0.1f;
     float far_plane  = 100.0f;
-    float fov        = 60.0f;
+    float fov        = 90.0f;
     float4x4 view;
     float4x4 view_inverse;
     float4x4 projection;
