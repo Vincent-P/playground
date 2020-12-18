@@ -3,6 +3,7 @@ layout (location = 0) out vec2 out_uv0;
 #include "globals.h"
 #define PBR_NO_NORMALS
 #include "pbr.h"
+#include "csm.h"
 
 struct GltfVertex
 {
@@ -28,15 +29,10 @@ layout (set = 1, binding = 2) uniform CI {
     uint cascade_index;
 };
 
-struct CascadeMatrix
-{
-    float4x4 view;
-    float4x4 proj;
-};
-
-layout (set = 1, binding = 3) uniform CM {
-    CascadeMatrix cascade_matrices[10];
-};
+layout(set = 1, binding = 3) buffer GPUMatrices {
+    float4 depth_slices[2];
+    CascadeMatrix matrices[4];
+} gpu_cascades;
 
 void main()
 {
@@ -44,7 +40,8 @@ void main()
     float4x4 model_transform = nodes_transforms[constants.node_idx];
     GltfVertex vertex = vertices[gl_VertexIndex + constants.vertex_offset];
 
-    CascadeMatrix matrices = cascade_matrices[cascade_index];
+    CascadeMatrix matrices = gpu_cascades.matrices[cascade_index];
+
     out_uv0 = vertex.uv0;
     gl_Position = matrices.proj * matrices.view * model_transform * vec4(vertex.position, 1.0);
     // debug shadow map :)

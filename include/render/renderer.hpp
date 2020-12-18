@@ -120,7 +120,8 @@ static_assert(sizeof(GltfPushConstant) <= 128);
 
 struct ShadowCascadesAndSlices
 {
-    float4 slices;
+    float4 slice1;
+    float4 slice2;
 
     struct
     {
@@ -129,7 +130,7 @@ struct ShadowCascadesAndSlices
     } matrices[4];
 };
 
-static_assert(sizeof(ShadowCascadesAndSlices) == sizeof(float4) + 4 * 2 * sizeof(float4x4));
+static_assert(sizeof(ShadowCascadesAndSlices) == 2 * sizeof(float4) + 4 * 2 * sizeof(float4x4));
 
 // Replace with directional light tagged "sun"
 struct Sun
@@ -223,11 +224,6 @@ struct Renderer
 
     std::array<ImageDescH, 6> voxels_directional_volumes;
     std::vector<ImageDescH> shadow_cascades;
-    std::vector<float> depth_slices;
-    std::vector<float4x4> cascades_view;
-    std::vector<float4x4> cascades_proj;
-    vulkan::CircularBufferPosition matrices_pos;
-    vulkan::CircularBufferPosition depth_slices_pos;
 
     struct VoxelPass
     {

@@ -403,149 +403,13 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
     }
 }
 
-static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_camera)
+static void add_shadow_cascades_pass(Renderer &r)
 {
     auto &graph = r.graph;
     auto &api   = r.api;
 
     auto external_images = r.gltf.images;
-
     auto cascades_count = r.settings.shadow_cascades_count;
-
-    auto &depth_slices  = r.depth_slices;
-    auto &cascades_view = r.cascades_view;
-    auto &cascades_proj = r.cascades_proj;
-    depth_slices.resize(cascades_count);
-    cascades_view.resize(cascades_count);
-    cascades_proj.resize(cascades_count);
-
-
-    // "practical split scheme" by nvidia
-    // (https://developer.nvidia.com/gpugems/gpugems3/part-ii-light-and-shadows/chapter-10-parallel-split-shadow-maps-programmable-gpus)
-    // basically a mix of log and uniform splits by a split factor
-    float n = main_camera.far_plane;
-    float f = main_camera.near_plane;
-    auto N = cascades_count;
-    for (uint i = 0; i < cascades_count; i++)
-    {
-        auto lambda = r.settings.split_factor;
-        auto i_N = float(i) / (N);
-        depth_slices[i] = lambda * n * std::pow(f / n, i_N) + (1 - lambda) * (n + (i_N) * (f - n));
-    }
-
-    // float far_on_range = main_camera.far_plane / (main_camera.near_plane - main_camera.far_plane);
-    // float z0 = -far_on_range - 1.0f;
-    // float z1 = -main_camera.near_plane * far_on_range;
-
-    // z0 = -(f/n-f) - 1
-    // z1 = - n * (f/n-f)
-    // f(x) = x * (-(f/n-f) - 1) - n * (f/n-f) = 0
-
-    for (uint i = 0; i < cascades_count; i++) {
-        auto projected = main_camera.projection *  float4(0.0f, 0.0f, -depth_slices[i], 1.0f);
-        depth_slices[i] = projected.z / projected.w;
-    }
-
-    // reverse the depth values
-    auto copy = depth_slices;
-    for (uint i = 0; i < cascades_count; i++) {
-        depth_slices[i] = copy[cascades_count-1-i];
-    }
-
-    // compute view and projection  matrix for each cascade
-    float last_split = 1.0f;
-    for (uint i = 0; i < cascades_count; i++)
-    {
-        float split = depth_slices[i];
-
-        // get the frustum of the current split (near plane = 1.0f - last_split | far plane = 1.0f - split)
-        // it's a bit weird because the splits are in [0, 1] so to use reversed depth there is a 1 - depth
-        std::array frustum_corners{
-            float3(-1.0f, 1.0f, last_split),
-            float3(1.0f, 1.0f, last_split),
-            float3(1.0f, -1.0f, last_split),
-            float3(-1.0f, -1.0f, last_split),
-            float3(-1.0f, 1.0f, split),
-            float3(1.0f, 1.0f, split),
-            float3(1.0f, -1.0f, split),
-            float3(-1.0f, -1.0f, split),
-        };
-
-        // project frustum corners into world space
-        auto cam_inv_view_pro = main_camera.view_inverse * main_camera.projection_inverse;
-        for (uint i = 0; i < 8; i++)
-        {
-            float4 world_space_corner = cam_inv_view_pro * float4(frustum_corners[i], 1.0f);
-            frustum_corners[i]        = (1.0f / world_space_corner.w) * world_space_corner.xyz();
-        }
-
-        // get frustum center
-        auto center = float3(0.0f);
-        for (uint i = 0; i < 8; i++)
-        {
-            center = center + frustum_corners[i];
-        }
-        center = (1.0f / 8.0f) * center;
-
-        // get the radius of the frustum
-        float radius = 0.0f;
-        for (uint i = 0; i < 8; i++)
-        {
-            float distance = (frustum_corners[i] - center).norm();
-            radius         = std::max(radius, distance);
-        }
-        radius = std::ceil(radius * 16.0f) / 16.0f;
-
-        float3 light_dir = normalize(r.sun.front);
-        auto max         = float3(radius);
-        float3 min       = -1.0f * max;
-
-        cascades_view[i]
-            = camera::look_at(center - light_dir * max.z,
-                              center,
-                              float3(0.0f, 1.0f, 0.0f)); // todo handle the case when light_dir and up are parallel
-
-        // reverse depth
-        min.z            = (max.z - min.z);
-        max.z            = 0.0f;
-        cascades_proj[i] = camera::ortho(min, max);
-
-        float4x4 matrix = cascades_view[i] * cascades_proj[i];
-        float4 origin   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        origin          = matrix * origin;
-        origin          = (2048.f / 2.0f) * origin;
-
-        float4 rounded_origin = round(origin);
-        float4 rounded_offset = rounded_origin - origin;
-        rounded_offset        = (2.0f / 2048.f) * rounded_offset;
-        rounded_offset.z      = 0.0f;
-        rounded_offset.w      = 0.0f;
-
-        float4x4 proj = cascades_proj[i];
-        proj.at(0, 3) += rounded_offset.x;
-        proj.at(1, 3) += rounded_offset.y;
-        proj.at(2, 3) += rounded_offset.z;
-        proj.at(3, 3) += rounded_offset.w;
-        cascades_proj[i] = proj;
-
-        last_split = split;
-    }
-
-    r.matrices_pos = api.dynamic_uniform_buffer(2 * sizeof(float4x4) * cascades_count);
-    auto *matrices = reinterpret_cast<float4x4 *>(r.matrices_pos.mapped);
-    for (uint i = 0; i < cascades_count; i++)
-    {
-        matrices[2 * i]     = cascades_view[i];
-        matrices[2 * i + 1] = cascades_proj[i];
-    }
-
-    // slices are sent as-is and need to be reversed in shader
-    r.depth_slices_pos = r.api.dynamic_uniform_buffer(sizeof(float4) * 2);
-    auto *slices       = reinterpret_cast<float *>(r.depth_slices_pos.mapped);
-    for (uint i = 0; i < cascades_count; i++)
-    {
-        slices[i] = r.depth_slices[i];
-    }
 
     for (uint i = 0; i < cascades_count; i++)
     {
@@ -559,7 +423,9 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
             .external_images  = external_images,
             .depth_attachment = r.shadow_cascades[i],
             .exec =
-            [pass_data = r.gltf, cascade_index_pos, matrices_pos = r.matrices_pos, rotation_idx=r.random_rotation_idx](RenderGraph & /*graph*/,
+            [pass_data = r.gltf, cascade_index_pos,
+             rotation_idx=r.random_rotation_idx,
+             cascades_data=r.cascades_bounds](RenderGraph & /*graph*/,
                                                                                        RenderPass & /*self*/,
                                                                                        vulkan::API &api) {
                     // draw glTF
@@ -568,7 +434,7 @@ static void add_shadow_cascades_pass(Renderer &r, const CameraComponent &main_ca
 
                         api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                         api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
-                        api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 3);
+                        api.bind_buffer(program, cascades_data.cascades_slices_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
                         api.bind_index_buffer(pass_data.index_buffer);
 
                         draw_model(api, *pass_data.model, program, rotation_idx);
@@ -617,10 +483,6 @@ static void add_gltf_pass(Renderer &r)
         sampled_images.push_back(cascade);
     }
 
-    auto &depth_slices_pos = r.depth_slices_pos;
-
-    auto matrices_pos = r.matrices_pos;
-
     graph.add_pass({
         .name              = "glTF pass",
         .type              = PassType::Graphics,
@@ -632,8 +494,8 @@ static void add_gltf_pass(Renderer &r)
             [pass_data         = r.gltf,
              voxel_data        = r.voxels,
              trilinear_sampler = r.trilinear_sampler,
-             depth_slices_pos,
-             matrices_pos, rotation_idx=r.random_rotation_idx](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+             rotation_idx=r.random_rotation_idx,
+             cascades_data=r.cascades_bounds](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
                 std::vector<vulkan::ImageH> voxels_directional_volumes;
                 std::vector<vulkan::ImageH> shadow_cascades;
@@ -665,14 +527,13 @@ static void add_gltf_pass(Renderer &r)
                                                   vulkan::SHADER_DESCRIPTOR_SET,
                                                   5);
 
-                api.bind_buffer(program, depth_slices_pos, vulkan::SHADER_DESCRIPTOR_SET, 6);
-                api.bind_buffer(program, matrices_pos, vulkan::SHADER_DESCRIPTOR_SET, 7);
-
                 api.bind_combined_images_samplers(program,
                                                   shadow_cascades,
                                                   {trilinear_sampler},
                                                   vulkan::SHADER_DESCRIPTOR_SET,
-                                                  8);
+                                                  6);
+
+                api.bind_buffer(program, cascades_data.cascades_slices_buffer, vulkan::SHADER_DESCRIPTOR_SET, 7);
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
@@ -1332,11 +1193,6 @@ void Renderer::display_ui(UI::Context &ui)
 
         if (ImGui::CollapsingHeader("Cascaded Shadow maps"))
         {
-            ImGui::TextUnformatted("Depth slices:");
-            for (auto depth_slice : depth_slices)
-            {
-                ImGui::Text("  %f", depth_slice);
-            }
             for (auto shadow_map : shadow_cascades)
             {
                 auto &res = graph.images.at(shadow_map);
@@ -1577,7 +1433,7 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     {
         add_gltf_prepass(*this);
         add_cascades_bounds_pass(*this);
-        add_shadow_cascades_pass(*this, *world.get_component<CameraComponent>(main_camera));
+        add_shadow_cascades_pass(*this);
 
         add_gltf_pass(*this);
     }

@@ -1,6 +1,7 @@
 #pragma shader_stage(compute)
 
 #include "types.h"
+#include "constants.h"
 
 layout (set = 1, binding = 0) uniform sampler2D reduction_input;
 layout (set = 1, binding = 1, rg32f) uniform image2D reduction_output;

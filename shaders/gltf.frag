@@ -23,15 +23,12 @@ layout (set = 1, binding = 3) uniform VO {
 layout(set = 1, binding = 4) uniform sampler3D voxels_radiance;
 layout(set = 1, binding = 5) uniform sampler3D voxels_directional_volumes[6];
 
-layout (set = 1, binding = 6) uniform CD {
-    float4 cascades_depth_slices[4];
-};
+layout(set = 1, binding = 6) uniform sampler2D shadow_cascades[4];
 
-layout (set = 1, binding = 7) uniform CM {
-    CascadeMatrix cascade_matrices[10];
-};
-
-layout(set = 1, binding = 8) uniform sampler2D shadow_cascades[4];
+layout(set = 1, binding = 7) buffer GPUMatrices {
+    float4 depth_slices[2];
+    CascadeMatrix matrices[4];
+} gpu_cascades;
 
 layout (location = 0) out float4 o_color;
 
@@ -138,7 +135,7 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
         cone_direction += diffuse_cone_directions[i].x * right + diffuse_cone_directions[i].z * up;
         cone_direction = normalize(cone_direction);
 
-        diffuse += /*float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) * */  trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
+        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) * trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
     }
 
     return diffuse;
@@ -209,23 +206,25 @@ void main()
     float NdotL = max(dot(N, L), 0.0);
 
     /// --- Cascaded shadow
-    int cascade_idx = 0;
-    for (cascade_idx = 0; cascade_idx < 2; cascade_idx++)
+    int gpu_cascade_idx = 0;
+    for (gpu_cascade_idx = 0; gpu_cascade_idx < 3; gpu_cascade_idx++)
     {
-        if (gl_FragCoord.z > cascades_depth_slices[0][cascade_idx]) {
+        uint gpu_cascade_next = gpu_cascade_idx + 1;
+        if (gl_FragCoord.z > gpu_cascades.depth_slices[gpu_cascade_next/4][gpu_cascade_next%4]) {
             break;
         }
     }
 
 
-    CascadeMatrix matrices = cascade_matrices[cascade_idx];
+    CascadeMatrix matrices = gpu_cascades.matrices[gpu_cascade_idx];
     float4 shadow_coord = (matrices.proj * matrices.view) * float4(i_world_pos, 1.0);
     shadow_coord /= shadow_coord.w;
     float2 uv = 0.5 * (shadow_coord.xy + 1.0);
 
     const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
 
-#define POISSON_DISK 0
+#define POISSON_DISK 1
+#define PCF 1
 
 #if POISSON_DISK
     float3 random_angle_uv = (i_world_pos.xyz*1000)/32;
@@ -244,24 +243,24 @@ void main()
 
 #if 1
         float shadow_map_depth = 0.0;
-        if (cascade_idx == 0)
+        if (gpu_cascade_idx == 0)
         {
             shadow_map_depth = texture(shadow_cascades[0], uv + SIZE * offset).r;
         }
-        else if (cascade_idx == 1)
+        else if (gpu_cascade_idx == 1)
         {
             shadow_map_depth = texture(shadow_cascades[1], uv + SIZE * offset).r;
         }
-        else if (cascade_idx == 2)
+        else if (gpu_cascade_idx == 2)
         {
             shadow_map_depth = texture(shadow_cascades[2], uv + SIZE * offset).r;
         }
-        else if (cascade_idx == 3)
+        else if (gpu_cascade_idx == 3)
         {
             shadow_map_depth = texture(shadow_cascades[3], uv + SIZE * offset).r;
         }
 #else
-        float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv + SIZE * offset).r;
+        float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv + SIZE * offset).r;
 #endif
 
         if (shadow_map_depth > shadow_coord.z + bias) {
@@ -271,8 +270,19 @@ void main()
     }
 
     float visibility = 1.0 - (shadow / (poisson_samples_count));
+
+#elif PCF
+
+    float4 texels = textureGather(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv);
+    float shadow = 0.0;
+    for (uint i_shadow = 0; i_shadow < 4; i_shadow++)
+    {
+        shadow += float(texels[i_shadow] > shadow_coord.z + bias);
+    }
+    float visibility = 1.0 - shadow / 4;
+
 #else
-    float visibility = 1.0 - float(texture(shadow_cascades[nonuniformEXT(cascade_idx)], uv).r > shadow_coord.z + bias);
+    float visibility = 1.0 - float(texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv).r > shadow_coord.z + bias);
 #endif
 
     /// --- Lighting
@@ -280,7 +290,6 @@ void main()
     float3 direct = visibility * BRDF(albedo, N, V, metallic, roughness, L) * radiance * NdotL;
 
     float4 indirect =  indirect_lighting(albedo, N, V, metallic, roughness);
-    indirect.rgb *= albedo / PI;
 
     float4 reflection = float4(0); // trace_reflection(albedo, i_normal, V, metallic, roughness);
 
@@ -322,7 +331,7 @@ void main()
 
     float3 composite = direct + indirect.rgb * indirect.a;
 
-    // composite.rgb *= cascade_colors[cascade_idx];
+    // composite.rgb *= cascade_colors[gpu_cascade_idx];
 
     o_color = float4(composite, 1.0);
 }

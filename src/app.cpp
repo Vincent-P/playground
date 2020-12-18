@@ -25,7 +25,7 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
     const auto &camera_transform = *world.get_component<TransformComponent>(main_camera);
     const auto &input_camera = *world.get_component<InputCameraComponent>(main_camera);
 
-    constexpr float fov  = 60.f;
+    constexpr float fov  = 100.f;
     constexpr float size = 50.f;
     const ImGuiCol red   = ImGui::GetColorU32(float4(255.f / 256.f, 56.f / 256.f, 86.f / 256.f, 1.0f));
     const ImGuiCol green = ImGui::GetColorU32(float4(143.f / 256.f, 226.f / 256.f, 10.f / 256.f, 1.0f));

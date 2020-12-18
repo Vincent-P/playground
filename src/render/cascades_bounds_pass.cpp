@@ -99,7 +99,7 @@ void add_cascades_bounds_pass(Renderer &r)
     graph.add_pass({
         .name           = "Compute cascades matrices",
         .type           = PassType::Compute,
-        .sampled_images = {r.depth_reduction_maps[0]},
+        .sampled_images = {r.depth_reduction_maps.back()},
         .exec =
             [pass_data         = r.cascades_bounds,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
