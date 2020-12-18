@@ -14,12 +14,5 @@
 #define float3x3 mat3
 
 #define u32 uint
-#define u32_invalid u32(~0u)
-
-const float PI = 3.1415926535897932384626433832795;
-
-const int LOD0 = 0;
-
-#define dbg(x) o_color = float4(x, 1.0); return;
 
 #endif

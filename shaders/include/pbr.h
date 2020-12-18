@@ -4,6 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #include "types.h"
+#include "constants.h"
 
 layout (set = 0, binding = 1) uniform sampler2D global_textures[];
 layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];

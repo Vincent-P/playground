@@ -1,6 +1,11 @@
 #ifndef ATMOSPHERE_H
 #define ATMOSPHERE_H
 
+#ifndef __cplusplus
+#define "types.h"
+#define "constants.h"
+#endif
+
 // An atmosphere layer of width 'width', and whose density is defined as
 //   'exp_term' * exp('exp_scale' * h) + 'linear_term' * h + 'constant_term',
 // clamped to [0,1], and where h is the altitude.

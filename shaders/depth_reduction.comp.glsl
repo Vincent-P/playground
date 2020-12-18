@@ -24,7 +24,7 @@ void main()
     if(global_idx.x < depth_buffer_size.x && global_idx.y < depth_buffer_size.y)
     {
         float depth = texelFetch(depth_buffer, int2(global_idx.xy), LOD0).r;
-        depth = to_linear_depth(depth);
+        depth = reverse_to_linear_depth(depth);
 
         reduction_shared[local_idx] = depth != 0.0 ? float2(depth) : IDENTITY_REDUCTION;
     }

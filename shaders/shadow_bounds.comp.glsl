@@ -16,5 +16,5 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    float2 max_min_depth = texelFetch(reduction_input, int2(0, 0), LOD0).rg;
+    float2 max_min_linear = texelFetch(reduction_input, int2(0, 0), LOD0).rg;
 }
