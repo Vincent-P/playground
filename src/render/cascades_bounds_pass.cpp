@@ -15,6 +15,17 @@ Renderer::CascadesBoundsPass create_cascades_bounds_pass(vulkan::API &api)
     pass.depth_reduction_1 = api.create_program({
         .shader = api.create_shader("shaders/depth_reduction_iter.comp.glsl.spv"),
     });
+
+    pass.compute_bounds = api.create_program({
+        .shader = api.create_shader("shaders/shadow_bounds.comp.glsl.spv"),
+    });
+
+    pass.cascades_slices_buffer = api.create_buffer({
+            .name = "Shadow cascades and depth slices",
+            .size = sizeof(ShadowCascadesAndSlices),
+            .usage = vulkan::storage_buffer_usage
+        });
+
     return pass;
 }
 
@@ -84,5 +95,21 @@ void add_cascades_bounds_pass(Renderer &r)
                 },
         });
     }
+
+    graph.add_pass({
+        .name           = "Compute cascades matrices",
+        .type           = PassType::Compute,
+        .sampled_images = {r.depth_reduction_maps[0]},
+        .exec =
+            [pass_data         = r.cascades_bounds,
+             trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+                auto depth_reduction = graph.get_resolved_image(self.sampled_images[0]);
+                auto program         = pass_data.compute_bounds;
+                api.bind_combined_image_sampler(program, depth_reduction, trilinear_sampler, 0);
+                api.clear_buffer(pass_data.cascades_slices_buffer, 0.0f);
+                api.bind_buffer(program, pass_data.cascades_slices_buffer, 1);
+                api.dispatch(program, 1, 1, 1);
+            },
+    });
 }
 } // namespace my_app

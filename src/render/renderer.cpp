@@ -6,6 +6,7 @@
 #include "components/sky_atmosphere_component.hpp"
 #include "components/transform_component.hpp"
 #include "gltf.hpp"
+#include "render/hl_api.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
 #include "ui.hpp"
@@ -184,7 +185,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     pass.vertex_buffer = api.create_buffer({
         .name  = "glTF Vertex Buffer",
         .size  = vbuffer_size,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = vulkan::storage_buffer_usage,
     });
     api.upload_buffer(pass.vertex_buffer, model.vertices.data(), vbuffer_size);
 

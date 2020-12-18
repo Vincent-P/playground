@@ -37,6 +37,8 @@ inline constexpr VkImageUsageFlags color_attachment_usage = VK_IMAGE_USAGE_COLOR
 inline constexpr VkImageUsageFlags sampled_image_usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 inline constexpr VkImageUsageFlags storage_image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
+inline constexpr VkBufferUsageFlags storage_buffer_usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
 struct ImageInfo
 {
     const char *name                    = "No name";
@@ -575,6 +577,7 @@ struct API
 
     void clear_image(ImageH H, const VkClearColorValue &clear_color);
     void clear_buffer(BufferH H, u32 data);
+    void clear_buffer(BufferH H, float data);
 
     /// ---
     CircularBufferPosition copy_to_staging_buffer(void *data, usize len);

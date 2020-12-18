@@ -118,6 +118,19 @@ struct GltfPushConstant
 assert_uniform_size(GltfPushConstant);
 static_assert(sizeof(GltfPushConstant) <= 128);
 
+struct ShadowCascadesAndSlices
+{
+    float4 slices;
+
+    struct
+    {
+        float4x4 view;
+        float4x4 proj;
+    } matrices[4];
+};
+
+static_assert(sizeof(ShadowCascadesAndSlices) == sizeof(float4) + 4 * 2 * sizeof(float4x4));
+
 // Replace with directional light tagged "sun"
 struct Sun
 {
@@ -242,6 +255,7 @@ struct Renderer
         vulkan::ComputeProgramH depth_reduction_0;
         vulkan::ComputeProgramH depth_reduction_1;
         vulkan::ComputeProgramH compute_bounds;
+        vulkan::BufferH cascades_slices_buffer;
     } cascades_bounds;
     std::vector<ImageDescH> depth_reduction_maps;
 

@@ -1224,11 +1224,10 @@ void API::clear_image(ImageH H, const VkClearColorValue &clear_color)
     vkCmdClearColorImage(cmd, image.vkhandle, dst.layout, &clear_color, 1, &image.full_range);
 }
 
-void API::clear_buffer(BufferH H, u32 data)
+static void clear_buffer_internal(API &api, Buffer &buffer, u32 data)
 {
-    auto &frame_resource = ctx.frame_resources.get_current();
+    auto &frame_resource = api.ctx.frame_resources.get_current();
     VkCommandBuffer cmd  = frame_resource.command_buffer;
-    auto &buffer          = get_buffer(H);
 
     {
         VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
@@ -1254,6 +1253,20 @@ void API::clear_buffer(BufferH H, u32 data)
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
     }
-
 }
+
+void API::clear_buffer(BufferH H, u32 data)
+{
+    auto &buffer = get_buffer(H);
+    clear_buffer_internal(*this, buffer, data);
+}
+
+void API::clear_buffer(BufferH H, float data)
+{
+    auto &buffer = get_buffer(H);
+    auto *as_uint = reinterpret_cast<u32*>(&data);
+    u32 data_uint = *as_uint;
+    clear_buffer_internal(*this, buffer, data_uint);
+}
+
 } // namespace my_app::vulkan

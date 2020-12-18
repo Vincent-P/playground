@@ -19,7 +19,7 @@ Renderer::LuminancePass create_luminance_pass(vulkan::API &api)
     pass.histogram_buffer = api.create_buffer({
         .name  = "Luminance histogram",
         .size  = 256 * sizeof(float),
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = vulkan::storage_buffer_usage,
     });
     return pass;
 }
