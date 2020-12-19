@@ -91,11 +91,19 @@ Model load_model(std::string_view path_view)
     {
         for (const auto &json_sampler : doc["samplers"])
         {
-            Sampler sampler;
-            sampler.mag_filter = Filter(static_cast<u32>(json_sampler["magFilter"].get_uint64()));
-            sampler.min_filter = Filter(static_cast<u32>(json_sampler["minFilter"].get_uint64()));
-            sampler.wrap_s     = Wrap(static_cast<u32>(json_sampler["wrapS"].get_uint64()));
-            sampler.wrap_t     = Wrap(static_cast<u32>(json_sampler["wrapT"].get_uint64()));
+            Sampler sampler{};
+            if (json_has(json_sampler, "magFilter")) {
+                sampler.mag_filter = Filter(static_cast<u32>(json_sampler["magFilter"].get_uint64()));
+            }
+            if (json_has(json_sampler, "minFilter")) {
+                sampler.min_filter = Filter(static_cast<u32>(json_sampler["minFilter"].get_uint64()));
+            }
+            if (json_has(json_sampler, "wrapS")) {
+                sampler.wrap_s     = Wrap(static_cast<u32>(json_sampler["wrapS"].get_uint64()));
+            }
+            if (json_has(json_sampler, "wrapT")) {
+                sampler.wrap_t     = Wrap(static_cast<u32>(json_sampler["wrapT"].get_uint64()));
+            }
             model.samplers.push_back(sampler);
         }
     }
@@ -277,6 +285,16 @@ Model load_model(std::string_view path_view)
                 }
             }
 
+            auto color0_attribute = gltf_primitive_attribute(model, doc, json_attributes, "COLOR_0");
+            if (color0_attribute)
+            {
+                auto *colors = reinterpret_cast<float4 *>(color0_attribute->data);
+                for (usize i = 0; i < color0_attribute->len; i++)
+                {
+                    model.vertices[primitive.first_vertex + i].color0 = colors[i];
+                }
+            }
+
             {
                 uint accessor_i                 = json_primitive["indices"].get_uint64();
                 simdjson::dom::element accessor = doc["accessors"].at(accessor_i);
@@ -284,15 +302,31 @@ Model load_model(std::string_view path_view)
                 auto view                       = doc["bufferViews"].at(view_i);
                 auto &buffer                    = model.buffers[view["buffer"]];
 
+                auto component_type = ComponentType(static_cast<u32>(accessor["componentType"].get_uint64()));
                 u32 count         = accessor["count"].get_uint64();
                 auto acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
                 usize view_offset = view["byteOffset"];
                 usize offset      = acc_offset + view_offset;
 
-                auto *indices = reinterpret_cast<u16 *>(&buffer.data[offset]);
-                for (u32 i = 0; i < count; i++)
+                if (component_type == ComponentType::UnsignedShort)
                 {
-                    model.indices.push_back(indices[i]);
+                    auto *indices = reinterpret_cast<u16 *>(&buffer.data[offset]);
+                    for (u32 i = 0; i < count; i++)
+                    {
+                        model.indices.push_back(indices[i]);
+                    }
+                }
+                else if (component_type == ComponentType::UnsignedByte)
+                {
+                    auto *indices = reinterpret_cast<u8 *>(&buffer.data[offset]);
+                    for (u32 i = 0; i < count; i++)
+                    {
+                        model.indices.push_back(indices[i]);
+                    }
+                }
+                else
+                {
+                    assert(!"Unsupported index format.");
                 }
 
                 primitive.index_count = count;

@@ -4,8 +4,9 @@ layout (location = 0) out float3 out_position;
 layout (location = 1) out float3 out_normal;
 layout (location = 2) out float2 out_uv0;
 layout (location = 3) out float2 out_uv1;
-layout (location = 4) out float4 out_joint0;
-layout (location = 5) out float4 out_weight0;
+layout (location = 4) out float4 out_color0;
+layout (location = 5) out float4 out_joint0;
+layout (location = 6) out float4 out_weight0;
 
 #include "globals.h"
 #define PBR_NO_NORMALS
@@ -21,6 +22,7 @@ struct GltfVertex
     float pad01;
     float2 uv0;
     float2 uv1;
+    float4 color0;
     float4 joint0;
     float4 weight0;
 };
@@ -44,6 +46,7 @@ void main()
     out_position = locPos.xyz / locPos.w;
     out_uv0 = vertex.uv0;
     out_uv1 = vertex.uv1;
+    out_color0 = vertex.color0;
     out_joint0 = vertex.joint0;
     out_weight0 = vertex.weight0;
     gl_Position = global.camera_proj * global.camera_view * float4(out_position, 1.0);

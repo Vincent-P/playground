@@ -16,6 +16,7 @@
 #include <imgui/imgui.h>
 #include <random>
 #include <vulkan/vulkan_core.h>
+#include <fmt/core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -31,7 +32,8 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
-    r.model = std::make_shared<Model>(load_model("../models/BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf")); // TODO: where??
+
+    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "VertexColorTest"))); // TODO: where??
 
     r.p_timer  = &timer;
 
@@ -158,7 +160,11 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     std::vector<u32> parent_indices;
     parent_indices.reserve(model.nodes.size());
 
-    nodes_stack.push_back(model.scene[0]);
+    for (auto scene_root : model.scene)
+    {
+        nodes_stack.push_back(u32_invalid);
+        nodes_stack.push_back(scene_root);
+    }
 
     while (!nodes_stack.empty())
     {
@@ -167,7 +173,9 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
 
         if (node_idx == u32_invalid)
         {
-            parent_indices.pop_back();
+            if (!parent_indices.empty()) {
+                parent_indices.pop_back();
+            }
             continue;
         }
 

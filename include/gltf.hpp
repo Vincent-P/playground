@@ -154,6 +154,7 @@ struct PACKED GltfVertex
     float pad01;
     float2 uv0;
     float2 uv1;
+    float4 color0 = float4(1.0f);
     float4 joint0;
     float4 weight0;
 };

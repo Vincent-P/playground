@@ -1,4 +1,5 @@
 layout (location = 0) out vec2 out_uv0;
+layout (location = 1) out vec4 out_color0;
 
 #include "globals.h"
 #define PBR_NO_NORMALS
@@ -13,6 +14,7 @@ struct GltfVertex
     float pad01;
     float2 uv0;
     float2 uv1;
+    float4 color0;
     float4 joint0;
     float4 weight0;
 };

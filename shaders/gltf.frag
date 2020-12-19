@@ -9,8 +9,9 @@ layout (location = 0) in float3 i_world_pos;
 layout (location = 1) in float3 i_normal;
 layout (location = 2) in float2 i_uv0;
 layout (location = 3) in float2 i_uv1;
-layout (location = 4) in float4 i_joint0;
-layout (location = 5) in float4 i_weight0;
+layout (location = 4) in float4 i_color0;
+layout (location = 5) in float4 i_joint0;
+layout (location = 6) in float4 i_weight0;
 
 layout (set = 1, binding = 2) uniform VCTD {
     VCTDebug debug;
@@ -191,7 +192,7 @@ float2( 0.14383161, -0.14100790 )
 void main()
 {
     float3 normal = get_normal(i_world_pos, i_normal, i_uv0);
-    float4 base_color = get_base_color(i_uv0);
+    float4 base_color = get_base_color(i_uv0) * i_color0;
     float2 metallic_roughness = get_metallic_roughness(i_uv0);
 
     // PBR
