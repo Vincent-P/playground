@@ -65,7 +65,7 @@ float3 get_normal(float3 world_pos, float3 vertex_normal, float2 uv)
 float4 get_base_color(float2 uv)
 {
     float4 base_color = constants.base_color_factor;
-    if (constants.metallic_roughness_idx != u32_invalid)
+    if (constants.base_color_idx != u32_invalid)
     {
         base_color *= texture(global_textures[constants.base_color_idx], uv);
     }
