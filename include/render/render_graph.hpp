@@ -132,7 +132,7 @@ struct RenderGraph
     inline uint2 get_image_desc_size(const ImageDesc &desc) const
     {
         float width  = desc.size.x;
-        float height = desc.size.x;
+        float height = desc.size.y;
         if (desc.size_type == SizeType::RenderRelative)
         {
             width  = std::ceil(width * render_width);
