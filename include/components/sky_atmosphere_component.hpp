@@ -106,6 +106,7 @@ inline AtmosphereParameters parameters_from_component(const SkyAtmosphereCompone
         .exp_term  = 1.0f,
         .exp_scale = -1.0f / component.rayleigh_scale_height,
     };
+    params.rayleigh_density.layers[1] = {};
     params.rayleigh_scattering = component.rayleigh_scattering_scale * component.rayleigh_scattering_color;
 
     // mie
@@ -114,6 +115,7 @@ inline AtmosphereParameters parameters_from_component(const SkyAtmosphereCompone
         .exp_term  = 1.0f,
         .exp_scale = -1.0f / component.mie_scale_height,
     };
+    params.mie_density.layers[1] = {};
 
     params.mie_scattering = component.mie_scattering_scale * component.mie_scattering_color;
     params.mie_extinction = params.mie_scattering + component.mie_absorption_scale * component.mie_absorption_color;

@@ -11,7 +11,7 @@ layout(set = 1, binding = 2) uniform sampler2D skyview_lut;
 layout(set = 1, binding = 3) uniform sampler2D depth_buffer;
 layout(set = 1, binding = 4) uniform sampler2D multiscattering_lut;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 o_color;
 
 void integrate_luminance(AtmosphereParameters atmosphere, out float3 L_out, out float3 T_out, float3 p, float3 dir, float3 sun_dir, float max_distance)
 {
@@ -111,7 +111,6 @@ void main()
 
     if (r < atmosphere.top_radius && depth <= 0.0000001)
     {
-
         float cos_lightview;
 
         float3 side = normalize(cross(up, world_dir));		// assumes non parallel vectors
@@ -124,7 +123,7 @@ void main()
         float2 skyview_uv = mu_coslightview_to_uv(atmosphere, intersects_ground, r, mu, cos_lightview);
 
         float3 L = textureLod(skyview_lut, skyview_uv, 0).rgb;
-        outColor = float4(L + L_sun, 1.0);
+        o_color = float4(L + L_sun, 1.0);
         return;
     }
 
@@ -135,7 +134,7 @@ void main()
     if (!move_to_top_atmosphere(atmosphere, world_pos, world_dir))
     {
         // Ray is not intersecting the atmosphere
-        outColor = float4(L_sun, 1);
+        o_color = float4(L_sun, 1);
         return;
     }
 
@@ -153,5 +152,5 @@ void main()
     integrate_luminance(atmosphere, L, T, world_pos, world_dir, global.sun_direction, max_distance);
 
     const float transmittance = dot(T, float3(1.0 / 3.0));
-    outColor = float4(L, 1.0 - transmittance);
+    o_color = float4(L, 1.0 - transmittance);
 }

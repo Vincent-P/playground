@@ -48,7 +48,7 @@ void main()
 
     // y = near.y + t * (far.y - near.y)
     float t = -i_near.y / (i_far.y - i_near.y);
-    if (true || t < 0) {
+    if (t < 0) {
         discard;
     }
 
