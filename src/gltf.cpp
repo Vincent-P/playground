@@ -49,12 +49,12 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &mod
         uint accessor_i                 = attributes[attribute].get_uint64();
         simdjson::dom::element accessor = root["accessors"].at(accessor_i);
         uint view_i                     = accessor["bufferView"].get_uint64();
-        auto view                       = root["bufferViews"].at(view_i);
+        simdjson::dom::element view                       = root["bufferViews"].at(view_i);
         auto &buffer                    = model.buffers[view["buffer"]];
 
         usize count       = accessor["count"];
         auto acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
-        usize view_offset = view["byteOffset"];
+        auto view_offset = json_get_or<u64>(view, "byteOffset", 0);
         usize offset      = acc_offset + view_offset;
 
         GltfPrimitiveAttribute result;
@@ -118,12 +118,16 @@ Model load_model(std::string_view path_view)
     uint i = 0;
     for (const auto &json_image : doc["images"])
     {
-        std::string_view type_view = json_image["mimeType"].get_string();
-        std::string type(type_view);
         std::string_view image_name = json_image["uri"].get_string();
         fs::path image_path         = path.replace_filename(image_name);
 
-        if (type == "image/jpeg") {}
+        #if 0
+        std::string_view type_view = json_image["mimeType"].get_string();
+        std::string type(type_view);
+        if (type == "image/jpeg")
+        {
+
+        }
         else if (type == "image/png")
         {
         }
@@ -131,6 +135,7 @@ Model load_model(std::string_view path_view)
         {
             throw std::runtime_error("unsupported image type: " + type);
         }
+        #endif
 
         images_data[i] = std::async(std::launch::async, [=]() {
             Image image;
@@ -155,11 +160,15 @@ Model load_model(std::string_view path_view)
         if (json_material["pbrMetallicRoughness"].error() == simdjson::SUCCESS)
         {
             const auto &json_pbr         = json_material["pbrMetallicRoughness"];
-            auto base_color_factors      = json_pbr["baseColorFactor"];
-            material.base_color_factor.r = base_color_factors.at(0).get_double();
-            material.base_color_factor.g = base_color_factors.at(1).get_double();
-            material.base_color_factor.b = base_color_factors.at(2).get_double();
-            material.base_color_factor.a = base_color_factors.at(3).get_double();
+
+            if (json_pbr["baseColorFactor"].error() == simdjson::SUCCESS)
+            {
+                auto base_color_factors      = json_pbr["baseColorFactor"];
+                material.base_color_factor.r = base_color_factors.at(0).get_double();
+                material.base_color_factor.g = base_color_factors.at(1).get_double();
+                material.base_color_factor.b = base_color_factors.at(2).get_double();
+                material.base_color_factor.a = base_color_factors.at(3).get_double();
+            }
 
             if (json_pbr["metallicFactor"].error() == simdjson::SUCCESS)
             {
@@ -296,9 +305,12 @@ Model load_model(std::string_view path_view)
 
     for (const auto &json_node : doc["nodes"])
     {
-        Node node;
+        Node node{};
 
-        node.mesh = json_node["mesh"];
+        if (json_has(json_node, "mesh"))
+        {
+            node.mesh = json_node["mesh"];
+        }
 
         if (json_node["matrix"].error() == simdjson::SUCCESS) {}
 

@@ -31,7 +31,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
-    r.model = std::make_shared<Model>(load_model("../models/Sponza/glTF/Sponza.gltf")); // TODO: where??
+    r.model = std::make_shared<Model>(load_model("../models/BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf")); // TODO: where??
 
     r.p_timer  = &timer;
 
@@ -154,24 +154,65 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
 
     std::vector<u32> nodes_stack;
     nodes_stack.reserve(model.nodes.size());
+
+    std::vector<u32> parent_indices;
+    parent_indices.reserve(model.nodes.size());
+
     nodes_stack.push_back(model.scene[0]);
 
     while (!nodes_stack.empty())
     {
         auto node_idx = nodes_stack.back();
         nodes_stack.pop_back();
+
+        if (node_idx == u32_invalid)
+        {
+            parent_indices.pop_back();
+            continue;
+        }
+
         auto &node = model.nodes[node_idx];
+
+        // --- preorder
+        float constant_scale = 10.0f;
 
         node.dirty                        = false;
         auto translation                  = float4x4::identity(); // glm::translate(glm::mat4(1.0f), node.translation);
+        translation = float4x4({
+                1, 0, 0, constant_scale * node.translation.x,
+                0, 1, 0, constant_scale * node.translation.y,
+                0, 0, 1, constant_scale * node.translation.z,
+                0, 0, 0, 1,
+            });
+
         auto rotation                     = float4x4::identity(); // glm::mat4(node.rotation);
+        rotation = float4x4({
+                1.0f - 2.0f*node.rotation.y*node.rotation.y - 2.0f*node.rotation.z*node.rotation.z, 2.0f*node.rotation.x*node.rotation.y - 2.0f*node.rotation.z*node.rotation.w, 2.0f*node.rotation.x*node.rotation.z + 2.0f*node.rotation.y*node.rotation.w, 0.0f,
+                2.0f*node.rotation.x*node.rotation.y + 2.0f*node.rotation.z*node.rotation.w, 1.0f - 2.0f*node.rotation.x*node.rotation.x - 2.0f*node.rotation.z*node.rotation.z, 2.0f*node.rotation.y*node.rotation.z - 2.0f*node.rotation.x*node.rotation.w, 0.0f,
+                2.0f*node.rotation.x*node.rotation.z - 2.0f*node.rotation.y*node.rotation.w, 2.0f*node.rotation.y*node.rotation.z + 2.0f*node.rotation.x*node.rotation.w, 1.0f - 2.0f*node.rotation.x*node.rotation.x - 2.0f*node.rotation.y*node.rotation.y, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f,
+            });
+
         auto scale                        = float4x4::identity(); // assume uniform scale
-        scale.at(0, 0)                    = node.scale.x;
-        scale.at(1, 1)                    = node.scale.y;
-        scale.at(2, 2)                    = node.scale.z;
-        model.cached_transforms[node_idx] = translation * rotation * scale;
+        scale.at(0, 0)                    = constant_scale * node.scale.x;
+        scale.at(1, 1)                    = constant_scale * node.scale.y;
+        scale.at(2, 2)                    = constant_scale * node.scale.z;
+
+
+        auto parent_transform = float4x4::identity();
+        if (!parent_indices.empty()) {
+            parent_transform = model.cached_transforms[parent_indices.back()];
+        }
+
+
+        model.cached_transforms[node_idx] = parent_transform * (translation * rotation * scale);
 
         model.nodes_preorder.push_back(node_idx);
+
+        parent_indices.push_back(node_idx);
+
+        nodes_stack.push_back(u32_invalid);
+        // ----
 
         for (auto child : node.children)
         {
@@ -373,7 +414,11 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
     for (auto node_idx : model.nodes_preorder)
     {
         const auto &node = model.nodes[node_idx];
-        const auto &mesh = model.meshes[node.mesh];
+        if (!node.mesh) {
+            continue;
+        }
+
+        const auto &mesh = model.meshes[*node.mesh];
 
         // Draw the mesh
         for (const auto &primitive : mesh.primitives)

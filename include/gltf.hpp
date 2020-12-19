@@ -135,7 +135,7 @@ struct Mesh
 
 struct Node
 {
-    usize mesh;
+    std::optional<usize> mesh;
 
     bool dirty{true};
 
