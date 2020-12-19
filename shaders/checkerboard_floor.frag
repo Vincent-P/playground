@@ -68,7 +68,7 @@ void main()
     // Use 1/d^2 attenuation
     const float SCALE = 500;
     float fade = SCALE / (squared_d + 1);
-    o_color.a *= clamp(fade, 0, 1);
+    o_color.a *= clamp(fade, 0, 0.5);
 
     o_color.rgb *= o_color.a;
 }
