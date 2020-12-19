@@ -142,6 +142,7 @@ struct Node
     float3 translation{};
     float3 scale{1.0f};
     float4 rotation{};
+    float4x4 transform{1.0f};
 
     std::vector<u32> children;
 };

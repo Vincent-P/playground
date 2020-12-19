@@ -111,54 +111,61 @@ Model load_model(std::string_view path_view)
     model.samplers.emplace_back();
 
     assert(!model.samplers.empty());
-    for (const auto &json_texture : doc["textures"])
+    if (json_has(doc, "textures"))
     {
-        Texture texture;
-        texture.sampler = json_get_or<u64>(json_texture, "sampler", model.samplers.size() - 1);
-        texture.image   = json_texture["source"].get_uint64();
-        model.textures.push_back(texture);
+        for (const auto &json_texture : doc["textures"])
+        {
+            Texture texture;
+            texture.sampler = json_get_or<u64>(json_texture, "sampler", model.samplers.size() - 1);
+            texture.image   = json_texture["source"].get_uint64();
+            model.textures.push_back(texture);
+        }
     }
 
     // Load images file into memory
-    std::vector<std::future<Image>> images_data;
-    images_data.resize(doc["images"].get_array().size());
-
-    uint i = 0;
-    for (const auto &json_image : doc["images"])
+    if (json_has(doc, "images"))
     {
-        std::string_view image_name = json_image["uri"].get_string();
-        fs::path image_path         = path.replace_filename(image_name);
+        std::vector<std::future<Image>> images_data;
+        images_data.resize(doc["images"].get_array().size());
 
-        #if 0
-        std::string_view type_view = json_image["mimeType"].get_string();
-        std::string type(type_view);
-        if (type == "image/jpeg")
+        uint i = 0;
+        for (const auto &json_image : doc["images"])
         {
+            std::string_view image_name = json_image["uri"].get_string();
+            fs::path image_path         = path.replace_filename(image_name);
 
+            #if 0
+            std::string_view type_view = json_image["mimeType"].get_string();
+            std::string type(type_view);
+            if (type == "image/jpeg")
+            {
+
+            }
+            else if (type == "image/png")
+            {
+            }
+            else
+            {
+                throw std::runtime_error("unsupported image type: " + type);
+            }
+            #endif
+
+            images_data[i] = std::async(std::launch::async, [=]() {
+                Image image;
+                image.data = tools::read_file(image_path);
+                image.srgb = false;
+                return image;
+            });
+
+            i++;
         }
-        else if (type == "image/png")
+
+        model.images.resize(images_data.size());
+
+        for (uint i = 0; i < images_data.size(); i++)
         {
+            model.images[i] = images_data[i].get();
         }
-        else
-        {
-            throw std::runtime_error("unsupported image type: " + type);
-        }
-        #endif
-
-        images_data[i] = std::async(std::launch::async, [=]() {
-            Image image;
-            image.data = tools::read_file(image_path);
-            image.srgb = false;
-            return image;
-        });
-
-        i++;
-    }
-
-    model.images.resize(images_data.size());
-    for (uint i = 0; i < images_data.size(); i++)
-    {
-        model.images[i] = images_data[i].get();
     }
 
     for (const auto &json_material : doc["materials"])
@@ -346,7 +353,17 @@ Model load_model(std::string_view path_view)
             node.mesh = json_node["mesh"];
         }
 
-        if (json_node["matrix"].error() == simdjson::SUCCESS) {}
+        if (json_node["matrix"].error() == simdjson::SUCCESS)
+        {
+            usize i = 0;
+            for (double val : json_node["matrix"]) {
+                node.transform.at(i%4, i/4) = val;
+                i += 1;
+            }
+
+            assert(i == 16);
+
+        }
 
         if (json_node["translation"].error() == simdjson::SUCCESS)
         {

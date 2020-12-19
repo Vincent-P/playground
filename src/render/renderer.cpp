@@ -33,7 +33,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
 
-    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "VertexColorTest"))); // TODO: where??
+    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "OrientationTest"))); // TODO: where??
 
     r.p_timer  = &timer;
 
@@ -182,7 +182,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         auto &node = model.nodes[node_idx];
 
         // --- preorder
-        float constant_scale = 10.0f;
+        float constant_scale = 1.0f;
 
         node.dirty                        = false;
         auto translation                  = float4x4::identity(); // glm::translate(glm::mat4(1.0f), node.translation);
@@ -206,6 +206,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         scale.at(1, 1)                    = constant_scale * node.scale.y;
         scale.at(2, 2)                    = constant_scale * node.scale.z;
 
+        auto transform = node.transform * translation * rotation * scale;
 
         auto parent_transform = float4x4::identity();
         if (!parent_indices.empty()) {
@@ -213,7 +214,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         }
 
 
-        model.cached_transforms[node_idx] = parent_transform * (translation * rotation * scale);
+        model.cached_transforms[node_idx] = parent_transform * transform;
 
         model.nodes_preorder.push_back(node_idx);
 
