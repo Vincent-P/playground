@@ -101,6 +101,8 @@ void main()
     float3 world_dir = normalize(h_pos.xyz - global.camera_pos);
     float3 world_pos = global.camera_pos + float3(0.0, atmosphere.bottom_radius, 0.0);
 
+    world_pos.y = max(world_pos.y, atmosphere.bottom_radius);
+
     float r = length(world_pos);
     float3 up = normalize(world_pos);
 

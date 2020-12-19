@@ -12,6 +12,7 @@ struct GltfVertex
     float pad01;
     float2 uv0;
     float2 uv1;
+    float4 color0;
     float4 joint0;
     float4 weight0;
 };
@@ -28,6 +29,7 @@ layout (location = 0) out float3 out_world_pos;
 layout (location = 1) out float3 out_normal;
 layout (location = 2) out float2 out_uv0;
 layout (location = 3) out float2 out_uv1;
+layout (location = 4) out float4 out_color0;
 
 void main()
 {
@@ -39,6 +41,7 @@ void main()
     out_world_pos = model_pos.xyz / model_pos.w;
     out_uv0 = vertex.uv0;
     out_uv1 = vertex.uv1;
+    out_color0 = vertex.color0;
 
     gl_Position = float4(out_world_pos, 1.0);
 }

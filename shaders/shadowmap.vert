@@ -46,6 +46,7 @@ void main()
 
     out_uv0 = vertex.uv0;
     gl_Position = matrices.proj * matrices.view * model_transform * vec4(vertex.position, 1.0);
+    out_color0 = vertex.color0;
     // debug shadow map :)
     // gl_Position = outLightPosition;
 }

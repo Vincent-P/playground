@@ -33,7 +33,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
 
-    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "OrientationTest"))); // TODO: where??
+    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza"))); // TODO: where??
 
     r.p_timer  = &timer;
 

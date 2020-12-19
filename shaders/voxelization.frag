@@ -10,6 +10,7 @@ layout (location = 0) in vec3 inWorldPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV0;
 layout (location = 3) in vec2 inUV1;
+layout (location = 4) in float4 i_color0;
 
 layout(set = 1, binding = 2) uniform VO {
     VoxelOptions voxel_options;
@@ -49,7 +50,7 @@ void main()
     }
     visibility *= global.sun_direction.y > 0.0 ? 1.0 : 0.0;
 
-    float4 base_color = get_base_color(inUV0);
+    float4 base_color = get_base_color(inUV0) * i_color0;
     if (base_color.a < 0.1) {
         discard;
     }

@@ -1,3 +1,4 @@
+#include "types.h"
 #include "voxels.h"
 
 layout (triangles) in;
@@ -7,11 +8,13 @@ layout (location = 0) in vec3 inWorldPos[];
 layout (location = 1) in vec3 inNormal[];
 layout (location = 2) in vec2 inUV0[];
 layout (location = 3) in vec2 inUV1[];
+layout (location = 4) in float4 inColor1[];
 
 layout (location = 0) out vec3 outWorldPos;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec2 outUV0;
 layout (location = 3) out vec2 outUV1;
+layout (location = 4) out float4 outColor1;
 
 layout(set = 1, binding = 2) uniform VO {
     VoxelOptions voxel_options;
@@ -37,6 +40,7 @@ void main(void)
         outNormal = inNormal[i];
         outUV0 = inUV0[i];
         outUV1 = inUV1[i];
+        outColor1 = inColor1[i];
 
         EmitVertex();
     }

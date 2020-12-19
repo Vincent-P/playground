@@ -222,7 +222,7 @@ void main()
     shadow_coord /= shadow_coord.w;
     float2 uv = 0.5 * (shadow_coord.xy + 1.0);
 
-    const float bias = 0.1 * max(0.05f * (1.0f - NdotL), 0.005f);
+    const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
 
 #define POISSON_DISK 1
 #define PCF 1
