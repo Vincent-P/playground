@@ -135,7 +135,7 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
         cone_direction += diffuse_cone_directions[i].x * right + diffuse_cone_directions[i].z * up;
         cone_direction = normalize(cone_direction);
 
-        diffuse += float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) * trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
+        diffuse += /*float4(BRDF(albedo, N, V, metallic, roughness, cone_direction), 1.0) * */ trace_cone(cone_origin, cone_direction, aperture, debug.trace_dist) * diffuse_cone_weights[i];
     }
 
     return diffuse;
@@ -221,7 +221,7 @@ void main()
     shadow_coord /= shadow_coord.w;
     float2 uv = 0.5 * (shadow_coord.xy + 1.0);
 
-    const float bias = 0.05 * max(0.05f * (1.0f - NdotL), 0.005f);
+    const float bias = 0.1 * max(0.05f * (1.0f - NdotL), 0.005f);
 
 #define POISSON_DISK 1
 #define PCF 1
@@ -260,13 +260,13 @@ void main()
             shadow_map_depth = texture(shadow_cascades[3], uv + SIZE * offset).r;
         }
 #else
+        // this doesnt work on windows amd, vkCreateGraphicsPipelines fails...
         float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv + SIZE * offset).r;
 #endif
 
         if (shadow_map_depth > shadow_coord.z + bias) {
             shadow += 1.0;
         }
-
     }
 
     float visibility = 1.0 - (shadow / (poisson_samples_count));
@@ -280,7 +280,6 @@ void main()
         shadow += float(texels[i_shadow] > shadow_coord.z + bias);
     }
     float visibility = 1.0 - shadow / 4;
-
 #else
     float visibility = 1.0 - float(texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv).r > shadow_coord.z + bias);
 #endif
@@ -327,6 +326,7 @@ void main()
     // no debug
     else
     {
+        indirect.rgb *= albedo / PI;
     }
 
     float3 composite = direct + indirect.rgb * indirect.a;

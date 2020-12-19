@@ -227,6 +227,29 @@ template <typename T> class Pool
         return old_first_free;
     }
 
+    handle_type add(const T &value)
+    {
+        data_size += 1;
+
+        if (!first_free.is_valid())
+        {
+            data.push_back(value);
+            auto handle = handle_type(data.size() - 1);
+            keys.push_back(handle);
+            return handle;
+        }
+
+        // Pop the free list
+        handle_type old_first_free = first_free;
+        first_free                 = get_handle_internal(old_first_free);
+
+        // put the value in
+        data[old_first_free.value()] = value;
+        keys[old_first_free.value()] = old_first_free;
+
+        return old_first_free;
+    }
+
     T *get(handle_type handle)
     {
         if (!handle.is_valid())

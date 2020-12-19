@@ -16,7 +16,7 @@ namespace impl
 
 /// --- Archetype impl
 
-std::optional<usize> get_component_idx(Archetype type, ComponentId component_id)
+std::optional<usize> get_component_idx(const Archetype &type, ComponentId component_id)
 {
     u32 component_idx = 0;
     for (auto type_id : type)
@@ -73,9 +73,9 @@ ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph
         new_storage->edges[component_type.id].add = entity_archetype;
 
         new_storage->components.resize(new_storage->type.size());
-        for (usize i_component = 0; i_component < new_storage->components.size(); i_component++)
+        for (auto &component : new_storage->components)
         {
-            new_storage->components[i_component].component_size = 0; // TODO find actual size
+            component.component_size = 0; // TODO find actual size
         }
     }
 
@@ -121,9 +121,9 @@ ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, 
         new_storage->edges[component_type.id].remove = entity_archetype;
 
         new_storage->components.resize(new_storage->type.size());
-        for (usize i_component = 0; i_component < new_storage->components.size(); i_component++)
+        for (auto &component : new_storage->components)
         {
-            new_storage->components[i_component].component_size = 0; // TODO find actual size
+            component.component_size = 0; // TODO find actual size
         }
     }
 
@@ -236,12 +236,12 @@ void add_component(World &world, EntityId entity, ComponentId component_id, void
         void *src               = &component_storage.data[old_row * component_storage.component_size];
         usize component_size    = component_storage.component_size;
 
-        auto i_new_component = *get_component_idx(new_storage.type, component_id);
+        auto i_new_component = get_component_idx(new_storage.type, component_id).value();
         add_component_to_storage(new_storage, i_new_component, src, component_size);
     }
 
     // add the new component
-    auto i_new_component = *get_component_idx(new_storage.type, component_id);
+    auto i_new_component = get_component_idx(new_storage.type, component_id).value();
     add_component_to_storage(new_storage, i_new_component, component_data, component_size);
 
     new_storage.size += 1; // /!\ DO THIS AFTER add_component
@@ -335,14 +335,8 @@ bool has_component(World &world, EntityId entity, ComponentId component)
 {
     const auto &record            = world.entity_index.at(entity);
     const auto &archetype_storage = *world.archetypes.archetype_storages.get(record.archetype);
-    for (auto component_id : archetype_storage.type)
-    {
-        if (component_id == component)
-        {
-            return true;
-        }
-    }
-    return false;
+
+    return std::ranges::any_of(archetype_storage.type, [&](ComponentId component_id) {return component_id == component;});
 }
 
 void *get_component(World &world, EntityId entity, ComponentId component_id)
@@ -426,9 +420,8 @@ void World::display_ui(UI::Context &ctx)
                 }
                 ImGui::TextUnformatted("]");
                 ImGui::TextUnformatted("Entities:");
-                for (usize i_entity = 0; i_entity < storage->entity_ids.size(); i_entity++)
+                for (auto entity : storage->entity_ids)
                 {
-                    const auto entity = storage->entity_ids[i_entity];
                     ImGui::Text("#%zu", entity.raw);
 
                     if (const auto *internal_id = get_component<InternalId>(entity))

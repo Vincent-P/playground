@@ -269,16 +269,16 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
                                                 &info.nb_comp,
                                                 0);
 
-            if (info.nb_comp == 1)
-            { // NOLINT
+            if (info.nb_comp == 1) // NOLINT
+            {
                 info.format = VK_FORMAT_R8_UNORM;
             }
-            else if (info.nb_comp == 2)
-            { // NOLINT
+            else if (info.nb_comp == 2) // NOLINT
+            {
                 info.format = VK_FORMAT_R8G8_UNORM;
             }
-            else if (info.nb_comp == 3)
-            { // NOLINT
+            else if (info.nb_comp == 3) // NOLINT
+            {
                 stbi_image_free(info.pixels);
                 int wanted_nb_comp = 4;
                 info.pixels        = stbi_load_from_memory(image.data.data(),
@@ -290,12 +290,12 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
                 info.format        = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
                 info.nb_comp       = wanted_nb_comp;
             }
-            else if (info.nb_comp == 4)
-            { // NOLINT
+            else if (info.nb_comp == 4) // NOLINT
+            {
                 info.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
             }
-            else
-            { // NOLINT
+            else // NOLINT
+            {
                 assert(false);
             }
 

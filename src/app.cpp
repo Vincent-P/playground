@@ -33,7 +33,7 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
     const ImGuiCol black = ImGui::GetColorU32(float4(0.0f, 0.0f, 0.0f, 1.0f));
 
     float3 camera_forward  = normalize(input_camera.target - camera_transform.position);
-    float3 origin          = float3(0.f);
+    auto origin          = float3(0.f);
     float3 camera_position = origin - 2.0f * camera_forward;
     auto view              = camera::look_at(camera_position, origin, camera_transform.up);
     auto proj              = camera::perspective(fov, 1.f, 0.01f, 10.0f);
@@ -216,8 +216,8 @@ void App::update()
                     // handle inputs
                     if (auto mouse_delta = inputs.get_mouse_delta())
                     {
-                        float up    = float(mouse_delta->y);
-                        float right = float(mouse_delta->x);
+                        auto up    = float(mouse_delta->y);
+                        auto right = float(mouse_delta->x);
 
                         auto camera_plane_forward = normalize(float3(transform.front.x, 0.0f, transform.front.z));
                         auto camera_right         = cross(transform.up, transform.front);
@@ -243,8 +243,8 @@ void App::update()
                     // handle inputs
                     if (auto mouse_delta = inputs.get_mouse_delta())
                     {
-                        float up    = float(mouse_delta->y);
-                        float right = -1.0f * float(mouse_delta->x);
+                        auto up    = float(mouse_delta->y);
+                        auto right = -1.0f * float(mouse_delta->x);
 
                         input_camera.theta += (CAMERA_ROTATE_SPEED * delta_t) * right;
 

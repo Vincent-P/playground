@@ -53,7 +53,7 @@ static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &mod
         auto &buffer                    = model.buffers[view["buffer"]];
 
         usize count       = accessor["count"];
-        usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
+        auto acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
         usize view_offset = view["byteOffset"];
         usize offset      = acc_offset + view_offset;
 
@@ -96,19 +96,19 @@ Model load_model(std::string_view path_view)
             sampler.min_filter = Filter(static_cast<u32>(json_sampler["minFilter"].get_uint64()));
             sampler.wrap_s     = Wrap(static_cast<u32>(json_sampler["wrapS"].get_uint64()));
             sampler.wrap_t     = Wrap(static_cast<u32>(json_sampler["wrapT"].get_uint64()));
-            model.samplers.push_back(std::move(sampler));
+            model.samplers.push_back(sampler);
         }
     }
     // add a fallback sampler for images without one
     model.samplers.emplace_back();
 
-    assert(model.samplers.size() > 0);
+    assert(!model.samplers.empty());
     for (const auto &json_texture : doc["textures"])
     {
         Texture texture;
         texture.sampler = json_get_or<u64>(json_texture, "sampler", model.samplers.size() - 1);
         texture.image   = json_texture["source"].get_uint64();
-        model.textures.push_back(std::move(texture));
+        model.textures.push_back(texture);
     }
 
     // Load images file into memory
@@ -193,7 +193,7 @@ Model load_model(std::string_view path_view)
             material.normal_texture = i_texture;
         }
 
-        model.materials.push_back(std::move(material));
+        model.materials.push_back(material);
     }
     // fallback material
     model.materials.emplace_back();
@@ -225,6 +225,7 @@ Model load_model(std::string_view path_view)
             primitive.first_index  = static_cast<u32>(model.indices.size());
 
             auto position_attribute = gltf_primitive_attribute(model, doc, json_attributes, "POSITION");
+            if (position_attribute)
             {
                 auto *positions = reinterpret_cast<float3 *>(position_attribute->data);
 
@@ -233,7 +234,7 @@ Model load_model(std::string_view path_view)
                 {
                     GltfVertex vertex;
                     vertex.position = positions[i];
-                    model.vertices.push_back(std::move(vertex));
+                    model.vertices.push_back(vertex);
                 }
             }
 
@@ -275,7 +276,7 @@ Model load_model(std::string_view path_view)
                 auto &buffer                    = model.buffers[view["buffer"]];
 
                 u32 count         = accessor["count"].get_uint64();
-                usize acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
+                auto acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
                 usize view_offset = view["byteOffset"];
                 usize offset      = acc_offset + view_offset;
 
@@ -288,7 +289,7 @@ Model load_model(std::string_view path_view)
                 primitive.index_count = count;
             }
 
-            mesh.primitives.push_back(std::move(primitive));
+            mesh.primitives.push_back(primitive);
         }
         model.meshes.push_back(std::move(mesh));
     }

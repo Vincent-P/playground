@@ -7,9 +7,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
-namespace my_app
-{
-namespace UI
+namespace my_app::UI
 {
 
 void Context::create(Context & /*ctx*/)
@@ -215,5 +213,4 @@ bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFl
 }
 
 void Context::end_window() { ImGui::End(); }
-} // namespace UI
 } // namespace my_app

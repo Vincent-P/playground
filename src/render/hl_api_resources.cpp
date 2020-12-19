@@ -282,7 +282,7 @@ void API::upload_image(ImageH H, void *data, usize len)
         copy.imageSubresource.baseArrayLayer = range.baseArrayLayer;
         copy.imageSubresource.layerCount     = range.layerCount;
         copy.imageExtent                     = {image.info.width, image.info.height, image.info.depth};
-        copies.push_back(std::move(copy));
+        copies.push_back(copy);
     }
 
     vkCmdCopyBufferToImage(cmd_buffer.vkhandle,
@@ -440,7 +440,7 @@ SamplerH API::create_sampler(const SamplerInfo &info)
     VK_CHECK(vkCreateSampler(ctx.device, &sci, nullptr, &sampler.vkhandle));
     sampler.info = info;
 
-    return samplers.add(std::move(sampler));
+    return samplers.add(sampler);
 }
 
 Sampler &API::get_sampler(SamplerH H)
@@ -499,7 +499,7 @@ BufferH API::create_buffer(const BufferInfo &info)
         VK_CHECK(ctx.vkSetDebugUtilsObjectNameEXT(ctx.device, &ni));
     }
 
-    return buffers.add(std::move(buf));
+    return buffers.add(buf);
 }
 
 Buffer &API::get_buffer(BufferH H)
@@ -671,7 +671,7 @@ ShaderH API::create_shader(std::string_view path)
 
     VK_CHECK(vkCreateShaderModule(ctx.device, &info, nullptr, &shader.vkhandle));
 
-    return shaders.add(std::move(shader));
+    return shaders.add(shader);
 }
 
 Shader &API::get_shader(ShaderH H)
@@ -697,14 +697,14 @@ void API::destroy_shader(ShaderH H)
 
 void GraphicsProgramInfo::push_constant(PushConstantInfo &&push_constant)
 {
-    push_constants.push_back(std::move(push_constant));
+    push_constants.push_back(push_constant);
 }
 
 void GraphicsProgramInfo::vertex_stride(u32 value) { vertex_buffer_info.stride = value; }
 
 void GraphicsProgramInfo::vertex_info(VertexInfo &&info)
 {
-    vertex_buffer_info.vertices_info.push_back(std::move(info));
+    vertex_buffer_info.vertices_info.push_back(info);
 }
 
 // assume binding_set.bindings_info is already populated
@@ -995,13 +995,14 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     result = spvReflectEnumerateDescriptorSets(&shader_module, &count, descriptor_sets.data());
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    for (usize i_set = 0; i_set < descriptor_sets.size(); i_set++)
+    for (auto &p_refl_set : descriptor_sets)
     {
-        const SpvReflectDescriptorSet &refl_set = *(descriptor_sets[i_set]);
+        const SpvReflectDescriptorSet &refl_set = *p_refl_set;
 
         usize set_number = refl_set.set; // actual set index
-        if (set_number != SHADER_DESCRIPTOR_SET)
+        if (set_number != SHADER_DESCRIPTOR_SET) {
             continue;
+        }
 
         for (u32 i_binding = 0; i_binding < refl_set.binding_count; i_binding++)
         {
@@ -1145,7 +1146,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 
 void ComputeProgramInfo::push_constant(PushConstantInfo &&push_constant)
 {
-    push_constants.push_back(std::move(push_constant));
+    push_constants.push_back(push_constant);
 }
 
 GraphicsProgram &API::get_program(GraphicsProgramH H)
@@ -1160,7 +1161,7 @@ ComputeProgram &API::get_program(ComputeProgramH H)
     return *compute_programs.get(H);
 }
 
-void GlobalBindings::binding(BindingInfo &&binding) { binding_set.bindings_info.push_back(std::move(binding)); }
+void GlobalBindings::binding(BindingInfo &&binding) { binding_set.bindings_info.push_back(binding); }
 
 void destroy_program_internal(API &api, GraphicsProgram &program)
 {

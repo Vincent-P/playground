@@ -116,27 +116,28 @@ std::ostream& operator<<(std::ostream& os, const float4 &v)
 
 float4x4::float4x4(float value)
 {
-    for (usize i = 0; i < ARRAY_SIZE(values); i++)
-    {
-        values[i] = value;
+    for (auto &value : values) {
+        value = 0.0f;
     }
+
+    values[0] = value;
+    values[5] = value;
+    values[10] = value;
+    values[15] = value;
 }
 
 float4x4::float4x4(const float (&_values)[16])
 {
-    for (uint col = 0; col < 4; col++)
-        for (uint row = 0; row < 4; row++)
+    for (uint col = 0; col < 4; col++) {
+        for (uint row = 0; row < 4; row++) {
             this->at(row, col) = _values[row * 4 + col];
+        }
+    }
 }
 
 float4x4 float4x4::identity()
 {
-    return float4x4({
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f,
-        });
+    return float4x4(1.0f);
 }
 
 float float4x4::at(usize row, usize col) const
@@ -154,27 +155,31 @@ float &float4x4::at(usize row, usize col)
 float4x4 transpose(const float4x4 &m)
 {
     float4x4 result;
-    for (usize row = 0; row < 4; row++)
-        for (usize col = 0; col < 4; col++)
+    for (usize row = 0; row < 4; row++) {
+        for (usize col = 0; col < 4; col++) {
             result.at(row, col) = m.at(col, row);
+        }
+    }
     return result;
 }
 
 float4x4 operator*(float a, const float4x4 &m)
 {
     float4x4 result;
-    for (usize i = 0; i < 16; i++)
+    for (usize i = 0; i < 16; i++) {
         result.values[i] = a * m.values[i];
+    }
     return result;
 }
 
 float4 operator*(const float4x4 &m, const float4 &v)
 {
     float4 result;
-    for (usize row = 0; row < 4; row++)
-        for (usize col = 0; col < 4; col++)
+    for (usize row = 0; row < 4; row++) {
+        for (usize col = 0; col < 4; col++) {
             result.raw[row] += m.at(row, col) * v.raw[col];
-
+        }
+    }
     return result;
 }
 
@@ -186,28 +191,35 @@ bool operator==(const float4x4 &a, const float4x4 &b)
 float4x4 operator+(const float4x4 &a, const float4x4 &b)
 {
     float4x4 result;
-    for (usize col = 0; col < 4; col++)
-        for (usize row = 0; row < 4; row++)
+    for (usize col = 0; col < 4; col++) {
+        for (usize row = 0; row < 4; row++) {
             result.at(row, col) = a.at(row, col) + b.at(row, col);
+        }
+    }
     return result;
 }
 
 float4x4 operator-(const float4x4 &a, const float4x4 &b)
 {
     float4x4 result;
-    for (usize col = 0; col < 4; col++)
-        for (usize row = 0; row < 4; row++)
+    for (usize col = 0; col < 4; col++) {
+        for (usize row = 0; row < 4; row++) {
             result.at(row, col) = a.at(row, col) - b.at(row, col);
+        }
+    }
     return result;
 }
 
 float4x4 operator*(const float4x4 &a, const float4x4 &b)
 {
     float4x4 result;
-    for (usize col = 0; col < 4; col++)
-        for (usize row = 0; row < 4; row++)
-            for (usize i = 0; i < 4; i++)
+    for (usize col = 0; col < 4; col++) {
+        for (usize row = 0; row < 4; row++) {
+            for (usize i = 0; i < 4; i++) {
                 result.at(row, col) += a.at(row, i) * b.at(i, col);
+            }
+        }
+    }
     return result;
 }
 

@@ -223,7 +223,7 @@ inline std::tuple<bool, std::vector<u32>> archetype_contains(const Archetype &qu
     return std::make_tuple(true, found);
 }
 
-std::optional<usize> get_component_idx(Archetype type, ComponentId component_id);
+std::optional<usize> get_component_idx(const Archetype &type, ComponentId component_id);
 
 // ArchetypeStorage
 // traverse the graph and returns or create the ArchetypeStorage matching the Archetype
@@ -246,7 +246,7 @@ void set_component(World &world, EntityId entity, ComponentId component_id, void
 bool has_component(World &world, EntityId entity, ComponentId component);
 void *get_component(World &world, EntityId entity, ComponentId component_id);
 
-template <Componentable Component> std::optional<usize> get_component_idx(Archetype type)
+template <Componentable Component> std::optional<usize> get_component_idx(const Archetype &type)
 {
     return get_component_idx(type, family::type<Component>());
 }

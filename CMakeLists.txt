@@ -72,8 +72,6 @@ endif()
 
 add_executable(test-vulkan ${SOURCE_FILES})
 
-# set_property(TARGET test-vulkan PROPERTY CXX_CLANG_TIDY clang-tidy)
-
 target_compile_options(test-vulkan
   PUBLIC
   -Werror -Wall -Wextra # warnings

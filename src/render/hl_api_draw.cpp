@@ -79,7 +79,7 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
             = rp.info.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : depth_ref.layout;
         attachment.finalLayout = depth_ref.layout;
         attachment.flags       = {};
-        attachments.push_back(std::move(attachment));
+        attachments.push_back(attachment);
     }
 
     std::array<VkSubpassDescription, 1> subpasses{};
@@ -172,7 +172,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
     FrameBuffer fb;
     fb.create_info = ci;
     VK_CHECK(vkCreateFramebuffer(api.ctx.device, &ci, nullptr, &fb.vkhandle));
-    api.framebuffers.push_back(std::move(fb));
+    api.framebuffers.push_back(fb);
     return api.framebuffers.back();
 }
 
@@ -204,20 +204,17 @@ void API::begin_pass(PassInfo &&info)
         // maybe push clear colors even when there is no need to clear attachments?
         if (!render_pass.info.colors.empty() && clear_values.empty())
         {
-            for (auto &color_attachment : render_pass.info.colors)
+            for (usize i_color = 0; i_color < render_pass.info.colors.size(); i_color++)
             {
-                if (true || color_attachment.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR)
-                {
-                    clear_values.emplace_back();
-                    auto &clear = clear_values.back();
-                    clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
-                }
+                clear_values.emplace_back();
+                auto &clear = clear_values.back();
+                clear.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
             }
         }
 
         VkClearValue clear;
         clear.depthStencil = VkClearDepthStencilValue{.depth = 0.0f, .stencil = 0};
-        clear_values.push_back(std::move(clear));
+        clear_values.push_back(clear);
     }
 
     VkRenderPassBeginInfo rpbi = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -287,7 +284,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             attribute.location = location;
             attribute.format   = vertex_info.format;
             attribute.offset   = vertex_info.offset;
-            attributes.push_back(std::move(attribute));
+            attributes.push_back(attribute);
             location++;
         }
 
@@ -416,7 +413,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             create_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
             create_info.module = shader.vkhandle;
             create_info.pName  = "main";
-            shader_stages.push_back(std::move(create_info));
+            shader_stages.push_back(create_info);
         }
 
         if (program_info.geom_shader.is_valid())
@@ -427,7 +424,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             create_info.stage  = VK_SHADER_STAGE_GEOMETRY_BIT;
             create_info.module = shader.vkhandle;
             create_info.pName  = "main";
-            shader_stages.push_back(std::move(create_info));
+            shader_stages.push_back(create_info);
         }
 
         if (program_info.fragment_shader.is_valid())
@@ -438,7 +435,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             create_info.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
             create_info.module = shader.vkhandle;
             create_info.pName  = "main";
-            shader_stages.push_back(std::move(create_info));
+            shader_stages.push_back(create_info);
         }
 
         VkGraphicsPipelineCreateInfo pipe_i = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
