@@ -12,10 +12,13 @@ Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api)
     vulkan::DepthState depth = {
         .test = VK_COMPARE_OP_GREATER_OR_EQUAL,
     };
+
+    vulkan::RasterizationState rasterization = {.culling = false};
     pass.program = api.create_program({
         .vertex_shader   = api.create_shader("shaders/checkerboard_floor.vert.spv"),
         .fragment_shader = api.create_shader("shaders/checkerboard_floor.frag.spv"),
         .depth           = depth,
+        .rasterization   = rasterization,
         .alpha_blending  = true,
     });
 

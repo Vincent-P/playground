@@ -173,7 +173,7 @@ struct Model
     std::vector<Image> images;
 
     std::vector<GltfVertex> vertices;
-    std::vector<u16> indices;
+    std::vector<u32> indices;
 
     std::vector<u32> nodes_preorder;
     std::vector<float4x4> cached_transforms;

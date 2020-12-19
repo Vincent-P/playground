@@ -20,6 +20,7 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
     pinfo.vertex_info({.format = VK_FORMAT_R32G32_SFLOAT, .offset = MEMBER_OFFSET(ImDrawVert, uv)});
     pinfo.vertex_info({.format = VK_FORMAT_R8G8B8A8_UNORM, .offset = MEMBER_OFFSET(ImDrawVert, col)});
 
+    pinfo.rasterization.culling = false;
     pinfo.alpha_blending = true;
 
     vulkan::GraphicsProgramInfo puintinfo = pinfo;

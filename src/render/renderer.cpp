@@ -33,7 +33,9 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     vulkan::API::create(r.api, window);
     RenderGraph::create(r.graph, r.api);
 
-    r.model = std::make_shared<Model>(load_model(fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza"))); // TODO: where??
+    std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
+    path = "../models/chocobo-blender/scene.gltf";
+    r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
 
@@ -239,7 +241,7 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     });
     api.upload_buffer(pass.vertex_buffer, model.vertices.data(), vbuffer_size);
 
-    usize ibuffer_size = model.indices.size() * sizeof(u16);
+    usize ibuffer_size = model.indices.size() * sizeof(u32);
     pass.index_buffer  = api.create_buffer({
         .name  = "glTF Index Buffer",
         .size  = ibuffer_size,
@@ -602,10 +604,12 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
 {
     Renderer::VoxelPass pass;
 
+    vulkan::RasterizationState rasterization = {.culling = false};
     pass.voxelization = api.create_program({
         .vertex_shader   = api.create_shader("shaders/voxelization.vert.spv"),
         .geom_shader     = api.create_shader("shaders/voxelization.geom.spv"),
         .fragment_shader = api.create_shader("shaders/voxelization.frag.spv"),
+        .rasterization   = rasterization,
     });
 
     {

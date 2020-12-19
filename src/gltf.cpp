@@ -81,7 +81,8 @@ Model load_model(std::string_view path_view)
         buf.byte_length = json_buffer["byteLength"].get_uint64();
 
         std::string_view buffer_name = json_buffer["uri"].get_string();
-        fs::path buffer_path         = path.replace_filename(fs::path(buffer_name));
+        auto buffer_path = fs::path(path).remove_filename();
+        buffer_path += fs::path(buffer_name);
         buf.data                     = tools::read_file(buffer_path);
 
         model.buffers.push_back(std::move(buf));
@@ -132,7 +133,9 @@ Model load_model(std::string_view path_view)
         for (const auto &json_image : doc["images"])
         {
             std::string_view image_name = json_image["uri"].get_string();
-            fs::path image_path         = path.replace_filename(image_name);
+
+            auto image_path = fs::path(path).remove_filename();
+            image_path += fs::path(image_name);
 
             #if 0
             std::string_view type_view = json_image["mimeType"].get_string();
@@ -326,6 +329,14 @@ Model load_model(std::string_view path_view)
                 else if (component_type == ComponentType::UnsignedByte)
                 {
                     auto *indices = reinterpret_cast<u8 *>(&buffer.data[offset]);
+                    for (u32 i = 0; i < count; i++)
+                    {
+                        model.indices.push_back(indices[i]);
+                    }
+                }
+                else if (component_type == ComponentType::UnsignedInt)
+                {
+                    auto *indices = reinterpret_cast<u32 *>(&buffer.data[offset]);
                     for (u32 i = 0; i < count; i++)
                     {
                         model.indices.push_back(indices[i]);

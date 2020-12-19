@@ -8,19 +8,24 @@ Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api)
 {
     Renderer::ProceduralSkyPass pass;
 
+    vulkan::RasterizationState rasterization = {.culling = false};
+
     pass.render_transmittance = api.create_program({
         .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
         .fragment_shader = api.create_shader("shaders/transmittance_lut.frag.spv"),
+        .rasterization   = rasterization,
     });
 
     pass.render_skyview = api.create_program({
         .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
         .fragment_shader = api.create_shader("shaders/skyview_lut.frag.spv"),
+        .rasterization   = rasterization,
     });
 
     pass.sky_raymarch = api.create_program({
         .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
         .fragment_shader = api.create_shader("shaders/sky_raymarch.frag.spv"),
+        .rasterization   = rasterization,
     });
 
     pass.compute_multiscattering_lut = api.create_program({

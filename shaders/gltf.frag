@@ -330,7 +330,7 @@ void main()
         indirect.rgb *= albedo / PI;
     }
 
-    float3 composite = direct + indirect.rgb * indirect.a;
+    float3 composite = (direct + indirect.rgb) * indirect.a;
 
     // composite.rgb *= cascade_colors[gpu_cascade_idx];
 

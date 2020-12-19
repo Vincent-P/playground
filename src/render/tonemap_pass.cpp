@@ -8,9 +8,12 @@ Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api)
 {
     Renderer::TonemappingPass pass;
 
+    vulkan::RasterizationState rasterization = {.culling = false};
+
     pass.program = api.create_program({
         .vertex_shader   = api.create_shader("shaders/fullscreen_triangle.vert.spv"),
         .fragment_shader = api.create_shader("shaders/hdr_compositing.frag.spv"),
+        .rasterization = rasterization,
     });
 
     pass.params_pos = {};

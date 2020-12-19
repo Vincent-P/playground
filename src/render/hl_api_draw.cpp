@@ -316,7 +316,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             .depthClampEnable = VK_TRUE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode             = VK_POLYGON_MODE_FILL,
-            .cullMode                = VK_CULL_MODE_NONE,
+            .cullMode                = VkCullModeFlags(program_info.rasterization.culling ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE),
             .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable         = program_info.depth.bias != 0.0f,
             .depthBiasConstantFactor = program_info.depth.bias,
@@ -857,14 +857,14 @@ void API::bind_index_buffer(BufferH H, u32 offset)
 {
     const auto &index_buffer = get_buffer(H);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, offset, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, offset, VK_INDEX_TYPE_UINT32);
 }
 
 void API::bind_index_buffer(CircularBufferPosition i_pos)
 {
     const auto &index_buffer = get_buffer(i_pos.buffer_h);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, i_pos.offset, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, i_pos.offset, VK_INDEX_TYPE_UINT32);
 }
 
 void API::push_constant(VkShaderStageFlags stage, u32 offset, u32 size, void *data)
