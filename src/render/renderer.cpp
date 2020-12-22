@@ -11,6 +11,7 @@
 #include "tools.hpp"
 #include "ui.hpp"
 
+#include <array>
 #include <cstring> // for memset
 #include <future>
 #include <imgui/imgui.h>
@@ -23,6 +24,15 @@
 
 namespace my_app
 {
+
+Renderer::TemporalPass create_temporal_pass(vulkan::API &api)
+{
+    Renderer::TemporalPass pass;
+    pass.accumulate = api.create_program({
+        .shader   = api.create_shader("shaders/temporal_accumulation.comp.glsl.spv")
+    });
+    return pass;
+}
 
 // frame data
 void Renderer::create(Renderer &r, const platform::Window &window, TimerData &timer)
@@ -68,6 +78,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     r.voxels             = create_voxel_pass(r.api);
     r.luminance          = create_luminance_pass(r.api);
     r.cascades_bounds    = create_cascades_bounds_pass(r.api);
+    r.temporal_pass      = create_temporal_pass(r.api);
 
     // basic resources
 
@@ -118,9 +129,27 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     r.sun.yaw      = 25.0f;
     r.sun.roll     = 80.0f;
 
-    // it would be nice to be able to create those in the create_procedural_sky_pass function
+    auto compute_halton = [](int index, int radix)
+        {
+            float result = 0.f;
+            float fraction = 1.f / float(radix);
 
+            while (index > 0)
+            {
+                result += float(index % radix) * fraction;
 
+                index /= radix;
+                fraction /= float(radix);
+            }
+
+            return result;
+        };
+
+    for (usize i_halton = 0; i_halton < 16; i_halton++)
+    {
+        r.halton_indices[i_halton].x = compute_halton(i_halton+1, 2);
+        r.halton_indices[i_halton].y = compute_halton(i_halton+1, 3);
+    }
 }
 
 void Renderer::destroy()
@@ -138,7 +167,80 @@ void Renderer::on_resize(int window_width, int window_height)
 
 void Renderer::wait_idle() const { api.wait_idle(); }
 
-void Renderer::reload_shader(std::string_view /*unused*/) {}
+void Renderer::reload_shader(std::string_view shader_name)
+{
+    fmt::print(stderr, "{} changed!\n", shader_name);
+
+    // Find the shader that needs to be updated
+    vulkan::Shader *found = nullptr;
+    for (auto &[shader_h, shader] : api.shaders) {
+        fmt::print(stderr, "{} == {}\n", shader_name, shader->name);
+
+        if (shader_name == shader->name) {
+            assert(found == nullptr);
+            found = &(*shader);
+        }
+    }
+
+    if (!found) {
+        assert(false);
+        return;
+    }
+
+    vulkan::Shader &shader = *found;
+    fmt::print(stderr, "Found {}\n", shader.name);
+
+    // Create a new shader module
+    vulkan::ShaderH new_shader = api.create_shader(shader_name);
+    fmt::print(stderr, "New shader's handle:  {}\n", new_shader.value());
+
+    std::vector<vulkan::ShaderH> to_remove;
+
+    // Update programs using this shader to the new shader
+    for (auto &[program_h, program] : api.graphics_programs) {
+        if (program->info.vertex_shader.is_valid()) {
+            auto &vertex_shader = api.get_shader(program->info.vertex_shader);
+            if (vertex_shader.name == shader.name) {
+                to_remove.push_back(program->info.vertex_shader);
+                program->info.vertex_shader = new_shader;
+            }
+        }
+
+        if (program->info.geom_shader.is_valid()) {
+            auto &geom_shader = api.get_shader(program->info.geom_shader);
+            if (geom_shader.name == shader.name) {
+                to_remove.push_back(program->info.geom_shader);
+                program->info.geom_shader = new_shader;
+            }
+        }
+
+        if (program->info.fragment_shader.is_valid()) {
+            auto &fragment_shader = api.get_shader(program->info.fragment_shader);
+            if (fragment_shader.name == shader.name) {
+                to_remove.push_back(program->info.fragment_shader);
+                program->info.fragment_shader = new_shader;
+            }
+        }
+    }
+
+    for (auto &[program_h, program] : api.compute_programs) {
+        if (program->info.shader.is_valid()) {
+            auto &compute_shader = api.get_shader(program->info.shader);
+            if (compute_shader.name == shader.name) {
+                to_remove.push_back(program->info.shader);
+                program->info.shader = new_shader;
+            }
+        }
+    }
+
+    assert(!to_remove.empty());
+
+    // Destroy the old shaders
+    for (vulkan::ShaderH shader_h : to_remove) {
+        fmt::print(stderr, "Removing handle:  {}\n", new_shader.value());
+        api.destroy_shader(shader_h);
+    }
+}
 
 /// --- glTF model pass
 
@@ -1001,8 +1103,16 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
     const auto &input_camera = *world.get_component<InputCameraComponent>(main_camera);
     auto &camera = *world.get_component<CameraComponent>(main_camera);
 
-    float aspect_ratio = r.settings.render_resolution.x / float(r.settings.render_resolution.y);
 
+    auto &api = r.api;
+    r.global_uniform_pos = api.dynamic_uniform_buffer(sizeof(GlobalUniform));
+    auto *globals        = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
+    std::memset(globals, 0, sizeof(GlobalUniform));
+
+    globals->camera_previous_view = camera.view;
+    globals->camera_previous_proj = camera.projection;
+
+    float aspect_ratio = r.settings.render_resolution.x / float(r.settings.render_resolution.y);
     camera.view = camera::look_at(camera_transform.position, input_camera.target, float3_UP, &camera.view_inverse);
     camera.projection  = camera::perspective(camera.fov,
                                             aspect_ratio,
@@ -1010,21 +1120,41 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
                                             camera.far_plane,
                                             &camera.projection_inverse);
 
-    auto &api = r.api;
     api.begin_label("Update uniforms");
-
-    r.global_uniform_pos = api.dynamic_uniform_buffer(sizeof(GlobalUniform));
-    auto *globals        = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
-    std::memset(globals, 0, sizeof(GlobalUniform));
 
     globals->delta_t              = r.p_timer->get_delta_time();
     globals->camera_pos           = camera_transform.position;
     globals->camera_view          = camera.view;
+    globals->camera_inv_view      = camera.view_inverse;
     globals->camera_proj          = camera.projection;
     globals->camera_inv_proj      = camera.projection_inverse;
     globals->camera_inv_view_proj = camera.view_inverse * camera.projection_inverse;
+
+
     globals->camera_near          = camera.near_plane;
     globals->camera_far           = camera.far_plane;
+
+    /// Compute TAA offset
+    float2 previous_sample = r.halton_indices[api.ctx.frame_count%r.halton_indices.size()];
+    float2 current_sample = r.halton_indices[(api.ctx.frame_count+1)%r.halton_indices.size()];
+
+    float2 view_rect = float2(
+        2.0f * camera.near_plane / camera.projection.at(0, 0),
+        -2.0f * camera.near_plane / camera.projection.at(1, 1)
+        );
+
+    float2 texel_size = float2(
+        view_rect.x / r.settings.render_resolution.x,
+        view_rect.y / r.settings.render_resolution.y
+        );
+
+    globals->previous_jitter_offset.x      = (previous_sample.x * texel_size.x) / view_rect.x;
+    globals->previous_jitter_offset.y      = (previous_sample.y * texel_size.y) / view_rect.y;
+
+    globals->jitter_offset.x      = (current_sample.x * texel_size.x) / view_rect.x;
+    globals->jitter_offset.y      = (current_sample.y * texel_size.y) / view_rect.y;
+
+
     globals->sun_view             = float4x4(0.0f);
     globals->sun_proj             = float4x4(0.0f);
 
@@ -1261,6 +1391,18 @@ void Renderer::display_ui(UI::Context &ui)
             }
         }
 
+        if (ImGui::CollapsingHeader("TAA history"))
+        {
+            for (auto h : history)
+            {
+                auto &res = graph.images.at(h);
+                if (res.resolved_img.is_valid())
+                {
+                    ImGui::Image((void *)(api.get_image(res.resolved_img).default_view.hash()), ImVec2(512, 512));
+                }
+            }
+        }
+
         ui.end_window();
     }
 
@@ -1453,6 +1595,75 @@ static void create_graph_images(Renderer &r)
             .format    = VK_FORMAT_D32_SFLOAT,
         });
     }
+
+    r.history[0] = r.graph.image_descs.add({.name = "History 0", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.history[1] = r.graph.image_descs.add({.name = "History 1", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+    r.taa_output = r.graph.image_descs.add({.name = "TAA output", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
+}
+
+void add_accumulation_pass(Renderer &r)
+{
+    auto &graph = r.graph;
+
+    graph.add_pass({
+            .name           = "Prepare history",
+            .type           = PassType::Compute,
+            .sampled_images = {r.history[0], r.history[1]},
+            .exec =
+            [](RenderGraph &/*graph*/, RenderPass &/*self*/, vulkan::API &/*api*/) {},
+        });
+    graph.add_pass({
+            .name           = "Prepare history 2",
+            .type           = PassType::Compute,
+            .storage_images = {r.history[0], r.history[1]},
+            .exec =
+            [](RenderGraph &/*graph*/, RenderPass &/*self*/, vulkan::API &/*api*/) {},
+        });
+
+    auto prev = r.history[(r.current_history)%2];
+    r.current_history += 1;
+    auto next = r.history[(r.current_history)%2];
+
+    graph.add_pass({
+        .name           = "Temporal accumulation",
+        .type           = PassType::Compute,
+        .sampled_images = {r.depth_buffer, r.hdr_buffer, prev},
+        .storage_images = {next},
+        .exec =
+            [pass_data         = r.temporal_pass,
+             trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+
+                auto program    = pass_data.accumulate;
+
+                auto depth_buffer = graph.get_resolved_image(self.sampled_images[0]);
+                auto hdr_buffer = graph.get_resolved_image(self.sampled_images[1]);
+                auto prev_history = graph.get_resolved_image(self.sampled_images[2]);
+                auto taa_output = graph.get_resolved_image(self.storage_images[0]);
+
+                auto hdr_buffer_image = api.get_image(hdr_buffer);
+
+                api.bind_combined_image_sampler(program,
+                                                depth_buffer,
+                                                trilinear_sampler,
+                                                0);
+
+                api.bind_combined_image_sampler(program,
+                                                hdr_buffer,
+                                                trilinear_sampler,
+                                                1);
+
+                api.bind_combined_image_sampler(program,
+                                                prev_history,
+                                                trilinear_sampler,
+                                                2);
+
+                api.bind_image(program, taa_output, 3);
+
+                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
+                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
+                api.dispatch(program, size_x, size_y, 1);
+            },
+    });
 }
 
 void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
@@ -1489,6 +1700,8 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     }
     else
     {
+        // main pass
+
         add_gltf_prepass(*this);
         add_cascades_bounds_pass(*this);
         add_shadow_cascades_pass(*this);
@@ -1501,6 +1714,10 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     {
         add_procedural_sky_pass(*this, *sky_atmosphere);
     }
+
+    add_accumulation_pass(*this);
+
+    // Post processes
 
     add_luminance_pass(*this);
 

@@ -37,24 +37,22 @@ float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 
 float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse)
 {
-    // reversed depth only needs to reverse near and far for the projecton matrix
-    auto n = -far_plane;
-    auto f = -near_plane;
+    auto n = near_plane;
+    auto f = far_plane;
 
-    float tan = std::tan(to_radians(fov) / 2.0f); // = height / n
+    float focal_length = 1.0f / std::tan(to_radians(fov) / 2.0f); // = 2n / (height)
     // aspect_ratio = width/height
-
-    float x  = 2.0f / (tan * aspect_ratio); // 2*(n/height)*(height/width) => 2n/width
-    float y  = - 2.0 / tan; // -2n/height
+    float x  =  focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
+    float y  = -focal_length; // -2n/height
 
     assert((n - f) != 0.0f);
-    float f_on_n_minus_f = f / (n - f);
+    float n_on_f_minus_n = n / (f - n);
 
-    float z0 = f_on_n_minus_f;
-    float z1 = -n * f_on_n_minus_f;
+    float A = n_on_f_minus_n;
+    float B = f * A;
 
     // bad things will happen in the inverse
-    assert(z1 != 0.0f);
+    assert(B != 0.0f);
     assert(x != 0.0f);
     assert(y != 0.0f);
 
@@ -62,7 +60,7 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
     float4x4 projection{{
         x,    0.0f, 0.0f,  0.0f,
         0.0f, y,    0.0f,  0.0f,
-        0.0f, 0.0f, z0,    z1,
+        0.0f, 0.0f,    A,     B,
         0.0f, 0.0f, -1.0f, 0.0f,
     }};
     // clang-format on
@@ -74,7 +72,7 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
             1/x,  0.0f, 0.0f, 0.0f,
             0.0f, 1/y,  0.0f, 0.0f,
             0.0f, 0.0f, 0.0f, -1.0f,
-            0.0f, 0.0f, 1/z1, z0/z1,
+            0.0f, 0.0f, 1/B, A/B,
         });
         // clang-format on
     }

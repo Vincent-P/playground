@@ -8,7 +8,10 @@
 #include <memory>
 #include <string_view>
 
-#define assert_uniform_size(T) static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!")
+#define assert_uniform_size(T) \
+    static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!"); \
+    static_assert(sizeof(T) < 64_KiB, "Uniforms maximum range is 64KiB")
+
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -31,8 +34,11 @@ struct PACKED GlobalUniform
 {
     float4x4 camera_view;
     float4x4 camera_proj;
+    float4x4 camera_inv_view;
     float4x4 camera_inv_proj;
     float4x4 camera_inv_view_proj;
+    float4x4 camera_previous_view;
+    float4x4 camera_previous_proj;
     float4x4 sun_view;
     float4x4 sun_proj;
 
@@ -45,10 +51,13 @@ struct PACKED GlobalUniform
 
 
     float3 sun_direction;
-    float pad10;
+    float pad00;
 
     float3 sun_illuminance;
     float ambient;
+
+    float2 jitter_offset;
+    float2 previous_jitter_offset;
 };
 
 assert_uniform_size(GlobalUniform);
@@ -161,6 +170,8 @@ struct Renderer
     Settings settings;
     std::shared_ptr<Model> model;
 
+    std::array<float2, 16> halton_indices;
+
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
     ImageDescH ldr_buffer;
@@ -190,6 +201,15 @@ struct Renderer
     ImageDescH transmittance_lut;
     ImageDescH skyview_lut;
     ImageDescH multiscattering_lut;
+
+    std::array<ImageDescH, 2> history;
+    usize current_history = 0;
+    ImageDescH taa_output;
+
+    struct TemporalPass
+    {
+        vulkan::ComputeProgramH accumulate;
+    } temporal_pass;
 
     struct ProceduralSkyPass
     {

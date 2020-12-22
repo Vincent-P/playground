@@ -325,6 +325,8 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             .lineWidth               = 1.0f,
         };
 
+        rast_i.cullMode = VK_CULL_MODE_NONE;
+
         // TODO: from render_pass
         std::vector<VkPipelineColorBlendAttachmentState> att_states;
         att_states.reserve(render_pass.info.colors.size());
@@ -1005,6 +1007,17 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
     auto &program        = get_program(program_h);
     auto &frame_resource = ctx.frame_resources.get_current();
     auto &cmd            = frame_resource.command_buffer;
+
+    // hot reload
+    if (program.pipeline_shader != program.info.shader.hash())
+    {
+        const auto &compute_shader = get_shader(program.info.shader);
+        auto &pinfo        = program.pipeline_info;
+        pinfo.stage.module = compute_shader.vkhandle;
+        auto &pipeline = program.pipeline_vk;
+        vkDestroyPipeline(ctx.device, program.pipeline_vk, nullptr);
+        VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));
+    }
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_vk);
 

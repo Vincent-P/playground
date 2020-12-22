@@ -28,10 +28,12 @@ void add_luminance_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
+    auto taa_output = r.history[(r.current_history)%2];
+
     graph.add_pass({
         .name           = "Build histogram",
         .type           = PassType::Compute,
-        .sampled_images = {r.hdr_buffer},
+        .sampled_images = {taa_output},
         .exec =
             [pass_data         = r.luminance,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
@@ -65,8 +67,8 @@ void add_luminance_pass(Renderer &r)
 
                 api.clear_buffer(pass_data.histogram_buffer, 0u);
 
-                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 == 1);
-                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 == 1);
+                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
+                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
                 api.dispatch(program, size_x, size_y, 1);
             },
     });

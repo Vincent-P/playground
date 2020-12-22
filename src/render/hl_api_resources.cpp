@@ -1136,6 +1136,8 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     pinfo.stage.pName  = "main";
     pinfo.layout       = program.pipeline_layout;
 
+    program.pipeline_shader = program.info.shader.hash();
+
     auto &pipeline = program.pipeline_vk;
 
     VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));

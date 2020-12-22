@@ -49,7 +49,7 @@ void main()
     out_color0 = vertex.color0;
     out_joint0 = vertex.joint0;
     out_weight0 = vertex.weight0;
-    gl_Position = global.camera_proj * global.camera_view * float4(out_position, 1.0);
+    gl_Position = get_jittered_projection(global.camera_proj, global.jitter_offset) * global.camera_view * float4(out_position, 1.0);
     // debug shadow map :)
     // gl_Position = outLightPosition;
 }

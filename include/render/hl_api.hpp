@@ -404,6 +404,7 @@ struct ComputeProgram
     VkPipelineLayout pipeline_layout; // layoutS??
     VkComputePipelineCreateInfo pipeline_info;
     VkPipeline pipeline_vk;
+    u64 pipeline_shader;
 
     bool operator==(const ComputeProgram &b) const
     {

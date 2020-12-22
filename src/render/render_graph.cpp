@@ -193,6 +193,7 @@ static void resolve_images(RenderGraph &graph)
                     color.int32[2] = 0;
                     color.int32[3] = 1;
                 }
+                fmt::print("Clearing {}\n", desc.name);
                 api.clear_image(image.resolved_img, color);
             }
         }
@@ -404,71 +405,92 @@ void RenderGraph::display_ui(UI::Context &ui)
     auto &api = *p_api;
     if (ui.begin_window("Render Graph", true))
     {
-        for (const auto &[pass_h, p_pass] : passes)
+        if (ImGui::CollapsingHeader("Passes"))
         {
-            auto &renderpass = *p_pass;
-            if (ImGui::CollapsingHeader(renderpass.name.data()))
+            for (const auto &[pass_h, p_pass] : passes)
             {
-                if (renderpass.type == PassType::Graphics)
+                auto &renderpass = *p_pass;
+                if (ImGui::CollapsingHeader(renderpass.name.data()))
                 {
-                    ImGui::TextUnformatted("Type: Graphics");
-                }
-                else if (renderpass.type == PassType::Compute)
-                {
-                    ImGui::TextUnformatted("Type: Compute");
-                }
-                else
-                {
-                    ImGui::TextUnformatted("Type: Unkown");
-                }
-
-                ImGui::TextUnformatted("Inputs:");
-                if (!renderpass.external_images.empty())
-                {
-                    ImGui::TextUnformatted(" - External images:");
-                    for (const auto image_h : renderpass.external_images)
+                    if (renderpass.type == PassType::Graphics)
                     {
-                        const auto &vkimage = api.get_image(image_h);
-                        ImGui::Text("    - %s", vkimage.name);
+                        ImGui::TextUnformatted("Type: Graphics");
+                    }
+                    else if (renderpass.type == PassType::Compute)
+                    {
+                        ImGui::TextUnformatted("Type: Compute");
+                    }
+                    else
+                    {
+                        ImGui::TextUnformatted("Type: Unkown");
+                    }
+
+                    ImGui::TextUnformatted("Inputs:");
+                    if (!renderpass.external_images.empty())
+                    {
+                        ImGui::TextUnformatted(" - External images:");
+                        for (const auto image_h : renderpass.external_images)
+                        {
+                            const auto &vkimage = api.get_image(image_h);
+                            ImGui::Text("    - %s", vkimage.name);
+                        }
+                    }
+                    if (!renderpass.sampled_images.empty())
+                    {
+                        ImGui::TextUnformatted(" - Sampled images:");
+                        for (const auto desc_h : renderpass.sampled_images)
+                        {
+                            const auto &desc = *image_descs.get(desc_h);
+                            ImGui::Text("    - %s", desc.name.data());
+                        }
+                    }
+
+                    ImGui::TextUnformatted("Outputs:");
+
+                    if (!renderpass.storage_images.empty())
+                    {
+                        ImGui::TextUnformatted(" - Storage images:");
+                        for (const auto desc_h : renderpass.sampled_images)
+                        {
+                            const auto &desc = *image_descs.get(desc_h);
+                            ImGui::Text("    - %s", desc.name.data());
+                        }
+                    }
+
+                    for (auto color_attachment : renderpass.color_attachments)
+                    {
+                        const auto &desc = *image_descs.get(color_attachment);
+                        const auto &resolved = get_resolved_image(color_attachment);
+                        const auto &image = api.get_image(resolved);
+                        ImGui::Text(" - Color attachment: %s", desc.name.data());
+                        ImGui::Text("Desc size: %0.fx%0.fx%0.f", desc.size.x, desc.size.y, desc.size.z);
+                        display_image(image);
+                    }
+
+                    if (renderpass.depth_attachment)
+                    {
+                        const auto &desc = *image_descs.get(*renderpass.depth_attachment);
+                        ImGui::Text(" - Depth attachment: %s", desc.name.data());
                     }
                 }
-                if (!renderpass.sampled_images.empty())
-                {
-                    ImGui::TextUnformatted(" - Sampled images:");
-                    for (const auto desc_h : renderpass.sampled_images)
-                    {
-                        const auto &desc = *image_descs.get(desc_h);
-                        ImGui::Text("    - %s", desc.name.data());
-                    }
-                }
+            }
+        }
 
-                ImGui::TextUnformatted("Outputs:");
+        if (ImGui::CollapsingHeader("Resolved images"))
+        {
+            for (auto [desc_h, resource] : images)
+            {
+                    const auto &desc = *image_descs.get(desc_h);
+                    const auto &resolved = get_resolved_image(desc_h);
+                    ImGui::Text(" - %s: resolved %zu", desc.name.data(), resolved.hash());
+            }
+        }
 
-                if (!renderpass.storage_images.empty())
-                {
-                    ImGui::TextUnformatted(" - Storage images:");
-                    for (const auto desc_h : renderpass.sampled_images)
-                    {
-                        const auto &desc = *image_descs.get(desc_h);
-                        ImGui::Text("    - %s", desc.name.data());
-                    }
-                }
-
-                for (auto color_attachment : renderpass.color_attachments)
-                {
-                    const auto &desc = *image_descs.get(color_attachment);
-                    const auto &resolved = get_resolved_image(color_attachment);
-                    const auto &image = api.get_image(resolved);
-                    ImGui::Text(" - Color attachment: %s", desc.name.data());
-                    ImGui::Text("Desc size: %0.fx%0.fx%0.f", desc.size.x, desc.size.y, desc.size.z);
-                    display_image(image);
-                }
-
-                if (renderpass.depth_attachment)
-                {
-                    const auto &desc = *image_descs.get(*renderpass.depth_attachment);
-                    ImGui::Text(" - Depth attachment: %s", desc.name.data());
-                }
+        if (ImGui::CollapsingHeader("Cache"))
+        {
+            for (auto &[cache_info, cache_img, cache_used] : cache)
+            {
+                ImGui::Text(" - %zu: used %s", cache_img.hash(), cache_used ? "true" : "false");
             }
         }
 

@@ -54,13 +54,13 @@ struct uint2
 
 // --- User-defined literals
 
-inline uint operator"" _K(unsigned long long value) { return value * 1000u; }
+constexpr inline uint operator"" _K(unsigned long long value) { return value * 1000u; }
 
-inline uint operator"" _KiB(unsigned long long value) { return value << 10; }
+constexpr inline uint operator"" _KiB(unsigned long long value) { return value << 10; }
 
-inline uint operator"" _MiB(unsigned long long value) { return value << 20; }
+constexpr inline uint operator"" _MiB(unsigned long long value) { return value << 20; }
 
-inline uint operator"" _GiB(unsigned long long value) { return value << 30; }
+constexpr inline uint operator"" _GiB(unsigned long long value) { return value << 30; }
 
 /// --- Utility functions
 

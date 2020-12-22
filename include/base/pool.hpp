@@ -59,6 +59,11 @@ template <typename T> struct Handle
         return index == b.index && gen == b.gen;
     }
 
+    bool operator<(const Handle &b) const
+    {
+        return index < b.index;
+    }
+
   private:
     u32 index;
     u32 gen;

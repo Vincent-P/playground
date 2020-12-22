@@ -6,6 +6,7 @@
 #include <functional>
 #include <optional>
 #include <unordered_map>
+#include <map>
 #include <vector>
 #include <vulkan/vulkan.h>
 
@@ -150,7 +151,7 @@ struct RenderGraph
     ImageDescH swapchain;
     Pool<RenderPass> passes;
     Pool<ImageDesc> image_descs;
-    std::unordered_map<ImageDescH, ImageResource> images;
+    std::map<ImageDescH, ImageResource> images;
     std::vector<std::tuple<vulkan::ImageInfo, vulkan::ImageH, bool>> cache;
     int render_width;
     int render_height;
