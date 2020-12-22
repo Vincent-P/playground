@@ -82,55 +82,60 @@ void main()
     }
 
     int2 pixel_pos = int2(global_idx.xy);
-    float2 uv = float2(pixel_pos) / global.resolution;
-    float3 clip_space = float3(uv * 2.0 - float2(1.0), 0.0);
-    clip_space.z = max(clip_space.z, 0.000001);
+    float depth  = texelFetch(depth_buffer, pixel_pos, 0).r;
 
-    // unproject and unjitter with current camera to get world pos
-    float4x4 current_inv_proj = global.camera_inv_proj;
-    current_inv_proj = get_jittered_inv_projection(global.camera_inv_proj, global.jitter_offset);
+    float2 uv = float2(pixel_pos) / global.resolution;
+    float3 clip_space = float3(2.0 * uv - float2(1.0), max(depth, 0.00001));
+
+
+
+    /// --- Reproject: current frame to get the previous frame
+
+    // unproject with current camera to get world pos
+    float4x4 current_inv_proj = get_jittered_inv_projection(global.camera_inv_proj, global.jitter_offset);
     float4 world_pos = global.camera_inv_view * current_inv_proj * float4(clip_space, 1.0);
     world_pos /= world_pos.w;
 
     // project with previous camera settings
     float4x4 previous_proj = global.camera_previous_proj;
-    // previous_proj = get_jittered_projection(global.camera_previous_proj, global.previous_jitter_offset);
-    float4 previous_history_clip = previous_proj * global.camera_previous_view * world_pos;
-    float2 previous_history_uv = 0.5 * (previous_history_clip.xy / previous_history_clip.w) + 0.5;
+    // previous_proj = get_jittered_projection(global.camera_proj, global.previous_jitter_offset);
+    float4 previous_history_clip = previous_proj * global.camera_view * world_pos;
+    previous_history_clip /= previous_history_clip.w;
+    float2 previous_history_uv = 0.5 * previous_history_clip.xy + 0.5;
+
+    float4 history_color = float4(0, 0, 0, 1);
+    if (0.0 < previous_history_uv.x && previous_history_uv.x < 1.0
+        && 0.0 < previous_history_uv.y && previous_history_uv.y < 1.0)
+    {
+        history_color = texture(previous_history, previous_history_uv);
+    }
 
 
-    /// --- Constraint history
-    float4 neighbour_box[9];
-#define ITER(i) neighbour_box[i] = texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[i]);
-    ITER(0)
-    ITER(1)
-    ITER(2)
-    ITER(3)
-    ITER(4)
-    ITER(5)
-    ITER(6)
-    ITER(7)
-    ITER(8)
-#undef ITER
+    /// --- Min Max: average of a 3x3 box and 5 taps cross
 
-    float4 neighbour_cross[5];
-    neighbour_cross[0] = neighbour_box[1];
-    neighbour_cross[1] = neighbour_box[3];
-    neighbour_cross[2] = neighbour_box[4];
-    neighbour_cross[3] = neighbour_box[5];
-    neighbour_cross[4] = neighbour_box[7];
+    float4 neighbour_box[9] =
+    {
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[0]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[1]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[2]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[3]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[4]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[5]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[6]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[7]),
+        texelFetchOffset(current_frame, pixel_pos, LOD0, three_square_offsets[8])
+    };
 
     float4 color = neighbour_box[4];
-    float depth  = texelFetch(depth_buffer, pixel_pos, 0).r;
-    float4 history_color = texture(previous_history, previous_history_uv);
 
-    float4 box_max = neighbour_box[0];
-    float4 box_min = neighbour_box[0];
-    for (uint i = 1; i < 9; i++)
+    float4 neighbour_cross[5] =
     {
-        box_min = min(box_min, neighbour_box[i]);
-        box_max = max(box_max, neighbour_box[i]);
-    }
+        neighbour_box[1],
+        neighbour_box[3],
+        neighbour_box[4],
+        neighbour_box[5],
+        neighbour_box[7]
+    };
 
     float4 cross_max = neighbour_cross[0];
     float4 cross_min = neighbour_cross[0];
@@ -140,32 +145,57 @@ void main()
         cross_max = max(cross_max, neighbour_cross[i]);
     }
 
+    float4 box_min = min(cross_min, neighbour_box[0]);
+    box_min = min(box_min, neighbour_box[2]);
+    box_min = min(box_min, neighbour_box[6]);
+    box_min = min(box_min, neighbour_box[8]);
+
+    float4 box_max = max(cross_max, neighbour_box[0]);
+    box_max = max(box_max, neighbour_box[2]);
+    box_max = max(box_max, neighbour_box[6]);
+    box_max = max(box_max, neighbour_box[8]);
+
     float4 neighbour_min = (box_min + cross_min) * 0.5;
     float4 neighbour_max = (box_max + cross_max) * 0.5;
 
+
+
+    /// --- Constrain history to avoid ghosting
+
+    #if 0
+    // clip the history color in YCoCg space
     history_color = clip_aabb(rgb_to_ycocg(neighbour_min.rgb),
                               rgb_to_ycocg(neighbour_max.rgb),
                               float4(rgb_to_ycocg(color.rgb), 1.0),
                               float4(rgb_to_ycocg(history_color.rgb), 1.0));
-
     history_color.rgb = ycocg_to_rgb(history_color.rgb);
+    #elif 1
+    // clip the history color in RGB space
+    history_color = clip_aabb(neighbour_min.rgb,
+                              neighbour_max.rgb,
+                              color,
+                              history_color);
+    #endif
 
-    /// --- Blend
+
+
+    /// --- Unjitter current frame color
+
+
+
+
+    /// --- Weigh the history and the current frame to the new history
+
+    const float blend_weight = 0.01;
 
     float4 final_color = color;
-    // 16 samples => 1/16  weight => 0.0625
-    const float blend_weight = 0.0625;
 
-    if (0.0 <= previous_history_uv.x && previous_history_uv.x <= 1.0
-        && 0.0 <= previous_history_uv.y && previous_history_uv.y <= 1.0
+    if (0.0 < previous_history_uv.x && previous_history_uv.x < 1.0
+        && 0.0 < previous_history_uv.y && previous_history_uv.y < 1.0
         && history_color.a > 0.1)
     {
-        final_color = blend_weight * color + (1.0 - blend_weight) * history_color;
+        final_color = mix(history_color, color, blend_weight);
     }
-
-    final_color.a = 1;
-
-    final_color.rgb = max(final_color.rgb, float3(0, 0, 0));
 
     imageStore(output_frame, pixel_pos, final_color);
 }

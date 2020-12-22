@@ -171,6 +171,7 @@ struct Renderer
     std::shared_ptr<Model> model;
 
     std::array<float2, 16> halton_indices;
+    float2 previous_jitter;
 
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;

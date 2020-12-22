@@ -44,7 +44,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    path = "../models/chocobo-blender/scene.gltf";
+    // path = "../models/chocobo-blender/scene.gltf";
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
@@ -1135,7 +1135,6 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
     globals->camera_far           = camera.far_plane;
 
     /// Compute TAA offset
-    float2 previous_sample = r.halton_indices[api.ctx.frame_count%r.halton_indices.size()];
     float2 current_sample = r.halton_indices[(api.ctx.frame_count+1)%r.halton_indices.size()];
 
     float2 view_rect = float2(
@@ -1148,11 +1147,12 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
         view_rect.y / r.settings.render_resolution.y
         );
 
-    globals->previous_jitter_offset.x      = (previous_sample.x * texel_size.x) / view_rect.x;
-    globals->previous_jitter_offset.y      = (previous_sample.y * texel_size.y) / view_rect.y;
+    globals->previous_jitter_offset      = r.previous_jitter;
 
     globals->jitter_offset.x      = (current_sample.x * texel_size.x) / view_rect.x;
     globals->jitter_offset.y      = (current_sample.y * texel_size.y) / view_rect.y;
+
+    r.previous_jitter = globals->jitter_offset;
 
 
     globals->sun_view             = float4x4(0.0f);
@@ -1631,7 +1631,7 @@ void add_accumulation_pass(Renderer &r)
         .storage_images = {next},
         .exec =
             [pass_data         = r.temporal_pass,
-             trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+             nearest_sampler = r.nearest_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
 
                 auto program    = pass_data.accumulate;
 
@@ -1644,23 +1644,23 @@ void add_accumulation_pass(Renderer &r)
 
                 api.bind_combined_image_sampler(program,
                                                 depth_buffer,
-                                                trilinear_sampler,
+                                                nearest_sampler,
                                                 0);
 
                 api.bind_combined_image_sampler(program,
                                                 hdr_buffer,
-                                                trilinear_sampler,
+                                                nearest_sampler,
                                                 1);
 
                 api.bind_combined_image_sampler(program,
                                                 prev_history,
-                                                trilinear_sampler,
+                                                nearest_sampler,
                                                 2);
 
                 api.bind_image(program, taa_output, 3);
 
-                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
-                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
+                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + 1;
+                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + 1;
                 api.dispatch(program, size_x, size_y, 1);
             },
     });
