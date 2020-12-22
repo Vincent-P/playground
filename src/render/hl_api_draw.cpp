@@ -1015,7 +1015,7 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
         auto &pinfo        = program.pipeline_info;
         pinfo.stage.module = compute_shader.vkhandle;
         auto &pipeline = program.pipeline_vk;
-        vkDestroyPipeline(ctx.device, program.pipeline_vk, nullptr);
+        // vkDestroyPipeline(ctx.device, program.pipeline_vk, nullptr);
         VK_CHECK(vkCreateComputePipelines(ctx.device, nullptr, 1, &pinfo, nullptr, &pipeline));
     }
 
