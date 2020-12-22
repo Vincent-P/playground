@@ -35,12 +35,12 @@ void add_tonemapping_pass(Renderer &r)
         floatbuffer[0]           = r.tonemap_debug.exposure;
     }
 
-    auto taa_output = r.history[(r.current_history)%2];
+    auto output = r.override_main_pass_output ? *r.override_main_pass_output : r.hdr_buffer;
 
     graph.add_pass({
         .name              = "Tonemapping",
         .type              = PassType::Graphics,
-        .sampled_images    = {taa_output, r.average_luminance},
+        .sampled_images    = {output, r.average_luminance},
         .color_attachments = {r.ldr_buffer},
         .exec =
             [pass_data       = r.tonemapping,

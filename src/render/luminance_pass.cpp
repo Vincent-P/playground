@@ -28,12 +28,12 @@ void add_luminance_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
-    auto taa_output = r.history[(r.current_history)%2];
+    auto output = r.override_main_pass_output ? *r.override_main_pass_output : r.hdr_buffer;
 
     graph.add_pass({
         .name           = "Build histogram",
         .type           = PassType::Compute,
-        .sampled_images = {taa_output},
+        .sampled_images = {output},
         .exec =
             [pass_data         = r.luminance,
              trilinear_sampler = r.trilinear_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {

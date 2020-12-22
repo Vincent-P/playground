@@ -44,7 +44,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    // path = "../models/chocobo-blender/scene.gltf";
+    path = "../models/chocobo-blender/scene.gltf";
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
@@ -1136,6 +1136,10 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
 
     /// Compute TAA offset
     float2 current_sample = r.halton_indices[(api.ctx.frame_count+1)%r.halton_indices.size()];
+    if (!r.settings.enable_taa)
+    {
+        current_sample = float2(0.0);
+    }
 
     float2 view_rect = float2(
         2.0f * camera.near_plane / camera.projection.at(0, 0),
@@ -1366,6 +1370,7 @@ void Renderer::display_ui(UI::Context &ui)
             ImGui::Text("Render resolution: %ux%u", settings.render_resolution.x, settings.render_resolution.y);
             ImGui::SliderFloat("Split factor", &settings.split_factor, 0.1f, 1.0f);
             ImGui::Checkbox("Display grid", &settings.show_grid);
+            ImGui::Checkbox("Enable TAA", &settings.enable_taa);
         }
 
         if (ImGui::CollapsingHeader("Global"))
@@ -1715,7 +1720,15 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
         add_procedural_sky_pass(*this, *sky_atmosphere);
     }
 
-    add_accumulation_pass(*this);
+    if (settings.enable_taa)
+    {
+        add_accumulation_pass(*this);
+        override_main_pass_output = &history[(current_history%2)];
+    }
+    else
+    {
+        override_main_pass_output = nullptr;
+    }
 
     // Post processes
 
@@ -1727,8 +1740,6 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     {
         add_floor_pass(*this);
     }
-
-    // graph.add_pass({.name = "Blit to swapchain", .type = PassType::BlitToSwapchain, .color_attachments = {ldr_buffer}});
 
     add_imgui_pass(*this);
 

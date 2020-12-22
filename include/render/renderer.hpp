@@ -104,6 +104,7 @@ struct Settings
     uint shadow_cascades_count = 4;
     float split_factor         = 0.80f;
     bool show_grid             = true;
+    bool enable_taa            = true;
 };
 
 struct GltfPushConstant
@@ -172,6 +173,7 @@ struct Renderer
 
     std::array<float2, 16> halton_indices;
     float2 previous_jitter;
+    ImageDescH *override_main_pass_output = nullptr;
 
     ImageDescH depth_buffer;
     ImageDescH hdr_buffer;
