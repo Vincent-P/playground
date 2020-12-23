@@ -1002,7 +1002,7 @@ void API::end_label()
     current_label = {};
 }
 
-void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
+void API::dispatch(ComputeProgramH program_h, uint3 size)
 {
     auto &program        = get_program(program_h);
     auto &frame_resource = ctx.frame_resources.get_current();
@@ -1045,6 +1045,17 @@ void API::dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z)
                             dynamic_offsets.size(),
                             dynamic_offsets.data());
 
-    vkCmdDispatch(cmd, x, y, z);
+    vkCmdDispatch(cmd, size.x, size.y, size.z);
+}
+
+
+uint3 API::dispatch_size(ImageH target, uint threads_xy, uint threads_z)
+{
+    const auto &image = get_image(target);
+    return {
+        .x = image.info.width  / threads_xy + uint(image.info.width  % threads_xy != 0),
+        .y = image.info.height / threads_xy + uint(image.info.height % threads_xy != 0),
+        .z = image.info.depth  / threads_z  + uint(image.info.depth  % threads_z  != 0),
+    };
 }
 } // namespace my_app::vulkan

@@ -69,7 +69,7 @@ void add_cascades_bounds_pass(Renderer &r)
                 api.bind_combined_image_sampler(program, depth_buffer, trilinear_sampler, 0);
                 api.bind_image(program, reduction_map, 1);
 
-                api.dispatch(program, reduction_map_image.info.width, reduction_map_image.info.height, 1);
+                api.dispatch(program, {reduction_map_image.info.width, reduction_map_image.info.height, 1});
             },
     });
 
@@ -91,7 +91,7 @@ void add_cascades_bounds_pass(Renderer &r)
                     api.bind_combined_image_sampler(program, input, trilinear_sampler, 0);
                     api.bind_image(program, output, 1);
 
-                    api.dispatch(program, output_image.info.width, output_image.info.height, 1);
+                    api.dispatch(program, {output_image.info.width, output_image.info.height, 1});
                 },
         });
     }
@@ -108,7 +108,7 @@ void add_cascades_bounds_pass(Renderer &r)
                 api.bind_combined_image_sampler(program, depth_reduction, trilinear_sampler, 0);
                 api.clear_buffer(pass_data.cascades_slices_buffer, 0.0f);
                 api.bind_buffer(program, pass_data.cascades_slices_buffer, 1);
-                api.dispatch(program, 1, 1, 1);
+                api.dispatch(program, {1, 1, 1});
             },
     });
 }

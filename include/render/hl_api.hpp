@@ -552,7 +552,8 @@ struct API
     void create_global_set();
     void update_global_set();
 
-    void dispatch(ComputeProgramH program_h, u32 x, u32 y, u32 z);
+    void dispatch(ComputeProgramH program_h, uint3 size);
+    uint3 dispatch_size(ImageH target, uint threads_xy = 1, uint threads_z = 1);
 
     /// --- Debug
     void begin_label(std::string_view name, float4 color = {1, 1, 1, 1});

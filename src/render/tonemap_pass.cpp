@@ -44,7 +44,6 @@ namespace my_app
                     auto hdr_buffer = graph.get_resolved_image(self.sampled_images[0]);
                     auto average_luminance       = graph.get_resolved_image(self.sampled_images[1]);
                     auto output       = graph.get_resolved_image(self.storage_images[0]);
-                    auto output_image = api.get_image(output);
                     auto program    = pass_data.program;
 
                     api.bind_combined_image_sampler(program,
@@ -61,11 +60,7 @@ namespace my_app
 
                     api.bind_image(program, output, 3);
 
-
-
-                    auto size_x = static_cast<uint>(output_image.info.width / 16) + 1;
-                    auto size_y = static_cast<uint>(output_image.info.height / 16) + 1;
-                    api.dispatch(program, size_x, size_y, 1);
+                    api.dispatch(program, api.dispatch_size(output, 16));
                 },
             });
     }

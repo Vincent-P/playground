@@ -769,7 +769,7 @@ static void add_voxels_clear_pass(Renderer &r)
                 api.bind_image(program, voxels_radiance, 3);
 
                 auto count = voxel_options.res / 8;
-                api.dispatch(program, count, count, count);
+                api.dispatch(program, {count, count, count});
             },
     });
 }
@@ -956,7 +956,7 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
                 api.bind_image(program, voxels_radiance, 4);
 
                 auto count = voxel_options.res / 8;
-                api.dispatch(program, count, count, count);
+                api.dispatch(program, {count, count, count});
             },
     });
 }
@@ -1022,7 +1022,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                                 1);
                 api.bind_images(program, views, 2);
 
-                api.dispatch(program, count, count, count);
+                api.dispatch(program, {count, count, count});
             },
     });
 
@@ -1087,7 +1087,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
                     api.bind_images(program, src_views, 2);
                     api.bind_images(program, dst_views, 3);
 
-                    api.dispatch(program, count, count, count);
+                    api.dispatch(program, {count, count, count});
                 },
         });
     }
@@ -1656,8 +1656,6 @@ void add_accumulation_pass(Renderer &r)
                 auto prev_history = graph.get_resolved_image(self.sampled_images[2]);
                 auto taa_output = graph.get_resolved_image(self.storage_images[0]);
 
-                auto hdr_buffer_image = api.get_image(hdr_buffer);
-
                 api.bind_combined_image_sampler(program,
                                                 depth_buffer,
                                                 nearest_sampler,
@@ -1675,9 +1673,7 @@ void add_accumulation_pass(Renderer &r)
 
                 api.bind_image(program, taa_output, 3);
 
-                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + 1;
-                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + 1;
-                api.dispatch(program, size_x, size_y, 1);
+                api.dispatch(program, api.dispatch_size(hdr_buffer, 16));
             },
     });
 }

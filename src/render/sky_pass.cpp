@@ -81,10 +81,7 @@ void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmo
                                                 1);
                 api.bind_image(program, multiscattering, 2);
 
-                auto multiscattering_desc = *graph.image_descs.get(self.storage_images[0]);
-                auto size_x               = static_cast<uint>(multiscattering_desc.size.x);
-                auto size_y               = static_cast<uint>(multiscattering_desc.size.y);
-                api.dispatch(program, size_x, size_y, 1);
+                api.dispatch(program, api.dispatch_size(multiscattering, 1));
             },
     });
 

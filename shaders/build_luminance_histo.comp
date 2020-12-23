@@ -1,4 +1,5 @@
 #include "types.h"
+#include "constants.h"
 
 layout (set = 1, binding = 0) uniform sampler2D hdr_texture;
 
@@ -32,10 +33,9 @@ uint hdr_to_histogram_bin(float3 color)
     return uint(log_luminance * 254.0 + 1.0);
 }
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-
 shared uint histogram_shared[256];
 
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main()
 {
     uint local_idx = gl_LocalInvocationIndex;
@@ -49,10 +49,11 @@ void main()
 
     // every global invocation maps to one pixel of the input texture
     // add it to the histogram
-
-    if(thread_id.x < input_width && thread_id.y < input_height)
+    int2 pixel_pos = int2(thread_id.xy);
+    int2 input_size = textureSize(hdr_texture, LOD0);
+    if(all(lessThan(pixel_pos, input_size)))
     {
-        float3 hdr_color = texelFetch(hdr_texture, int2(thread_id.xy), 0).rgb;
+        float3 hdr_color = texelFetch(hdr_texture, pixel_pos, 0).rgb;
         uint bin_idx = hdr_to_histogram_bin(hdr_color);
 
         atomicAdd(histogram_shared[bin_idx], 1);

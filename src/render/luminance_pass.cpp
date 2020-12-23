@@ -67,9 +67,7 @@ void add_luminance_pass(Renderer &r)
 
                 api.clear_buffer(pass_data.histogram_buffer, 0u);
 
-                auto size_x = static_cast<uint>(hdr_buffer_image.info.width / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
-                auto size_y = static_cast<uint>(hdr_buffer_image.info.height / 16) + uint(hdr_buffer_image.info.width % 16 != 0);
-                api.dispatch(program, size_x, size_y, 1);
+                api.dispatch(program, api.dispatch_size(hdr_buffer, 16));
             },
     });
 
@@ -104,7 +102,7 @@ void add_luminance_pass(Renderer &r)
                 u->tau                 = 1.1f;
 
                 api.bind_buffer(program, uniform, 2);
-                api.dispatch(program, 1, 1, 1);
+                api.dispatch(program, {1, 1, 1});
             },
     });
 }
