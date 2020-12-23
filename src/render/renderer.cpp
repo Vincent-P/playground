@@ -1610,6 +1610,14 @@ void add_accumulation_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
+
+    /// Render graph hack: the render graph assign VkImage to each resource every frame based on the resource's usage this frame
+    /// The TAA history buffers are used as sampled image one frame and storage image the other so the render graph
+    /// will swap them every frame...
+    /// To make it work these 2 passes fix their usages to sampled AND storage.
+    /// Because they are created in the same order every frame, they will always have the same VkImage
+    /// TODO: Fix this mess ^^"
+
     graph.add_pass({
             .name           = "Prepare history",
             .type           = PassType::Compute,
@@ -1624,6 +1632,9 @@ void add_accumulation_pass(Renderer &r)
             .exec =
             [](RenderGraph &/*graph*/, RenderPass &/*self*/, vulkan::API &/*api*/) {},
         });
+
+
+
 
     auto prev = r.history[(r.current_history)%2];
     r.current_history += 1;
