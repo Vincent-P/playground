@@ -44,7 +44,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    path = "../models/chocobo-blender/scene.gltf";
+    // path = "../models/chocobo-blender/scene.gltf";
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;

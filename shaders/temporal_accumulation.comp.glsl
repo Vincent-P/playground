@@ -14,8 +14,6 @@ layout (set = 1, binding = 2) uniform sampler2D previous_history;
 // output
 layout (set = 1, binding = 3, rgba16f) uniform image2D output_frame;
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-
 const int2 three_square_offsets[9] =
 {
     int2(-1, -1),
@@ -69,6 +67,7 @@ float3 ycocg_to_rgb(float3 ycocg)
     return m * ycocg;
 }
 
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main()
 {
     uint local_idx = gl_LocalInvocationIndex;

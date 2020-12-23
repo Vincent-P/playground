@@ -1,6 +1,7 @@
 #include "render/render_graph.hpp"
 
 #include "app.hpp"
+#include "base/numerics.hpp"
 #include "render/hl_api.hpp"
 
 #include <algorithm>
@@ -292,22 +293,27 @@ bool RenderGraph::execute()
                 for (auto color_attachment : renderpass.color_attachments)
                 {
                     auto &color_resource = images.at(color_attachment);
-                    usize color_pass_idx = 0; // index of the current pass in the color attachment's usage list
-                    for (auto pass_h : color_resource.resource.color_attachment_in)
+
+                    u32 first_color_output  = u32_invalid;
+                    if (!color_resource.resource.color_attachment_in.empty())
                     {
-                        if (pass_h == renderpass_h)
-                        {
-                            break;
-                        }
-                        color_pass_idx++;
+                        first_color_output = color_resource.resource.color_attachment_in[0].value();
                     }
-                    assert(color_pass_idx < color_resource.resource.color_attachment_in.size());
+
+                    u32 first_storage_image = u32_invalid;
+                    if (!color_resource.resource.storage_images_in.empty())
+                    {
+                        first_storage_image = color_resource.resource.storage_images_in[0].value();
+                    }
+
+                    // we want to clear the image when it is used as color attachment or storage image FOR THE FIRST TIME ONLY
+                    bool should_clear = std::min(first_color_output, first_storage_image) == renderpass_h.value();
 
                     pass.colors.emplace_back();
                     auto &color_info = pass.colors.back();
                     // for now, clear whenever a render target is used for the first time in the frame and load
                     // otherwise
-                    color_info.load_op = color_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+                    color_info.load_op = should_clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
                     color_info.image_view = api.get_image(color_resource.resolved_img).default_view;
                 }
 
@@ -315,21 +321,14 @@ bool RenderGraph::execute()
                 if (renderpass.depth_attachment)
                 {
                     auto &depth_resource = images.at(*renderpass.depth_attachment);
-                    usize depth_pass_idx = 0; // index of the current pass in the depth attachment's usage list
-                    for (auto pass_h : depth_resource.resource.depth_attachment_in)
-                    {
-                        if (pass_h == renderpass_h)
-                        {
-                            break;
-                        }
-                        depth_pass_idx++;
-                    }
-                    assert(depth_pass_idx < depth_resource.resource.depth_attachment_in.size());
+
+                    u32 first_depth_output  = depth_resource.resource.depth_attachment_in.empty() ? u32_invalid : depth_resource.resource.depth_attachment_in[0].value();
+                    bool should_clear = first_depth_output == renderpass_h.value();
 
                     vulkan::AttachmentInfo depth_info;
                     // for now, clear whenever a render target is used for the first time in the frame and load
                     // otherwise
-                    depth_info.load_op = depth_pass_idx == 0 ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+                    depth_info.load_op = should_clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
                     depth_info.image_view = api.get_image(depth_resource.resolved_img).default_view;
                     pass.depth            = std::make_optional(depth_info);
                 }

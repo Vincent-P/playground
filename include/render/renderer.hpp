@@ -225,7 +225,7 @@ struct Renderer
 
     struct TonemappingPass
     {
-        vulkan::GraphicsProgramH program;
+        vulkan::ComputeProgramH program;
         vulkan::CircularBufferPosition params_pos;
     } tonemapping;
 
