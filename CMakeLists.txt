@@ -55,6 +55,7 @@ set(SOURCE_FILES
   src/render/hl_api.cpp
   src/render/hl_api_resources.cpp
   src/render/hl_api_draw.cpp
+  src/base/pool.cpp
 )
 
 if (WIN32)
