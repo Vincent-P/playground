@@ -465,7 +465,6 @@ struct API
 
     // resources
     Pool<Image> images;
-    std::vector<ImageH> swapchain_to_image_h;
 
     Pool<ImageView> image_views;
 
@@ -479,6 +478,11 @@ struct API
     GlobalBindings global_bindings;
     Pool<GraphicsProgram> graphics_programs;
     Pool<ComputeProgram> compute_programs;
+
+    // global resources
+    SamplerH nearest_sampler;
+    SamplerH trilinear_sampler;
+    std::vector<ImageH> swapchain_to_image_h;
 
     // TODO: arena?
     std::vector<FrameBuffer> framebuffers;

@@ -7,6 +7,8 @@
 #include "components/transform_component.hpp"
 #include "gltf.hpp"
 #include "render/hl_api.hpp"
+#include "render/luminance_pass.hpp"
+#include "render/render_graph.hpp"
 #include "timer.hpp"
 #include "tools.hpp"
 #include "ui.hpp"
@@ -87,19 +89,8 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     r.graph.on_resize(r.settings.render_resolution.x * r.settings.resolution_scale, r.settings.render_resolution.y * r.settings.resolution_scale);
 
-    r.trilinear_sampler = r.api.create_sampler({
-        .mag_filter   = VK_FILTER_LINEAR,
-        .min_filter   = VK_FILTER_LINEAR,
-        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    });
-
-    r.nearest_sampler = r.api.create_sampler({
-        .mag_filter   = VK_FILTER_NEAREST,
-        .min_filter   = VK_FILTER_NEAREST,
-        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-    });
+    r.trilinear_sampler = r.api.trilinear_sampler;
+    r.nearest_sampler = r.api.nearest_sampler;
 
     r.random_rotations = r.api.create_image({
         .name                = "Random rotations",
@@ -147,8 +138,8 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     for (usize i_halton = 0; i_halton < 16; i_halton++)
     {
-        r.halton_indices[i_halton].x = compute_halton(i_halton+1, 2);
-        r.halton_indices[i_halton].y = compute_halton(i_halton+1, 3);
+        r.halton_indices[i_halton].x = compute_halton(i_halton + 1, 2);
+        r.halton_indices[i_halton].y = compute_halton(i_halton + 1, 3);
     }
 }
 
@@ -317,7 +308,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
             parent_transform = model.cached_transforms[parent_indices.back()];
         }
 
-
         model.cached_transforms[node_idx] = parent_transform * transform;
 
         model.nodes_preorder.push_back(node_idx);
@@ -411,55 +401,45 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
     std::vector<std::future<GltfImageInfo>> images_pixels;
     images_pixels.resize(model.images.size());
 
-    for (usize image_i = 0; image_i < model.images.size(); image_i++)
+    for (auto & image : model.images)
     {
-        const auto &image      = model.images[image_i];
-        images_pixels[image_i] = std::async(std::launch::async, [&]() {
-            GltfImageInfo info = {};
-            info.pixels        = stbi_load_from_memory(image.data.data(),
+         GltfImageInfo image_info = {};
+        image_info.pixels        = stbi_load_from_memory(image.data.data(),
+                                            static_cast<int>(image.data.size()),
+                                            &image_info.width,
+                                            &image_info.height,
+                                            &image_info.nb_comp,
+                                            0);
+
+        if (image_info.nb_comp == 1) // NOLINT
+        {
+            image_info.format = VK_FORMAT_R8_UNORM;
+        }
+        else if (image_info.nb_comp == 2) // NOLINT
+        {
+            image_info.format = VK_FORMAT_R8G8_UNORM;
+        }
+        else if (image_info.nb_comp == 3) // NOLINT
+        {
+            stbi_image_free(image_info.pixels);
+            int wanted_nb_comp = 4;
+            image_info.pixels        = stbi_load_from_memory(image.data.data(),
                                                 static_cast<int>(image.data.size()),
-                                                &info.width,
-                                                &info.height,
-                                                &info.nb_comp,
-                                                0);
-
-            if (info.nb_comp == 1) // NOLINT
-            {
-                info.format = VK_FORMAT_R8_UNORM;
-            }
-            else if (info.nb_comp == 2) // NOLINT
-            {
-                info.format = VK_FORMAT_R8G8_UNORM;
-            }
-            else if (info.nb_comp == 3) // NOLINT
-            {
-                stbi_image_free(info.pixels);
-                int wanted_nb_comp = 4;
-                info.pixels        = stbi_load_from_memory(image.data.data(),
-                                                    static_cast<int>(image.data.size()),
-                                                    &info.width,
-                                                    &info.height,
-                                                    &info.nb_comp,
-                                                    wanted_nb_comp);
-                info.format        = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-                info.nb_comp       = wanted_nb_comp;
-            }
-            else if (info.nb_comp == 4) // NOLINT
-            {
-                info.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-            }
-            else // NOLINT
-            {
-                assert(false);
-            }
-
-            return info;
-        });
-    }
-
-    for (usize image_i = 0; image_i < model.images.size(); image_i++)
-    {
-        auto image_info = images_pixels[image_i].get();
+                                                &image_info.width,
+                                                &image_info.height,
+                                                &image_info.nb_comp,
+                                                wanted_nb_comp);
+            image_info.format        = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+            image_info.nb_comp       = wanted_nb_comp;
+        }
+        else if (image_info.nb_comp == 4) // NOLINT
+        {
+            image_info.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+        }
+        else // NOLINT
+        {
+            assert(false);
+        }
 
         vulkan::ImageInfo iinfo;
         iinfo.name                = "glTF image";
@@ -566,9 +546,13 @@ static void add_shadow_cascades_pass(Renderer &r)
     auto &graph = r.graph;
     auto &api   = r.api;
 
-    auto external_images = r.gltf.images;
-    auto cascades_count = r.settings.shadow_cascades_count;
+    auto &pass_data     = r.gltf;
+    auto &cascades_data = r.cascades_bounds;
+    auto rotation_idx   = r.random_rotation_idx;
 
+    auto external_images = r.gltf.images;
+
+    auto cascades_count = r.settings.shadow_cascades_count;
     for (uint i = 0; i < cascades_count; i++)
     {
         auto cascade_index_pos = api.dynamic_uniform_buffer(sizeof(uint));
@@ -581,18 +565,16 @@ static void add_shadow_cascades_pass(Renderer &r)
             .external_images  = external_images,
             .depth_attachment = r.shadow_cascades[i],
             .exec =
-            [pass_data = r.gltf, cascade_index_pos,
-             rotation_idx=r.random_rotation_idx,
-             cascades_data=r.cascades_bounds](RenderGraph & /*graph*/,
-                                                                                       RenderPass & /*self*/,
-                                                                                       vulkan::API &api) {
-                    // draw glTF
+                [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                     {
                         auto program = pass_data.shadow_cascade_program;
 
                         api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                         api.bind_buffer(program, cascade_index_pos, vulkan::SHADER_DESCRIPTOR_SET, 2);
-                        api.bind_buffer(program, cascades_data.cascades_slices_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
+                        api.bind_buffer(program,
+                                        cascades_data.cascades_slices_buffer,
+                                        vulkan::SHADER_DESCRIPTOR_SET,
+                                        3);
                         api.bind_index_buffer(pass_data.index_buffer);
 
                         draw_model(api, *pass_data.model, program, rotation_idx);
@@ -606,6 +588,9 @@ static void add_gltf_prepass(Renderer &r)
 {
     auto &graph = r.graph;
 
+    auto &pass_data   = r.gltf;
+    auto rotation_idx = r.random_rotation_idx;
+
     auto external_images = r.gltf.images;
 
     graph.add_pass({
@@ -614,7 +599,7 @@ static void add_gltf_prepass(Renderer &r)
         .external_images  = external_images,
         .depth_attachment = r.depth_buffer,
         .exec =
-        [pass_data = r.gltf, rotation_idx=r.random_rotation_idx](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.prepass;
 
                 api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
@@ -641,6 +626,12 @@ static void add_gltf_pass(Renderer &r)
         sampled_images.push_back(cascade);
     }
 
+    auto &pass_data     = r.gltf;
+    auto &voxel_data    = r.voxels;
+    auto &cascades_data = r.cascades_bounds;
+
+    auto random_rotation_idx = r.random_rotation_idx;
+
     graph.add_pass({
         .name              = "glTF pass",
         .type              = PassType::Graphics,
@@ -649,11 +640,8 @@ static void add_gltf_pass(Renderer &r)
         .color_attachments = {r.hdr_buffer},
         .depth_attachment  = r.depth_buffer,
         .exec =
-            [pass_data         = r.gltf,
-             voxel_data        = r.voxels,
-             trilinear_sampler = r.trilinear_sampler,
-             rotation_idx=r.random_rotation_idx,
-             cascades_data=r.cascades_bounds](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+
                 auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
                 std::vector<vulkan::ImageH> voxels_directional_volumes;
                 std::vector<vulkan::ImageH> shadow_cascades;
@@ -675,19 +663,19 @@ static void add_gltf_pass(Renderer &r)
 
                 api.bind_combined_image_sampler(program,
                                                 voxels_radiance,
-                                                trilinear_sampler,
+                                                api.trilinear_sampler,
                                                 vulkan::SHADER_DESCRIPTOR_SET,
                                                 4);
 
                 api.bind_combined_images_samplers(program,
                                                   voxels_directional_volumes,
-                                                  {trilinear_sampler},
+                                                  {api.trilinear_sampler},
                                                   vulkan::SHADER_DESCRIPTOR_SET,
                                                   5);
 
                 api.bind_combined_images_samplers(program,
                                                   shadow_cascades,
-                                                  {trilinear_sampler},
+                                                  {api.trilinear_sampler},
                                                   vulkan::SHADER_DESCRIPTOR_SET,
                                                   6);
 
@@ -695,7 +683,7 @@ static void add_gltf_pass(Renderer &r)
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
-                draw_model(api, *pass_data.model, program, rotation_idx);
+                draw_model(api, *pass_data.model, program, random_rotation_idx);
             },
     });
 }
@@ -750,13 +738,14 @@ static void add_voxels_clear_pass(Renderer &r)
 {
     auto &graph         = r.graph;
     auto &voxel_options = r.voxel_options;
+    auto &pass_data     = r.voxels;
 
     graph.add_pass({
         .name           = "Voxels clear",
         .type           = PassType::Compute,
         .storage_images = {r.voxels_albedo, r.voxels_normal, r.voxels_radiance},
         .exec =
-            [pass_data = r.voxels, voxel_options](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_albedo   = graph.get_resolved_image(self.storage_images[0]);
                 auto voxels_normal   = graph.get_resolved_image(self.storage_images[1]);
                 auto voxels_radiance = graph.get_resolved_image(self.storage_images[2]);
@@ -778,6 +767,7 @@ static void add_voxelization_pass(Renderer &r)
 {
     auto &api   = r.api;
     auto &graph = r.graph;
+
     auto &pass_data = r.voxels;
 
     // Upload voxel debug
@@ -798,15 +788,17 @@ static void add_voxelization_pass(Renderer &r)
     buffer1[1] = projection * camera::look_at(center + float3(0.f, halfsize, 0.f), center, float3(0.f, 0.f, -1.f));
     buffer1[2] = projection * camera::look_at(center + float3(0.f, 0.f, halfsize), center, float3(0.f, 1.f, 0.f));
 
+    auto &model_data    = r.gltf;
+    auto &voxel_options = r.voxel_options;
+    auto random_rotation_idx = r.random_rotation_idx;
+
     graph.add_pass({
         .name           = "Voxelization",
         .type           = PassType::Graphics,
         .storage_images = {r.voxels_albedo, r.voxels_normal},
         .samples        = VK_SAMPLE_COUNT_32_BIT,
         .exec =
-        [pass_data, model_data = r.gltf, voxel_options = r.voxel_options, rotation_idx=r.random_rotation_idx](RenderGraph &graph,
-                                                                              RenderPass &self,
-                                                                              vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_albedo = graph.get_resolved_image(self.storage_images[0]);
                 auto voxels_normal = graph.get_resolved_image(self.storage_images[1]);
 
@@ -826,7 +818,7 @@ static void add_voxelization_pass(Renderer &r)
 
                 api.bind_index_buffer(model_data.index_buffer);
 
-                draw_model(api, *model_data.model, program, rotation_idx);
+                draw_model(api, *model_data.model, program, random_rotation_idx);
             },
     });
 }
@@ -892,6 +884,8 @@ static void add_voxels_debug_visualization_pass(Renderer &r)
 
     auto vertex_count = r.voxel_options.res * r.voxel_options.res * r.voxel_options.res;
 
+    auto &pass_data = r.voxels;
+
     graph.add_pass({
         .name              = "Voxels debug visualization",
         .type              = PassType::Graphics,
@@ -899,9 +893,7 @@ static void add_voxels_debug_visualization_pass(Renderer &r)
         .color_attachments = {r.hdr_buffer},
         .depth_attachment  = r.depth_buffer,
         .exec =
-            [pass_data = r.voxels, sampler = r.trilinear_sampler, options_pos, vertex_count](RenderGraph &graph,
-                                                                                             RenderPass &self,
-                                                                                             vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels = graph.get_resolved_image(self.sampled_images[0]);
 
                 auto program = pass_data.debug_visualization;
@@ -909,11 +901,7 @@ static void add_voxels_debug_visualization_pass(Renderer &r)
                 api.bind_buffer(program, options_pos, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_buffer(program, pass_data.vct_debug_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
 
-                api.bind_combined_image_sampler(program,
-                                                voxels,
-                                                sampler,
-                                                vulkan::SHADER_DESCRIPTOR_SET,
-                                                2);
+                api.bind_combined_image_sampler(program, voxels, api.trilinear_sampler, vulkan::SHADER_DESCRIPTOR_SET, 2);
 
                 api.bind_program(program);
 
@@ -926,17 +914,16 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
 {
     auto &graph = r.graph;
 
-    std::vector<ImageDescH> sampled_images = {r.voxels_albedo, r.voxels_normal};
+    auto &pass_data = r.voxels;
+    auto &voxel_options = r.voxel_options;
 
     graph.add_pass({
         .name           = "Voxels direct lighting",
         .type           = PassType::Compute,
-        .sampled_images = sampled_images,
+        .sampled_images = {r.voxels_albedo, r.voxels_normal},
         .storage_images = {r.voxels_radiance},
         .exec =
-            [pass_data         = r.voxels,
-             trilinear_sampler = r.trilinear_sampler,
-             voxel_options     = r.voxel_options](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
                 auto voxels_albedo = graph.get_resolved_image(self.sampled_images[0]);
                 auto voxels_normal = graph.get_resolved_image(self.sampled_images[1]);
                 auto voxels_radiance = graph.get_resolved_image(self.storage_images[0]);
@@ -947,11 +934,11 @@ static void add_voxels_direct_lighting_pass(Renderer &r)
                 api.bind_buffer(program, pass_data.vct_debug_pos, 1);
                 api.bind_combined_image_sampler(program,
                                                 voxels_albedo,
-                                                trilinear_sampler,
+                                                api.trilinear_sampler,
                                                 2);
                 api.bind_combined_image_sampler(program,
                                                 voxels_normal,
-                                                trilinear_sampler,
+                                                api.trilinear_sampler,
                                                 3);
                 api.bind_image(program, voxels_radiance, 4);
 
@@ -988,6 +975,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
     auto count = r.voxel_options.res / 8; // local compute size
 
     auto &trilinear_sampler = r.trilinear_sampler;
+    auto &pass_data = r.voxels;
 
     graph.add_pass({
         .name           = "Voxels aniso base",
@@ -995,7 +983,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
         .sampled_images = {r.voxels_radiance},
         .storage_images = storage_images,
         .exec =
-            [pass_data = r.voxels, trilinear_sampler, count, mip_pos](RenderGraph &graph,
+            [=](RenderGraph &graph,
                                                                       RenderPass &self,
                                                                       vulkan::API &api) {
                 // resolved directional volumes
@@ -1056,7 +1044,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
             .sampled_images = {r.voxels_radiance},
             .storage_images = storage_images,
             .exec =
-                [pass_data = r.voxels, count, mip_pos, mip_src_pos, src, dst](RenderGraph &graph,
+                [=](RenderGraph &graph,
                                                                               RenderPass &self,
                                                                               vulkan::API &api) {
                     // resolved directional volumes
@@ -1474,8 +1462,8 @@ void Renderer::display_ui(UI::Context &ui)
         if (ImGui::CollapsingHeader("Tonemapping"))
         {
             static std::array options{"Reinhard", "Exposure", "Clamp", "ACES"};
-            tools::imgui_select("Tonemap", options.data(), options.size(), tonemap_debug.selected);
-            ImGui::SliderFloat("Exposure", &tonemap_debug.exposure, 0.0f, 2.0f);
+            tools::imgui_select("Tonemap", options.data(), options.size(), tonemapping.debug.selected);
+            ImGui::SliderFloat("Exposure", &tonemapping.debug.exposure, 0.0f, 2.0f);
         }
 
         ui.end_window();
@@ -1511,27 +1499,6 @@ static void create_graph_images(Renderer &r)
     r.hdr_buffer = r.graph.image_descs.add({.name = "HDR Buffer", .format = VK_FORMAT_R16G16B16A16_SFLOAT});
     r.ldr_buffer = r.graph.image_descs.add({.name = "LDR Buffer", .format = r.api.ctx.swapchain.format.format});
 
-    r.transmittance_lut = r.graph.image_descs.add({
-        .name      = "Transmittance LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(256, 64, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.skyview_lut = r.graph.image_descs.add({
-        .name      = "Skyview LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(192, 108, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.multiscattering_lut = r.graph.image_descs.add({
-        .name      = "Multiscattering LUT",
-        .size_type = SizeType::Absolute,
-        .size      = float3(32, 32, 1),
-        .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
     r.voxels_albedo = r.graph.image_descs.add({
         .name          = "Voxels albedo",
         .size_type     = SizeType::Absolute,
@@ -1556,14 +1523,6 @@ static void create_graph_images(Renderer &r)
         .size      = float3(r.voxel_options.res),
         .type      = VK_IMAGE_TYPE_3D,
         .format    = VK_FORMAT_R16G16B16A16_SFLOAT,
-    });
-
-    r.average_luminance = r.graph.image_descs.add({
-        .name          = "Average luminance",
-        .size_type     = SizeType::Absolute,
-        .size          = float3(1.0f),
-        .type          = VK_IMAGE_TYPE_2D,
-        .format        = VK_FORMAT_R32_SFLOAT,
     });
 
     usize name_i     = 0;
@@ -1646,10 +1605,9 @@ void add_accumulation_pass(Renderer &r)
         .sampled_images = {r.depth_buffer, r.hdr_buffer, prev},
         .storage_images = {next},
         .exec =
-            [pass_data         = r.temporal_pass,
-             nearest_sampler = r.nearest_sampler](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
+            [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
 
-                auto program    = pass_data.accumulate;
+                auto program    = r.temporal_pass.accumulate;
 
                 auto depth_buffer = graph.get_resolved_image(self.sampled_images[0]);
                 auto hdr_buffer = graph.get_resolved_image(self.sampled_images[1]);
@@ -1658,17 +1616,17 @@ void add_accumulation_pass(Renderer &r)
 
                 api.bind_combined_image_sampler(program,
                                                 depth_buffer,
-                                                nearest_sampler,
+                                                r.nearest_sampler,
                                                 0);
 
                 api.bind_combined_image_sampler(program,
                                                 hdr_buffer,
-                                                nearest_sampler,
+                                                r.nearest_sampler,
                                                 1);
 
                 api.bind_combined_image_sampler(program,
                                                 prev_history,
-                                                nearest_sampler,
+                                                r.nearest_sampler,
                                                 2);
 
                 api.bind_image(program, taa_output, 3);
@@ -1724,7 +1682,7 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     auto *sky_atmosphere = world.singleton_get_component<SkyAtmosphereComponent>();
     if (sky_atmosphere)
     {
-        add_procedural_sky_pass(*this, *sky_atmosphere);
+        add_procedural_sky_pass(graph, procedural_sky, *sky_atmosphere, depth_buffer, hdr_buffer);
     }
 
     if (settings.enable_taa)
@@ -1738,17 +1696,18 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     }
 
     // Post processes
+    auto output = override_main_pass_output ? *override_main_pass_output : hdr_buffer;
 
-    add_luminance_pass(*this);
+    add_luminance_pass(graph, luminance, output);
 
-    add_tonemapping_pass(*this);
+    add_tonemapping_pass(graph, tonemapping, luminance, output, ldr_buffer);
 
     if (settings.show_grid)
     {
         add_floor_pass(*this);
     }
 
-    add_imgui_pass(*this);
+    add_imgui_pass(graph, imgui, graph.swapchain);
 
     ImGui::EndFrame(); // right before drawing the ui
 

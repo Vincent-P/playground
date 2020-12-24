@@ -1,6 +1,6 @@
 #pragma once
-#include "../shaders/include/atmosphere.h"
 #include "base/types.hpp"
+#include "../shaders/include/atmosphere.h"
 
 #include <imgui/imgui.h>
 #include <cmath>

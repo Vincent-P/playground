@@ -85,7 +85,21 @@ void API::create(API &api, const platform::Window &window)
         api.cpu_timestamps_per_frame.resize(FRAMES_IN_FLIGHT);
     }
 
-    api.default_sampler = api.create_sampler({});
+    api.trilinear_sampler = api.create_sampler({
+        .mag_filter   = VK_FILTER_LINEAR,
+        .min_filter   = VK_FILTER_LINEAR,
+        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    });
+
+    api.nearest_sampler = api.create_sampler({
+        .mag_filter   = VK_FILTER_NEAREST,
+        .min_filter   = VK_FILTER_NEAREST,
+        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    });
+
+    api.default_sampler = api.nearest_sampler;
 }
 
 void API::destroy()

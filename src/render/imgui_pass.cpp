@@ -1,4 +1,4 @@
-#include "render/renderer.hpp"
+#include "render/imgui_pass.hpp"
 
 #include <imgui/imgui.h>
 #include <fmt/core.h>
@@ -6,9 +6,9 @@
 namespace my_app
 {
 
-Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
+ImGuiPass create_imgui_pass(vulkan::API &api)
 {
-    Renderer::ImGuiPass pass;
+    ImGuiPass pass;
 
     // Create vulkan programs
     vulkan::GraphicsProgramInfo pinfo{};
@@ -44,10 +44,11 @@ Renderer::ImGuiPass create_imgui_pass(vulkan::API &api)
 
     api.upload_image(pass.font_atlas, pixels, w * h * 4);
     api.transfer_done(pass.font_atlas);
+
     return pass;
 }
 
-void add_imgui_pass(Renderer &r)
+void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output)
 {
     ImGui::Render();
     ImDrawData *data = ImGui::GetDrawData();
@@ -56,14 +57,13 @@ void add_imgui_pass(Renderer &r)
         return;
     }
 
-    auto &graph = r.graph;
-    auto &api   = r.api;
+    auto &api = *graph.p_api;
 
     // The render graph needs to know about external images to put barriers on them correctly
     // are external images always going to be sampled or they need to be in differents categories
     // like regular images from the graph?
     std::vector<vulkan::ImageH> external_images;
-    external_images.push_back(r.imgui.font_atlas);
+    external_images.push_back(pass_data.font_atlas);
 
     for (int list = 0; list < data->CmdListsCount; list++)
     {
@@ -81,15 +81,13 @@ void add_imgui_pass(Renderer &r)
         }
     }
 
-    auto &trilinear_sampler = r.trilinear_sampler;
-
     graph.add_pass({
         .name              = "ImGui pass",
         .type              = PassType::Graphics,
         .external_images   = external_images,
-        .color_attachments = {graph.swapchain},
+        .color_attachments = {output},
         .exec =
-            [pass_data = r.imgui, trilinear_sampler](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 bool success = api.start_present();
                 if (!success) {
                     fmt::print(stderr, "ERROR\n");
@@ -121,10 +119,8 @@ void add_imgui_pass(Renderer &r)
                 float4 scale_and_translation;
                 scale_and_translation.raw[0] = 2.0f / data->DisplaySize.x; // X Scale
                 scale_and_translation.raw[1] = 2.0f / data->DisplaySize.y; // Y Scale
-                scale_and_translation.raw[2]
-                    = -1.0f - data->DisplayPos.x * scale_and_translation.raw[0]; // X Translation
-                scale_and_translation.raw[3]
-                    = -1.0f - data->DisplayPos.y * scale_and_translation.raw[1]; // Y Translation
+                scale_and_translation.raw[2] = -1.0f - data->DisplayPos.x * scale_and_translation.raw[0]; // X Translation
+                scale_and_translation.raw[3] = -1.0f - data->DisplayPos.y * scale_and_translation.raw[1]; // Y Translation
 
                 // Will project scissor/clipping rectangles into framebuffer space
                 ImVec2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
@@ -174,7 +170,7 @@ void add_imgui_pass(Renderer &r)
 
                             api.bind_combined_image_sampler(current,
                                                             texture,
-                                                            trilinear_sampler,
+                                                            api.trilinear_sampler,
                                                             vulkan::SHADER_DESCRIPTOR_SET,
                                                             0);
                         }
@@ -182,7 +178,7 @@ void add_imgui_pass(Renderer &r)
                         {
                             api.bind_combined_image_sampler(current,
                                                             pass_data.font_atlas,
-                                                            trilinear_sampler,
+                                                            api.trilinear_sampler,
                                                             vulkan::SHADER_DESCRIPTOR_SET,
                                                             0);
                         }

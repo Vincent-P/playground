@@ -3,7 +3,12 @@
 #include "base/types.hpp"
 #include "ecs.hpp"
 #include "render/hl_api.hpp"
-#include "render_graph.hpp"
+#include "render/render_graph.hpp"
+
+#include "render/luminance_pass.hpp"
+#include "render/imgui_pass.hpp"
+#include "render/tonemap_pass.hpp"
+#include "render/sky_pass.hpp"
 
 #include <memory>
 #include <string_view>
@@ -11,7 +16,6 @@
 #define assert_uniform_size(T) \
     static_assert(sizeof(T) % 16 == 0, "Uniforms must be aligned to a float4!"); \
     static_assert(sizeof(T) < 64_KiB, "Uniforms maximum range is 64KiB")
-
 
 /***
  * The renderer is the orchestrator of the Vulkan Context and the HL API.
@@ -28,7 +32,6 @@ struct Model;
 struct Event;
 class TimerData;
 struct CameraComponent;
-struct SkyAtmosphereComponent;
 
 struct PACKED GlobalUniform
 {
@@ -88,12 +91,6 @@ struct VCTDebug
     float trace_shadow_hit = 1.0f;
     float max_dist         = 256.f;
     float first_step       = 3.0f;
-};
-
-struct TonemapDebug
-{
-    uint selected = 0;
-    float exposure = 1.0f;
 };
 
 struct Settings
@@ -194,45 +191,27 @@ struct Renderer
     } checkerboard_floor;
 
 
-    struct ImGuiPass
-    {
-        vulkan::GraphicsProgramH float_program;
-        vulkan::GraphicsProgramH uint_program;
-        vulkan::ImageH font_atlas;
-    } imgui;
-
-    ImageDescH transmittance_lut;
-    ImageDescH skyview_lut;
-    ImageDescH multiscattering_lut;
+    ImGuiPass imgui;
 
     std::array<ImageDescH, 2> history;
     usize current_history = 0;
     ImageDescH taa_output;
+
+    ProceduralSkyPass procedural_sky;
+    TonemappingPass tonemapping;
+    LuminancePass luminance;
 
     struct TemporalPass
     {
         vulkan::ComputeProgramH accumulate;
     } temporal_pass;
 
-    struct ProceduralSkyPass
-    {
-        vulkan::CircularBufferPosition atmosphere_params_pos;
-        vulkan::GraphicsProgramH render_transmittance;
-        vulkan::GraphicsProgramH render_skyview;
-        vulkan::ComputeProgramH  compute_multiscattering_lut;
-        vulkan::GraphicsProgramH sky_raymarch;
-    } procedural_sky;
-
-    struct TonemappingPass
-    {
-        vulkan::ComputeProgramH program;
-        vulkan::CircularBufferPosition params_pos;
-    } tonemapping;
 
     struct GltfPass
     {
         vulkan::BufferH vertex_buffer;
         vulkan::BufferH index_buffer;
+
         vulkan::GraphicsProgramH shading;
         vulkan::GraphicsProgramH prepass;
         vulkan::GraphicsProgramH shadow_cascade_program;
@@ -261,14 +240,6 @@ struct Renderer
         vulkan::CircularBufferPosition vct_debug_pos;
     } voxels;
 
-    struct LuminancePass
-    {
-        vulkan::BufferH histogram_buffer;
-        vulkan::ComputeProgramH build_histo;
-        vulkan::ComputeProgramH average_histo;
-    } luminance;
-    ImageDescH average_luminance;
-
     struct CascadesBoundsPass
     {
         vulkan::ComputeProgramH depth_reduction_0;
@@ -280,7 +251,6 @@ struct Renderer
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;
-    TonemapDebug tonemap_debug;
 
     // todo clean this pls
     float ambient = 0.0f;
@@ -291,16 +261,8 @@ struct Renderer
 // render passes
 Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api);
 void add_floor_pass(Renderer &r);
-Renderer::ImGuiPass create_imgui_pass(vulkan::API &api);
-void add_imgui_pass(Renderer &r);
-Renderer::ProceduralSkyPass create_procedural_sky_pass(vulkan::API &api);
-void add_procedural_sky_pass(Renderer &r, const SkyAtmosphereComponent& sky_atmosphere);
-Renderer::TonemappingPass create_tonemapping_pass(vulkan::API &api);
-void add_tonemapping_pass(Renderer &r);
 Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
 Renderer::VoxelPass create_voxel_pass(vulkan::API & api);
-Renderer::LuminancePass create_luminance_pass(vulkan::API & api);
-void add_luminance_pass(Renderer &r);
 Renderer::CascadesBoundsPass create_cascades_bounds_pass(vulkan::API &api);
 void add_cascades_bounds_pass(Renderer &r);
 
