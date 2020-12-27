@@ -102,11 +102,12 @@ void main()
     previous_history_clip /= previous_history_clip.w;
     float2 previous_history_uv = 0.5 * previous_history_clip.xy + 0.5;
 
-    float4 history_color = float4(0, 0, 0, 1);
+    const float4 DEFAULT_COLOR = float4(0, 0, 0, 1);
+    float4 history_color = DEFAULT_COLOR;
     if (0.0 < previous_history_uv.x && previous_history_uv.x < 1.0
         && 0.0 < previous_history_uv.y && previous_history_uv.y < 1.0)
     {
-        history_color = texture(previous_history, previous_history_uv);
+        history_color = max(texture(previous_history, previous_history_uv), DEFAULT_COLOR);
     }
 
 

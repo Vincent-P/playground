@@ -13,16 +13,28 @@
 #include "tools.hpp"
 #include "ui.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring> // for memset
+#include <execution>
+#include <fmt/core.h>
 #include <future>
 #include <imgui/imgui.h>
 #include <random>
+#include <ranges>
 #include <vulkan/vulkan_core.h>
-#include <fmt/core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+
+struct DrawData
+{
+    u32 transform_idx;
+    u32 vertex_idx;
+    u32 material_idx;
+    u32 primitive_idx;
+};
 
 namespace my_app
 {
@@ -46,7 +58,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    // path = "../models/chocobo-blender/scene.gltf";
+    path = fmt::format("../models/{}/scene.gltf", "san-miguel"); // "chocobo-blender" "medieval_fantasy_book" "huge_medieval_battle_scene" "san-miguel"
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
@@ -67,16 +79,17 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
         .slot   = 1,
         .stages = VK_SHADER_STAGE_FRAGMENT_BIT,
         .type   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .count  = 128,
+        .count  = 512,
     });
 
     r.api.create_global_set();
 
-    r.imgui              = create_imgui_pass(r.api);
+    create_imgui_pass(r.imgui, r.graph, r.api);
+
     r.checkerboard_floor = create_floor_pass(r.api);
     r.procedural_sky     = create_procedural_sky_pass(r.api);
     r.tonemapping        = create_tonemapping_pass(r.api);
-    r.gltf               = create_gltf_pass(r.api, r.model);
+    r.gltf               = create_gltf_pass(r.graph, r.api, r.model);
     r.voxels             = create_voxel_pass(r.api);
     r.luminance          = create_luminance_pass(r.api);
     r.cascades_bounds    = create_cascades_bounds_pass(r.api);
@@ -91,6 +104,19 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
 
     r.trilinear_sampler = r.api.trilinear_sampler;
     r.nearest_sampler = r.api.nearest_sampler;
+
+    r.nearest_repeat_sampler = r.api.create_sampler({
+        .mag_filter   = VK_FILTER_NEAREST,
+        .min_filter   = VK_FILTER_NEAREST,
+        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        });
+    r.trilinear_repeat_sampler = r.api.create_sampler({
+        .mag_filter   = VK_FILTER_LINEAR,
+        .min_filter   = VK_FILTER_LINEAR,
+        .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        });
 
     r.random_rotations = r.api.create_image({
         .name                = "Random rotations",
@@ -113,8 +139,17 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
         rotation = float2(std::cos(angle), std::sin(angle));
     }
 
-    r.api.upload_image(r.random_rotations, rotations.data(), sizeof(rotations));
-    r.api.transfer_done(r.random_rotations);
+    vulkan::ImageH *random_rotations_h = &r.random_rotations;
+
+    r.graph.add_pass({
+        .name             = "Upload random rotations",
+        .type             = PassType::Compute,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+
+                api.upload_image(*random_rotations_h, rotations.data(), sizeof(rotations));
+            },
+    });
 
     r.sun.pitch    = 0.0f;
     r.sun.yaw      = 25.0f;
@@ -235,7 +270,7 @@ void Renderer::reload_shader(std::string_view shader_name)
 
 /// --- glTF model pass
 
-Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_model)
+Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::shared_ptr<Model> &_model)
 {
     Renderer::GltfPass pass;
     pass.model = _model;
@@ -331,7 +366,6 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         .size  = vbuffer_size,
         .usage = vulkan::storage_buffer_usage,
     });
-    api.upload_buffer(pass.vertex_buffer, model.vertices.data(), vbuffer_size);
 
     usize ibuffer_size = model.indices.size() * sizeof(u32);
     pass.index_buffer  = api.create_buffer({
@@ -339,7 +373,137 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         .size  = ibuffer_size,
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
     });
-    api.upload_buffer(pass.index_buffer, model.indices.data(), ibuffer_size);
+
+    usize matbuffer_size = model.materials.size() * sizeof(Material);
+    pass.material_buffer = api.create_buffer({
+        .name  = "Materials",
+        .size  = matbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+    usize primbuffer_size = model.primitives.size() * sizeof(Primitive);
+    pass.primitives_buffer = api.create_buffer({
+        .name  = "Primitives",
+        .size  = primbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+    usize transformsbuffer_size = model.cached_transforms.size() * sizeof(float4x4);
+    pass.transforms_buffer = api.create_buffer({
+        .name  = "Transforms",
+        .size  = transformsbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+
+    // Upload draw data
+    u32 draw_count = 0;
+    for (auto node_idx : model.nodes_preorder)
+    {
+        const auto &node = model.nodes[node_idx];
+        if (!node.mesh) {
+            continue;
+        }
+
+        const auto &mesh = model.meshes[*node.mesh];
+        draw_count += mesh.primitives.size();
+    }
+
+    usize drawbuffer_size = draw_count * sizeof(DrawData);
+    std::vector<DrawData> draws;
+    draws.reserve(draw_count);
+    for (auto node_idx : model.nodes_preorder)
+    {
+        const auto &node = model.nodes[node_idx];
+        if (!node.mesh) {
+            continue;
+        }
+        const auto &mesh = model.meshes[*node.mesh];
+        for (auto primitive_idx : mesh.primitives)
+        {
+            const auto &primitive = model.primitives[primitive_idx];
+            DrawData draw_data;
+            draw_data.transform_idx = node_idx;
+            draw_data.vertex_idx = primitive.first_vertex;
+            draw_data.material_idx = primitive.material;
+            draw_data.primitive_idx = primitive_idx;
+            draws.push_back(draw_data);
+        }
+    }
+    pass.draws_buffer = api.create_buffer({
+        .name  = "Draws data",
+        .size  = drawbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+    pass.commands = {};
+    for (auto node_idx : model.nodes_preorder)
+    {
+        const auto &node = model.nodes[node_idx];
+        if (!node.mesh) {
+            continue;
+        }
+
+        const auto &mesh = model.meshes[*node.mesh];
+
+        // Draw the mesh
+        for (auto primitive_idx : mesh.primitives)
+        {
+            const auto &primitive = model.primitives[primitive_idx];
+            pass.commands.draw_count += 1;
+            pass.commands.commands.push_back({
+                    .index_count = primitive.index_count,
+                    .instance_count = 1,
+                    .first_index = primitive.first_index,
+                    .vertex_offset = 0,
+                    .first_instance = 0,
+                });
+        }
+    }
+    usize commandsbuffer_size = sizeof(u32) + pass.commands.commands.size() * sizeof(vulkan::DrawIndirectCommand);
+    pass.commands_buffer = api.create_buffer({
+        .name  = "Draw Indirect commands",
+        .size  = commandsbuffer_size,
+        .usage = vulkan::storage_buffer_usage | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+    });
+
+    auto *p_model = _model.get();
+    graph.add_pass({
+        .name = "Upload glTF buffers",
+        .type = PassType::Compute,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+
+                api.upload_buffer(pass.vertex_buffer, p_model->vertices.data(), vbuffer_size);
+                api.upload_buffer(pass.index_buffer, p_model->indices.data(), ibuffer_size);
+                api.upload_buffer(pass.material_buffer, p_model->materials.data(), matbuffer_size);
+                api.upload_buffer(pass.primitives_buffer, p_model->primitives.data(), primbuffer_size);
+                api.upload_buffer(pass.transforms_buffer, p_model->cached_transforms.data(), transformsbuffer_size);
+                api.upload_buffer(pass.draws_buffer, draws.data(), drawbuffer_size);
+                api.upload_buffer(pass.commands_buffer, &pass.commands.draw_count, sizeof(u32));
+                api.upload_buffer(pass.commands_buffer,
+                                  pass.commands.commands.data(),
+                                  pass.commands.commands.size() * sizeof(vulkan::DrawIndirectCommand),
+                                  sizeof(u32));
+
+            },
+    });
+
+    pass.visibility_buffer = api.create_buffer({
+        .name  = "Draw visibility",
+        .size  = sizeof(u32) * pass.commands.commands.size(),
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+    pass.finalcommands_buffer = api.create_buffer({
+        .name  = "Culled draw indirect commands",
+        .size  = commandsbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
+
+    // marche pas parce que ca prend le command buffer de la frame
+    // api.clear_buffer(pass.visibility_buffer, 0u);
+    // api.clear_buffer(pass.finalcommands_buffer, 0u);
 
     /// --- Create samplers
     for (auto &sampler : model.samplers)
@@ -390,74 +554,90 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
 
     /// --- Create images
 
-    struct GltfImageInfo
+    struct StbImage
     {
-        int width;
-        int height;
-        u8 *pixels;
-        int nb_comp;
-        VkFormat format;
+        int width       = 0;
+        int height      = 0;
+        u8 *pixels      = nullptr;
+        int nb_comp     = 0;
+        VkFormat format = VK_FORMAT_UNDEFINED;
     };
-    std::vector<std::future<GltfImageInfo>> images_pixels;
-    images_pixels.resize(model.images.size());
 
-    for (auto & image : model.images)
-    {
-         GltfImageInfo image_info = {};
-        image_info.pixels        = stbi_load_from_memory(image.data.data(),
-                                            static_cast<int>(image.data.size()),
-                                            &image_info.width,
-                                            &image_info.height,
-                                            &image_info.nb_comp,
-                                            0);
+    std::vector<StbImage> stb_images;
+    stb_images.resize(model.images.size());
 
-        if (image_info.nb_comp == 1) // NOLINT
+    std::vector<uint> indices(model.images.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    parallel_foreach(indices, [&](uint i) {
+        const auto &image = model.images[i];
+        auto &stb_image   = stb_images[i];
+
+        stb_image.pixels = stbi_load_from_memory(image.data.data(),
+                                                 static_cast<int>(image.data.size()),
+                                                 &stb_image.width,
+                                                 &stb_image.height,
+                                                 &stb_image.nb_comp,
+                                                 0);
+
+        if (stb_image.nb_comp == 1) // NOLINT
         {
-            image_info.format = VK_FORMAT_R8_UNORM;
+            stb_image.format = VK_FORMAT_R8_UNORM;
         }
-        else if (image_info.nb_comp == 2) // NOLINT
+        else if (stb_image.nb_comp == 2) // NOLINT
         {
-            image_info.format = VK_FORMAT_R8G8_UNORM;
+            stb_image.format = VK_FORMAT_R8G8_UNORM;
         }
-        else if (image_info.nb_comp == 3) // NOLINT
+        else if (stb_image.nb_comp == 3) // NOLINT
         {
-            stbi_image_free(image_info.pixels);
+            stbi_image_free(stb_image.pixels);
             int wanted_nb_comp = 4;
-            image_info.pixels        = stbi_load_from_memory(image.data.data(),
-                                                static_cast<int>(image.data.size()),
-                                                &image_info.width,
-                                                &image_info.height,
-                                                &image_info.nb_comp,
-                                                wanted_nb_comp);
-            image_info.format        = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-            image_info.nb_comp       = wanted_nb_comp;
+            stb_image.pixels   = stbi_load_from_memory(image.data.data(),
+                                                     static_cast<int>(image.data.size()),
+                                                     &stb_image.width,
+                                                     &stb_image.height,
+                                                     &stb_image.nb_comp,
+                                                     wanted_nb_comp);
+            stb_image.format   = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+            stb_image.nb_comp  = wanted_nb_comp;
         }
-        else if (image_info.nb_comp == 4) // NOLINT
+        else if (stb_image.nb_comp == 4) // NOLINT
         {
-            image_info.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+            stb_image.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
         }
         else // NOLINT
         {
             assert(false);
         }
+    });
 
+    assert(stb_images.size() == model.images.size());
+
+    for (auto &stb_image : stb_images)
+    {
         vulkan::ImageInfo iinfo;
         iinfo.name                = "glTF image";
-        iinfo.width               = static_cast<u32>(image_info.width);
-        iinfo.height              = static_cast<u32>(image_info.height);
+        iinfo.width               = static_cast<u32>(stb_image.width);
+        iinfo.height              = static_cast<u32>(stb_image.height);
         iinfo.depth               = 1;
-        iinfo.format              = image_info.format;
+        iinfo.format              = stb_image.format;
         iinfo.generate_mip_levels = true;
 
         auto image_h = api.create_image(iinfo);
         pass.images.push_back(image_h);
 
-        auto size = static_cast<usize>(image_info.width * image_info.height * image_info.nb_comp);
-        api.upload_image(image_h, image_info.pixels, size);
-        api.generate_mipmaps(image_h);
-        api.transfer_done(image_h);
+        graph.add_pass({
+            .name = "Upload glTF image",
+            .type = PassType::Compute,
+            .exec =
+                [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                    auto size = static_cast<usize>(stb_image.width * stb_image.height * stb_image.nb_comp);
+                    api.upload_image(image_h, stb_image.pixels, size);
+                    api.generate_mipmaps(image_h);
 
-        stbi_image_free(image_info.pixels);
+                    stbi_image_free(stb_image.pixels);
+                },
+        });
     }
 
     /// --- Create programs
@@ -467,9 +647,18 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         .enable_write = false,
     };
 
+    if (0)
+    {
     pass.shading = api.create_program({
         .vertex_shader   = api.create_shader("shaders/gltf.vert.spv"),
         .fragment_shader = api.create_shader("shaders/gltf.frag.spv"),
+        .depth           = depth_state,
+    });
+    }
+
+    pass.shading_simple = api.create_program({
+        .vertex_shader   = api.create_shader("shaders/gltf.vert.spv"),
+        .fragment_shader = api.create_shader("shaders/gltf_simple.frag.spv"),
         .depth           = depth_state,
     });
 
@@ -488,22 +677,18 @@ Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &_m
         .depth           = depth_state,
     });
 
+    pass.culling = api.create_program({
+            .shader = api.create_shader("shaders/prepare_draw_indirect.comp.glsl.spv")
+        });
+
     return pass;
 }
 
-static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program, u32 rotation_idx)
+static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH program)
 {
-    // Bind the node transforms
-    auto transforms_pos = api.dynamic_uniform_buffer(model.nodes.size() * sizeof(float4x4));
-    auto *buffer        = reinterpret_cast<float4x4 *>(transforms_pos.mapped);
-    for (uint i = 0; i < model.cached_transforms.size(); i++)
-    {
-        buffer[i] = model.cached_transforms[i];
-    }
-    api.bind_buffer(program, transforms_pos, vulkan::SHADER_DESCRIPTOR_SET, 1);
-
     api.bind_program(program);
 
+    u32 i_draw = 0;
     for (auto node_idx : model.nodes_preorder)
     {
         const auto &node = model.nodes[node_idx];
@@ -514,24 +699,10 @@ static void draw_model(vulkan::API &api, Model &model, vulkan::GraphicsProgramH 
         const auto &mesh = model.meshes[*node.mesh];
 
         // Draw the mesh
-        for (const auto &primitive : mesh.primitives)
+        for (auto primitive_idx : mesh.primitives)
         {
-            const auto &material = model.materials[primitive.material];
-
-            GltfPushConstant constants = {};
-            constants.node_idx         = node_idx;
-            constants.vertex_offset    = primitive.first_vertex;
-
-            constants.random_rotations_idx = rotation_idx;
-            constants.base_color_idx = material.base_color_texture ? *material.base_color_texture : u32_invalid;
-            constants.normal_map_idx = material.normal_texture ? *material.normal_texture : u32_invalid;
-            constants.metallic_roughness_idx
-                = material.metallic_roughness_texture ? *material.metallic_roughness_texture : u32_invalid;
-
-            constants.base_color_factor = material.base_color_factor;
-            constants.metallic_factor   = material.metallic_factor;
-            constants.roughness_factor  = material.roughness_factor;
-
+            const auto &primitive = model.primitives[primitive_idx];
+            GltfPushConstant constants = {.draw_id = i_draw++};
             api.push_constant(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                               0,
                               sizeof(constants),
@@ -548,7 +719,6 @@ static void add_shadow_cascades_pass(Renderer &r)
 
     auto &pass_data     = r.gltf;
     auto &cascades_data = r.cascades_bounds;
-    auto rotation_idx   = r.random_rotation_idx;
 
     auto external_images = r.gltf.images;
 
@@ -577,7 +747,7 @@ static void add_shadow_cascades_pass(Renderer &r)
                                         3);
                         api.bind_index_buffer(pass_data.index_buffer);
 
-                        draw_model(api, *pass_data.model, program, rotation_idx);
+                        draw_model(api, *pass_data.model, program);
                     }
                 },
         });
@@ -589,7 +759,6 @@ static void add_gltf_prepass(Renderer &r)
     auto &graph = r.graph;
 
     auto &pass_data   = r.gltf;
-    auto rotation_idx = r.random_rotation_idx;
 
     auto external_images = r.gltf.images;
 
@@ -605,7 +774,7 @@ static void add_gltf_prepass(Renderer &r)
                 api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_index_buffer(pass_data.index_buffer);
 
-                draw_model(api, *pass_data.model, program, rotation_idx);
+                draw_model(api, *pass_data.model, program);
             },
     });
 }
@@ -629,8 +798,6 @@ static void add_gltf_pass(Renderer &r)
     auto &pass_data     = r.gltf;
     auto &voxel_data    = r.voxels;
     auto &cascades_data = r.cascades_bounds;
-
-    auto random_rotation_idx = r.random_rotation_idx;
 
     graph.add_pass({
         .name              = "glTF pass",
@@ -683,7 +850,78 @@ static void add_gltf_pass(Renderer &r)
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
-                draw_model(api, *pass_data.model, program, random_rotation_idx);
+                draw_model(api, *pass_data.model, program);
+            },
+    });
+}
+
+static void add_gltf_simple_prepass(Renderer &r)
+{
+    auto &graph = r.graph;
+
+    auto &pass_data   = r.gltf;
+
+    graph.add_pass({
+        .name             = "frustum culling",
+        .type             = PassType::Compute,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                auto program = pass_data.culling;
+                api.bind_buffer(program, pass_data.commands_buffer, 0);
+                api.bind_buffer(program, pass_data.draws_buffer, 1);
+                api.bind_buffer(program, pass_data.primitives_buffer, 2);
+                api.bind_buffer(program, pass_data.transforms_buffer, 3);
+                api.dispatch(program, {32, 1, 1});
+            },
+    });
+
+    graph.add_pass({
+        .name             = "glTF simple depth prepass",
+        .type             = PassType::Graphics,
+        .depth_attachment = r.depth_buffer,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                auto program = pass_data.prepass;
+
+
+                api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
+                api.bind_buffer(program, pass_data.material_buffer, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                api.bind_buffer(program, pass_data.draws_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                api.bind_buffer(program, pass_data.transforms_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
+
+                api.bind_index_buffer(pass_data.index_buffer);
+
+                api.bind_program(program);
+                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.commands_buffer, 0, pass_data.commands.draw_count);
+            },
+    });
+}
+
+
+static void add_gltf_simple_pass(Renderer &r)
+{
+    auto &graph = r.graph;
+
+    auto &pass_data     = r.gltf;
+
+    graph.add_pass({
+        .name              = "glTF simplified pass",
+        .type              = PassType::Graphics,
+        .color_attachments = {r.hdr_buffer},
+        .depth_attachment  = r.depth_buffer,
+        .exec =
+        [=](RenderGraph &/*graph*/, RenderPass &/*self*/, vulkan::API &api) {
+
+                auto program = pass_data.shading_simple;
+
+                api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
+                api.bind_buffer(program, pass_data.material_buffer, vulkan::SHADER_DESCRIPTOR_SET, 1);
+                api.bind_buffer(program, pass_data.draws_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                api.bind_buffer(program, pass_data.transforms_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
+
+                api.bind_index_buffer(pass_data.index_buffer);
+                api.bind_program(program);
+                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.commands_buffer, 0, pass_data.commands.draw_count);
             },
     });
 }
@@ -790,7 +1028,6 @@ static void add_voxelization_pass(Renderer &r)
 
     auto &model_data    = r.gltf;
     auto &voxel_options = r.voxel_options;
-    auto random_rotation_idx = r.random_rotation_idx;
 
     graph.add_pass({
         .name           = "Voxelization",
@@ -818,7 +1055,7 @@ static void add_voxelization_pass(Renderer &r)
 
                 api.bind_index_buffer(model_data.index_buffer);
 
-                draw_model(api, *model_data.model, program, random_rotation_idx);
+                draw_model(api, *model_data.model, program);
             },
     });
 }
@@ -1108,8 +1345,6 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
                                             camera.far_plane,
                                             &camera.projection_inverse);
 
-    api.begin_label("Update uniforms");
-
     globals->delta_t              = r.p_timer->get_delta_time();
     globals->camera_pos           = camera_transform.position;
     globals->camera_view          = camera.view;
@@ -1190,25 +1425,30 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
 
     r.api.bind_buffer({}, r.global_uniform_pos, vulkan::GLOBAL_DESCRIPTOR_SET, 0);
 
-    std::vector<vulkan::ImageViewH> views;
+    std::vector<vulkan::ImageH> images;
     std::vector<vulkan::SamplerH> samplers;
 
     for (uint i = 0; i < r.gltf.model->textures.size(); i++)
     {
         const auto &texture = r.gltf.model->textures[i];
-        auto image_h        = r.gltf.images[texture.image];
-        auto &image         = api.get_image(image_h);
-        views.push_back(image.default_view);
+        images.push_back(r.gltf.images[texture.image]);
         samplers.push_back(r.gltf.samplers[texture.sampler]);
     }
 
-    r.random_rotation_idx = views.size();
-    views.push_back(r.api.get_image(r.random_rotations).default_view);
-    samplers.push_back(r.nearest_sampler);
+    r.random_rotation_idx = images.size();
+    images.push_back(r.random_rotations);
+    samplers.push_back(r.nearest_repeat_sampler);
 
-    api.bind_combined_images_samplers({}, views, samplers, vulkan::GLOBAL_DESCRIPTOR_SET, 1);
-
-    r.api.update_global_set();
+    r.graph.add_pass({
+        .name            = "Bind global images",
+        .type            = PassType::Compute,
+        .external_images = images,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API & api) {
+                api.bind_combined_images_samplers({}, images, samplers, vulkan::GLOBAL_DESCRIPTOR_SET, 1);
+                api.update_global_set();
+            },
+    });
 
     r.voxels.vct_debug_pos = api.dynamic_uniform_buffer(sizeof(VCTDebug));
     auto *debug            = reinterpret_cast<VCTDebug *>(r.voxels.vct_debug_pos.mapped);
@@ -1217,8 +1457,6 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
     r.voxels.voxel_options_pos = api.dynamic_uniform_buffer(sizeof(VoxelOptions));
     auto *buffer0              = reinterpret_cast<VoxelOptions *>(r.voxels.voxel_options_pos.mapped);
     *buffer0                   = r.voxel_options;
-
-    api.end_label();
 }
 
 /// --- Where the magic happens
@@ -1433,6 +1671,7 @@ void Renderer::display_ui(UI::Context &ui)
                 ImGui::SliderFloat("Occlusion factor", &vct_debug.occlusion_lambda, 0.0f, 1.0f);
                 ImGui::SliderFloat("Sampling factor", &vct_debug.sampling_factor, 0.1f, 2.0f);
                 ImGui::SliderFloat("Start position (in voxel)", &vct_debug.start, 0.0f, 2.0f);
+                ImGui::Checkbox("Show cascades", reinterpret_cast<bool*>(&vct_debug.show_cascades));
             }
             else
             {
@@ -1652,31 +1891,41 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
         ImGui::EndFrame();
         return;
     }
-    graph.start_frame(); // start_frame() ?
+    graph.start_frame();
 
     create_graph_images(*this);
 
     update_uniforms(*this, world, main_camera);
 
-    // voxel cone tracing prep
-    add_voxels_clear_pass(*this);
-    add_voxelization_pass(*this);
-    add_voxels_direct_lighting_pass(*this);
-    add_voxels_aniso_filtering(*this);
+    constexpr bool SIMPLE = true;
 
-    if (vct_debug.display != 0)
+    if (!SIMPLE)
     {
-        add_voxels_debug_visualization_pass(*this);
+        // voxel cone tracing prep
+        add_voxels_clear_pass(*this);
+        add_voxelization_pass(*this);
+        add_voxels_direct_lighting_pass(*this);
+        add_voxels_aniso_filtering(*this);
+
+        if (vct_debug.display != 0)
+        {
+            add_voxels_debug_visualization_pass(*this);
+        }
+        else
+        {
+            // main pass
+
+            add_gltf_prepass(*this);
+            add_cascades_bounds_pass(*this);
+            add_shadow_cascades_pass(*this);
+
+            add_gltf_pass(*this);
+        }
     }
     else
     {
-        // main pass
-
-        add_gltf_prepass(*this);
-        add_cascades_bounds_pass(*this);
-        add_shadow_cascades_pass(*this);
-
-        add_gltf_pass(*this);
+        add_gltf_simple_prepass(*this);
+        add_gltf_simple_pass(*this);
     }
 
     auto *sky_atmosphere = world.singleton_get_component<SkyAtmosphereComponent>();

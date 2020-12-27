@@ -20,12 +20,17 @@
 namespace my_app::vulkan
 {
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                                                      VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
     fmt::print(stderr, "{}\n", pCallbackData->pMessage);
+
+    if ((message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) == 0)
+    {
+        return VK_FALSE;
+    }
 
     if (pCallbackData->objectCount)
     {

@@ -43,9 +43,9 @@ void API::create(API &api, const platform::Window &window)
     {
         BufferInfo binfo;
         binfo.name                  = "Staging Buffer";
-        binfo.size                  = 64_MiB;
+        binfo.size                  = 2_GiB;
         binfo.usage                 = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_TO_GPU;
+        binfo.memory_usage          = VMA_MEMORY_USAGE_CPU_ONLY;
         api.staging_buffer.buffer_h = api.create_buffer(binfo);
         api.staging_buffer.offset   = 0;
     }
@@ -89,14 +89,12 @@ void API::create(API &api, const platform::Window &window)
         .mag_filter   = VK_FILTER_LINEAR,
         .min_filter   = VK_FILTER_LINEAR,
         .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
     });
 
     api.nearest_sampler = api.create_sampler({
         .mag_filter   = VK_FILTER_NEAREST,
         .min_filter   = VK_FILTER_NEAREST,
         .mip_map_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-        .address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
     });
 
     api.default_sampler = api.nearest_sampler;

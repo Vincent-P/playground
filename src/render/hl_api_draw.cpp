@@ -313,10 +313,10 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
             .sType            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
             .pNext            = program_info.rasterization.enable_conservative_rasterization ? &conservative : nullptr,
             .flags            = 0,
-            .depthClampEnable = VK_TRUE,
+            .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode             = VK_POLYGON_MODE_FILL,
-            .cullMode                = VkCullModeFlags(program_info.rasterization.culling ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE),
+            .cullMode = VkCullModeFlags(program_info.rasterization.culling ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE),
             .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable         = program_info.depth.bias != 0.0f,
             .depthBiasConstantFactor = program_info.depth.bias,
@@ -681,7 +681,7 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     bool is_dynamic = binding_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     assert(is_dynamic && buffer_pos || binding_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
-    auto size = is_dynamic ? buffer_pos->length : buffer.size;
+    auto size = is_dynamic ? buffer_pos->length : buffer.info.size;
 
     bool should_bind = !binding_set.binded_data[slot] || !is_dynamic;
     if (!binding_set.binded_data[slot])
@@ -915,6 +915,24 @@ void API::draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32
                      first_index,
                      vertex_offset,
                      first_instance);
+    draws_this_frame++;
+}
+
+void API::draw_indexed_indirect(BufferH params, u32 params_offset, BufferH count, usize count_offset, u32 max_draw_count)
+{
+    pre_draw(*this, *current_program);
+    auto &frame_resource = ctx.frame_resources.get_current();
+
+    auto &param_buffer = get_buffer(params);
+    auto &count_buffer = get_buffer(count);
+
+    vkCmdDrawIndexedIndirectCount(frame_resource.command_buffer,
+                                  param_buffer.vkhandle,
+                                  params_offset,
+                                  count_buffer.vkhandle,
+                                  count_offset,
+                                  max_draw_count,
+                                  sizeof(DrawIndirectCommand));
     draws_this_frame++;
 }
 

@@ -14,5 +14,6 @@
 #define float3x3 mat3
 
 #define u32 uint
+#define i32 int
 
 #endif

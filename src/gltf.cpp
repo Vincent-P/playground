@@ -261,6 +261,17 @@ Model load_model(std::string_view path_view)
                 {
                     GltfVertex vertex;
                     vertex.position = positions[i];
+
+                    for (uint i_comp = 0; i_comp < 3; i_comp++)
+                    {
+                        if (vertex.position.raw[i_comp] < primitive.aab_min.raw[i_comp]) {
+                            primitive.aab_min.raw[i_comp] = vertex.position.raw[i_comp];
+                        }
+                        if (vertex.position.raw[i_comp] > primitive.aab_max.raw[i_comp]) {
+                            primitive.aab_max.raw[i_comp] = vertex.position.raw[i_comp];
+                        }
+                    }
+
                     model.vertices.push_back(vertex);
                 }
             }
@@ -350,7 +361,8 @@ Model load_model(std::string_view path_view)
                 primitive.index_count = count;
             }
 
-            mesh.primitives.push_back(primitive);
+            mesh.primitives.push_back(model.primitives.size());
+            model.primitives.push_back(primitive);
         }
         model.meshes.push_back(std::move(mesh));
     }

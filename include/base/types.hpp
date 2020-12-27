@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <execution>
+#include <iterator>
 
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
 
@@ -85,11 +87,15 @@ template <typename E> inline constexpr auto to_underlying(E e) noexcept
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-template <typename vector_source, typename vector_dest, typename transform_function>
-inline void map_transform(const vector_source &src, vector_dest &dst, transform_function f)
+inline void map_transform(const auto &src, auto &dst, auto lambda)
 {
     dst.reserve(src.size());
-    std::transform(src.begin(), src.end(), std::back_inserter(dst), f);
+    std::transform(src.begin(), src.end(), std::back_inserter(dst), lambda);
+}
+
+inline auto parallel_foreach(auto &container, auto lambda)
+{
+    std::for_each(std::execution::par, std::begin(container), std::end(container), lambda);
 }
 
 inline usize round_up_to_alignment(usize alignment, usize bytes)

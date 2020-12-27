@@ -86,7 +86,7 @@ namespace vulkan
 
 constexpr inline auto ENABLE_VALIDATION_LAYERS = true;
 constexpr inline auto FRAMES_IN_FLIGHT         = 2;
-constexpr inline u32  MAX_TIMESTAMP_PER_FRAME  = 128;
+constexpr inline u32  MAX_TIMESTAMP_PER_FRAME  = 512;
 
 struct SwapChain
 {

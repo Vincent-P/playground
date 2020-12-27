@@ -146,23 +146,41 @@ struct Sampler
 };
 using SamplerH = Handle<Sampler>;
 
+enum struct BufferUsage
+{
+    None,
+    GraphicsShaderRead,
+    GraphicsShaderReadWrite,
+    ComputeShaderRead,
+    ComputeShaderReadWrite,
+    TransferDst,
+    TransferSrc
+};
+
+struct BufferAccess
+{
+    VkPipelineStageFlags stage = 0;
+    VkAccessFlags access       = 0;
+    // queue?
+};
+
 struct BufferInfo
 {
     const char *name            = "No name";
     usize size                  = 1;
     VkBufferUsageFlags usage    = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+    bool operator==(const BufferInfo &b) const = default;
 };
 
 struct Buffer
 {
-    const char *name;
     VkBuffer vkhandle;
     VmaAllocation allocation;
-    VmaMemoryUsage memory_usage;
-    VkBufferUsageFlags usage;
+    BufferInfo info;
+    BufferUsage usage;
     void *mapped;
-    usize size;
 
     bool operator==(const Buffer &b) const = default;
 };
@@ -420,27 +438,18 @@ struct GlobalBindings
 
 using ComputeProgramH = Handle<ComputeProgram>;
 
-// temporary command buffer for the frame
-struct CommandBuffer
-{
-    Context &ctx;
-    VkCommandBuffer vkhandle;
-    void begin() const;
-    void submit_and_wait();
-};
-
 struct CircularBufferPosition
 {
-    BufferH buffer_h;
-    usize offset;
-    usize length;
-    void *mapped;
+    BufferH buffer_h; // ring buffer handle
+    usize offset;     // offset within the ring buffer
+    usize length;     // length of the sub allocation
+    void *mapped;     // pointer to the sub allocation
 };
 
 struct CircularBuffer
 {
     BufferH buffer_h;
-    usize offset;
+    usize offset; // current offset of the ring buffer
 };
 
 struct API;
@@ -453,6 +462,22 @@ struct Timestamp
     float gpu_microseconds;
     float cpu_milliseconds;
 };
+
+struct DrawIndirectCommand
+{
+    u32 index_count;
+    u32 instance_count;
+    u32 first_index;
+    i32 vertex_offset;
+    u32 first_instance;
+};
+
+struct DrawIndirectCommands
+{
+    u32 draw_count;
+    std::vector<DrawIndirectCommand> commands;
+};
+
 
 struct API
 {
@@ -577,6 +602,7 @@ struct API
 
     void draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance);
     void draw_indexed(u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance);
+    void draw_indexed_indirect(BufferH params, u32 params_offset, BufferH count, usize count_offset, u32 max_draw_count);
 
     void set_scissor(const VkRect2D &scissor);
     void set_viewport(const VkViewport &viewport);
@@ -587,7 +613,7 @@ struct API
     void clear_buffer(BufferH H, float data);
 
     /// ---
-    CircularBufferPosition copy_to_staging_buffer(void *data, usize len);
+    CircularBufferPosition copy_to_staging_buffer(const void *data, usize len);
     CircularBufferPosition dynamic_vertex_buffer(usize len);
     CircularBufferPosition dynamic_index_buffer(usize len);
     CircularBufferPosition dynamic_uniform_buffer(usize len);
@@ -604,9 +630,8 @@ struct API
 
     void destroy_image(ImageH H);
 
-    void upload_image(ImageH H, void *data, usize len);
+    void upload_image(ImageH H, const void *data, usize len);
     void generate_mipmaps(ImageH H);
-    void transfer_done(ImageH H); // it's a hack for now
 
     ImageView &get_image_view(ImageViewH H);
 
@@ -620,7 +645,7 @@ struct API
     BufferH create_buffer(const BufferInfo &info);
     Buffer &get_buffer(BufferH H);
     void destroy_buffer(BufferH H);
-    void upload_buffer(BufferH H, void *data, usize len);
+    void upload_buffer(BufferH H, const void *data, usize len, usize dst_offset = 0);
 
     // Shaders
     ShaderH create_shader(std::string_view path);
@@ -634,9 +659,6 @@ struct API
     ComputeProgram &get_program(ComputeProgramH H);
     void destroy_program(GraphicsProgramH H);
     void destroy_program(ComputeProgramH H);
-
-    // COmmand buffers
-    CommandBuffer get_temp_cmd_buffer();
 
     /// --- Queries
     void add_timestamp(std::string_view label);
@@ -807,9 +829,116 @@ inline ImageAccess get_dst_image_access(ImageUsage usage)
     return access;
 }
 
+inline BufferAccess get_src_buffer_access(BufferUsage usage)
+{
+    BufferAccess access;
+    switch (usage)
+    {
+        case BufferUsage::GraphicsShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+            access.access = 0;
+        }
+        break;
+        case BufferUsage::GraphicsShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::ComputeShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = 0;
+        }
+        break;
+        case BufferUsage::ComputeShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::TransferDst:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::TransferSrc:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = 0;
+        }
+        break;
+        case BufferUsage::None:
+        {
+            access.stage  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            access.access = 0;
+        }
+        break;
+    };
+    return access;
+}
+
+inline BufferAccess get_dst_buffer_access(BufferUsage usage)
+{
+    BufferAccess access;
+    switch (usage)
+    {
+        case BufferUsage::GraphicsShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT;
+        }
+        break;
+        case BufferUsage::GraphicsShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::ComputeShaderRead:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT;
+        }
+        break;
+        case BufferUsage::ComputeShaderReadWrite:
+        {
+            access.stage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            access.access = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::TransferDst:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_WRITE_BIT;
+        }
+        break;
+        case BufferUsage::TransferSrc:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            access.access = VK_ACCESS_TRANSFER_READ_BIT;
+        }
+        break;
+        case BufferUsage::None:
+        {
+            access.stage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            access.access = 0;
+        }
+        break;
+    };
+    return access;
+}
+
 inline bool is_image_barrier_needed(ImageUsage src, ImageUsage dst)
 {
     return !(src == ImageUsage::GraphicsShaderRead && dst == ImageUsage::GraphicsShaderRead);
+}
+
+inline bool is_buffer_barrier_needed(BufferUsage /*src*/, BufferUsage /*dst*/)
+{
+    return true;
 }
 
 inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &src, const ImageAccess &dst, const VkImageSubresourceRange &range)
@@ -819,6 +948,8 @@ inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &
     b.newLayout            = dst.layout;
     b.srcAccessMask        = src.access;
     b.dstAccessMask        = dst.access;
+    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     b.image                = image;
     b.subresourceRange     = range;
     return b;
@@ -827,6 +958,24 @@ inline VkImageMemoryBarrier get_image_barrier(VkImage image, const ImageAccess &
 inline VkImageMemoryBarrier get_image_barrier(const Image &image, const ImageAccess &src, const ImageAccess &dst)
 {
     return get_image_barrier(image.vkhandle, src, dst, image.full_range);
+}
+
+inline VkBufferMemoryBarrier get_buffer_barrier(VkBuffer buffer, const BufferAccess &src, const BufferAccess &dst, usize offset, usize size)
+{
+    VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    b.srcAccessMask         = src.access;
+    b.dstAccessMask         = dst.access;
+    b.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+    b.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+    b.buffer                = buffer;
+    b.offset                = offset;
+    b.size                  = size;
+    return b;
+}
+
+inline VkBufferMemoryBarrier get_buffer_barrier(const Buffer &buffer, const BufferAccess &src, const BufferAccess &dst)
+{
+    return get_buffer_barrier(buffer.vkhandle, src, dst, 0, buffer.info.size);
 }
 
 inline VkPrimitiveTopology vk_topology_from_enum(PrimitiveTopology topology)

@@ -243,9 +243,10 @@ ImageView &API::get_image_view(ImageViewH H)
     return *image_views.get(H);
 }
 
-void API::upload_image(ImageH H, void *data, usize len)
+void API::upload_image(ImageH H, const void *data, usize len)
 {
-    auto cmd_buffer = get_temp_cmd_buffer();
+    auto &frame_resource = ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
 
     const auto &staging   = get_buffer(staging_buffer.buffer_h);
     auto staging_position = copy_to_staging_buffer(data, len);
@@ -253,8 +254,6 @@ void API::upload_image(ImageH H, void *data, usize len)
     auto &image      = get_image(H);
     auto range       = image.full_range;
     range.levelCount = 1; // TODO: mips?
-
-    cmd_buffer.begin();
 
     std::vector<VkBufferImageCopy> copies;
     copies.reserve(range.levelCount);
@@ -270,7 +269,7 @@ void API::upload_image(ImageH H, void *data, usize len)
         b.dstAccessMask        = dst.access;
         b.image                = image.vkhandle;
         b.subresourceRange     = range;
-        vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+        vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
     }
 
     for (u32 i = range.baseMipLevel; i < range.baseMipLevel + range.levelCount; i++)
@@ -285,7 +284,7 @@ void API::upload_image(ImageH H, void *data, usize len)
         copies.push_back(copy);
     }
 
-    vkCmdCopyBufferToImage(cmd_buffer.vkhandle,
+    vkCmdCopyBufferToImage(cmd,
                            staging.vkhandle,
                            image.vkhandle,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -293,13 +292,13 @@ void API::upload_image(ImageH H, void *data, usize len)
                            copies.data());
 
     image.usage = ImageUsage::TransferDst;
-
-    cmd_buffer.submit_and_wait();
 }
 
 void API::generate_mipmaps(ImageH h)
 {
-    auto cmd_buffer = get_temp_cmd_buffer();
+    auto &frame_resource = ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
+
     auto &image     = get_image(h);
 
     u32 width      = image.info.width;
@@ -310,10 +309,6 @@ void API::generate_mipmaps(ImageH h)
     {
         return;
     }
-
-    cmd_buffer.begin();
-
-    VkCommandBuffer cmd = cmd_buffer.vkhandle;
 
     VkImageSubresourceRange mip_sub_range{};
     mip_sub_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -399,22 +394,14 @@ void API::generate_mipmaps(ImageH h)
 
     image.usage = ImageUsage::TransferSrc;
 
-    cmd_buffer.submit_and_wait();
-}
+    {
+        auto src = get_src_image_access(image.usage);
+        auto dst = get_dst_image_access(ImageUsage::GraphicsShaderRead);
+        auto b   = get_image_barrier(image, src, dst);
+        vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+        image.usage = ImageUsage::GraphicsShaderRead;
+    }
 
-void API::transfer_done(ImageH H) // it's a hack for now
-{
-    auto cmd_buffer = get_temp_cmd_buffer();
-    auto &image     = get_image(H);
-
-    cmd_buffer.begin();
-
-    auto src = get_src_image_access(image.usage);
-    auto dst = get_dst_image_access(ImageUsage::GraphicsShaderRead);
-    auto b   = get_image_barrier(image, src, dst);
-    vkCmdPipelineBarrier(cmd_buffer.vkhandle, src.stage, dst.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
-    image.usage = ImageUsage::GraphicsShaderRead;
-    cmd_buffer.submit_and_wait();
 }
 
 /// --- Samplers
@@ -468,11 +455,8 @@ BufferH API::create_buffer(const BufferInfo &info)
 {
     Buffer buf;
 
-    buf.name         = info.name;
-    buf.memory_usage = info.memory_usage;
-    buf.usage        = info.usage;
+    buf.info = info;
     buf.mapped       = nullptr;
-    buf.size         = info.size;
 
     VkBufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     ci.usage              = info.usage;
@@ -534,71 +518,21 @@ void API::destroy_buffer(BufferH H)
     buffers.remove(H);
 }
 
-void API::upload_buffer(BufferH H, void *data, usize len)
+void API::upload_buffer(BufferH H, const void *data, usize len, usize dst_offset)
 {
-    auto cmd_buffer = get_temp_cmd_buffer();
+    auto &frame_resource = ctx.frame_resources.get_current();
+    VkCommandBuffer cmd  = frame_resource.command_buffer;
 
     const auto &staging   = get_buffer(staging_buffer.buffer_h);
     auto staging_position = copy_to_staging_buffer(data, len);
 
     auto &buffer = get_buffer(H);
 
-    cmd_buffer.begin();
-
     VkBufferCopy copy;
     copy.srcOffset = staging_position.offset;
-    copy.dstOffset = 0;
+    copy.dstOffset = dst_offset;
     copy.size      = len;
-    vkCmdCopyBuffer(cmd_buffer.vkhandle, staging.vkhandle, buffer.vkhandle, 1, &copy);
-
-    cmd_buffer.submit_and_wait();
-}
-
-/// --- Command buffer
-
-CommandBuffer API::get_temp_cmd_buffer()
-{
-    CommandBuffer cmd{ctx, {}};
-    auto &frame_resource = ctx.frame_resources.get_current();
-
-    VkCommandBufferAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-    ai.commandPool                 = frame_resource.command_pool;
-    ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    ai.commandBufferCount          = 1;
-    VK_CHECK(vkAllocateCommandBuffers(ctx.device, &ai, &cmd.vkhandle));
-
-    return cmd;
-}
-
-void CommandBuffer::begin() const
-{
-    VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    binfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(vkhandle, &binfo);
-}
-
-void CommandBuffer::submit_and_wait()
-{
-    VkFence fence;
-    VkFenceCreateInfo fci = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    VK_CHECK(vkCreateFence(ctx.device, &fci, nullptr, &fence));
-
-    VkQueue graphics_queue;
-    vkGetDeviceQueue(ctx.device, ctx.graphics_family_idx, 0, &graphics_queue);
-
-    VK_CHECK(vkEndCommandBuffer(vkhandle));
-
-    VkSubmitInfo si       = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    si.commandBufferCount = 1;
-    si.pCommandBuffers    = &vkhandle;
-
-    VK_CHECK(vkQueueSubmit(graphics_queue, 1, &si, fence));
-
-    VK_CHECK(vkWaitForFences(ctx.device, 1, &fence, true, UINT64_MAX));
-    vkDestroyFence(ctx.device, fence, nullptr);
-
-    auto &frame_resource = ctx.frame_resources.get_current();
-    vkFreeCommandBuffers(ctx.device, frame_resource.command_pool, 1, &vkhandle);
+    vkCmdCopyBuffer(cmd, staging.vkhandle, buffer.vkhandle, 1, &copy);
 }
 
 /// --- Circular buffers
@@ -611,7 +545,7 @@ CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &ci
     constexpr uint min_uniform_buffer_alignment = 256u;
     len                                         = round_up_to_alignment(min_uniform_buffer_alignment, len);
 
-    if (current_offset + len > buffer.size)
+    if (current_offset + len > buffer.info.size)
     {
         current_offset = 0;
     }
@@ -629,7 +563,7 @@ CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &ci
     return pos;
 }
 
-static CircularBufferPosition copy_circular_buffer_internal(API &api, CircularBuffer &circular, void *data, usize len)
+static CircularBufferPosition copy_circular_buffer_internal(API &api, CircularBuffer &circular, const void *data, usize len)
 {
     CircularBufferPosition pos = map_circular_buffer_internal(api, circular, len);
     std::memcpy(pos.mapped, data, len);
@@ -637,7 +571,7 @@ static CircularBufferPosition copy_circular_buffer_internal(API &api, CircularBu
     return pos;
 }
 
-CircularBufferPosition API::copy_to_staging_buffer(void *data, usize len)
+CircularBufferPosition API::copy_to_staging_buffer(const void *data, usize len)
 {
     return copy_circular_buffer_internal(*this, staging_buffer, data, len);
 }
@@ -1238,12 +1172,12 @@ static void clear_buffer_internal(API &api, Buffer &buffer, u32 data)
         b.dstAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
         b.buffer                = buffer.vkhandle;
         b.offset                = 0;
-        b.size                  = buffer.size;
+        b.size                  = buffer.info.size;
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
     }
 
-    vkCmdFillBuffer(cmd, buffer.vkhandle, 0, buffer.size, data);
+    vkCmdFillBuffer(cmd, buffer.vkhandle, 0, buffer.info.size, data);
 
 
     {
@@ -1252,7 +1186,7 @@ static void clear_buffer_internal(API &api, Buffer &buffer, u32 data)
         b.dstAccessMask         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
         b.buffer                = buffer.vkhandle;
         b.offset                = 0;
-        b.size                  = buffer.size;
+        b.size                  = buffer.info.size;
 
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
     }

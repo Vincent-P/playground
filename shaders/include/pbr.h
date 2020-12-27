@@ -1,3 +1,5 @@
+// -*- mode: glsl; -*-
+
 #ifndef PBR_H
 #define PBR_H
 
@@ -6,38 +8,75 @@
 #include "types.h"
 #include "constants.h"
 
-layout (set = 0, binding = 1) uniform sampler2D global_textures[];
-layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
-
-struct GltfPushConstant
+struct PushConstant
 {
-    // uniform
-    u32 node_idx;
-    u32 vertex_offset;
+    u32 draw_idx;
+    u32 pad00;
+    u32 pad01;
+    u32 pad02;
+};
 
-    // textures
-    u32 random_rotations_idx;
-    u32 base_color_idx;
-    u32 normal_map_idx;
-    u32 metallic_roughness_idx;
+struct Vertex
+{
+    float3 position;
+    float pad00;
+    float3 normal;
+    float pad01;
+    float2 uv0;
+    float2 uv1;
+    float4 color0;
+    float4 joint0;
+    float4 weight0;
+};
 
-    // material
+struct Material
+{
+    float4 base_color_factor;
+
     float metallic_factor;
     float roughness_factor;
-    float4 base_color_factor;
+    u32 base_color_texture;
+    u32 normal_texture;
+
+    u32 metallic_roughness_texture;
 };
 
-layout(push_constant) uniform GC {
-    GltfPushConstant constants;
+struct Primitive
+{
+    u32 material;
+    u32 first_index;
+    u32 first_vertex;
+    u32 index_count;
+
+    float3 aab_min;
+    u32 rendering_mode;
+
+    float3 aab_max;
+    u32 pad00;
 };
+
+
+struct DrawData
+{
+    u32 transform_idx;
+    u32 vertex_idx;
+    u32 material_idx;
+    u32 primitive_idx;
+};
+
+layout (set = 0, binding = 1) uniform sampler2D global_textures[];
+layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
+// layout(push_constant) uniform DrawIndex {
+//     PushConstant constants;
+// };
 
 /// --- Textures
 
 #ifndef PBR_NO_NORMALS // dFdx/dFdy are only available in fragment shaders
-float3 get_normal_from_map(float3 world_pos, float3 vertex_normal, float2 uv)
+float3 get_normal_from_map(Material material, float3 world_pos, float3 vertex_normal, float2 uv)
 {
     // Perturb normal, see http://www.thetenthplanet.de/archives/1180
-    float3 tangentNormal = texture(global_textures[constants.normal_map_idx], uv).xyz * 2.0 - 1.0;
+    float3 tangentNormal = texture(global_textures[material.normal_texture], uv).xyz * 2.0 - 1.0;
 
     float3 q1 = dFdx(world_pos);
     float3 q2 = dFdy(world_pos);
@@ -52,32 +91,32 @@ float3 get_normal_from_map(float3 world_pos, float3 vertex_normal, float2 uv)
     return normalize(TBN * tangentNormal);
 }
 
-float3 get_normal(float3 world_pos, float3 vertex_normal, float2 uv)
+float3 get_normal(Material material, float3 world_pos, float3 vertex_normal, float2 uv)
 {
-    if (constants.normal_map_idx != u32_invalid)
+    if (material.normal_texture != u32_invalid)
     {
-        return get_normal_from_map(world_pos, vertex_normal, uv);
+        return get_normal_from_map(material, world_pos, vertex_normal, uv);
     }
     return vertex_normal;
 }
 #endif
 
-float4 get_base_color(float2 uv)
+float4 get_base_color(Material material, float2 uv)
 {
-    float4 base_color = constants.base_color_factor;
-    if (constants.base_color_idx != u32_invalid)
+    float4 base_color = material.base_color_factor;
+    if (material.base_color_texture != u32_invalid)
     {
-        base_color *= texture(global_textures[constants.base_color_idx], uv);
+        base_color *= texture(global_textures[material.base_color_texture], uv);
     }
     return base_color;
 }
 
-float2 get_metallic_roughness(float2 uv)
+float2 get_metallic_roughness(Material material, float2 uv)
 {
-    float2 metallic_roughness = float2(constants.metallic_factor, constants.roughness_factor);
-    if (constants.metallic_roughness_idx != u32_invalid)
+    float2 metallic_roughness = float2(material.metallic_factor, material.roughness_factor);
+    if (material.metallic_roughness_texture != u32_invalid)
     {
-        metallic_roughness *= texture(global_textures[constants.metallic_roughness_idx], uv).bg;
+        metallic_roughness *= texture(global_textures[material.metallic_roughness_texture], uv).bg;
     }
     return metallic_roughness;
 }

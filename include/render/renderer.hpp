@@ -77,7 +77,7 @@ struct VCTDebug
     uint display = 0; // 0: glTF 1: voxels 2: custom
     uint display_selected = 0; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
     int  voxel_selected_mip = 0;
-    uint padding00 = 1;
+    int show_cascades = 0;
 
     // cone tracing
     float trace_dist = 6.0f;
@@ -100,26 +100,16 @@ struct Settings
     bool resolution_dirty      = false;
     uint shadow_cascades_count = 4;
     float split_factor         = 0.80f;
-    bool show_grid             = true;
     bool enable_taa            = true;
+    bool show_grid             = true;
 };
 
 struct GltfPushConstant
 {
-    // uniform
-    u32 node_idx;
-    u32 vertex_offset;
-
-    // textures
-    u32 random_rotations_idx;
-    u32 base_color_idx;
-    u32 normal_map_idx;
-    u32 metallic_roughness_idx;
-
-    // material
-    float metallic_factor;
-    float roughness_factor;
-    float4 base_color_factor;
+    u32 draw_id;
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
 };
 
 assert_uniform_size(GltfPushConstant);
@@ -179,6 +169,8 @@ struct Renderer
     vulkan::CircularBufferPosition global_uniform_pos;
     vulkan::SamplerH nearest_sampler;
     vulkan::SamplerH trilinear_sampler;
+    vulkan::SamplerH nearest_repeat_sampler;
+    vulkan::SamplerH trilinear_repeat_sampler;
 
     vulkan::ImageH random_rotations;
     u32 random_rotation_idx;
@@ -211,7 +203,18 @@ struct Renderer
     {
         vulkan::BufferH vertex_buffer;
         vulkan::BufferH index_buffer;
+        vulkan::BufferH material_buffer;
+        vulkan::BufferH transforms_buffer;
+        vulkan::BufferH primitives_buffer;
+        vulkan::BufferH draws_buffer;
 
+        vulkan::DrawIndirectCommands commands;
+        vulkan::BufferH commands_buffer;
+        vulkan::BufferH visibility_buffer;
+        vulkan::BufferH finalcommands_buffer;
+
+        vulkan::ComputeProgramH culling;
+        vulkan::GraphicsProgramH shading_simple;
         vulkan::GraphicsProgramH shading;
         vulkan::GraphicsProgramH prepass;
         vulkan::GraphicsProgramH shadow_cascade_program;
@@ -261,7 +264,7 @@ struct Renderer
 // render passes
 Renderer::CheckerBoardFloorPass create_floor_pass(vulkan::API &api);
 void add_floor_pass(Renderer &r);
-Renderer::GltfPass create_gltf_pass(vulkan::API &api, std::shared_ptr<Model> &model);
+Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::shared_ptr<Model> &model);
 Renderer::VoxelPass create_voxel_pass(vulkan::API & api);
 Renderer::CascadesBoundsPass create_cascades_bounds_pass(vulkan::API &api);
 void add_cascades_bounds_pass(Renderer &r);

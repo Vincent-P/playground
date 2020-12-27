@@ -1,4 +1,5 @@
 #include "render/imgui_pass.hpp"
+#include "render/hl_api.hpp"
 
 #include <imgui/imgui.h>
 #include <fmt/core.h>
@@ -6,10 +7,8 @@
 namespace my_app
 {
 
-ImGuiPass create_imgui_pass(vulkan::API &api)
+void create_imgui_pass(ImGuiPass &pass, RenderGraph &graph, vulkan::API &api)
 {
-    ImGuiPass pass;
-
     // Create vulkan programs
     vulkan::GraphicsProgramInfo pinfo{};
     pinfo.vertex_shader   = api.create_shader("shaders/gui.vert.spv");
@@ -42,10 +41,16 @@ ImGuiPass create_imgui_pass(vulkan::API &api)
         .height = static_cast<uint>(h),
     });
 
-    api.upload_image(pass.font_atlas, pixels, w * h * 4);
-    api.transfer_done(pass.font_atlas);
 
-    return pass;
+    vulkan::ImageH *font_atlas_h = &pass.font_atlas;
+    graph.add_pass({
+        .name             = "Upload random rotations",
+        .type             = PassType::Compute,
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                api.upload_image(*font_atlas_h, pixels, w * h * 4);
+            },
+    });
 }
 
 void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output)

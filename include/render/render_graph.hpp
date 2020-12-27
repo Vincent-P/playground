@@ -34,7 +34,6 @@ struct ImageResource;
 
 using ImageDescH = Handle<ImageDesc>;
 using RenderPassH = Handle<RenderPass>;
-using ImageResourceH = Handle<ImageResource>;
 
 // Where a resource is used in the graph
 struct RenderResource
@@ -93,6 +92,9 @@ struct RenderPass
     std::vector<ImageDescH> sampled_images;
     std::vector<ImageDescH> storage_images;
 
+    std::vector<vulkan::BufferH> transfer_src_buffers;
+    std::vector<vulkan::BufferH> transfer_dst_buffers;
+
     // outputs
     std::vector<ImageDescH> color_attachments;
     VkSampleCountFlagBits samples;
@@ -144,7 +146,6 @@ struct RenderGraph
             .y = static_cast<u32>(height)
         };
     }
-
 
     vulkan::API *p_api;
 

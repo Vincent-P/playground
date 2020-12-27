@@ -117,7 +117,7 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     float4 diffuse = float4(0.0);
 
     // tan(60 degres / 2), 6 cones of 60 degres each are used for the diffuse lighting
-    const float aperture = 0.57735f;
+    const float aperture = tan(60 * TO_RADIANS / 2);
 
     // Find a tangent and a bitangent
     float3 guide = float3(0.0f, 1.0f, 0.0f);
@@ -140,6 +140,14 @@ float4 indirect_lighting(float3 albedo, float3 N, float3 V, float metallic, floa
     }
 
     return diffuse;
+}
+
+float shadow_cone(float3 L)
+{
+    float3 surface_normal = i_normal;
+    float3 cone_origin = i_world_pos + voxel_options.size * surface_normal;
+    const float aperture = tan(1 * TO_RADIANS / 2);
+    return trace_cone(cone_origin, L, aperture, debug.trace_dist).a;
 }
 
 /// --- WIP reflection
@@ -240,29 +248,31 @@ void main()
             random_cos_sin[1] * poisson_disk[i_disk].x + random_cos_sin[0] * poisson_disk[i_disk].y
             );
 
-        const float SIZE = 0.001;
+        int2 cascade_size = textureSize(shadow_cascades[0], LOD0);
+        float2 texel_size = 1 / float2(cascade_size);
+        float2 disk_size = texel_size * 5;
 
 #if 1
         float shadow_map_depth = 0.0;
         if (gpu_cascade_idx == 0)
         {
-            shadow_map_depth = texture(shadow_cascades[0], uv + SIZE * offset).r;
+            shadow_map_depth = texture(shadow_cascades[0], uv + disk_size * offset).r;
         }
         else if (gpu_cascade_idx == 1)
         {
-            shadow_map_depth = texture(shadow_cascades[1], uv + SIZE * offset).r;
+            shadow_map_depth = texture(shadow_cascades[1], uv + disk_size * offset).r;
         }
         else if (gpu_cascade_idx == 2)
         {
-            shadow_map_depth = texture(shadow_cascades[2], uv + SIZE * offset).r;
+            shadow_map_depth = texture(shadow_cascades[2], uv + disk_size * offset).r;
         }
         else if (gpu_cascade_idx == 3)
         {
-            shadow_map_depth = texture(shadow_cascades[3], uv + SIZE * offset).r;
+            shadow_map_depth = texture(shadow_cascades[3], uv + disk_size * offset).r;
         }
 #else
         // this doesnt work on windows amd, vkCreateGraphicsPipelines fails...
-        float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv + SIZE * offset).r;
+        float shadow_map_depth = texture(shadow_cascades[nonuniformEXT(gpu_cascade_idx)], uv + disk_size * offset).r;
 #endif
 
         if (shadow_map_depth > shadow_coord.z + bias) {
@@ -270,7 +280,7 @@ void main()
         }
     }
 
-    float visibility = 1.0 - (shadow / (poisson_samples_count));
+    float visibility = 1.0;
 
 #elif PCF
 
@@ -332,7 +342,10 @@ void main()
 
     float3 composite = (direct + indirect.rgb) * indirect.a;
 
-    // composite.rgb *= cascade_colors[gpu_cascade_idx];
+    if (debug.show_cascades != 0)
+    {
+    composite.rgb *= cascade_colors[gpu_cascade_idx];
+    }
 
     o_color = float4(composite, 1.0);
 }

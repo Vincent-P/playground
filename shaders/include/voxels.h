@@ -15,7 +15,7 @@ struct VCTDebug
     uint display; // 0: glTF 1: voxels 2: custom
     uint display_selected; // Voxels (0: albedo 1: normal 2: radiance) glTF (0: nothing 1: base color 2: normal 3: ao 4: indirect lighting)
     int  voxel_selected_mip;
-    uint padding00;
+    int show_cascades;
 
     // cone tracing
     float trace_dist;

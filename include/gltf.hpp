@@ -5,11 +5,12 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <limits>
 #include <vector>
 
 namespace my_app
 {
-enum class RenderingMode : u8
+enum class RenderingMode : u32
 {
     Points        = 0,
     Lines         = 1,
@@ -52,13 +53,14 @@ enum class Wrap
 
 struct Material
 {
-    float4 base_color_factor                      = float4(1.0f);
-    float metallic_factor                         = 1.0f;
-    float roughness_factor                        = 1.0f;
-    std::optional<u32> base_color_texture         = std::nullopt;
-    std::optional<u32> normal_texture             = std::nullopt;
-    std::optional<u32> metallic_roughness_texture = std::nullopt;
-};
+    float4 base_color_factor       = float4(1.0f);
+    float metallic_factor          = 1.0f;
+    float roughness_factor         = 1.0f;
+    u32 base_color_texture         = u32_invalid;
+    u32 normal_texture             = u32_invalid;
+    u32 metallic_roughness_texture = u32_invalid;
+    float3 padding00;
+} PACKED;
 
 struct Image
 {
@@ -119,18 +121,22 @@ inline std::optional<AccessorType> accessor_type_from_str(const std::string &str
 
 struct Primitive
 {
-    RenderingMode mode = RenderingMode::Triangles;
     u32 material;
-
     u32 first_index;
     u32 first_vertex;
     u32 index_count;
-};
+
+    float3 aab_min = float3(std::numeric_limits<float>::infinity());
+    RenderingMode mode = RenderingMode::Triangles;
+
+    float3 aab_max = float3(-std::numeric_limits<float>::infinity());
+    u32 pad00;
+} PACKED;
 
 struct Mesh
 {
     std::string name;
-    std::vector<Primitive> primitives;
+    std::vector<u32> primitives;
 };
 
 struct Node

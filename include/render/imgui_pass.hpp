@@ -13,7 +13,7 @@ struct ImGuiPass
     vulkan::ImageH font_atlas;
 };
 
-ImGuiPass create_imgui_pass(vulkan::API &api);
+void create_imgui_pass(ImGuiPass &pass, RenderGraph &graph, vulkan::API &api);
 void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output);
 
 };

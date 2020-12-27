@@ -40,7 +40,6 @@ void RenderGraph::start_frame()
 {
     // api.start_frame() ?
 
-    passes = {};
     images = {};
     image_descs = {};
 
@@ -201,7 +200,7 @@ static void resolve_images(RenderGraph &graph)
     }
 }
 
-static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImageMemoryBarrier> &barriers,
+static void add_image_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImageMemoryBarrier> &barriers,
                          VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
@@ -264,13 +263,68 @@ static void add_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector
     }
 }
 
-static void flush_barriers(RenderGraph &graph, std::vector<VkImageMemoryBarrier> &barriers,
-                           VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
+static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkBufferMemoryBarrier> &buffer_barriers,
+                         VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
+    auto &api = *graph.p_api;
+
+    const auto add_barrier = [&](auto buffer_h, auto desired_usage) {
+        auto &vk_buffer = api.get_buffer(buffer_h);
+        if (vulkan::is_buffer_barrier_needed(vk_buffer.usage, desired_usage))
+        {
+            auto src = vulkan::get_src_buffer_access(vk_buffer.usage);
+
+            if (vk_buffer.usage == vulkan::BufferUsage::None)
+            {
+                fmt::print("WARNING: image ({}) usage is None!\n", vk_buffer.info.name);
+            }
+
+            auto dst = vulkan::get_dst_buffer_access(desired_usage);
+            src_mask |= src.stage;
+            dst_mask |= dst.stage;
+
+            buffer_barriers.emplace_back();
+            auto &b        = buffer_barriers.back();
+            b              = vulkan::get_buffer_barrier(vk_buffer, src, dst);
+            vk_buffer.usage = desired_usage;
+        }
+    };
+
+    for (auto buffer : renderpass.transfer_src_buffers)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::TransferSrc);
+    }
+
+    for (auto buffer : renderpass.transfer_dst_buffers)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::TransferDst);
+    }
+}
+
+static void flush_barriers(RenderGraph &graph,
+                           const std::vector<VkImageMemoryBarrier> &image_barriers,
+                           const std::vector<VkBufferMemoryBarrier> &buffer_barriers,
+                           VkPipelineStageFlags &src_mask,
+                           VkPipelineStageFlags &dst_mask)
+{
+    if (image_barriers.empty() && buffer_barriers.empty())
+    {
+        return;
+    }
+
     auto &api           = *graph.p_api;
     VkCommandBuffer cmd = api.ctx.frame_resources.get_current().command_buffer;
-    vkCmdPipelineBarrier(cmd, src_mask, dst_mask, 0, 0, nullptr, 0, nullptr, barriers.size(), barriers.data());
-    api.barriers_this_frame += barriers.size();
+    vkCmdPipelineBarrier(cmd,
+                         src_mask,
+                         dst_mask,
+                         0,
+                         0,
+                         nullptr,
+                         buffer_barriers.size(),
+                         buffer_barriers.data(),
+                         image_barriers.size(),
+                         image_barriers.data());
+    api.barriers_this_frame += image_barriers.size() + buffer_barriers.size();
 }
 
 bool RenderGraph::execute()
@@ -336,8 +390,8 @@ bool RenderGraph::execute()
                 std::vector<VkImageMemoryBarrier> barriers;
                 VkPipelineStageFlags src_mask = 0;
                 VkPipelineStageFlags dst_mask = 0;
-                add_barriers(*this, renderpass, barriers, src_mask, dst_mask);
-                flush_barriers(*this, barriers, src_mask, dst_mask);
+                add_image_barriers(*this, renderpass, barriers, src_mask, dst_mask);
+                flush_barriers(*this, barriers, {}, src_mask, dst_mask);
 
                 u32 viewport_width  = 1;
                 u32 viewport_height = 1;
@@ -375,11 +429,13 @@ bool RenderGraph::execute()
             }
             case PassType::Compute:
             {
-                std::vector<VkImageMemoryBarrier> barriers;
+                std::vector<VkImageMemoryBarrier> image_barriers;
+                std::vector<VkBufferMemoryBarrier> buffer_barriers;
                 VkPipelineStageFlags src_mask = 0;
                 VkPipelineStageFlags dst_mask = 0;
-                add_barriers(*this, renderpass, barriers, src_mask, dst_mask);
-                flush_barriers(*this, barriers, src_mask, dst_mask);
+                add_image_barriers(*this, renderpass, image_barriers, src_mask, dst_mask);
+                add_buffer_barriers(*this, renderpass, buffer_barriers, src_mask, dst_mask);
+                flush_barriers(*this, image_barriers, buffer_barriers, src_mask, dst_mask);
 
                 api.begin_label(renderpass.name);
 
@@ -391,6 +447,8 @@ bool RenderGraph::execute()
         };
     }
 
+
+    passes = {};
     return true;
 }
 
