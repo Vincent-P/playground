@@ -1,13 +1,31 @@
-project('simple', 'cpp', default_options: ['default_library=static', 'buildtype=debug', 'b_vscrt=mtd'])
+project('simple', 'cpp',
+  default_options : ['default_library=static', 'buildtype=debugoptimized', 'cpp_std=c++17'])
 
-vulkan = dependency('vulkan')
-glslc = find_program('glslc')
+# Options
+enable_sanitizer = get_option('enable_sanitizer')
+
+#Dependencies
+vulkan = dependency('vulkan', required: true)
+glslc = find_program('glslc', required: true)
+
+# Compiler options
+cxx = meson.get_compiler('cpp')
+ld_flags = []
+
+if cxx.get_id() == 'clang'
+  add_global_arguments(['-fcolor-diagnostics', '-fansi-escape-codes'], language: 'cpp') # colored output when using ninja
+  if enable_sanitizer
+    add_global_arguments('-fsanitize-blacklist=' + meson.source_root() / 'asan_blacklist.txt', language : 'cpp')
+    ld_flags += ['-lclang_rt.asan-x86_64', '-lclang_rt.asan_cxx-x86_64']
+  endif
+endif
+
+# --- Targets
 
 main_inc = include_directories('include')
 thirdparty_inc = include_directories('third_party')
-fmt_inc = include_directories('third_party/fmt/include')
 
-# ImGui
+# - ImGui
 imgui_src = files([
   'third_party/imgui/imgui.cpp',
   'third_party/imgui/imgui_demo.cpp',
@@ -15,51 +33,23 @@ imgui_src = files([
   'third_party/imgui/imgui_tables.cpp',
   'third_party/imgui/imgui_widgets.cpp'
 ])
-imgui = library('imgui', imgui_src, include_directories: main_inc)
+imgui = library('imgui', imgui_src, include_directories: main_inc, cpp_args: ['-DIMGUI_USER_CONFIG="imgui_config.h"'], link_args: ld_flags)
 
-# simdjson
-simdjson = library('simdjson', 'third_party/simdjson/simdjson.cpp')
+# - simdjson
+simdjson = library('simdjson', 'third_party/simdjson/simdjson.cpp', link_args: ld_flags)
 
-# SPIRV-Reflect
-spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflect.cc', dependencies: [vulkan])
+# - SPIRV-Reflect
+spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflect.cc', dependencies: [vulkan], link_args: ld_flags)
 
-# {fmt}
+# - {fmt}
+fmt_inc = include_directories('third_party/fmt/include')
 fmt_src = files([
   'third_party/fmt/src/format.cc',
   'third_party/fmt/src/os.cc'
 ])
-fmt = library('fmt', fmt_src, include_directories: fmt_inc)
+fmt = library('fmt', fmt_src, include_directories: fmt_inc, link_args: ld_flags)
 
-# Main source files
-main_src = [
-  'src/app.cpp',
-  'src/base/pool.cpp',
-  'src/base/vectors.cpp',
-  'src/camera.cpp',
-  'src/ecs.cpp',
-  'src/file_watcher.cpp',
-  'src/gltf.cpp',
-  'src/inputs.cpp',
-  'src/main.cpp',
-  'src/platform/window_win32.cpp',
-  # 'src/platform/window_xcb.cpp',
-  'src/render/cascades_bounds_pass.cpp',
-  'src/render/grid_pass.cpp',
-  'src/render/hl_api.cpp',
-  'src/render/hl_api_draw.cpp',
-  'src/render/hl_api_resources.cpp',
-  'src/render/imgui_pass.cpp',
-  'src/render/luminance_pass.cpp',
-  'src/render/render_graph.cpp',
-  'src/render/renderer.cpp',
-  'src/render/sky_pass.cpp',
-  'src/render/tonemap_pass.cpp',
-  'src/render/vlk_context.cpp',
-  'src/timer.cpp',
-  'src/tools.cpp',
-  'src/ui.cpp'
-]
-
+# - Shaders
 shaders = files([
   'shaders/average_luminance_histo.comp',
   'shaders/build_luminance_histo.comp',
@@ -99,14 +89,12 @@ shaders = files([
   # 'shaders/voxelization.geom',
   # 'shaders/voxelization.vert'
 ])
-
 # Custom target to build the shaders folder in build/
 shader_folder = custom_target(
   'shaders',
   command: ['py', '-c', 'import os; os.mkdir("' + meson.project_build_root() / 'shaders'+ '")'],
   output: 'shaders'
 )
-
 # Custom targets for each shaders (https://github.com/mesonbuild/meson/issues/7071#issuecomment-622599482)
 shader_targets = []
 foreach s : shaders
@@ -120,21 +108,84 @@ foreach s : shaders
 endforeach
 shaders = declare_dependency(sources: shader_targets)
 
-# Main target
-executable('test-vulkan', main_src,
-  include_directories: [main_inc, thirdparty_inc, fmt_inc],
-  dependencies: [vulkan, shaders],
-  link_with: [imgui, spirv_reflect, simdjson, fmt],
-  override_options : ['cpp_std=c++latest'],
-  cpp_args: [
+# - Main target
+main_src = [
+  'src/app.cpp',
+  'src/base/pool.cpp',
+  'src/base/vectors.cpp',
+  'src/camera.cpp',
+  'src/ecs.cpp',
+  'src/file_watcher.cpp',
+  'src/gltf.cpp',
+  'src/inputs.cpp',
+  'src/main.cpp',
+  'src/render/cascades_bounds_pass.cpp',
+  'src/render/grid_pass.cpp',
+  'src/render/hl_api.cpp',
+  'src/render/hl_api_draw.cpp',
+  'src/render/hl_api_resources.cpp',
+  'src/render/imgui_pass.cpp',
+  'src/render/luminance_pass.cpp',
+  'src/render/render_graph.cpp',
+  'src/render/renderer.cpp',
+  'src/render/sky_pass.cpp',
+  'src/render/tonemap_pass.cpp',
+  'src/render/vlk_context.cpp',
+  'src/timer.cpp',
+  'src/tools.cpp',
+  'src/ui.cpp'
+]
+
+main_ld_flags = []
+main_definitions = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
+main_deps = [vulkan, shaders]
+cpp_std = ''
+
+if cxx.get_id() == 'clang'
+  cpp_std = 'c++2a'
+elif cxx.get_id() == 'msvc'
+  cpp_std = 'c++latest'
+endif
+
+
+# Platform specifics
+if host_machine.system() == 'windows'
+  main_src += 'src/platform/window_win32.cpp'
+  main_ld_flags += '-limm32'
+
+  main_definitions += [
     '-DNOMINMAX',
     '-DVC_EXTRALEAN',
     '-DWIN32_LEAN_AND_MEAN',
-    '-DUNICODE',
-    '-DIMGUI_USER_CONFIG="imgui_config.h"',
+    '-DUNICODE'
+  ]
+
+elif host_machine.system() == 'linux'
+  main_src += 'src/platform/window_xcb.cpp'
+  main_ld_flags += '-ltbb'
+
+  main_deps += [
+    dependency('xcb', required: true),
+    dependency('xkbcommon', required: true),
+    dependency('xkbcommon-x11', required: true),
+  ]
+else
+  error('Unsupported platform.')
+endif
+
+if get_option('enable_vma_debug')
+  main_definitions += [
     '-DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1',
     '-DVMA_DEBUG_MARGIN=16',
     '-DVMA_DEBUG_DETECT_CORRUPTION=1'
-  ],
-  link_args: ['-limm32']
+  ]
+endif
+
+executable('test-vulkan', main_src,
+  include_directories: [main_inc, thirdparty_inc, fmt_inc],
+  dependencies: main_deps,
+  link_with: [imgui, spirv_reflect, simdjson, fmt],
+  override_options : ['cpp_std=' + cpp_std, 'warning_level=3', 'werror=true', ],
+  cpp_args: main_definitions,
+  link_args: ld_flags + main_ld_flags
 )

@@ -14,4 +14,4 @@
         ImVec4(const float4& f) { x = f.x; y = f.y; z = f.z; w = f.w; }     \
         operator float4() const { return float4(x,y,z,w); }
 
-#define ImDrawIdx unsigned int
+#define ImDrawIdx u32

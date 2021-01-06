@@ -2003,8 +2003,6 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 
     add_imgui_pass(graph, imgui, graph.swapchain);
 
-    ImGui::EndFrame(); // right before drawing the ui
-
     if (!graph.execute())
     {
         return;

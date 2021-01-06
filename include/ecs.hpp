@@ -8,7 +8,6 @@
 #include <unordered_set>
 #include <vector>
 #include <type_traits>
-#include <fmt/core.h>
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
    Archetype-based ECS seems easier to implement than something like EnTT that uses sparse sets.
@@ -51,7 +50,6 @@ struct family
     template <Componentable T> static u64 type() noexcept
     {
         static const u64 value = identifier();
-        fmt::print("{} = {}\n", T::type_name(), value);
         return value;
     }
 };
