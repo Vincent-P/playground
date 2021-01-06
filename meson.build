@@ -12,6 +12,7 @@ imgui_src = files([
   'third_party/imgui/imgui.cpp',
   'third_party/imgui/imgui_demo.cpp',
   'third_party/imgui/imgui_draw.cpp',
+  'third_party/imgui/imgui_tables.cpp',
   'third_party/imgui/imgui_widgets.cpp'
 ])
 imgui = library('imgui', imgui_src, include_directories: main_inc)
