@@ -2,6 +2,7 @@
 #include "base/types.hpp"
 #include "gltf.hpp"
 
+#define DOCTEST_CONFIG_COLORS_NONE
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 

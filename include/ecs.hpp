@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <vector>
 #include <type_traits>
+#include <fmt/core.h>
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
    Archetype-based ECS seems easier to implement than something like EnTT that uses sparse sets.
@@ -50,6 +51,7 @@ struct family
     template <Componentable T> static u64 type() noexcept
     {
         static const u64 value = identifier();
+        fmt::print("{} = {}\n", T::type_name(), value);
         return value;
     }
 };
@@ -58,12 +60,26 @@ struct EntityId
 {
     static EntityId create()
     {
+        #if 0
         return {.is_component = 0, .id = family::identifier()};
+        #else
+        EntityId id;
+        id.is_component = 0;
+        id.id = family::identifier();
+        return id;
+        #endif
     }
 
     template<Componentable T> static EntityId component()
     {
+        #if 0
         return {.is_component = 1, .id = family::type<T>()};
+        #else
+        EntityId id;
+        id.is_component = 1;
+        id.id = family::type<T>();
+        return id;
+        #endif
     }
 
     bool operator==(EntityId other) const { return raw == other.raw; }
@@ -101,6 +117,8 @@ struct ComponentStorage
     // chunks like Unity DOTS?
     std::vector<u8> data;   // buffer
     uint component_size{0}; // element size in bytes
+
+    bool operator==(const ComponentStorage&) const = default;
 };
 
 struct ArchetypeStorage;
@@ -127,8 +145,11 @@ struct ArchetypeStorage
     {
         ArchetypeH add;
         ArchetypeH remove;
+        bool operator==(const Edge&) const = default;
     };
     std::vector<Edge> edges;
+
+    bool operator==(const ArchetypeStorage&) const = default;
 };
 
 // All ArchetypeStorage are stored in a graph

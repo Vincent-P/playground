@@ -8,6 +8,7 @@
 #include <cmath>
 #include <fmt/core.h>
 #include <imgui/imgui.h>
+#include <type_traits>
 #include <vulkan/vulkan_core.h>
 
 namespace my_app
@@ -298,6 +299,21 @@ static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, std:
     for (auto buffer : renderpass.transfer_dst_buffers)
     {
         add_barrier(buffer, vulkan::BufferUsage::TransferDst);
+    }
+
+    for (auto buffer : renderpass.storage_buffers)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::ComputeShaderReadWrite);
+    }
+
+    for (auto buffer : renderpass.index_buffers)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::IndexBuffer);
+    }
+
+    for (auto buffer : renderpass.vertex_buffers)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::VertexBuffer);
     }
 }
 

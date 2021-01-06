@@ -491,19 +491,21 @@ Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::s
 
     pass.visibility_buffer = api.create_buffer({
         .name  = "Draw visibility",
-        .size  = sizeof(u32) * pass.commands.commands.size(),
+        .size  = sizeof(u32) * 2048,
         .usage = vulkan::storage_buffer_usage,
     });
 
     pass.finalcommands_buffer = api.create_buffer({
         .name  = "Culled draw indirect commands",
         .size  = commandsbuffer_size,
-        .usage = vulkan::storage_buffer_usage,
+        .usage = vulkan::storage_buffer_usage | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
     });
 
-    // marche pas parce que ca prend le command buffer de la frame
-    // api.clear_buffer(pass.visibility_buffer, 0u);
-    // api.clear_buffer(pass.finalcommands_buffer, 0u);
+    pass.finaldata_buffer = api.create_buffer({
+        .name  = "Culled draw data",
+        .size  = drawbuffer_size,
+        .usage = vulkan::storage_buffer_usage,
+    });
 
     /// --- Create samplers
     for (auto &sampler : model.samplers)
@@ -671,15 +673,22 @@ Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::s
         .depth           = depth_state,
     });
 
+    if (0)
+    {
     pass.shadow_cascade_program = api.create_program({
         .vertex_shader   = api.create_shader("shaders/shadowmap.vert.spv"),
         .fragment_shader = api.create_shader("shaders/shadowmap.frag.spv"),
         .depth           = depth_state,
     });
+    }
 
     pass.culling = api.create_program({
             .shader = api.create_shader("shaders/prepare_draw_indirect.comp.glsl.spv")
         });
+    pass.compaction = api.create_program({
+            .shader = api.create_shader("shaders/draw_call_compaction.comp.glsl.spv")
+        });
+
 
     return pass;
 }
@@ -733,6 +742,7 @@ static void add_shadow_cascades_pass(Renderer &r)
             .name             = "Shadow Cascade",
             .type             = PassType::Graphics,
             .external_images  = external_images,
+            .index_buffers    = {pass_data.index_buffer},
             .depth_attachment = r.shadow_cascades[i],
             .exec =
                 [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
@@ -766,6 +776,7 @@ static void add_gltf_prepass(Renderer &r)
         .name             = "glTF depth prepass",
         .type             = PassType::Graphics,
         .external_images  = external_images,
+        .index_buffers    = {pass_data.index_buffer},
         .depth_attachment = r.depth_buffer,
         .exec =
             [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
@@ -804,6 +815,7 @@ static void add_gltf_pass(Renderer &r)
         .type              = PassType::Graphics,
         .external_images   = external_images,
         .sampled_images    = sampled_images,
+        .index_buffers     = {pass_data.index_buffer},
         .color_attachments = {r.hdr_buffer},
         .depth_attachment  = r.depth_buffer,
         .exec =
@@ -862,8 +874,21 @@ static void add_gltf_simple_prepass(Renderer &r)
     auto &pass_data   = r.gltf;
 
     graph.add_pass({
+        .name             = "clear final draw commands / data and visibility",
+        .type             = PassType::Compute,
+        .transfer_dst_buffers = {pass_data.finaldata_buffer, pass_data.finalcommands_buffer, pass_data.visibility_buffer},
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                api.clear_buffer(pass_data.finaldata_buffer, 0u);
+                api.clear_buffer(pass_data.finalcommands_buffer, 0u);
+                api.clear_buffer(pass_data.visibility_buffer, 0u);
+            },
+    });
+
+    graph.add_pass({
         .name             = "frustum culling",
         .type             = PassType::Compute,
+        .storage_buffers  = {pass_data.commands_buffer,pass_data.draws_buffer,pass_data.primitives_buffer,pass_data.transforms_buffer,pass_data.visibility_buffer},
         .exec =
             [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.culling;
@@ -871,28 +896,45 @@ static void add_gltf_simple_prepass(Renderer &r)
                 api.bind_buffer(program, pass_data.draws_buffer, 1);
                 api.bind_buffer(program, pass_data.primitives_buffer, 2);
                 api.bind_buffer(program, pass_data.transforms_buffer, 3);
-                api.dispatch(program, {32, 1, 1});
+                api.bind_buffer(program, pass_data.visibility_buffer, 4);
+                api.dispatch(program, {64, 1, 1});
+            },
+    });
+
+    graph.add_pass({
+        .name             = "draw compaction",
+        .type             = PassType::Compute,
+        .storage_buffers  = {pass_data.commands_buffer,pass_data.draws_buffer,pass_data.visibility_buffer, pass_data.finaldata_buffer, pass_data.finalcommands_buffer},
+        .exec =
+            [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
+                auto program = pass_data.compaction;
+                api.bind_buffer(program, pass_data.commands_buffer, 0);
+                api.bind_buffer(program, pass_data.draws_buffer, 1);
+                api.bind_buffer(program, pass_data.visibility_buffer, 2);
+                api.bind_buffer(program, pass_data.finalcommands_buffer, 3);
+                api.bind_buffer(program, pass_data.finaldata_buffer, 4);
+                api.dispatch(program, {1, 1, 1});
             },
     });
 
     graph.add_pass({
         .name             = "glTF simple depth prepass",
         .type             = PassType::Graphics,
+        .storage_buffers  = {pass_data.vertex_buffer,pass_data.material_buffer,pass_data.finaldata_buffer, pass_data.transforms_buffer},
         .depth_attachment = r.depth_buffer,
         .exec =
             [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
                 auto program = pass_data.prepass;
 
-
                 api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_buffer(program, pass_data.material_buffer, vulkan::SHADER_DESCRIPTOR_SET, 1);
-                api.bind_buffer(program, pass_data.draws_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                api.bind_buffer(program, pass_data.finaldata_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
                 api.bind_buffer(program, pass_data.transforms_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
                 api.bind_index_buffer(pass_data.index_buffer);
 
                 api.bind_program(program);
-                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.commands_buffer, 0, pass_data.commands.draw_count);
+                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
             },
     });
 }
@@ -916,12 +958,12 @@ static void add_gltf_simple_pass(Renderer &r)
 
                 api.bind_buffer(program, pass_data.vertex_buffer, vulkan::SHADER_DESCRIPTOR_SET, 0);
                 api.bind_buffer(program, pass_data.material_buffer, vulkan::SHADER_DESCRIPTOR_SET, 1);
-                api.bind_buffer(program, pass_data.draws_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
+                api.bind_buffer(program, pass_data.finaldata_buffer, vulkan::SHADER_DESCRIPTOR_SET, 2);
                 api.bind_buffer(program, pass_data.transforms_buffer, vulkan::SHADER_DESCRIPTOR_SET, 3);
 
                 api.bind_index_buffer(pass_data.index_buffer);
                 api.bind_program(program);
-                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.commands_buffer, 0, pass_data.commands.draw_count);
+                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
             },
     });
 }
@@ -933,6 +975,8 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     Renderer::VoxelPass pass;
 
     vulkan::RasterizationState rasterization = {.culling = false};
+    if (0)
+    {
     pass.voxelization = api.create_program({
         .vertex_shader   = api.create_shader("shaders/voxelization.vert.spv"),
         .geom_shader     = api.create_shader("shaders/voxelization.geom.spv"),
@@ -968,6 +1012,7 @@ Renderer::VoxelPass create_voxel_pass(vulkan::API &api)
     pass.generate_aniso_mipmap = api.create_program({
         .shader = api.create_shader("shaders/voxel_gen_aniso_mipmaps.comp.spv"),
     });
+    }
 
     return pass;
 }

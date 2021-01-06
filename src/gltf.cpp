@@ -257,6 +257,8 @@ Model load_model(std::string_view path_view)
                 auto *positions = reinterpret_cast<float3 *>(position_attribute->data);
 
                 model.vertices.reserve(position_attribute->len);
+                primitive.aab_min = positions[0];
+                primitive.aab_max = positions[0];
                 for (usize i = 0; i < position_attribute->len; i++)
                 {
                     GltfVertex vertex;

@@ -212,8 +212,10 @@ struct Renderer
         vulkan::BufferH commands_buffer;
         vulkan::BufferH visibility_buffer;
         vulkan::BufferH finalcommands_buffer;
+        vulkan::BufferH finaldata_buffer;
 
         vulkan::ComputeProgramH culling;
+        vulkan::ComputeProgramH compaction;
         vulkan::GraphicsProgramH shading_simple;
         vulkan::GraphicsProgramH shading;
         vulkan::GraphicsProgramH prepass;

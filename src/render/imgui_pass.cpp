@@ -112,10 +112,15 @@ void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output)
                 {
                     const auto &cmd_list = *data->CmdLists[i];
 
-                    std::memcpy(vertices,
-                                cmd_list.VtxBuffer.Data,
-                                sizeof(ImDrawVert) * size_t(cmd_list.VtxBuffer.Size));
-                    std::memcpy(indices, cmd_list.IdxBuffer.Data, sizeof(ImDrawIdx) * size_t(cmd_list.IdxBuffer.Size));
+                    for (int i_vertex = 0; i_vertex < cmd_list.VtxBuffer.Size; i_vertex++)
+                    {
+                        vertices[i_vertex] = cmd_list.VtxBuffer.Data[i_vertex];
+                    }
+
+                    for (int i_index = 0; i_index < cmd_list.IdxBuffer.Size; i_index++)
+                    {
+                        indices[i_index] = cmd_list.IdxBuffer.Data[i_index];
+                    }
 
                     vertices += cmd_list.VtxBuffer.Size;
                     indices += cmd_list.IdxBuffer.Size;

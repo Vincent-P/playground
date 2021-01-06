@@ -162,7 +162,7 @@ void main()
 
     /// --- Constrain history to avoid ghosting
 
-    #if 0
+    #if 1
     // clip the history color in YCoCg space
     history_color = clip_aabb(rgb_to_ycocg(neighbour_min.rgb),
                               rgb_to_ycocg(neighbour_max.rgb),

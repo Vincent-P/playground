@@ -850,16 +850,34 @@ void API::bind_vertex_buffer(BufferH H, u32 offset)
 
 void API::bind_vertex_buffer(CircularBufferPosition v_pos)
 {
-    const auto &vertex_buffer = get_buffer(v_pos.buffer_h);
+    auto &buffer = get_buffer(v_pos.buffer_h);
     auto &frame_resource      = ctx.frame_resources.get_current();
-    vkCmdBindVertexBuffers(frame_resource.command_buffer, 0, 1, &vertex_buffer.vkhandle, &v_pos.offset);
+
+#if 0
+    auto src              = vulkan::get_src_buffer_access(buffer.usage);
+    auto dst              = vulkan::get_dst_buffer_access(vulkan::BufferUsage::VertexBuffer);
+    VkBufferMemoryBarrier b = get_buffer_barrier(buffer, src, dst);
+    vkCmdPipelineBarrier(frame_resource.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
+    buffer.usage = vulkan::BufferUsage::VertexBuffer;
+#endif
+
+    vkCmdBindVertexBuffers(frame_resource.command_buffer, 0, 1, &buffer.vkhandle, &v_pos.offset);
 }
 
 void API::bind_index_buffer(BufferH H, u32 offset)
 {
-    const auto &index_buffer = get_buffer(H);
+    auto &buffer = get_buffer(H);
     auto &frame_resource     = ctx.frame_resources.get_current();
-    vkCmdBindIndexBuffer(frame_resource.command_buffer, index_buffer.vkhandle, offset, VK_INDEX_TYPE_UINT32);
+
+#if 0
+    auto src              = vulkan::get_src_buffer_access(buffer.usage);
+    auto dst              = vulkan::get_dst_buffer_access(vulkan::BufferUsage::IndexBuffer);
+    VkBufferMemoryBarrier b = get_buffer_barrier(buffer, src, dst);
+    vkCmdPipelineBarrier(frame_resource.command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
+    buffer.usage = vulkan::BufferUsage::IndexBuffer;
+#endif
+
+    vkCmdBindIndexBuffer(frame_resource.command_buffer, buffer.vkhandle, offset, VK_INDEX_TYPE_UINT32);
 }
 
 void API::bind_index_buffer(CircularBufferPosition i_pos)

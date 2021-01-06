@@ -92,8 +92,11 @@ struct RenderPass
     std::vector<ImageDescH> sampled_images;
     std::vector<ImageDescH> storage_images;
 
+    std::vector<vulkan::BufferH> index_buffers;
+    std::vector<vulkan::BufferH> vertex_buffers;
     std::vector<vulkan::BufferH> transfer_src_buffers;
     std::vector<vulkan::BufferH> transfer_dst_buffers;
+    std::vector<vulkan::BufferH> storage_buffers;
 
     // outputs
     std::vector<ImageDescH> color_attachments;

@@ -87,16 +87,31 @@ template <typename E> inline constexpr auto to_underlying(E e) noexcept
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
+#if 0
 inline void map_transform(const auto &src, auto &dst, auto lambda)
 {
     dst.reserve(src.size());
     std::transform(src.begin(), src.end(), std::back_inserter(dst), lambda);
 }
 
-inline auto parallel_foreach(auto &container, auto lambda)
+inline void parallel_foreach(auto &container, auto lambda)
 {
-    std::for_each(std::execution::par, std::begin(container), std::end(container), lambda);
+    std::for_each(std::execution::par_unseq, std::begin(container), std::end(container), lambda);
 }
+#else
+template <typename S, typename D, typename L>
+inline void map_transform(const S &src, D &dst, L lambda)
+{
+    dst.reserve(src.size());
+    std::transform(src.begin(), src.end(), std::back_inserter(dst), lambda);
+}
+
+template <typename S, typename L>
+inline void parallel_foreach(S &container, L lambda)
+{
+    std::for_each(std::execution::par_unseq, std::begin(container), std::end(container), lambda);
+}
+#endif
 
 inline usize round_up_to_alignment(usize alignment, usize bytes)
 {

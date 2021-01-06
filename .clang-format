@@ -18,7 +18,7 @@ BreakConstructorInitializers: BeforeComma
 BreakStringLiterals: true
 FixNamespaceComments: true
 IncludeBlocks: Regroup
-IndentCaseLabels: true
+IndentCaseLabels: false
 IndentPPDirectives: AfterHash
 NamespaceIndentation: None
 PointerAlignment: Right

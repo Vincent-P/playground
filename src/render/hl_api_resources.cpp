@@ -81,7 +81,7 @@ static ImageH create_image_internal(vulkan::API &api, const ImageInfo &info, VkI
 
     if (info.generate_mip_levels)
     {
-        image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::max(info.width, info.height))) + 1.0);
+        image_info.mipLevels = static_cast<u32>(std::floor(std::log2(std::min(info.width, info.height))) + 1.0);
         img.info.mip_levels  = image_info.mipLevels;
         image_info.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
@@ -338,6 +338,11 @@ void API::generate_mipmaps(ImageH h)
         auto dst_width  = width >> i;
         auto dst_height = height >> i;
 
+        if (dst_width == 0 || dst_height == 0)
+        {
+            assert(!"Invalid mip levels count!");
+        }
+
         VkImageBlit blit{};
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         blit.srcSubresource.layerCount = 1;
@@ -528,11 +533,19 @@ void API::upload_buffer(BufferH H, const void *data, usize len, usize dst_offset
 
     auto &buffer = get_buffer(H);
 
+
+    auto src              = vulkan::get_src_buffer_access(buffer.usage);
+    auto dst              = vulkan::get_dst_buffer_access(vulkan::BufferUsage::TransferDst);
+    VkBufferMemoryBarrier b = get_buffer_barrier(buffer, src, dst);
+    vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 1, &b, 0, nullptr);
+
     VkBufferCopy copy;
     copy.srcOffset = staging_position.offset;
     copy.dstOffset = dst_offset;
     copy.size      = len;
     vkCmdCopyBuffer(cmd, staging.vkhandle, buffer.vkhandle, 1, &copy);
+
+    buffer.usage = BufferUsage::TransferDst;
 }
 
 /// --- Circular buffers
@@ -544,6 +557,11 @@ CircularBufferPosition map_circular_buffer_internal(API &api, CircularBuffer &ci
 
     constexpr uint min_uniform_buffer_alignment = 256u;
     len                                         = round_up_to_alignment(min_uniform_buffer_alignment, len);
+
+    if (len > buffer.info.size)
+    {
+        assert(false);
+    }
 
     if (current_offset + len > buffer.info.size)
     {
@@ -1166,30 +1184,13 @@ static void clear_buffer_internal(API &api, Buffer &buffer, u32 data)
     auto &frame_resource = api.ctx.frame_resources.get_current();
     VkCommandBuffer cmd  = frame_resource.command_buffer;
 
-    {
-        VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-        b.srcAccessMask         = 0;
-        b.dstAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
-        b.buffer                = buffer.vkhandle;
-        b.offset                = 0;
-        b.size                  = buffer.info.size;
-
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
-    }
+    auto src              = vulkan::get_src_buffer_access(buffer.usage);
+    auto dst              = vulkan::get_dst_buffer_access(vulkan::BufferUsage::TransferDst);
+    VkBufferMemoryBarrier b = get_buffer_barrier(buffer, src, dst);
+    vkCmdPipelineBarrier(cmd, src.stage, dst.stage, 0, 0, nullptr, 1, &b, 0, nullptr);
 
     vkCmdFillBuffer(cmd, buffer.vkhandle, 0, buffer.info.size, data);
-
-
-    {
-        VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-        b.srcAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
-        b.dstAccessMask         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-        b.buffer                = buffer.vkhandle;
-        b.offset                = 0;
-        b.size                  = buffer.info.size;
-
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &b, 0, nullptr);
-    }
+    buffer.usage = vulkan::BufferUsage::TransferDst;
 }
 
 void API::clear_buffer(BufferH H, u32 data)

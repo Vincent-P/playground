@@ -16,7 +16,7 @@ struct DrawIndirectCommand
     u32 first_instance;
 };
 
-layout(set = 1, binding = 0) buffer DrawCommands {
+layout(set = 1, binding = 0) buffer readonly DrawCommands {
     u32 draw_count;
     DrawIndirectCommand commands[];
 };
@@ -25,7 +25,7 @@ layout(set = 1, binding = 1) buffer readonly DrawDatas {
     DrawData draw_datas[];
 };
 
-layout(set = 1, binding = 2) buffer PrimitivesBuffer {
+layout(set = 1, binding = 2) buffer readonly PrimitivesBuffer {
     Primitive primitives[];
 };
 
@@ -33,13 +33,16 @@ layout (set = 1, binding = 3) buffer readonly Transforms {
     float4x4 transforms[]; // max nodes
 };
 
+layout (set = 1, binding = 4) buffer writeonly Visibility {
+    u32 visibility[];
+};
 
 bool inside_plane(float3 point, float3 plane_normal)
 {
     return dot(point, plane_normal) > 0;
 }
 
-layout(local_size_x = 16, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
     uint local_idx = gl_LocalInvocationIndex;
@@ -78,15 +81,18 @@ void main()
     for (uint i = 0; i < 8; i++)
     {
         float4 projected = global.camera_proj * global.camera_view * transform * float4(corners[i], 1.0);
+        projected.w = 0.5 * projected.w;
+
         is_outside1 = is_outside1 && (-projected.w > projected.x);
         is_outside2 = is_outside2 && ( projected.x > projected.w);
+
         is_outside3 = is_outside3 && (-projected.w > projected.y);
         is_outside4 = is_outside4 && ( projected.y > projected.w);
+
         is_outside5 = is_outside4 && (           0 > projected.z);
         is_outside6 = is_outside4 && ( projected.z > projected.w);
     }
 
     bool is_outside = is_outside1 || is_outside2 || is_outside3 || is_outside4 || is_outside5 || is_outside6;
-    commands[draw_idx].instance_count = u32(!is_outside);
-    commands[draw_idx].instance_count = 1;
+    visibility[draw_idx] = u32(!is_outside);
 }
