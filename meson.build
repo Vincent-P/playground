@@ -1,5 +1,5 @@
 project('simple', 'cpp',
-  default_options : ['default_library=static', 'buildtype=debugoptimized', 'cpp_std=c++17'])
+  default_options : ['default_library=static', 'buildtype=debug', 'cpp_std=c++17'])
 
 # Options
 enable_sanitizer = get_option('enable_sanitizer')
@@ -40,6 +40,9 @@ simdjson = library('simdjson', 'third_party/simdjson/simdjson.cpp', link_args: l
 
 # - SPIRV-Reflect
 spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflect.cc', dependencies: [vulkan], link_args: ld_flags)
+
+# - vk mem alloc
+vk_mem_alloc = library('vk_mem_alloc', 'third_party/vk_mem_alloc.cc', dependencies: [vulkan], link_args: ld_flags)
 
 # - {fmt}
 fmt_inc = include_directories('third_party/fmt/include')
@@ -157,12 +160,13 @@ if host_machine.system() == 'windows'
     '-DNOMINMAX',
     '-DVC_EXTRALEAN',
     '-DWIN32_LEAN_AND_MEAN',
-    '-DUNICODE'
+    '-DUNICODE',
+    '-DVK_USE_PLATFORM_WIN32_KHR'
   ]
-
 elif host_machine.system() == 'linux'
   main_src += 'src/platform/window_xcb.cpp'
   main_ld_flags += '-ltbb'
+  main_definitions += '-DVK_USE_PLATFORM_XCK_KHR'
 
   main_deps += [
     dependency('xcb', required: true),
@@ -184,8 +188,8 @@ endif
 executable('test-vulkan', main_src,
   include_directories: [main_inc, thirdparty_inc, fmt_inc],
   dependencies: main_deps,
-  link_with: [imgui, spirv_reflect, simdjson, fmt],
-  override_options : ['cpp_std=' + cpp_std, 'warning_level=3', 'werror=true', ],
+  link_with: [imgui, spirv_reflect, simdjson, fmt, vk_mem_alloc],
+  override_options : ['cpp_std=' + cpp_std, 'warning_level=2', 'werror=true', ],
   cpp_args: main_definitions,
   link_args: ld_flags + main_ld_flags
 )
