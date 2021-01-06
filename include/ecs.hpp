@@ -42,24 +42,17 @@ concept TriviallyCopyable = std::is_trivially_copyable<T>::value;
 template<typename Component>
 concept Componentable = UIable<Component> && Nameable<Component> && TriviallyCopyable<Component>;
 
-namespace
-{
 // from EnTT, generates a unique unsigned integer per type
 struct family
 {
-    static u64 identifier() noexcept
-    {
-        static u64 value = 0;
-        return value++;
-    }
+    static u64 identifier() noexcept;
 
-    template <typename> static u64 type() noexcept
+    template <Componentable T> static u64 type() noexcept
     {
         static const u64 value = identifier();
         return value;
     }
 };
-}; // namespace
 
 struct EntityId
 {

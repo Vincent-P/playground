@@ -11,6 +11,12 @@
 namespace my_app::ECS
 {
 
+u64 family::identifier() noexcept
+{
+    static u64 value = 0;
+    return value++;
+}
+
 namespace impl
 {
 
