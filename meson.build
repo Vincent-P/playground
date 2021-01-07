@@ -190,10 +190,7 @@ if get_option('enable_vma_debug')
 endif
 
 if get_option('enable_renderdoc')
-  res = run_command(python3, '-c', 'import os; print(os.environ["RENDERDOC_ROOT"])')
-  assert(res.returncode() == 0, 'RENDERDOC_ROOT environment variable should contain the path to renderdoc')
-  renderdoc_root = res.stdout().strip()
-  main_definitions += '-DRENDERDOC_ROOT="' + renderdoc_root + '"'
+  main_definitions += '-DENABLE_RENDERDOC'
 endif
 
 executable('test-vulkan', main_src,

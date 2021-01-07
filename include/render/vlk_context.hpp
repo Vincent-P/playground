@@ -8,7 +8,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#if defined(RENDERDOC_ROOT)
+#if defined(ENABLE_RENDERDOC)
 #include <renderdoc.h>
 #endif
 
@@ -126,7 +126,7 @@ struct Context
 {
     VkInstance instance;
 
-#if defined(RENDERDOC_ROOT)
+#if defined(ENABLE_RENDERDOC)
     RENDERDOC_API_1_1_2 *rdoc_api = nullptr;
     void start_capture() { if (rdoc_api) rdoc_api->StartFrameCapture(nullptr, nullptr); }
     void end_capture() { if (rdoc_api) rdoc_api->EndFrameCapture(nullptr, nullptr); }

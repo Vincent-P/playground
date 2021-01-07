@@ -13,7 +13,7 @@
 #include <dlfcn.h>
 #endif
 
-#if defined(RENDERDOC_ROOT)
+#if defined(ENABLE_RENDERDOC)
 #include <renderdoc.h>
 #endif
 
@@ -59,20 +59,13 @@ bool is_extension_installed(const char *wanted, const std::vector<VkExtensionPro
 
 void Context::create(Context &ctx, const platform::Window &window)
 {
-#if defined(RENDERDOC_ROOT)
+#if defined(ENABLE_RENDERDOC)
     ctx.rdoc_api = nullptr;
 
 #    if defined(__linux__)
-    fmt::print("dlopen(\"{}\", RTLD_NOW | RTLD_NOLOAD))\n", RENDERDOC_ROOT "lib/librenderdoc.so");
-    void *module      = dlopen(RENDERDOC_ROOT "lib/librenderdoc.so", RTLD_NOW);
-    const char *error = dlerror();
-    if (error)
+    if (void *mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
     {
-        fmt::print("dlerror: {}\n", error);
-    }
-    if (module)
-    {
-        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(module, "RENDERDOC_GetAPI");
+        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
         int ret                            = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void **)&ctx.rdoc_api);
         assert(ret == 1);
     }
@@ -81,7 +74,6 @@ void Context::create(Context &ctx, const platform::Window &window)
         fmt::print("librenderdoc.so was not found\n");
     }
 #    elif defined(_WIN64)
-
     if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
     {
         pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
@@ -92,16 +84,7 @@ void Context::create(Context &ctx, const platform::Window &window)
     {
         fmt::print("renderdoc.dll was not found\n");
     }
-
 #    endif
-
-    if (ctx.rdoc_api)
-    {
-        void *start_capture = reinterpret_cast<void *>(ctx.rdoc_api->StartFrameCapture);
-        void *end_capture   = reinterpret_cast<void *>(ctx.rdoc_api->EndFrameCapture);
-        fmt::print("Start capture: {} | End capture: {}\n", start_capture, end_capture);
-    }
-
 #endif
 
     /// --- Create Instance
