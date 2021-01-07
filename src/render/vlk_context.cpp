@@ -62,9 +62,9 @@ void Context::create(Context &ctx, const platform::Window &window)
 #if defined(RENDERDOC_ROOT)
     ctx.rdoc_api = nullptr;
 
-#if defined(__linux__)
+#    if defined(__linux__)
     fmt::print("dlopen(\"{}\", RTLD_NOW | RTLD_NOLOAD))\n", RENDERDOC_ROOT "lib/librenderdoc.so");
-    void* module = dlopen(RENDERDOC_ROOT "lib/librenderdoc.so", RTLD_NOW);
+    void *module      = dlopen(RENDERDOC_ROOT "lib/librenderdoc.so", RTLD_NOW);
     const char *error = dlerror();
     if (error)
     {
@@ -78,14 +78,27 @@ void Context::create(Context &ctx, const platform::Window &window)
     }
     else
     {
-        fmt::print("librenderdoc.so was not found:\n");
+        fmt::print("librenderdoc.so was not found\n");
     }
-#endif
+#    elif defined(_WIN64)
+
+    if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
+    {
+        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
+        int ret                            = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void **)&ctx.rdoc_api);
+        assert(ret == 1);
+    }
+    else
+    {
+        fmt::print("renderdoc.dll was not found\n");
+    }
+
+#    endif
 
     if (ctx.rdoc_api)
     {
-        void *start_capture = reinterpret_cast<void*>(ctx.rdoc_api->StartFrameCapture);
-        void *end_capture   = reinterpret_cast<void*>(ctx.rdoc_api->EndFrameCapture);
+        void *start_capture = reinterpret_cast<void *>(ctx.rdoc_api->StartFrameCapture);
+        void *end_capture   = reinterpret_cast<void *>(ctx.rdoc_api->EndFrameCapture);
         fmt::print("Start capture: {} | End capture: {}\n", start_capture, end_capture);
     }
 
@@ -329,8 +342,6 @@ void Context::create(Context &ctx, const platform::Window &window)
     qpci.queryType             = VK_QUERY_TYPE_TIMESTAMP;
     qpci.queryCount            = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
     VK_CHECK(vkCreateQueryPool(ctx.device, &qpci, nullptr, &ctx.timestamp_pool));
-
-
 }
 
 void Context::create_swapchain()

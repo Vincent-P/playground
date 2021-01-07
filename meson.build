@@ -8,10 +8,7 @@ enable_sanitizer = get_option('enable_sanitizer')
 vulkan = dependency('vulkan', required: true, method: 'system')
 threads = dependency('threads')
 glslc = find_program('glslc', required: true)
-python3 = 'python3'
-if host_machine.system() == 'windows'
-  python3 = 'py -3'
-endif
+python3 = import('python').find_installation('python3')
 
 # Compiler options
 cxx = meson.get_compiler('cpp')
