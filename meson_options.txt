@@ -1,2 +1,3 @@
 option('enable_sanitizer', type : 'boolean', value : false, description : 'Enable clang address sanitizer')
 option('enable_vma_debug', type : 'boolean', value : false, description : 'Enable GPU memory allocations debug')
+option('enable_renderdoc', type : 'boolean', value : false, description : 'Enable Renderdoc library')

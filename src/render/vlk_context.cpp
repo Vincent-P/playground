@@ -2,12 +2,20 @@
 
 #include "platform/window.hpp"
 
+#include <fmt/core.h>
 #include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include <fmt/core.h>
+
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
+
+#if defined(RENDERDOC_ROOT)
+#include <renderdoc.h>
+#endif
 
 namespace my_app::vulkan
 {
@@ -51,6 +59,38 @@ bool is_extension_installed(const char *wanted, const std::vector<VkExtensionPro
 
 void Context::create(Context &ctx, const platform::Window &window)
 {
+#if defined(RENDERDOC_ROOT)
+    ctx.rdoc_api = nullptr;
+
+#if defined(__linux__)
+    fmt::print("dlopen(\"{}\", RTLD_NOW | RTLD_NOLOAD))\n", RENDERDOC_ROOT "lib/librenderdoc.so");
+    void* module = dlopen(RENDERDOC_ROOT "lib/librenderdoc.so", RTLD_NOW);
+    const char *error = dlerror();
+    if (error)
+    {
+        fmt::print("dlerror: {}\n", error);
+    }
+    if (module)
+    {
+        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(module, "RENDERDOC_GetAPI");
+        int ret                            = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void **)&ctx.rdoc_api);
+        assert(ret == 1);
+    }
+    else
+    {
+        fmt::print("librenderdoc.so was not found:\n");
+    }
+#endif
+
+    if (ctx.rdoc_api)
+    {
+        void *start_capture = reinterpret_cast<void*>(ctx.rdoc_api->StartFrameCapture);
+        void *end_capture   = reinterpret_cast<void*>(ctx.rdoc_api->EndFrameCapture);
+        fmt::print("Start capture: {} | End capture: {}\n", start_capture, end_capture);
+    }
+
+#endif
+
     /// --- Create Instance
     std::vector<const char *> instance_extensions;
 
@@ -289,6 +329,8 @@ void Context::create(Context &ctx, const platform::Window &window)
     qpci.queryType             = VK_QUERY_TYPE_TIMESTAMP;
     qpci.queryCount            = FRAMES_IN_FLIGHT * MAX_TIMESTAMP_PER_FRAME;
     VK_CHECK(vkCreateQueryPool(ctx.device, &qpci, nullptr, &ctx.timestamp_pool));
+
+
 }
 
 void Context::create_swapchain()

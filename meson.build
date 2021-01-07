@@ -172,7 +172,7 @@ if host_machine.system() == 'windows'
   ]
 elif host_machine.system() == 'linux'
   main_src += 'src/platform/window_xcb.cpp'
-  main_ld_flags += '-ltbb'
+  main_ld_flags += ['-ltbb', '-ldl']
   main_definitions += '-DVK_USE_PLATFORM_XCB_KHR'
 
   main_deps += [
@@ -190,6 +190,13 @@ if get_option('enable_vma_debug')
     '-DVMA_DEBUG_MARGIN=16',
     '-DVMA_DEBUG_DETECT_CORRUPTION=1'
   ]
+endif
+
+if get_option('enable_renderdoc')
+  res = run_command(python3, '-c', 'import os; print(os.environ["RENDERDOC_ROOT"])')
+  assert(res.returncode() == 0, 'RENDERDOC_ROOT environment variable should contain the path to renderdoc')
+  renderdoc_root = res.stdout().strip()
+  main_definitions += '-DRENDERDOC_ROOT="' + renderdoc_root + '"'
 endif
 
 executable('test-vulkan', main_src,
