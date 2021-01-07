@@ -1890,7 +1890,6 @@ void add_accumulation_pass(Renderer &r)
         .storage_images = {next},
         .exec =
             [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
-
                 auto program    = r.temporal_pass.accumulate;
 
                 auto depth_buffer = graph.get_resolved_image(self.sampled_images[0]);
@@ -1922,6 +1921,11 @@ void add_accumulation_pass(Renderer &r)
 
 void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 {
+    bool should_capture = api.ctx.frame_count == 42;
+    if (should_capture)
+    {
+        api.ctx.start_capture();
+    }
 
     if (settings.resolution_dirty)
     {
@@ -2009,6 +2013,12 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     }
 
     api.end_frame();
+
+    if (should_capture)
+    {
+        api.ctx.end_capture();
+    }
+
 }
 
 } // namespace my_app
