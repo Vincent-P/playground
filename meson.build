@@ -16,7 +16,9 @@ if cxx.get_id() == 'clang'
   add_global_arguments(['-fcolor-diagnostics', '-fansi-escape-codes'], language: 'cpp') # colored output when using ninja
   if enable_sanitizer
     add_global_arguments('-fsanitize-blacklist=' + meson.source_root() / 'asan_blacklist.txt', language : 'cpp')
-    ld_flags += ['-lclang_rt.asan-x86_64', '-lclang_rt.asan_cxx-x86_64']
+    if host_machine.system() == 'windows'
+      ld_flags += ['-lclang_rt.asan-x86_64', '-lclang_rt.asan_cxx-x86_64']
+    endif
   endif
 endif
 
