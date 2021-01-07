@@ -5,8 +5,13 @@ project('simple', 'cpp',
 enable_sanitizer = get_option('enable_sanitizer')
 
 #Dependencies
-vulkan = dependency('vulkan', required: true)
+vulkan = dependency('vulkan', required: true, method: 'system')
+threads = dependency('threads')
 glslc = find_program('glslc', required: true)
+python3 = 'python3'
+if host_machine.system() == 'windows'
+  python3 = 'py -3'
+endif
 
 # Compiler options
 cxx = meson.get_compiler('cpp')
@@ -97,7 +102,7 @@ shaders = files([
 # Custom target to build the shaders folder in build/
 shader_folder = custom_target(
   'shaders',
-  command: ['py', '-c', 'import os; os.mkdir("' + meson.project_build_root() / 'shaders'+ '")'],
+  command: [python3, '-c', 'import os; os.mkdir("' + meson.project_build_root() / 'shaders'+ '")'],
   output: 'shaders'
 )
 # Custom targets for each shaders (https://github.com/mesonbuild/meson/issues/7071#issuecomment-622599482)
@@ -143,7 +148,7 @@ main_src = [
 
 main_ld_flags = []
 main_definitions = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
-main_deps = [vulkan, shaders]
+main_deps = [vulkan, threads, shaders]
 cpp_std = ''
 
 if cxx.get_id() == 'clang'
@@ -168,7 +173,7 @@ if host_machine.system() == 'windows'
 elif host_machine.system() == 'linux'
   main_src += 'src/platform/window_xcb.cpp'
   main_ld_flags += '-ltbb'
-  main_definitions += '-DVK_USE_PLATFORM_XCK_KHR'
+  main_definitions += '-DVK_USE_PLATFORM_XCB_KHR'
 
   main_deps += [
     dependency('xcb', required: true),

@@ -134,7 +134,7 @@ void Context::create(Context &ctx, const platform::Window &window)
     sci.hwnd                        = window.win32.window;
     sci.hinstance                   = GetModuleHandle(nullptr);
     VK_CHECK(vkCreateWin32SurfaceKHR(ctx.instance, &sci, nullptr, &ctx.surface));
-#else
+#elif defined (VK_USE_PLATFORM_XCB_KHR)
     VkXcbSurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
     sci.connection                = window.xcb.connection;
     sci.window                    = window.xcb.window;

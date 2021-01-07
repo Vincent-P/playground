@@ -3,10 +3,11 @@
 #include "base/types.hpp"
 #include "render/hl_api.hpp"
 
+#include <cmath>
 #include <functional>
+#include <map>
 #include <optional>
 #include <unordered_map>
-#include <map>
 #include <vector>
 #include <vulkan/vulkan.h>
 
