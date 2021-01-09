@@ -5,8 +5,8 @@ project('simple', 'cpp',
 enable_sanitizer = get_option('enable_sanitizer')
 
 #Dependencies
-vulkan = dependency('vulkan', required: true, method: 'system')
-threads = dependency('threads')
+vulkan_dep = dependency('vulkan', required: true, method: 'system')
+threads_dep = dependency('threads')
 glslc = find_program('glslc', required: true)
 python3 = import('python').find_installation('python3')
 
@@ -43,10 +43,10 @@ imgui = library('imgui', imgui_src, include_directories: main_inc, cpp_args: ['-
 simdjson = library('simdjson', 'third_party/simdjson/simdjson.cpp', link_args: ld_flags)
 
 # - SPIRV-Reflect
-spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflect.cc', dependencies: [vulkan], link_args: ld_flags)
+spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflect.cc', dependencies: [vulkan_dep], link_args: ld_flags)
 
 # - vk mem alloc
-vk_mem_alloc = library('vk_mem_alloc', 'third_party/vk_mem_alloc.cc', dependencies: [vulkan], link_args: ld_flags)
+vk_mem_alloc = library('vk_mem_alloc', 'third_party/vk_mem_alloc.cc', dependencies: [vulkan_dep], link_args: ld_flags)
 
 # - {fmt}
 fmt_inc = include_directories('third_party/fmt/include')
@@ -54,7 +54,8 @@ fmt_src = files([
   'third_party/fmt/src/format.cc',
   'third_party/fmt/src/os.cc'
 ])
-fmt = library('fmt', fmt_src, include_directories: fmt_inc, link_args: ld_flags)
+fmt_lib = library('fmt', fmt_src, include_directories: fmt_inc, link_args: ld_flags)
+fmt_dep = declare_dependency(link_with: fmt_lib, include_directories: fmt_inc)
 
 # - Shaders
 shaders = files([
@@ -113,7 +114,7 @@ foreach s : shaders
     output : '@PLAINNAME@.spv'
   )
 endforeach
-shaders = declare_dependency(sources: shader_targets)
+shaders_dep = declare_dependency(sources: shader_targets)
 
 # - Main target
 main_src = [
@@ -145,7 +146,7 @@ main_src = [
 
 main_ld_flags = []
 main_definitions = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
-main_deps = [vulkan, threads, shaders]
+main_deps = [vulkan_dep, threads_dep, shaders_dep, fmt_dep]
 cpp_std = ''
 
 if cxx.get_id() == 'clang'
@@ -194,9 +195,9 @@ if get_option('enable_renderdoc')
 endif
 
 executable('test-vulkan', main_src,
-  include_directories: [main_inc, thirdparty_inc, fmt_inc],
+  include_directories: [main_inc, thirdparty_inc],
   dependencies: main_deps,
-  link_with: [imgui, spirv_reflect, simdjson, fmt, vk_mem_alloc],
+  link_with: [imgui, spirv_reflect, simdjson, vk_mem_alloc],
   override_options : ['cpp_std=' + cpp_std, 'warning_level=2', 'werror=true', ],
   cpp_args: main_definitions,
   link_args: ld_flags + main_ld_flags
