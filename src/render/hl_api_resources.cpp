@@ -1,5 +1,7 @@
-#include "base/types.hpp"
 #include "render/hl_api.hpp"
+
+#include "base/types.hpp"
+#include "base/algorithms.hpp"
 #include "tools.hpp"
 
 #include <SPIRV-Reflect/spirv_reflect.h>
@@ -735,7 +737,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
     std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
     std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
     std::array<std::vector<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
-    std::optional<PushConstantInfo> push_constant = {};
+    Option<PushConstantInfo> push_constant = {};
 
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
     {

@@ -15,6 +15,7 @@
 #endif
 
 #include "base/types.hpp"
+#include "base/algorithms.hpp"
 
 #include <algorithm>
 #include <array>

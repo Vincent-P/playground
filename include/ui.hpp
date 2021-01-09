@@ -3,7 +3,6 @@
 #include "eva-icons.hpp"
 
 #include <imgui/imgui.h>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>

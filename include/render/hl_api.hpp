@@ -4,9 +4,9 @@
 #include "render/vlk_context.hpp"
 #include "base/types.hpp"
 #include "base/pool.hpp"
+#include "base/option.hpp"
 #include "base/time.hpp"
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <array>
@@ -213,7 +213,7 @@ struct PassInfo
 
     // param for VkFrameBuffer
     std::vector<AttachmentInfo> colors = {};
-    std::optional<AttachmentInfo> depth = {};
+    Option<AttachmentInfo> depth = {};
 
     bool operator==(const PassInfo &b) const
     {
@@ -299,7 +299,7 @@ enum struct PrimitiveTopology
 
 struct DepthState
 {
-    std::optional<VkCompareOp> test = std::nullopt;
+    Option<VkCompareOp> test = std::nullopt;
     bool enable_write = false;
     float bias = 0.0f;
 
@@ -387,7 +387,7 @@ struct ShaderBindingSet
     usize current_descriptor_set = 0;
 
     std::vector<BindingInfo> bindings_info = {};
-    std::vector<std::optional<BindingData>> binded_data = {};
+    std::vector<Option<BindingData>> binded_data = {};
     bool data_dirty = true; // dirty flag for each data to avoid updating everything?
     std::vector<u32> dynamic_offsets = {};
     std::vector<u32> dynamic_bindings = {};

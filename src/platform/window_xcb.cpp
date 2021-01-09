@@ -1,5 +1,7 @@
-#include "base/types.hpp"
 #include "platform/window.hpp"
+
+#include "base/types.hpp"
+#include "base/algorithms.hpp"
 
 #include <cstdio>
 #include <xcb/xproto.h>

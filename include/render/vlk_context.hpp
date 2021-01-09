@@ -1,8 +1,8 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "base/option.hpp"
 
-#include <optional>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -135,7 +135,7 @@ struct Context
     void end_capture() {}
 #endif
 
-    std::optional<VkDebugUtilsMessengerEXT> debug_messenger;
+    Option<VkDebugUtilsMessengerEXT> debug_messenger;
 
     VkSurfaceKHR surface;
     VkPhysicalDevice physical_device;

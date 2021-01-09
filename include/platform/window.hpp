@@ -1,8 +1,9 @@
 #pragma once
 #include "base/types.hpp"
+#include "base/option.hpp"
+#include "base/algorithms.hpp"
 
 #include <array>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -200,7 +201,7 @@ struct Window
     float2 mouse_position;
 
     bool stop{false};
-    std::optional<Caret> caret{};
+    Option<Caret> caret{};
 
     bool has_focus{false};
     bool minimized{false};

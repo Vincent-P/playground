@@ -1,6 +1,7 @@
 #include "ui.hpp"
 
 #include "base/types.hpp"
+#include "base/algorithms.hpp"
 #include "inputs.hpp"
 #include "platform/window.hpp"
 

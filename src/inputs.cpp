@@ -1,6 +1,8 @@
 #include "inputs.hpp"
 
 #include "base/types.hpp"
+#include "base/option.hpp"
+#include "base/algorithms.hpp"
 #include "platform/window.hpp"
 #include "ui.hpp"
 
@@ -100,7 +102,7 @@ void Inputs::process(const std::vector<platform::event::Event> &events)
     }
 }
 
-static void display_optional(const char *label, std::optional<int2> vector)
+static void display_optional(const char *label, Option<int2> vector)
 {
     ImGui::TextUnformatted(label);
     ImGui::SameLine();

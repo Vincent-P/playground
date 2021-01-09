@@ -22,7 +22,7 @@ namespace impl
 
 /// --- Archetype impl
 
-std::optional<usize> get_component_idx(const Archetype &type, ComponentId component_id)
+Option<usize> get_component_idx(const Archetype &type, ComponentId component_id)
 {
     u32 component_idx = 0;
     for (auto type_id : type)
@@ -253,7 +253,7 @@ void add_component(World &world, EntityId entity, ComponentId component_id, void
     new_storage.size += 1; // /!\ DO THIS AFTER add_component
 
     /// --- Remove from previous storage
-    std::optional<EntityId> swapped_entity;
+    Option<EntityId> swapped_entity;
     if (old_row != old_storage.entity_ids.size() - 1)
     {
         swapped_entity = std::make_optional(old_storage.entity_ids.back());
@@ -301,7 +301,7 @@ void remove_component(World &world, EntityId entity, ComponentId component_id)
     new_storage.size += 1; // /!\ DO THIS AFTER add_component
 
     // remove from previous storage
-    std::optional<EntityId> swapped_entity;
+    Option<EntityId> swapped_entity;
     if (old_row != old_storage.entity_ids.size() - 1)
     {
         swapped_entity = std::make_optional(old_storage.entity_ids.back());

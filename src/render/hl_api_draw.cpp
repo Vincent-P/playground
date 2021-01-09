@@ -1,6 +1,8 @@
 #include "render/hl_api.hpp"
 #include "render/vlk_context.hpp"
 
+#include "base/option.hpp"
+
 #include <fmt/core.h>
 #include <set>
 #include <stdexcept>
@@ -580,7 +582,7 @@ void API::bind_program(GraphicsProgramH H)
 // sampler ? => combined image sampler descriptor
 // else storage image
 static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint slot, uint index,
-                                ImageViewH &image_view_h, std::optional<SamplerH> sampler = std::nullopt)
+                                ImageViewH &image_view_h, Option<SamplerH> sampler = std::nullopt)
 {
     assert(slot < binding_set.binded_data.size());
 

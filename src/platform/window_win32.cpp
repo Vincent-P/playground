@@ -1,5 +1,7 @@
 #include "platform/window.hpp"
 
+#include "base/algorithms.hpp"
+
 #include <cassert>
 #include <iomanip>
 #include <stdexcept>

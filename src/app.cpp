@@ -323,7 +323,7 @@ void App::display_ui()
     inputs.display_ui(ui);
     draw_gizmo(ecs, main_camera);
 
-    static std::optional<ECS::EntityId> selected_entity;
+    static Option<ECS::EntityId> selected_entity;
     const auto display_component = []<ECS::Componentable Component>(ECS::World &world, ECS::EntityId entity) {
         auto *component = world.get_component<Component>(entity);
         if (component)
@@ -387,7 +387,7 @@ void App::run()
     {
         window.poll_events();
 
-        std::optional<platform::event::Resize> last_resize;
+        Option<platform::event::Resize> last_resize;
         for (auto &event : window.events)
         {
             if (std::holds_alternative<platform::event::Resize>(event))

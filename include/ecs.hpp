@@ -1,9 +1,9 @@
 #pragma once
 #include "base/pool.hpp"
 #include "base/types.hpp"
+#include "base/option.hpp"
 #include "ui.hpp"
 
-#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -235,7 +235,7 @@ inline std::tuple<bool, std::vector<u32>> archetype_contains(const Archetype &qu
     return std::make_tuple(true, found);
 }
 
-std::optional<usize> get_component_idx(const Archetype &type, ComponentId component_id);
+Option<usize> get_component_idx(const Archetype &type, ComponentId component_id);
 
 // ArchetypeStorage
 // traverse the graph and returns or create the ArchetypeStorage matching the Archetype
@@ -258,7 +258,7 @@ void set_component(World &world, EntityId entity, ComponentId component_id, void
 bool has_component(World &world, EntityId entity, ComponentId component);
 void *get_component(World &world, EntityId entity, ComponentId component_id);
 
-template <Componentable Component> std::optional<usize> get_component_idx(const Archetype &type)
+template <Componentable Component> Option<usize> get_component_idx(const Archetype &type)
 {
     return get_component_idx(type, family::type<Component>());
 }

@@ -1,8 +1,8 @@
 #pragma once
 #include "base/types.hpp"
+#include "base/option.hpp"
 #include "render/hl_api.hpp"
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <limits>
@@ -97,7 +97,7 @@ enum class AccessorType
     Mat4
 };
 
-inline std::optional<AccessorType> accessor_type_from_str(const std::string &string)
+inline Option<AccessorType> accessor_type_from_str(const std::string &string)
 {
     if (string == "SCALAR")
     {
@@ -141,7 +141,7 @@ struct Mesh
 
 struct Node
 {
-    std::optional<usize> mesh;
+    Option<usize> mesh;
 
     bool dirty{true};
 

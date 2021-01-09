@@ -1,5 +1,6 @@
 #pragma once
 #include "base/types.hpp"
+#include "base/algorithms.hpp"
 
 #include <array>
 #include <imgui/imgui.h>

@@ -1,12 +1,12 @@
 #pragma once
 #include "base/pool.hpp"
 #include "base/types.hpp"
+#include "base/option.hpp"
 #include "render/hl_api.hpp"
 
 #include <cmath>
 #include <functional>
 #include <map>
-#include <optional>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -102,7 +102,7 @@ struct RenderPass
     // outputs
     std::vector<ImageDescH> color_attachments;
     VkSampleCountFlagBits samples;
-    std::optional<ImageDescH> depth_attachment;
+    Option<ImageDescH> depth_attachment;
 
     std::function<void(RenderGraph&, RenderPass&, vulkan::API&)> exec;
 
