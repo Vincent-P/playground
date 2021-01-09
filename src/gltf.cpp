@@ -1,5 +1,6 @@
 #include "gltf.hpp"
 
+#include "base/vector.hpp"
 #include "render/hl_api.hpp"
 #include "render/renderer.hpp"
 #include "tools.hpp"
@@ -11,7 +12,6 @@
 #include <simdjson/simdjson.h>
 #include <string>
 #include <string_view>
-#include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -40,7 +40,7 @@ inline T json_get_or(const simdjson::dom::element &object, const char *field_nam
     return default_value;
 }
 
-static std::optional<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, const simdjson::dom::element &root,
+static Option<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, const simdjson::dom::element &root,
                                                                       const simdjson::dom::element &attributes,
                                                                       const char *attribute)
 {
@@ -126,7 +126,7 @@ Model load_model(std::string_view path_view)
     // Load images file into memory
     if (json_has(doc, "images"))
     {
-        std::vector<std::future<Image>> images_data;
+        Vec<std::future<Image>> images_data;
         images_data.resize(doc["images"].get_array().size());
 
         uint i = 0;

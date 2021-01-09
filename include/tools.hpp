@@ -1,11 +1,11 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "base/vector.hpp"
 
 #include <filesystem>
 #include <imgui/imgui.h>
 #include <string>
-#include <vector>
 
 namespace my_app::tools
 {
@@ -19,7 +19,7 @@ struct MouseState
     double ypos;
 };
 
-std::vector<u8> read_file(const fs::path &path);
+Vec<u8> read_file(const fs::path &path);
 
 inline void imgui_select(const char *title, const char **items, usize items_size, uint &current_item)
 {

@@ -1,12 +1,12 @@
 #pragma once
 #include "base/pool.hpp"
 #include "base/types.hpp"
+#include "base/vector.hpp"
 #include "base/option.hpp"
 #include "ui.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 #include <type_traits>
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
@@ -107,13 +107,13 @@ namespace my_app::ECS
 
 using ComponentId = EntityId;
 // An archetype is a collection of components
-using Archetype = std::vector<ComponentId>;
+using Archetype = Vec<ComponentId>;
 
 // A vector of one component
 struct ComponentStorage
 {
     // chunks like Unity DOTS?
-    std::vector<u8> data;   // buffer
+    Vec<u8> data;   // buffer
     uint component_size{0}; // element size in bytes
 
     bool operator==(const ComponentStorage&) const = default;
@@ -129,11 +129,11 @@ struct ArchetypeStorage
     Archetype type;
 
     // List of entities whose components are stored in this archetype
-    std::vector<EntityId> entity_ids;
+    Vec<EntityId> entity_ids;
 
     // List of components indexed by component type
     // (e.g components[family::type<MyComponent>()] contains a list of MyComponent)
-    std::vector<ComponentStorage> components;
+    Vec<ComponentStorage> components;
     usize size;
 
     // Edges to archetype if we add/remove the indexed component type
@@ -145,7 +145,7 @@ struct ArchetypeStorage
         ArchetypeH remove;
         bool operator==(const Edge&) const = default;
     };
-    std::vector<Edge> edges;
+    Vec<Edge> edges;
 
     bool operator==(const ArchetypeStorage&) const = default;
 };
@@ -202,9 +202,9 @@ template <Componentable... ComponentTypes> Archetype create_archetype()
     return result;
 }
 
-inline std::tuple<bool, std::vector<u32>> archetype_contains(const Archetype &query, const Archetype &archetype)
+inline std::tuple<bool, Vec<u32>> archetype_contains(const Archetype &query, const Archetype &archetype)
 {
-    std::vector<u32> found(query.size(), u32_invalid);
+    Vec<u32> found(query.size(), u32_invalid);
 
     if (query.size() > archetype.size())
     {
@@ -264,7 +264,7 @@ template <Componentable Component> Option<usize> get_component_idx(const Archety
 }
 
 // returns a reference to a component from a query, used to simulate a constexpr loop in for_each
-template <Componentable Component> Component &component_ref(const Archetype &query, usize i_row, const std::vector<u32> query_indices, ArchetypeStorage &storage)
+template <Componentable Component> Component &component_ref(const Archetype &query, usize i_row, const Vec<u32> query_indices, ArchetypeStorage &storage)
 {
     const auto component_id = EntityId::component<Component>();
     usize i_query = 0;

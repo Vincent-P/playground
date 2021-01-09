@@ -1,13 +1,13 @@
 #pragma once
 #include "base/types.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 #include "base/algorithms.hpp"
 
 #include <array>
 #include <string>
 #include <string_view>
 #include <variant>
-#include <vector>
 
 #if defined(_WIN64)
 typedef struct HWND__ *HWND;
@@ -208,7 +208,7 @@ struct Window
     bool maximized{false};
     Cursor current_cursor;
 
-    std::vector<event::Event> events;
+    Vec<event::Event> events;
 
     std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed           = {};
     std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};

@@ -5,12 +5,12 @@
 #include "base/types.hpp"
 #include "base/pool.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 #include "base/time.hpp"
 
 #include <string>
 #include <string_view>
 #include <array>
-#include <vector>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -45,7 +45,7 @@ struct ImageInfo
     const char *name                    = "No name";
     VkImageType type                    = VK_IMAGE_TYPE_2D;
     VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
-    std::vector<VkFormat> extra_formats = {};
+    Vec<VkFormat> extra_formats = {};
     u32 width                           = 1;
     u32 height                          = 1;
     u32 depth                           = 1;
@@ -98,11 +98,11 @@ struct Image
     ImageUsage usage = ImageUsage::None;
     VkImageSubresourceRange full_range;
 
-    std::vector<VkFormat> extra_formats;
+    Vec<VkFormat> extra_formats;
 
     ImageViewH default_view; // view with the default format (image_info.format) and full range
-    std::vector<ImageViewH> format_views; // extra views for each image_info.extra_formats
-    std::vector<ImageViewH> mip_views;    // mip slices with defaut format
+    Vec<ImageViewH> format_views; // extra views for each image_info.extra_formats
+    Vec<ImageViewH> mip_views;    // mip slices with defaut format
 
     // A proxy is an Image containing a VkImage that is external to the API (swapchain images for example)
     bool is_proxy = false;
@@ -212,7 +212,7 @@ struct PassInfo
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 
     // param for VkFrameBuffer
-    std::vector<AttachmentInfo> colors = {};
+    Vec<AttachmentInfo> colors = {};
     Option<AttachmentInfo> depth = {};
 
     bool operator==(const PassInfo &b) const
@@ -244,7 +244,7 @@ struct Shader
 {
     std::string name;
     VkShaderModule vkhandle;
-    std::vector<u8> bytecode;
+    Vec<u8> bytecode;
 
     bool operator==(const Shader &b) const = default;
 };
@@ -286,7 +286,7 @@ struct VertexInfo
 struct VertexBufferInfo
 {
     u32 stride;
-    std::vector<VertexInfo> vertices_info;
+    Vec<VertexInfo> vertices_info;
 
     bool operator==(const VertexBufferInfo &) const = default;
 };
@@ -326,7 +326,7 @@ struct GraphicsProgramInfo
     ShaderH geom_shader;
     ShaderH fragment_shader;
 
-    std::vector<PushConstantInfo> push_constants;
+    Vec<PushConstantInfo> push_constants;
     VertexBufferInfo vertex_buffer_info;
 
     DepthState depth;
@@ -345,7 +345,7 @@ struct ComputeProgramInfo
 {
     ShaderH shader;
 
-    std::vector<PushConstantInfo> push_constants;
+    Vec<PushConstantInfo> push_constants;
 
     bool operator==(const ComputeProgramInfo &) const = default;
 
@@ -372,7 +372,7 @@ struct DescriptorSet
 
 struct BindingData
 {
-    std::vector<VkDescriptorImageInfo> images_info;
+    Vec<VkDescriptorImageInfo> images_info;
     VkBufferView buffer_view;
     VkDescriptorBufferInfo buffer_info;
 
@@ -383,14 +383,14 @@ struct BindingData
 struct ShaderBindingSet
 {
     VkDescriptorSetLayout descriptor_layout = VK_NULL_HANDLE;
-    std::vector<DescriptorSet> descriptor_sets = {};
+    Vec<DescriptorSet> descriptor_sets = {};
     usize current_descriptor_set = 0;
 
-    std::vector<BindingInfo> bindings_info = {};
-    std::vector<Option<BindingData>> binded_data = {};
+    Vec<BindingInfo> bindings_info = {};
+    Vec<Option<BindingData>> binded_data = {};
     bool data_dirty = true; // dirty flag for each data to avoid updating everything?
-    std::vector<u32> dynamic_offsets = {};
-    std::vector<u32> dynamic_bindings = {};
+    Vec<u32> dynamic_offsets = {};
+    Vec<u32> dynamic_bindings = {};
 
     inline DescriptorSet &get_descriptor_set() { return descriptor_sets[current_descriptor_set]; }
 };
@@ -404,8 +404,8 @@ struct GraphicsProgram
 
     VkPipelineLayout pipeline_layout; // layoutS??
     // TODO: hashmap
-    std::vector<PipelineInfo> pipelines_info;
-    std::vector<VkPipeline> pipelines_vk;
+    Vec<PipelineInfo> pipelines_info;
+    Vec<VkPipeline> pipelines_vk;
 
     GraphicsProgramInfo info;
 
@@ -478,7 +478,7 @@ struct DrawIndirectCommand
 struct DrawIndirectCommands
 {
     u32 draw_count;
-    std::vector<DrawIndirectCommand> commands;
+    Vec<DrawIndirectCommand> commands;
 };
 
 
@@ -487,9 +487,9 @@ struct API
     Context ctx;
 
     std::string_view current_label;
-    std::vector<Timestamp> timestamps;
-    std::vector<std::vector<TimePoint>> cpu_timestamps_per_frame;
-    std::vector<std::vector<std::string_view>> timestamp_labels_per_frame;
+    Vec<Timestamp> timestamps;
+    Vec<Vec<TimePoint>> cpu_timestamps_per_frame;
+    Vec<Vec<std::string_view>> timestamp_labels_per_frame;
 
     // resources
     Pool<Image> images;
@@ -510,11 +510,11 @@ struct API
     // global resources
     SamplerH nearest_sampler;
     SamplerH trilinear_sampler;
-    std::vector<ImageH> swapchain_to_image_h;
+    Vec<ImageH> swapchain_to_image_h;
 
     // TODO: arena?
-    std::vector<FrameBuffer> framebuffers;
-    std::vector<RenderPass> renderpasses;
+    Vec<FrameBuffer> framebuffers;
+    Vec<RenderPass> renderpasses;
 
     // Ring buffers for dynamic resources
     CircularBuffer staging_buffer;
@@ -550,30 +550,30 @@ struct API
     // storage images
     void bind_image(GraphicsProgramH program_h, ImageViewH image_view_h, uint set, uint slot, uint index = 0);
     void bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint slot, uint index = 0);
-    void bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot);
-    void bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint slot);
+    void bind_images(GraphicsProgramH program_h, const Vec<ImageViewH> &image_views_h, uint set, uint slot);
+    void bind_images(ComputeProgramH program_h, const Vec<ImageViewH> &image_views_h, uint slot);
 
     void bind_image(GraphicsProgramH program_h, ImageH image_h, uint set, uint slot, uint index = 0);
     void bind_image(ComputeProgramH program_h, ImageH image_h, uint slot, uint index = 0);
-    void bind_images(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, uint set, uint slot);
-    void bind_images(ComputeProgramH program_h, const std::vector<ImageH> &images_h, uint slot);
+    void bind_images(GraphicsProgramH program_h, const Vec<ImageH> &images_h, uint set, uint slot);
+    void bind_images(ComputeProgramH program_h, const Vec<ImageH> &images_h, uint slot);
 
     // sampled images
     void bind_combined_image_sampler(GraphicsProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
     void bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH image_view_h, SamplerH sampler_h, uint slot, uint index = 0);
 
-    void bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
-                                       const std::vector<SamplerH> &samplers, uint set, uint slot);
-    void bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
-                                       const std::vector<SamplerH> &samplers, uint slot);
+    void bind_combined_images_samplers(GraphicsProgramH program_h, const Vec<ImageViewH> &image_views_h,
+                                       const Vec<SamplerH> &samplers, uint set, uint slot);
+    void bind_combined_images_samplers(ComputeProgramH program_h, const Vec<ImageViewH> &image_views_h,
+                                       const Vec<SamplerH> &samplers, uint slot);
 
     void bind_combined_image_sampler(GraphicsProgramH program_h, ImageH image_h, SamplerH sampler_h, uint set, uint slot, uint index = 0);
     void bind_combined_image_sampler(ComputeProgramH program_h, ImageH image_h, SamplerH sampler_h, uint slot, uint index = 0);
 
-    void bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageH> &images_h,
-                                       const std::vector<SamplerH> &samplers, uint set, uint slot);
-    void bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageH> &images_h,
-                                       const std::vector<SamplerH> &samplers, uint slot);
+    void bind_combined_images_samplers(GraphicsProgramH program_h, const Vec<ImageH> &images_h,
+                                       const Vec<SamplerH> &samplers, uint set, uint slot);
+    void bind_combined_images_samplers(ComputeProgramH program_h, const Vec<ImageH> &images_h,
+                                       const Vec<SamplerH> &samplers, uint slot);
 
     // dynamic buffers
     void bind_buffer(GraphicsProgramH program_h, CircularBufferPosition buffer_pos, uint set, uint slot);

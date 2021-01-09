@@ -220,7 +220,7 @@ void Renderer::reload_shader(std::string_view shader_name)
     vulkan::ShaderH new_shader = api.create_shader(shader_name);
     fmt::print(stderr, "New shader's handle:  {}\n", new_shader.value());
 
-    std::vector<vulkan::ShaderH> to_remove;
+    Vec<vulkan::ShaderH> to_remove;
 
     // Update programs using this shader to the new shader
     for (auto &[program_h, program] : api.graphics_programs) {
@@ -284,10 +284,10 @@ Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::s
 
     model.cached_transforms.resize(model.nodes.size());
 
-    std::vector<u32> nodes_stack;
+    Vec<u32> nodes_stack;
     nodes_stack.reserve(model.nodes.size());
 
-    std::vector<u32> parent_indices;
+    Vec<u32> parent_indices;
     parent_indices.reserve(model.nodes.size());
 
     for (auto scene_root : model.scene)
@@ -410,7 +410,7 @@ Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::s
     }
 
     usize drawbuffer_size = draw_count * sizeof(DrawData);
-    std::vector<DrawData> draws;
+    Vec<DrawData> draws;
     draws.reserve(draw_count);
     for (auto node_idx : model.nodes_preorder)
     {
@@ -565,10 +565,10 @@ Renderer::GltfPass create_gltf_pass(RenderGraph &graph, vulkan::API &api, std::s
         VkFormat format = VK_FORMAT_UNDEFINED;
     };
 
-    std::vector<StbImage> stb_images;
+    Vec<StbImage> stb_images;
     stb_images.resize(model.images.size());
 
-    std::vector<uint> indices(model.images.size());
+    Vec<uint> indices(model.images.size());
     std::iota(indices.begin(), indices.end(), 0);
 
     parallel_foreach(indices, [&](uint i) {
@@ -795,7 +795,7 @@ static void add_gltf_pass(Renderer &r)
     auto &graph = r.graph;
 
     auto external_images = r.gltf.images;
-    std::vector<ImageDescH> sampled_images;
+    Vec<ImageDescH> sampled_images;
     sampled_images.push_back(r.voxels_radiance);
     for (auto volume : r.voxels_directional_volumes)
     {
@@ -822,8 +822,8 @@ static void add_gltf_pass(Renderer &r)
             [=](RenderGraph &graph, RenderPass &self, vulkan::API &api) {
 
                 auto voxels_radiance = graph.get_resolved_image(self.sampled_images[0]);
-                std::vector<vulkan::ImageH> voxels_directional_volumes;
-                std::vector<vulkan::ImageH> shadow_cascades;
+                Vec<vulkan::ImageH> voxels_directional_volumes;
+                Vec<vulkan::ImageH> shadow_cascades;
                 for (usize i = 1; i < 7; i++)
                 {
                     voxels_directional_volumes.push_back(graph.get_resolved_image(self.sampled_images[i]));
@@ -1248,7 +1248,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
         buffer->res  = voxel_res;
     }
 
-    std::vector<ImageDescH> storage_images;
+    Vec<ImageDescH> storage_images;
     for (auto image : r.voxels_directional_volumes)
     {
         storage_images.push_back(image);
@@ -1269,8 +1269,8 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                                                       RenderPass &self,
                                                                       vulkan::API &api) {
                 // resolved directional volumes
-                std::vector<vulkan::ImageH> voxels_directional_volumes;
-                std::vector<vulkan::ImageViewH> views;
+                Vec<vulkan::ImageH> voxels_directional_volumes;
+                Vec<vulkan::ImageViewH> views;
                 views.reserve(self.storage_images.size());
                 for (auto volume : self.storage_images)
                 {
@@ -1330,7 +1330,7 @@ static void add_voxels_aniso_filtering(Renderer &r)
                                                                               RenderPass &self,
                                                                               vulkan::API &api) {
                     // resolved directional volumes
-                    std::vector<vulkan::ImageH> voxels_directional_volumes;
+                    Vec<vulkan::ImageH> voxels_directional_volumes;
                     voxels_directional_volumes.reserve(self.storage_images.size());
                     for (auto volume : self.storage_images)
                     {
@@ -1342,8 +1342,8 @@ static void add_voxels_aniso_filtering(Renderer &r)
                     api.bind_buffer(program, mip_pos, 0);
                     api.bind_buffer(program, mip_src_pos, 1);
 
-                    std::vector<vulkan::ImageViewH> src_views;
-                    std::vector<vulkan::ImageViewH> dst_views;
+                    Vec<vulkan::ImageViewH> src_views;
+                    Vec<vulkan::ImageViewH> dst_views;
                     src_views.reserve(voxels_directional_volumes.size());
                     dst_views.reserve(voxels_directional_volumes.size());
 
@@ -1470,8 +1470,8 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
 
     r.api.bind_buffer({}, r.global_uniform_pos, vulkan::GLOBAL_DESCRIPTOR_SET, 0);
 
-    std::vector<vulkan::ImageH> images;
-    std::vector<vulkan::SamplerH> samplers;
+    Vec<vulkan::ImageH> images;
+    Vec<vulkan::SamplerH> samplers;
 
     for (uint i = 0; i < r.gltf.model->textures.size(); i++)
     {

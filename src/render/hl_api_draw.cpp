@@ -28,9 +28,9 @@ static RenderPassH find_or_create_render_pass(API &api, PassInfo &&info)
     RenderPass rp;
     rp.info = std::move(info);
 
-    std::vector<VkAttachmentDescription> attachments;
+    Vec<VkAttachmentDescription> attachments;
 
-    std::vector<VkAttachmentReference> color_refs;
+    Vec<VkAttachmentReference> color_refs;
     color_refs.reserve(rp.info.colors.size());
 
     for (auto &color_attachment : rp.info.colors)
@@ -117,7 +117,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
     VkFramebufferCreateInfo ci = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
     ci.renderPass              = render_pass.vkhandle;
 
-    std::vector<u64> attachments;
+    Vec<u64> attachments;
 
     for (const auto &color_attachment : render_pass.info.colors)
     {
@@ -131,7 +131,7 @@ static FrameBuffer &find_or_create_frame_buffer(API &api, const RenderPass &rend
         attachments.push_back(reinterpret_cast<u64>(depth_view.vkhandle));
     }
 
-    static std::set<std::vector<u64>> s_attachments;
+    static std::set<Vec<u64>> s_attachments;
     auto [iter, _]                 = s_attachments.insert(attachments);
     const auto &attachments_in_set = *iter;
 
@@ -189,7 +189,7 @@ void API::begin_pass(PassInfo &&info)
 
     VkRect2D render_area{VkOffset2D(), {frame_buffer.create_info.width, frame_buffer.create_info.height}};
 
-    std::vector<VkClearValue> clear_values;
+    Vec<VkClearValue> clear_values;
 
     for (auto &color_attachment : render_pass.info.colors)
     {
@@ -258,7 +258,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
 
     if (pipeline_i == u32_invalid)
     {
-        std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
         VkPipelineDynamicStateCreateInfo dyn_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
         dyn_i.dynamicStateCount                = dynamic_states.size();
@@ -275,7 +275,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         bindings[0].stride    = vertex_buffer_info.stride;
         bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-        std::vector<VkVertexInputAttributeDescription> attributes;
+        Vec<VkVertexInputAttributeDescription> attributes;
         attributes.reserve(vertex_buffer_info.vertices_info.size());
 
         u32 location = 0;
@@ -330,7 +330,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         rast_i.cullMode = VK_CULL_MODE_NONE;
 
         // TODO: from render_pass
-        std::vector<VkPipelineColorBlendAttachmentState> att_states;
+        Vec<VkPipelineColorBlendAttachmentState> att_states;
         att_states.reserve(render_pass.info.colors.size());
 
         for (const auto &color_attachment : render_pass.info.colors)
@@ -406,7 +406,7 @@ static VkPipeline find_or_create_pipeline(API &api, GraphicsProgram &program, Pi
         ms_i.alphaToOneEnable                     = VK_FALSE;
         ms_i.minSampleShading                     = .2f;
 
-        std::vector<VkPipelineShaderStageCreateInfo> shader_stages;
+        Vec<VkPipelineShaderStageCreateInfo> shader_stages;
         shader_stages.reserve(3);
 
         if (program_info.vertex_shader.is_valid())
@@ -510,7 +510,7 @@ static void undirty_descriptor_set(API &api, ShaderBindingSet &binding_set)
         auto &descriptor_set = find_or_create_descriptor_set(api, binding_set);
 
         usize binding_count = binding_set.bindings_info.size();
-        std::vector<VkWriteDescriptorSet> writes(binding_count);
+        Vec<VkWriteDescriptorSet> writes(binding_count);
 
         for (uint slot = 0; slot < binding_count; slot++)
         {
@@ -624,8 +624,8 @@ static void bind_image_internal(API &api, ShaderBindingSet &binding_set, uint sl
 // if samplers.size == 1 then bind several combined image samplers with the same sampler
 // else bind several combined image samplers with a diferent sampler for each image
 static void bind_images_internal(API &api, ShaderBindingSet &binding_set, uint slot,
-                                 const std::vector<ImageViewH> &image_views_h,
-                                 const std::vector<SamplerH> &samplers_h = {})
+                                 const Vec<ImageViewH> &image_views_h,
+                                 const Vec<SamplerH> &samplers_h = {})
 {
     assert(slot < binding_set.binded_data.size());
     assert(samplers_h.empty() || samplers_h.size() == 1 || samplers_h.size() == image_views_h.size());
@@ -737,22 +737,22 @@ void API::bind_image(ComputeProgramH program_h, ImageViewH image_view_h, uint sl
     bind_image_internal(*this, binding_set, slot, index, image_view_h);
 }
 
-void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint set, uint slot)
+void API::bind_images(GraphicsProgramH program_h, const Vec<ImageViewH> &image_views_h, uint set, uint slot)
 {
     auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
-void API::bind_images(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h, uint slot)
+void API::bind_images(ComputeProgramH program_h, const Vec<ImageViewH> &image_views_h, uint slot)
 {
     auto &binding_set = get_program(program_h).binding_set;
     bind_images_internal(*this, binding_set, slot, image_views_h);
 }
 
 
-static std::vector<ImageViewH> default_views_from_images(API& api, const std::vector<ImageH> &images_h)
+static Vec<ImageViewH> default_views_from_images(API& api, const Vec<ImageH> &images_h)
 {
-    std::vector<ImageViewH> views;
+    Vec<ImageViewH> views;
     views.reserve(images_h.size());
     for (auto h : images_h) {
         views.push_back(api.get_image(h).default_view);
@@ -763,8 +763,8 @@ static std::vector<ImageViewH> default_views_from_images(API& api, const std::ve
 // clang-format off
 void API::bind_image(GraphicsProgramH program_h, ImageH image_h, uint set, uint slot, uint index) { bind_image(program_h, get_image(image_h).default_view, set, slot, index); }
 void API::bind_image(ComputeProgramH program_h, ImageH image_h, uint slot, uint index) { bind_image(program_h, get_image(image_h).default_view, slot, index); }
-void API::bind_images(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, uint set, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), set, slot); }
-void API::bind_images(ComputeProgramH program_h, const std::vector<ImageH> &images_h, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), slot); }
+void API::bind_images(GraphicsProgramH program_h, const Vec<ImageH> &images_h, uint set, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), set, slot); }
+void API::bind_images(ComputeProgramH program_h, const Vec<ImageH> &images_h, uint slot) { bind_images(program_h, default_views_from_images(*this, images_h), slot); }
 // clang-format on
 
 // sampled images
@@ -782,14 +782,14 @@ void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageViewH imag
     bind_image_internal(*this, binding_set, slot, index, image_view_h, sampler_h);
 }
 
-void API::bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageViewH> &image_views_h,
-                                        const std::vector<SamplerH> &samplers, uint set, uint slot)
+void API::bind_combined_images_samplers(GraphicsProgramH program_h, const Vec<ImageViewH> &image_views_h,
+                                        const Vec<SamplerH> &samplers, uint set, uint slot)
 {
     auto &binding_set = get_graphics_binding_set(*this, program_h, set);
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
 }
-void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageViewH> &image_views_h,
-                                        const std::vector<SamplerH> &samplers, uint slot)
+void API::bind_combined_images_samplers(ComputeProgramH program_h, const Vec<ImageViewH> &image_views_h,
+                                        const Vec<SamplerH> &samplers, uint slot)
 {
     auto &binding_set = get_program(program_h).binding_set;
     bind_images_internal(*this, binding_set, slot, image_views_h, samplers);
@@ -798,11 +798,11 @@ void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::ve
 // clang-format off
 void API::bind_combined_image_sampler(GraphicsProgramH program_h, ImageH image_h, SamplerH sampler_h, uint set, uint slot, uint index) { bind_combined_image_sampler(program_h, get_image(image_h).default_view, sampler_h, set, slot, index); }
 void API::bind_combined_image_sampler(ComputeProgramH program_h, ImageH image_h, SamplerH sampler_h, uint slot, uint index) { bind_combined_image_sampler(program_h, get_image(image_h).default_view, sampler_h, slot, index); }
-void API::bind_combined_images_samplers(GraphicsProgramH program_h, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, uint set, uint slot)
+void API::bind_combined_images_samplers(GraphicsProgramH program_h, const Vec<ImageH> &images_h, const Vec<SamplerH> &samplers, uint set, uint slot)
 {
     bind_combined_images_samplers(program_h, default_views_from_images(*this, images_h), samplers, set, slot);
 }
-void API::bind_combined_images_samplers(ComputeProgramH program_h, const std::vector<ImageH> &images_h, const std::vector<SamplerH> &samplers, uint slot)
+void API::bind_combined_images_samplers(ComputeProgramH program_h, const Vec<ImageH> &images_h, const Vec<SamplerH> &samplers, uint slot)
 {
     bind_combined_images_samplers(program_h, default_views_from_images(*this, images_h), samplers, slot);
 }

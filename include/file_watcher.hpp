@@ -1,7 +1,7 @@
 #pragma once
 #include "base/types.hpp"
+#include "base/vector.hpp"
 #include <functional>
-#include <vector>
 
 #if defined (_WIN64)
 #include <array>
@@ -52,9 +52,9 @@ struct FileWatcher
 
 #endif
 
-    std::vector<Watch> watches;
-    std::vector<Event> current_events;
-    std::vector<FileEventF> callbacks;
+    Vec<Watch> watches;
+    Vec<Event> current_events;
+    Vec<FileEventF> callbacks;
 
     static FileWatcher create();
 

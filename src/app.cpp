@@ -47,7 +47,7 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
         bool draw_line;
     };
 
-    std::vector<GizmoAxis> axes{
+    Vec<GizmoAxis> axes{
         {.label = "X", .axis = float3(1.0f, 0.0f, 0.0f), .color = red, .draw_line = true},
         {.label = "Y", .axis = float3(0.0f, 1.0f, 0.0f), .color = green, .draw_line = true},
         {.label = "Z", .axis = float3(0.0f, 0.0f, 1.0f), .color = blue, .draw_line = true},

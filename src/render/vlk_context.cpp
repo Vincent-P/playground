@@ -1,10 +1,10 @@
 #include "render/vlk_context.hpp"
 
+#include "base/vector.hpp"
 #include "platform/window.hpp"
 
 #include <fmt/core.h>
 #include <string>
-#include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -45,7 +45,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
-bool is_extension_installed(const char *wanted, const std::vector<VkExtensionProperties> &installed)
+bool is_extension_installed(const char *wanted, const Vec<VkExtensionProperties> &installed)
 {
     for (const auto &extension : installed)
     {
@@ -88,7 +88,7 @@ void Context::create(Context &ctx, const platform::Window &window)
 #endif
 
     /// --- Create Instance
-    std::vector<const char *> instance_extensions;
+    Vec<const char *> instance_extensions;
 
     instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 
@@ -103,12 +103,12 @@ void Context::create(Context &ctx, const platform::Window &window)
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     uint layer_props_count = 0;
-    std::vector<VkLayerProperties> installed_instance_layers;
+    Vec<VkLayerProperties> installed_instance_layers;
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
     installed_instance_layers.resize(layer_props_count);
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_instance_layers.data()));
 
-    std::vector<const char *> instance_layers;
+    Vec<const char *> instance_layers;
     if (ENABLE_VALIDATION_LAYERS)
     {
         instance_layers.push_back("VK_LAYER_KHRONOS_validation");
@@ -179,7 +179,7 @@ void Context::create(Context &ctx, const platform::Window &window)
 
     /// --- Pick a physical device
     uint physical_devices_count = 0;
-    std::vector<VkPhysicalDevice> physical_devices;
+    Vec<VkPhysicalDevice> physical_devices;
     VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
     physical_devices.resize(physical_devices_count);
     VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, physical_devices.data()));
@@ -199,7 +199,7 @@ void Context::create(Context &ctx, const platform::Window &window)
     }
 
     /// --- Create the logical device
-    std::vector<VkExtensionProperties> installed_device_extensions;
+    Vec<VkExtensionProperties> installed_device_extensions;
     uint installed_device_extensions_count = 0;
     VK_CHECK(vkEnumerateDeviceExtensionProperties(ctx.physical_device,
                                                   nullptr,
@@ -211,7 +211,7 @@ void Context::create(Context &ctx, const platform::Window &window)
                                                   &installed_device_extensions_count,
                                                   installed_device_extensions.data()));
 
-    std::vector<const char *> device_extensions;
+    Vec<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions))
@@ -225,12 +225,12 @@ void Context::create(Context &ctx, const platform::Window &window)
     vkGetPhysicalDeviceFeatures2(ctx.physical_device, &ctx.physical_device_features);
 
     uint queue_families_count = 0;
-    std::vector<VkQueueFamilyProperties> queue_families;
+    Vec<VkQueueFamilyProperties> queue_families;
     vkGetPhysicalDeviceQueueFamilyProperties(ctx.physical_device, &queue_families_count, nullptr);
     queue_families.resize(queue_families_count);
     vkGetPhysicalDeviceQueueFamilyProperties(ctx.physical_device, &queue_families_count, queue_families.data());
 
-    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    Vec<VkDeviceQueueCreateInfo> queue_create_infos;
     float priority = 0.0;
 
     bool has_graphics = false;
@@ -338,7 +338,7 @@ void Context::create_swapchain()
 
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
     uint present_modes_count = 0;
-    std::vector<VkPresentModeKHR> present_modes;
+    Vec<VkPresentModeKHR> present_modes;
     VK_CHECK(
         vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
     present_modes.resize(present_modes_count);
@@ -371,7 +371,7 @@ void Context::create_swapchain()
 
     // Find the best format
     uint formats_count = 0;
-    std::vector<VkSurfaceFormatKHR> formats;
+    Vec<VkSurfaceFormatKHR> formats;
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx.physical_device, ctx.surface, &formats_count, nullptr));
     formats.resize(formats_count);
     VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx.physical_device, ctx.surface, &formats_count, formats.data()));

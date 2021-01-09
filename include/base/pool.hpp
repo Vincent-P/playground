@@ -1,7 +1,8 @@
 #pragma once
 #include "base/types.hpp"
+#include "base/vector.hpp"
+
 #include <variant>
-#include <vector>
 
 /**
    A Pool is a linear allocator with a free-list.
@@ -311,8 +312,8 @@ template <typename T> class Pool
 
   private:
     handle_type first_free; // free list head ptr
-    std::vector<element_type> data;
-    std::vector<handle_type> keys;
+    Vec<element_type> data;
+    Vec<handle_type> keys;
     usize data_size{0};
 
     friend class Iterator;

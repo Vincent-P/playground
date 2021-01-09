@@ -67,7 +67,7 @@ void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output)
     // The render graph needs to know about external images to put barriers on them correctly
     // are external images always going to be sampled or they need to be in differents categories
     // like regular images from the graph?
-    std::vector<vulkan::ImageH> external_images;
+    Vec<vulkan::ImageH> external_images;
     external_images.push_back(pass_data.font_atlas);
 
     for (int list = 0; list < data->CmdListsCount; list++)

@@ -220,8 +220,8 @@ struct Renderer
         vulkan::GraphicsProgramH shading;
         vulkan::GraphicsProgramH prepass;
         vulkan::GraphicsProgramH shadow_cascade_program;
-        std::vector<vulkan::ImageH> images;
-        std::vector<vulkan::SamplerH> samplers;
+        Vec<vulkan::ImageH> images;
+        Vec<vulkan::SamplerH> samplers;
         std::shared_ptr<Model> model;
     } gltf;
 
@@ -230,7 +230,7 @@ struct Renderer
     ImageDescH voxels_radiance;
 
     std::array<ImageDescH, 6> voxels_directional_volumes;
-    std::vector<ImageDescH> shadow_cascades;
+    Vec<ImageDescH> shadow_cascades;
 
     struct VoxelPass
     {
@@ -252,7 +252,7 @@ struct Renderer
         vulkan::ComputeProgramH compute_bounds;
         vulkan::BufferH cascades_slices_buffer;
     } cascades_bounds;
-    std::vector<ImageDescH> depth_reduction_maps;
+    Vec<ImageDescH> depth_reduction_maps;
 
     VoxelOptions voxel_options;
     VCTDebug vct_debug;

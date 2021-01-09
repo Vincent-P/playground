@@ -2,13 +2,13 @@
 #include "base/pool.hpp"
 #include "base/types.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 #include "render/hl_api.hpp"
 
 #include <cmath>
 #include <functional>
 #include <map>
 #include <unordered_map>
-#include <vector>
 #include <vulkan/vulkan.h>
 
 namespace my_app
@@ -39,11 +39,11 @@ using RenderPassH = Handle<RenderPass>;
 // Where a resource is used in the graph
 struct RenderResource
 {
-    std::vector<RenderPassH> sampled_images_in;
-    std::vector<RenderPassH> combined_sampler_images_in;
-    std::vector<RenderPassH> storage_images_in;
-    std::vector<RenderPassH> color_attachment_in;
-    std::vector<RenderPassH> depth_attachment_in;
+    Vec<RenderPassH> sampled_images_in;
+    Vec<RenderPassH> combined_sampler_images_in;
+    Vec<RenderPassH> storage_images_in;
+    Vec<RenderPassH> color_attachment_in;
+    Vec<RenderPassH> depth_attachment_in;
 };
 
 enum struct SizeType
@@ -60,7 +60,7 @@ struct ImageDesc
     float3 size                         = float3(1.0f);
     VkImageType type                    = VK_IMAGE_TYPE_2D;
     VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
-    std::vector<VkFormat> extra_formats = {};
+    Vec<VkFormat> extra_formats = {};
     uint samples                        = 1;
     uint levels                         = 1;
     uint layers                         = 1;
@@ -89,18 +89,18 @@ struct RenderPass
     // params? (shader dynamic uniform buffer)
 
     // inputs
-    std::vector<vulkan::ImageH> external_images;
-    std::vector<ImageDescH> sampled_images;
-    std::vector<ImageDescH> storage_images;
+    Vec<vulkan::ImageH> external_images;
+    Vec<ImageDescH> sampled_images;
+    Vec<ImageDescH> storage_images;
 
-    std::vector<vulkan::BufferH> index_buffers;
-    std::vector<vulkan::BufferH> vertex_buffers;
-    std::vector<vulkan::BufferH> transfer_src_buffers;
-    std::vector<vulkan::BufferH> transfer_dst_buffers;
-    std::vector<vulkan::BufferH> storage_buffers;
+    Vec<vulkan::BufferH> index_buffers;
+    Vec<vulkan::BufferH> vertex_buffers;
+    Vec<vulkan::BufferH> transfer_src_buffers;
+    Vec<vulkan::BufferH> transfer_dst_buffers;
+    Vec<vulkan::BufferH> storage_buffers;
 
     // outputs
-    std::vector<ImageDescH> color_attachments;
+    Vec<ImageDescH> color_attachments;
     VkSampleCountFlagBits samples;
     Option<ImageDescH> depth_attachment;
 
@@ -157,7 +157,7 @@ struct RenderGraph
     Pool<RenderPass> passes;
     Pool<ImageDesc> image_descs;
     std::map<ImageDescH, ImageResource> images;
-    std::vector<std::tuple<vulkan::ImageInfo, vulkan::ImageH, bool>> cache;
+    Vec<std::tuple<vulkan::ImageInfo, vulkan::ImageH, bool>> cache;
     int render_width;
     int render_height;
 };

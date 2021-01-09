@@ -2,8 +2,8 @@
 
 #include "base/types.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 
-#include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -101,7 +101,7 @@ struct SwapChain
     u32 current_image = 0;
     u32 images_count = 0;
 
-    std::vector<VkImage> images;
+    Vec<VkImage> images;
 };
 
 struct FrameResource
@@ -116,7 +116,7 @@ struct FrameResource
 
 struct FrameResources
 {
-    std::vector<FrameResource> data;
+    Vec<FrameResource> data;
     usize current;
 
     FrameResource &get_current() { return data[current]; }

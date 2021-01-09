@@ -31,7 +31,7 @@ bool Inputs::is_pressed(VirtualKey key) { return keys_pressed[to_underlying(key)
 
 bool Inputs::is_pressed(MouseButton button) { return mouse_buttons_pressed[to_underlying(button)]; }
 
-void Inputs::process(const std::vector<platform::event::Event> &events)
+void Inputs::process(const Vec<platform::event::Event> &events)
 {
     scroll_this_frame = std::nullopt;
     auto last_mouse_position = mouse_position;

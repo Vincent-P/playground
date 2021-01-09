@@ -1,12 +1,12 @@
 #pragma once
 #include "base/types.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 #include "render/hl_api.hpp"
 
 #include <string>
 #include <string_view>
 #include <limits>
-#include <vector>
 
 namespace my_app
 {
@@ -65,7 +65,7 @@ struct Material
 struct Image
 {
     bool srgb;
-    std::vector<u8> data;
+    Vec<u8> data;
 };
 
 struct Sampler
@@ -85,7 +85,7 @@ struct Texture
 struct Buffer
 {
     u32 byte_length;
-    std::vector<u8> data;
+    Vec<u8> data;
     vulkan::BufferH buffer_h;
 };
 
@@ -136,7 +136,7 @@ struct Primitive
 struct Mesh
 {
     std::string name;
-    std::vector<u32> primitives;
+    Vec<u32> primitives;
 };
 
 struct Node
@@ -150,7 +150,7 @@ struct Node
     float4 rotation{};
     float4x4 transform{1.0f};
 
-    std::vector<u32> children;
+    Vec<u32> children;
 };
 
 struct PACKED GltfVertex
@@ -168,21 +168,21 @@ struct PACKED GltfVertex
 
 struct Model
 {
-    std::vector<usize> scene;
-    std::vector<Node> nodes;
-    std::vector<Mesh> meshes;
-    std::vector<Primitive> primitives;
-    std::vector<Buffer> buffers;
-    std::vector<Material> materials;
-    std::vector<Texture> textures;
-    std::vector<Sampler> samplers;
-    std::vector<Image> images;
+    Vec<usize> scene;
+    Vec<Node> nodes;
+    Vec<Mesh> meshes;
+    Vec<Primitive> primitives;
+    Vec<Buffer> buffers;
+    Vec<Material> materials;
+    Vec<Texture> textures;
+    Vec<Sampler> samplers;
+    Vec<Image> images;
 
-    std::vector<GltfVertex> vertices;
-    std::vector<u32> indices;
+    Vec<GltfVertex> vertices;
+    Vec<u32> indices;
 
-    std::vector<u32> nodes_preorder;
-    std::vector<float4x4> cached_transforms;
+    Vec<u32> nodes_preorder;
+    Vec<float4x4> cached_transforms;
 };
 
 Model load_model(std::string_view path);

@@ -201,7 +201,7 @@ static void resolve_images(RenderGraph &graph)
     }
 }
 
-static void add_image_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkImageMemoryBarrier> &barriers,
+static void add_image_barriers(RenderGraph &graph, RenderPass &renderpass, Vec<VkImageMemoryBarrier> &barriers,
                          VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
@@ -264,7 +264,7 @@ static void add_image_barriers(RenderGraph &graph, RenderPass &renderpass, std::
     }
 }
 
-static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, std::vector<VkBufferMemoryBarrier> &buffer_barriers,
+static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, Vec<VkBufferMemoryBarrier> &buffer_barriers,
                          VkPipelineStageFlags &src_mask, VkPipelineStageFlags &dst_mask)
 {
     auto &api = *graph.p_api;
@@ -318,8 +318,8 @@ static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, std:
 }
 
 static void flush_barriers(RenderGraph &graph,
-                           const std::vector<VkImageMemoryBarrier> &image_barriers,
-                           const std::vector<VkBufferMemoryBarrier> &buffer_barriers,
+                           const Vec<VkImageMemoryBarrier> &image_barriers,
+                           const Vec<VkBufferMemoryBarrier> &buffer_barriers,
                            VkPipelineStageFlags &src_mask,
                            VkPipelineStageFlags &dst_mask)
 {
@@ -403,7 +403,7 @@ bool RenderGraph::execute()
                     pass.depth            = std::make_optional(depth_info);
                 }
 
-                std::vector<VkImageMemoryBarrier> barriers;
+                Vec<VkImageMemoryBarrier> barriers;
                 VkPipelineStageFlags src_mask = 0;
                 VkPipelineStageFlags dst_mask = 0;
                 add_image_barriers(*this, renderpass, barriers, src_mask, dst_mask);
@@ -445,8 +445,8 @@ bool RenderGraph::execute()
             }
             case PassType::Compute:
             {
-                std::vector<VkImageMemoryBarrier> image_barriers;
-                std::vector<VkBufferMemoryBarrier> buffer_barriers;
+                Vec<VkImageMemoryBarrier> image_barriers;
+                Vec<VkBufferMemoryBarrier> buffer_barriers;
                 VkPipelineStageFlags src_mask = 0;
                 VkPipelineStageFlags dst_mask = 0;
                 add_image_barriers(*this, renderpass, image_barriers, src_mask, dst_mask);

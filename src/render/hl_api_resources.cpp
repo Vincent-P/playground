@@ -257,7 +257,7 @@ void API::upload_image(ImageH H, const void *data, usize len)
     auto range       = image.full_range;
     range.levelCount = 1; // TODO: mips?
 
-    std::vector<VkBufferImageCopy> copies;
+    Vec<VkBufferImageCopy> copies;
     copies.reserve(range.levelCount);
 
     {
@@ -664,8 +664,8 @@ void GraphicsProgramInfo::vertex_info(VertexInfo &&info)
 // assume binding_set.bindings_info is already populated
 void init_binding_set(Context &ctx, ShaderBindingSet &binding_set)
 {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    std::vector<VkDescriptorBindingFlags> flags;
+    Vec<VkDescriptorSetLayoutBinding> bindings;
+    Vec<VkDescriptorBindingFlags> flags;
     bindings.reserve(binding_set.bindings_info.size());
     flags.reserve(binding_set.bindings_info.size());
 
@@ -734,9 +734,9 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     SpvReflectResult result             = SPV_REFLECT_RESULT_SUCCESS;
     constexpr usize MAX_DESCRIPTOR_SETS = 3;
-    std::array<std::vector<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
-    std::array<std::vector<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
-    std::array<std::vector<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
+    std::array<Vec<VkDescriptorSetLayoutBinding>, MAX_DESCRIPTOR_SETS> bindings_per_set;
+    std::array<Vec<int>, MAX_DESCRIPTOR_SETS> bindings_initialized_per_set;
+    std::array<Vec<VkDescriptorBindingFlags>, MAX_DESCRIPTOR_SETS> binding_flags_per_set;
     Option<PushConstantInfo> push_constant = {};
 
     for (uint i_shader = 0; i_shader < shader_count; i_shader++)
@@ -754,7 +754,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
         result    = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, nullptr);
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-        std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
+        Vec<SpvReflectDescriptorSet *> descriptor_sets(count);
         result = spvReflectEnumerateDescriptorSets(&shader_modules[i_shader], &count, descriptor_sets.data());
         assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
@@ -898,7 +898,7 @@ GraphicsProgramH API::create_program(GraphicsProgramInfo &&info)
 
     /// --- Create pipeline layout
 
-    std::vector<VkPushConstantRange> pc_ranges;
+    Vec<VkPushConstantRange> pc_ranges;
     map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
         VkPushConstantRange range;
         range.stageFlags = push_constant.stages;
@@ -938,14 +938,14 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
     result = spvReflectCreateShaderModule(shader.bytecode.size(), shader.bytecode.data(), &shader_module);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    std::vector<VkDescriptorBindingFlags> binding_flags;
+    Vec<VkDescriptorSetLayoutBinding> bindings;
+    Vec<VkDescriptorBindingFlags> binding_flags;
 
     u32 count = 0;
     result    = spvReflectEnumerateDescriptorSets(&shader_module, &count, nullptr);
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
-    std::vector<SpvReflectDescriptorSet *> descriptor_sets(count);
+    Vec<SpvReflectDescriptorSet *> descriptor_sets(count);
     result = spvReflectEnumerateDescriptorSets(&shader_module, &count, descriptor_sets.data());
     assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
@@ -1055,7 +1055,7 @@ ComputeProgramH API::create_program(ComputeProgramInfo &&info)
 
     /// --- Create pipeline layout
 
-    std::vector<VkPushConstantRange> pc_ranges;
+    Vec<VkPushConstantRange> pc_ranges;
     map_transform(info.push_constants, pc_ranges, [](const auto &push_constant) {
         VkPushConstantRange range;
         range.stageFlags = push_constant.stages;

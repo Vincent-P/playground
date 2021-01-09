@@ -2,13 +2,13 @@
 
 #include "base/types.hpp"
 #include "base/option.hpp"
+#include "base/vector.hpp"
 #include "base/algorithms.hpp"
 #include "platform/window.hpp"
 
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace my_app
 {
@@ -35,8 +35,8 @@ inline constexpr const char *to_string(Action action) { return action_to_string_
 struct KeyBinding
 {
     // all keys need to be pressed
-    std::vector<VirtualKey> keys;
-    std::vector<MouseButton> mouse_buttons;
+    Vec<VirtualKey> keys;
+    Vec<MouseButton> mouse_buttons;
 };
 
 class Inputs
@@ -50,7 +50,7 @@ class Inputs
     inline Option<int2> get_scroll_this_frame() { return scroll_this_frame; }
     inline Option<int2> get_mouse_delta() { return mouse_delta; }
 
-    void process(const std::vector<platform::event::Event> &events);
+    void process(const Vec<platform::event::Event> &events);
 
     void display_ui(UI::Context &ui);
 
