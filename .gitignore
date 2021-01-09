@@ -10,3 +10,4 @@ lib
 .clangd
 .log
 .cache
+compile_commands.json
