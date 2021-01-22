@@ -1922,12 +1922,6 @@ void add_accumulation_pass(Renderer &r)
 
 void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 {
-    bool should_capture = api.ctx.frame_count == 42;
-    if (should_capture)
-    {
-        api.ctx.start_capture();
-    }
-
     if (settings.resolution_dirty)
     {
         wait_idle();
@@ -2014,12 +2008,6 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     }
 
     api.end_frame();
-
-    if (should_capture)
-    {
-        api.ctx.end_capture();
-    }
-
 }
 
 } // namespace my_app
