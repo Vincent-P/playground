@@ -147,12 +147,11 @@ void API::destroy()
     ctx.destroy();
 }
 
-void API::on_resize(int window_width, int window_height)
+void API::on_resize()
 {
     // submit all command buffers?
 
-    ctx.on_resize(window_width, window_height);
-
+    ctx.on_resize();
     init_swapchain_images(*this);
 
     for (auto &timestamps : timestamp_labels_per_frame)
@@ -251,12 +250,14 @@ bool API::start_present()
                                      nullptr,
                                      &ctx.swapchain.current_image);
 
+    // the image WAS NOT acquired, if nothing is done then the current command buffer will never finish
+    // because it waits for image_available
     if (res == VK_ERROR_OUT_OF_DATE_KHR)
     {
+        on_resize();
         return false;
     }
-
-    if (res != VK_SUBOPTIMAL_KHR)
+    else if (res != VK_SUBOPTIMAL_KHR)
     {
         VK_CHECK(res);
     }

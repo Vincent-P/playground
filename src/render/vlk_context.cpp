@@ -497,7 +497,7 @@ void Context::destroy()
     vkDestroyInstance(instance, nullptr);
 }
 
-void Context::on_resize(int /*window_width*/, int /*window_height*/)
+void Context::on_resize()
 {
     VK_CHECK(vkDeviceWaitIdle(device));
 

@@ -166,7 +166,7 @@ struct Context
     void create_swapchain();
     void create_frame_resources(usize count = 1);
     void destroy_swapchain();
-    void on_resize(int window_width, int window_height);
+    void on_resize();
     void destroy();
 
 

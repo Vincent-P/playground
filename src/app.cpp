@@ -416,7 +416,7 @@ void App::run()
             auto resize = *last_resize;
             if (resize.width > 0 && resize.height > 0)
             {
-                renderer.on_resize(resize.width, resize.height);
+                renderer.on_resize();
             }
             if (window.minimized)
             {

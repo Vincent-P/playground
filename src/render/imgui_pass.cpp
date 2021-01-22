@@ -93,12 +93,6 @@ void add_imgui_pass(RenderGraph &graph, ImGuiPass &pass_data, ImageDescH output)
         .color_attachments = {output},
         .exec =
             [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
-                bool success = api.start_present();
-                if (!success) {
-                    fmt::print(stderr, "ERROR\n");
-                    return;
-                }
-
                 ImDrawData *data = ImGui::GetDrawData();
 
                 /// --- Prepare index and vertex buffer

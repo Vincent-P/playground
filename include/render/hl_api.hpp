@@ -536,7 +536,7 @@ struct API
     static void create(API& api, const platform::Window &window);
     void destroy();
 
-    void on_resize(int window_width, int window_height);
+    void on_resize();
     bool start_frame();
     void end_frame();
     bool start_present();

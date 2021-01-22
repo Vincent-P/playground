@@ -4,6 +4,7 @@
 #include "base/algorithms.hpp"
 
 #include <cstdio>
+#include <fmt/core.h>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-x11.h>
@@ -152,6 +153,13 @@ void Window::poll_events()
                     stop = true;
                 }
                 break;
+            }
+
+            case XCB_CONFIGURE_NOTIFY:
+            {
+                auto *configure_message = reinterpret_cast<xcb_configure_notify_event_t*>(ev);
+                fmt::print("Configure({}, {})\n", configure_message->width, configure_message->height);
+                // push_event<event::Resize>({.width = configure_message->width, .height = configure_message->height});
             }
 
             case XCB_BUTTON_PRESS:

@@ -145,7 +145,7 @@ struct Renderer
 
     void display_ui(UI::Context &ui);
     void draw(ECS::World &world, ECS::EntityId main_camera);
-    void on_resize(int window_width, int window_height);
+    void on_resize();
     void wait_idle() const;
     void reload_shader(std::string_view shader_name);
 

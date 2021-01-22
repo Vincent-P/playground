@@ -58,7 +58,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    // path = fmt::format("../models/{}/scene.gltf", "san-miguel"); // "chocobo-blender" "medieval_fantasy_book" "huge_medieval_battle_scene" "san-miguel"
+    path = fmt::format("../models/{}/scene.gltf", "huge_medieval_battle_scene"); // "chocobo-blender" "medieval_fantasy_book" "huge_medieval_battle_scene" "san-miguel"
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
@@ -185,10 +185,10 @@ void Renderer::destroy()
     api.destroy();
 }
 
-void Renderer::on_resize(int window_width, int window_height)
+void Renderer::on_resize()
 {
     // resize swapchain
-    api.on_resize(window_width, window_height);
+    api.on_resize();
 }
 
 void Renderer::wait_idle() const { api.wait_idle(); }
@@ -2004,6 +2004,7 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
 
     if (!graph.execute())
     {
+        fmt::print("WARNING: graph.execute() failed!\n");
         return;
     }
 

@@ -348,14 +348,52 @@ static void flush_barriers(RenderGraph &graph,
     api.barriers_this_frame += image_barriers.size() + buffer_barriers.size();
 }
 
+static bool has_swapchain(RenderGraph &graph, RenderPass &renderpass)
+{
+#define CHECK_IMAGES(images)                                                                                           \
+    for (const auto image : images)                                                                                    \
+    {                                                                                                                  \
+        if (graph.swapchain == image)                                                                                  \
+        {                                                                                                              \
+            return true;                                                                                               \
+        }                                                                                                              \
+    }
+
+    CHECK_IMAGES(renderpass.sampled_images)
+    CHECK_IMAGES(renderpass.storage_images)
+    CHECK_IMAGES(renderpass.color_attachments)
+
+    if (renderpass.depth_attachment && *renderpass.depth_attachment == graph.swapchain)
+    {
+        return true;
+    }
+
+    return false;
+
+#undef CHECK_IMAGES
+}
+
 bool RenderGraph::execute()
 {
     auto &api = *p_api;
     resolve_images(*this);
 
+    bool first_swapchain = false;
+
     for (auto &[renderpass_h, p_renderpass] : passes)
     {
         auto &renderpass = *p_renderpass;
+
+        // The first pass using the current swapchain image needs to acquire it first!
+        if (!first_swapchain && has_swapchain(*this, renderpass))
+        {
+            first_swapchain = true;
+            if (!api.start_present())
+            {
+                fmt::print("WARNING: start_preset failed!\n");
+                return false;
+            }
+        }
 
         switch (renderpass.type)
         {
@@ -425,6 +463,7 @@ bool RenderGraph::execute()
                     viewport_width  = std::max(viewport_width, size.x);
                     viewport_height = std::max(viewport_height, size.y);
                 }
+
                 if (renderpass.depth_attachment)
                 {
                     auto &desc      = *image_descs.get(*renderpass.depth_attachment);
