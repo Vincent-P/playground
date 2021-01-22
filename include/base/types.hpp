@@ -1,12 +1,8 @@
 #pragma once
 #include "base/numerics.hpp"
 #include "base/vectors.hpp"
-
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <execution>
-#include <iterator>
 
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
 
