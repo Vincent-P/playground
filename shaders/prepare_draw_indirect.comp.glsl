@@ -50,7 +50,7 @@ void main()
     uint3 group_idx = gl_WorkGroupID;
 
     uint draw_idx = global_idx.x;
-    if (draw_idx > draw_count) {
+    if (draw_idx >= draw_count) {
         return;
     }
     DrawData current_draw = draw_datas[draw_idx];

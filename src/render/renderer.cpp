@@ -921,6 +921,7 @@ static void add_gltf_simple_prepass(Renderer &r)
         .name             = "glTF simple depth prepass",
         .type             = PassType::Graphics,
         .storage_buffers  = {pass_data.vertex_buffer,pass_data.material_buffer,pass_data.finaldata_buffer, pass_data.transforms_buffer},
+        .draw_commands    = { pass_data.finalcommands_buffer},
         .depth_attachment = r.depth_buffer,
         .exec =
             [=](RenderGraph & /*graph*/, RenderPass & /*self*/, vulkan::API &api) {
@@ -934,7 +935,7 @@ static void add_gltf_simple_prepass(Renderer &r)
                 api.bind_index_buffer(pass_data.index_buffer);
 
                 api.bind_program(program);
-                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
+                api.draw_indexed_indirect(pass_data.finalcommands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
             },
     });
 }
@@ -963,7 +964,7 @@ static void add_gltf_simple_pass(Renderer &r)
 
                 api.bind_index_buffer(pass_data.index_buffer);
                 api.bind_program(program);
-                api.draw_indexed_indirect(pass_data.commands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
+                api.draw_indexed_indirect(pass_data.finalcommands_buffer, sizeof(u32), pass_data.finalcommands_buffer, 0, pass_data.commands.draw_count);
             },
     });
 }
