@@ -157,7 +157,8 @@ enum struct BufferUsage
     TransferDst,
     TransferSrc,
     IndexBuffer,
-    VertexBuffer
+    VertexBuffer,
+    DrawCommands
 };
 
 struct BufferAccess
@@ -891,6 +892,12 @@ inline BufferAccess get_src_buffer_access(BufferUsage usage)
         access.access = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
     }
     break;
+    case BufferUsage::DrawCommands:
+    {
+        access.stage  = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        access.access = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    }
+    break;
     case BufferUsage::None:
     {
         access.stage  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -955,6 +962,12 @@ inline BufferAccess get_dst_buffer_access(BufferUsage usage)
     {
         access.stage  = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
         access.access = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    }
+    break;
+    case BufferUsage::DrawCommands:
+    {
+        access.stage  = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        access.access = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
     }
     break;
     case BufferUsage::None:

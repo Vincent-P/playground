@@ -98,6 +98,7 @@ struct RenderPass
     Vec<vulkan::BufferH> transfer_src_buffers;
     Vec<vulkan::BufferH> transfer_dst_buffers;
     Vec<vulkan::BufferH> storage_buffers;
+    Vec<vulkan::BufferH> draw_commands;
 
     // outputs
     Vec<ImageDescH> color_attachments;

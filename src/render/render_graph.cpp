@@ -315,6 +315,11 @@ static void add_buffer_barriers(RenderGraph &graph, RenderPass &renderpass, Vec<
     {
         add_barrier(buffer, vulkan::BufferUsage::VertexBuffer);
     }
+
+    for (auto buffer : renderpass.draw_commands)
+    {
+        add_barrier(buffer, vulkan::BufferUsage::DrawCommands);
+    }
 }
 
 static void flush_barriers(RenderGraph &graph,
