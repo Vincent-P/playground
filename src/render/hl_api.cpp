@@ -308,7 +308,7 @@ void API::end_frame()
 
     auto res = vkQueuePresentKHR(graphics_queue, &present_i);
 
-    if (res != VK_SUBOPTIMAL_KHR)
+    if (res != VK_SUBOPTIMAL_KHR && res != VK_ERROR_OUT_OF_DATE_KHR)
     {
         VK_CHECK(res);
     }

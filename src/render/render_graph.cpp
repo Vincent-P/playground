@@ -161,6 +161,10 @@ static void resolve_images(RenderGraph &graph)
                 && !cache_used)
             {
                 image.resolved_img = cache_img;
+
+                auto &vk_image = api.get_image(image.resolved_img);
+                vk_image.usage = vulkan::ImageUsage::None;
+
                 cache_used = true;
                 is_cached = true;
                 break;
@@ -211,11 +215,6 @@ static void add_image_barriers(RenderGraph &graph, RenderPass &renderpass, Vec<V
         if (vulkan::is_image_barrier_needed(vk_image.usage, desired_usage))
         {
             auto src = vulkan::get_src_image_access(vk_image.usage);
-
-            if (vk_image.usage == vulkan::ImageUsage::None)
-            {
-                fmt::print("WARNING: image ({}) usage is None!\n", vk_image.name);
-            }
 
             auto dst = vulkan::get_dst_image_access(desired_usage);
             src_mask |= src.stage;
@@ -378,6 +377,7 @@ bool RenderGraph::execute()
     auto &api = *p_api;
     resolve_images(*this);
 
+    bool error = false;
     bool first_swapchain = false;
 
     for (auto &[renderpass_h, p_renderpass] : passes)
@@ -391,7 +391,8 @@ bool RenderGraph::execute()
             if (!api.start_present())
             {
                 fmt::print("WARNING: start_preset failed!\n");
-                return false;
+                error = true;
+                break;
             }
         }
 
@@ -507,9 +508,8 @@ bool RenderGraph::execute()
         };
     }
 
-
     passes = {};
-    return true;
+    return error == false;
 }
 
 static void display_image(const vulkan::Image &vk_image)

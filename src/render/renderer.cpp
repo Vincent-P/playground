@@ -2011,6 +2011,7 @@ void Renderer::draw(ECS::World &world, ECS::EntityId main_camera)
     if (!graph.execute())
     {
         fmt::print("WARNING: graph.execute() failed!\n");
+        on_resize();
         return;
     }
 

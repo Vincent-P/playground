@@ -336,11 +336,12 @@ void Context::create_swapchain()
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx.physical_device, ctx.surface, &capabilities));
     ctx.swapchain.extent = capabilities.currentExtent;
 
+    fmt::print("Creating swapchain {}x{}\n", ctx.swapchain.extent.width, ctx.swapchain.extent.height);
+
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
     uint present_modes_count = 0;
     Vec<VkPresentModeKHR> present_modes;
-    VK_CHECK(
-        vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device, ctx.surface, &present_modes_count, nullptr));
     present_modes.resize(present_modes_count);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx.physical_device,
                                                        ctx.surface,
