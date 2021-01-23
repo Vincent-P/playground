@@ -31,6 +31,7 @@ template <typename T> struct Handle
     {
     }
 
+    // The gen should be incremented only when creating explicitly a new handle
     explicit Handle(u32 i)
         : index(i)
     {
@@ -40,10 +41,9 @@ template <typename T> struct Handle
         assert(index != u32_invalid);
     }
 
-    [[nodiscard]] u32 value() const
-    {
-        return index;
-    }
+    constexpr Handle &operator=(const Handle &other) = default;
+
+    [[nodiscard]] u32 value() const { return index; }
 
     [[nodiscard]] u64 hash() const
     {
