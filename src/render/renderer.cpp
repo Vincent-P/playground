@@ -25,11 +25,15 @@
 #include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#include <stb_image.h>
-#pragma GCC diagnostic pop
 
+#if defined(CXX_GCC)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
+#include <stb_image.h>
+#if defined(CXX_GCC)
+#    pragma GCC diagnostic pop
+#endif
 
 struct DrawData
 {

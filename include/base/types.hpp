@@ -15,6 +15,17 @@
 
 #define PACKED
 
+
+#if defined(__clang__)
+#define CXX_CLANG
+#elif defined(__GNUC__) || defined(__GNUG__)
+#define CXX_GCC
+#elif defined(_MSC_VER)
+#define CXX_MSVC
+#else
+#define CXX_UNKNOWN
+#endif
+
 /// --- Constants
 
 constexpr float PI = 3.1415926535897932384626433832795f;
