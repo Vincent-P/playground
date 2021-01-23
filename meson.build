@@ -1,14 +1,11 @@
-project('simple', 'cpp',
-  default_options : ['default_library=static', 'buildtype=debug', 'cpp_std=c++17'])
+project('simple', 'cpp', default_options : ['default_library=static', 'buildtype=debug', 'cpp_std=c++17'])
 
-# Options
-enable_sanitizer = get_option('enable_sanitizer')
-
-#Dependencies
-vulkan_dep = dependency('vulkan', required: true, method: 'system')
-threads_dep = dependency('threads')
+# External dependencies
 glslc = find_program('glslc', required: true)
 python3 = import('python').find_installation('python3')
+
+vulkan_dep = dependency('vulkan', required: true, method: 'system')
+threads_dep = dependency('threads')
 
 # Compiler options
 cxx = meson.get_compiler('cpp')
@@ -16,7 +13,8 @@ ld_flags = []
 
 if cxx.get_id() == 'clang'
   add_global_arguments(['-fcolor-diagnostics', '-fansi-escape-codes'], language: 'cpp') # colored output when using ninja
-  if enable_sanitizer
+
+  if get_option('enable_sanitizer')
     add_global_arguments('-fsanitize-blacklist=' + meson.source_root() / 'asan_blacklist.txt', language : 'cpp')
     if host_machine.system() == 'windows'
       ld_flags += ['-lclang_rt.asan-x86_64', '-lclang_rt.asan_cxx-x86_64']
@@ -97,6 +95,7 @@ shaders = files([
   # 'shaders/voxelization.geom',
   # 'shaders/voxelization.vert'
 ])
+
 # Custom target to build the shaders folder in build/
 shader_folder = custom_target(
   'shaders',
@@ -145,23 +144,28 @@ main_src = [
 ]
 
 main_ld_flags = []
-main_definitions = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
+cpp_args = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
 main_deps = [vulkan_dep, threads_dep, shaders_dep, fmt_dep]
 cpp_std = ''
 
-if cxx.get_id() == 'clang'
-  cpp_std = 'c++2a'
-elif cxx.get_id() == 'msvc'
+if cxx.get_id() == 'msvc'
   cpp_std = 'c++latest'
+elif cxx.get_id() == 'clang'
+  cpp_std = 'c++2a'
+elif cxx.get_id() == 'gcc'
+  cpp_std = 'c++2a'
+  cpp_args += '-Wno-missing-field-initializers'
+else
+  error('Unsupported compiler: ' + cxx.get_id())
 endif
 
 
 # Platform specifics
 if host_machine.system() == 'windows'
   main_src += 'src/platform/window_win32.cpp'
-  main_ld_flags += '-limm32'
+  main_ld_flags += '-limm32' # Doesnt work with cl?
 
-  main_definitions += [
+  cpp_args += [
     '-DNOMINMAX',
     '-DVC_EXTRALEAN',
     '-DWIN32_LEAN_AND_MEAN',
@@ -169,21 +173,28 @@ if host_machine.system() == 'windows'
     '-DVK_USE_PLATFORM_WIN32_KHR'
   ]
 elif host_machine.system() == 'linux'
-  main_src += 'src/platform/window_xcb.cpp'
-  main_ld_flags += ['-ltbb', '-ldl']
-  main_definitions += '-DVK_USE_PLATFORM_XCB_KHR'
+  # On linux, the standard parallel execution depends on Intel's tbb
+  main_ld_flags += ['-ldl', '-ltbb']
 
-  main_deps += [
-    dependency('xcb', required: true),
-    dependency('xkbcommon', required: true),
-    dependency('xkbcommon-x11', required: true),
-  ]
+  if get_option('enable_wayland')
+      main_src += 'src/platform/window_wayland.cpp'
+      cpp_args += '-DVK_USE_PLATFORM_WAYLAND_KHR'
+  else
+      main_src += 'src/platform/window_xcb.cpp'
+      cpp_args += '-DVK_USE_PLATFORM_XCB_KHR'
+
+      main_deps += [
+        dependency('xcb', required: true),
+        dependency('xkbcommon', required: true),
+        dependency('xkbcommon-x11', required: true),
+      ]
+  endif
 else
   error('Unsupported platform.')
 endif
 
 if get_option('enable_vma_debug')
-  main_definitions += [
+  cpp_args += [
     '-DVMA_DEBUG_INITIALIZE_ALLOCATIONS=1',
     '-DVMA_DEBUG_MARGIN=16',
     '-DVMA_DEBUG_DETECT_CORRUPTION=1'
@@ -191,7 +202,7 @@ if get_option('enable_vma_debug')
 endif
 
 if get_option('enable_renderdoc')
-  main_definitions += '-DENABLE_RENDERDOC'
+  cpp_args += '-DENABLE_RENDERDOC'
 endif
 
 executable('test-vulkan', main_src,
@@ -199,6 +210,6 @@ executable('test-vulkan', main_src,
   dependencies: main_deps,
   link_with: [imgui, spirv_reflect, simdjson, vk_mem_alloc],
   override_options : ['cpp_std=' + cpp_std, 'warning_level=2', 'werror=true', ],
-  cpp_args: main_definitions,
-  link_args: ld_flags + main_ld_flags
+  cpp_args: cpp_args,
+  link_args: ld_flags + main_ld_flags,
 )

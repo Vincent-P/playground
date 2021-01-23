@@ -25,7 +25,10 @@
 #include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #include <stb_image.h>
+#pragma GCC diagnostic pop
 
 
 struct DrawData
@@ -58,7 +61,7 @@ void Renderer::create(Renderer &r, const platform::Window &window, TimerData &ti
     RenderGraph::create(r.graph, r.api);
 
     std::string path = fmt::format("../models/{0}/glTF/{0}.gltf", "Sponza");
-    path = fmt::format("../models/{}/scene.gltf", "huge_medieval_battle_scene"); // "chocobo-blender" "medieval_fantasy_book" "huge_medieval_battle_scene" "san-miguel"
+    // path = fmt::format("../models/{}/scene.gltf", "huge_medieval_battle_scene"); // "chocobo-blender" "medieval_fantasy_book" "huge_medieval_battle_scene" "san-miguel"
     r.model = std::make_shared<Model>(load_model(path)); // TODO: where??
 
     r.p_timer  = &timer;
@@ -1378,8 +1381,7 @@ void update_uniforms(Renderer &r, ECS::World &world, ECS::EntityId main_camera)
     auto &api = r.api;
     r.global_uniform_pos = api.dynamic_uniform_buffer(sizeof(GlobalUniform));
     auto *globals        = reinterpret_cast<GlobalUniform *>(r.global_uniform_pos.mapped);
-    std::memset(globals, 0, sizeof(GlobalUniform));
-
+    *globals = {};
     globals->camera_previous_view = camera.view;
     globals->camera_previous_proj = camera.projection;
 

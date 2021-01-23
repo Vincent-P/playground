@@ -681,7 +681,7 @@ static void bind_buffer_internal(API & /*api*/, ShaderBindingSet &binding_set, B
     auto binding_type = binding_set.bindings_info[slot].type;
 
     bool is_dynamic = binding_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    assert(is_dynamic && buffer_pos || binding_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    assert((is_dynamic && buffer_pos) || binding_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     auto size = is_dynamic ? buffer_pos->length : buffer.info.size;
 

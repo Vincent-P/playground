@@ -1,3 +1,4 @@
 option('enable_sanitizer', type : 'boolean', value : false, description : 'Enable clang address sanitizer')
 option('enable_vma_debug', type : 'boolean', value : false, description : 'Enable GPU memory allocations debug')
 option('enable_renderdoc', type : 'boolean', value : false, description : 'Enable Renderdoc library')
+option('enable_wayland', type : 'boolean', value : false, description : 'Use wayland instead of X11')

@@ -23,7 +23,7 @@ IndentPPDirectives: AfterHash
 NamespaceIndentation: None
 PointerAlignment: Right
 ReflowComments: true
-SortIncludes: true
+SortIncludes: false
 Standard: c++17
 UseCRLF: false
 UseTab: Never

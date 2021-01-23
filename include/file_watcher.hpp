@@ -1,12 +1,14 @@
 #pragma once
 #include "base/types.hpp"
 #include "base/vector.hpp"
-#include <functional>
 
-#if defined (_WIN64)
-#include <array>
-#include <basetsd.h> // win32 types
-#include <wtypes.h> // HANDLE type
+#include <functional>
+#include <string>
+
+#if defined(_WIN64)
+#    include <array>
+#    include <basetsd.h> // win32 types
+#    include <wtypes.h>  // HANDLE type
 #endif
 
 namespace my_app
