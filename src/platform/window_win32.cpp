@@ -2,8 +2,9 @@
 
 #include "base/algorithms.hpp"
 
+#include <fmt/core.h>
+
 #include <cassert>
-#include <iomanip>
 #include <stdexcept>
 #include <string>
 #include <windows.h>
@@ -294,7 +295,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
             window.width  = LOWORD(lParam);
             window.height = HIWORD(lParam);
-            window.push_event<event::Resize>({.width = window.width, .height = window.height});
+            // window.push_event<event::Resize>({.width = window.width, .height = window.height});
             return 0;
         }
 
@@ -319,6 +320,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             {
                 state = ButtonState::Released;
             }
+
+            fmt::print("{} {}\n", to_string(state), to_string(key));
 
             window.push_event<event::Key>({.key = key, .state = state});
             window.keys_pressed[to_underlying(key)] = state == ButtonState::Pressed;

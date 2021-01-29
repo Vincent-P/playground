@@ -63,6 +63,8 @@ enum class ButtonState
     Released
 };
 
+inline constexpr const char *to_string(ButtonState state) { return state == ButtonState::Pressed ? "Pressed" : "Released"; }
+
 namespace platform
 {
 
