@@ -150,8 +150,14 @@ struct float4x4
     float4x4(const float (&_values)[16]);
 
     static float4x4 identity();
-    float at(usize row, usize col) const;
+
+    const float &at(usize row, usize col) const;
     float &at(usize row, usize col);
+
+    // Returns a column of a matrix, starts at 0
+    const float4 &col(usize col) const;
+    float4 &col(usize col);
+
 
     // store values in column-major to match glsl
     float values[16];

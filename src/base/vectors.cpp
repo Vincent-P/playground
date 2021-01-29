@@ -140,16 +140,31 @@ float4x4 float4x4::identity()
     return float4x4(1.0f);
 }
 
-float float4x4::at(usize row, usize col) const
+const float &float4x4::at(usize row, usize col) const
 {
+    assert(row < 4 && col < 4);
     // values are stored in columns
     return values[col * 4 + row];
 }
 
 float &float4x4::at(usize row, usize col)
 {
+    assert(row < 4 && col < 4);
     // values are stored in columns
     return values[col * 4 + row];
+}
+
+
+const float4 &float4x4::col(usize col) const
+{
+    assert(col < 4);
+    return *reinterpret_cast<const float4*>(&values[col * 4]);
+}
+
+float4 &float4x4::col(usize col)
+{
+    assert(col < 4);
+    return *reinterpret_cast<float4*>(&values[col * 4]);
 }
 
 float4x4 transpose(const float4x4 &m)
@@ -332,5 +347,47 @@ TEST_SUITE("Matrices")
 
         float4 expected{5.0f, 16.0f, 21.0f, 31.0f};
         CHECK(m * v == expected);
+    }
+
+    TEST_CASE("Single element access")
+    {
+        float4x4 m({
+                1.0f, 2.0f, 3.0f, 4.0f,
+                5.0f, 6.0f, 7.0f, 8.0f,
+                9.0f, 10.0f, 11.0f, 12.0f,
+                13.0f, 14.0f, 15.0f, 16.0f,
+            });
+
+        CHECK(m.at(0, 0) == 1.0f);
+        CHECK(m.at(0, 1) == 2.0f);
+        CHECK(m.at(0, 2) == 3.0f);
+        CHECK(m.at(0, 3) == 4.0f);
+        CHECK(m.at(1, 0) == 5.0f);
+        CHECK(m.at(1, 1) == 6.0f);
+        CHECK(m.at(1, 2) == 7.0f);
+        CHECK(m.at(1, 3) == 8.0f);
+        CHECK(m.at(2, 0) == 9.0f);
+        CHECK(m.at(2, 1) == 10.0f);
+        CHECK(m.at(2, 2) == 11.0f);
+        CHECK(m.at(2, 3) == 12.0f);
+        CHECK(m.at(3, 0) == 13.0f);
+        CHECK(m.at(3, 1) == 14.0f);
+        CHECK(m.at(3, 2) == 15.0f);
+        CHECK(m.at(3, 3) == 16.0f);
+    }
+
+    TEST_CASE("Column access")
+    {
+        float4x4 m({
+                1.0f, 2.0f, 3.0f, 4.0f,
+                5.0f, 6.0f, 7.0f, 8.0f,
+                9.0f, 10.0f, 11.0f, 12.0f,
+                13.0f, 14.0f, 15.0f, 16.0f,
+            });
+
+        CHECK(m.col(0) == float4(1, 5, 9, 13));
+        CHECK(m.col(1) == float4(2, 6, 10, 14));
+        CHECK(m.col(2) == float4(3, 7, 11, 15));
+        CHECK(m.col(3) == float4(4, 8, 12, 16));
     }
 }
