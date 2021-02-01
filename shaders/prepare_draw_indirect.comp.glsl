@@ -37,11 +37,6 @@ layout (set = 1, binding = 4) buffer writeonly Visibility {
     u32 visibility[];
 };
 
-bool inside_plane(float3 point, float3 plane_normal)
-{
-    return dot(point, plane_normal) > 0;
-}
-
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
@@ -59,40 +54,46 @@ void main()
 
     float3 a_min = primitive.aab_min;
     float3 a_max = primitive.aab_max;
-    float3 corners[8] = {
-        float3(a_min.x, a_min.y, a_min.z),
-        float3(a_min.x, a_min.y, a_max.z),
-        float3(a_min.x, a_max.y, a_min.z),
-        float3(a_min.x, a_max.y, a_max.z),
-        float3(a_max.x, a_min.y, a_min.z),
-        float3(a_max.x, a_min.y, a_max.z),
-        float3(a_max.x, a_max.y, a_min.z),
-        float3(a_max.x, a_max.y, a_max.z)
-        };
 
-    bool is_visible = true;
+    float radius = length(a_max - a_min) / 2;
+    float3 center = (a_min + a_max) / 2;
 
-    bool is_outside1 = true;
-    bool is_outside2 = true;
-    bool is_outside3 = true;
-    bool is_outside4 = true;
-    bool is_outside5 = true;
-    bool is_outside6 = true;
-    for (uint i = 0; i < 8; i++)
-    {
-        float4 projected = global.camera_proj * global.camera_view * transform * float4(corners[i], 1.0);
-        projected.w = 0.5 * projected.w;
+    float4 center_e = global.camera_view * transform * float4(center, 1);
 
-        is_outside1 = is_outside1 && (-projected.w > projected.x);
-        is_outside2 = is_outside2 && ( projected.x > projected.w);
+    float4x4 projection_rows = transpose(global.camera_proj);
 
-        is_outside3 = is_outside3 && (-projected.w > projected.y);
-        is_outside4 = is_outside4 && ( projected.y > projected.w);
+    // Left clipping plane is
+    // -w <= x
+    // 0 <= w + x
+    // 0 <= row_4 v + row_1 v
+    // 0 <= (row_4 + row_1) v
 
-        is_outside5 = is_outside4 && (           0 > projected.z);
-        is_outside6 = is_outside4 && ( projected.z > projected.w);
-    }
+    // Right clipping plane is
+    // x <= w
+    // 0 <= w - x
+    // 0 <= row_4 v - row_1 v
+    // 0 <= (row_4 - row_1) v
 
-    bool is_outside = is_outside1 || is_outside2 || is_outside3 || is_outside4 || is_outside5 || is_outside6;
-    visibility[draw_idx] = u32(!is_outside);
+    // between is -w <= x <= w
+    // abs(x) <= w
+    // 0 <= w - abs(x)
+    // 0 <= row_4 v - abs(row_1 v)
+    // 0 <= row_4 v - abs(row_1) abs(v)
+
+    float4 left_plane   = projection_rows[3] + projection_rows[0];
+    float4 right_plane  = projection_rows[3] - projection_rows[0];
+    float4 top_plane    = projection_rows[3] + projection_rows[1];
+    float4 bottom_plane = projection_rows[3] - projection_rows[1];
+
+    bool outside_depth = (-global.camera_near - (center_e.z - radius)) < 0;
+
+    bool is_visible =
+           radius > dot(left_plane,    center_e)
+        && radius > dot(right_plane,  center_e)
+        && radius > dot(top_plane,    center_e)
+        && radius > dot(bottom_plane, center_e)
+        && !outside_depth
+        ;
+
+    visibility[draw_idx] = u32(is_visible);
 }
