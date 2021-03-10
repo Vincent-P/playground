@@ -8,7 +8,7 @@
 #include <imgui/imgui.h>
 #include <iostream>
 
-namespace my_app::ECS
+namespace ECS
 {
 
 u64 family::identifier() noexcept
@@ -625,4 +625,4 @@ TEST_SUITE("ECS")
 }
 } // namespace test
 
-} // namespace my_app::ECS
+} // namespace ECS

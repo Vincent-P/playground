@@ -24,7 +24,7 @@
          Or maybe bitsets and registering every component type manually.
  **/
 
-namespace my_app::ECS
+namespace ECS
 {
 
 template<typename T>
@@ -92,17 +92,17 @@ struct EntityId
         u64 raw;
     };
 };
-} // namespace my_app::ECS
+} // namespace ECS
 
 namespace std
 {
-template <> struct hash<my_app::ECS::EntityId>
+template <> struct hash<ECS::EntityId>
 {
-    std::size_t operator()(my_app::ECS::EntityId const &id) const noexcept { return std::hash<u64>{}(id.raw); }
+    std::size_t operator()(ECS::EntityId const &id) const noexcept { return std::hash<u64>{}(id.raw); }
 };
 } // namespace std
 
-namespace my_app::ECS
+namespace ECS
 {
 
 using ComponentId = EntityId;
@@ -429,4 +429,4 @@ struct World
     std::unordered_set<std::string> string_interner;
 };
 
-}; // namespace my_app::ECS
+}; // namespace ECS

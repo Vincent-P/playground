@@ -25,7 +25,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
-    fmt::print(stderr, "{}\n", pCallbackData->pMessage);
+    auto style = fg(fmt::color::crimson) | fmt::emphasis::bold;
+
+    fmt::print(style, stderr, "{}\n", pCallbackData->pMessage);
 
     if ((message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) == 0)
     {
@@ -34,11 +36,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
     if (pCallbackData->objectCount)
     {
-        fmt::print(stderr, "Objects:\n");
+        fmt::print(style, stderr, "Objects:\n");
         for (size_t i = 0; i < pCallbackData->objectCount; i++)
         {
             const auto &object = pCallbackData->pObjects[i];
-            fmt::print(stderr, "\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
+            fmt::print(style, stderr, "\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
         }
     }
 

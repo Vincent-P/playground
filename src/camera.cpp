@@ -2,9 +2,8 @@
 
 #include <cmath>
 
-namespace my_app::camera
+namespace camera
 {
-
 float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 {
     float3 z_axis = normalize(at - eye);
@@ -104,4 +103,4 @@ float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 
     return projection;
 }
-} // namespace my_app::camera
+} // namespace camera

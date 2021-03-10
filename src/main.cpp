@@ -1,6 +1,5 @@
 #include "app.hpp"
 #include "base/types.hpp"
-#include "gltf.hpp"
 
 #define DOCTEST_CONFIG_COLORS_NONE
 #define DOCTEST_CONFIG_IMPLEMENT
@@ -8,6 +7,9 @@
 
 int main(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
+    #if 0
     doctest::Context context;
     context.applyCommandLine(argc, argv);
     int res = context.run(); // run
@@ -20,8 +22,9 @@ int main(int argc, char **argv)
     {
         return res;
     }
+    #endif
 
-    my_app::App app;
+    App app;
     app.run();
     return 0;
 }

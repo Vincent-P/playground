@@ -8,9 +8,8 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
-namespace my_app::UI
+namespace UI
 {
-
 void Context::create(Context & /*ctx*/)
 {
     // Init context
@@ -24,11 +23,6 @@ void Context::create(Context & /*ctx*/)
 
     // Add fonts
     io.Fonts->AddFontDefault();
-    ImFontConfig config;
-    config.MergeMode                                = true;
-    config.GlyphMinAdvanceX                         = 13.0f; // Use if you want to make the icon monospaced
-    static const std::array<ImWchar, 3> icon_ranges = {eva_icons::MIN, eva_icons::MAX, 0};
-    io.Fonts->AddFontFromFileTTF("../fonts/Eva-Icons.ttf", 13.0f, &config, icon_ranges.data());
 }
 
 static platform::Cursor cursor_from_imgui()
@@ -214,4 +208,4 @@ bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFl
 }
 
 void Context::end_window() { ImGui::End(); }
-} // namespace my_app
+}

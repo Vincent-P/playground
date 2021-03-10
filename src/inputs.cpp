@@ -9,9 +9,6 @@
 #include <imgui/imgui.h>
 #include <ranges>
 
-namespace my_app
-{
-
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }
 
 bool Inputs::is_pressed(Action action)
@@ -168,4 +165,3 @@ void Inputs::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
-} // namespace my_app

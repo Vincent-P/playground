@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <fstream>
 
-namespace my_app::tools
+namespace tools
 {
 namespace fs = std::filesystem;
 Vec<u8> read_file(const std::filesystem::path &path)
@@ -33,4 +33,4 @@ Vec<u8> read_file(const std::filesystem::path &path)
     return result;
 }
 
-} // namespace my_app::tools
+} // namespace tools

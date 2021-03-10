@@ -14,9 +14,6 @@
 #include <sstream>
 #include <variant>
 
-namespace my_app
-{
-
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
@@ -124,7 +121,7 @@ App::App()
     platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     UI::Context::create(ui);
 
-    Renderer::create(renderer, window, timer);
+    renderer = Renderer::create(&window);
 
     watcher       = FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");
@@ -138,7 +135,7 @@ App::App()
         shader_name_stream << "shaders/" << event.name;
         std::string shader_name = shader_name_stream.str();
 
-        this->renderer.reload_shader(shader_name);
+        // this->renderer.reload_shader(shader_name);
     });
 
     is_minimized = false;
@@ -169,7 +166,7 @@ void App::update()
     ecs.for_each<TransformComponent, InputCameraComponent>([&](const auto &transform, auto &input_camera) {
         using States = InputCameraComponent::States;
 
-        float delta_t      = timer.get_delta_time();
+        float delta_t      = 0.016f;
         bool camera_active = inputs.is_pressed(Action::CameraModifier);
         bool camera_move   = inputs.is_pressed(Action::CameraMove);
         bool camera_orbit  = inputs.is_pressed(Action::CameraOrbit);
@@ -318,7 +315,7 @@ void App::display_ui()
     ui.start_frame(window, inputs);
 
     ui.display_ui();
-    renderer.display_ui(ui);
+    // renderer.display_ui(ui);
     ecs.display_ui(ui);
     inputs.display_ui(ui);
     draw_gizmo(ecs, main_camera);
@@ -432,13 +429,8 @@ void App::run()
         }
 
         update();
-        timer.update();
         display_ui();
-        renderer.draw(ecs, main_camera);
+        renderer.update();
         watcher.update();
     }
-
-    renderer.wait_idle();
 }
-
-} // namespace my_app

@@ -19,8 +19,6 @@ struct xkb_keymap;
 struct xkb_state;
 #endif
 
-namespace my_app
-{
 enum struct MouseButton : uint
 {
     Left,
@@ -223,5 +221,3 @@ struct Window
 };
 
 } // namespace platform
-
-} // namespace my_app

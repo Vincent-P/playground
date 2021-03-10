@@ -3,8 +3,6 @@
 
 #include <imgui/imgui.h>
 
-namespace my_app
-{
 struct TransformComponent
 {
     float3 position = float3(0.0);
@@ -18,4 +16,3 @@ struct TransformComponent
         ImGui::SliderFloat3("Position", position.data(), 0.0f, 1000.f);
     }
 };
-} // namespace my_app

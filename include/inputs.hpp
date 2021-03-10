@@ -10,9 +10,6 @@
 #include <string>
 #include <unordered_map>
 
-namespace my_app
-{
-
 // clang-format off
 namespace UI { struct Context; };
 // clang-format on
@@ -66,4 +63,3 @@ class Inputs
     Option<int2> mouse_delta       = {};
     int2 mouse_position = {};
 };
-} // namespace my_app

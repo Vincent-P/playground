@@ -44,8 +44,6 @@ static std::string utf16_to_utf8(const std::wstring_view &wstr)
 inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
-namespace my_app
-{
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
 #include "platform/window_keys.def"
@@ -116,6 +114,10 @@ float2 Window::get_dpi_scale() const
 {
     int dpi     = GetDpiForWindow(win32.window);
     float scale = dpi / 96.0f;
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
     return float2(scale, scale);
 }
 
@@ -517,4 +519,3 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 }
 
 } // namespace platform
-} // namespace my_app

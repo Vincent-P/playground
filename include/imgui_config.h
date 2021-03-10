@@ -14,4 +14,13 @@
         ImVec4(const float4& f) { x = f.x; y = f.y; z = f.z; w = f.w; }     \
         operator float4() const { return float4(x,y,z,w); }
 
-#define ImDrawIdx u32
+#define ImDrawIdx u16
+
+#define IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT \
+struct ImDrawVert \
+{ \
+    ImVec2  pos; \
+    ImVec2  uv; \
+    ImU32   col; \
+    unsigned pad00; \
+}

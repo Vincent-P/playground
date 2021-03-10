@@ -5,11 +5,7 @@
 #include "inputs.hpp"
 #include "platform/window.hpp"
 #include "render/renderer.hpp"
-#include "timer.hpp"
 #include "ui.hpp"
-
-namespace my_app
-{
 
 class App
 {
@@ -29,7 +25,6 @@ class App
     Inputs inputs;
     ECS::EntityId main_camera;
     Renderer renderer;
-    TimerData timer;
     ECS::World ecs;
 
     FileWatcher watcher;
@@ -37,5 +32,3 @@ class App
 
     bool is_minimized;
 };
-
-} // namespace my_app

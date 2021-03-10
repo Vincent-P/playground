@@ -7,8 +7,6 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace my_app
-{
 namespace platform { struct Window; }
 
 class Inputs;
@@ -36,5 +34,3 @@ struct Context
     std::unordered_map<std::string_view, Window> windows;
 };
 } // namespace UI
-
-} // namespace my_app

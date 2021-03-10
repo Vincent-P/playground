@@ -5,8 +5,6 @@
 #include <array>
 #include <imgui/imgui.h>
 
-namespace my_app
-{
 struct InputCameraComponent
 {
     enum struct States : uint
@@ -46,4 +44,3 @@ inline void InputCameraComponent::display_ui()
     const char *state_str = to_string(state);
     ImGui::Text("State: %s", state_str);
 }
-} // namespace my_app

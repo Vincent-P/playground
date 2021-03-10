@@ -7,8 +7,6 @@
 #include <imgui/imgui.h>
 #include <string>
 
-namespace my_app::tools
-{
 namespace fs = std::filesystem;
 
 struct MouseState
@@ -40,5 +38,3 @@ inline void imgui_select(const char *title, const char **items, usize items_size
         ImGui::EndCombo();
     }
 }
-
-} // namespace my_app::tools

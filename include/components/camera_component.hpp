@@ -3,8 +3,6 @@
 
 #include <imgui/imgui.h>
 
-namespace my_app
-{
 struct CameraComponent
 {
     float near_plane = 0.1f;
@@ -24,4 +22,3 @@ struct CameraComponent
         ImGui::SliderFloat("FOV", &fov, 45.f, 90.f);
     }
 };
-} // namespace my_app

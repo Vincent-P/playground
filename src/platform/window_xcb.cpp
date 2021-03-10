@@ -10,8 +10,6 @@
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon.h>
 
-namespace my_app
-{
 std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
 #include "platform/window_keys.def"
@@ -301,4 +299,3 @@ void Window::set_cursor(Cursor) {}
 
 void Window::destroy() { xcb_disconnect(xcb.connection); }
 } // namespace platform
-} // namespace my_app

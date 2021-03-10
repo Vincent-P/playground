@@ -5,9 +5,6 @@
 #include <imgui/imgui.h>
 #include <cmath>
 
-namespace my_app
-{
-
 struct SkyAtmosphereComponent
 {
     // The asymetry parameter for the Cornette-Shanks phase function for the
@@ -146,4 +143,3 @@ inline AtmosphereParameters parameters_from_component(const SkyAtmosphereCompone
 
     return params;
 }
-}; // namespace my_app

@@ -11,9 +11,6 @@
 #    include <wtypes.h>  // HANDLE type
 #endif
 
-namespace my_app
-{
-
 struct Watch
 {
 
@@ -66,5 +63,3 @@ struct FileWatcher
     void update();
     void destroy();
 };
-
-} // namespace my_app

@@ -3,6 +3,10 @@
 
 #include "types.h"
 
+layout (set = 0, binding = 1) uniform sampler2D global_textures[];
+layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
+
+#if 0
 layout (set = 0, binding = 0) uniform GlobalUniform {
     float4x4 camera_view;
     float4x4 camera_proj;
@@ -61,5 +65,6 @@ float4x4 get_jittered_inv_projection(float4x4 inv_proj, float2 jitter_offset)
     jittered[3][1] = jitter_offset.y * inv_proj[1][1];
     return jittered;
 }
+#endif
 
 #endif
