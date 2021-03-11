@@ -335,8 +335,6 @@ void App::display_ui()
 
     if (ui.begin_window("Scene"))
     {
-        (void)(display_component);
-
         for (auto& [entity, _] : ecs.entity_index)
         {
             if (ecs.is_component(entity)) { continue; }
