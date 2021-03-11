@@ -1,7 +1,7 @@
 #pragma once
 #include "base/types.hpp"
 #include "ecs.hpp"
-#include "file_watcher.hpp"
+#include "platform/file_watcher.hpp"
 #include "inputs.hpp"
 #include "platform/window.hpp"
 #include "render/renderer.hpp"

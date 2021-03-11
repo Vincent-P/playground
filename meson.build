@@ -58,12 +58,12 @@ fmt_dep = declare_dependency(link_with: fmt_lib, include_directories: fmt_inc)
 # - Shaders
 shaders = files([
   # 'shaders/average_luminance_histo.comp',
-  # 'shaders/build_luminance_histo.comp',
+  'shaders/build_luminance_histo.comp',
   # 'shaders/checkerboard_floor.frag',
   # 'shaders/checkerboard_floor.vert',
   # 'shaders/depth_reduction.comp.glsl',
-  # 'shaders/depth_reduction_iter.comp.glsl',
-  # 'shaders/draw_call_compaction.comp.glsl',
+  'shaders/depth_reduction_iter.comp.glsl',
+  'shaders/draw_call_compaction.comp.glsl',
   # 'shaders/floor_shadowmap.vert',
   # 'shaders/fullscreen_triangle.vert',
   # 'shaders/gltf.frag',
@@ -123,7 +123,7 @@ main_src = [
   'src/base/vectors.cpp',
   'src/camera.cpp',
   'src/ecs.cpp',
-  'src/file_watcher.cpp',
+  'src/platform/file_watcher.cpp',
 
   # 'src/gltf.cpp',
 

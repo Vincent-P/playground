@@ -9,7 +9,7 @@ struct ImGuiVertex
     float2 position;
     float2 uv;
     uint color;
-    uint pad00;
+    uint pad0;
 };
 
 layout(buffer_reference) buffer VerticesType {

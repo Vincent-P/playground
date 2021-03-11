@@ -1,6 +1,6 @@
 // WIN32: https://docs.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications
 // linux: inotify/select https://developer.ibm.com/tutorials/l-inotify/
-#include "file_watcher.hpp"
+#include "platform/file_watcher.hpp"
 
 #ifdef __linux__
 
@@ -158,8 +158,9 @@ static void fetch_events_internal(FileWatcher &fw)
             Event event;
             event.wd = watch.wd;
 
-            std::wstring wname{p_event->FileName};
+            std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
             event.name = std::string{wname.begin(), wname.end()};
+            event.len = p_event->FileNameLength / sizeof(wchar_t);
             fw.current_events.push_back(std::move(event));
 
             if (p_event->NextEntryOffset == 0)

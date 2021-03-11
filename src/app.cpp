@@ -1,17 +1,16 @@
 #include "app.hpp"
 
+#include "base/logger.hpp"
 #include "camera.hpp"
 #include "components/camera_component.hpp"
 #include "components/input_camera_component.hpp"
 #include "components/sky_atmosphere_component.hpp"
 #include "components/transform_component.hpp"
 #include "ecs.hpp"
-#include "file_watcher.hpp"
+#include "platform/file_watcher.hpp"
 
 #include <algorithm>
-#include <fmt/core.h>
 #include <imgui/imgui.h>
-#include <sstream>
 #include <variant>
 
 constexpr auto DEFAULT_WIDTH  = 1920;
@@ -131,6 +130,7 @@ App::App()
             return;
         }
 
+        logger::info("{} [{}] changed\n", event.name, event.len);
         std::stringstream shader_name_stream;
         shader_name_stream << "shaders/" << event.name;
         std::string shader_name = shader_name_stream.str();

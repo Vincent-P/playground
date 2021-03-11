@@ -42,7 +42,7 @@ set(SOURCE_FILES
   src/tools.cpp
   src/timer.cpp
   src/gltf.cpp
-  src/file_watcher.cpp
+  src/platform/file_watcher.cpp
   src/render/vlk_context.cpp
   src/render/renderer.cpp
   src/render/sky_pass.cpp

@@ -39,6 +39,7 @@ struct Event
 
     int wd;     /* Watch descriptor.  */
     std::string name; /* filename. */
+    usize len;
 };
 
 using FileEventF = std::function<void(const Watch &, const Event &)>;
