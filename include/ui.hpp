@@ -21,7 +21,7 @@ struct Window
 
 struct Context
 {
-    static void create(Context &ctx);
+    static Context create();
     void destroy();
 
     void start_frame(platform::Window &window, Inputs &inputs);

@@ -11,7 +11,7 @@
 
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }
 
-bool Inputs::is_pressed(Action action)
+bool Inputs::is_pressed(Action action) const
 {
     auto binding_it = bindings.find(action);
     if (binding_it != bindings.end())
@@ -24,9 +24,9 @@ bool Inputs::is_pressed(Action action)
     return false;
 }
 
-bool Inputs::is_pressed(VirtualKey key) { return keys_pressed[to_underlying(key)]; }
+bool Inputs::is_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
 
-bool Inputs::is_pressed(MouseButton button) { return mouse_buttons_pressed[to_underlying(button)]; }
+bool Inputs::is_pressed(MouseButton button) const { return mouse_buttons_pressed[to_underlying(button)]; }
 
 void Inputs::process(const Vec<platform::event::Event> &events)
 {

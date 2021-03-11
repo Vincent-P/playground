@@ -9,6 +9,8 @@
 
 namespace fs = std::filesystem;
 
+namespace tools
+{
 struct MouseState
 {
     bool left_pressed;
@@ -37,4 +39,5 @@ inline void imgui_select(const char *title, const char **items, usize items_size
         }
         ImGui::EndCombo();
     }
+}
 }

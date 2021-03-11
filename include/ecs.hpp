@@ -92,6 +92,8 @@ struct EntityId
         u64 raw;
     };
 };
+
+std::string to_string(EntityId id);
 } // namespace ECS
 
 namespace std
@@ -342,6 +344,7 @@ struct World
     // Add a component to an entity, the entity SHOULD NOT already have that component
     template <Componentable Component> void add_component(EntityId entity, Component component)
     {
+        create_component_if_needed_internal<Component>();
         impl::add_component(*this, entity, ComponentId::component<Component>(), &component, sizeof(Component));
     }
 
@@ -396,6 +399,7 @@ struct World
     // Add a component to an entity, the entity SHOULD NOT already have that component
     template <Componentable Component> void singleton_add_component(Component component)
     {
+        create_component_if_needed_internal<Component>();
         impl::add_component(*this, singleton, ComponentId::component<Component>(), &component, sizeof(Component));
     }
 

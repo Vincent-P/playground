@@ -1,12 +1,15 @@
 #include "ecs.hpp"
 #include "ui.hpp"
 
+#include "base/logger.hpp"
+
 #include <array>
 #include <algorithm>
 #include <cstring>
 #include <doctest.h>
 #include <imgui/imgui.h>
 #include <iostream>
+#include <fmt/format.h>
 
 namespace ECS
 {
@@ -15,6 +18,13 @@ u64 family::identifier() noexcept
 {
     static u64 value = 0;
     return value++;
+}
+
+std::string to_string(EntityId entity_id)
+{
+    u64 id = entity_id.id;
+    u64 is_component = entity_id.is_component;
+    return fmt::format("{{ id: {}, is_component: {}, raw: {} }}", id, is_component, entity_id.raw);
 }
 
 namespace impl
@@ -347,7 +357,12 @@ bool has_component(World &world, EntityId entity, ComponentId component)
 
 void *get_component(World &world, EntityId entity, ComponentId component_id)
 {
-    assert(world.entity_index.contains(entity));
+    // assert(world.entity_index.contains(entity));
+    if (!world.entity_index.contains(entity))
+    {
+        logger::error("ECS: The world does not contain the entity {}\n", to_string(entity));
+        return nullptr;
+    }
 
     // get the entity information in its record
     const auto &record = world.entity_index.at(entity);

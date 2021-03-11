@@ -123,10 +123,9 @@ main_src = [
   'src/base/vectors.cpp',
   'src/camera.cpp',
   'src/ecs.cpp',
+  'src/scene.cpp',
   'src/platform/file_watcher.cpp',
-
-  # 'src/gltf.cpp',
-
+  'src/gltf.cpp',
   'src/inputs.cpp',
   'src/main.cpp',
 

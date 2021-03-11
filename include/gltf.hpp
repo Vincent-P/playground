@@ -2,13 +2,12 @@
 #include "base/types.hpp"
 #include "base/option.hpp"
 #include "base/vector.hpp"
-#include "render/hl_api.hpp"
 
 #include <string>
 #include <string_view>
 #include <limits>
 
-namespace my_app
+namespace gltf
 {
 enum class RenderingMode : u32
 {
@@ -86,7 +85,6 @@ struct Buffer
 {
     u32 byte_length;
     Vec<u8> data;
-    vulkan::BufferH buffer_h;
 };
 
 enum class AccessorType

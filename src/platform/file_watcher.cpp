@@ -21,6 +21,8 @@
 #include <array>
 #include <cassert>
 
+namespace platform
+{
 /// --- Linux
 #if defined(__linux__)
 
@@ -212,3 +214,4 @@ void FileWatcher::update()
 void FileWatcher::on_file_change(const FileEventF &f) { callbacks.push_back(f); }
 
 void FileWatcher::destroy() { destroy_internal(*this); }
+}

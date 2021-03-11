@@ -1,11 +1,11 @@
 #pragma once
 #include "base/types.hpp"
-#include "ecs.hpp"
 #include "platform/file_watcher.hpp"
 #include "inputs.hpp"
 #include "platform/window.hpp"
 #include "render/renderer.hpp"
 #include "ui.hpp"
+#include "scene.hpp"
 
 class App
 {
@@ -17,18 +17,16 @@ class App
 
   private:
     void camera_update();
-    void update();
     void display_ui();
 
     UI::Context ui;
     platform::Window window;
     Inputs inputs;
-    ECS::EntityId main_camera;
     Renderer renderer;
-    ECS::World ecs;
+    Scene scene;
 
-    FileWatcher watcher;
-    Watch shaders_watch;
+    platform::FileWatcher watcher;
+    platform::Watch shaders_watch;
 
     bool is_minimized;
 };

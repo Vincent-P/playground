@@ -41,11 +41,11 @@ class Inputs
   public:
     void bind(Action action, const KeyBinding &binding);
 
-    bool is_pressed(Action action);
-    bool is_pressed(VirtualKey Key);
-    bool is_pressed(MouseButton mouse_button);
-    inline Option<int2> get_scroll_this_frame() { return scroll_this_frame; }
-    inline Option<int2> get_mouse_delta() { return mouse_delta; }
+    bool is_pressed(Action action) const;
+    bool is_pressed(VirtualKey Key) const;
+    bool is_pressed(MouseButton mouse_button) const;
+    inline Option<int2> get_scroll_this_frame() const { return scroll_this_frame; }
+    inline Option<int2> get_mouse_delta() const { return mouse_delta; }
 
     void process(const Vec<platform::event::Event> &events);
 

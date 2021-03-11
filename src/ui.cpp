@@ -10,8 +10,9 @@
 
 namespace UI
 {
-void Context::create(Context & /*ctx*/)
+Context Context::create()
 {
+    Context ctx = {};
     // Init context
     ImGui::CreateContext();
 
@@ -23,6 +24,7 @@ void Context::create(Context & /*ctx*/)
 
     // Add fonts
     io.Fonts->AddFontDefault();
+    return ctx;
 }
 
 static platform::Cursor cursor_from_imgui()

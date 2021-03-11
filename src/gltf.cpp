@@ -1,8 +1,6 @@
 #include "gltf.hpp"
 
 #include "base/vector.hpp"
-#include "render/hl_api.hpp"
-#include "render/renderer.hpp"
 #include "tools.hpp"
 
 #include <cassert>
@@ -12,13 +10,11 @@
 #include <simdjson/simdjson.h>
 #include <string>
 #include <string_view>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
-namespace my_app
-{
 namespace fs = std::filesystem;
 
+namespace gltf
+{
 struct GltfPrimitiveAttribute
 {
     void *data;
@@ -136,22 +132,6 @@ Model load_model(std::string_view path_view)
 
             auto image_path = fs::path(path).remove_filename();
             image_path += fs::path(image_name);
-
-            #if 0
-            std::string_view type_view = json_image["mimeType"].get_string();
-            std::string type(type_view);
-            if (type == "image/jpeg")
-            {
-
-            }
-            else if (type == "image/png")
-            {
-            }
-            else
-            {
-                throw std::runtime_error("unsupported image type: " + type);
-            }
-            #endif
 
             images_data[i] = std::async(std::launch::async, [=]() {
                 Image image;
