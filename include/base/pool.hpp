@@ -127,6 +127,112 @@ template <typename T> class Pool
         usize current_index = 0;
         value_type value = {};
     };
+    class ConstIterator
+    {
+      public:
+        using difference_type   = int;
+        using value_type        = std::pair<Handle<T>, const T*>;
+        using pointer           = const value_type *;
+        using reference         = const value_type &;
+        using iterator_category = std::input_iterator_tag;
+
+        ConstIterator() = default;
+
+        ConstIterator(const Pool &_pool, usize _index = 0)
+            : pool{&_pool}
+            , current_index{_index}
+            , value{}
+        {
+            for (; current_index < pool->data.size(); current_index++)
+            {
+                // index() returns a zero-based index of the type
+                // 0: handle_type
+                // 1: T
+                if (pool->data[current_index].index() == 1)
+                {
+                    break;
+                }
+            }
+        }
+
+        ConstIterator(const ConstIterator &rhs)
+        {
+            this->pool         = rhs.pool;
+            this->current_index = rhs.current_index;
+        }
+
+        ConstIterator(ConstIterator &&rhs)
+        {
+            this->pool         = rhs.pool;
+            this->current_index = rhs.current_index;
+        }
+
+        ConstIterator &operator=(const ConstIterator &rhs)
+        {
+            this->pool          = rhs.pool;
+            this->current_index = rhs.current_index;
+            return *this;
+        }
+
+        ConstIterator &operator=(ConstIterator &&rhs)
+        {
+            this->pool         = rhs.pool;
+            this->current_index = rhs.current_index;
+            return *this;
+        }
+
+        bool operator==(const ConstIterator &rhs) const
+        {
+            return current_index == rhs.current_index;
+        }
+
+        reference operator*()
+        {
+            assert(this->pool && current_index < this->pool->data.size());
+            value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
+            return value;
+        }
+
+        ConstIterator &operator++()
+        {
+            assert(this->pool);
+            current_index++;
+            for (; current_index < pool->data.size(); current_index++)
+            {
+                // index() returns a zero-based index of the type
+                // 0: handle_type
+                // 1: T
+                if (pool->data[current_index].index() == 1)
+                {
+                    break;
+                }
+            }
+            return *this;
+        }
+
+        ConstIterator &operator++(int n)
+        {
+            assert(this->pool && n > 0);
+            for (int i = 0; i < n; i++)
+            {
+                for (; current_index < pool->data.size(); current_index++)
+                {
+                    // index() returns a zero-based index of the type
+                    // 0: handle_type
+                    // 1: T
+                    if (pool->data[current_index].index() == 1)
+                    {
+                        break;
+                    }
+                }
+            }
+            return *this;
+        }
+    private:
+        const Pool *pool        = nullptr;
+        usize current_index = 0;
+        value_type value = {};
+    };
 
     // static_assert(std::input_iterator<Iterator>);
 
@@ -143,7 +249,17 @@ template <typename T> class Pool
         return std::get<T>(data[index]);
     }
 
+    const T &get_value_internal(u32 index) const
+    {
+        return std::get<T>(data[index]);
+    }
+
     T &get_value_internal(handle_type handle)
+    {
+        return get_value_internal(handle.value());
+    }
+
+    const T &get_value_internal(handle_type handle) const
     {
         return get_value_internal(handle.value());
     }
@@ -202,6 +318,23 @@ template <typename T> class Pool
         return old_first_free;
     }
 
+    const T *get(handle_type handle) const
+    {
+        if (!handle.is_valid())
+        {
+            assert(!"invalid handle");
+            return nullptr;
+        }
+
+        if (handle != keys[handle.value()])
+        {
+            assert(!"use after free");
+            return nullptr;
+        }
+
+        return &get_value_internal(handle);
+    }
+
     T *get(handle_type handle)
     {
         if (!handle.is_valid())
@@ -244,9 +377,19 @@ template <typename T> class Pool
         return Iterator(*this, 0);
     }
 
+    ConstIterator begin() const
+    {
+        return ConstIterator(*this, 0);
+    }
+
     Iterator end()
     {
         return Iterator(*this, data.size());
+    }
+
+    ConstIterator end() const
+    {
+        return ConstIterator(*this, data.size());
     }
 
     bool operator==(const Pool &rhs) const = default;
