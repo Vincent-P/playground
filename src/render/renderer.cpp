@@ -1,11 +1,15 @@
 #include "render/renderer.hpp"
 
+#include "base/logger.hpp"
+
 #include "render/vulkan/commands.hpp"
 #include "render/vulkan/device.hpp"
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/utils.hpp"
 #include "vulkan/vulkan_core.h"
 
+#include "scene.hpp"
+#include "components/mesh_component.hpp"
 
 #include <tuple> // for std::tie
 #include <imgui/imgui.h>
@@ -195,13 +199,21 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
     return false;
 }
 
-void Renderer::update()
+void Renderer::update(const Scene &scene)
 {
     if (start_frame())
     {
         on_resize();
         return;
     }
+
+    scene.world.for_each<MeshComponent>([&](const auto &mesh){
+        const auto *model = scene.models.get(mesh.model_handle);
+        if (model)
+        {
+            logger::info("I want to draw {} !!\n", model->path);
+        }
+    });
 
     gfx::Device &device = context.device;
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;

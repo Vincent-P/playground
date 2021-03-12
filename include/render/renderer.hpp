@@ -6,6 +6,19 @@ namespace gfx = vulkan;
 
 inline constexpr uint FRAME_QUEUE_LENGTH = 2;
 
+namespace gltf {struct Model;}
+
+struct RenderMesh
+{
+    Handle<gltf::Model> model_handle;
+    Vec<Handle<gfx::Image>> images;
+    u32 vertices_offset;
+    u32 indices_offset;
+    u32 images_offset;
+};
+
+class Scene;
+
 struct Renderer
 {
     gfx::Context context;
@@ -41,5 +54,5 @@ struct Renderer
     void on_resize();
     bool start_frame();
     bool end_frame(gfx::ComputeWork &cmd);
-    void update();
+    void update(const Scene &scene);
 };

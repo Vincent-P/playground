@@ -1,10 +1,17 @@
 #include "scene.hpp"
 
+#include "gltf.hpp"
 #include "inputs.hpp"
 #include "camera.hpp"
+
+#include "base/logger.hpp"
+
+#include "platform/file_dialog.hpp"
+
 #include "components/camera_component.hpp"
 #include "components/input_camera_component.hpp"
 #include "components/sky_atmosphere_component.hpp"
+#include "components/mesh_component.hpp"
 #include "components/transform_component.hpp"
 
 #include <fmt/format.h>
@@ -294,6 +301,17 @@ void Scene::display_ui(UI::Context &ui)
 
     if (ui.begin_window("Scene"))
     {
+        if (ImGui::Button("Load model"))
+        {
+            auto file_path = platform::file_dialog({{"glTF model", "*.gltf"}});
+            if (file_path)
+            {
+                auto handle = models.add(gltf::load_model(file_path.value()));
+                world.create_entity(std::string_view{"Model"}, MeshComponent{handle});
+                logger::info("Opened file: {}\n", file_path.value());
+            }
+        }
+
         for (auto& [entity, _] : world.entity_index)
         {
             if (world.is_component(entity)) { continue; }
@@ -330,6 +348,7 @@ void Scene::display_ui(UI::Context &ui)
             display_component.template operator()<CameraComponent>(world, *selected_entity);
             display_component.template operator()<InputCameraComponent>(world, *selected_entity);
             display_component.template operator()<SkyAtmosphereComponent>(world, *selected_entity);
+            display_component.template operator()<MeshComponent>(world, *selected_entity);
         }
         ui.end_window();
     }

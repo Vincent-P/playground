@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <limits>
+#include <filesystem>
 
 namespace gltf
 {
@@ -166,6 +167,7 @@ struct PACKED GltfVertex
 
 struct Model
 {
+    std::filesystem::path path;
     Vec<usize> scene;
     Vec<Node> nodes;
     Vec<Mesh> meshes;
@@ -183,5 +185,5 @@ struct Model
     Vec<float4x4> cached_transforms;
 };
 
-Model load_model(std::string_view path);
+Model load_model(std::filesystem::path path);
 } // namespace my_app

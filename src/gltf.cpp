@@ -62,13 +62,13 @@ static Option<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, con
     return std::nullopt;
 }
 
-Model load_model(std::string_view path_view)
+Model load_model(fs::path path)
 {
-    fs::path path(path_view);
     Model model;
+    model.path = path;
 
     simdjson::dom::parser parser;
-    simdjson::dom::element doc = parser.load(std::string(path_view));
+    simdjson::dom::element doc = parser.load(path.string());
 
     // Load buffers file into memory
     for (const auto &json_buffer : doc["buffers"])

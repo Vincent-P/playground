@@ -16,7 +16,6 @@ public:
 
     void display_ui(UI::Context &ui);
 
-private:
     ECS::World world;
     ECS::EntityId main_camera;
 

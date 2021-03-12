@@ -280,6 +280,20 @@ template <Componentable Component> Component &component_ref(const Archetype &que
     return *reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
 }
 
+template <Componentable Component> const Component &component_const_ref(const Archetype &query, usize i_row, const Vec<u32> query_indices, const ArchetypeStorage &storage)
+{
+    const auto component_id = EntityId::component<Component>();
+    usize i_query = 0;
+    for (; query[i_query] != component_id; i_query++) {}
+    assert(i_query < query.size());
+
+    usize i_component = query_indices[i_query];
+    const auto &component_storage = storage.components[i_component];
+    const usize component_byte_idx = i_row * component_storage.component_size;
+
+    return *reinterpret_cast<const Component*>(&component_storage.data[component_byte_idx]);
+}
+
 } // namespace impl
 
 struct World
@@ -388,6 +402,27 @@ struct World
                     // TODO: there is a loop over query in component_ref that could be removed if it was possible
                     // to loop over ComponentTypes for each query and then pass that as arguments to the lambda
                     lambda(impl::component_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
+                }
+
+            }
+        }
+    }
+
+    template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda) const
+    {
+        auto query = impl::create_archetype<ComponentTypes...>();
+
+        for (const auto &[h, storage] : archetypes.archetype_storages)
+        {
+            auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
+            if (contains)
+            {
+
+                for (usize i_row = 0; i_row < storage->size; i_row++)
+                {
+                    // TODO: there is a loop over query in component_ref that could be removed if it was possible
+                    // to loop over ComponentTypes for each query and then pass that as arguments to the lambda
+                    lambda(impl::component_const_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
 
             }

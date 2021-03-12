@@ -3,7 +3,6 @@
 #include "base/logger.hpp"
 #include "camera.hpp"
 #include "platform/file_watcher.hpp"
-#include "platform/file_dialog.hpp"
 
 #include <algorithm>
 #include <imgui/imgui.h>
@@ -62,15 +61,6 @@ void App::display_ui()
     // renderer.display_ui(ui);
     inputs.display_ui(ui);
     scene.display_ui(ui);
-
-    if (ImGui::Button("Open"))
-    {
-        auto file_path = platform::file_dialog({{"glTF model", "*.gltf"}});
-        if (file_path)
-        {
-            logger::info("Opened file: {}\n", file_path.value());
-        }
-    }
 }
 
 void App::run()
@@ -125,7 +115,7 @@ void App::run()
 
         display_ui();
         scene.update(inputs);
-        renderer.update();
+        renderer.update(scene);
         watcher.update();
     }
 }
