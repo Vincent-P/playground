@@ -292,7 +292,6 @@ void Scene::display_ui(UI::Context &ui)
         }
     };
 
-    UNUSED(display_component);
     if (ui.begin_window("Scene"))
     {
         for (auto& [entity, _] : world.entity_index)

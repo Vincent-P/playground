@@ -99,7 +99,7 @@ shaders = files([
 # Custom target to build the shaders folder in build/
 shader_folder = custom_target(
   'shaders',
-  command: [python3, '-c', 'import os; os.mkdir("' + meson.project_build_root() / 'shaders'+ '")'],
+  command: [python3, '-c', 'import os; os.makedirs("' + meson.project_build_root() / 'shaders'+ '", exist_ok=True)'],
   output: 'shaders'
 )
 
@@ -176,7 +176,11 @@ endif
 
 # Platform specifics
 if host_machine.system() == 'windows'
-  main_src += 'src/platform/window_win32.cpp'
+  main_src += [
+    'src/platform/utils_win32.cpp',
+    'src/platform/window_win32.cpp',
+    'src/platform/file_dialog_win32.cpp',
+  ]
   main_ld_flags += '-limm32' # Doesnt work with cl?
 
   cpp_args += [
