@@ -22,14 +22,38 @@ struct PACKED ImguiOptions
     u32 texture_binding;
 };
 
-Renderer Renderer::create(const platform::Window *window)
+Renderer Renderer::create(const platform::Window &window)
 {
-    Renderer renderer = {
-        .context = gfx::Context::create(true, window)
-    };
+    Renderer renderer = {};
 
-    auto &device = renderer.context.device;
-    auto &surface = *renderer.context.surface;
+    renderer.context = gfx::Context::create(true, &window);
+
+    auto &context = renderer.context;
+    auto &physical_devices = context.physical_devices;
+
+    u32 i_selected = u32_invalid;
+    u32 i_device = 0;
+    for (auto& physical_device : physical_devices)
+    {
+        logger::info("Found device: {}\n", physical_device.properties.deviceName);
+        if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            logger::info("Prioritizing device {} because it is a discrete GPU.\n", physical_device.properties.deviceName);
+            i_selected = i_device;
+        }
+        i_device += 1;
+    }
+    if (i_selected == u32_invalid)
+    {
+        i_selected = 0;
+        logger::info("No discrete GPU found, defaulting to device #0: {}.\n", physical_devices[0].properties.deviceName);
+    }
+
+    renderer.device = gfx::Device::create(context, physical_devices[i_selected]);
+
+    auto &device = renderer.device;
+    renderer.surface = gfx::Surface::create(context, device, window);
+    auto &surface = renderer.surface;
 
     for (auto &work_pool : renderer.work_pools)
     {
@@ -114,16 +138,14 @@ Renderer Renderer::create(const platform::Window *window)
     renderer.transfer_done = device.create_fence(renderer.transfer_fence_value);
 
     // global set
-    renderer.font_atlas_binding = renderer.context.device.bind_global_sampled_image(renderer.gui_font_atlas);
-    renderer.context.device.update_globals();
+    renderer.font_atlas_binding = renderer.device.bind_global_sampled_image(0, renderer.gui_font_atlas);
+    renderer.device.update_globals();
 
     return renderer;
 }
 
 void Renderer::destroy()
 {
-    auto &device = context.device;
-
     device.wait_idle();
 
     device.destroy_fence(fence);
@@ -134,14 +156,13 @@ void Renderer::destroy()
         device.destroy_work_pool(work_pool);
     }
 
+    surface.destroy(context, device);
+    device.destroy(context);
     context.destroy();
 }
 
 void Renderer::on_resize()
 {
-    gfx::Device  &device  = context.device;
-    gfx::Surface &surface = *context.surface;
-
     device.wait_idle();
     surface.destroy_swapchain(device);
     surface.create_swapchain(device);
@@ -156,7 +177,6 @@ void Renderer::on_resize()
 
 bool Renderer::start_frame()
 {
-    gfx::Device &device = context.device;
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
@@ -170,7 +190,7 @@ bool Renderer::start_frame()
     ImGui::Render();
 
     // receipt contains the image acquired semaphore
-    bool out_of_date_swapchain = device.acquire_next_swapchain(*context.surface);
+    bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
     if (out_of_date_swapchain)
     {
         return true;
@@ -181,15 +201,13 @@ bool Renderer::start_frame()
 
 bool Renderer::end_frame(gfx::ComputeWork &cmd)
 {
-    gfx::Device &device = context.device;
-
     // vulkan hack: hint the device to submit a semaphore to wait on before presenting
-    cmd.prepare_present(*context.surface);
+    cmd.prepare_present(surface);
 
     device.submit(cmd, {fence}, {frame_count+1});
 
     // present will wait for semaphore
-    bool out_of_date_swapchain = device.present(*context.surface, cmd);
+    bool out_of_date_swapchain = device.present(surface, cmd);
     if (out_of_date_swapchain)
     {
         return true;
@@ -215,13 +233,12 @@ void Renderer::update(const Scene &scene)
         }
     });
 
-    gfx::Device &device = context.device;
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
     auto &work_pool = work_pools[current_frame];
 
     auto &io = ImGui::GetIO();
-    io.DisplaySize.x = context.surface->extent.width;
-    io.DisplaySize.y = context.surface->extent.height;
+    io.DisplaySize.x = surface.extent.width;
+    io.DisplaySize.y = surface.extent.height;
 
     // -- Upload ImGui's vertices and indices
     ImDrawData *data = ImGui::GetDrawData();
@@ -272,7 +289,7 @@ void Renderer::update(const Scene &scene)
     cmd.begin();
 
     // vulkan hack: this command buffer will wait for the image acquire semaphore
-    cmd.wait_for_acquired(*context.surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+    cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     if (frame_count == 0)
     {
@@ -280,7 +297,7 @@ void Renderer::update(const Scene &scene)
         transfer_fence_value += 1;
     }
 
-    auto swapchain_image = context.surface->images[context.surface->current_image];
+    auto swapchain_image = surface.images[surface.current_image];
     cmd.barrier(swapchain_image, gfx::ImageUsage::ColorAttachment);
     cmd.barrier(gui_font_atlas, gfx::ImageUsage::GraphicsShaderRead);
     cmd.begin_pass(swapchain_clear_renderpass, swapchain_framebuffer, {swapchain_image}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}});

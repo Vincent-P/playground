@@ -5,7 +5,6 @@
 
 #include "render/vulkan/descriptor_set.hpp"
 #include "render/vulkan/utils.hpp"
-#include "render/vulkan/context.hpp"
 #include "render/vulkan/surface.hpp"
 #include "platform/window.hpp"
 #include "vulkan/vulkan_core.h"
@@ -15,10 +14,21 @@
 namespace vulkan
 {
 
-Device Device::create(const Context &context, VkPhysicalDevice physical_device)
+Device Device::create(const Context &context, const PhysicalDevice &physical_device)
 {
     Device device = {};
     device.physical_device = physical_device;
+
+    // Features warnings!
+    if (!device.physical_device.vulkan12_features.timelineSemaphore)
+    {
+        logger::error("This device does not support timeline semaphores from Vulkan 1.2");
+    }
+
+    if (!device.physical_device.vulkan12_features.bufferDeviceAddress)
+    {
+        logger::error("This device does not support buffer device address from Vulkan 1.2");
+    }
 
 #define X(name) device.name = context.name
     X(vkCreateDebugUtilsMessengerEXT);
@@ -28,16 +38,14 @@ Device Device::create(const Context &context, VkPhysicalDevice physical_device)
     X(vkSetDebugUtilsObjectNameEXT);
 #undef X
 
-    vkGetPhysicalDeviceProperties(device.physical_device, &device.physical_props);
-
     /// --- Create the logical device
     uint installed_device_extensions_count = 0;
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device,
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
                                                   nullptr,
                                                   &installed_device_extensions_count,
                                                   nullptr));
     Vec<VkExtensionProperties> installed_device_extensions(installed_device_extensions_count);
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device,
+    VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
                                                   nullptr,
                                                   &installed_device_extensions_count,
                                                   installed_device_extensions.data()));
@@ -50,15 +58,10 @@ Device Device::create(const Context &context, VkPhysicalDevice physical_device)
         device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
     }
 
-    device.vulkan12_features              = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-    device.physical_device_features       = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-    device.physical_device_features.pNext = &device.vulkan12_features;
-    vkGetPhysicalDeviceFeatures2(device.physical_device, &device.physical_device_features);
-
     uint queue_families_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device, &queue_families_count, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice, &queue_families_count, nullptr);
     Vec<VkQueueFamilyProperties> queue_families(queue_families_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device, &queue_families_count, queue_families.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice, &queue_families_count, queue_families.data());
 
     Vec<VkDeviceQueueCreateInfo> queue_create_infos;
     float priority = 0.0;
@@ -111,7 +114,7 @@ Device Device::create(const Context &context, VkPhysicalDevice physical_device)
     }
 
     VkDeviceCreateInfo dci      = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-    dci.pNext                   = &device.physical_device_features;
+    dci.pNext                   = &device.physical_device.features;
     dci.flags                   = 0;
     dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
     dci.pQueueCreateInfos       = queue_create_infos.data();
@@ -121,23 +124,12 @@ Device Device::create(const Context &context, VkPhysicalDevice physical_device)
     dci.ppEnabledExtensionNames = device_extensions.data();
     dci.pEnabledFeatures        = nullptr;
 
-    VK_CHECK(vkCreateDevice(device.physical_device, &dci, nullptr, &device.device));
-
-    // Warnings
-    if (!device.vulkan12_features.timelineSemaphore)
-    {
-        logger::error("This device does not support timeline semaphores from Vulkan 1.2");
-    }
-
-    if (!device.vulkan12_features.bufferDeviceAddress)
-    {
-        logger::error("This device does not support buffer device address from Vulkan 1.2");
-    }
+    VK_CHECK(vkCreateDevice(device.physical_device.vkdevice, &dci, nullptr, &device.device));
 
     /// --- Init VMA allocator
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.vulkanApiVersion       = VK_API_VERSION_1_2;
-    allocator_info.physicalDevice         = device.physical_device;
+    allocator_info.physicalDevice         = device.physical_device.vkdevice;
     allocator_info.device                 = device.device;
     allocator_info.instance               = context.instance;
     allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
@@ -283,7 +275,7 @@ void Device::destroy(const Context &context)
 
 /// --- Global descriptor set
 
-u32 Device::bind_global_storage_image(Handle<Image> image_handle)
+u32 Device::bind_global_storage_image(u32 /*index*/, Handle<Image> image_handle)
 {
     global_set.storage_images.push_back(image_handle);
     u32 idx = global_set.storage_images.size();
@@ -294,7 +286,7 @@ u32 Device::bind_global_storage_image(Handle<Image> image_handle)
     return idx;
 }
 
-u32 Device::bind_global_sampled_image(Handle<Image> image_handle)
+u32 Device::bind_global_sampled_image(u32 /*index*/, Handle<Image> image_handle)
 {
     global_set.sampled_images.push_back(image_handle);
     u32 idx = global_set.storage_images.size();

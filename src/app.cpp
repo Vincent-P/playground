@@ -16,7 +16,7 @@ App::App()
     platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     ui = UI::Context::create();
 
-    renderer = Renderer::create(&window);
+    renderer = Renderer::create(window);
 
     watcher       = platform::FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");

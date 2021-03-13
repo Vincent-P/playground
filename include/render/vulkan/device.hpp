@@ -4,6 +4,8 @@
 #include "base/option.hpp"
 #include "base/vector.hpp"
 #include "base/pool.hpp"
+
+#include "render/vulkan/context.hpp"
 #include "render/vulkan/commands.hpp"
 #include "render/vulkan/queues.hpp"
 #include "render/vulkan/resources.hpp"
@@ -17,7 +19,6 @@
 
 namespace vulkan
 {
-struct Context;
 struct Surface;
 
 struct CommandPool
@@ -62,10 +63,7 @@ struct GlobalDescriptorSet
 struct Device
 {
     VkDevice device = VK_NULL_HANDLE;
-    VkPhysicalDevice physical_device;
-    VkPhysicalDeviceProperties physical_props;
-    VkPhysicalDeviceVulkan12Features vulkan12_features;
-    VkPhysicalDeviceFeatures2 physical_device_features;
+    PhysicalDevice physical_device;
     u32 graphics_family_idx = u32_invalid;
     u32 compute_family_idx = u32_invalid;
     u32 transfer_family_idx = u32_invalid;
@@ -84,7 +82,7 @@ struct Device
 
     /// ---
 
-    static Device create(const Context &context, VkPhysicalDevice physical_device);
+    static Device create(const Context &context, const PhysicalDevice &physical_device);
     void destroy(const Context &context);
 
 #define X(name) PFN_##name name
@@ -131,8 +129,8 @@ struct Device
     void destroy_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
-    u32 bind_global_storage_image(Handle<Image> image_handle);
-    u32 bind_global_sampled_image(Handle<Image> image_handle);
+    u32 bind_global_storage_image(u32 index, Handle<Image> image_handle);
+    u32 bind_global_sampled_image(u32 index, Handle<Image> image_handle);
     void update_globals();
 
     // Programs

@@ -10,7 +10,7 @@
 namespace vulkan
 {
 
-Surface Surface::create(Context &context, const platform::Window &window)
+Surface Surface::create(Context &context, Device &device, const platform::Window &window)
 {
     Surface surface = {};
 
@@ -27,12 +27,19 @@ Surface Surface::create(Context &context, const platform::Window &window)
     VK_CHECK(vkCreateXcbSurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #endif
 
+    // Query support, needed before present
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.graphics_family_idx, surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Graphics)]));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.compute_family_idx,  surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Compute)]));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.transfer_family_idx, surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Transfer)]));
+
+    surface.create_swapchain(device);
+
     return surface;
 }
 
-void Surface::destroy(Context &context)
+void Surface::destroy(Context &context, Device &device)
 {
-    this->destroy_swapchain(context.device);
+    this->destroy_swapchain(device);
     vkDestroySurfaceKHR(context.instance, surface, nullptr);
 }
 
@@ -40,20 +47,20 @@ void Surface::create_swapchain(Device &device)
 {
     // Use default extent for the swapchain
     VkSurfaceCapabilitiesKHR capabilities;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device, this->surface, &capabilities));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
     this->extent = capabilities.currentExtent;
 
     logger::info("Creating swapchain {}x{}\n", this->extent.width, this->extent.height);
 
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
     uint present_modes_count = 0;
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device,
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
                                                        this->surface,
                                                        &present_modes_count,
                                                        nullptr));
 
     Vec<VkPresentModeKHR> present_modes(present_modes_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device,
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
                                                        this->surface,
                                                        &present_modes_count,
                                                        present_modes.data()));
@@ -83,9 +90,9 @@ void Surface::create_swapchain(Device &device)
     // Find the best format
     uint formats_count = 0;
     Vec<VkSurfaceFormatKHR> formats;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device, this->surface, &formats_count, nullptr));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, this->surface, &formats_count, nullptr));
     formats.resize(formats_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device, this->surface, &formats_count, formats.data()));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, this->surface, &formats_count, formats.data()));
     this->format = formats[0];
     if (this->format.format == VK_FORMAT_UNDEFINED)
     {

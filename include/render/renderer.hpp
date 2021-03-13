@@ -1,6 +1,10 @@
 #pragma once
 
+#include "base/handle.hpp"
+
 #include "render/vulkan/context.hpp"
+#include "render/vulkan/device.hpp"
+#include "render/vulkan/surface.hpp"
 
 namespace gfx = vulkan;
 
@@ -22,6 +26,8 @@ class Scene;
 struct Renderer
 {
     gfx::Context context;
+    gfx::Device device;
+    gfx::Surface surface;
 
     uint frame_count;
 
@@ -48,7 +54,7 @@ struct Renderer
 
     /// ---
 
-    static Renderer create(const platform::Window *window);
+    static Renderer create(const platform::Window &window);
     void destroy();
 
     void on_resize();

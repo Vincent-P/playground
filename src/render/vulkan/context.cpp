@@ -3,7 +3,6 @@
 #include "render/vulkan/operators.hpp"
 #include "render/vulkan/utils.hpp"
 #include "render/vulkan/device.hpp"
-#include "render/vulkan/surface.hpp"
 #include "platform/window.hpp"
 
 #include "base/logger.hpp"
@@ -37,15 +36,18 @@ Context Context::create(bool enable_validation, const platform::Window *window)
     /// --- Create Instance
     Vec<const char *> instance_extensions;
 
-    instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    if (window)
+    {
+        instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-    instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
-    instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+        instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #else
-    assert(false);
+        assert(false);
 #endif
+    }
 
     instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
@@ -104,45 +106,26 @@ Context Context::create(bool enable_validation, const platform::Window *window)
     }
 
 
-    /// --- Create window surface
-    if (window)
-    {
-        ctx.surface = Surface::create(ctx, *window);
-    }
-
-    /// --- Pick devices
+    /// --- Enumerate devices
     uint physical_devices_count = 0;
     VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
-    Vec<VkPhysicalDevice> physical_devices(physical_devices_count);
-    VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, physical_devices.data()));
+    Vec<VkPhysicalDevice> vkphysical_devices(physical_devices_count);
+    VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, vkphysical_devices.data()));
+
+    ctx.physical_devices.resize(physical_devices_count);
 
     for (uint i_device = 0; i_device < physical_devices_count; i_device++)
     {
-        VkPhysicalDeviceProperties physical_props;
-        vkGetPhysicalDeviceProperties(physical_devices[i_device], &physical_props);
+        auto &physical_device = ctx.physical_devices[i_device];
 
-        logger::info("Found device: {}\n", physical_props.deviceName);
-        if (ctx.main_device == u32_invalid && physical_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-        {
-            logger::info("Prioritizing device {} because it is a discrete GPU.\n", physical_props.deviceName);
-            ctx.main_device = i_device;
-        }
-    }
+        physical_device.vkdevice = vkphysical_devices[i_device];
 
-    if (ctx.main_device == u32_invalid)
-    {
-        ctx.main_device = 0;
-        logger::info("No discrete GPU found, defaulting to device #0.\n");
-    }
+        vkGetPhysicalDeviceProperties(physical_device.vkdevice, &physical_device.properties);
+        physical_device.vulkan12_features              = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+        physical_device.features       = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        physical_device.features.pNext = &physical_device.vulkan12_features;
+        vkGetPhysicalDeviceFeatures2(physical_device.vkdevice, &physical_device.features);
 
-    ctx.device = Device::create(ctx, physical_devices[ctx.main_device]);
-
-    if (ctx.surface)
-    {
-        VkBool32 surface_support = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(ctx.device.physical_device, ctx.device.graphics_family_idx, ctx.surface->surface, &surface_support);
-        assert(surface_support);
-        ctx.surface->create_swapchain(ctx.device);
     }
 
     return ctx;
@@ -150,14 +133,6 @@ Context Context::create(bool enable_validation, const platform::Window *window)
 
 void Context::destroy()
 {
-    if (surface)
-    {
-        surface->destroy(*this);
-        surface = std::nullopt;
-    }
-
-    device.destroy(*this);
-
     if (debug_messenger)
     {
         vkDestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);

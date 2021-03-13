@@ -3,9 +3,6 @@
 #include "base/option.hpp"
 #include "base/vector.hpp"
 
-#include "render/vulkan/device.hpp"
-#include "render/vulkan/surface.hpp"
-
 #include <vulkan/vulkan.h>
 
 namespace platform { struct Window; }
@@ -13,14 +10,19 @@ namespace platform { struct Window; }
 namespace vulkan
 {
 
+struct PhysicalDevice
+{
+    VkPhysicalDevice vkdevice;
+    VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceVulkan12Features vulkan12_features;
+    VkPhysicalDeviceFeatures2 features;
+};
+
 struct Context
 {
     VkInstance instance;
     Option<VkDebugUtilsMessengerEXT> debug_messenger;
-
-    Device device;
-    u32 main_device = u32_invalid;
-    Option<Surface> surface;
+    Vec<PhysicalDevice> physical_devices;
 
     /// --
 
