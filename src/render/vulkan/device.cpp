@@ -172,62 +172,67 @@ Device Device::create(const Context &context, const PhysicalDevice &physical_dev
 
     /// --- Create the global descriptor set
     {
-    std::array pool_sizes{
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 1024},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1},
-    };
+        u32 storages_count = 1024;
+        u32 sampled_count = 1024;
+        std::array pool_sizes{
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = storages_count},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = sampled_count},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1},
+        };
 
-    VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-    pool_info.poolSizeCount              = pool_sizes.size();
-    pool_info.pPoolSizes                 = pool_sizes.data();
-    pool_info.maxSets                    = 1;
+        VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        pool_info.poolSizeCount              = pool_sizes.size();
+        pool_info.pPoolSizes                 = pool_sizes.data();
+        pool_info.maxSets                    = 1;
 
-    VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_set.vkpool));
-
-
-    Vec<VkDescriptorSetLayoutBinding> bindings = {
-        {.binding = 0, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount =    1, .stageFlags = VK_SHADER_STAGE_ALL},
-        {.binding = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024, .stageFlags = VK_SHADER_STAGE_ALL},
-        {.binding = 2, .descriptorType =          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1024, .stageFlags = VK_SHADER_STAGE_ALL},
-    };
-
-    VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
-        | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-        | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
-
-    Vec<VkDescriptorBindingFlags> bindings_flags = {
-        0,
-        flags,
-        flags,
-    };
-
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
-    flags_info.bindingCount  = bindings_flags.size();
-    flags_info.pBindingFlags = bindings_flags.data();
-
-    VkDescriptorSetLayoutCreateInfo desc_layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    desc_layout_info.pNext        = &flags_info;
-    desc_layout_info.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-    desc_layout_info.bindingCount = bindings.size();
-    desc_layout_info.pBindings    = bindings.data();
-
-    VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_set.vklayout));
-
-    VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = 1;
-    pipeline_layout_info.pSetLayouts    = &device.global_set.vklayout;
-
-    VK_CHECK(vkCreatePipelineLayout(device.device, &pipeline_layout_info, nullptr, &device.global_set.vkpipelinelayout));
+        VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_set.vkpool));
 
 
-    VkDescriptorSetAllocateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    set_info.descriptorPool              = device.global_set.vkpool;
-    set_info.pSetLayouts                 = &device.global_set.vklayout;
-    set_info.descriptorSetCount          = 1;
+        Vec<VkDescriptorSetLayoutBinding> bindings = {
+            {.binding = 0, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount =    1, .stageFlags = VK_SHADER_STAGE_ALL},
+            {.binding = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024, .stageFlags = VK_SHADER_STAGE_ALL},
+            {.binding = 2, .descriptorType =          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1024, .stageFlags = VK_SHADER_STAGE_ALL},
+        };
 
-    VK_CHECK(vkAllocateDescriptorSets(device.device, &set_info, &device.global_set.vkset));
+        VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
+            | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+            | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+
+        Vec<VkDescriptorBindingFlags> bindings_flags = {
+            0,
+            flags,
+            flags,
+        };
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+        flags_info.bindingCount  = bindings_flags.size();
+        flags_info.pBindingFlags = bindings_flags.data();
+
+        VkDescriptorSetLayoutCreateInfo desc_layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+        desc_layout_info.pNext        = &flags_info;
+        desc_layout_info.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        desc_layout_info.bindingCount = bindings.size();
+        desc_layout_info.pBindings    = bindings.data();
+
+        VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_set.vklayout));
+
+        VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        pipeline_layout_info.setLayoutCount = 1;
+        pipeline_layout_info.pSetLayouts    = &device.global_set.vklayout;
+
+        VK_CHECK(vkCreatePipelineLayout(device.device, &pipeline_layout_info, nullptr, &device.global_set.vkpipelinelayout));
+
+
+        VkDescriptorSetAllocateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        set_info.descriptorPool              = device.global_set.vkpool;
+        set_info.pSetLayouts                 = &device.global_set.vklayout;
+        set_info.descriptorSetCount          = 1;
+
+        VK_CHECK(vkAllocateDescriptorSets(device.device, &set_info, &device.global_set.vkset));
+
+        device.global_set.storage_images.resize(storages_count);
+        device.global_set.sampled_images.resize(sampled_count);
     }
 
     return device;
@@ -275,25 +280,22 @@ void Device::destroy(const Context &context)
 
 /// --- Global descriptor set
 
-u32 Device::bind_global_storage_image(u32 /*index*/, Handle<Image> image_handle)
+void Device::bind_global_storage_image(u32 index, Handle<Image> image_handle)
 {
-    global_set.storage_images.push_back(image_handle);
-    u32 idx = global_set.storage_images.size();
+    global_set.storage_images[index] = image_handle;
 
     global_set.pending_images.push_back(image_handle);
-    global_set.pending_indices.push_back(idx);
+    global_set.pending_indices.push_back(index);
     global_set.pending_binding.push_back(2);
-    return idx;
 }
 
-u32 Device::bind_global_sampled_image(u32 /*index*/, Handle<Image> image_handle)
+void Device::bind_global_sampled_image(u32 index, Handle<Image> image_handle)
 {
-    global_set.sampled_images.push_back(image_handle);
-    u32 idx = global_set.storage_images.size();
+    global_set.sampled_images[index] = image_handle;
+
     global_set.pending_images.push_back(image_handle);
-    global_set.pending_indices.push_back(idx);
+    global_set.pending_indices.push_back(index);
     global_set.pending_binding.push_back(1);
-    return idx;
 }
 
 void Device::update_globals()

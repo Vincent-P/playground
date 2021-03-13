@@ -129,8 +129,8 @@ struct Device
     void destroy_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
-    u32 bind_global_storage_image(u32 index, Handle<Image> image_handle);
-    u32 bind_global_sampled_image(u32 index, Handle<Image> image_handle);
+    void bind_global_storage_image(u32 index, Handle<Image> image_handle);
+    void bind_global_sampled_image(u32 index, Handle<Image> image_handle);
     void update_globals();
 
     // Programs

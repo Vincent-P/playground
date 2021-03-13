@@ -38,7 +38,6 @@ struct Renderer
     Handle<gfx::GraphicsProgram> gui_program;
 
     Handle<gfx::Image> gui_font_atlas;
-    u32 font_atlas_binding;
     Handle<gfx::Buffer> gui_font_atlas_staging;
 
     Handle<gfx::Buffer> gui_vertices;

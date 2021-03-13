@@ -26,11 +26,15 @@ Renderer Renderer::create(const platform::Window &window)
 {
     Renderer renderer = {};
 
-    renderer.context = gfx::Context::create(true, &window);
-
     auto &context = renderer.context;
     auto &physical_devices = context.physical_devices;
+    auto &device = renderer.device;
+    auto &surface = renderer.surface;
 
+    // Initialize the API
+    context = gfx::Context::create(true, &window);
+
+    // Pick a GPU
     u32 i_selected = u32_invalid;
     u32 i_device = 0;
     for (auto& physical_device : physical_devices)
@@ -49,11 +53,11 @@ Renderer Renderer::create(const platform::Window &window)
         logger::info("No discrete GPU found, defaulting to device #0: {}.\n", physical_devices[0].properties.deviceName);
     }
 
-    renderer.device = gfx::Device::create(context, physical_devices[i_selected]);
+    // Create the GPU
+    device = gfx::Device::create(context, physical_devices[i_selected]);
 
-    auto &device = renderer.device;
-    renderer.surface = gfx::Surface::create(context, device, window);
-    auto &surface = renderer.surface;
+    // Create the drawing surface
+    surface = gfx::Surface::create(context, device, window);
 
     for (auto &work_pool : renderer.work_pools)
     {
@@ -138,7 +142,7 @@ Renderer Renderer::create(const platform::Window &window)
     renderer.transfer_done = device.create_fence(renderer.transfer_fence_value);
 
     // global set
-    renderer.font_atlas_binding = renderer.device.bind_global_sampled_image(0, renderer.gui_font_atlas);
+    renderer.device.bind_global_sampled_image(0, renderer.gui_font_atlas);
     renderer.device.update_globals();
 
     return renderer;
@@ -271,7 +275,7 @@ void Renderer::update(const Scene &scene)
     options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
     options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
     options->vertices_pointer = device.get_buffer_address(gui_vertices);
-    options->texture_binding = font_atlas_binding;
+    options->texture_binding = 0; // the atlas was binded to index 0 in the global set
 
 
     // -- Upload the font atlas during the first frame

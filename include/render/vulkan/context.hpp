@@ -26,7 +26,7 @@ struct Context
 
     /// --
 
-    static Context create(bool enable_validation, const platform::Window *window);
+    static Context create(bool enable_validation = true, const platform::Window *window = nullptr);
     void destroy();
 
     // Instance functions
