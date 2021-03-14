@@ -250,6 +250,9 @@ void Device::destroy(const Context &context)
     for (auto &[handle, _] : graphics_programs)
         destroy_program(handle);
 
+    for (auto &[handle, _] : compute_programs)
+        destroy_program(handle);
+
     for (auto &[handle, _] : shaders)
         destroy_shader(handle);
 

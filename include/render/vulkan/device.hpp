@@ -74,6 +74,7 @@ struct Device
 
     Pool<Shader> shaders;
     Pool<GraphicsProgram> graphics_programs;
+    Pool<ComputeProgram> compute_programs;
     Pool<RenderPass> renderpasses;
     Pool<Framebuffer> framebuffers;
     Pool<Image> images;
@@ -93,18 +94,30 @@ struct Device
     X(vkSetDebugUtilsObjectNameEXT);
 #undef X
 
-    // Resources
+    /// --- Resources
+    // Command submission
     void create_work_pool(WorkPool &work_pool);
     void reset_work_pool(WorkPool &work_pool);
     void destroy_work_pool(WorkPool &work_pool);
+    GraphicsWork get_graphics_work(WorkPool &work_pool);
+    ComputeWork  get_compute_work (WorkPool &work_pool);
+    TransferWork get_transfer_work(WorkPool &work_pool);
+
     Fence create_fence(u64 initial_value = 0);
     void destroy_fence(Fence &fence);
 
+    void wait_for(Fence &fence, u64 wait_value);
+    void wait_idle();
+    void submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> &signal_values);
+
+    // Shaders
     Handle<Shader> create_shader(std::string_view path);
     void destroy_shader(Handle<Shader> shader_handle);
 
+    // Graphics Pipeline
     Handle<GraphicsProgram> create_program(const GraphicsState &graphics_state);
     void destroy_program(Handle<GraphicsProgram> program_handle);
+    unsigned compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
 
     Handle<RenderPass> create_renderpass(const RenderAttachments &render_attachments);
     Handle<RenderPass> find_or_create_renderpass(const RenderAttachments &render_attachments);
@@ -115,35 +128,26 @@ struct Device
     Handle<Framebuffer> find_or_create_framebuffer(const FramebufferDescription &desc);
     void destroy_framebuffer(Handle<Framebuffer> framebuffer_handle);
 
+    // Compute pipeline
+    Handle<ComputeProgram> create_program(const ComputeState &compute_state);
+    void destroy_program(Handle<ComputeProgram> program_handle);
+
+    // Resources
     Handle<Image> create_image(const ImageDescription &image_desc, Option<VkImage> proxy = {});
     void destroy_image(Handle<Image> image_handle);
 
     Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);
     void *map_buffer(Handle<Buffer> buffer_handle);
     u64 get_buffer_address(Handle<Buffer> buffer_handle);
-
     template<typename T>
     inline T *map_buffer(Handle<Buffer> buffer_handle) { return reinterpret_cast<T*>(map_buffer(buffer_handle)); }
     void flush_buffer(Handle<Buffer> buffer_handle);
-
     void destroy_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
     void bind_global_storage_image(u32 index, Handle<Image> image_handle);
     void bind_global_sampled_image(u32 index, Handle<Image> image_handle);
     void update_globals();
-
-    // Programs
-    unsigned compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
-
-    // Command submission
-    GraphicsWork get_graphics_work(WorkPool &work_pool);
-    ComputeWork  get_compute_work (WorkPool &work_pool);
-    TransferWork get_transfer_work(WorkPool &work_pool);
-
-    void wait_for(Fence &fence, u64 wait_value);
-    void wait_idle();
-    void submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> &signal_values);
 
     // Swapchain
     bool acquire_next_swapchain(Surface &surface);

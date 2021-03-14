@@ -230,5 +230,16 @@ struct GraphicsProgram
     DescriptorSet descriptor_set;
 };
 
-struct ComputeProgram;
+struct ComputeState
+{
+    Handle<Shader> shader;
+    Vec<DescriptorType> descriptors;
+};
+
+struct ComputeProgram
+{
+    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout;
+    DescriptorSet descriptor_set;
+};
 }

@@ -25,7 +25,7 @@ DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &d
         binding.binding = binding_number;
         binding.descriptorType = to_vk(descriptor_type);
         binding.descriptorCount = descriptor_type.count ? descriptor_type.count : 1;
-        binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        binding.stageFlags = VK_SHADER_STAGE_ALL;
         binding_number += 1;
 
         if (descriptor_type.type == DescriptorType::DynamicBuffer)

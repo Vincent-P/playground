@@ -57,21 +57,22 @@ fmt_dep = declare_dependency(link_with: fmt_lib, include_directories: fmt_inc)
 
 # - Shaders
 shaders = files([
-  # 'shaders/average_luminance_histo.comp',
+  'shaders/gui.frag',
+  'shaders/gui.vert',
+  'shaders/tonemap.comp.glsl',
+  'shaders/average_luminance_histo.comp',
   'shaders/build_luminance_histo.comp',
   # 'shaders/checkerboard_floor.frag',
   # 'shaders/checkerboard_floor.vert',
   # 'shaders/depth_reduction.comp.glsl',
-  'shaders/depth_reduction_iter.comp.glsl',
-  'shaders/draw_call_compaction.comp.glsl',
+  # 'shaders/depth_reduction_iter.comp.glsl',
+  # 'shaders/draw_call_compaction.comp.glsl',
   # 'shaders/floor_shadowmap.vert',
   # 'shaders/fullscreen_triangle.vert',
   # 'shaders/gltf.frag',
   # 'shaders/gltf.vert',
   # 'shaders/gltf_prepass.frag',
   # 'shaders/gltf_simple.frag',
-  'shaders/gui.frag',
-  'shaders/gui.vert',
   # 'shaders/gui_uint.frag',
   # 'shaders/hdr_compositing.frag',
   # 'shaders/min_lod_map.comp',
@@ -84,7 +85,6 @@ shaders = files([
   # 'shaders/sky/skyview_lut.frag',
   # 'shaders/sky/transmittance_lut.frag',
   # 'shaders/temporal_accumulation.comp.glsl',
-  # 'shaders/tonemap.comp.glsl',
   # 'shaders/voxel_clear.comp',
   # 'shaders/voxel_gen_aniso_base.comp',
   # 'shaders/voxel_gen_aniso_mipmaps.comp',
@@ -118,29 +118,20 @@ shaders_dep = declare_dependency(sources: shader_targets)
 
 # - Main target
 main_src = [
+  'src/main.cpp',
   'src/app.cpp',
-  'src/base/pool.cpp',
-  'src/base/vectors.cpp',
   'src/camera.cpp',
   'src/ecs.cpp',
   'src/scene.cpp',
-  'src/platform/file_watcher.cpp',
   'src/gltf.cpp',
   'src/inputs.cpp',
-  'src/main.cpp',
+  'src/tools.cpp',
+  'src/ui.cpp',
 
-  # 'src/render/cascades_bounds_pass.cpp',
-  # 'src/render/grid_pass.cpp',
-  # 'src/render/hl_api.cpp',
-  # 'src/render/hl_api_draw.cpp',
-  # 'src/render/hl_api_resources.cpp',
-  # 'src/render/imgui_pass.cpp',
-  # 'src/render/luminance_pass.cpp',
-  # 'src/render/render_graph.cpp',
-  # 'src/render/renderer.cpp',
-  # 'src/render/sky_pass.cpp',
-  # 'src/render/tonemap_pass.cpp',
-  # 'src/render/vlk_context.cpp',
+  'src/base/pool.cpp',
+  'src/base/vectors.cpp',
+
+  'src/platform/file_watcher.cpp',
 
   'src/render/renderer.cpp',
   'src/render/vulkan/context.cpp',
@@ -152,9 +143,7 @@ main_src = [
   'src/render/vulkan/shader.cpp',
   'src/render/vulkan/surface.cpp',
   'src/render/vulkan/graphics_pipeline.cpp',
-
-  'src/tools.cpp',
-  'src/ui.cpp'
+  'src/render/vulkan/compute_pipeline.cpp'
 ]
 
 main_ld_flags = []
