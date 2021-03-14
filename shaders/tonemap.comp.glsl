@@ -1,19 +1,18 @@
 #pragma shader_stage(compute)
+#extension GL_EXT_nonuniform_qualifier : require
 
 #include "types.h"
 #include "constants.h"
+#include "globals.h"
 
-layout(set = 1, binding = 0) uniform sampler2D hdr_buffer;
+layout(set = 1, binding = 0) uniform Options {
+    uint sampled_hdr_buffer;
+    uint sampled_luminance_output;
+    uint storage_output_frame;
 
-layout(set = 1, binding = 1) uniform DO
-{
     uint selected;
     float exposure;
-} debug;
-
-layout (set = 1, binding = 2) uniform sampler2D luminance_output;
-
-layout (set = 1, binding = 3) uniform writeonly image2D output_frame;
+};
 
 const float3x3 ACESInputMat =
 {
@@ -60,36 +59,36 @@ void main()
     uint3 group_idx  = gl_WorkGroupID;
 
     int2 pixel_pos = int2(global_idx.xy);
-    int2 output_size = imageSize(output_frame);
+    int2 output_size = imageSize(global_images_rgba8[storage_output_frame]);
 
     if (any(greaterThan(pixel_pos, output_size)))
     {
         return;
     }
 
-    float3 hdr = texelFetch(hdr_buffer, pixel_pos, LOD0).rgb;
+    float3 hdr = texelFetch(global_textures[sampled_hdr_buffer], pixel_pos, LOD0).rgb;
     float3 ldr = float3(0.0);
 
-    float average_luminance = texelFetch(luminance_output, int2(0, 0), LOD0).r;
+    float average_luminance = texelFetch(global_textures[sampled_luminance_output], int2(0, 0), LOD0).r;
     float3 exposure_adjusted = hdr / (9.6 * average_luminance);
 
     // reinhard
-    if (debug.selected == 0)
+    if (selected == 0)
     {
         ldr = exposure_adjusted / (exposure_adjusted + 1.0);
     }
     // exposure
-    else if (debug.selected == 1)
+    else if (selected == 1)
     {
-        ldr = vec3(1.0) - exp(-hdr * debug.exposure);
+        ldr = vec3(1.0) - exp(-hdr * exposure);
     }
     // clamp
-    else if (debug.selected == 2)
+    else if (selected == 2)
     {
         ldr = clamp(hdr, 0.0, 1.0);
     }
     // ACES?
-    else if (debug.selected == 3)
+    else if (selected == 3)
     {
         ldr = ACESFitted(exposure_adjusted);
     }
@@ -101,7 +100,8 @@ void main()
     // to srgb
     ldr = pow(ldr, float3(1.0 / 2.2));
 
+
     float4 output_color = vec4(ldr, 1.0);
 
-    imageStore(output_frame, pixel_pos, output_color);
+    imageStore(global_images_rgba8[storage_output_frame], pixel_pos, output_color);
 }

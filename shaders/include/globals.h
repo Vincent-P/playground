@@ -6,6 +6,15 @@
 layout (set = 0, binding = 1) uniform sampler2D global_textures[];
 layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
 
+layout (set = 0, binding = 2, rgba16) uniform image2D global_images_rgba16[];
+layout (set = 0, binding = 2, rgba8) uniform image2D global_images_rgba8[];
+layout (set = 0, binding = 2, r32f) uniform image2D global_images_r32f[];
+
+layout (set = 0, binding = 0) uniform GlobalUniform {
+    float delta_t;
+} global;
+
+
 #if 0
 layout (set = 0, binding = 0) uniform GlobalUniform {
     float4x4 camera_view;

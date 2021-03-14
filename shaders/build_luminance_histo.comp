@@ -1,18 +1,19 @@
-#include "types.h"
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+#include "globals.h"
 #include "constants.h"
 
-layout (set = 1, binding = 0) uniform sampler2D hdr_texture;
-
-layout (set = 1, binding = 1) buffer LH {
-    uint luminance_histogram[];
+layout (buffer_reference) buffer HistogramType {
+    uint values[];
 };
 
-layout (set = 1, binding = 2) uniform LUM
+layout (set = 1, binding = 0) uniform LUM
 {
-    uint input_width;
-    uint input_height;
+    HistogramType luminance_buffer;
     float min_log_luminance;
     float one_over_log_luminance_range;
+    uint sampled_hdr_texture;
 };
 
 float get_luminance(float3 color)
@@ -50,10 +51,10 @@ void main()
     // every global invocation maps to one pixel of the input texture
     // add it to the histogram
     int2 pixel_pos = int2(thread_id.xy);
-    int2 input_size = textureSize(hdr_texture, LOD0);
+    int2 input_size = textureSize(global_textures[sampled_hdr_texture], LOD0);
     if(all(lessThan(pixel_pos, input_size)))
     {
-        float3 hdr_color = texelFetch(hdr_texture, pixel_pos, 0).rgb;
+        float3 hdr_color = texelFetch(global_textures[sampled_hdr_texture], pixel_pos, 0).rgb;
         uint bin_idx = hdr_to_histogram_bin(hdr_color);
 
         atomicAdd(histogram_shared[bin_idx], 1);
@@ -64,5 +65,5 @@ void main()
 
     // the local shared histogram is full now,
     // so add the shared histogram to the global one
-    atomicAdd(luminance_histogram[local_idx], histogram_shared[local_idx]);
+    atomicAdd(luminance_buffer.values[local_idx], histogram_shared[local_idx]);
 }

@@ -1,17 +1,21 @@
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_nonuniform_qualifier : require
+
 #include "globals.h"
+#include "constants.h"
 
-layout (set = 1, binding = 0, r32f) uniform image2D luminance_output;
-
-layout (set = 1, binding = 1) buffer LH {
-    uint luminance_histogram[];
+layout (buffer_reference) buffer HistogramType {
+    uint values[];
 };
 
-layout (set = 1, binding = 2) uniform LUM
+layout (set = 1, binding = 0) uniform LUM
 {
     uint  pixel_count;
     float min_log_luminance;
     float log_luminance_range;
     float tau;
+    HistogramType luminance_buffer;
+    uint storage_luminance_output;
 };
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
@@ -23,7 +27,7 @@ void main()
     uint local_idx = gl_LocalInvocationIndex;
 
     // weigh every bin with the value from the histogram
-    float count = float(luminance_histogram[local_idx]);
+    float count = float(luminance_buffer.values[local_idx]);
     histogram_shared[local_idx] = count * float(local_idx);
 
     groupMemoryBarrier();
@@ -46,9 +50,9 @@ void main()
     {
         float weighted_log_average = (histogram_shared[0].x / max(float(pixel_count) - count, 1.0)) - 1.0;
         float weighted_average_luminance = exp2(((weighted_log_average / 254.0) * log_luminance_range) + min_log_luminance);
-        float previous_luminance = imageLoad(luminance_output, int2(0, 0)).r;
+        float previous_luminance = imageLoad(global_images_r32f[storage_luminance_output], int2(0, 0)).r;
 
         float adapted_luminance = previous_luminance + (weighted_average_luminance - previous_luminance) * (1 - exp(-global.delta_t * tau));
-        imageStore(luminance_output, int2(0, 0), float4(adapted_luminance, 0.0, 0.0, 0.0));
+        imageStore(global_images_r32f[storage_luminance_output], int2(0, 0), float4(adapted_luminance, 0.0, 0.0, 0.0));
     }
 }

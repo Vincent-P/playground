@@ -58,7 +58,7 @@ void App::display_ui()
     ui.start_frame(window, inputs);
 
     ui.display_ui();
-    // renderer.display_ui(ui);
+    renderer.display_ui(ui);
     inputs.display_ui(ui);
     scene.display_ui(ui);
 }

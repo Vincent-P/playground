@@ -4,6 +4,7 @@
 
 #include "render/vulkan/context.hpp"
 #include "render/vulkan/device.hpp"
+#include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
 namespace gfx = vulkan;
@@ -11,6 +12,7 @@ namespace gfx = vulkan;
 inline constexpr uint FRAME_QUEUE_LENGTH = 2;
 
 namespace gltf {struct Model;}
+namespace UI {struct Context;}
 
 struct RenderMesh
 {
@@ -23,33 +25,71 @@ struct RenderMesh
 
 class Scene;
 
+struct PACKED ImguiOptions
+{
+    float2 scale;
+    float2 translation;
+    u64 vertices_pointer;
+    u32 texture_binding;
+};
+
+struct RenderTargets
+{
+    Handle<gfx::RenderPass> clear_renderpass;
+    Handle<gfx::RenderPass> load_renderpass;
+    Handle<gfx::Framebuffer> framebuffer;
+    Handle<gfx::Image> image;
+    Handle<gfx::Image> depth;
+};
+
+struct Settings
+{
+    uint2 render_resolution;
+    bool resolution_dirty;
+};
+
+struct ImGuiPass
+{
+    Handle<gfx::GraphicsProgram> program;
+    Handle<gfx::Image>  font_atlas;
+    Handle<gfx::Buffer> font_atlas_staging;
+    Handle<gfx::Buffer> vertices;
+    Handle<gfx::Buffer> indices;
+    Handle<gfx::Buffer> options;
+};
+
+struct TonemapPass
+{
+    Handle<gfx::ComputeProgram> tonemap;
+    Handle<gfx::ComputeProgram> build_histo;
+    Handle<gfx::ComputeProgram> average_histo;
+    Handle<gfx::Buffer> histogram;
+    Handle<gfx::Image> average_luminance;
+};
+
 struct Renderer
 {
+    Settings settings;
+
+    // Base renderer
     gfx::Context context;
     gfx::Device device;
     gfx::Surface surface;
-
     uint frame_count;
-
-    Handle<gfx::RenderPass> swapchain_clear_renderpass;
-    Handle<gfx::Framebuffer> swapchain_framebuffer;
-
-    // ImGuiPass
-    Handle<gfx::GraphicsProgram> gui_program;
-
-    Handle<gfx::Image> gui_font_atlas;
-    Handle<gfx::Buffer> gui_font_atlas_staging;
-
-    Handle<gfx::Buffer> gui_vertices;
-    Handle<gfx::Buffer> gui_indices;
-    Handle<gfx::Buffer> gui_options;
-
-    // Command submission
     std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
-
     gfx::Fence fence;
+
+    // User renderer
+    RenderTargets hdr_rt;
+    RenderTargets swapchain_rt;
+
+    Handle<gfx::Image> hdr_buffer;
+
     gfx::Fence transfer_done;
     u64 transfer_fence_value = 0;
+
+    ImGuiPass imgui_pass;
+    TonemapPass tonemap_pass;
 
     /// ---
 
@@ -59,5 +99,6 @@ struct Renderer
     void on_resize();
     bool start_frame();
     bool end_frame(gfx::ComputeWork &cmd);
+    void display_ui(UI::Context &ui);
     void update(const Scene &scene);
 };

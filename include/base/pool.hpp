@@ -322,7 +322,6 @@ template <typename T> class Pool
     {
         if (!handle.is_valid())
         {
-            assert(!"invalid handle");
             return nullptr;
         }
 
@@ -339,7 +338,6 @@ template <typename T> class Pool
     {
         if (!handle.is_valid())
         {
-            assert(!"invalid handle");
             return nullptr;
         }
 
