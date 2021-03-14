@@ -9,7 +9,7 @@
 
 namespace gfx = vulkan;
 
-inline constexpr uint FRAME_QUEUE_LENGTH = 2;
+inline constexpr uint FRAME_QUEUE_LENGTH = 1;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -61,8 +61,12 @@ struct ImGuiPass
 struct TonemapPass
 {
     Handle<gfx::ComputeProgram> tonemap;
+    Handle<gfx::Buffer> tonemap_options;
     Handle<gfx::ComputeProgram> build_histo;
+    Handle<gfx::Buffer> build_histo_options;
     Handle<gfx::ComputeProgram> average_histo;
+    Handle<gfx::Buffer> average_histo_options;
+
     Handle<gfx::Buffer> histogram;
     Handle<gfx::Image> average_luminance;
 };
@@ -102,3 +106,12 @@ struct Renderer
     void display_ui(UI::Context &ui);
     void update(const Scene &scene);
 };
+
+inline uint3 dispatch_size(uint3 image_size, uint threads_xy, uint threads_z = 1)
+{
+    return {
+        .x = image_size.x / threads_xy + uint(image_size.x % threads_xy != 0),
+        .y = image_size.y / threads_xy + uint(image_size.y % threads_xy != 0),
+        .z = image_size.z / threads_z  + uint(image_size.z % threads_z  != 0),
+    };
+}

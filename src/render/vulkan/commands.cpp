@@ -22,6 +22,7 @@ void Work::begin()
     if (queue_type == QueueType::Graphics)
     {
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
+        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
     }
     else if (queue_type == QueueType::Compute)
     {
@@ -157,6 +158,24 @@ void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)
 }
 /// --- ComputeWork
 
+void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
+{
+    auto &program = *device->compute_programs.get(program_handle);
+    VkDescriptorSet set = find_or_create_descriptor_set(*device, program.descriptor_set);
+
+    Vec<u32> offsets;
+    offsets.reserve(program.descriptor_set.dynamic_offsets.size());
+    offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
+
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 1, 1, &set, offsets.size(), offsets.data());
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
+}
+
+void ComputeWork::dispatch(uint3 workgroups)
+{
+    vkCmdDispatch(command_buffer, workgroups.x, workgroups.y, workgroups.z);
+}
+
 void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clear_color)
 {
     auto image = *device->images.get(image_handle);
@@ -164,18 +183,17 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
     vkCmdClearColorImage(command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_range);
 }
 
+void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
+{
+    auto &program = *device->compute_programs.get(program_handle);
+    ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
+}
+
 void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
     auto &program = *device->graphics_programs.get(program_handle);
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
 }
-
-void ComputeWork::bind_image(Handle<GraphicsProgram> program_handle, uint slot, Handle<Image> image_handle)
-{
-    auto &program = *device->graphics_programs.get(program_handle);
-    ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
-}
-
 
 /// --- GraphicsWork
 

@@ -76,14 +76,13 @@ struct TransferWork : Work
 
 struct ComputeWork : TransferWork
 {
+    void bind_pipeline(Handle<ComputeProgram> program_handle);
+    void dispatch(uint3 workgroups);
+
     void clear_image(Handle<Image> image, VkClearColorValue clear_color);
 
-    void dispatch();
-    void bind_pipeline(Handle<ComputeProgram> program_handle);
-
-
+    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
     void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
-    void bind_image(Handle<GraphicsProgram> program_handle, uint slot, Handle<Image> image_handle);
 };
 
 struct GraphicsWork : ComputeWork
@@ -103,6 +102,8 @@ struct GraphicsWork : ComputeWork
 
     void begin_pass(Handle<RenderPass> renderpass_handle, Handle<Framebuffer> framebuffer_handle, Vec<Handle<Image>> attachments, Vec<VkClearValue> clear_values);
     void end_pass();
+
+    using ComputeWork::bind_pipeline; // make it visible on GraphicsWork
     void bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index);
     void bind_index_buffer(Handle<Buffer> buffer_handle);
 };

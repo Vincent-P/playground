@@ -70,6 +70,9 @@ Renderer Renderer::create(const platform::Window &window)
             .attachments_format = {surface.format.format},
         });
 
+
+    renderer.settings.resolution_dirty = true;
+    renderer.settings.render_resolution = {surface.extent.width, surface.extent.height};
     renderer.hdr_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R16G16B16A16_SFLOAT}}});
     renderer.hdr_rt.load_renderpass  = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R16G16B16A16_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}});
 
@@ -369,6 +372,12 @@ void Renderer::display_ui(UI::Context &ui)
 
 void Renderer::update(const Scene &scene)
 {
+    if (start_frame())
+    {
+        on_resize();
+        return;
+    }
+
     if (settings.resolution_dirty)
     {
         device.destroy_image(hdr_rt.image);
@@ -376,6 +385,7 @@ void Renderer::update(const Scene &scene)
             .name = "luminance buffer",
             .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
             .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .usages = gfx::color_attachment_usage,
             });
 
 
@@ -386,13 +396,11 @@ void Renderer::update(const Scene &scene)
                 .attachments_format = {VK_FORMAT_R16G16B16A16_SFLOAT},
             });
 
-        settings.resolution_dirty = false;
-    }
 
-    if (start_frame())
-    {
-        on_resize();
-        return;
+        device.bind_global_sampled_image(1, hdr_rt.image);
+        device.update_globals();
+
+        settings.resolution_dirty = false;
     }
 
     scene.world.for_each<MeshComponent>([&](const auto &mesh){
@@ -429,6 +437,44 @@ void Renderer::update(const Scene &scene)
     {
         cmd.wait_for(transfer_done, transfer_fence_value+1, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
         transfer_fence_value += 1;
+    }
+
+
+    cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
+    cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}});
+    cmd.end_pass();
+
+    {
+        // Build luminance histogram
+        struct BuildHistoOptions
+        {
+            u64 luminance_buffer;
+            float min_log_luminance;
+            float one_over_log_luminance_range;
+            uint sampled_hdr_texture;
+        };
+
+        if (!tonemap_pass.build_histo_options.is_valid())
+        {
+            tonemap_pass.build_histo_options = device.create_buffer({
+                .name         = "Build histogram options",
+                .size         = sizeof(BuildHistoOptions),
+                .usage        = gfx::uniform_buffer_usage,
+                .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+            });
+        }
+
+        auto *options                         = device.map_buffer<BuildHistoOptions>(tonemap_pass.build_histo_options);
+        options->luminance_buffer             = device.get_buffer_address(tonemap_pass.histogram);
+        options->sampled_hdr_texture          = 1;
+        options->min_log_luminance            = -10.f;
+        options->one_over_log_luminance_range = 1.f / 12.f;
+
+        cmd.fill_buffer(tonemap_pass.histogram, 0);
+        cmd.bind_uniform_buffer(tonemap_pass.build_histo, 0, tonemap_pass.build_histo_options, 0, sizeof(BuildHistoOptions));
+
+        cmd.bind_pipeline(tonemap_pass.build_histo);
+        cmd.dispatch(dispatch_size(device.get_image_size(hdr_rt.image), 16));
     }
 
     do_imgui_pass(device, cmd, swapchain_rt, imgui_pass);

@@ -92,4 +92,14 @@ void Device::destroy_image(Handle<Image> image_handle)
         images.remove(image_handle);
     }
 }
+
+uint3 Device::get_image_size(Handle<Image> image_handle)
+{
+    if (auto *image = images.get(image_handle))
+    {
+        return image->desc.size;
+    }
+    return {};
+}
+
 };

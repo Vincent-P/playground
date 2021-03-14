@@ -136,13 +136,16 @@ struct Device
     Handle<Image> create_image(const ImageDescription &image_desc, Option<VkImage> proxy = {});
     void destroy_image(Handle<Image> image_handle);
 
+    uint3 get_image_size(Handle<Image> image_handle);
+
     Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);
+    void destroy_buffer(Handle<Buffer> buffer_handle);
+
     void *map_buffer(Handle<Buffer> buffer_handle);
     u64 get_buffer_address(Handle<Buffer> buffer_handle);
     template<typename T>
     inline T *map_buffer(Handle<Buffer> buffer_handle) { return reinterpret_cast<T*>(map_buffer(buffer_handle)); }
     void flush_buffer(Handle<Buffer> buffer_handle);
-    void destroy_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
     void bind_global_storage_image(u32 index, Handle<Image> image_handle);
