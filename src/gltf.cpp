@@ -241,7 +241,7 @@ Model load_model(fs::path path)
                 primitive.aab_max = positions[0];
                 for (usize i = 0; i < position_attribute->len; i++)
                 {
-                    GltfVertex vertex;
+                    Vertex vertex;
                     vertex.position = positions[i];
 
                     for (uint i_comp = 0; i_comp < 3; i_comp++)
@@ -413,6 +413,84 @@ Model load_model(fs::path path)
     for (usize node_i : scene_json["nodes"])
     {
         model.scene.push_back(node_i);
+    }
+
+    /// Precompute
+
+    model.cached_transforms.resize(model.nodes.size());
+
+    Vec<u32> nodes_stack;
+    nodes_stack.reserve(model.nodes.size());
+
+    Vec<u32> parent_indices;
+    parent_indices.reserve(model.nodes.size());
+
+    for (auto scene_root : model.scene)
+    {
+        nodes_stack.push_back(u32_invalid);
+        nodes_stack.push_back(scene_root);
+    }
+
+    while (!nodes_stack.empty())
+    {
+        auto node_idx = nodes_stack.back();
+        nodes_stack.pop_back();
+
+        if (node_idx == u32_invalid)
+        {
+            if (!parent_indices.empty()) {
+                parent_indices.pop_back();
+            }
+            continue;
+        }
+
+        auto &node = model.nodes[node_idx];
+
+        // --- preorder
+        float constant_scale = 1.0f;
+
+        node.dirty                        = false;
+        auto translation                  = float4x4::identity(); // glm::translate(glm::mat4(1.0f), node.translation);
+        translation = float4x4({
+                1, 0, 0, constant_scale * node.translation.x,
+                0, 1, 0, constant_scale * node.translation.y,
+                0, 0, 1, constant_scale * node.translation.z,
+                0, 0, 0, 1,
+            });
+
+        auto rotation                     = float4x4::identity(); // glm::mat4(node.rotation);
+        rotation = float4x4({
+                1.0f - 2.0f*node.rotation.y*node.rotation.y - 2.0f*node.rotation.z*node.rotation.z, 2.0f*node.rotation.x*node.rotation.y - 2.0f*node.rotation.z*node.rotation.w, 2.0f*node.rotation.x*node.rotation.z + 2.0f*node.rotation.y*node.rotation.w, 0.0f,
+                2.0f*node.rotation.x*node.rotation.y + 2.0f*node.rotation.z*node.rotation.w, 1.0f - 2.0f*node.rotation.x*node.rotation.x - 2.0f*node.rotation.z*node.rotation.z, 2.0f*node.rotation.y*node.rotation.z - 2.0f*node.rotation.x*node.rotation.w, 0.0f,
+                2.0f*node.rotation.x*node.rotation.z - 2.0f*node.rotation.y*node.rotation.w, 2.0f*node.rotation.y*node.rotation.z + 2.0f*node.rotation.x*node.rotation.w, 1.0f - 2.0f*node.rotation.x*node.rotation.x - 2.0f*node.rotation.y*node.rotation.y, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f,
+            });
+
+        auto scale                        = float4x4::identity(); // assume uniform scale
+        scale.at(0, 0)                    = constant_scale * node.scale.x;
+        scale.at(1, 1)                    = constant_scale * node.scale.y;
+        scale.at(2, 2)                    = constant_scale * node.scale.z;
+
+        auto transform = node.transform * translation * rotation * scale;
+
+        auto parent_transform = float4x4::identity();
+        if (!parent_indices.empty()) {
+            parent_transform = model.cached_transforms[parent_indices.back()];
+        }
+
+        model.cached_transforms[node_idx] = parent_transform * transform;
+
+        model.nodes_preorder.push_back(node_idx);
+
+        parent_indices.push_back(node_idx);
+
+        nodes_stack.push_back(u32_invalid);
+        // ----
+
+        for (auto child : node.children)
+        {
+            nodes_stack.push_back(child);
+        }
     }
 
     return model;

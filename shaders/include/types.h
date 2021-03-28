@@ -16,4 +16,6 @@
 #define u32 uint
 #define i32 int
 
+#define PACKED
+
 #endif

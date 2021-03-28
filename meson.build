@@ -62,6 +62,10 @@ shaders = files([
   'shaders/tonemap.comp.glsl',
   'shaders/average_luminance_histo.comp',
   'shaders/build_luminance_histo.comp',
+  # 'shaders/opaque.vert',
+  # 'shaders/opaque.frag',
+  'shaders/path_tracer.comp.glsl',
+  'shaders/taa.comp.glsl',
   # 'shaders/checkerboard_floor.frag',
   # 'shaders/checkerboard_floor.vert',
   # 'shaders/depth_reduction.comp.glsl',
@@ -210,6 +214,10 @@ endif
 
 if get_option('enable_renderdoc')
   cpp_args += '-DENABLE_RENDERDOC'
+endif
+
+if get_option('enable_doctest')
+  cpp_args += '-DENABLE_DOCTEST'
 endif
 
 executable('test-vulkan', main_src,

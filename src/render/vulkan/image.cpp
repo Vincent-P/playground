@@ -54,6 +54,15 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
                                 nullptr));
     }
 
+    if (this->vkSetDebugUtilsObjectNameEXT)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(vkhandle);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE;
+        ni.pObjectName                   = image_desc.name.c_str();
+        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+    }
+
     VkImageView full_view = VK_NULL_HANDLE;
     VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     vci.flags                 = 0;
@@ -67,6 +76,16 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     vci.viewType              = VK_IMAGE_VIEW_TYPE_2D;
 
     VK_CHECK(vkCreateImageView(device, &vci, nullptr, &full_view));
+
+    if (this->vkSetDebugUtilsObjectNameEXT)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(full_view);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName                   = image_desc.name.c_str();
+        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+    }
+
 
 
     return images.add({

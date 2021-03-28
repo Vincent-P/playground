@@ -25,16 +25,23 @@ float min4(vec4 values) {
     return min(min(values.x, values.y), min(values.z, values.w));
 }
 
-struct Box {
-    float3      center;
-    float3     radius;
-    float3     invRadius;
-};
+uint init_seed(uint2 pixel_pos, uint frame_count)
+{
+    return uint(uint(pixel_pos.x) * uint(1973) + uint(pixel_pos.y) * uint(9277) + uint(frame_count) * uint(26699)) | uint(1);
+}
 
-struct Ray {
-    float3      origin;
-    /** Unit direction of propagation */
-    float3     direction;
-};
+uint wang_hash(inout uint seed)
+{
+    seed = uint(seed ^ uint(61)) ^ uint(seed >> uint(16));
+    seed *= uint(9);
+    seed = seed ^ (seed >> 4);
+    seed *= uint(0x27d4eb2d);
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
 
+float random_float_01(inout uint seed)
+{
+    return float(wang_hash(seed)) / 4294967296.0;
+}
 #endif

@@ -2,6 +2,8 @@
 #include "base/types.hpp"
 #include "base/hash.hpp"
 
+template <typename T> class Pool;
+
 /// --- Handle type (Typed index that can be invalid)
 template <typename T> struct Handle
 {
@@ -55,6 +57,7 @@ template <typename T> struct Handle
     u32 gen;
 
     friend struct ::std::hash<Handle<T>>;
+    friend Pool<T>;
 };
 
 namespace std

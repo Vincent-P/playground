@@ -164,7 +164,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
         ImGui::DockBuilderFinish(dockspace_id);
 
         if (ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockspace_id)) {
-           node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
+            node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
         }
     }
     ImGui::End();

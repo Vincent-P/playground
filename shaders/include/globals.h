@@ -1,79 +1,80 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+// #extension GL_EXT_buffer_reference : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_ARB_shader_draw_parameters : require
+
 #include "types.h"
 
-layout (set = 0, binding = 1) uniform sampler2D global_textures[];
-layout (set = 0, binding = 1) uniform sampler3D global_textures_3d[];
+// Bindless sampled textures
+layout(set = 0, binding = 1) uniform sampler2D global_textures[];
+layout(set = 0, binding = 1) uniform sampler3D global_textures_3d[];
 
-layout (set = 0, binding = 2, rgba16) uniform image2D global_images_rgba16[];
-layout (set = 0, binding = 2, rgba8) uniform image2D global_images_rgba8[];
-layout (set = 0, binding = 2, r32f) uniform image2D global_images_r32f[];
+// Bindless storage images
+// layout(set = 0, binding = 2, rgba16) uniform image2D global_images_rgba16[];
+// layout(set = 0, binding = 2, rgba8) uniform image2D global_images_rgba8[];
+// layout(set = 0, binding = 2, r32f) uniform image2D global_images_r32f[];
 
-layout (set = 0, binding = 0) uniform GlobalUniform {
-    float delta_t;
-} global;
 
+// Global buffers are device addresses
+struct PACKED glTFVertex
+{
+    float3 position;
+    float pad00;
+    float3 normal;
+    float pad01;
+    float2 uv0;
+    float2 uv1;
+    float4 color0;
+    float4 joint0;
+    float4 weight0;
+};
+
+struct PACKED glTFPrimitive
+{
+    u32 material;
+    u32 first_index;
+    u32 first_vertex;
+    u32 index_count;
+    float3 aab_min;
+    u32 rendering_mode;
+    float3 aab_max;
+    u32 pad00;
+};
 
 #if 0
-layout (set = 0, binding = 0) uniform GlobalUniform {
-    float4x4 camera_view;
-    float4x4 camera_proj;
-    float4x4 camera_inv_view;
-    float4x4 camera_inv_proj;
-    float4x4 camera_inv_view_proj;
-    float4x4 camera_previous_view;
-    float4x4 camera_previous_proj;
-    float4x4 sun_view;
-    float4x4 sun_proj;
+layout(buffer_reference) buffer glTFVertexBufferType {
+    glTFVertex vertices[];
+};
 
-    float3 camera_pos;
-    float delta_t;
-
-    uint2 resolution;
-    float camera_near;
-    float camera_far;
-
-
-    float3 sun_direction;
-    float pad10;
-
-    float3 sun_illuminance;
-    float ambient;
-
-    float2 jitter_offset;
-    float2 previous_jitter_offset;
-} global;
-
-float reverse_to_linear_depth(float depth)
-{
-    float z_e = global.camera_proj[3].z / (depth + global.camera_proj[2].z);
-    float linear = (z_e - global.camera_near) / (global.camera_far - global.camera_near);
-    return linear;
-}
-
-float linear_to_reverse_depth(float linear)
-{
-    float z_e = linear * (global.camera_far - global.camera_near) + global.camera_near;
-    float z_n = - global.camera_proj[2].z  - global.camera_proj[3].z / -z_e;
-    return z_n;
-}
-
-float4x4 get_jittered_projection(float4x4 projection, float2 jitter_offset)
-{
-    float4x4 jittered = projection; // global.camera_proj;
-    jittered[2][0] = jitter_offset.x;
-    jittered[2][1] = jitter_offset.y;
-    return jittered;
-}
-
-float4x4 get_jittered_inv_projection(float4x4 inv_proj, float2 jitter_offset)
-{
-    float4x4 jittered = inv_proj; // global.camera_inv_proj;
-    jittered[3][0] = jitter_offset.x * inv_proj[0][0];
-    jittered[3][1] = jitter_offset.y * inv_proj[1][1];
-    return jittered;
-}
+layout(buffer_reference) buffer glTFPrimitiveBufferType {
+    glTFPrimitive primitives[];
+};
 #endif
+
+layout(set = 0, binding = 0) uniform GlobalUniform {
+    float4x4 camera_view;
+    float4x4 camera_projection;
+    float4x4 camera_view_inverse;
+    float4x4 camera_projection_inverse;
+    float4   camera_position;
+    #if 0
+    glTFVertexBufferType vertex_buffer_ptr;
+    glTFPrimitiveBufferType primitive_buffer_ptr;
+    #else
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
+    u32 pad11;
+    #endif
+    float2   resolution;
+    float delta_t;
+    u32 frame_count;
+} globals;
+
+layout(push_constant) uniform PushConstants {
+    u32 draw_idx;
+} push_constants;
 
 #endif

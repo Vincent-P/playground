@@ -5,6 +5,7 @@
 #include "render/vulkan/device.hpp"
 #include "platform/window.hpp"
 
+#include "base/intrinsics.hpp"
 #include "base/logger.hpp"
 
 namespace vulkan
@@ -25,6 +26,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
             logger::error("\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
         }
     }
+
+    DEBUG_BREAK();
 
     return VK_FALSE;
 }
@@ -125,7 +128,6 @@ Context Context::create(bool enable_validation, const platform::Window *window)
         physical_device.features       = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
         physical_device.features.pNext = &physical_device.vulkan12_features;
         vkGetPhysicalDeviceFeatures2(physical_device.vkdevice, &physical_device.features);
-
     }
 
     return ctx;

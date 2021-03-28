@@ -6,7 +6,9 @@
 #include <array>
 #include <algorithm>
 #include <cstring>
+#if defined(ENABLE_DOCTEST)
 #include <doctest.h>
+#endif
 #include <imgui/imgui.h>
 #include <iostream>
 #include <fmt/format.h>
@@ -493,9 +495,9 @@ void World::display_ui(UI::Context &ctx)
     }
 }
 
+#if defined (ENABLE_DOCTEST)
 namespace test
 {
-
 struct Position
 {
     uint a = 0;
@@ -639,5 +641,6 @@ TEST_SUITE("ECS")
     }
 }
 } // namespace test
+#endif
 
 } // namespace ECS

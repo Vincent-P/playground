@@ -1,5 +1,6 @@
 #include "base/pool.hpp"
 
+#if defined (ENABLE_DOCTEST)
 #include <doctest.h>
 
 namespace test
@@ -28,3 +29,4 @@ namespace test
     }
 
 }
+#endif

@@ -1,27 +1,6 @@
-#extension GL_ARB_shader_draw_parameters : require
-#extension GL_EXT_buffer_reference : require
-
 #include "types.h"
 #include "globals.h"
-
-struct ImGuiVertex
-{
-    float2 position;
-    float2 uv;
-    uint color;
-    uint pad00;
-};
-
-layout(buffer_reference) buffer VerticesType {
-    ImGuiVertex vertices[];
-};
-
-layout(set = 1, binding = 0) uniform Options {
-    float2 scale;
-    float2 translation;
-    VerticesType vertices_ptr;
-    uint texture_binding;
-};
+#include "imgui.h"
 
 layout(location = 0) out float2 o_uv;
 layout(location = 1) out float4 o_color;

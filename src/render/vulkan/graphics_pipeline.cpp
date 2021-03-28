@@ -143,15 +143,15 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &des
     for (u32 i_image = 0; i_image < desc.attachments_format.size(); i_image++)
     {
         image_infos.emplace_back();
-        auto &image_info = image_infos.back();
-        image_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
-        image_info.flags = 0;
-        image_info.usage = color_attachment_usage;
-        image_info.width = desc.width;
-        image_info.height = desc.height;
-        image_info.layerCount = desc.layer_count;
+        auto &image_info           = image_infos.back();
+        image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
+        image_info.flags           = 0;
+        image_info.usage           = color_attachment_usage;
+        image_info.width           = desc.width;
+        image_info.height          = desc.height;
+        image_info.layerCount      = desc.layer_count;
         image_info.viewFormatCount = 1;
-        image_info.pViewFormats = &desc.attachments_format[i_image];
+        image_info.pViewFormats    = &desc.attachments_format[i_image];
 
         render_attachments.colors.push_back({.format = desc.attachments_format[i_image]});
     }
@@ -159,33 +159,33 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &des
     if (desc.depth_format)
     {
         image_infos.emplace_back();
-        auto &image_info = image_infos.back();
-        image_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
-        image_info.flags = 0;
-        image_info.usage = depth_attachment_usage;
-        image_info.width = desc.width;
-        image_info.height = desc.height;
-        image_info.layerCount = desc.layer_count;
+        auto &image_info           = image_infos.back();
+        image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
+        image_info.flags           = 0;
+        image_info.usage           = depth_attachment_usage;
+        image_info.width           = desc.width;
+        image_info.height          = desc.height;
+        image_info.layerCount      = desc.layer_count;
         image_info.viewFormatCount = 1;
-        image_info.pViewFormats = &desc.depth_format.value();
+        image_info.pViewFormats    = &desc.depth_format.value();
 
         render_attachments.depth = {.format = desc.depth_format.value()};
     }
 
     VkFramebufferAttachmentsCreateInfo attachments_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO};
-    attachments_info.attachmentImageInfoCount = image_infos.size();
-    attachments_info.pAttachmentImageInfos = image_infos.data();
+    attachments_info.attachmentImageInfoCount           = image_infos.size();
+    attachments_info.pAttachmentImageInfos              = image_infos.data();
 
     auto &renderpass = *renderpasses.get(find_or_create_renderpass(render_attachments));
 
-    VkFramebufferCreateInfo fb_info = { .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-    fb_info.pNext = &attachments_info;
-    fb_info.flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT;
-    fb_info.renderPass = renderpass.vkhandle;
-    fb_info.attachmentCount = image_infos.size();
-    fb_info.width = desc.width;
-    fb_info.height = desc.height;
-    fb_info.layers = desc.layer_count;
+    VkFramebufferCreateInfo fb_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+    fb_info.pNext                   = &attachments_info;
+    fb_info.flags                   = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT;
+    fb_info.renderPass              = renderpass.vkhandle;
+    fb_info.attachmentCount         = image_infos.size();
+    fb_info.width                   = desc.width;
+    fb_info.height                  = desc.height;
+    fb_info.layers                  = desc.layer_count;
 
     VkFramebuffer vkhandle = VK_NULL_HANDLE;
     VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &vkhandle));
@@ -219,15 +219,22 @@ void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
 
 /// --- Graphics program
 
-Handle<GraphicsProgram> Device::create_program(const GraphicsState &graphics_state)
+Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsState &graphics_state)
 {
     DescriptorSet set = create_descriptor_set(*this, graphics_state.descriptors);
 
     std::array sets = {global_set.vklayout, set.layout};
 
+    VkPushConstantRange push_constant_range;
+    push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
+    push_constant_range.offset     = 0;
+    push_constant_range.size       = push_constant_layout.size;
+
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = sets.size();
-    pipeline_layout_info.pSetLayouts    = sets.data();
+    pipeline_layout_info.setLayoutCount             = sets.size();
+    pipeline_layout_info.pSetLayouts                = sets.data();
+    pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
+    pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
 
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
@@ -237,7 +244,8 @@ Handle<GraphicsProgram> Device::create_program(const GraphicsState &graphics_sta
     VK_CHECK(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
 
     return graphics_programs.add({
-        .graphics_state = std::move(graphics_state),
+        .name = name,
+        .graphics_state = graphics_state,
         .pipeline_layout = pipeline_layout,
         .cache = cache,
         .descriptor_set = std::move(set),
@@ -268,7 +276,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     assert(p_program);
     auto &program = *p_program;
 
-    const auto &renderpass = *this->renderpasses.get(this->find_or_create_renderpass(program.graphics_state.framebuffer));
+    const auto &renderpass = *this->renderpasses.get(program.graphics_state.renderpass);
 
     Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
@@ -427,6 +435,16 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
+
+
+    if (this->vkSetDebugUtilsObjectNameEXT)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(pipeline);
+        ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
+        ni.pObjectName                   = program.name.c_str();
+        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+    }
 
     program.pipelines.push_back(pipeline);
     program.render_states.push_back(render_state);

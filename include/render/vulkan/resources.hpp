@@ -19,9 +19,9 @@ namespace vulkan
 {
 
 inline constexpr VkImageUsageFlags depth_attachment_usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-inline constexpr VkImageUsageFlags color_attachment_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 inline constexpr VkImageUsageFlags sampled_image_usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 inline constexpr VkImageUsageFlags storage_image_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+inline constexpr VkImageUsageFlags color_attachment_usage = storage_image_usage | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 
 inline constexpr VkBufferUsageFlags storage_buffer_usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -54,7 +54,7 @@ enum struct ImageUsage
 struct ImageDescription
 {
     std::string name = "No name";
-    uint3 size;
+    uint3 size                          = {1, 1, 1};
     VkImageType type                    = VK_IMAGE_TYPE_2D;
     VkFormat format                     = VK_FORMAT_R8G8B8A8_UNORM;
     VkSampleCountFlagBits samples       = VK_SAMPLE_COUNT_1_BIT;
@@ -146,7 +146,7 @@ struct DepthState
 struct RasterizationState
 {
     bool enable_conservative_rasterization{false};
-    bool culling{true};
+    bool culling{false};
 
     bool operator==(const RasterizationState &) const = default;
 };
@@ -211,12 +211,13 @@ struct GraphicsState
 {
     Handle<Shader> vertex_shader;
     Handle<Shader> fragment_shader;
-    Handle<Framebuffer> framebuffer;
+    Handle<RenderPass> renderpass;
     Vec<DescriptorType> descriptors;
 };
 
 struct GraphicsProgram
 {
+    std::string name;
     // state to compile the pipeline
     GraphicsState graphics_state;
     Vec<RenderState> render_states;
@@ -238,6 +239,8 @@ struct ComputeState
 
 struct ComputeProgram
 {
+    std::string name;
+    ComputeState state;
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
     DescriptorSet descriptor_set;

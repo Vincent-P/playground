@@ -26,12 +26,8 @@ App::App()
             return;
         }
 
-        logger::info("{} [{}] changed\n", event.name, event.len);
-        std::stringstream shader_name_stream;
-        shader_name_stream << "shaders/" << event.name;
-        std::string shader_name = shader_name_stream.str();
-
-        // this->renderer.reload_shader(shader_name);
+        std::string shader_name = fmt::format("shaders/{}", event.name);
+        this->renderer.reload_shader(shader_name);
     });
 
     is_minimized = false;

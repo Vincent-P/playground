@@ -49,6 +49,7 @@ struct Work
     Option<VkSemaphore> signal_present_semaphore;
 
     void begin();
+    void bind_global_set();
     void end();
 
     // TODO:
@@ -61,6 +62,7 @@ struct Work
     void wait_for_acquired(Surface &surface, VkPipelineStageFlags stage_dst);
     void prepare_present(Surface &surface);
 
+    void barrier(Handle<Buffer> buffer, BufferUsage usage_destination);
     void barrier(Handle<Image> image, ImageUsage usage_destination);
     void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
     void barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::pair<Handle<Buffer>, BufferUsage>> buffers);
@@ -83,16 +85,22 @@ struct ComputeWork : TransferWork
 
     void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
     void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
+    void bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
+    void bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
+    void bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle);
+    void bind_storage_image(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Image> image_handle);
+
+    void push_constant(Handle<GraphicsProgram> program_handle, void *data, usize len);
 };
 
 struct GraphicsWork : ComputeWork
 {
     struct DrawIndexedOptions
     {
-        u32 vertex_count = 0;
-        u32 instance_count = 1;
-        u32 index_offset = 0;
-        i32 vertex_offset = 0;
+        u32 vertex_count    = 0;
+        u32 instance_count  = 1;
+        u32 index_offset    = 0;
+        i32 vertex_offset   = 0;
         u32 instance_offset = 0;
     };
     void draw_indexed(const DrawIndexedOptions &options);

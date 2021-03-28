@@ -14,4 +14,5 @@ using usize = std::size_t;
 using uchar = unsigned char;
 using uint  = unsigned int;
 
-static constexpr u32 u32_invalid = ~0u;
+static constexpr u32 u32_invalid = ~0lu;
+static constexpr u64 u64_invalid = ~0llu;

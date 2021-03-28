@@ -17,6 +17,11 @@ struct ImageDescriptor
     Handle<Image> image_handle;
 };
 
+struct BufferDescriptor
+{
+    Handle<Buffer> buffer_handle;
+};
+
 struct DynamicDescriptor
 {
     Handle<Buffer> buffer_handle;
@@ -29,6 +34,7 @@ struct DescriptorType
     static const u32 Empty         = 0;
     static const u32 SampledImage  = 1;
     static const u32 StorageImage  = 2;
+    static const u32 StorageBuffer = 3;
     static const u32 DynamicBuffer = 4;
 
     union
@@ -47,6 +53,7 @@ struct Descriptor
     union
     {
         ImageDescriptor image;
+        BufferDescriptor buffer;
         DynamicDescriptor dynamic;
 
         // for std::hash
@@ -77,6 +84,7 @@ DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &d
 void destroy_descriptor_set(Device &device, DescriptorSet &set);
 
 void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
+void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle);
 void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle);
 
 VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set);
@@ -90,8 +98,6 @@ namespace std
         std::size_t operator()(vulkan::Descriptor const& descriptor) const noexcept
         {
             usize hash = hash_value(descriptor.raw.one);
-            hash_combine(hash, descriptor.raw.two);
-            hash_combine(hash, descriptor.raw.three);
             return hash;
         }
     };

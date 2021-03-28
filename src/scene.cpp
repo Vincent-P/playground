@@ -308,7 +308,6 @@ void Scene::display_ui(UI::Context &ui)
             {
                 auto handle = models.add(gltf::load_model(file_path.value()));
                 world.create_entity(std::string_view{"Model"}, MeshComponent{handle});
-                logger::info("Opened file: {}\n", file_path.value());
             }
         }
 

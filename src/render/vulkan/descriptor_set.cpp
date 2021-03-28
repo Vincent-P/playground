@@ -52,6 +52,10 @@ DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &d
 
 void destroy_descriptor_set(Device &device, DescriptorSet &set)
 {
+    if (!set.vkhandles.empty())
+    {
+        vkFreeDescriptorSets(device.device, device.descriptor_pool, set.vkhandles.size(), set.vkhandles.data());
+    }
     vkDestroyDescriptorSetLayout(device.device, set.layout, nullptr);
 }
 
@@ -79,6 +83,12 @@ void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
     }
 
     logger::error("Descriptor #{} is not a dynamic buffer.\n", slot);
+}
+
+void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle)
+{
+    assert(set.descriptor_desc[slot].type == DescriptorType::StorageBuffer);
+    set.descriptors[slot].buffer = {buffer_handle};
 }
 
 VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set)
@@ -132,6 +142,19 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
                 });
             writes[slot].pImageInfo = &images_info.back();
         }
+        else if (set.descriptor_desc[slot].type == DescriptorType::StorageImage)
+        {
+            if (!set.descriptors[slot].image.image_handle.is_valid())
+                logger::error("Binding #{} has an invalid image handle.\n", slot);
+
+            auto &image = *device.images.get(set.descriptors[slot].image.image_handle);
+            images_info.push_back({
+                    .sampler = VK_NULL_HANDLE,
+                    .imageView = image.full_view,
+                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                });
+            writes[slot].pImageInfo = &images_info.back();
+        }
         else if (set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer)
         {
             DynamicDescriptor &dynamic_descriptor = set.descriptors[slot].dynamic;
@@ -143,6 +166,20 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
                     .buffer = buffer.vkhandle,
                     .offset = 0,
                     .range = dynamic_descriptor.size,
+                });
+            writes[slot].pBufferInfo = &buffers_info.back();
+        }
+        else if (set.descriptor_desc[slot].type == DescriptorType::StorageBuffer)
+        {
+            BufferDescriptor &buffer_descriptor = set.descriptors[slot].buffer;
+            if (!buffer_descriptor.buffer_handle.is_valid())
+                logger::error("Binding #{} has an invalid buffer handle.\n", slot);
+
+            auto &buffer = *device.buffers.get(buffer_descriptor.buffer_handle);
+            buffers_info.push_back({
+                    .buffer = buffer.vkhandle,
+                    .offset = 0,
+                    .range = buffer.desc.size,
                 });
             writes[slot].pBufferInfo = &buffers_info.back();
         }

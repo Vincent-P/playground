@@ -1,16 +1,24 @@
-#extension GL_EXT_buffer_reference : require
-#extension GL_EXT_nonuniform_qualifier : require
-
 #include "globals.h"
 #include "constants.h"
 
+#if 0
 layout (buffer_reference) buffer HistogramType {
     uint values[];
 };
+#endif
+
+layout (set = 1, binding = 1) buffer HistogramBuffer {
+    uint values[];
+} luminance_buffer;
 
 layout (set = 1, binding = 0) uniform LUM
 {
-    HistogramType luminance_buffer;
+    #if 0
+    HistogramType luminance_buffer_ptr;
+    #else
+    u32 mdr0;
+    u32 mdr1;
+    #endif
     float min_log_luminance;
     float one_over_log_luminance_range;
     uint  sampled_hdr_texture;

@@ -7,17 +7,24 @@ namespace vulkan
 {
 Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 {
+    BufferDescription desc = buffer_desc;
+    if (desc.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT && !this->desc.buffer_device_address)
+    {
+        desc.usage ^= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    }
+
     VkBufferCreateInfo buffer_info = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    buffer_info.usage              = buffer_desc.usage;
-    buffer_info.size               = buffer_desc.size;
+    buffer_info.usage              = desc.usage;
+
+    buffer_info.size               = desc.size;
     buffer_info.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
     buffer_info.queueFamilyIndexCount = 0;
     buffer_info.pQueueFamilyIndices   = nullptr;
 
     VmaAllocationCreateInfo alloc_info{};
-    alloc_info.usage     = buffer_desc.memory_usage;
+    alloc_info.usage     = desc.memory_usage;
     alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-    alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(buffer_desc.name.c_str()));
+    alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(desc.name.c_str()));
 
     VkBuffer vkhandle = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -34,12 +41,12 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
         VkDebugUtilsObjectNameInfoEXT name_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         name_info.objectHandle                  = reinterpret_cast<u64>(vkhandle);
         name_info.objectType                    = VK_OBJECT_TYPE_BUFFER;
-        name_info.pObjectName                   = buffer_desc.name.c_str();
+        name_info.pObjectName                   = desc.name.c_str();
         VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &name_info));
     }
 
     u64  gpu_address = 0;
-    if (buffer_desc.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    if (buffer_info.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
     {
         VkBufferDeviceAddressInfo address_info = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
         address_info.buffer = vkhandle;
@@ -47,7 +54,7 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
     }
 
     return buffers.add({
-            .desc = buffer_desc,
+            .desc = desc,
             .vkhandle = vkhandle,
             .allocation = allocation,
             .gpu_address = gpu_address,
@@ -85,11 +92,20 @@ u64 Device::get_buffer_address(Handle<Buffer> buffer_handle)
 {
     auto &buffer = *buffers.get(buffer_handle);
 
+    if (buffer.desc.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    {
         VkBufferDeviceAddressInfo address_info = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
         address_info.buffer = buffer.vkhandle;
         buffer.gpu_address = vkGetBufferDeviceAddress(device, &address_info);
+    }
 
     return buffer.gpu_address;
+}
+
+usize Device::get_buffer_size(Handle<Buffer> buffer_handle)
+{
+    auto &buffer = *buffers.get(buffer_handle);
+    return buffer.desc.size;
 }
 
 void Device::flush_buffer(Handle<Buffer> buffer_handle)

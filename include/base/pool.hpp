@@ -286,6 +286,8 @@ template <typename T> class Pool
 
         // Pop the free list
         handle_type old_first_free = first_free;
+        old_first_free.gen += 1;
+
         first_free                 = get_handle_internal(old_first_free);
 
         // put the value in
@@ -309,6 +311,8 @@ template <typename T> class Pool
 
         // Pop the free list
         handle_type old_first_free = first_free;
+        old_first_free.gen += 1;
+
         first_free                 = get_handle_internal(old_first_free);
 
         // put the value in

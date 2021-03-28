@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstring>
+#if defined(ENABLE_DOCTEST)
 #include <doctest.h>
+#endif
 #include <iostream>
 
 float dot(const float2 &a, const float2 &b)
@@ -240,6 +242,9 @@ float4x4 operator*(const float4x4 &a, const float4x4 &b)
 
 /// --- Tests
 
+#if defined(ENABLE_DOCTEST)
+namespace test
+{
 TEST_SUITE("Vectors")
 {
     TEST_CASE("operators")
@@ -391,3 +396,5 @@ TEST_SUITE("Matrices")
         CHECK(m.col(3) == float4(4, 8, 12, 16));
     }
 }
+}
+#endif

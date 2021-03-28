@@ -117,6 +117,8 @@ void Surface::create_swapchain(Device &device)
         image_count = capabilities.maxImageCount;
     }
 
+    VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
+
     VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     ci.surface                  = this->surface;
     ci.minImageCount            = image_count;
@@ -124,7 +126,7 @@ void Surface::create_swapchain(Device &device)
     ci.imageColorSpace          = this->format.colorSpace;
     ci.imageExtent              = this->extent;
     ci.imageArrayLayers         = 1;
-    ci.imageUsage               = color_attachment_usage;
+    ci.imageUsage               = image_usage;
     ci.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
     ci.queueFamilyIndexCount = 0;
     ci.pQueueFamilyIndices   = nullptr;
@@ -152,7 +154,7 @@ void Surface::create_swapchain(Device &device)
                 .name   = fmt::format("Swapchain #{}", i_image),
                 .size   = {extent.width, extent.height, 1},
                 .format = format.format,
-                .usages = color_attachment_usage,
+                .usages = image_usage,
             },
             vkimages[i_image]
         );

@@ -18,7 +18,11 @@ void Work::begin()
     binfo.flags                    = 0;
     vkBeginCommandBuffer(command_buffer, &binfo);
 
+    bind_global_set();
+}
 
+void Work::bind_global_set()
+{
     if (queue_type == QueueType::Graphics)
     {
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
@@ -51,6 +55,18 @@ void Work::wait_for_acquired(Surface &surface, VkPipelineStageFlags stage_dst)
 void Work::prepare_present(Surface &surface)
 {
     signal_present_semaphore = surface.can_present_semaphores[surface.current_image];
+}
+
+void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
+{
+    auto &buffer = *device->buffers.get(buffer_handle);
+
+    auto src_access = get_src_buffer_access(buffer.usage);
+    auto dst_access = get_dst_buffer_access(usage_destination);
+    auto b          = get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size);
+    vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 1, &b, 0, nullptr);
+
+    buffer.usage = usage_destination;
 }
 
 void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
@@ -186,13 +202,47 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
 void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
     auto &program = *device->compute_programs.get(program_handle);
+    auto &buffer = *device->buffers.get(buffer_handle);
+    assert(offset + size < buffer.desc.size);
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
 }
 
 void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
     auto &program = *device->graphics_programs.get(program_handle);
+    auto &buffer = *device->buffers.get(buffer_handle);
+    assert(offset + size < buffer.desc.size);
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
+}
+
+void ComputeWork::bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle)
+{
+    auto &program = *device->compute_programs.get(program_handle);
+    ::vulkan::bind_storage_buffer(program.descriptor_set, slot, buffer_handle);
+}
+
+void ComputeWork::bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle)
+{
+    auto &program = *device->graphics_programs.get(program_handle);
+    ::vulkan::bind_storage_buffer(program.descriptor_set, slot, buffer_handle);
+}
+
+void ComputeWork::bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle)
+{
+    auto &program = *device->compute_programs.get(program_handle);
+    ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
+}
+
+void ComputeWork::bind_storage_image(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Image> image_handle)
+{
+    auto &program = *device->graphics_programs.get(program_handle);
+    ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
+}
+
+void ComputeWork::push_constant(Handle<GraphicsProgram> program_handle, void *data, usize len)
+{
+    auto &program = *device->graphics_programs.get(program_handle);
+    vkCmdPushConstants(command_buffer, program.pipeline_layout, VK_SHADER_STAGE_ALL, 0, len, data);
 }
 
 /// --- GraphicsWork
@@ -368,6 +418,21 @@ Fence Device::create_fence(u64 initial_value)
     return fence;
 }
 
+u64 Device::get_fence_value(Fence &fence)
+{
+    VK_CHECK(vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
+    return fence.value;
+}
+
+void Device::set_fence_value(Fence &fence, u64 value)
+{
+    VkSemaphoreSignalInfo signal_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
+    signal_info.semaphore = fence.timeline_semaphore;
+    signal_info.value = value;
+
+    VK_CHECK(vkSignalSemaphore(device, &signal_info));
+}
+
 void Device::destroy_fence(Fence &fence)
 {
     vkDestroySemaphore(device, fence.timeline_semaphore, nullptr);
@@ -457,7 +522,7 @@ bool Device::present(Surface &surface, Work &work)
     return false;
 }
 
-void Device::wait_for(Fence &fence, u64 wait_value)
+void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 {
     // 10 sec in nanoseconds
     u64 timeout = 10llu*1000llu*1000llu*1000llu;
@@ -465,6 +530,25 @@ void Device::wait_for(Fence &fence, u64 wait_value)
     wait_info.semaphoreCount = 1;
     wait_info.pSemaphores = &fence.timeline_semaphore;
     wait_info.pValues = &wait_value;
+    VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
+}
+
+void Device::wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_values)
+{
+    assert(wait_values.size() == fences.size());
+
+    Vec<VkSemaphore> semaphores(fences.size());
+    for (uint i_fence = 0; i_fence < fences.size(); i_fence += 1)
+    {
+        semaphores[i_fence] = fences[i_fence].timeline_semaphore;
+    }
+
+    // 10 sec in nanoseconds
+    u64 timeout = 10llu*1000llu*1000llu*1000llu;
+    VkSemaphoreWaitInfo wait_info = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO };
+    wait_info.semaphoreCount = fences.size();
+    wait_info.pSemaphores = semaphores.data();
+    wait_info.pValues = wait_values.data();
     VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
 }
 

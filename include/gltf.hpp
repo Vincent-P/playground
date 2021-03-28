@@ -118,7 +118,7 @@ inline Option<AccessorType> accessor_type_from_str(const std::string &string)
     return std::nullopt;
 }
 
-struct Primitive
+struct PACKED Primitive
 {
     u32 material;
     u32 first_index;
@@ -130,7 +130,7 @@ struct Primitive
 
     float3 aab_max = float3(-std::numeric_limits<float>::infinity());
     u32 pad00;
-} PACKED;
+};
 
 struct Mesh
 {
@@ -152,7 +152,7 @@ struct Node
     Vec<u32> children;
 };
 
-struct PACKED GltfVertex
+struct PACKED Vertex
 {
     float3 position;
     float pad00;
@@ -178,7 +178,7 @@ struct Model
     Vec<Sampler> samplers;
     Vec<Image> images;
 
-    Vec<GltfVertex> vertices;
+    Vec<Vertex>vertices;
     Vec<u32> indices;
 
     Vec<u32> nodes_preorder;

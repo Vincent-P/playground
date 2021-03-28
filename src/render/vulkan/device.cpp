@@ -14,10 +14,12 @@
 namespace vulkan
 {
 
-Device Device::create(const Context &context, const PhysicalDevice &physical_device)
+Device Device::create(const Context &context, const DeviceDescription &desc)
 {
     Device device = {};
-    device.physical_device = physical_device;
+    device.desc = desc;
+    device.physical_device = *desc.physical_device;
+    device.push_constant_layout = desc.push_constant_layout;
 
     // Features warnings!
     if (!device.physical_device.vulkan12_features.timelineSemaphore)
@@ -29,6 +31,14 @@ Device Device::create(const Context &context, const PhysicalDevice &physical_dev
     {
         logger::error("This device does not support buffer device address from Vulkan 1.2");
     }
+
+    if (desc.buffer_device_address == false && device.physical_device.vulkan12_features.bufferDeviceAddress == VK_TRUE)
+    {
+        device.physical_device.vulkan12_features.bufferDeviceAddress = VK_FALSE;
+    }
+
+    device.physical_device.vulkan12_features.bufferDeviceAddressCaptureReplay = VK_FALSE;
+    device.physical_device.vulkan12_features.bufferDeviceAddressMultiDevice   = VK_FALSE;
 
 #define X(name) device.name = context.name
     X(vkCreateDebugUtilsMessengerEXT);
@@ -132,23 +142,27 @@ Device Device::create(const Context &context, const PhysicalDevice &physical_dev
     allocator_info.physicalDevice         = device.physical_device.vkdevice;
     allocator_info.device                 = device.device;
     allocator_info.instance               = context.instance;
-    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+    if (desc.buffer_device_address)
+    {
+        allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    }
     VK_CHECK(vmaCreateAllocator(&allocator_info, &device.allocator));
 
     /// --- Descriptor sets pool
     {
     std::array pool_sizes{
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 16},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 16},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 16},
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         .descriptorCount = 16},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 128},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 128},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 128},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         .descriptorCount = 128},
     };
 
     VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    pool_info.flags                      = 0;
+    pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.poolSizeCount              = pool_sizes.size();
     pool_info.pPoolSizes                 = pool_sizes.data();
-    pool_info.maxSets                    = 16;
+    pool_info.maxSets                    = 128;
 
     VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.descriptor_pool));
     }
@@ -217,12 +231,18 @@ Device Device::create(const Context &context, const PhysicalDevice &physical_dev
 
         VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_set.vklayout));
 
+        VkPushConstantRange push_constant_range;
+        push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
+        push_constant_range.offset     = 0;
+        push_constant_range.size       = device.push_constant_layout.size;
+
         VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-        pipeline_layout_info.setLayoutCount = 1;
-        pipeline_layout_info.pSetLayouts    = &device.global_set.vklayout;
+        pipeline_layout_info.setLayoutCount             = 1;
+        pipeline_layout_info.pSetLayouts                = &device.global_set.vklayout;
+        pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
+        pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
 
         VK_CHECK(vkCreatePipelineLayout(device.device, &pipeline_layout_info, nullptr, &device.global_set.vkpipelinelayout));
-
 
         VkDescriptorSetAllocateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
         set_info.descriptorPool              = device.global_set.vkpool;
@@ -283,6 +303,13 @@ void Device::destroy(const Context &context)
 
 /// --- Global descriptor set
 
+void Device::bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range)
+{
+    global_set.pending_buffer = buffer_handle;
+    global_set.pending_offset = offset;
+    global_set.pending_range = range;
+}
+
 void Device::bind_global_storage_image(u32 index, Handle<Image> image_handle)
 {
     global_set.storage_images[index] = image_handle;
@@ -303,7 +330,8 @@ void Device::bind_global_sampled_image(u32 index, Handle<Image> image_handle)
 
 void Device::update_globals()
 {
-    Vec<VkWriteDescriptorSet> writes(global_set.pending_images.size());
+    Vec<VkWriteDescriptorSet> writes;
+    writes.reserve(global_set.pending_images.size() + 1);
 
     // writes' elements contain pointers to these buffers, so they have to be allocated with the right size
     Vec<VkDescriptorImageInfo> images_info;
@@ -311,12 +339,14 @@ void Device::update_globals()
 
     for (uint i_pending = 0; i_pending < global_set.pending_images.size(); i_pending++)
     {
-        writes[i_pending]                  = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        writes[i_pending].dstSet           = global_set.vkset;
-        writes[i_pending].dstBinding       = global_set.pending_binding[i_pending];
-        writes[i_pending].dstArrayElement  = global_set.pending_indices[i_pending];
-        writes[i_pending].descriptorCount  = 1;
-        writes[i_pending].descriptorType   = writes[i_pending].dstBinding == 1 ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        writes.emplace_back();
+        auto &write = writes.back();
+        write                  = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstSet           = global_set.vkset;
+        write.dstBinding       = global_set.pending_binding[i_pending];
+        write.dstArrayElement  = global_set.pending_indices[i_pending];
+        write.descriptorCount  = 1;
+        write.descriptorType   = writes[i_pending].dstBinding == 1 ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
         auto &image = *images.get(global_set.pending_images[i_pending]);
         images_info.push_back({
@@ -324,10 +354,38 @@ void Device::update_globals()
                 .imageView = image.full_view,
                 .imageLayout = writes[i_pending].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL,
             });
-        writes[i_pending].pImageInfo = &images_info.back();
+        write.pImageInfo = &images_info.back();
+    }
+
+    VkDescriptorBufferInfo buffer_info;
+    buffer_info.range  = global_set.pending_range;
+    buffer_info.offset = global_set.pending_offset;
+
+    if (auto *pending_buffer = buffers.get(global_set.pending_buffer))
+    {
+        buffer_info.buffer = pending_buffer->vkhandle;
+    }
+
+    if (global_set.dynamic_buffer != global_set.pending_buffer || global_set.dynamic_range != global_set.pending_range)
+    {
+        global_set.dynamic_buffer = global_set.pending_buffer;
+        global_set.dynamic_offset = global_set.pending_offset;
+        global_set.dynamic_range  = global_set.pending_range;
+
+        writes.push_back({
+            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet          = global_set.vkset,
+            .dstBinding      = 0,
+            .descriptorCount = 1,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+            .pBufferInfo     = &buffer_info,
+        });
     }
 
     vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, nullptr);
+    global_set.pending_images.clear();
+    global_set.pending_indices.clear();
+    global_set.pending_binding.clear();
 }
 
 }

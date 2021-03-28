@@ -1,6 +1,4 @@
 #pragma shader_stage(compute)
-#extension GL_EXT_nonuniform_qualifier : require
-
 #include "types.h"
 #include "constants.h"
 #include "globals.h"
@@ -9,10 +7,11 @@ layout(set = 1, binding = 0) uniform Options {
     uint sampled_hdr_buffer;
     uint sampled_luminance_output;
     uint storage_output_frame;
-
     uint selected;
     float exposure;
 };
+
+layout(set = 1, binding = 1, rgba8) uniform image2D output_frame;
 
 const float3x3 ACESInputMat =
 {
@@ -59,7 +58,7 @@ void main()
     uint3 group_idx  = gl_WorkGroupID;
 
     int2 pixel_pos = int2(global_idx.xy);
-    int2 output_size = imageSize(global_images_rgba8[storage_output_frame]);
+    int2 output_size = imageSize(output_frame);
 
     if (any(greaterThan(pixel_pos, output_size)))
     {
@@ -103,5 +102,5 @@ void main()
 
     float4 output_color = vec4(ldr, 1.0);
 
-    imageStore(global_images_rgba8[storage_output_frame], pixel_pos, output_color);
+    imageStore(output_frame, pixel_pos, output_color);
 }
