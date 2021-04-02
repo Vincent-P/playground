@@ -54,6 +54,7 @@ enum class Wrap
 struct Material
 {
     float4 base_color_factor       = float4(1.0f);
+    float4 emissive_factor         = float4(0.0f);
     float metallic_factor          = 1.0f;
     float roughness_factor         = 1.0f;
     u32 base_color_texture         = u32_invalid;

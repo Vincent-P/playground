@@ -48,7 +48,7 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
                 .samples = render_attachments.depth->samples,
                 .loadOp = render_attachments.depth->load_op,
                 .storeOp = render_attachments.depth->store_op,
-                .initialLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                .initialLayout = render_attachments.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                 .finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
             });
     }

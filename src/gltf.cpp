@@ -151,9 +151,19 @@ Model load_model(fs::path path)
         }
     }
 
+    if (json_has(doc, "materials"))
+    {
     for (const auto &json_material : doc["materials"])
     {
         Material material{};
+
+        if (json_material["emissiveFactor"].error() == simdjson::SUCCESS)
+        {
+            auto emissive_factor      = json_material["emissiveFactor"];
+            material.emissive_factor.r = emissive_factor.at(0).get_double();
+            material.emissive_factor.g = emissive_factor.at(1).get_double();
+            material.emissive_factor.b = emissive_factor.at(2).get_double();
+        }
 
         if (json_material["pbrMetallicRoughness"].error() == simdjson::SUCCESS)
         {
@@ -201,6 +211,7 @@ Model load_model(fs::path path)
         }
 
         model.materials.push_back(material);
+    }
     }
     // fallback material
     model.materials.emplace_back();
@@ -316,7 +327,7 @@ Model load_model(fs::path path)
                     auto *indices = reinterpret_cast<u16 *>(&buffer.data[offset]);
                     for (u32 i = 0; i < count; i++)
                     {
-                        model.indices.push_back(indices[i]);
+                        model.indices.push_back(primitive.first_vertex + indices[i]);
                     }
                 }
                 else if (component_type == ComponentType::UnsignedByte)
@@ -324,7 +335,7 @@ Model load_model(fs::path path)
                     auto *indices = reinterpret_cast<u8 *>(&buffer.data[offset]);
                     for (u32 i = 0; i < count; i++)
                     {
-                        model.indices.push_back(indices[i]);
+                        model.indices.push_back(primitive.first_vertex + indices[i]);
                     }
                 }
                 else if (component_type == ComponentType::UnsignedInt)
@@ -332,7 +343,7 @@ Model load_model(fs::path path)
                     auto *indices = reinterpret_cast<u32 *>(&buffer.data[offset]);
                     for (u32 i = 0; i < count; i++)
                     {
-                        model.indices.push_back(indices[i]);
+                        model.indices.push_back(primitive.first_vertex + indices[i]);
                     }
                 }
                 else

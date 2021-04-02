@@ -16,3 +16,14 @@ struct TransformComponent
         ImGui::SliderFloat3("Position", position.data(), 0.0f, 1000.f);
     }
 };
+
+struct LocalToWorldComponent
+{
+    float4x4 transform;
+
+    static const char *type_name() { return "LocalToWorldComponent"; }
+
+    inline void display_ui()
+    {
+    }
+};

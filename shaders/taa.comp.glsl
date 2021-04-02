@@ -81,118 +81,15 @@ void main()
 
     int2 pixel_pos = int2(global_idx.xy);
 
-
-
-    /// --- Reproject: current frame to get the previous frame
-
-    #if 0
-    float depth  = texelFetch(global_textures[sampled_depth_buffer], pixel_pos, LOD0).r;
-    float2 uv = float2(pixel_pos) / globals.resolution;
-    float3 clip_space = float3(2.0 * uv - float2(1.0), max(depth, 0.00001));
-    // unproject with current camera to get world pos
-    float4x4 current_inv_proj = get_jittered_inv_projection(globals.camera_projection_inverse, global.jitter_offset);
-    float4 world_pos = global.camera_inv_view * current_inv_proj * float4(clip_space, 1.0);
-    world_pos /= world_pos.w;
-
-    // project with previous camera settings
-    float4x4 previous_proj = global.camera_previous_proj;
-    // previous_proj = get_jittered_projection(global.camera_proj, global.previous_jitter_offset);
-    float4 previous_history_clip = previous_proj * global.camera_view * world_pos;
-    previous_history_clip /= previous_history_clip.w;
-    float2 previous_history_uv = 0.5 * previous_history_clip.xy + 0.5;
-
-    const float4 DEFAULT_COLOR = float4(0, 0, 0, 1);
-    float4 history_color = DEFAULT_COLOR;
-    if (0.0 < previous_history_uv.x && previous_history_uv.x < 1.0
-        && 0.0 < previous_history_uv.y && previous_history_uv.y < 1.0)
-    {
-        history_color = max(texture(global_textures[sampled_previous_history], previous_history_uv), DEFAULT_COLOR);
-    }
-    #endif
     float4 history_color = texelFetch(global_textures[sampled_previous_history], pixel_pos, LOD0);
+    float4 color = texelFetch(global_textures[sampled_hdr_buffer], pixel_pos, LOD0);
 
-
-    /// --- Min Max: average of a 3x3 box and 5 taps cross
-
-    float4 neighbour_box[9] =
-    {
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[0]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[1]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[2]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[3]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[4]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[5]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[6]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[7]),
-        texelFetchOffset(global_textures[sampled_hdr_buffer], pixel_pos, LOD0, three_square_offsets[8])
-    };
-
-    float4 color = neighbour_box[4];
-
-    float4 neighbour_cross[5] =
-    {
-        neighbour_box[1],
-        neighbour_box[3],
-        neighbour_box[4],
-        neighbour_box[5],
-        neighbour_box[7]
-    };
-
-    float4 cross_max = neighbour_cross[0];
-    float4 cross_min = neighbour_cross[0];
-    for (uint i = 1; i < 5; i++)
-    {
-        cross_min = min(cross_min, neighbour_cross[i]);
-        cross_max = max(cross_max, neighbour_cross[i]);
-    }
-
-    float4 box_min = min(cross_min, neighbour_box[0]);
-    box_min = min(box_min, neighbour_box[2]);
-    box_min = min(box_min, neighbour_box[6]);
-    box_min = min(box_min, neighbour_box[8]);
-
-    float4 box_max = max(cross_max, neighbour_box[0]);
-    box_max = max(box_max, neighbour_box[2]);
-    box_max = max(box_max, neighbour_box[6]);
-    box_max = max(box_max, neighbour_box[8]);
-
-    float4 neighbour_min = (box_min + cross_min) * 0.5;
-    float4 neighbour_max = (box_max + cross_max) * 0.5;
-
-
-
-    /// --- Constrain history to avoid ghosting
-
-    #if 0
-    // clip the history color in YCoCg space
-    history_color = clip_aabb(rgb_to_ycocg(neighbour_min.rgb),
-                              rgb_to_ycocg(neighbour_max.rgb),
-                              float4(rgb_to_ycocg(color.rgb), 1.0),
-                              float4(rgb_to_ycocg(history_color.rgb), 1.0));
-    history_color.rgb = ycocg_to_rgb(history_color.rgb);
-    #elif 0
-    // clip the history color in RGB space
-    history_color = clip_aabb(neighbour_min.rgb,
-                              neighbour_max.rgb,
-                              color,
-                              history_color);
-    #else
+    // avoid nan
     history_color = clamp(history_color, 0.0, 1000000000000000000.0);
-    #endif
 
 
+    float blend_weight = globals.camera_moved != 0 ? 1.0 : 1.0f / (1.0f + (1.0f / history_color.a));
+    float3 final_color = mix(history_color.rgb, color.rgb, blend_weight);
 
-    /// --- Unjitter current frame color
-
-
-
-
-    /// --- Weigh the history and the current frame to the new history
-
-    float4 final_color = color;
-
-    float blend_weight = 0.01;
-    final_color = mix(history_color, color, blend_weight);
-
-    imageStore(output_frame, pixel_pos, final_color);
+    imageStore(output_frame, pixel_pos, float4(final_color, blend_weight));
 }

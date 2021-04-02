@@ -46,6 +46,8 @@ spirv_reflect = library('spirv_reflect', 'third_party/SPIRV-Reflect/spirv_reflec
 # - vk mem alloc
 vk_mem_alloc = library('vk_mem_alloc', 'third_party/vk_mem_alloc.cc', dependencies: [vulkan_dep], link_args: ld_flags)
 
+stb_image = library('stb_image', 'third_party/stb_image.cc', link_args: ld_flags)
+
 # - {fmt}
 fmt_inc = include_directories('third_party/fmt/include')
 fmt_src = files([
@@ -62,8 +64,8 @@ shaders = files([
   'shaders/tonemap.comp.glsl',
   'shaders/average_luminance_histo.comp',
   'shaders/build_luminance_histo.comp',
-  # 'shaders/opaque.vert',
-  # 'shaders/opaque.frag',
+  'shaders/opaque.vert',
+  'shaders/opaque.frag',
   'shaders/path_tracer.comp.glsl',
   'shaders/taa.comp.glsl',
   # 'shaders/checkerboard_floor.frag',
@@ -137,7 +139,10 @@ main_src = [
 
   'src/platform/file_watcher.cpp',
 
+  'src/render/bvh.cpp',
   'src/render/renderer.cpp',
+  'src/render/streaming_buffer.cpp',
+
   'src/render/vulkan/context.cpp',
   'src/render/vulkan/commands.cpp',
   'src/render/vulkan/descriptor_set.cpp',
@@ -223,7 +228,7 @@ endif
 executable('test-vulkan', main_src,
   include_directories: [main_inc, thirdparty_inc],
   dependencies: main_deps,
-  link_with: [imgui, spirv_reflect, simdjson, vk_mem_alloc],
+  link_with: [imgui, spirv_reflect, simdjson, vk_mem_alloc, stb_image],
   override_options : ['cpp_std=' + cpp_std, 'warning_level=2', 'werror=true', ],
   cpp_args: cpp_args,
   link_args: ld_flags + main_ld_flags,

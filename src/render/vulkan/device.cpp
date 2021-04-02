@@ -321,6 +321,10 @@ void Device::bind_global_storage_image(u32 index, Handle<Image> image_handle)
 
 void Device::bind_global_sampled_image(u32 index, Handle<Image> image_handle)
 {
+    if (global_set.sampled_images[index] == image_handle) {
+        return;
+    }
+
     global_set.sampled_images[index] = image_handle;
 
     global_set.pending_images.push_back(image_handle);

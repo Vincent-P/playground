@@ -3,16 +3,19 @@
 
 #include <imgui/imgui.h>
 
-namespace gltf {struct Model;}
+struct Mesh;
+struct Material;
 
-struct MeshComponent
+struct RenderMeshComponent
 {
-    Handle<gltf::Model> model_handle;
+    Handle<Mesh> mesh_handle;
+    u32 i_material;
 
-    static const char *type_name() { return "MeshComponent"; }
+    static const char *type_name() { return "RenderMeshComponent"; }
 
     inline void display_ui()
     {
-        ImGui::Text("Model index: %u", model_handle.value());
+        ImGui::Text("Mesh index: %u", mesh_handle.value());
+        ImGui::Text("Material index: %u", i_material);
     }
 };

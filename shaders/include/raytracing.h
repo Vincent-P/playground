@@ -18,6 +18,13 @@ struct Sphere
     float radius;
 };
 
+struct Triangle
+{
+    vec3 v0;
+    vec3 e0;
+    vec3 e1;
+};
+
 struct Ray
 {
     float3 origin;
@@ -28,7 +35,7 @@ struct Ray
 // -- Intersection functions
 
 // vec3 box.radius:       independent half-length along the X, Y, and Z axes
-bool ourIntersectBoxCommon(Box box, Ray ray, out float distance, out float3 normal, in float3 _invRayDirection) {
+bool ray_box_intersection(Box box, Ray ray, out float distance, out float3 normal, in float3 _invRayDirection) {
 
     // Move to the box's reference frame. This is unavoidable and un-optimizable.
     ray.origin = (ray.origin - box.center);
@@ -118,16 +125,17 @@ bool ray_sphere_nearest_intersection(Ray ray, Sphere sphere, out float d, out fl
     return true;
 }
 
-
-float3 random_unit_vector(inout uint rng_seed)
+vec3 triangle_intersection(Ray ray, Triangle tri, out float o_d)
 {
-    float z = random_float_01(rng_seed) * 2.0 - 1.0;
-    float a = random_float_01(rng_seed) * 2.0 * PI;
-    float r = sqrt(1.0f - z * z);
-    float x = r * cos(a);
-    float y = r * sin(a);
-    return float3(x, y, z);
+    vec3 rov0 = ray.origin - tri.v0;
+    vec3  n = cross( tri.e0, tri.e1 );
+    vec3  q = cross( rov0, ray.direction );
+    float d = 1.0/dot( ray.direction, n );
+    float u = d*dot( -q, tri.e1 );
+    float v = d*dot(  q, tri.e0 );
+    o_d = d*dot( -n, rov0 );
+    if( u<0.0 || u>1.0 || v<0.0 || (u+v)>1.0 ) o_d = -1.0;
+    return vec3( 1.0 - u - v, u, v );
 }
-
 
 #endif

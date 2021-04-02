@@ -280,6 +280,100 @@ void Scene::update(const Inputs &inputs)
     });
 }
 
+void Scene::import_model(Handle<gltf::Model> model_handle)
+{
+    const auto &model = *models.get(model_handle);
+    usize images_offset = images.size();
+    images.reserve(model.images.size());
+
+    for (usize i_image = 0; i_image < model.images.size(); i_image += 1)
+    {
+        images.push_back({
+                .data = model.images[i_image].data,
+                .srgb = model.images[i_image].srgb
+            });
+    }
+
+    for (usize i_node = 0; i_node < model.nodes.size(); i_node += 1)
+    {
+        const auto &node = model.nodes[i_node];
+        if (!node.mesh) {
+            continue;
+        }
+
+        auto transform = model.cached_transforms[i_node];
+
+        for (auto i_primitive : model.meshes[*node.mesh].primitives)
+        {
+            const auto &primitive = model.primitives[i_primitive];
+            const auto &material = model.materials[primitive.material];
+
+            Material new_mat                   = {};
+            new_mat.base_color_factor          = material.base_color_factor;
+            new_mat.emissive_factor            = material.emissive_factor;
+            new_mat.metallic_factor            = material.metallic_factor;
+            new_mat.roughness_factor           = material.roughness_factor;
+            new_mat.base_color_texture         = images_offset + material.base_color_texture;
+            new_mat.normal_texture             = images_offset + material.normal_texture;
+            new_mat.metallic_roughness_texture = images_offset + material.metallic_roughness_texture;
+
+            u32 i_material = 0;
+            for (; i_material < materials.size(); i_material += 1) {
+                if (materials[i_material] == new_mat) {
+                    break;
+                }
+            }
+
+            if (i_material >= materials.size())
+            {
+                i_material = materials.size();
+                materials.push_back(new_mat);
+            }
+
+            Mesh new_mesh = {};
+            assert(primitive.mode == gltf::RenderingMode::Triangles);
+            new_mesh.topology = vulkan::PrimitiveTopology::TriangleList;
+
+            new_mesh.vertex_offset = vertices.size();
+            new_mesh.index_offset = indices.size();
+
+            new_mesh.index_count = primitive.index_count;
+
+            // get unique indices
+            std::unordered_map<u32, u32> primitive_indices;
+            for (usize i_index = primitive.first_index; i_index < primitive.first_index + primitive.index_count; i_index += 1)
+            {
+                primitive_indices[model.indices[i_index]] = 0;
+            }
+
+            // copy over each unique vertex and map the old indices to the global vertex array
+            new_mesh.vertex_count = primitive_indices.size();
+            vertices.reserve(new_mesh.vertex_count);
+            for (auto &[old_index, new_index] : primitive_indices)
+            {
+                const auto &vertex = model.vertices[old_index];
+                primitive_indices[old_index] = vertices.size();
+                vertices.push_back({
+                        .position = vertex.position,
+                        .normal = vertex.normal,
+                        .uv0    = vertex.uv0,
+                        .color0 = vertex.color0,
+                    });
+            }
+
+            // add each index pointing to the global vertex array
+            for (usize i_index = primitive.first_index; i_index < primitive.first_index + primitive.index_count; i_index += 1)
+            {
+                indices.push_back(primitive_indices[model.indices[i_index]]);
+            }
+
+            auto mesh_handle = meshes.add(new_mesh);
+
+            world.create_entity(std::string_view{"Mesh"}, LocalToWorldComponent{transform}, RenderMeshComponent{mesh_handle, i_material});
+        }
+    }
+}
+
 void Scene::display_ui(UI::Context &ui)
 {
     draw_gizmo(world, main_camera);
@@ -307,7 +401,7 @@ void Scene::display_ui(UI::Context &ui)
             if (file_path)
             {
                 auto handle = models.add(gltf::load_model(file_path.value()));
-                world.create_entity(std::string_view{"Model"}, MeshComponent{handle});
+                import_model(handle);
             }
         }
 
@@ -347,7 +441,7 @@ void Scene::display_ui(UI::Context &ui)
             display_component.template operator()<CameraComponent>(world, *selected_entity);
             display_component.template operator()<InputCameraComponent>(world, *selected_entity);
             display_component.template operator()<SkyAtmosphereComponent>(world, *selected_entity);
-            display_component.template operator()<MeshComponent>(world, *selected_entity);
+            display_component.template operator()<RenderMeshComponent>(world, *selected_entity);
         }
         ui.end_window();
     }

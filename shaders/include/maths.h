@@ -44,4 +44,15 @@ float random_float_01(inout uint seed)
 {
     return float(wang_hash(seed)) / 4294967296.0;
 }
+
+float3 random_unit_vector(inout uint rng_seed)
+{
+    float z = random_float_01(rng_seed) * 2.0 - 1.0;
+    float a = random_float_01(rng_seed) * 2.0 * PI;
+    float r = sqrt(1.0f - z * z);
+    float x = r * cos(a);
+    float y = r * sin(a);
+    return float3(x, y, z);
+}
+
 #endif

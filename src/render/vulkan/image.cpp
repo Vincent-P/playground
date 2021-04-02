@@ -25,7 +25,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     image_info.tiling                = VK_IMAGE_TILING_OPTIMAL;
 
     VkImageSubresourceRange full_range = {};
-    full_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    full_range.aspectMask     = is_depth_format(image_desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     full_range.baseMipLevel   = 0;
     full_range.levelCount     = image_info.mipLevels;
     full_range.baseArrayLayer = 0;

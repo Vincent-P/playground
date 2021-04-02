@@ -401,6 +401,8 @@ template <typename T> class Pool
         return data_size;
     }
 
+    inline const void *data_ptr() const { return data.data(); }
+
   private:
     handle_type first_free; // free list head ptr
     Vec<element_type> data;

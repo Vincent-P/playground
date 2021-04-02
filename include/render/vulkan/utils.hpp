@@ -446,7 +446,7 @@ inline VkPrimitiveTopology to_vk(PrimitiveTopology topology)
 }
 
 
-static inline VkDescriptorType to_vk(DescriptorType type)
+inline VkDescriptorType to_vk(DescriptorType type)
 {
     switch(type.type)
     {
@@ -458,4 +458,10 @@ static inline VkDescriptorType to_vk(DescriptorType type)
     assert(false);
     return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 }
+
+inline bool is_depth_format(VkFormat format)
+{
+    return format == VK_FORMAT_D32_SFLOAT;
+}
+
 }

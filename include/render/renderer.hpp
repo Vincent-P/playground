@@ -8,22 +8,24 @@
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
+#include "render/streaming_buffer.hpp"
+#include "render/bvh.hpp"
+
 namespace gfx = vulkan;
 
 inline constexpr uint FRAME_QUEUE_LENGTH = 1;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
+struct Mesh;
+struct Material;
 
-struct RenderMesh
+struct PACKED RenderMeshData
 {
-    Handle<gltf::Model> model_handle;
-    Handle<gfx::Buffer> cached_transforms;
-    Vec<Handle<gfx::Image>> images;
-    u32 vertices_offset;
-    u32 indices_offset;
-    u32 primitives_offset;
-    u32 images_offset;
+    float4x4 transform;
+    Handle<Mesh> mesh_handle;
+    u32      i_material;
+    u32 texture_offset = 0;
 };
 
 class Scene;
@@ -88,12 +90,25 @@ struct PACKED GlobalUniform
     float2   resolution;
     float delta_t;
     u32 frame_count;
+    u32 camera_moved;
 };
 
 struct PACKED PushConstants
 {
     u32 draw_idx;
 };
+
+struct StbImage
+{
+    int width       = 0;
+    int height      = 0;
+    u8 *pixels      = nullptr;
+    Handle<gfx::Buffer> staging_buffer;
+    Handle<gfx::Image> gpu_image;
+    int nb_comp     = 0;
+    VkFormat format = VK_FORMAT_UNDEFINED;
+};
+
 
 struct Renderer
 {
@@ -113,10 +128,13 @@ struct Renderer
     usize dynamic_buffer_last_frame_size = 0;
     Handle<gfx::Image> empty_sampled_image;
     Handle<gfx::Image> empty_storage_image;
+    Vec<Handle<gfx::Image>> render_textures;
+    Vec<StbImage> upload_images;
 
     // User renderer
     GlobalUniform global_uniform;
     Handle<gfx::Buffer> global_uniform_buffer;
+    Handle<gfx::Image> depth_buffer;
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;
     RenderTargets swapchain_rt;
@@ -126,23 +144,20 @@ struct Renderer
     ImGuiPass imgui_pass;
     TonemapPass tonemap_pass;
 
-    uint vertex_capacity;              // max vertex count on the pool
-    u32 vertex_transfer = u32_invalid; // if valid, start of the vertex that needs to be uploaded
-    uint vertex_current;               // current end of the pool
-    Handle<gfx::Buffer> vertex_buffer;
-    Handle<gfx::Buffer> vertex_buffer_staging;
+    StreamingBuffer vertex_buffer;
+    StreamingBuffer index_buffer;
+    Handle<gfx::Buffer> material_buffer;
+    Handle<gfx::Buffer> material_buffer_staging;
+    u32 material_transfer = u32_invalid;
 
-    uint index_capacity;
-    u32 index_transfer = u32_invalid;
-    uint index_current;
-    Handle<gfx::Buffer> index_buffer;
-    Handle<gfx::Buffer> index_buffer_staging;
-
-    uint primitive_capacity;
-    u32 primitive_transfer = u32_invalid;
-    uint primitive_current;
-    Handle<gfx::Buffer> primitive_buffer;
-    Handle<gfx::Buffer> primitive_buffer_staging;
+    BVH bvh;
+    Handle<gfx::Buffer> bvh_nodes_buffer;
+    Handle<gfx::Buffer> bvh_nodes_buffer_staging;
+    Handle<gfx::Buffer> bvh_faces_buffer;
+    Handle<gfx::Buffer> bvh_faces_buffer_staging;
+    Handle<gfx::Buffer> render_meshes_buffer;
+    Handle<gfx::Buffer> render_meshes_buffer_staging;
+    u32 bvh_transfer = u32_invalid;
 
     u64 geometry_transfer_done_value = u64_invalid;
 
@@ -151,7 +166,8 @@ struct Renderer
     Handle<gfx::ComputeProgram> taa;
     Handle<gfx::Image> history_buffers[2];
     u32 current_history = 0;
-    Vec<RenderMesh> render_meshes;
+    Vec<RenderMeshData> render_mesh_data;
+    bool render_mesh_data_dirty = false;
 
     /// ---
 
@@ -174,8 +190,6 @@ struct Renderer
     void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
     template<typename T> T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
     template<typename T> T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
-
-
 
     void reload_shader(std::string_view shader_name);
     void on_resize();

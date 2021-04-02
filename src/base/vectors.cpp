@@ -81,6 +81,9 @@ float float2::norm() const { return std::sqrt(squared_norm()); }
 float float3::norm() const { return std::sqrt(squared_norm()); }
 float float4::norm() const { return std::sqrt(squared_norm()); }
 
+u32 float2::max_comp() const { return x > y ? 0 : 1; };
+u32 float3::max_comp() const { return x > y ? (x > z ? 0 : 2) : (y > z ? 1 : 2); };
+
 bool operator==(const float2 &a, const float2 &b)  { return a.x == b.x && a.y == b.y; }
 float2 operator+(const float2 &a, const float2 &b) { return {a.x + b.x, a.y + b.y}; }
 float2 operator-(const float2 &a, const float2 &b) { return {a.x - b.x, a.y - b.y}; }

@@ -21,6 +21,7 @@ struct float2
     float squared_norm() const;
     float norm() const;
     inline float *data() { return raw; }
+    u32 max_comp() const;
 
     union
     {
@@ -59,6 +60,7 @@ struct float3
     float squared_norm() const;
     float norm() const;
     inline float *data() { return raw; }
+    u32 max_comp() const;
 
     union
     {
