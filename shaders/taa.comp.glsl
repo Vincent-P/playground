@@ -5,7 +5,7 @@
 #include "globals.h"
 #include "maths.h"
 
-layout (set = 1, binding = 1, rgba16f) uniform image2D output_frame;
+layout (set = 1, binding = 1, rgba32f) uniform image2D output_frame;
 
 layout(set = 1, binding = 0) uniform Options {
     uint sampled_depth_buffer;
@@ -89,6 +89,7 @@ void main()
 
 
     float blend_weight = globals.camera_moved != 0 ? 1.0 : 1.0f / (1.0f + (1.0f / history_color.a));
+
     float3 final_color = mix(history_color.rgb, color.rgb, blend_weight);
 
     imageStore(output_frame, pixel_pos, float4(final_color, blend_weight));

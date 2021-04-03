@@ -99,15 +99,15 @@ Renderer Renderer::create(const platform::Window &window)
 
     renderer.settings.resolution_dirty = true;
     renderer.settings.render_resolution = {surface.extent.width, surface.extent.height};
-    renderer.hdr_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R16G16B16A16_SFLOAT}}});
+    renderer.hdr_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT}}});
 
     renderer.hdr_rt.load_renderpass  = device.find_or_create_renderpass({
-            .colors = {{.format = VK_FORMAT_R16G16B16A16_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
+            .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
             .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
         });
 
     renderer.hdr_rt.clear_renderpass  = device.find_or_create_renderpass({
-            .colors = {{.format = VK_FORMAT_R16G16B16A16_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
+            .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
             .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}}
         });
     renderer.ldr_rt.load_renderpass  = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R8G8B8A8_UNORM, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}});
@@ -709,7 +709,7 @@ void Renderer::update(Scene &scene)
         hdr_rt.image = device.create_image({
             .name = "HDR buffer",
             .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
             .usages = gfx::color_attachment_usage,
             });
         hdr_rt.depth = depth_buffer;
@@ -720,7 +720,7 @@ void Renderer::update(Scene &scene)
             history_buffers[i_history] = device.create_image({
                 .name = fmt::format("History buffer #{}", i_history),
                 .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-                .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
                 .usages = gfx::storage_image_usage,
             });
         }
@@ -729,7 +729,7 @@ void Renderer::update(Scene &scene)
         hdr_rt.framebuffer = device.create_framebuffer({
                 .width = settings.render_resolution.x,
                 .height = settings.render_resolution.y,
-                .attachments_format = {VK_FORMAT_R16G16B16A16_SFLOAT},
+                .attachments_format = {VK_FORMAT_R32G32B32A32_SFLOAT},
                 .depth_format = VK_FORMAT_D32_SFLOAT,
             });
 

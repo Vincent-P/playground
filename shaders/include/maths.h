@@ -1,5 +1,10 @@
+// -*- mode: glsl; -*-
+
 #ifndef MATHS_H
 #define MATHS_H
+
+#include "types.h"
+#include "constants.h"
 
 float max2(vec2 values) {
     return max(values.x, values.y);
@@ -24,6 +29,26 @@ float min3(vec3 values) {
 float min4(vec4 values) {
     return min(min(values.x, values.y), min(values.z, values.w));
 }
+
+float safe_dot(float3 a, float3 b)
+{
+    return max(dot(a, b), 0.0);
+}
+
+void make_orthogonal_coordinate_system(float3 v1, out float3 v2, out float3 v3)
+{
+    if (abs(v1.x) > abs(v1.y))
+    {
+        v2 = float3(-v1.z, 0, v1.x) * (1.0 / sqrt(v1.x * v1.x + v1.z * v1.z));
+    }
+    else
+    {
+        v2 = float3(0, v1.z, -v1.y) * (1.0 / sqrt(v1.y * v1.y + v1.z * v1.z));
+    }
+    v3 = cross(v1, v2);
+}
+
+// RNG
 
 uint init_seed(uint2 pixel_pos, uint frame_count)
 {
