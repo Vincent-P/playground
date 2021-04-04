@@ -442,6 +442,19 @@ void Scene::display_ui(UI::Context &ui)
             display_component.template operator()<InputCameraComponent>(world, *selected_entity);
             display_component.template operator()<SkyAtmosphereComponent>(world, *selected_entity);
             display_component.template operator()<RenderMeshComponent>(world, *selected_entity);
+
+            {
+            auto *component = world.get_component<LocalToWorldComponent>(*selected_entity);
+            if (component)
+            {
+                ImGui::Separator();
+                ImGui::TextUnformatted(LocalToWorldComponent::type_name());
+                ImGui::Separator();
+                auto &transform = component->transform;
+                ImGui::SliderFloat3("Translation", transform.col(3).data(), -100.0f, 100.0f);
+                ImGui::Spacing();
+            }
+            }
         }
         ui.end_window();
     }

@@ -253,6 +253,12 @@ Renderer Renderer::create(const platform::Window &window)
     renderer.vertex_buffer = streaming_buffer_create(device, "Vertex buffer", 100_MiB, sizeof(Vertex));
     renderer.index_buffer = streaming_buffer_create(device, "Index buffer", 100_MiB, sizeof(Vertex), gfx::index_buffer_usage | gfx::storage_buffer_usage);
 
+    renderer.render_mesh_data = GpuPool::create(device, {
+        .name         = "Render meshes",
+        .size         = 32_MiB,
+        .element_size = sizeof(RenderMeshData),
+    });
+
     const u32 bvh_nodes_buffer_size = 100_MiB;
     renderer.bvh_nodes_buffer = device.create_buffer({
         .name  = "BVH",
@@ -279,22 +285,6 @@ Renderer Renderer::create(const platform::Window &window)
     renderer.bvh_faces_buffer_staging = device.create_buffer({
         .name  = "BVH CPU",
         .size  = bvh_faces_buffer_size,
-        .usage = gfx::source_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-    });
-
-
-    const u32 render_meshes_buffer_size = 100_MiB;
-    renderer.render_meshes_buffer = device.create_buffer({
-        .name  = "BVH",
-        .size  = render_meshes_buffer_size,
-        .usage = gfx::storage_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    });
-
-    renderer.render_meshes_buffer_staging = device.create_buffer({
-        .name  = "BVH CPU",
-        .size  = render_meshes_buffer_size,
         .usage = gfx::source_buffer_usage,
         .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
     });
@@ -669,6 +659,7 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
+
 static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorldComponent &transform, const RenderMeshComponent &render_mesh_component)
 {
     const auto &mesh     = *scene.meshes.get(render_mesh_component.mesh_handle);
@@ -686,11 +677,14 @@ static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorld
         return;
     }
 
-    renderer.render_mesh_data.push_back({
+    RenderMeshData new_mesh_data = {
             .transform = transform.transform,
             .mesh_handle = render_mesh_component.mesh_handle,
             .i_material = render_mesh_component.i_material,
-    });
+    };
+    auto [success, new_index] = renderer.render_mesh_data.allocate(1);
+    renderer.render_mesh_data.update(new_index, 1, &new_mesh_data);
+    renderer.render_mesh_indices.push_back(new_index);
 
     renderer.render_mesh_data_dirty = true;
 }
@@ -764,10 +758,22 @@ void Renderer::update(Scene &scene)
 
     // Load new models
     scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>([&](const LocalToWorldComponent &transform, const RenderMeshComponent &render_mesh){
-        for (const auto &data : render_mesh_data)
+        /*
+          check dirty -> update matching buffers
+          it works for update or new elements, how to handle deletion? callback?
+         */
+        for (auto i_render_mesh : render_mesh_indices)
         {
+            auto &data = render_mesh_data.get<RenderMeshData>(i_render_mesh);
             if (data.mesh_handle == render_mesh.mesh_handle && data.i_material == render_mesh.i_material)
             {
+                if (data.transform != transform.transform)
+                {
+                    auto copy = data;
+                    copy.transform = transform.transform;
+                    render_mesh_data.update(i_render_mesh, 1, &copy);
+                }
+
                 return;
             }
         }
@@ -779,13 +785,10 @@ void Renderer::update(Scene &scene)
     {
         render_mesh_data_dirty = false;
 
-        bvh          = create_bvh(render_mesh_data, scene.vertices, scene.indices, scene.meshes, scene.materials);
+        bvh          = create_bvh(render_mesh_indices, render_mesh_data, scene.vertices, scene.indices, scene.meshes, scene.materials);
         bvh_transfer = 1;
         std::memcpy(device.map_buffer(bvh_nodes_buffer_staging), bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode));
         std::memcpy(device.map_buffer(bvh_faces_buffer_staging), bvh.faces.data(), bvh.faces.size() * sizeof(Face));
-        std::memcpy(device.map_buffer(render_meshes_buffer_staging),
-                    render_mesh_data.data(),
-                    render_mesh_data.size() * sizeof(RenderMeshData));
 
         assert(scene.materials.size() * sizeof(Material) < 100_MiB);
         std::memcpy(device.map_buffer(material_buffer_staging),
@@ -885,11 +888,13 @@ void Renderer::update(Scene &scene)
 
     // -- Transfer stuff
 
-    bool have_transfer = imgui_pass.should_upload_atlas || streaming_buffer_has_transfer(vertex_buffer) || streaming_buffer_has_transfer(index_buffer);
+    bool have_transfer = imgui_pass.should_upload_atlas || streaming_buffer_has_transfer(vertex_buffer) || streaming_buffer_has_transfer(index_buffer) || render_mesh_data.has_changes();
     if (have_transfer)
     {
         gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
         transfer_cmd.begin();
+
+        render_mesh_data.upload_changes(transfer_cmd);
 
         if (imgui_pass.should_upload_atlas)
         {
@@ -919,8 +924,6 @@ void Renderer::update(Scene &scene)
             transfer_cmd.copy_buffer(bvh_nodes_buffer_staging, bvh_nodes_buffer);
             transfer_cmd.barrier(bvh_faces_buffer, gfx::BufferUsage::TransferDst);
             transfer_cmd.copy_buffer(bvh_faces_buffer_staging, bvh_faces_buffer);
-            transfer_cmd.barrier(render_meshes_buffer, gfx::BufferUsage::TransferDst);
-            transfer_cmd.copy_buffer(render_meshes_buffer_staging, render_meshes_buffer);
             bvh_transfer = u32_invalid;
             geometry_transfer_done_value = frame_count+3;
         }
@@ -1018,14 +1021,14 @@ void Renderer::update(Scene &scene)
             options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
 
             cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.buffer);
-            cmd.bind_storage_buffer(opaque_program, 2, render_meshes_buffer);
+            cmd.bind_storage_buffer(opaque_program, 2, render_mesh_data.device);
             cmd.bind_storage_buffer(opaque_program, 3, material_buffer);
             cmd.bind_pipeline(opaque_program, 0);
             cmd.bind_index_buffer(index_buffer.buffer, VK_INDEX_TYPE_UINT32);
 
-            for (u32 i_render_mesh = 0; i_render_mesh < render_mesh_data.size(); i_render_mesh += 1)
+            for (auto i_render_mesh : render_mesh_indices)
             {
-                const auto &render_mesh = render_mesh_data[i_render_mesh];
+                auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
                 const auto &mesh = *scene.meshes.get(render_mesh.mesh_handle);
 
                 PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
@@ -1063,7 +1066,7 @@ void Renderer::update(Scene &scene)
 
             cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.buffer);
             cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 4, render_meshes_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 4, render_mesh_data.device);
             cmd.bind_storage_buffer(path_tracing_program, 5, material_buffer);
             cmd.bind_storage_buffer(path_tracing_program, 6, bvh_nodes_buffer);
             cmd.bind_storage_buffer(path_tracing_program, 7, bvh_faces_buffer);

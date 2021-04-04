@@ -90,7 +90,7 @@ void main()
 
 
     float blend_weight = globals.camera_moved != 0 ? 1.0 : 1.0f / (1.0f + (1.0f / history_color.a));
-    // blend_weight = 1.0;
+    blend_weight = 1.0;
 
     float3 final_color = mix(history_color.rgb, color.rgb, blend_weight);
 

@@ -8,6 +8,7 @@ struct Vertex;
 struct Mesh;
 struct Material;
 struct RenderMeshData;
+struct GpuPool;
 
 struct Face
 {
@@ -31,4 +32,4 @@ struct BVH
     Vec<BVHNode> nodes;
 };
 
-BVH create_bvh(const Vec<RenderMeshData> &render_meshes, const Vec<Vertex> &vertices, const Vec<u32> &indices, const Pool<Mesh> &meshes, const Vec<Material> &materials);
+BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_meshes_data, const Vec<Vertex> &vertices, const Vec<u32> &indices, const Pool<Mesh> &meshes, const Vec<Material> &materials);

@@ -129,6 +129,23 @@ void Work::barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::p
 }
 
 /// --- TransferWork
+void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes)
+{
+    auto &src_buffer = *device->buffers.get(src);
+    auto &dst_buffer = *device->buffers.get(dst);
+
+    Vec<VkBufferCopy> buffer_copies(offsets_sizes.size());
+    for (usize i_copy = 0; i_copy < offsets_sizes.size(); i_copy += 1)
+    {
+        buffer_copies[i_copy] = {
+            .srcOffset = offsets_sizes[i_copy].first,
+            .dstOffset = offsets_sizes[i_copy].first,
+            .size      = offsets_sizes[i_copy].second,
+        };
+    }
+
+    vkCmdCopyBuffer(command_buffer, src_buffer.vkhandle, dst_buffer.vkhandle, buffer_copies.size(), buffer_copies.data());
+}
 
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 {

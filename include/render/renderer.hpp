@@ -158,8 +158,7 @@ struct Renderer
     Handle<gfx::Buffer> bvh_nodes_buffer_staging;
     Handle<gfx::Buffer> bvh_faces_buffer;
     Handle<gfx::Buffer> bvh_faces_buffer_staging;
-    Handle<gfx::Buffer> render_meshes_buffer;
-    Handle<gfx::Buffer> render_meshes_buffer_staging;
+
     u32 bvh_transfer = u32_invalid;
 
     u64 geometry_transfer_done_value = u64_invalid;
@@ -169,7 +168,10 @@ struct Renderer
     Handle<gfx::ComputeProgram> taa;
     Handle<gfx::Image> history_buffers[2];
     u32 current_history = 0;
-    Vec<RenderMeshData> render_mesh_data;
+
+    GpuPool render_mesh_data;
+    Vec<u32> render_mesh_indices;
+
     bool render_mesh_data_dirty = false;
 
     /// ---

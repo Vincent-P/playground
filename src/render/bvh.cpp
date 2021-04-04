@@ -143,7 +143,7 @@ static void bvh_set_temp_order(Vec<TempBVHNode> &temp_nodes, usize &counter, usi
     }
 }
 
-BVH create_bvh(const Vec<RenderMeshData> &render_meshes, const Vec<Vertex> &vertices, const Vec<u32> &indices, const Pool<Mesh> &meshes, const Vec<Material> &materials)
+BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_meshes_data, const Vec<Vertex> &vertices, const Vec<u32> &indices, const Pool<Mesh> &meshes, const Vec<Material> &materials)
 {
     assert(indices.size() % 3 == 0); // not triangles??
     usize triangles_count = indices.size() / 3;
@@ -156,9 +156,9 @@ BVH create_bvh(const Vec<RenderMeshData> &render_meshes, const Vec<Vertex> &vert
     temp_nodes.reserve(triangles_count * 2);
 
     // Process every triangles
-    for (usize i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
+    for (auto i_render_mesh : render_meshes_indices)
     {
-        const auto &render_mesh = render_meshes[i_render_mesh];
+        const auto &render_mesh = render_meshes_data.get<RenderMeshData>(i_render_mesh);
         const auto &mesh = *meshes.get(render_mesh.mesh_handle);
 
         for (usize i_prim_index = 0; i_prim_index < mesh.index_count; i_prim_index += 3)

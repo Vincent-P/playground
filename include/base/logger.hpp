@@ -1,4 +1,7 @@
 #pragma once
+
+#include "base/intrinsics.hpp"
+
 #include <fmt/core.h>
 #include <fmt/color.h>
 #include <fmt/ostream.h>
@@ -16,6 +19,7 @@ namespace logger
     {
         auto style = fg(fmt::color::crimson) | fmt::emphasis::bold;
         fmt::print(stderr, style, format_str, args...);
+        DEBUG_BREAK();
     }
 
 }

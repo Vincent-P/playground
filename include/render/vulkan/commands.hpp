@@ -70,6 +70,7 @@ struct Work
 
 struct TransferWork : Work
 {
+    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes);
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
     void copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst);
     void fill_buffer(Handle<Buffer> buffer_handle, u32 data);
