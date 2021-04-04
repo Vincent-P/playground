@@ -43,6 +43,8 @@ struct Settings
 {
     uint2 render_resolution;
     bool resolution_dirty;
+    bool enable_taa = true;
+    bool enable_path_tracing = false;
 };
 
 struct ImGuiPass
@@ -95,7 +97,8 @@ struct PACKED GlobalUniform
 
 struct PACKED PushConstants
 {
-    u32 draw_idx;
+    u32 draw_idx = u32_invalid;
+    u32 render_mesh_idx = u32_invalid;
 };
 
 struct StbImage

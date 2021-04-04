@@ -6,6 +6,29 @@
 #include "types.h"
 #include "maths.h"
 
+// -- Lambertian
+
+float3 cos_sample_hemisphere(inout uint rng_seed)
+{
+    return normalize(float3(0, 0, 1) + random_unit_vector(rng_seed));
+}
+
+float3 lambert_sample(inout uint rng_seed)
+{
+    return cos_sample_hemisphere(rng_seed);
+}
+
+float3 lambert_brdf(float3 wo, float3 wi, float3 albedo)
+{
+    return albedo / PI;
+}
+
+float lambert_pdf(float3 wo, float3 wi)
+{
+    float cos_theta = wi.z;
+    return abs(cos_theta) / PI;
+}
+
 // "Sampling the GGX Distribution of Visible Normals", http://jcgt.org/published/0007/04/01/
 // Input Ve: view direction
 // Input alpha_x, alpha_y: roughness parameters
@@ -85,18 +108,19 @@ float ggx_ndf(float NdotH, float roughness)
 }
 
 // Spherical Gaussian approximation of Shlick's approximation
-float3 fresnel_shlick(float3 V, float3 H, float3 F0)
+float3 fresnel_shlick(float VdotH, float3 F0)
 {
-    const float a = -5.55473;
-    const float b = -6.98316;
-    float VdotH = safe_dot(V, H);
-    // return F0 - (1.0 - F0) * pow(2, (a * VdotH + b) * VdotH);
-    return F0 + (1.0 - F0) * pow(max(1.0 - VdotH, 0.0), 5.0);
+    return F0 + (1.0 - F0) * pow(1 - abs(VdotH), 5);
 }
 
-float3 smith_ggx_brdf(float3 N, float3 V, float3 L, float3 albedo, float roughness, float metallic)
+float3 smith_ggx_sample(float3 wo, float roughness, inout uint rng_seed)
 {
-    float3 H = normalize(V + L);
+    return normalize(reflect(-wo, sample_ggx_vndf(wo, roughness, rng_seed)));
+}
+
+float3 smith_ggx_brdf(float3 N, float3 V, float3 L, float3 albedo, float roughness, float metallic, out float3 kD)
+{
+    float3 H    = normalize(V + L);
     float NdotL = dot(N, L);
     float NdotV = dot(N, V);
     float NdotH = safe_dot(N, H);
@@ -104,30 +128,32 @@ float3 smith_ggx_brdf(float3 N, float3 V, float3 L, float3 albedo, float roughne
     float D = ggx_ndf(NdotH, roughness);
     float G = smith_ggx_g2(V, L, N, roughness);
 
-    float3 F0 = float3(0.04);
-    float3 F = fresnel_shlick(V, H, F0);
+    float3 F0 = float3(0.08);
+    F0        = mix(F0, albedo, metallic);
+    float3 F  = fresnel_shlick(dot(V, H), F0);
 
     float3 kS = F;
-    float3 kD = float3(1.0) - kS;
-    // metallic materials dont have diffuse reflections
-    kD *= 1.0 - metallic;
+    kD = float3(1.0) - kS;
 
-    float3 lambert_brdf = albedo / PI;
-
-    float3 specular_brdf = (D * G * F)
-                      / //--------------------//
-                       (4.0 * NdotL * NdotV);
-
-    return kD * lambert_brdf + specular_brdf;
+    return    (D * G * F)
+          / //--------------------//
+           (4.0 * NdotL * NdotV);
 }
 
 // Output Ne: normal sampled with PDF D_Ve(Ne) = G1(Ve) * max(0, dot(Ve, Ne)) * D(Ne) / Ve.z
-float smith_ggx_pdf(float3 wo, float3 wm, float roughness)
+float smith_ggx_vndpdf(float3 wo, float3 wh, float roughness)
 {
-    float G1 = smith_ggx_g1(wo, wm, roughness);
-    float D  = ggx_ndf(wm.z, roughness);
+    float G1 = smith_ggx_g1(wo, wh, roughness);
+    float D  = ggx_ndf(wh.z, roughness);
 
-    return D * G1 * safe_dot(wo, wm) / wo.z;
+    return D * G1 * safe_dot(wo, wh) / wo.z;
+}
+
+float smith_ggx_pdf(float3 wo, float3 wi, float roughness)
+{
+    float3 wh = normalize(wo + wi);
+    // convert the pdf from the half hangle (microfacet normal wh) to incoming angle (wo)
+    return smith_ggx_vndpdf(wo, wh, roughness) / (4 * safe_dot(wo, wh));
 }
 
 

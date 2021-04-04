@@ -322,9 +322,9 @@ Renderer Renderer::create(const platform::Window &window)
         state.renderpass        = renderer.hdr_rt.load_renderpass;
         state.descriptors =  {
             {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
-            // {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
-            // {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
+            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertices
+            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes
+            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // materials
         };
         renderer.opaque_program  = device.create_program("gltf opaque", state);
 
@@ -591,7 +591,8 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
             scissor.extent.height = static_cast<u32>(clip_rect.w - clip_rect.y);
 
             cmd.set_scissor(scissor);
-            cmd.push_constant(pass_data.program, &i_draw, sizeof(i_draw));
+            PushConstants constants = {.draw_idx = i_draw};
+            cmd.push_constant(pass_data.program, &constants, sizeof(PushConstants));
             cmd.draw_indexed({.vertex_count = draw_command.ElemCount, .index_offset = index_offset, .vertex_offset = vertex_offset});
             i_draw += 1;
 
@@ -654,6 +655,16 @@ void Renderer::display_ui(UI::Context &ui)
             static std::array options{"Reinhard", "Exposure", "Clamp", "ACES"};
             tools::imgui_select("Tonemap", options.data(), options.size(), tonemap_pass.options.selected);
             ImGui::SliderFloat("Exposure", &tonemap_pass.options.exposure, 0.0f, 2.0f);
+        }
+        ui.end_window();
+    }
+
+    if (ui.begin_window("Settings"))
+    {
+        if (ImGui::CollapsingHeader("Renderer"))
+        {
+            ImGui::Checkbox("Enable TAA", &settings.enable_taa);
+            ImGui::Checkbox("Enable Path tracing", &settings.enable_path_tracing);
         }
         ui.end_window();
     }
@@ -992,64 +1003,78 @@ void Renderer::update(Scene &scene)
     scissor.extent.height = viewport.height;
     cmd.set_scissor(scissor);
 
-    cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-    if (false && geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done) > geometry_transfer_done_value)
+    if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done))
     {
-        struct PACKED OpaquePassOptions
+        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+        if (!settings.enable_path_tracing)
         {
-            u64 transforms_buffer;
-        };
+            u32 i_draw = 0;
+            struct PACKED OpaquePassOptions
+            {
+                u64 transforms_buffer;
+            };
 
-        auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, opaque_program);
-        options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
+            auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, opaque_program);
+            options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
 
-        cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.buffer);
-        cmd.bind_pipeline(opaque_program, 0);
-        cmd.bind_index_buffer(index_buffer.buffer, VK_INDEX_TYPE_UINT32);
+            cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.buffer);
+            cmd.bind_storage_buffer(opaque_program, 2, render_meshes_buffer);
+            cmd.bind_storage_buffer(opaque_program, 3, material_buffer);
+            cmd.bind_pipeline(opaque_program, 0);
+            cmd.bind_index_buffer(index_buffer.buffer, VK_INDEX_TYPE_UINT32);
 
-        for (auto &render_mesh : render_mesh_data)
+            for (u32 i_render_mesh = 0; i_render_mesh < render_mesh_data.size(); i_render_mesh += 1)
+            {
+                const auto &render_mesh = render_mesh_data[i_render_mesh];
+                const auto &mesh = *scene.meshes.get(render_mesh.mesh_handle);
+
+                PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
+                cmd.push_constant(opaque_program, &constants, sizeof(PushConstants));
+                cmd.draw_indexed({
+                    .vertex_count  = mesh.index_count,
+                    .index_offset  = mesh.index_offset,
+                });
+                i_draw += 1;
+            }
+        }
+
+        cmd.end_pass();
+
+        if (settings.enable_path_tracing)
         {
-            const auto &mesh = *scene.meshes.get(render_mesh.mesh_handle);
+            for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
+            {
+                cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
+                device.bind_global_sampled_image(10 + i_texture, render_textures[i_texture]);
+            }
 
-            cmd.draw_indexed({
-                .vertex_count  = mesh.index_count,
-                .index_offset  = mesh.index_offset,
-            });
+            cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+
+            struct PACKED PathTracingOptions
+            {
+                uint storage_output_frame;
+            };
+
+            auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
+            auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
+            options->storage_output_frame     = 3;
+
+            cmd.bind_storage_image(path_tracing_program, 1, hdr_rt.image);
+
+            cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 4, render_meshes_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 5, material_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 6, bvh_nodes_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 7, bvh_faces_buffer);
+            cmd.bind_pipeline(path_tracing_program);
+            cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
         }
     }
-    cmd.end_pass();
-
-
-    // Path tracing
-    if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done) > geometry_transfer_done_value)
+    else
     {
-        for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
-        {
-            cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
-            device.bind_global_sampled_image(10 + i_texture, render_textures[i_texture]);
-        }
-
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
-
-        struct PACKED PathTracingOptions
-        {
-            uint storage_output_frame;
-        };
-
-        auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
-        auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
-        options->storage_output_frame     = 3;
-
-        cmd.bind_storage_image(path_tracing_program, 1, hdr_rt.image);
-
-        cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 4, render_meshes_buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 5, material_buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 6, bvh_nodes_buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 7, bvh_faces_buffer);
-        cmd.bind_pipeline(path_tracing_program);
-        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
+        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+        cmd.end_pass();
     }
 
     // TAA

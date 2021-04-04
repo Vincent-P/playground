@@ -6,14 +6,23 @@ layout(set = 1, binding = 0) uniform Options {
     u32 padd1;
 };
 
-layout(set = 1, binding = 1) buffer glTFVertexBufferType {
+layout(set = 1, binding = 1) buffer VertexBuffer {
     Vertex vertices[];
 };
+
+layout(set = 1, binding = 2) buffer RenderMeshesBuffer {
+    RenderMeshData render_meshes[];
+};
+
+layout (location = 0) out float4 o_vertex_color;
+layout (location = 1) out float2 o_uv;
 void main()
 {
+    RenderMeshData render_mesh = render_meshes[push_constants.render_mesh_idx];
     Vertex vertex = vertices[gl_VertexIndex];
-    float3 position = vertex.position;
-    const float scale = 0.1;
-    float4 world_pos = globals.camera_projection * globals.camera_view * float4(scale * position, 1.0);
-    gl_Position = world_pos;
+
+    float4 world_pos = render_mesh.transform * float4(vertex.position, 1.0);
+    gl_Position = globals.camera_projection * globals.camera_view * world_pos;
+    o_vertex_color = vertex.color0;
+    o_uv = vertex.uv0;
 }

@@ -66,6 +66,7 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 
 layout(push_constant) uniform PushConstants {
     u32 draw_idx;
+    u32 render_mesh_idx;
 } push_constants;
 
 #endif

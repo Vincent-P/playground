@@ -168,7 +168,7 @@ void main()
     ray.direction = normalize(h_pos.xyz - ray.origin);
 
     // accumulators
-    const uint MAX_BOUNCE = 4;
+    const uint MAX_BOUNCE = 5;
     HitInfo hit_info;
     float3 o_color = float3(0.0);
     float3 throughput = float3(1.0);
@@ -178,7 +178,7 @@ void main()
         if (!bvh_closest_hit(ray, hit_info))
         {
             float3 background_color = float3(0.846, 0.933, 0.949);
-            background_color = float3(0.0);
+            background_color *= 100.0;
             o_color   += background_color * throughput;
             break;
         }
@@ -219,7 +219,7 @@ void main()
         }
 
         float3 albedo   = material.base_color_factor.rgb * base_color.rgb;
-        const float emissive_strength = 10.0;
+        const float emissive_strength = 50.0;
         float3 emissive = emissive_strength * material.emissive_factor.rgb;
         float metallic  = material.metallic_factor;
         float roughness = max(material.roughness_factor, 0.1);
@@ -231,54 +231,33 @@ void main()
         }
 
         // -- Sample BRDF for a new ray direction
+
         float3 wo = world_to_tangent * -ray.direction;
-        float3 V  = wo;
-        float3 wm = sample_ggx_vndf(V, roughness*roughness, rng_seed);
+        float3 diffuse_wi  = lambert_sample(rng_seed);
+        float3 specular_wi = smith_ggx_sample(wo, roughness*roughness, rng_seed);
 
-        float3 wi = normalize(reflect(-wo, wm));
-        float3 wi_diffuse = normalize(wm + random_unit_vector(rng_seed));
-        wi = mix(wi, wi_diffuse, roughness*roughness);
+        const float specular_chance = 0.5;
+        float do_specular = float(random_float_01(rng_seed) > specular_chance);
 
-        float3 L  = wi;
-        float3 N  = wm;
+        float3 wi = mix(diffuse_wi, specular_wi, do_specular);
 
-        // -- Evaluate the BRDF
-        float3 H = normalize(V + L);
-        float NdotL = dot(N, L);
-        float NdotV = dot(N, V);
+        float3 kD;
+        float3 specular_brdf = smith_ggx_brdf(float3(0, 0, 1), wo, wi, albedo, roughness*roughness, metallic, kD);
+        float3 diffuse_brdf = lambert_brdf(wo, wi, albedo);
+        float3 brdf = kD * diffuse_brdf + specular_brdf;
 
-        float D = ggx_ndf(dot(N, H), roughness);
-        float G = smith_ggx_g2(V, L, N, roughness);
-
-        float3 F0 = float3(0.04);
-        F0 = mix(F0, albedo, metallic);
-        float3 F = fresnel_shlick(V, H, F0);
-
-        float3 kS = F;
-        float3 kD = float3(1.0) - kS;
-        // metallic materials dont have diffuse reflections
-        kD *= 1.0 - metallic;
-
-        float3 lambert_brdf = albedo / PI;
-
-        float3 specular_brdf =    (D * G * F)
-                          / //--------------------//
-                             (4.0 * NdotL * NdotV);
-
-        float3 brdf = kD * lambert_brdf + specular_brdf;
-
-        // Accumulate light
-        o_color   += emissive * throughput;
+        float pdf  = 0.5 * lambert_pdf(wo, wi) + 0.5 * smith_ggx_pdf(wo, wi, roughness*roughness);
 
         // -- Evaluate the BRDF divided by the PDF
-        float pdf = smith_ggx_pdf(V, wm, roughness) / (4 * dot(wo, wm));
 
-        throughput *= (kD * lambert_brdf + specular_brdf) / pdf;
+        // Accumulate light
+        o_color    += emissive * throughput;
+        throughput *= brdf / pdf;
 
         // Debug output
         #if 0
         o_color = (tangent_to_world * wi) * 0.5 + 0.5;
-        o_color = kD * lambert_brdf + specular_brdf / pdf;
+        o_color = brdf;
         break;
         #endif
 

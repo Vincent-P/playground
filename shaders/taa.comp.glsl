@@ -86,9 +86,11 @@ void main()
 
     // avoid nan
     history_color = clamp(history_color, 0.0, 1000000000000000000.0);
+    color = clamp(color, 0.0, 1000000000000000000.0);
 
 
     float blend_weight = globals.camera_moved != 0 ? 1.0 : 1.0f / (1.0f + (1.0f / history_color.a));
+    // blend_weight = 1.0;
 
     float3 final_color = mix(history_color.rgb, color.rgb, blend_weight);
 
