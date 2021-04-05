@@ -37,7 +37,7 @@ struct RingBuffer
     template<typename T>
     std::pair<T*, usize> allocate(gfx::Device &device)
     {
-        auto [void_ptr, offset] = allocate_uniform(device, sizeof(T));
+        auto [void_ptr, offset] = allocate(device, sizeof(T));
         return std::make_pair(reinterpret_cast<T*>(void_ptr), offset);
     }
 };

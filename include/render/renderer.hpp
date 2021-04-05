@@ -14,7 +14,7 @@
 
 namespace gfx = vulkan;
 
-inline constexpr uint FRAME_QUEUE_LENGTH = 1;
+inline constexpr uint FRAME_QUEUE_LENGTH = 3;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -139,7 +139,6 @@ struct Renderer
 
     // User renderer
     GlobalUniform global_uniform;
-    Handle<gfx::Buffer> global_uniform_buffer;
     Handle<gfx::Image> depth_buffer;
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;

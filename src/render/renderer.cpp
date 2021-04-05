@@ -123,13 +123,6 @@ Renderer Renderer::create(const platform::Window &window)
         });
     renderer.ldr_rt.load_renderpass  = device.find_or_create_renderpass({.colors = {{.format = VK_FORMAT_R8G8B8A8_UNORM, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}});
 
-    renderer.global_uniform_buffer = device.create_buffer({
-        .name         = "Global uniform data",
-        .size         = sizeof(GlobalUniform),
-        .usage        = gfx::uniform_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-    });
-
     Vec<gfx::DescriptorType> common_descriptors = {
         {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
     };
@@ -896,67 +889,49 @@ void Renderer::update(Scene &scene)
     auto &work_pool = work_pools[current_frame];
     swapchain_rt.image = surface.images[surface.current_image];
 
-    device.bind_global_uniform_buffer(global_uniform_buffer, 0, sizeof(GlobalUniform));
-    device.bind_global_sampled_image(0, imgui_pass.font_atlas);
-    ImGui::GetIO().Fonts->SetTexID((void *)0);
-
-    device.bind_global_sampled_image(1, empty_sampled_image);
-    device.bind_global_sampled_image(2, ldr_rt.image);
-    device.update_globals();
-
     // -- Transfer stuff
+    gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
+    transfer_cmd.begin();
+    render_mesh_data.upload_changes(transfer_cmd);
+    vertex_buffer.upload_changes(transfer_cmd);
+    index_buffer.upload_changes(transfer_cmd);
 
-    bool have_transfer = imgui_pass.should_upload_atlas || vertex_buffer.has_changes() || index_buffer.has_changes() || render_mesh_data.has_changes();
-    if (have_transfer)
+    if (imgui_pass.should_upload_atlas)
     {
-        gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
-        transfer_cmd.begin();
-
-        render_mesh_data.upload_changes(transfer_cmd);
-        vertex_buffer.upload_changes(transfer_cmd);
-        index_buffer.upload_changes(transfer_cmd);
-
-        if (imgui_pass.should_upload_atlas)
-        {
-            transfer_cmd.clear_barrier(imgui_pass.font_atlas, gfx::ImageUsage::TransferDst);
-            transfer_cmd.copy_buffer_to_image(imgui_pass.font_atlas_staging, imgui_pass.font_atlas);
-            imgui_pass.should_upload_atlas = false;
-            imgui_pass.transfer_done_value = frame_count+1;
-        }
-
-        if (bvh_transfer != u32_invalid)
-        {
-            transfer_cmd.barrier(bvh_nodes_buffer, gfx::BufferUsage::TransferDst);
-            transfer_cmd.copy_buffer(bvh_nodes_buffer_staging, bvh_nodes_buffer);
-            transfer_cmd.barrier(bvh_faces_buffer, gfx::BufferUsage::TransferDst);
-            transfer_cmd.copy_buffer(bvh_faces_buffer_staging, bvh_faces_buffer);
-            bvh_transfer = u32_invalid;
-            geometry_transfer_done_value = frame_count+3;
-        }
-
-        if (material_transfer != u32_invalid)
-        {
-            transfer_cmd.barrier(material_buffer, gfx::BufferUsage::TransferDst);
-            transfer_cmd.copy_buffer(material_buffer_staging, material_buffer);
-            material_transfer = u32_invalid;
-
-
-            for (auto &upload_image : upload_images)
-            {
-                transfer_cmd.clear_barrier(upload_image.gpu_image, gfx::ImageUsage::TransferDst);
-                transfer_cmd.copy_buffer_to_image(upload_image.staging_buffer, upload_image.gpu_image);
-            }
-
-            geometry_transfer_done_value = frame_count+3;
-        }
-
-        transfer_cmd.end();
-        device.submit(transfer_cmd, {transfer_done}, {frame_count+1});
+        transfer_cmd.clear_barrier(imgui_pass.font_atlas, gfx::ImageUsage::TransferDst);
+        transfer_cmd.copy_buffer_to_image(imgui_pass.font_atlas_staging, imgui_pass.font_atlas);
+        imgui_pass.should_upload_atlas = false;
+        imgui_pass.transfer_done_value = frame_count+1;
     }
-    else
+
+    if (bvh_transfer != u32_invalid)
     {
-        device.set_fence_value(transfer_done, frame_count+1);
+        transfer_cmd.barrier(bvh_nodes_buffer, gfx::BufferUsage::TransferDst);
+        transfer_cmd.copy_buffer(bvh_nodes_buffer_staging, bvh_nodes_buffer);
+        transfer_cmd.barrier(bvh_faces_buffer, gfx::BufferUsage::TransferDst);
+        transfer_cmd.copy_buffer(bvh_faces_buffer_staging, bvh_faces_buffer);
+        bvh_transfer = u32_invalid;
+        geometry_transfer_done_value = frame_count+3;
     }
+
+    if (material_transfer != u32_invalid)
+    {
+        transfer_cmd.barrier(material_buffer, gfx::BufferUsage::TransferDst);
+        transfer_cmd.copy_buffer(material_buffer_staging, material_buffer);
+        material_transfer = u32_invalid;
+
+
+        for (auto &upload_image : upload_images)
+        {
+            transfer_cmd.clear_barrier(upload_image.gpu_image, gfx::ImageUsage::TransferDst);
+            transfer_cmd.copy_buffer_to_image(upload_image.staging_buffer, upload_image.gpu_image);
+        }
+
+        geometry_transfer_done_value = frame_count+3;
+    }
+
+    transfer_cmd.end();
+    device.submit(transfer_cmd, {transfer_done}, {frame_count+1});
 
     // -- Update global data
     CameraComponent *main_camera = nullptr;
@@ -974,7 +949,7 @@ void Renderer::update(Scene &scene)
     static float4x4 last_view = main_camera->view;
     static float4x4 last_proj = main_camera->projection;
 
-    auto *global_data                      = device.map_buffer<GlobalUniform>(global_uniform_buffer);
+    auto [global_data, global_offset]      = dynamic_uniform_buffer.allocate<GlobalUniform>(device);
     global_data->camera_view               = main_camera->view;
     global_data->camera_proj               = main_camera->projection;
     global_data->camera_view_inverse       = main_camera->view_inverse;
@@ -989,6 +964,16 @@ void Renderer::update(Scene &scene)
 
     last_view = main_camera->view;
     last_proj = main_camera->projection;
+
+    device.bind_global_uniform_buffer(dynamic_uniform_buffer.buffer, global_offset, sizeof(GlobalUniform));
+
+    device.bind_global_sampled_image(0, imgui_pass.font_atlas);
+    ImGui::GetIO().Fonts->SetTexID((void *)0);
+
+    device.bind_global_sampled_image(1, empty_sampled_image);
+    device.bind_global_sampled_image(2, ldr_rt.image);
+    device.update_globals();
+
 
     // -- Draw frame
 
