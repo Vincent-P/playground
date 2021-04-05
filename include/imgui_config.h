@@ -17,10 +17,12 @@
 #define ImDrawIdx u16
 
 #define IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT \
-struct ImDrawVert \
+struct PACKED ImDrawVert \
 { \
     ImVec2  pos; \
     ImVec2  uv; \
     ImU32   col; \
     unsigned pad00; \
+    unsigned pad01; \
+    unsigned pad10; \
 }

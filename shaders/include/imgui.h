@@ -8,6 +8,8 @@ struct ImGuiVertex
     float2 uv;
     uint color;
     uint pad00;
+    uint pad01;
+    uint pad10;
 };
 
 #if 0
@@ -29,7 +31,8 @@ layout(set = 1, binding = 0) uniform Options {
     u32 pad0;
     u32 pad1;
     #endif
-    float2 pad00;
+    u32 first_vertex;
+    u32 pad4;
     uvec4 texture_binding_per_draw[64/4];
 };
 

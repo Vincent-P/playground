@@ -82,6 +82,18 @@ Renderer Renderer::create(const platform::Window &window)
             .gpu_usage = gfx::uniform_buffer_usage,
         });
 
+    renderer.dynamic_vertex_buffer = RingBuffer::create(device, {
+            .name = "Dynamic vertices",
+            .size = 64_KiB,
+            .gpu_usage = gfx::storage_buffer_usage,
+        });
+
+    renderer.dynamic_index_buffer = RingBuffer::create(device, {
+            .name = "Dynamic indices",
+            .size = 32_KiB,
+            .gpu_usage = gfx::index_buffer_usage,
+        });
+
     renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage});
     renderer.empty_storage_image = device.create_image({.name = "Empty storage image", .usages = gfx::storage_image_usage});
 
@@ -169,20 +181,6 @@ Renderer Renderer::create(const platform::Window &window)
     }
     device.flush_buffer(imgui_pass.font_atlas_staging);
     imgui_pass.should_upload_atlas = true;
-
-    imgui_pass.vertices = device.create_buffer({
-            .name = "Imgui vertices",
-            .size = 1_MiB,
-            .usage = gfx::storage_buffer_usage,
-            .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        });
-
-    imgui_pass.indices = device.create_buffer({
-            .name = "Imgui indices",
-            .size = 1_MiB,
-            .usage = gfx::index_buffer_usage,
-            .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        });
 
     // Create the luminance pass
     auto &tonemap_pass = renderer.tonemap_pass;
@@ -448,6 +446,8 @@ bool Renderer::start_frame()
     device.reset_work_pool(work_pool);
 
     dynamic_uniform_buffer.start_frame();
+    dynamic_vertex_buffer.start_frame();
+    dynamic_index_buffer.start_frame();
 
     // receipt contains the image acquired semaphore
     bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
@@ -462,12 +462,23 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
     assert(sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
     assert(sizeof(ImDrawIdx)  * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
 
+    u32 vertices_size = data->TotalVtxCount * sizeof(ImDrawVert);
+    u32 indices_size = data->TotalIdxCount * sizeof(ImDrawIdx);
+
+    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(device, vertices_size);
+    auto *vertices = reinterpret_cast<ImDrawVert*>(p_vertices);
+
+    auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(device, indices_size);
+    auto *indices = reinterpret_cast<ImDrawIdx*>(p_indices);
+
+
     struct PACKED ImguiOptions
     {
         float2 scale;
         float2 translation;
         u64 vertices_pointer;
-        float2 pad00;
+        u32 first_vertex;
+        u32 pad1;
         u32 texture_binding_per_draw[64];
     };
 
@@ -475,12 +486,10 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
     std::memset(options, 0, sizeof(ImguiOptions));
     options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
     options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
-    options->vertices_pointer = device.get_buffer_address(pass_data.vertices);
+    options->first_vertex = vert_offset / sizeof(ImDrawVert);
+    options->vertices_pointer = 0;
 
     // -- Upload ImGui's vertices and indices
-
-    auto *vertices = device.map_buffer<ImDrawVert>(pass_data.vertices);
-    auto *indices  = device.map_buffer<ImDrawIdx>(pass_data.indices);
     u32 i_draw = 0;
     for (int i = 0; i < data->CmdListsCount; i++)
     {
@@ -531,9 +540,9 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
     viewport.maxDepth = 1.0f;
     cmd.set_viewport(viewport);
 
-    cmd.bind_storage_buffer(pass_data.program, 1, pass_data.vertices);
+    cmd.bind_storage_buffer(pass_data.program, 1, renderer.dynamic_vertex_buffer.buffer);
     cmd.bind_pipeline(pass_data.program, 0);
-    cmd.bind_index_buffer(pass_data.indices);
+    cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT16, ind_offset);
 
     i32 vertex_offset = 0;
     u32 index_offset  = 0;
@@ -590,6 +599,8 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
 
     frame_count += 1;
     dynamic_uniform_buffer.end_frame();
+    dynamic_vertex_buffer.end_frame();
+    dynamic_index_buffer.end_frame();
     return false;
 }
 

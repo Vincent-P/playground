@@ -57,8 +57,6 @@ struct ImGuiPass
     Handle<gfx::GraphicsProgram> program;
     Handle<gfx::Image>  font_atlas;
     Handle<gfx::Buffer> font_atlas_staging;
-    Handle<gfx::Buffer> vertices;
-    Handle<gfx::Buffer> indices;
 
     // transfer stuff
     bool should_upload_atlas;
@@ -129,7 +127,11 @@ struct Renderer
     uint frame_count;
     std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
     gfx::Fence fence;
+
     RingBuffer dynamic_uniform_buffer;
+    RingBuffer dynamic_vertex_buffer;
+    RingBuffer dynamic_index_buffer;
+
     Handle<gfx::Image> empty_sampled_image;
     Handle<gfx::Image> empty_storage_image;
     Vec<Handle<gfx::Image>> render_textures;

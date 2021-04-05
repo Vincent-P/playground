@@ -327,10 +327,10 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
-void GraphicsWork::bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type)
+void GraphicsWork::bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type, u32 offset)
 {
     auto &buffer = *device->buffers.get(buffer_handle);
-    vkCmdBindIndexBuffer(command_buffer, buffer.vkhandle, 0, index_type);
+    vkCmdBindIndexBuffer(command_buffer, buffer.vkhandle, offset, index_type);
 }
 
 /// --- Device

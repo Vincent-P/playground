@@ -114,6 +114,6 @@ struct GraphicsWork : ComputeWork
 
     using ComputeWork::bind_pipeline; // make it visible on GraphicsWork
     void bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index);
-    void bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16);
+    void bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16, u32 offset = 0);
 };
 }
