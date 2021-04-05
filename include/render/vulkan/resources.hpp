@@ -72,6 +72,7 @@ struct Image
     bool is_proxy = false;
     VkImageSubresourceRange full_range;
     VkImageView full_view;
+    u32 full_view_idx;
     bool operator==(const Image &b) const = default;
 };
 

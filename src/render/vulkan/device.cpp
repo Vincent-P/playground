@@ -330,6 +330,8 @@ void Device::bind_global_sampled_image(u32 index, Handle<Image> image_handle)
     global_set.pending_images.push_back(image_handle);
     global_set.pending_indices.push_back(index);
     global_set.pending_binding.push_back(1);
+
+    global_set.current_sampled_image += 1;
 }
 
 void Device::update_globals()

@@ -87,8 +87,10 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     }
 
 
+    bool is_sampled = image_desc.usages & sampled_image_usage;
+    u32 full_view_idx = is_sampled ? global_set.current_sampled_image : 0;
 
-    return images.add({
+    auto handle = images.add({
             .desc = image_desc,
             .vkhandle = vkhandle,
             .allocation = allocation,
@@ -96,13 +98,21 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
             .is_proxy = proxy.has_value(),
             .full_range = full_range,
             .full_view = full_view,
+            .full_view_idx = full_view_idx,
         });
+
+    if (is_sampled) {
+        this->bind_global_sampled_image(full_view_idx, handle);
+    }
+
+    return handle;
 }
 
 void Device::destroy_image(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
+        this->bind_global_sampled_image(image->full_view_idx, this->get_global_sampled_image(0));
         if (!image->is_proxy)
         {
             vmaDestroyImage(allocator, image->vkhandle, image->allocation);
@@ -119,6 +129,15 @@ uint3 Device::get_image_size(Handle<Image> image_handle)
         return image->desc.size;
     }
     return {};
+}
+
+u32 Device::get_image_sampled_index(Handle<Image> image_handle)
+{
+    if (auto *image = images.get(image_handle))
+    {
+        return image->full_view_idx;
+    }
+    return 0;
 }
 
 };

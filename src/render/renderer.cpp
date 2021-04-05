@@ -175,6 +175,8 @@ Renderer Renderer::create(const platform::Window &window)
     device.flush_buffer(imgui_pass.font_atlas_staging);
     imgui_pass.should_upload_atlas = true;
 
+    ImGui::GetIO().Fonts->SetTexID((void *)((u64)device.get_image_sampled_index(imgui_pass.font_atlas)));
+
     // Create the luminance pass
     auto &tonemap_pass = renderer.tonemap_pass;
 
@@ -505,7 +507,9 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
         for (int command_index = 0; command_index < cmd_list.CmdBuffer.Size && i_draw < 64; command_index++)
         {
             const auto &draw_command = cmd_list.CmdBuffer[command_index];
-            options->texture_binding_per_draw[i_draw] = static_cast<u32>((u64)draw_command.TextureId);
+            u32 texture_id = static_cast<u32>((u64)draw_command.TextureId);
+            options->texture_binding_per_draw[i_draw] = texture_id;
+            cmd.barrier(device.get_global_sampled_image(texture_id), gfx::ImageUsage::GraphicsShaderRead);
             i_draw += 1;
         }
     }
@@ -614,8 +618,7 @@ void Renderer::display_ui(UI::Context &ui)
             settings.resolution_dirty = true;
         }
 
-        // 2: ldr buffer
-        ImGui::Image((void*)2, size);
+        ImGui::Image((void*)((u64)device.get_image_sampled_index(ldr_rt.image)), size);
 
         ui.end_window();
     }
@@ -967,18 +970,12 @@ void Renderer::update(Scene &scene)
 
     device.bind_global_uniform_buffer(dynamic_uniform_buffer.buffer, global_offset, sizeof(GlobalUniform));
 
-    device.bind_global_sampled_image(0, imgui_pass.font_atlas);
-    ImGui::GetIO().Fonts->SetTexID((void *)0);
-
-    device.bind_global_sampled_image(1, empty_sampled_image);
-    device.bind_global_sampled_image(2, ldr_rt.image);
-    device.update_globals();
-
-
     // -- Draw frame
 
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
+    device.update_globals();
+    cmd.bind_global_set();
 
     // vulkan hack: this command buffer will wait for the image acquire semaphore
     cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -1038,7 +1035,6 @@ void Renderer::update(Scene &scene)
             for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
             {
                 cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
-                device.bind_global_sampled_image(10 + i_texture, render_textures[i_texture]);
             }
 
             cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
@@ -1072,14 +1068,9 @@ void Renderer::update(Scene &scene)
 
     // TAA
     {
-        // cmd.barrier(hdr_rt.depth, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(history_buffers[(frame_count)%2], gfx::ImageUsage::ComputeShaderReadWrite);
         cmd.barrier(history_buffers[(frame_count+1)%2], gfx::ImageUsage::ComputeShaderRead);
-
-        device.bind_global_sampled_image(1, hdr_rt.image);
-        // device.bind_global_sampled_image(4, hdr_rt.depth);
-        device.bind_global_sampled_image(5, history_buffers[(frame_count+1)%2]);
 
         struct PACKED TaaOptions
         {
@@ -1090,9 +1081,9 @@ void Renderer::update(Scene &scene)
 
         auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
         auto *options                     = this->bind_shader_options<TaaOptions>(cmd, taa);
-        options->sampled_depth_buffer     = 4;
-        options->sampled_hdr_buffer       = 1;
-        options->sampled_previous_history = 5;
+        options->sampled_depth_buffer     = device.get_image_sampled_index(hdr_rt.depth);
+        options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_rt.image);
+        options->sampled_previous_history = device.get_image_sampled_index(history_buffers[(frame_count+1)%2]);
 
         cmd.bind_storage_image(taa, 1, history_buffers[frame_count%2]);
         cmd.bind_pipeline(taa);
@@ -1104,10 +1095,6 @@ void Renderer::update(Scene &scene)
         cmd.barrier(history_buffers[(frame_count)%2], gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(tonemap_pass.histogram, gfx::BufferUsage::ComputeShaderReadWrite);
 
-        device.bind_global_sampled_image(6, history_buffers[frame_count%2]);
-        device.update_globals();
-        cmd.bind_global_set();
-
         struct PACKED BuildHistoOptions
         {
             u64 luminance_buffer;
@@ -1118,7 +1105,7 @@ void Renderer::update(Scene &scene)
 
         auto *options                = this->bind_shader_options<BuildHistoOptions>(cmd, tonemap_pass.build_histo);
         options->luminance_buffer    = device.get_buffer_address(tonemap_pass.histogram);
-        options->sampled_hdr_texture = 6;
+        options->sampled_hdr_texture = device.get_image_sampled_index(hdr_rt.image);
         options->min_log_luminance   = -10.f;
         options->one_over_log_luminance_range = 1.f / 12.f;
 
@@ -1166,16 +1153,11 @@ void Renderer::update(Scene &scene)
         // cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(ldr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
 
-        device.bind_global_sampled_image(1, hdr_rt.image);
-        device.bind_global_sampled_image(3, tonemap_pass.average_luminance);
-        device.update_globals();
-        cmd.bind_global_set();
-
         auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
         auto *options                     = this->bind_shader_options<TonemapOptions>(cmd, tonemap_pass.tonemap);
         *options = tonemap_pass.options;
-        options->sampled_hdr_buffer       = 6;
-        options->sampled_luminance_output = 3;
+        options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_rt.image);
+        options->sampled_luminance_output = device.get_image_sampled_index(tonemap_pass.average_luminance);
         options->storage_output_frame     = 2;
 
         cmd.bind_storage_image(tonemap_pass.tonemap, 1, ldr_rt.image);
