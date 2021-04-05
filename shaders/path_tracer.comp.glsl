@@ -168,7 +168,7 @@ void main()
     ray.direction = normalize(h_pos.xyz - ray.origin);
 
     // accumulators
-    const uint MAX_BOUNCE = 5;
+    const uint MAX_BOUNCE = 3;
     HitInfo hit_info;
     float3 o_color = float3(0.0);
     float3 throughput = float3(1.0);
@@ -179,6 +179,7 @@ void main()
         {
             float3 background_color = float3(0.846, 0.933, 0.949);
             background_color *= 100.0;
+            background_color *= 0.0;
             o_color   += background_color * throughput;
             break;
         }
@@ -215,7 +216,7 @@ void main()
         float4 base_color = color0;
         if (material.base_color_texture != u32_invalid)
         {
-            base_color *= texture(global_textures[nonuniformEXT(10 + material.base_color_texture)], uv0);
+            base_color *= texture(global_textures[nonuniformEXT(globals.render_texture_offset + material.base_color_texture)], uv0);
         }
 
         float3 albedo   = material.base_color_factor.rgb * base_color.rgb;

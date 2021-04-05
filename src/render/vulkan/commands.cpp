@@ -69,13 +69,32 @@ void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
     buffer.usage = usage_destination;
 }
 
+void Work::absolute_barrier(Handle<Image> image_handle)
+{
+    auto &image = *device->images.get(image_handle);
+
+    auto src_access = get_src_image_access(image.usage);
+
+    VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    b.oldLayout            = src_access.layout;
+    b.newLayout            = src_access.layout;
+    b.srcAccessMask        = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+    b.dstAccessMask        = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+    b.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+    b.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+    b.image                = image.vkhandle;
+    b.subresourceRange     = image.full_view.range;
+
+    vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+}
+
 void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 {
     auto &image = *device->images.get(image_handle);
 
     auto src_access = get_src_image_access(image.usage);
     auto dst_access = get_dst_image_access(usage_destination);
-    auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_range);
+    auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
     vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
 
     image.usage = usage_destination;
@@ -87,7 +106,7 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 
     auto src_access = get_src_image_access(ImageUsage::None);
     auto dst_access = get_dst_image_access(usage_destination);
-    auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_range);
+    auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
     vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
 
     image.usage = usage_destination;
@@ -106,7 +125,7 @@ void Work::barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::p
         auto &image = *device->images.get(image_handle);
         auto src_access = get_src_image_access(image.usage);
         auto dst_access = get_dst_image_access(usage_dst);
-        image_barriers.push_back(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_range));
+        image_barriers.push_back(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range));
         src_stage |= src_access.stage;
         dst_stage |= dst_access.stage;
 
@@ -173,10 +192,10 @@ void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst)
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
 
-    region.imageSubresource.mipLevel = dst_image.full_range.baseMipLevel;
-    region.imageSubresource.aspectMask = dst_image.full_range.aspectMask;
-    region.imageSubresource.layerCount = dst_image.full_range.layerCount;
-    region.imageSubresource.baseArrayLayer = dst_image.full_range.baseArrayLayer;
+    region.imageSubresource.mipLevel = dst_image.full_view.range.baseMipLevel;
+    region.imageSubresource.aspectMask = dst_image.full_view.range.aspectMask;
+    region.imageSubresource.layerCount = dst_image.full_view.range.layerCount;
+    region.imageSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
     region.imageExtent.width = dst_image.desc.size.x;
     region.imageExtent.height = dst_image.desc.size.y;
     region.imageExtent.depth = dst_image.desc.size.z;
@@ -213,7 +232,7 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
 {
     auto image = *device->images.get(image_handle);
 
-    vkCmdClearColorImage(command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_range);
+    vkCmdClearColorImage(command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_view.range);
 }
 
 void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
@@ -288,7 +307,7 @@ void GraphicsWork::begin_pass(Handle<RenderPass> renderpass_handle, Handle<Frame
     Vec<VkImageView> views(attachments.size());
     for (u32 i_attachment = 0; i_attachment < attachments.size(); i_attachment++)
     {
-        views[i_attachment] = device->images.get(attachments[i_attachment])->full_view;
+        views[i_attachment] = device->images.get(attachments[i_attachment])->full_view.vkhandle;
     }
 
     VkRenderPassAttachmentBeginInfo attachments_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO };

@@ -140,7 +140,7 @@ inline ImageAccess get_src_image_access(ImageUsage usage)
     {
         access.stage  = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
         access.access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        access.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        access.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     }
     break;
     case ImageUsage::Present:
@@ -222,7 +222,7 @@ inline ImageAccess get_dst_image_access(ImageUsage usage)
     {
         access.stage  = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         access.access = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        access.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        access.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     }
     break;
     case ImageUsage::Present:
@@ -462,6 +462,14 @@ inline VkDescriptorType to_vk(DescriptorType type)
 inline bool is_depth_format(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT;
+}
+
+inline VkImageViewType view_type_from_image(VkImageType type)
+{
+    if (type == VK_IMAGE_TYPE_2D) {
+        return VK_IMAGE_VIEW_TYPE_2D;
+    }
+    return VK_IMAGE_VIEW_TYPE_2D;
 }
 
 }

@@ -12,8 +12,6 @@ layout(set = 1, binding = 3) buffer MaterialBuffer {
 
 layout(location = 0) in float4 i_color;
 layout(location = 1) in float2 i_uv;
-
-layout(location = 0) out float4 o_color;
 void main()
 {
     RenderMeshData render_mesh = render_meshes[push_constants.render_mesh_idx];
@@ -25,6 +23,8 @@ void main()
         base_color *= texture(global_textures[nonuniformEXT(globals.render_texture_offset + material.base_color_texture)], i_uv);
     }
 
-
-    o_color = float4(base_color.rgb, 1);
+    if (base_color.a < 0.5)
+    {
+        discard;
+    }
 }

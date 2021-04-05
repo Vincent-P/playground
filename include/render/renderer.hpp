@@ -14,7 +14,7 @@
 
 namespace gfx = vulkan;
 
-inline constexpr uint FRAME_QUEUE_LENGTH = 3;
+inline constexpr uint FRAME_QUEUE_LENGTH = 1;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -89,6 +89,8 @@ struct PACKED GlobalUniform
     float4x4 camera_proj;
     float4x4 camera_view_inverse;
     float4x4 camera_projection_inverse;
+    float4x4 camera_previous_view;
+    float4x4 camera_previous_projection;
     float4   camera_position;
     u64 vertex_buffer_ptr;
     u64 primitive_buffer_ptr;
@@ -96,6 +98,8 @@ struct PACKED GlobalUniform
     float delta_t;
     u32 frame_count;
     u32 camera_moved;
+    u32 render_texture_offset;
+    float2 jitter_offset;
 };
 
 struct PACKED PushConstants
@@ -138,19 +142,23 @@ struct Renderer
     Vec<StbImage> upload_images;
 
     // User renderer
-    GlobalUniform global_uniform;
     Handle<gfx::Image> depth_buffer;
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;
     RenderTargets swapchain_rt;
+    RenderTargets depth_only_rt;
 
     gfx::Fence transfer_done;
 
     ImGuiPass imgui_pass;
     TonemapPass tonemap_pass;
 
+    // Geometry pools
     GpuPool vertex_buffer;
     GpuPool index_buffer;
+    GpuPool render_mesh_data;
+    Vec<u32> render_mesh_indices;
+    bool render_mesh_data_dirty = false;
 
     Handle<gfx::Buffer> material_buffer;
     Handle<gfx::Buffer> material_buffer_staging;
@@ -161,21 +169,16 @@ struct Renderer
     Handle<gfx::Buffer> bvh_nodes_buffer_staging;
     Handle<gfx::Buffer> bvh_faces_buffer;
     Handle<gfx::Buffer> bvh_faces_buffer_staging;
-
     u32 bvh_transfer = u32_invalid;
 
     u64 geometry_transfer_done_value = u64_invalid;
 
     Handle<gfx::GraphicsProgram> opaque_program;
+    Handle<gfx::GraphicsProgram> opaque_prepass_program;
     Handle<gfx::ComputeProgram> path_tracing_program;
     Handle<gfx::ComputeProgram> taa;
     Handle<gfx::Image> history_buffers[2];
     u32 current_history = 0;
-
-    GpuPool render_mesh_data;
-    Vec<u32> render_mesh_indices;
-
-    bool render_mesh_data_dirty = false;
 
     /// ---
 

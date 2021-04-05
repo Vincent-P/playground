@@ -170,8 +170,8 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     /// --- Create default samplers
     device.samplers.resize(1);
     VkSamplerCreateInfo sampler_info = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    sampler_info.magFilter           = VK_FILTER_LINEAR;
-    sampler_info.minFilter           = VK_FILTER_LINEAR;
+    sampler_info.magFilter           = VK_FILTER_NEAREST;
+    sampler_info.minFilter           = VK_FILTER_NEAREST;
     sampler_info.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     sampler_info.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -357,7 +357,7 @@ void Device::update_globals()
         auto &image = *images.get(global_set.pending_images[i_pending]);
         images_info.push_back({
                 .sampler = samplers[BuiltinSampler::Default],
-                .imageView = image.full_view,
+                .imageView = image.full_view.vkhandle,
                 .imageLayout = writes[i_pending].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL,
             });
         write.pImageInfo = &images_info.back();
@@ -365,17 +365,21 @@ void Device::update_globals()
 
     VkDescriptorBufferInfo buffer_info;
     buffer_info.range  = global_set.pending_range;
-    buffer_info.offset = global_set.pending_offset;
+    buffer_info.offset = 0;
 
     if (auto *pending_buffer = buffers.get(global_set.pending_buffer))
     {
         buffer_info.buffer = pending_buffer->vkhandle;
     }
 
+    if (global_set.dynamic_offset != global_set.pending_offset)
+    {
+        global_set.dynamic_offset = global_set.pending_offset;
+    }
+
     if (global_set.dynamic_buffer != global_set.pending_buffer || global_set.dynamic_range != global_set.pending_range)
     {
         global_set.dynamic_buffer = global_set.pending_buffer;
-        global_set.dynamic_offset = global_set.pending_offset;
         global_set.dynamic_range  = global_set.pending_range;
 
         writes.push_back({

@@ -63,6 +63,7 @@ struct Work
     void prepare_present(Surface &surface);
 
     void barrier(Handle<Buffer> buffer, BufferUsage usage_destination);
+    void absolute_barrier(Handle<Image> image_handle);
     void barrier(Handle<Image> image, ImageUsage usage_destination);
     void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
     void barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::pair<Handle<Buffer>, BufferUsage>> buffers);

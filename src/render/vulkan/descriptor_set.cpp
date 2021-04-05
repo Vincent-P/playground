@@ -137,7 +137,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
             auto &image = *device.images.get(set.descriptors[slot].image.image_handle);
             images_info.push_back({
                     .sampler = device.samplers[BuiltinSampler::Default],
-                    .imageView = image.full_view,
+                    .imageView = image.full_view.vkhandle,
                     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 });
             writes[slot].pImageInfo = &images_info.back();
@@ -150,7 +150,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
             auto &image = *device.images.get(set.descriptors[slot].image.image_handle);
             images_info.push_back({
                     .sampler = VK_NULL_HANDLE,
-                    .imageView = image.full_view,
+                    .imageView = image.full_view.vkhandle,
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 });
             writes[slot].pImageInfo = &images_info.back();

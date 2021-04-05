@@ -63,6 +63,17 @@ struct ImageDescription
     bool operator==(const ImageDescription &b) const = default;
 };
 
+struct ImageView
+{
+    VkImageSubresourceRange range;
+    VkImageView vkhandle;
+    u32 sampled_idx;
+    VkFormat format;
+    std::string name;
+
+    bool operator==(const ImageView &b) const = default;
+};
+
 struct Image
 {
     ImageDescription desc;
@@ -70,9 +81,8 @@ struct Image
     VmaAllocation allocation;
     ImageUsage usage = ImageUsage::None;
     bool is_proxy = false;
-    VkImageSubresourceRange full_range;
-    VkImageView full_view;
-    u32 full_view_idx;
+    ImageView full_view;
+    ImageView color_view;
     bool operator==(const Image &b) const = default;
 };
 

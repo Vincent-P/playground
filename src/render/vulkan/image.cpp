@@ -6,8 +6,47 @@
 
 namespace vulkan
 {
+
+static ImageView create_image_view(Device &device, VkImage vkhandle, std::string &&name, VkImageSubresourceRange &range, VkFormat format, VkImageViewType type)
+{
+    ImageView view;
+
+    view.vkhandle = VK_NULL_HANDLE;
+    view.name = std::move(name);
+    view.range = range;
+
+    VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    vci.flags                 = 0;
+    vci.image                 = vkhandle;
+    vci.format                = format;
+    vci.components.r          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.g          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.b          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.components.a          = VK_COMPONENT_SWIZZLE_IDENTITY;
+    vci.subresourceRange      = range;
+    vci.viewType              = type;
+
+    VK_CHECK(vkCreateImageView(device.device, &vci, nullptr, &view.vkhandle));
+
+    if (device.vkSetDebugUtilsObjectNameEXT)
+    {
+        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+        ni.objectHandle                  = reinterpret_cast<u64>(view.vkhandle);
+        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
+        ni.pObjectName                   = view.name.c_str();
+        VK_CHECK(device.vkSetDebugUtilsObjectNameEXT(device.device, &ni));
+    }
+
+    view.sampled_idx = 0;
+
+    return view;
+}
+
 Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<VkImage> proxy)
 {
+    bool is_sampled = image_desc.usages & sampled_image_usage;
+    bool is_depth = is_depth_format(image_desc.format);
+
     VkImageCreateInfo image_info     = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     image_info.imageType             = image_desc.type;
     image_info.format                = image_desc.format;
@@ -23,14 +62,6 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     image_info.pQueueFamilyIndices   = nullptr;
     image_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
     image_info.tiling                = VK_IMAGE_TILING_OPTIMAL;
-
-    VkImageSubresourceRange full_range = {};
-    full_range.aspectMask     = is_depth_format(image_desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    full_range.baseMipLevel   = 0;
-    full_range.levelCount     = image_info.mipLevels;
-    full_range.baseArrayLayer = 0;
-    full_range.layerCount     = image_info.arrayLayers;
-
 
     VkImage vkhandle = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -63,32 +94,16 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
         VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
     }
 
-    VkImageView full_view = VK_NULL_HANDLE;
-    VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    vci.flags                 = 0;
-    vci.image                 = vkhandle;
-    vci.format                = image_desc.format;
-    vci.components.r          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.g          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.b          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.components.a          = VK_COMPONENT_SWIZZLE_IDENTITY;
-    vci.subresourceRange      = full_range;
-    vci.viewType              = VK_IMAGE_VIEW_TYPE_2D;
 
-    VK_CHECK(vkCreateImageView(device, &vci, nullptr, &full_view));
+    VkImageSubresourceRange full_range = {};
+    full_range.aspectMask     = is_depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    full_range.baseMipLevel   = 0;
+    full_range.levelCount     = image_info.mipLevels;
+    full_range.baseArrayLayer = 0;
+    full_range.layerCount     = image_info.arrayLayers;
+    VkFormat format = image_desc.format;
 
-    if (this->vkSetDebugUtilsObjectNameEXT)
-    {
-        VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
-        ni.objectHandle                  = reinterpret_cast<u64>(full_view);
-        ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
-        ni.pObjectName                   = image_desc.name.c_str();
-        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
-    }
-
-
-    bool is_sampled = image_desc.usages & sampled_image_usage;
-    u32 full_view_idx = is_sampled ? global_set.current_sampled_image : 0;
+    ImageView full_view = create_image_view(*this, vkhandle, "Image view", full_range, format, view_type_from_image(image_desc.type));
 
     auto handle = images.add({
             .desc = image_desc,
@@ -96,13 +111,15 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
             .allocation = allocation,
             .usage = ImageUsage::None,
             .is_proxy = proxy.has_value(),
-            .full_range = full_range,
             .full_view = full_view,
-            .full_view_idx = full_view_idx,
         });
 
-    if (is_sampled) {
-        this->bind_global_sampled_image(full_view_idx, handle);
+    // Bindless (bind everything)
+    if (is_sampled)
+    {
+        auto &image = *images.get(handle);
+        image.full_view.sampled_idx = global_set.current_sampled_image;
+        this->bind_global_sampled_image(image.full_view.sampled_idx, handle);
     }
 
     return handle;
@@ -112,12 +129,12 @@ void Device::destroy_image(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
-        this->bind_global_sampled_image(image->full_view_idx, this->get_global_sampled_image(0));
+        this->bind_global_sampled_image(image->full_view.sampled_idx, this->get_global_sampled_image(0));
         if (!image->is_proxy)
         {
             vmaDestroyImage(allocator, image->vkhandle, image->allocation);
         }
-        vkDestroyImageView(device, image->full_view, nullptr);
+        vkDestroyImageView(device, image->full_view.vkhandle, nullptr);
         images.remove(image_handle);
     }
 }
@@ -135,7 +152,7 @@ u32 Device::get_image_sampled_index(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
-        return image->full_view_idx;
+        return image->full_view.sampled_idx;
     }
     return 0;
 }
