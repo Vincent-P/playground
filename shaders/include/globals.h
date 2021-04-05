@@ -20,15 +20,19 @@ struct Vertex
     float4 color0;
 };
 
+
 struct RenderMeshData
 {
     float4x4 transform;
     u32 i_mesh;
     u32 gen_mesh;
     u32 i_material;
+    u32 vertex_offset;
+    u32 index_offset;
+    u32 index_count;
     u32 texture_offset;
+    u32 pad0;
 };
-
 struct Material
 {
     float4 base_color_factor;

@@ -41,11 +41,12 @@ struct GpuPool
     };
 
     std::string name;
-    u32 size;
-    u32 element_size;
-    u32 capacity;
+    u32 length = 0;
+    u32 size = 0;
+    u32 element_size = 0;
+    u32 capacity = 0;
 
-    u8 *data;
+    u8 *data = nullptr;
     u32 free_list_head_offset = 0;
     Handle<gfx::Buffer> host;
     Handle<gfx::Buffer> device;
@@ -56,7 +57,7 @@ struct GpuPool
     std::pair<bool, u32> allocate(u32 element_count);
     void free(u32 offset);
 
-    bool update(u32 offset, u32 element_count, void* data);
+    bool update(u32 offset, u32 element_count, const void* data);
     bool is_up_to_date(u32 offset);
 
     inline bool has_changes() const { return dirty_allocations.empty() == false; }
@@ -78,21 +79,3 @@ struct GpuPool
     template<typename T>
     const T &get(u32 index) const { return *reinterpret_cast<const T*>(this->operator[](index)); }
 };
-
-struct StreamingBuffer
-{
-    u32 size;
-    u32 element_size;
-    uint current;
-    uint capacity;
-    u32  transfer_start = u32_invalid;
-    u32  transfer_end = u32_invalid;
-    u64  transfer_done = u32_invalid;
-    Handle<gfx::Buffer> buffer;
-    Handle<gfx::Buffer> buffer_staging;
-};
-
-StreamingBuffer streaming_buffer_create(gfx::Device &device, std::string_view name, u32 size, u32 element_size, u32 usage = gfx::storage_buffer_usage);
-bool streaming_buffer_allocate(gfx::Device &device, StreamingBuffer &streaming_buffer, u32 nb_elements, u32 element_size, const void *src);
-void streaming_buffer_upload(gfx::TransferWork &cmd, StreamingBuffer &streaming_buffer);
-inline bool streaming_buffer_has_transfer(const StreamingBuffer &b) { return b.transfer_start != u32_invalid; }

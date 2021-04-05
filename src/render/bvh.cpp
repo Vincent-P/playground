@@ -143,10 +143,10 @@ static void bvh_set_temp_order(Vec<TempBVHNode> &temp_nodes, usize &counter, usi
     }
 }
 
-BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_meshes_data, const Vec<Vertex> &vertices, const Vec<u32> &indices, const Pool<Mesh> &meshes, const Vec<Material> &materials)
+BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_meshes_data, const GpuPool &vertices, const GpuPool &indices, const Vec<Material> &materials)
 {
-    assert(indices.size() % 3 == 0); // not triangles??
-    usize triangles_count = indices.size() / 3;
+    assert(indices.length % 3 == 0); // not triangles??
+    usize triangles_count = indices.length / 3;
 
     BVH bvh;
     Vec<TempBVHNode> temp_nodes;
@@ -155,15 +155,19 @@ BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_mesh
     bvh.nodes.reserve(triangles_count * 2);
     temp_nodes.reserve(triangles_count * 2);
 
+    auto get_vertex = [&](u32 i_index) {
+        return vertices.get<Vertex>(indices.get<u32>(i_index));
+    };
+
+
     // Process every triangles
     for (auto i_render_mesh : render_meshes_indices)
     {
         const auto &render_mesh = render_meshes_data.get<RenderMeshData>(i_render_mesh);
-        const auto &mesh = *meshes.get(render_mesh.mesh_handle);
 
-        for (usize i_prim_index = 0; i_prim_index < mesh.index_count; i_prim_index += 3)
+        for (usize i_prim_index = 0; i_prim_index < render_mesh.index_count; i_prim_index += 3)
         {
-            u32 i_index = mesh.index_offset + i_prim_index;
+            u32 i_index = render_mesh.index_offset + i_prim_index;
 
             temp_nodes.emplace_back();
             auto &node = temp_nodes.back();
@@ -178,11 +182,11 @@ BVH create_bvh(const Vec<u32> &render_meshes_indices, const GpuPool &render_mesh
 
             bvh.nodes.emplace_back();
 
-            node.bbox_min = (render_mesh.transform * float4(vertices[indices[i_index + 0]].position, 1.0)).xyz();
+            node.bbox_min = (render_mesh.transform * float4(get_vertex(i_index + 0).position, 1.0)).xyz();
             node.bbox_max = node.bbox_min;
 
-            box_extend(node.bbox_min, node.bbox_max, (render_mesh.transform * float4(vertices[indices[i_index + 1]].position, 1.0)).xyz());
-            box_extend(node.bbox_min, node.bbox_max, (render_mesh.transform * float4(vertices[indices[i_index + 2]].position, 1.0)).xyz());
+            box_extend(node.bbox_min, node.bbox_max, (render_mesh.transform * float4(get_vertex(i_index + 1).position, 1.0)).xyz());
+            box_extend(node.bbox_min, node.bbox_max, (render_mesh.transform * float4(get_vertex(i_index + 2).position, 1.0)).xyz());
 
             node.bbox_center = box_center(node.bbox_min, node.bbox_max);
         }

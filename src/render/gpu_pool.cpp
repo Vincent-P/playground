@@ -1,4 +1,4 @@
-#include "render/streaming_buffer.hpp"
+#include "render/gpu_pool.hpp"
 
 #include "base/logger.hpp"
 
@@ -8,69 +8,6 @@
 
 #include <fmt/format.h>
 #include <memory>
-
-StreamingBuffer streaming_buffer_create(gfx::Device &device, std::string_view name, u32 size, u32 element_size, u32 usage)
-{
-    StreamingBuffer buffer;
-
-    buffer.size = size;
-    buffer.element_size = element_size;
-    buffer.capacity = buffer.size / buffer.element_size;
-
-    buffer.current = 0;
-
-    buffer.buffer = device.create_buffer({
-        .name  = fmt::format("{} device", name),
-        .size  = size,
-        .usage = usage,
-    });
-
-    buffer.buffer_staging = device.create_buffer({
-        .name  = fmt::format("{} host staging", name),
-        .size  = size,
-        .usage = gfx::source_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-    });
-
-    return buffer;
-}
-
-bool streaming_buffer_allocate(gfx::Device &device, StreamingBuffer &streaming_buffer, u32 nb_elements, u32 element_size, const void *src)
-{
-    if (streaming_buffer.current + nb_elements > streaming_buffer.capacity)
-    {
-        return false;
-    }
-
-    auto *staging   = device.map_buffer<u8>(streaming_buffer.buffer_staging);
-
-    std::memcpy(staging + streaming_buffer.current * element_size, src, nb_elements * element_size);
-
-    if (streaming_buffer.transfer_start == u32_invalid)
-    {
-        streaming_buffer.transfer_start = streaming_buffer.current;
-    }
-
-    if (streaming_buffer.transfer_end == u32_invalid)
-    {
-        streaming_buffer.transfer_end = streaming_buffer.current + nb_elements;
-    }
-    else
-    {
-        streaming_buffer.transfer_end += nb_elements;
-    }
-
-    streaming_buffer.current += nb_elements;
-    return true;
-}
-
-void streaming_buffer_upload(gfx::TransferWork &cmd, StreamingBuffer &streaming_buffer)
-{
-    cmd.barrier(streaming_buffer.buffer, gfx::BufferUsage::TransferDst);
-    cmd.copy_buffer(streaming_buffer.buffer_staging, streaming_buffer.buffer);
-    streaming_buffer.transfer_start = u32_invalid;
-    streaming_buffer.transfer_end = u32_invalid;
-}
 
 GpuPool GpuPool::create(gfx::Device &device, const GpuPoolDescription &desc)
 {
@@ -106,6 +43,12 @@ GpuPool GpuPool::create(gfx::Device &device, const GpuPoolDescription &desc)
 
 std::pair<bool, u32> GpuPool::allocate(u32 element_count)
 {
+    if (this->length + element_count > this->capacity)
+    {
+        logger::error("[GpuPool] allocate(): Pool ({}) is full.\n", this->name);
+        return {false, u32_invalid};
+    }
+
     u32 offset = free_list_head_offset;
     auto *free_list_head = reinterpret_cast<GpuPool::FreeList*>(this->data + free_list_head_offset * this->element_size);
 
@@ -118,7 +61,7 @@ std::pair<bool, u32> GpuPool::allocate(u32 element_count)
 
     if (free_list_head->size < element_count)
     {
-        logger::error("[GpuPool] allocate(): Pool is full.\n", offset);
+        logger::error("[GpuPool] allocate(): Pool ({}) is full.\n", this->name);
         return {false, u32_invalid};
     }
 
@@ -137,6 +80,7 @@ std::pair<bool, u32> GpuPool::allocate(u32 element_count)
     }
 
     this->valid_allocations[offset] = element_count;
+    this->length += element_count;
 
     return {true, offset};
 }
@@ -156,9 +100,13 @@ void GpuPool::free(u32 offset)
     new_head->next = this->free_list_head_offset;
 
     this->free_list_head_offset = offset;
+
+    this->valid_allocations.erase(offset);
+    this->dirty_allocations.erase(offset);
+    this->length -= element_count;
 }
 
-bool GpuPool::update(u32 offset, u32 element_count, void* data)
+bool GpuPool::update(u32 offset, u32 element_count, const void* data)
 {
     if (this->valid_allocations.contains(offset) == false)
     {

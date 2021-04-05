@@ -6,7 +6,7 @@
 #include "base/numerics.hpp"
 #include "camera.hpp"
 #include "gltf.hpp"
-#include "render/streaming_buffer.hpp"
+#include "render/gpu_pool.hpp"
 #include "render/vulkan/commands.hpp"
 #include "render/vulkan/device.hpp"
 #include "render/vulkan/resources.hpp"
@@ -76,11 +76,10 @@ Renderer Renderer::create(const platform::Window &window)
     // Prepare the frame synchronizations
     renderer.fence = device.create_fence();
 
-    renderer.dynamic_buffer = device.create_buffer({
-            .name         = "Uniform buffer",
-            .size         = 16_KiB,
-            .usage        = gfx::uniform_buffer_usage,
-            .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    renderer.dynamic_uniform_buffer = RingBuffer::create(device, {
+            .name = "Dynamic Uniform",
+            .size = 16_KiB,
+            .gpu_usage = gfx::uniform_buffer_usage,
         });
 
     renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage});
@@ -250,8 +249,18 @@ Renderer Renderer::create(const platform::Window &window)
     });
 
     // Create the geometry buffers
-    renderer.vertex_buffer = streaming_buffer_create(device, "Vertex buffer", 100_MiB, sizeof(Vertex));
-    renderer.index_buffer = streaming_buffer_create(device, "Index buffer", 100_MiB, sizeof(Vertex), gfx::index_buffer_usage | gfx::storage_buffer_usage);
+    renderer.vertex_buffer = GpuPool::create(device, {
+        .name         = "Vertices",
+        .size         = 100_MiB,
+        .element_size = sizeof(Vertex),
+    });
+
+    renderer.index_buffer = GpuPool::create(device, {
+        .name         = "Indices",
+        .size         = 32_MiB,
+        .element_size = sizeof(u32),
+        .gpu_usage = gfx::index_buffer_usage | gfx::storage_buffer_usage,
+    });
 
     renderer.render_mesh_data = GpuPool::create(device, {
         .name         = "Render meshes",
@@ -348,45 +357,17 @@ void Renderer::destroy()
     context.destroy();
 }
 
-std::pair<void*, usize> Renderer::allocate_uniform(usize len)
-{
-    usize buffer_size = device.get_buffer_size(dynamic_buffer);
-
-    usize aligned_len = ((len / 256u) + 1u) * 256u;
-
-    // TODO: handle the correct number of frame instead of ALWAYS the last one
-    // check that we dont overwrite previous frame's content
-    usize last_frame_start = dynamic_buffer_last_frame_end - dynamic_buffer_last_frame_size;
-    assert(dynamic_buffer_offset + aligned_len < last_frame_start + buffer_size);
-
-    // if offset + aligned_len is outside the buffer go back to the beginning (ring buffer)
-    if ((dynamic_buffer_offset % buffer_size) + aligned_len >= buffer_size)
-    {
-        dynamic_buffer_offset = ((dynamic_buffer_offset / buffer_size) + 1u) * buffer_size;
-    }
-
-    usize allocation_offset = dynamic_buffer_offset % buffer_size;
-
-    void *dst = device.map_buffer<u8>(dynamic_buffer) + allocation_offset;
-
-    dynamic_buffer_offset += aligned_len;
-    dynamic_buffer_this_frame_size += aligned_len;
-
-    return std::make_pair(dst, allocation_offset);
-}
-
-
 void* Renderer::bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len)
 {
-    auto [options, options_offset] = allocate_uniform(options_len);
-    cmd.bind_uniform_buffer(program, 0, dynamic_buffer, options_offset, options_len);
+    auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
+    cmd.bind_uniform_buffer(program, 0, dynamic_uniform_buffer.buffer, options_offset, options_len);
     return options;
 }
 
 void* Renderer::bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len)
 {
-    auto [options, options_offset] = allocate_uniform(options_len);
-    cmd.bind_uniform_buffer(program, 0, dynamic_buffer, options_offset, options_len);
+    auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
+    cmd.bind_uniform_buffer(program, 0, dynamic_uniform_buffer.buffer, options_offset, options_len);
     return options;
 }
 
@@ -466,8 +447,7 @@ bool Renderer::start_frame()
     auto &work_pool = work_pools[current_frame];
     device.reset_work_pool(work_pool);
 
-    // reset dynamic buffer frame size
-    dynamic_buffer_this_frame_size = 0;
+    dynamic_uniform_buffer.start_frame();
 
     // receipt contains the image acquired semaphore
     bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
@@ -609,9 +589,7 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
     }
 
     frame_count += 1;
-    dynamic_buffer_last_frame_end = dynamic_buffer_offset;
-    dynamic_buffer_last_frame_size = dynamic_buffer_this_frame_size;
-
+    dynamic_uniform_buffer.end_frame();
     return false;
 }
 
@@ -665,24 +643,53 @@ static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorld
     const auto &mesh     = *scene.meshes.get(render_mesh_component.mesh_handle);
     // const auto &material = *scene.materials.get(render_mesh_component.material_handle);
 
-    if (!streaming_buffer_allocate(renderer.device, renderer.vertex_buffer, mesh.vertex_count, sizeof(Vertex), scene.vertices.data() + mesh.vertex_offset))
-    {
-        logger::error("Cannot load model: the vertex pool is full!\n");
+    const Vertex *mesh_vertices = scene.vertices.data() + mesh.vertex_offset;
+    const u32 *mesh_indices     = scene.indices.data() + mesh.index_offset;
+
+    bool success = true;
+
+    // upload the vertices
+    u32 vertices_offset;
+    std::tie(success, vertices_offset) = renderer.vertex_buffer.allocate(mesh.vertex_count);
+    if (!success) {
+        logger::error("[Renderer] load_mesh(): vertex allocation failed.\n");
         return;
     }
 
-    if (!streaming_buffer_allocate(renderer.device, renderer.index_buffer, mesh.index_count, sizeof(u32), scene.indices.data() + mesh.index_offset))
-    {
-        logger::error("Cannot load model: the index pool is full!\n");
+    renderer.vertex_buffer.update(vertices_offset, mesh.vertex_count, mesh_vertices);
+
+    // Because the first vertex index is different in the GpuPool and the scene, the indices need to be updated
+    Vec<u32> new_indices(mesh.index_count);
+    for (usize i_index = 0; i_index < mesh.index_count; i_index += 1) {
+        new_indices[i_index] = mesh_indices[i_index] + vertices_offset - mesh.vertex_offset ;
+    }
+    u32 indices_offset;
+    std::tie(success, indices_offset) = renderer.index_buffer.allocate(mesh.index_count);
+    if (!success) {
+        renderer.vertex_buffer.free(vertices_offset);
+        logger::error("[Renderer] load_mesh(): index allocation failed.\n");
         return;
     }
+    renderer.index_buffer.update(indices_offset, mesh.index_count, new_indices.data());
 
     RenderMeshData new_mesh_data = {
-            .transform = transform.transform,
-            .mesh_handle = render_mesh_component.mesh_handle,
-            .i_material = render_mesh_component.i_material,
+        .transform     = transform.transform,
+        .mesh_handle   = render_mesh_component.mesh_handle,
+        .i_material    = render_mesh_component.i_material,
+        .vertex_offset = vertices_offset,
+        .index_offset  = indices_offset,
+        .index_count   = mesh.index_count,
     };
-    auto [success, new_index] = renderer.render_mesh_data.allocate(1);
+
+    u32 new_index;
+    std::tie(success, new_index) = renderer.render_mesh_data.allocate(1);
+    if (!success) {
+        renderer.vertex_buffer.free(vertices_offset);
+        renderer.index_buffer.free(indices_offset);
+        logger::error("[Renderer] load_mesh(): render mesh data allocation failed.\n");
+        return;
+    }
+
     renderer.render_mesh_data.update(new_index, 1, &new_mesh_data);
     renderer.render_mesh_indices.push_back(new_index);
 
@@ -785,7 +792,7 @@ void Renderer::update(Scene &scene)
     {
         render_mesh_data_dirty = false;
 
-        bvh          = create_bvh(render_mesh_indices, render_mesh_data, scene.vertices, scene.indices, scene.meshes, scene.materials);
+        bvh          = create_bvh(render_mesh_indices, render_mesh_data, vertex_buffer, index_buffer, scene.materials);
         bvh_transfer = 1;
         std::memcpy(device.map_buffer(bvh_nodes_buffer_staging), bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode));
         std::memcpy(device.map_buffer(bvh_faces_buffer_staging), bvh.faces.data(), bvh.faces.size() * sizeof(Face));
@@ -888,13 +895,15 @@ void Renderer::update(Scene &scene)
 
     // -- Transfer stuff
 
-    bool have_transfer = imgui_pass.should_upload_atlas || streaming_buffer_has_transfer(vertex_buffer) || streaming_buffer_has_transfer(index_buffer) || render_mesh_data.has_changes();
+    bool have_transfer = imgui_pass.should_upload_atlas || vertex_buffer.has_changes() || index_buffer.has_changes() || render_mesh_data.has_changes();
     if (have_transfer)
     {
         gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
         transfer_cmd.begin();
 
         render_mesh_data.upload_changes(transfer_cmd);
+        vertex_buffer.upload_changes(transfer_cmd);
+        index_buffer.upload_changes(transfer_cmd);
 
         if (imgui_pass.should_upload_atlas)
         {
@@ -902,20 +911,6 @@ void Renderer::update(Scene &scene)
             transfer_cmd.copy_buffer_to_image(imgui_pass.font_atlas_staging, imgui_pass.font_atlas);
             imgui_pass.should_upload_atlas = false;
             imgui_pass.transfer_done_value = frame_count+1;
-        }
-
-        if (streaming_buffer_has_transfer(vertex_buffer))
-        {
-            streaming_buffer_upload(transfer_cmd, vertex_buffer);
-            vertex_buffer.transfer_done = frame_count + 3;
-            geometry_transfer_done_value = frame_count+3;
-        }
-
-        if (streaming_buffer_has_transfer(index_buffer))
-        {
-            streaming_buffer_upload(transfer_cmd, index_buffer);
-            index_buffer.transfer_done = frame_count + 3;
-            geometry_transfer_done_value = frame_count+3;
         }
 
         if (bvh_transfer != u32_invalid)
@@ -974,7 +969,7 @@ void Renderer::update(Scene &scene)
     global_data->camera_view_inverse       = main_camera->view_inverse;
     global_data->camera_projection_inverse = main_camera->projection_inverse;
     global_data->camera_position           = float4(main_camera_transform->position, 1.0);
-    global_data->vertex_buffer_ptr         = device.get_buffer_address(vertex_buffer.buffer);
+    global_data->vertex_buffer_ptr         = device.get_buffer_address(vertex_buffer.device);
     global_data->primitive_buffer_ptr      = 0;
     global_data->resolution                = float2(settings.render_resolution.x, settings.render_resolution.y);
     global_data->delta_t                   = 0.016f;
@@ -1020,22 +1015,21 @@ void Renderer::update(Scene &scene)
             auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, opaque_program);
             options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
 
-            cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.buffer);
+            cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.device);
             cmd.bind_storage_buffer(opaque_program, 2, render_mesh_data.device);
             cmd.bind_storage_buffer(opaque_program, 3, material_buffer);
             cmd.bind_pipeline(opaque_program, 0);
-            cmd.bind_index_buffer(index_buffer.buffer, VK_INDEX_TYPE_UINT32);
+            cmd.bind_index_buffer(index_buffer.device, VK_INDEX_TYPE_UINT32);
 
             for (auto i_render_mesh : render_mesh_indices)
             {
                 auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
-                const auto &mesh = *scene.meshes.get(render_mesh.mesh_handle);
 
                 PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
                 cmd.push_constant(opaque_program, &constants, sizeof(PushConstants));
                 cmd.draw_indexed({
-                    .vertex_count  = mesh.index_count,
-                    .index_offset  = mesh.index_offset,
+                    .vertex_count  = render_mesh.index_count,
+                    .index_offset  = render_mesh.index_offset,
                 });
                 i_draw += 1;
             }
@@ -1064,8 +1058,8 @@ void Renderer::update(Scene &scene)
 
             cmd.bind_storage_image(path_tracing_program, 1, hdr_rt.image);
 
-            cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.device);
+            cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.device);
             cmd.bind_storage_buffer(path_tracing_program, 4, render_mesh_data.device);
             cmd.bind_storage_buffer(path_tracing_program, 5, material_buffer);
             cmd.bind_storage_buffer(path_tracing_program, 6, bvh_nodes_buffer);

@@ -8,7 +8,8 @@
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
-#include "render/streaming_buffer.hpp"
+#include "render/gpu_pool.hpp"
+#include "render/ring_buffer.hpp"
 #include "render/bvh.hpp"
 
 namespace gfx = vulkan;
@@ -24,8 +25,12 @@ struct PACKED RenderMeshData
 {
     float4x4 transform;
     Handle<Mesh> mesh_handle;
-    u32      i_material;
+    u32 i_material;
+    u32 vertex_offset;
+    u32 index_offset;
+    u32 index_count;
     u32 texture_offset = 0;
+    u32 pad0;
 };
 
 class Scene;
@@ -124,11 +129,7 @@ struct Renderer
     uint frame_count;
     std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
     gfx::Fence fence;
-    Handle<gfx::Buffer> dynamic_buffer;
-    usize dynamic_buffer_offset = 0;
-    usize dynamic_buffer_this_frame_size = 0;
-    usize dynamic_buffer_last_frame_end = 0;
-    usize dynamic_buffer_last_frame_size = 0;
+    RingBuffer dynamic_uniform_buffer;
     Handle<gfx::Image> empty_sampled_image;
     Handle<gfx::Image> empty_storage_image;
     Vec<Handle<gfx::Image>> render_textures;
@@ -147,8 +148,9 @@ struct Renderer
     ImGuiPass imgui_pass;
     TonemapPass tonemap_pass;
 
-    StreamingBuffer vertex_buffer;
-    StreamingBuffer index_buffer;
+    GpuPool vertex_buffer;
+    GpuPool index_buffer;
+
     Handle<gfx::Buffer> material_buffer;
     Handle<gfx::Buffer> material_buffer_staging;
     u32 material_transfer = u32_invalid;
@@ -183,14 +185,6 @@ struct Renderer
     void update(Scene &scene);
 
     // Ring buffer uniforms
-    std::pair<void*, usize> allocate_uniform(usize len);
-    template<typename T>
-    std::pair<T*, usize> allocate_uniform()
-    {
-        auto [void_ptr, offset] = allocate_uniform(sizeof(T));
-        return std::make_pair(reinterpret_cast<T*>(void_ptr), offset);
-    }
-
     void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);
     void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
     template<typename T> T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
