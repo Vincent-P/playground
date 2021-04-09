@@ -94,7 +94,7 @@ Renderer Renderer::create(const platform::Window &window)
             .gpu_usage = gfx::index_buffer_usage,
         });
 
-    renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage});
+    renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage | gfx::storage_image_usage});
     renderer.empty_storage_image = device.create_image({.name = "Empty storage image", .usages = gfx::storage_image_usage});
 
     // Create Render targets
@@ -199,7 +199,6 @@ Renderer Renderer::create(const platform::Window &window)
         .shader = device.create_shader("shaders/tonemap.comp.glsl.spv"),
         .descriptors =  {
             {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageImage, .count = 1},
         },
     });
 
@@ -207,7 +206,6 @@ Renderer Renderer::create(const platform::Window &window)
         .shader = device.create_shader("shaders/path_tracer.comp.glsl.spv"),
         .descriptors =  {
             {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageImage, .count = 1}, // hdr buffer
             {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertex buffer
             {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // index buffer
             {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes buffer
@@ -221,7 +219,6 @@ Renderer Renderer::create(const platform::Window &window)
         .shader = device.create_shader("shaders/taa.comp.glsl.spv"),
         .descriptors =  {
             {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageImage, .count = 1},
         },
     });
 
@@ -238,7 +235,6 @@ Renderer Renderer::create(const platform::Window &window)
         .descriptors =  {
             {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
             {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageImage, .count = 1},
         },
     });
 
@@ -1009,9 +1005,9 @@ void Renderer::update(Scene &scene)
     global_data->delta_t                    = 0.016f;
     global_data->frame_count                = frame_count;
     global_data->camera_moved               = main_camera->view != last_view || main_camera->projection != last_proj;
-    global_data->camera_moved               = false;
     global_data->render_texture_offset      = render_texture_offset;
     global_data->jitter_offset              = float2(0.0);
+    global_data->is_path_tracing            = settings.enable_path_tracing;
 
     last_view = main_camera->view;
     last_proj = main_camera->projection;
@@ -1127,15 +1123,14 @@ void Renderer::update(Scene &scene)
 
             auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
             auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
-            options->storage_output_frame     = 3;
+            options->storage_output_frame     = device.get_image_storage_index(hdr_rt.image);
 
-            cmd.bind_storage_image(path_tracing_program, 1, hdr_rt.image);
-            cmd.bind_storage_buffer(path_tracing_program, 2, vertex_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_program, 3, index_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_program, 4, render_mesh_data.device);
-            cmd.bind_storage_buffer(path_tracing_program, 5, material_buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 6, bvh_nodes_buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 7, bvh_faces_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 1, vertex_buffer.device);
+            cmd.bind_storage_buffer(path_tracing_program, 2, index_buffer.device);
+            cmd.bind_storage_buffer(path_tracing_program, 3, render_mesh_data.device);
+            cmd.bind_storage_buffer(path_tracing_program, 4, material_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 5, bvh_nodes_buffer);
+            cmd.bind_storage_buffer(path_tracing_program, 6, bvh_faces_buffer);
             cmd.bind_pipeline(path_tracing_program);
             cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
         }
@@ -1161,6 +1156,7 @@ void Renderer::update(Scene &scene)
             uint sampled_depth_buffer;
             uint sampled_hdr_buffer;
             uint sampled_previous_history;
+            uint storage_output_frame;
         };
 
         auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
@@ -1168,8 +1164,7 @@ void Renderer::update(Scene &scene)
         options->sampled_depth_buffer     = device.get_image_sampled_index(hdr_rt.depth);
         options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_rt.image);
         options->sampled_previous_history = device.get_image_sampled_index(history_buffers[(frame_count+1)%2]);
-
-        cmd.bind_storage_image(taa, 1, history_buffers[frame_count%2]);
+        options->storage_output_frame     = device.get_image_storage_index(history_buffers[frame_count%2]);
         cmd.bind_pipeline(taa);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
     }
@@ -1223,10 +1218,9 @@ void Renderer::update(Scene &scene)
         options->log_luminance_range = 12.f;
         options->tau                 = 1.1f;
         options->luminance_buffer    = device.get_buffer_address(tonemap_pass.histogram);
-        options->storage_luminance_output = 0;
+        options->storage_luminance_output = device.get_image_storage_index(tonemap_pass.average_luminance);
 
         cmd.bind_storage_buffer(tonemap_pass.average_histo, 1, tonemap_pass.histogram);
-        cmd.bind_storage_image(tonemap_pass.average_histo, 2, tonemap_pass.average_luminance);
         cmd.bind_pipeline(tonemap_pass.average_histo);
         cmd.dispatch({1, 1, 1});
     }
@@ -1242,9 +1236,7 @@ void Renderer::update(Scene &scene)
         *options = tonemap_pass.options;
         options->sampled_hdr_buffer       = device.get_image_sampled_index(history_buffers[(frame_count)%2]);
         options->sampled_luminance_output = device.get_image_sampled_index(tonemap_pass.average_luminance);
-        options->storage_output_frame     = 2;
-
-        cmd.bind_storage_image(tonemap_pass.tonemap, 1, ldr_rt.image);
+        options->storage_output_frame     = device.get_image_storage_index(ldr_rt.image);
         cmd.bind_pipeline(tonemap_pass.tonemap);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
 

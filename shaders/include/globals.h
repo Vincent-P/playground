@@ -52,6 +52,10 @@ struct Material
 layout(set = 0, binding = 1) uniform sampler2D global_textures[];
 layout(set = 0, binding = 1) uniform sampler3D global_textures_3d[];
 
+layout(set = 0, binding = 2, rgba8) uniform image2D global_images_2d_rgba8[];
+layout(set = 0, binding = 2, rgba32f) uniform image2D global_images_2d_rgba32f[];
+layout(set = 0, binding = 2, r32f) uniform image2D global_images_2d_r32f[];
+
 layout(set = 0, binding = 0) uniform GlobalUniform {
     float4x4 camera_view;
     float4x4 camera_projection;
@@ -70,6 +74,7 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     u32 camera_moved;
     u32 render_texture_offset;
     float2 jitter_offset;
+    u32 is_path_tracing;
 } globals;
 
 layout(push_constant) uniform PushConstants {

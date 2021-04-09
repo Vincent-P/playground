@@ -11,8 +11,6 @@ layout (set = 1, binding = 1) buffer HistogramBuffer {
     uint values[];
 } luminance_buffer;
 
-layout(set = 1, binding = 2, r32f) uniform image2D luminance_output;
-
 layout (set = 1, binding = 0) uniform LUM
 {
     uint  pixel_count;
@@ -60,9 +58,9 @@ void main()
     {
         float weighted_log_average = (histogram_shared[0].x / max(float(pixel_count) - count, 1.0)) - 1.0;
         float weighted_average_luminance = exp2(((weighted_log_average / 254.0) * log_luminance_range) + min_log_luminance);
-        float previous_luminance = imageLoad(luminance_output, int2(0, 0)).r;
+        float previous_luminance = imageLoad(global_images_2d_r32f[storage_luminance_output], int2(0, 0)).r;
 
         float adapted_luminance = previous_luminance + (weighted_average_luminance - previous_luminance) * (1 - exp(-globals.delta_t * tau));
-        imageStore(luminance_output, int2(0, 0), float4(adapted_luminance, 0.0, 0.0, 0.0));
+        imageStore(global_images_2d_r32f[storage_luminance_output], int2(0, 0), float4(adapted_luminance, 0.0, 0.0, 0.0));
     }
 }

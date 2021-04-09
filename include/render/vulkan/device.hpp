@@ -56,6 +56,7 @@ struct GlobalDescriptorSet
     Vec<Handle<Image>> storage_images;
     Vec<Handle<Image>> sampled_images;
     u32 current_sampled_image = 0;
+    u32 current_storage_image = 0;
 
     Vec<Handle<Image>> pending_images;
     Vec<u32> pending_indices;
@@ -159,6 +160,7 @@ struct Device
     Handle<Image> create_image(const ImageDescription &image_desc, Option<VkImage> proxy = {});
     void destroy_image(Handle<Image> image_handle);
     u32 get_image_sampled_index(Handle<Image> image_handle);
+    u32 get_image_storage_index(Handle<Image> image_handle);
     uint3 get_image_size(Handle<Image> image_handle);
 
     Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);

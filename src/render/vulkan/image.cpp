@@ -44,8 +44,9 @@ static ImageView create_image_view(Device &device, VkImage vkhandle, std::string
 
 Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<VkImage> proxy)
 {
-    bool is_sampled = image_desc.usages & sampled_image_usage;
-    bool is_depth = is_depth_format(image_desc.format);
+    bool is_sampled = image_desc.usages & VK_IMAGE_USAGE_SAMPLED_BIT;
+    bool is_storage = image_desc.usages & VK_IMAGE_USAGE_STORAGE_BIT;
+    bool is_depth   = is_depth_format(image_desc.format);
 
     VkImageCreateInfo image_info     = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     image_info.imageType             = image_desc.type;
@@ -103,7 +104,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     full_range.layerCount     = image_info.arrayLayers;
     VkFormat format = image_desc.format;
 
-    ImageView full_view = create_image_view(*this, vkhandle, "Image view", full_range, format, view_type_from_image(image_desc.type));
+    ImageView full_view = create_image_view(*this, vkhandle, fmt::format("{} full view", image_desc.name), full_range, format, view_type_from_image(image_desc.type));
 
     auto handle = images.add({
             .desc = image_desc,
@@ -122,6 +123,13 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
         this->bind_global_sampled_image(image.full_view.sampled_idx, handle);
     }
 
+    if (is_storage)
+    {
+        auto &image = *images.get(handle);
+        image.full_view.storage_idx = global_set.current_storage_image;
+        this->bind_global_storage_image(image.full_view.storage_idx, handle);
+    }
+
     return handle;
 }
 
@@ -130,6 +138,7 @@ void Device::destroy_image(Handle<Image> image_handle)
     if (auto *image = images.get(image_handle))
     {
         this->bind_global_sampled_image(image->full_view.sampled_idx, this->get_global_sampled_image(0));
+        this->bind_global_storage_image(image->full_view.storage_idx, this->get_global_sampled_image(0));
         if (!image->is_proxy)
         {
             vmaDestroyImage(allocator, image->vkhandle, image->allocation);
@@ -157,4 +166,13 @@ u32 Device::get_image_sampled_index(Handle<Image> image_handle)
     return 0;
 }
 
+
+u32 Device::get_image_storage_index(Handle<Image> image_handle)
+{
+    if (auto *image = images.get(image_handle))
+    {
+        return image->full_view.storage_idx;
+    }
+    return 0;
+}
 };

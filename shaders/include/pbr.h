@@ -128,7 +128,7 @@ float3 smith_ggx_brdf(float3 N, float3 V, float3 L, float3 albedo, float roughne
     float D = ggx_ndf(NdotH, roughness);
     float G = smith_ggx_g2(V, L, N, roughness);
 
-    float3 F0 = float3(0.08);
+    float3 F0 = float3(0.04);
     F0        = mix(F0, albedo, metallic);
     float3 F  = fresnel_shlick(dot(V, H), F0);
 

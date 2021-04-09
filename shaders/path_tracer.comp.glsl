@@ -10,29 +10,27 @@ layout(set = 1, binding = 0) uniform Options {
     uint storage_output_frame;
 };
 
-layout (set = 1, binding = 1, rgba32f) uniform image2D output_frame;
-
-layout(set = 1, binding = 2) buffer VertexBuffer {
+layout(set = 1, binding = 1) buffer VertexBuffer {
     Vertex vertices[];
 };
 
-layout(set = 1, binding = 3) buffer IndexBuffer {
+layout(set = 1, binding = 2) buffer IndexBuffer {
     u32 indices[];
 };
 
-layout(set = 1, binding = 4) buffer RenderMeshesBuffer {
+layout(set = 1, binding = 3) buffer RenderMeshesBuffer {
     RenderMeshData render_meshes[];
 };
 
-layout(set = 1, binding = 5) buffer MaterialBuffer {
+layout(set = 1, binding = 4) buffer MaterialBuffer {
     Material materials[];
 };
 
-layout(set = 1, binding = 6) buffer BVHNodesBuffer {
+layout(set = 1, binding = 5) buffer BVHNodesBuffer {
     BVHNode nodes[];
 };
 
-layout(set = 1, binding = 7) buffer BVHFacesBuffer {
+layout(set = 1, binding = 6) buffer BVHFacesBuffer {
     Face faces[];
 };
 
@@ -142,7 +140,7 @@ void main()
     uint3 group_idx  = gl_WorkGroupID;
 
     int2 pixel_pos = int2(global_idx.xy);
-    int2 output_size = imageSize(output_frame);
+    int2 output_size = imageSize(global_images_2d_rgba32f[storage_output_frame]);
 
     bool im_out = any(greaterThan(pixel_pos, output_size));
     #if 0
@@ -157,7 +155,7 @@ void main()
     // initialize a random number state based on frag coord and frame
     uint rng_seed = init_seed(pixel_pos, globals.frame_count);
 
-    float2 screen_uv = float2(pixel_pos) / globals.resolution;
+    float2 screen_uv  = float2(pixel_pos) / globals.resolution;
     float3 clip_space = float3(screen_uv * 2.0 - 1.0, 0.0001);
     float4 h_pos      = globals.camera_view_inverse * globals.camera_projection_inverse * float4(clip_space, 1.0);
     h_pos /= h_pos.w;
@@ -245,7 +243,7 @@ void main()
         float3 kD;
         float3 specular_brdf = smith_ggx_brdf(float3(0, 0, 1), wo, wi, albedo, roughness*roughness, metallic, kD);
         float3 diffuse_brdf = lambert_brdf(wo, wi, albedo);
-        float3 brdf = kD * diffuse_brdf + specular_brdf;
+        float3 brdf = mix(diffuse_brdf, specular_brdf, do_specular);
 
         float pdf  = 0.5 * lambert_pdf(wo, wi) + 0.5 * smith_ggx_pdf(wo, wi, roughness*roughness);
 
@@ -275,5 +273,5 @@ void main()
         ray.direction = tangent_to_world * wi;
     }
 
-    imageStore(output_frame, pixel_pos, vec4(o_color, 1.0));
+    imageStore(global_images_2d_rgba32f[storage_output_frame], pixel_pos, vec4(o_color, 1.0));
 }

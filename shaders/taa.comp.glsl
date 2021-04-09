@@ -5,12 +5,11 @@
 #include "globals.h"
 #include "maths.h"
 
-layout (set = 1, binding = 1, rgba32f) uniform image2D output_frame;
-
 layout(set = 1, binding = 0) uniform Options {
     uint sampled_depth_buffer;
     uint sampled_hdr_buffer;
     uint sampled_previous_history;
+    uint storage_output_frame;
 };
 
 const int2 three_square_offsets[9] =
@@ -168,6 +167,8 @@ void main()
 
     /// --- Constrain history to avoid ghosting
 
+    if (globals.is_path_tracing == 0)
+    {
     #if 0
     // clip the history color in YCoCg space
     history_color = clip_aabb(rgb_to_ycocg(neighbour_min.rgb),
@@ -175,13 +176,14 @@ void main()
                               float4(rgb_to_ycocg(color.rgb), 1.0),
                               float4(rgb_to_ycocg(history_color.rgb), 1.0));
     history_color.rgb = ycocg_to_rgb(history_color.rgb);
-    #elif 0
+    #else
     // clip the history color in RGB space
     history_color = clip_aabb(neighbour_min.rgb,
                               neighbour_max.rgb,
                               color,
                               history_color);
     #endif
+    }
 
     // avoid nan
     history_color = clamp(history_color, 0.0, 1000000000000000000.0);
@@ -191,9 +193,16 @@ void main()
     /// --- Weigh the history and the current frame to the new history
 
     float blend_weight = 1.0f / (1.0f + (1.0f / history_color.a));
-    blend_weight = 0.01;
+    if (globals.is_path_tracing == 0)
+    {
+        blend_weight = 0.05;
+    }
+    else if (globals.camera_moved != 0)
+    {
+        blend_weight = 1.0;
+    }
 
     float3 final_color = mix(history_color.rgb, color.rgb, blend_weight);
 
-    imageStore(output_frame, pixel_pos, float4(final_color, blend_weight));
+    imageStore(global_images_2d_rgba32f[storage_output_frame], pixel_pos, float4(final_color, blend_weight));
 }

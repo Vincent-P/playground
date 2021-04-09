@@ -100,6 +100,7 @@ struct PACKED GlobalUniform
     u32 camera_moved;
     u32 render_texture_offset;
     float2 jitter_offset;
+    u32 is_path_tracing;
 };
 
 struct PACKED PushConstants
