@@ -68,6 +68,7 @@ shaders = files([
   'shaders/opaque.frag',
   'shaders/opaque_prepass.frag',
   'shaders/path_tracer.comp.glsl',
+  'shaders/hybrid.frag',
   'shaders/taa.comp.glsl',
   # 'shaders/checkerboard_floor.frag',
   # 'shaders/checkerboard_floor.vert',

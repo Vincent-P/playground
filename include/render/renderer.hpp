@@ -177,6 +177,7 @@ struct Renderer
     Handle<gfx::GraphicsProgram> opaque_program;
     Handle<gfx::GraphicsProgram> opaque_prepass_program;
     Handle<gfx::ComputeProgram> path_tracing_program;
+    Handle<gfx::GraphicsProgram> path_tracing_hybrid_program;
     Handle<gfx::ComputeProgram> taa;
     Handle<gfx::Image> history_buffers[2];
     u32 current_history = 0;

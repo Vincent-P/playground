@@ -7,10 +7,11 @@
 
 #include "base/intrinsics.hpp"
 #include "base/logger.hpp"
+#include "vulkan/vulkan_core.h"
 
 namespace vulkan
 {
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                                                      VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
@@ -27,7 +28,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
         }
     }
 
-    DEBUG_BREAK();
+    if (message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    {
+        DEBUG_BREAK();
+    }
 
     return VK_FALSE;
 }

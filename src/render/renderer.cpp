@@ -215,6 +215,28 @@ Renderer Renderer::create(const platform::Window &window)
         },
     });
 
+    {
+        renderer.path_tracing_hybrid_program = device.create_program("hybrid pathtracer", {
+            .vertex_shader   =  device.create_shader("shaders/opaque.vert.spv"),
+            .fragment_shader =  device.create_shader("shaders/hybrid.frag.spv"),
+            .renderpass = renderer.hdr_rt.load_renderpass,
+            .descriptors =  {
+                {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertex buffer
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // index buffer
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes buffer
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // material buffer
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH nodes buffer
+                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH faces buffer
+            },
+        });
+
+        gfx::RenderState render_state   = {};
+        render_state.depth.test         = VK_COMPARE_OP_EQUAL;
+        render_state.depth.enable_write = false;
+        device.compile(renderer.path_tracing_hybrid_program, render_state);
+    }
+
     renderer.taa = device.create_program("taa", {
         .shader = device.create_shader("shaders/taa.comp.glsl.spv"),
         .descriptors =  {
@@ -1037,6 +1059,8 @@ void Renderer::update(Scene &scene)
     scissor.extent.height = viewport.height;
     cmd.set_scissor(scissor);
 
+
+    // Depth prepass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
     cmd.begin_pass(depth_only_rt.clear_renderpass, depth_only_rt.framebuffer, {depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
     if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done))
@@ -1070,10 +1094,13 @@ void Renderer::update(Scene &scene)
         }
     }
     cmd.end_pass();
+
+    // Opaque pass
+    cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
+    cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+
     if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done))
     {
-        cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
         if (!settings.enable_path_tracing)
         {
             u32 i_draw = 0;
@@ -1104,43 +1131,69 @@ void Renderer::update(Scene &scene)
                 i_draw += 1;
             }
         }
-
-        cmd.end_pass();
-
-        if (settings.enable_path_tracing)
+        else
         {
-            for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
+            u32 i_draw = 0;
+            struct PACKED OpaquePassOptions
             {
-                cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
-            }
-
-            cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
-
-            struct PACKED PathTracingOptions
-            {
-                uint storage_output_frame;
+                u64 transforms_buffer;
             };
 
-            auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
-            auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
-            options->storage_output_frame     = device.get_image_storage_index(hdr_rt.image);
+            auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, path_tracing_hybrid_program);
+            options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
 
-            cmd.bind_storage_buffer(path_tracing_program, 1, vertex_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_program, 2, index_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_program, 3, render_mesh_data.device);
-            cmd.bind_storage_buffer(path_tracing_program, 4, material_buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 5, bvh_nodes_buffer);
-            cmd.bind_storage_buffer(path_tracing_program, 6, bvh_faces_buffer);
-            cmd.bind_pipeline(path_tracing_program);
-            cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 1, vertex_buffer.device);
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 2, render_mesh_data.device);
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 3, index_buffer.device);
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 4, material_buffer);
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 5, bvh_nodes_buffer);
+            cmd.bind_storage_buffer(path_tracing_hybrid_program, 6, bvh_faces_buffer);
+            cmd.bind_pipeline(path_tracing_hybrid_program, 0);
+            cmd.bind_index_buffer(index_buffer.device, VK_INDEX_TYPE_UINT32);
+
+            for (auto i_render_mesh : render_mesh_indices)
+            {
+                auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
+
+                PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
+                cmd.push_constant(path_tracing_hybrid_program, &constants, sizeof(PushConstants));
+                cmd.draw_indexed({
+                    .vertex_count  = render_mesh.index_count,
+                    .index_offset  = render_mesh.index_offset,
+                });
+                i_draw += 1;
+            }
         }
     }
-    else
+
+    cmd.end_pass();
+
+    if (false && settings.enable_path_tracing)
     {
-        cmd.absolute_barrier(depth_buffer);
-        cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-        cmd.end_pass();
+        for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
+        {
+            cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
+        }
+
+        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+
+        struct PACKED PathTracingOptions
+        {
+            uint storage_output_frame;
+        };
+
+        auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
+        auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
+        options->storage_output_frame     = device.get_image_storage_index(hdr_rt.image);
+
+        cmd.bind_storage_buffer(path_tracing_program, 1, vertex_buffer.device);
+        cmd.bind_storage_buffer(path_tracing_program, 2, index_buffer.device);
+        cmd.bind_storage_buffer(path_tracing_program, 3, render_mesh_data.device);
+        cmd.bind_storage_buffer(path_tracing_program, 4, material_buffer);
+        cmd.bind_storage_buffer(path_tracing_program, 5, bvh_nodes_buffer);
+        cmd.bind_storage_buffer(path_tracing_program, 6, bvh_faces_buffer);
+        cmd.bind_pipeline(path_tracing_program);
+        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
     }
 
     // TAA
