@@ -5,10 +5,7 @@
 
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/commands.hpp"
-
-
-namespace gfx = vulkan;
-
+#include "render/gfx.hpp"
 
 struct RingBufferDescription
 {

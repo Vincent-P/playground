@@ -158,6 +158,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
         ImGui::DockBuilderDockWindow("Inspector", dock_id_left_bottom);
 
         ImGui::DockBuilderDockWindow("Profiler", dock_id_right);
+        ImGui::DockBuilderDockWindow("Settings", dock_id_left_bottom);
 
         ImGui::DockBuilderDockWindow("Framebuffer", dock_main_id);
 

@@ -5,13 +5,12 @@
 
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/commands.hpp"
+#include "render/gfx.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
 
 namespace vulkan {struct Buffer; struct Device; struct TransferWork;}
-
-namespace gfx = vulkan;
 
 /*
 A pool of fixed size for gpu driven rendering (vertices, indices, materials, instances, etc)
