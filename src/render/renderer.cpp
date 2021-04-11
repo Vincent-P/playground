@@ -612,8 +612,7 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
             scissor.extent.height = static_cast<u32>(clip_rect.w - clip_rect.y);
 
             cmd.set_scissor(scissor);
-            PushConstants constants = {.draw_idx = i_draw};
-            cmd.push_constant(pass_data.program, &constants, sizeof(PushConstants));
+            cmd.push_constant<PushConstants>({.draw_idx = i_draw});
             cmd.draw_indexed({.vertex_count = draw_command.ElemCount, .index_offset = index_offset, .vertex_offset = vertex_offset});
             i_draw += 1;
 
@@ -1084,8 +1083,7 @@ void Renderer::update(Scene &scene)
         {
             auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
 
-            PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
-            cmd.push_constant(opaque_prepass_program, &constants, sizeof(PushConstants));
+            cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
             cmd.draw_indexed({
                 .vertex_count  = render_mesh.index_count,
                 .index_offset  = render_mesh.index_offset,
@@ -1122,8 +1120,7 @@ void Renderer::update(Scene &scene)
             {
                 auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
 
-                PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
-                cmd.push_constant(opaque_program, &constants, sizeof(PushConstants));
+                cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
                 cmd.draw_indexed({
                     .vertex_count  = render_mesh.index_count,
                     .index_offset  = render_mesh.index_offset,
@@ -1155,8 +1152,7 @@ void Renderer::update(Scene &scene)
             {
                 auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
 
-                PushConstants constants = {.draw_idx = i_draw, .render_mesh_idx = i_render_mesh};
-                cmd.push_constant(path_tracing_hybrid_program, &constants, sizeof(PushConstants));
+                cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
                 cmd.draw_indexed({
                     .vertex_count  = render_mesh.index_count,
                     .index_offset  = render_mesh.index_offset,

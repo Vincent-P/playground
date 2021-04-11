@@ -275,10 +275,9 @@ void ComputeWork::bind_storage_image(Handle<GraphicsProgram> program_handle, u32
     ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
 }
 
-void ComputeWork::push_constant(Handle<GraphicsProgram> program_handle, void *data, usize len)
+void ComputeWork::push_constant(const void *data, usize len)
 {
-    auto &program = *device->graphics_programs.get(program_handle);
-    vkCmdPushConstants(command_buffer, program.pipeline_layout, VK_SHADER_STAGE_ALL, 0, len, data);
+    vkCmdPushConstants(command_buffer, device->global_set.vkpipelinelayout, VK_SHADER_STAGE_ALL, 0, len, data);
 }
 
 /// --- GraphicsWork

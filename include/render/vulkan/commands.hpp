@@ -92,7 +92,12 @@ struct ComputeWork : TransferWork
     void bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle);
     void bind_storage_image(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Image> image_handle);
 
-    void push_constant(Handle<GraphicsProgram> program_handle, void *data, usize len);
+    void push_constant(const void *data, usize len);
+    template<typename T>
+    void push_constant(const T &object)
+    {
+        this->push_constant(&object, sizeof(T));
+    }
 };
 
 struct GraphicsWork : ComputeWork
