@@ -29,4 +29,9 @@ std::string utf16_to_utf8(const std::wstring_view &wstr)
     WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), result.data(), result.size(), nullptr, nullptr);
     return result;
 }
+
+bool is_handle_valid(HANDLE handle)
+{
+    return handle != nullptr && handle != INVALID_HANDLE_VALUE;
+}
 }
