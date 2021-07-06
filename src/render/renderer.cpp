@@ -65,6 +65,10 @@ Renderer Renderer::create(const platform::Window &window)
             .buffer_device_address = false
         });
 
+    // Create empty images to full the slot #0 on bindless descriptors
+    renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage | gfx::storage_image_usage});
+    renderer.empty_storage_image = device.create_image({.name = "Empty storage image", .usages = gfx::storage_image_usage});
+
     // Create the drawing surface
     surface = gfx::Surface::create(context, device, window);
 
@@ -192,6 +196,7 @@ Renderer Renderer::create(const platform::Window &window)
 
     ImGui::GetIO().Fonts->SetTexID((void *)((u64)device.get_image_sampled_index(imgui_pass.font_atlas)));
 
+    #if 0
     // Create the luminance pass
     auto &tonemap_pass = renderer.tonemap_pass;
 
@@ -378,6 +383,7 @@ Renderer Renderer::create(const platform::Window &window)
         uint opaque_default             = device.compile(renderer.opaque_prepass_program, render_state);
         UNUSED(opaque_default);
     }
+    #endif
 
     renderer.transfer_done = device.create_fence();
 
@@ -689,6 +695,7 @@ void Renderer::display_ui(UI::Context &ui)
     }
 }
 
+#if 0
 static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorldComponent &transform, const RenderMeshComponent &render_mesh_component)
 {
     const auto &mesh     = *scene.meshes.get(render_mesh_component.mesh_handle);
@@ -746,6 +753,7 @@ static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorld
 
     renderer.render_mesh_data_dirty = true;
 }
+#endif
 
 void Renderer::update(Scene &scene)
 {
@@ -1020,13 +1028,13 @@ void Renderer::update(Scene &scene)
     global_data->camera_previous_view       = last_view;
     global_data->camera_previous_projection = last_proj;
     global_data->camera_position            = float4(main_camera_transform->position, 1.0);
-    global_data->vertex_buffer_ptr          = device.get_buffer_address(vertex_buffer.device);
+    global_data->vertex_buffer_ptr          = 0;
     global_data->primitive_buffer_ptr       = 0;
     global_data->resolution                 = float2(settings.render_resolution.x, settings.render_resolution.y);
     global_data->delta_t                    = 0.016f;
     global_data->frame_count                = frame_count;
     global_data->camera_moved               = main_camera->view != last_view || main_camera->projection != last_proj;
-    global_data->render_texture_offset      = render_texture_offset;
+    global_data->render_texture_offset      = 0;
     global_data->jitter_offset              = float2(0.0);
     global_data->is_path_tracing            = settings.enable_path_tracing;
 
@@ -1058,6 +1066,7 @@ void Renderer::update(Scene &scene)
     scissor.extent.height = viewport.height;
     cmd.set_scissor(scissor);
 
+#if 0
 
     // Depth prepass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
@@ -1291,6 +1300,7 @@ void Renderer::update(Scene &scene)
 
         cmd.barrier(ldr_rt.image, gfx::ImageUsage::GraphicsShaderRead);
     }
+#endif
 
     ImGui::Render();
     if (device.get_fence_value(transfer_done) >= imgui_pass.transfer_done_value)

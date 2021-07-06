@@ -25,8 +25,8 @@ struct BufferDescriptor
 struct DynamicDescriptor
 {
     Handle<Buffer> buffer_handle;
-    usize offset;
     usize size;
+    u32 offset;
 };
 
 struct DescriptorType
@@ -77,13 +77,13 @@ struct DescriptorSet
 
     // dynamic offsets
     Vec<usize> dynamic_descriptors;
-    Vec<usize> dynamic_offsets;
+    Vec<u32> dynamic_offsets;
 };
 
 DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &descriptors);
 void destroy_descriptor_set(Device &device, DescriptorSet &set);
 
-void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
+void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
 void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle);
 void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle);
 

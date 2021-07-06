@@ -10,6 +10,7 @@
 #include "render/vulkan/queues.hpp"
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/descriptor_set.hpp"
+#include "render/vulkan/bindless_set.hpp"
 
 #include <array>
 #include <utility>
@@ -42,28 +43,13 @@ enum BuiltinSampler
     Count
 };
 
-struct GlobalDescriptorSet
+struct GlobalDescriptorSets
 {
-    VkDescriptorSet vkset;
-    VkDescriptorSetLayout vklayout;
-    VkDescriptorPool vkpool;
-    VkPipelineLayout vkpipelinelayout;
-
-    Handle<Buffer> dynamic_buffer;
-    u32 dynamic_offset = 0;
-    u32 dynamic_range = 0;
-
-    Vec<Handle<Image>> storage_images;
-    Vec<Handle<Image>> sampled_images;
-    u32 current_sampled_image = 0;
-    u32 current_storage_image = 0;
-
-    Vec<Handle<Image>> pending_images;
-    Vec<u32> pending_indices;
-    Vec<u32> pending_binding;
-    Handle<Buffer> pending_buffer;
-    u32 pending_offset;
-    u32 pending_range;
+    VkDescriptorPool pool;
+    VkPipelineLayout pipeline_layout;
+    DescriptorSet uniform;
+    BindlessSet storage_images;
+    BindlessSet sampled_images;
 };
 
 struct PushConstantLayout
@@ -90,7 +76,11 @@ struct Device
 
     VkDescriptorPool descriptor_pool;
     PushConstantLayout push_constant_layout;
-    GlobalDescriptorSet global_set;
+    GlobalDescriptorSets global_sets;
+
+    DescriptorSet global_uniform_set;
+    BindlessSet storage_images_bindless;
+    BindlessSet sampled_images_bindless;
 
     Pool<Shader> shaders;
     Pool<GraphicsProgram> graphics_programs;
@@ -177,7 +167,8 @@ struct Device
     void bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range);
     void bind_global_storage_image(u32 index, Handle<Image> image_handle);
     void bind_global_sampled_image(u32 index, Handle<Image> image_handle);
-    inline Handle<Image> get_global_sampled_image(u32 index) { return global_set.sampled_images[index]; }
+    inline Handle<Image> get_global_sampled_image(u32 index) { return get_image_descriptor(global_sets.sampled_images, index); }
+
     void update_globals();
 
     // Swapchain

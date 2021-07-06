@@ -18,11 +18,11 @@ layout(buffer_reference) buffer VerticesType {
 };
 #endif
 
-layout(set = 1, binding = 1) buffer VerticesBuffer {
+layout(set = 3, binding = 1) buffer VerticesBuffer {
     ImGuiVertex vertices[];
 } vertices_ptr;
 
-layout(set = 1, binding = 0) uniform Options {
+layout(set = 3, binding = 0) uniform Options {
     float2 scale;
     float2 translation;
     #if 0

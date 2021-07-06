@@ -16,7 +16,7 @@ void Device::recreate_program_internal(ComputeProgram &program)
 
     DescriptorSet set = create_descriptor_set(*this, program.state.descriptors);
 
-    std::array sets = {global_set.vklayout, set.layout};
+    std::array sets = {global_sets.uniform.layout, global_sets.sampled_images.layout, global_sets.storage_images.layout, set.layout};
 
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
@@ -53,7 +53,7 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
 
     DescriptorSet set = create_descriptor_set(*this, compute_state.descriptors);
 
-    std::array sets = {global_set.vklayout, set.layout};
+    std::array sets = {global_sets.uniform.layout, global_sets.sampled_images.layout, global_sets.storage_images.layout, set.layout};
 
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;

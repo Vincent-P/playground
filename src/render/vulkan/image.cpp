@@ -1,8 +1,8 @@
+#include "render/vulkan/bindless_set.hpp"
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/device.hpp"
 #include "render/vulkan/utils.hpp"
 #include "vulkan/vulkan_core.h"
-
 
 namespace vulkan
 {
@@ -119,15 +119,15 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     if (is_sampled)
     {
         auto &image = *images.get(handle);
-        image.full_view.sampled_idx = global_set.current_sampled_image;
-        this->bind_global_sampled_image(image.full_view.sampled_idx, handle);
+        image.full_view.sampled_idx = bind_descriptor(global_sets.sampled_images, {.image = {handle}});
+        logger::info("Binding image ({}) in sampled images #{}\n", image_desc.name, image.full_view.sampled_idx);
     }
 
     if (is_storage)
     {
         auto &image = *images.get(handle);
-        image.full_view.storage_idx = global_set.current_storage_image;
-        this->bind_global_storage_image(image.full_view.storage_idx, handle);
+        image.full_view.storage_idx = bind_descriptor(global_sets.storage_images, {.image = {handle}});
+        logger::info("Binding image ({}) in storage images #{}\n", image_desc.name, image.full_view.storage_idx);
     }
 
     return handle;
@@ -137,8 +137,8 @@ void Device::destroy_image(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
-        this->bind_global_sampled_image(image->full_view.sampled_idx, this->get_global_sampled_image(0));
-        this->bind_global_storage_image(image->full_view.storage_idx, this->get_global_sampled_image(0));
+        if (image->full_view.sampled_idx != u32_invalid) { unbind_descriptor(global_sets.sampled_images, image->full_view.sampled_idx); }
+        if (image->full_view.storage_idx != u32_invalid) { unbind_descriptor(global_sets.storage_images, image->full_view.storage_idx); }
         if (!image->is_proxy)
         {
             vmaDestroyImage(allocator, image->vkhandle, image->allocation);
@@ -165,7 +165,6 @@ u32 Device::get_image_sampled_index(Handle<Image> image_handle)
     }
     return 0;
 }
-
 
 u32 Device::get_image_storage_index(Handle<Image> image_handle)
 {

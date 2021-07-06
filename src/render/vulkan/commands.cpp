@@ -23,14 +23,24 @@ void Work::begin()
 
 void Work::bind_global_set()
 {
-    if (queue_type == QueueType::Graphics)
+    if (queue_type == QueueType::Graphics || queue_type == QueueType::Compute)
     {
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
-    }
-    else if (queue_type == QueueType::Compute)
-    {
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, device->global_set.vkpipelinelayout, 0, 1, &device->global_set.vkset, 1, &device->global_set.dynamic_offset);
+        VkPipelineLayout layout = device->global_sets.pipeline_layout;
+        VkDescriptorSet sets[] = {
+            find_or_create_descriptor_set(*device, device->global_sets.uniform),
+            device->global_sets.sampled_images.set,
+            device->global_sets.storage_images.set,
+        };
+
+        u32 offsets_count = device->global_sets.uniform.dynamic_offsets.size();
+        const u32 *offsets = device->global_sets.uniform.dynamic_offsets.data();
+
+
+        if (queue_type == QueueType::Graphics)
+        {
+            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, offsets_count, offsets);
+        }
+        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, ARRAY_SIZE(sets), sets, offsets_count, offsets);
     }
 }
 
@@ -219,7 +229,7 @@ void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 1, 1, &set, offsets.size(), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 3, 1, &set, offsets.size(), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
@@ -277,7 +287,7 @@ void ComputeWork::bind_storage_image(Handle<GraphicsProgram> program_handle, u32
 
 void ComputeWork::push_constant(const void *data, usize len)
 {
-    vkCmdPushConstants(command_buffer, device->global_set.vkpipelinelayout, VK_SHADER_STAGE_ALL, 0, len, data);
+    vkCmdPushConstants(command_buffer, device->global_sets.pipeline_layout, VK_SHADER_STAGE_ALL, 0, len, data);
 }
 
 /// --- GraphicsWork
@@ -341,7 +351,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 1, 1, &set, offsets.size(), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 3, 1, &set, offsets.size(), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
