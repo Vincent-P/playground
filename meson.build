@@ -25,7 +25,7 @@ endif
 # --- Targets
 
 main_inc = include_directories('include')
-thirdparty_inc = include_directories('third_party')
+thirdparty_inc = include_directories('third_party', is_system: true)
 
 # - ImGui
 imgui_src = files([
@@ -49,13 +49,35 @@ vk_mem_alloc = library('vk_mem_alloc', 'third_party/vk_mem_alloc.cc', dependenci
 stb_image = library('stb_image', 'third_party/stb_image.cc', link_args: ld_flags)
 
 # - {fmt}
-fmt_inc = include_directories('third_party/fmt/include')
+fmt_inc = include_directories('third_party/fmt/include', is_system: true)
 fmt_src = files([
   'third_party/fmt/src/format.cc',
   'third_party/fmt/src/os.cc'
 ])
 fmt_lib = library('fmt', fmt_src, include_directories: fmt_inc, link_args: ld_flags)
 fmt_dep = declare_dependency(link_with: fmt_lib, include_directories: fmt_inc)
+
+# - meshoptimizer
+meshopt_inc = include_directories('third_party/meshoptimizer', is_system: true)
+meshopt_src = files([
+  'third_party/meshoptimizer/allocator.cpp',
+  'third_party/meshoptimizer/clusterizer.cpp',
+  'third_party/meshoptimizer/indexcodec.cpp',
+  'third_party/meshoptimizer/indexgenerator.cpp',
+  'third_party/meshoptimizer/overdrawanalyzer.cpp',
+  'third_party/meshoptimizer/overdrawoptimizer.cpp',
+  'third_party/meshoptimizer/simplifier.cpp',
+  'third_party/meshoptimizer/spatialorder.cpp',
+  'third_party/meshoptimizer/stripifier.cpp',
+  'third_party/meshoptimizer/vcacheanalyzer.cpp',
+  'third_party/meshoptimizer/vcacheoptimizer.cpp',
+  'third_party/meshoptimizer/vertexcodec.cpp',
+  'third_party/meshoptimizer/vertexfilter.cpp',
+  'third_party/meshoptimizer/vfetchanalyzer.cpp',
+  'third_party/meshoptimizer/vfetchoptimizer.cpp'
+])
+meshopt_lib = library('meshopt', meshopt_src, include_directories: meshopt_inc, link_args: ld_flags)
+meshopt_dep = declare_dependency(link_with: meshopt_lib, include_directories: meshopt_inc)
 
 # - Shaders
 shaders = files([
@@ -159,7 +181,7 @@ main_src = [
 
 main_ld_flags = []
 cpp_args = ['-DIMGUI_USER_CONFIG="imgui_config.h"']
-main_deps = [vulkan_dep, threads_dep, shaders_dep, fmt_dep]
+main_deps = [vulkan_dep, threads_dep, shaders_dep, fmt_dep, meshopt_dep]
 cpp_std = ''
 
 if cxx.get_id() == 'msvc'
@@ -185,6 +207,7 @@ if host_machine.system() == 'windows'
 
   cpp_args += [
     '-DNOMINMAX',
+    '-DNOCOMM',
     '-DVC_EXTRALEAN',
     '-DWIN32_LEAN_AND_MEAN',
     '-DUNICODE',
