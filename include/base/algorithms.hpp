@@ -11,6 +11,11 @@ template <typename T> inline T *ptr_offset(T *ptr, usize offset)
     return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
 }
 
+template <typename T> inline const T *ptr_offset(const T *ptr, usize offset)
+{
+    return reinterpret_cast<const T *>(reinterpret_cast<const char *>(ptr) + offset);
+}
+
 template <typename E> inline constexpr auto to_underlying(E e) noexcept
 {
     return static_cast<std::underlying_type_t<E>>(e);
