@@ -203,9 +203,9 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
         VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_sets.pool));
 
-        device.global_sets.sampled_images = create_bindless_set(device, device.global_sets.pool, "bindless sampled images", {.type = DescriptorType::SampledImage, .count = 1024});
-        device.global_sets.storage_images = create_bindless_set(device, device.global_sets.pool, "bindless storage images", {.type = DescriptorType::StorageImage, .count = 1024});
-        device.global_sets.uniform        = create_descriptor_set(device, {{.type = DescriptorType::DynamicBuffer, .count = 1}});
+        device.global_sets.sampled_images = create_bindless_set(device, device.global_sets.pool, "bindless sampled images", {.count = 1024, .type = DescriptorType::SampledImage});
+        device.global_sets.storage_images = create_bindless_set(device, device.global_sets.pool, "bindless storage images", {.count = 1024, .type = DescriptorType::StorageImage});
+        device.global_sets.uniform        = create_descriptor_set(device, {{.count = 1, .type = DescriptorType::DynamicBuffer}});
 
         VkPushConstantRange push_constant_range;
         push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
