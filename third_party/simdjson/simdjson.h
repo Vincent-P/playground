@@ -118,7 +118,6 @@
 #else
 // just regular visual studio (best guess)
 #define SIMDJSON_REGULAR_VISUAL_STUDIO 1
-aaaa
 #endif // __clang__
 #endif // _MSC_VER
 
@@ -127,9 +126,8 @@ aaaa
 // This header should have no effect, except maybe
 // under Visual Studio.
 #include <iso646.h>
-#ifndef and
 #define and &&
-#endif
+#define or ||
 #endif
 
 #if defined(__x86_64__) || defined(_M_AMD64)

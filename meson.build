@@ -158,14 +158,11 @@ main_src = [
   'src/inputs.cpp',
   'src/tools.cpp',
   'src/ui.cpp',
-
   'src/base/pool.cpp',
   'src/base/vectors.cpp',
   'src/base/free_list.cpp',
-
   'src/platform/file_watcher.cpp',
   'src/platform/mapped_file.cpp',
-
   # 'src/render/bvh.cpp',
   'src/render/renderer.cpp',
   'src/render/gpu_pool.cpp',

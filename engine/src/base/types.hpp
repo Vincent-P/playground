@@ -1,4 +1,16 @@
 #pragma once
+
+#if defined(__clang__)
+#define CXX_CLANG
+#elif defined(__GNUC__) || defined(__GNUG__)
+#define CXX_GCC
+#elif defined(_MSC_VER)
+#define CXX_MSVC
+#else
+#define CXX_UNKNOWN
+#endif
+
+
 #include "base/numerics.hpp"
 #include "base/vectors.hpp"
 #include <cassert>
@@ -13,19 +25,13 @@
         assert(false);                                                                                                 \
     }
 
-#define PACKED __attribute__((packed))
-#define UNUSED(x) (void)(x)
-
-
-#if defined(__clang__)
-#define CXX_CLANG
-#elif defined(__GNUC__) || defined(__GNUG__)
-#define CXX_GCC
-#elif defined(_MSC_VER)
-#define CXX_MSVC
+#if defined(CXX_MSVC)
+#define PACKED
 #else
-#define CXX_UNKNOWN
+#define PACKED __attribute__((packed))
 #endif
+
+#define UNUSED(x) (void)(x)
 
 /// --- Constants
 

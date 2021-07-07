@@ -139,20 +139,18 @@ Renderer Renderer::create(const platform::Window &window)
             .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
         });
 
-    Vec<gfx::DescriptorType> common_descriptors = {
-        {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-    };
-
     // Create ImGui pass
     auto &imgui_pass = renderer.imgui_pass;
     {
+        gfx::DescriptorType mdr = {.type = gfx::DescriptorType::DynamicBuffer, .count = 1};
+
         gfx::GraphicsState gui_state = {};
         gui_state.vertex_shader   =  device.create_shader("shaders/gui.vert.spv");
         gui_state.fragment_shader =  device.create_shader("shaders/gui.frag.spv");
         gui_state.renderpass = renderer.swapchain_rt.clear_renderpass;
         gui_state.descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
+            {{.type = gfx::DescriptorType::DynamicBuffer, .count = 1}},
+            {{.type = gfx::DescriptorType::StorageBuffer, .count = 1}},
         };
         imgui_pass.program = device.create_program("imgui", gui_state);
 

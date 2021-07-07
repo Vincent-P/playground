@@ -44,7 +44,7 @@ struct DescriptorType
             u32 count : 24;
             u32 type  :  8;
         };
-        u32 raw = 0;
+        u32 raw;
     };
 };
 
