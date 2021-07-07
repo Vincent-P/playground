@@ -17,8 +17,11 @@ namespace logger
     template <typename S, typename... Args>
     inline void error(const S& format_str, Args&&... args)
     {
+        #if 0
         auto style = fg(fmt::color::crimson) | fmt::emphasis::bold;
         fmt::print(stderr, style, format_str, args...);
+        #endif
+        fmt::print(stderr, format_str, args...);
     }
 
 }

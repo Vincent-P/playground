@@ -88,7 +88,7 @@ Renderer Renderer::create(const platform::Window &window)
 
     renderer.dynamic_vertex_buffer = RingBuffer::create(device, {
             .name = "Dynamic vertices",
-            .size = 256_KiB,
+            .size = 1_MiB,
             .gpu_usage = gfx::storage_buffer_usage,
         });
 
@@ -97,9 +97,6 @@ Renderer Renderer::create(const platform::Window &window)
             .size = 64_KiB,
             .gpu_usage = gfx::index_buffer_usage,
         });
-
-    renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage | gfx::storage_image_usage});
-    renderer.empty_storage_image = device.create_image({.name = "Empty storage image", .usages = gfx::storage_image_usage});
 
     // Create Render targets
     renderer.swapchain_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = surface.format.format}}});
@@ -277,71 +274,6 @@ Renderer Renderer::create(const platform::Window &window)
         .type          = VK_IMAGE_TYPE_2D,
         .format        = VK_FORMAT_R32_SFLOAT,
         .usages        = gfx::storage_image_usage,
-    });
-
-    // Create the geometry buffers
-    renderer.vertex_buffer = GpuPool::create(device, {
-        .name         = "Vertices",
-        .size         = 100_MiB,
-        .element_size = sizeof(Vertex),
-    });
-
-    renderer.index_buffer = GpuPool::create(device, {
-        .name         = "Indices",
-        .size         = 32_MiB,
-        .element_size = sizeof(u32),
-        .gpu_usage = gfx::index_buffer_usage | gfx::storage_buffer_usage,
-    });
-
-    renderer.render_mesh_data = GpuPool::create(device, {
-        .name         = "Render meshes",
-        .size         = 32_MiB,
-        .element_size = sizeof(RenderMeshData),
-    });
-
-    const u32 bvh_nodes_buffer_size = 100_MiB;
-    renderer.bvh_nodes_buffer = device.create_buffer({
-        .name  = "BVH",
-        .size  = bvh_nodes_buffer_size,
-        .usage = gfx::storage_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    });
-
-    renderer.bvh_nodes_buffer_staging = device.create_buffer({
-        .name  = "BVH CPU",
-        .size  = bvh_nodes_buffer_size,
-        .usage = gfx::source_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-    });
-
-    const u32 bvh_faces_buffer_size = 100_MiB;
-    renderer.bvh_faces_buffer = device.create_buffer({
-        .name  = "BVH",
-        .size  = bvh_faces_buffer_size,
-        .usage = gfx::storage_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    });
-
-    renderer.bvh_faces_buffer_staging = device.create_buffer({
-        .name  = "BVH CPU",
-        .size  = bvh_faces_buffer_size,
-        .usage = gfx::source_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-    });
-
-    const u32 material_buffer_size = 100_MiB;
-    renderer.material_buffer = device.create_buffer({
-        .name  = "Materials",
-        .size  = material_buffer_size,
-        .usage = gfx::storage_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    });
-
-    renderer.material_buffer_staging = device.create_buffer({
-        .name  = "Materials CPU",
-        .size  = material_buffer_size,
-        .usage = gfx::source_buffer_usage,
-        .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
     });
 
     // Create gltf program
@@ -831,131 +763,6 @@ void Renderer::update(Scene &scene)
         settings.resolution_dirty = false;
     }
 
-    // Load new models
-    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>([&](const LocalToWorldComponent &transform, const RenderMeshComponent &render_mesh){
-        /*
-          check dirty -> update matching buffers
-          it works for update or new elements, how to handle deletion? callback?
-         */
-        for (auto i_render_mesh : render_mesh_indices)
-        {
-            auto &data = render_mesh_data.get<RenderMeshData>(i_render_mesh);
-            if (data.mesh_handle == render_mesh.mesh_handle && data.i_material == render_mesh.i_material)
-            {
-                if (data.transform != transform.transform)
-                {
-                    auto copy = data;
-                    copy.transform = transform.transform;
-                    render_mesh_data.update(i_render_mesh, 1, &copy);
-                }
-
-                return;
-            }
-        }
-
-        load_mesh(*this, scene, transform, render_mesh);
-    });
-
-    static u32 render_texture_offset = u32_invalid;
-    if (render_mesh_data_dirty)
-    {
-        render_mesh_data_dirty = false;
-
-        bvh          = create_bvh(render_mesh_indices, render_mesh_data, vertex_buffer, index_buffer, scene.materials);
-        bvh_transfer = 1;
-        std::memcpy(device.map_buffer(bvh_nodes_buffer_staging), bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode));
-        std::memcpy(device.map_buffer(bvh_faces_buffer_staging), bvh.faces.data(), bvh.faces.size() * sizeof(Face));
-
-        assert(scene.materials.size() * sizeof(Material) < 100_MiB);
-        std::memcpy(device.map_buffer(material_buffer_staging),
-                    scene.materials.data(),
-                    scene.materials.size() * sizeof(Material));
-        material_transfer = 1;
-
-        render_textures.clear();
-
-        upload_images.resize(scene.images.size());
-
-        Vec<uint> indices(scene.images.size());
-        std::iota(indices.begin(), indices.end(), 0);
-
-        parallel_foreach(indices, [&](uint i) {
-            const auto &image = scene.images[i];
-            auto &stb_image   = upload_images[i];
-
-            stb_image.pixels = stbi_load_from_memory(image.data.data(),
-                                                     static_cast<int>(image.data.size()),
-                                                     &stb_image.width,
-                                                     &stb_image.height,
-                                                     &stb_image.nb_comp,
-                                                     0);
-
-            if (stb_image.nb_comp == 1) // NOLINT
-            {
-                stb_image.format = VK_FORMAT_R8_UNORM;
-            }
-            else if (stb_image.nb_comp == 2) // NOLINT
-            {
-                stb_image.format = VK_FORMAT_R8G8_UNORM;
-            }
-            else if (stb_image.nb_comp == 3) // NOLINT
-            {
-                stbi_image_free(stb_image.pixels);
-                int wanted_nb_comp = 4;
-                stb_image.pixels   = stbi_load_from_memory(image.data.data(),
-                                                         static_cast<int>(image.data.size()),
-                                                         &stb_image.width,
-                                                         &stb_image.height,
-                                                         &stb_image.nb_comp,
-                                                         wanted_nb_comp);
-                stb_image.format   = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-                stb_image.nb_comp  = wanted_nb_comp;
-            }
-            else if (stb_image.nb_comp == 4) // NOLINT
-            {
-                stb_image.format = image.srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-            }
-            else // NOLINT
-            {
-                assert(false);
-            }
-        });
-
-        assert(upload_images.size() == scene.images.size());
-
-        for (usize i_upload_image = 0; i_upload_image < upload_images.size(); i_upload_image += 1)
-        {
-            auto &stb_image = upload_images[i_upload_image];
-
-            u32 image_size = static_cast<u32>(stb_image.width * stb_image.height * stb_image.nb_comp);
-            stb_image.staging_buffer = device.create_buffer({
-                .name         = "staging texture",
-                .size         = image_size,
-                .usage        = gfx::source_buffer_usage,
-                .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-            });
-
-            std::memcpy(device.map_buffer(stb_image.staging_buffer), stb_image.pixels, image_size);
-
-
-            stbi_image_free(stb_image.pixels);
-            stb_image.pixels = nullptr;
-
-            stb_image.gpu_image = device.create_image({
-                .name   = "glTF texture",
-                .size   = {u32(stb_image.width), u32(stb_image.height), 1},
-                .format = stb_image.format,
-                .usages = gfx::sampled_image_usage,
-            });
-
-            render_textures.push_back(stb_image.gpu_image);
-        }
-
-        if (render_textures.empty() == false) {
-            render_texture_offset = device.get_image_sampled_index(render_textures[0]);
-        }
-    }
-
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
     auto &work_pool = work_pools[current_frame];
     swapchain_rt.image = surface.images[surface.current_image];
@@ -963,9 +770,6 @@ void Renderer::update(Scene &scene)
     // -- Transfer stuff
     gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
     transfer_cmd.begin();
-    render_mesh_data.upload_changes(transfer_cmd);
-    vertex_buffer.upload_changes(transfer_cmd);
-    index_buffer.upload_changes(transfer_cmd);
 
     if (imgui_pass.should_upload_atlas)
     {
@@ -973,32 +777,6 @@ void Renderer::update(Scene &scene)
         transfer_cmd.copy_buffer_to_image(imgui_pass.font_atlas_staging, imgui_pass.font_atlas);
         imgui_pass.should_upload_atlas = false;
         imgui_pass.transfer_done_value = frame_count+1;
-    }
-
-    if (bvh_transfer != u32_invalid)
-    {
-        transfer_cmd.barrier(bvh_nodes_buffer, gfx::BufferUsage::TransferDst);
-        transfer_cmd.copy_buffer(bvh_nodes_buffer_staging, bvh_nodes_buffer);
-        transfer_cmd.barrier(bvh_faces_buffer, gfx::BufferUsage::TransferDst);
-        transfer_cmd.copy_buffer(bvh_faces_buffer_staging, bvh_faces_buffer);
-        bvh_transfer = u32_invalid;
-        geometry_transfer_done_value = frame_count+3;
-    }
-
-    if (material_transfer != u32_invalid)
-    {
-        transfer_cmd.barrier(material_buffer, gfx::BufferUsage::TransferDst);
-        transfer_cmd.copy_buffer(material_buffer_staging, material_buffer);
-        material_transfer = u32_invalid;
-
-
-        for (auto &upload_image : upload_images)
-        {
-            transfer_cmd.clear_barrier(upload_image.gpu_image, gfx::ImageUsage::TransferDst);
-            transfer_cmd.copy_buffer_to_image(upload_image.staging_buffer, upload_image.gpu_image);
-        }
-
-        geometry_transfer_done_value = frame_count+3;
     }
 
     transfer_cmd.end();
@@ -1070,140 +848,18 @@ void Renderer::update(Scene &scene)
 
     // Depth prepass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
+    cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(depth_only_rt.clear_renderpass, depth_only_rt.framebuffer, {depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-    if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done))
-    {
-        u32 i_draw = 0;
-        struct PACKED OpaquePassOptions
-        {
-            u64 transforms_buffer;
-        };
-
-        auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, opaque_prepass_program);
-        options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
-
-        cmd.bind_storage_buffer(opaque_prepass_program, 1, vertex_buffer.device);
-        cmd.bind_storage_buffer(opaque_prepass_program, 2, render_mesh_data.device);
-        cmd.bind_storage_buffer(opaque_prepass_program, 3, material_buffer);
-        cmd.bind_pipeline(opaque_prepass_program, 0);
-        cmd.bind_index_buffer(index_buffer.device, VK_INDEX_TYPE_UINT32);
-
-        for (auto i_render_mesh : render_mesh_indices)
-        {
-            auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
-
-            cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
-            cmd.draw_indexed({
-                .vertex_count  = render_mesh.index_count,
-                .index_offset  = render_mesh.index_offset,
-            });
-            i_draw += 1;
-        }
-    }
     cmd.end_pass();
 
     // Opaque pass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
+    cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-
-    if (geometry_transfer_done_value != u64_invalid && device.get_fence_value(transfer_done))
-    {
-        if (!settings.enable_path_tracing)
-        {
-            u32 i_draw = 0;
-            struct PACKED OpaquePassOptions
-            {
-                u64 transforms_buffer;
-            };
-
-            auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, opaque_program);
-            options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
-
-            cmd.bind_storage_buffer(opaque_program, 1, vertex_buffer.device);
-            cmd.bind_storage_buffer(opaque_program, 2, render_mesh_data.device);
-            cmd.bind_storage_buffer(opaque_program, 3, material_buffer);
-            cmd.bind_pipeline(opaque_program, 0);
-            cmd.bind_index_buffer(index_buffer.device, VK_INDEX_TYPE_UINT32);
-
-            for (auto i_render_mesh : render_mesh_indices)
-            {
-                auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
-
-                cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
-                cmd.draw_indexed({
-                    .vertex_count  = render_mesh.index_count,
-                    .index_offset  = render_mesh.index_offset,
-                });
-                i_draw += 1;
-            }
-        }
-        else
-        {
-            u32 i_draw = 0;
-            struct PACKED OpaquePassOptions
-            {
-                u64 transforms_buffer;
-            };
-
-            auto *options              = this->bind_shader_options<OpaquePassOptions>(cmd, path_tracing_hybrid_program);
-            options->transforms_buffer = 0; //device.get_buffer_address(render_mesh.cached_transforms);
-
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 1, vertex_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 2, render_mesh_data.device);
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 3, index_buffer.device);
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 4, material_buffer);
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 5, bvh_nodes_buffer);
-            cmd.bind_storage_buffer(path_tracing_hybrid_program, 6, bvh_faces_buffer);
-            cmd.bind_pipeline(path_tracing_hybrid_program, 0);
-            cmd.bind_index_buffer(index_buffer.device, VK_INDEX_TYPE_UINT32);
-
-            for (auto i_render_mesh : render_mesh_indices)
-            {
-                auto &render_mesh = render_mesh_data.get<RenderMeshData>(i_render_mesh);
-
-                cmd.push_constant<PushConstants>({.draw_idx = i_draw, .render_mesh_idx = i_render_mesh});
-                cmd.draw_indexed({
-                    .vertex_count  = render_mesh.index_count,
-                    .index_offset  = render_mesh.index_offset,
-                });
-                i_draw += 1;
-            }
-        }
-    }
-
     cmd.end_pass();
-
-    if (false && settings.enable_path_tracing)
-    {
-        for (uint i_texture = 0; i_texture < render_textures.size(); i_texture += 1)
-        {
-            cmd.barrier(render_textures[i_texture], gfx::ImageUsage::GraphicsShaderRead);
-        }
-
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
-
-        struct PACKED PathTracingOptions
-        {
-            uint storage_output_frame;
-        };
-
-        auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
-        auto *options                     = this->bind_shader_options<PathTracingOptions>(cmd, path_tracing_program);
-        options->storage_output_frame     = device.get_image_storage_index(hdr_rt.image);
-
-        cmd.bind_storage_buffer(path_tracing_program, 1, vertex_buffer.device);
-        cmd.bind_storage_buffer(path_tracing_program, 2, index_buffer.device);
-        cmd.bind_storage_buffer(path_tracing_program, 3, render_mesh_data.device);
-        cmd.bind_storage_buffer(path_tracing_program, 4, material_buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 5, bvh_nodes_buffer);
-        cmd.bind_storage_buffer(path_tracing_program, 6, bvh_faces_buffer);
-        cmd.bind_pipeline(path_tracing_program);
-        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
-    }
 
     // TAA
     {
-        cmd.absolute_barrier(depth_buffer);
         cmd.barrier(depth_buffer, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(history_buffers[(frame_count+1)%2], gfx::ImageUsage::ComputeShaderRead);
@@ -1286,7 +942,6 @@ void Renderer::update(Scene &scene)
     // Tonemap compute
     {
         cmd.barrier(tonemap_pass.average_luminance, gfx::ImageUsage::ComputeShaderRead);
-        // cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(ldr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
 
         auto hdr_buffer_size              = device.get_image_size(history_buffers[(frame_count)%2]);

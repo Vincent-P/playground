@@ -34,6 +34,15 @@ struct Ray
 
 // -- Intersection functions
 
+bool fast_box_intersection(float3 box_min, float3 box_max, Ray ray, float3 inv_ray_dir)
+{
+  float3 t0 = (box_min - ray.origin) * inv_ray_dir;
+  float3 t1 = (box_max - ray.origin) * inv_ray_dir;
+  float3 tmin = min(t0,t1);
+  float3 tmax = max(t0,t1);
+  return max3(tmin) <= min3(tmax);
+}
+
 // vec3 box.radius:       independent half-length along the X, Y, and Z axes
 bool ray_box_intersection(Box box, Ray ray, out float distance, out float3 normal, in float3 _invRayDirection) {
 

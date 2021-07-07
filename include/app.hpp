@@ -1,4 +1,5 @@
 #pragma once
+#include "asset_manager.hpp"
 #include "base/types.hpp"
 #include "platform/file_watcher.hpp"
 #include "inputs.hpp"
@@ -22,6 +23,7 @@ class App
     UI::Context ui;
     platform::Window window;
     Inputs inputs;
+    AssetManager asset_manager;
     Renderer renderer;
     Scene scene;
 

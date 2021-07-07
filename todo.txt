@@ -1,7 +1,7 @@
-(A) Remove all DescriptorSet and use BindlessSet instead, one set per descriptor type, global and current shader options indices should be in push constants @vulkan
-(B) Clean up the push constant API to push only subsets, could be faster (i.e. push global uniform index only once per frame, push shader uniform index per pass) @vulkan
-(C) Load glb file format into meshlets, use separated buffers for each mesh/model, bindless ofc @vulkan
+Clean up the push constant API to push only subsets, could be faster (i.e. push global uniform index only once per frame, push shader uniform index per pass) @vulkan
+Load glb file format into meshlets, use separated buffers for each mesh/model, bindless ofc @vulkan
 Move files around (again) to match Rust's crate structure: one folder per crate, .hpp next to .cpp, separate each "module" in a separate file, or subfolder if it has nested modules, make one namespace per module, bin have a main.cpp, libs have a lib.{cpp, hpp}
 Scene serialization
 Actual gameplay :D
 Write tests for FreeList @tests
+x Remove all DescriptorSet and use BindlessSet instead, one set per descriptor type, global and current shader options indices should be in push constants @vulkan

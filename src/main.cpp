@@ -1,5 +1,9 @@
 #include "app.hpp"
 #include "base/types.hpp"
+#include "base/logger.hpp"
+
+#include "glb.hpp"
+#include "asset_manager.hpp"
 
 #if defined (ENABLE_DOCTEST)
 #define DOCTEST_CONFIG_COLORS_NONE
@@ -25,6 +29,11 @@ int main(int argc, char **argv)
     #else
     UNUSED(argc);
     UNUSED(argv);
+    #endif
+
+    #if 0
+    auto scene = glb::load_file("C:/Users/vince/Documents/code/test-vulkan/models/Sponza.glb");
+    UNUSED(scene);
     #endif
 
     App app;

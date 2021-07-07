@@ -87,13 +87,7 @@ bool bvh_closest_hit(Ray ray, out HitInfo hit_info)
         // internal node
         else
         {
-            float d       = 0.0;
-            float3 normal = float3(0.0);
-            Box bbox;
-            bbox.center     = (node.bbox_min + node.bbox_max) * 0.5;
-            bbox.radius     = (node.bbox_max - node.bbox_min) * 0.5;
-            bbox.inv_radius = 1 / bbox.radius;
-            if (ray_box_intersection(bbox, ray, d, normal, inv_ray_dir))
+            if (fast_box_intersection(node.bbox_min, node.bbox_max, ray, inv_ray_dir))
             {
                 hit_info.box_inter_count += 1;
                 // if the ray intersects this node bounding box then i_node += 1 will continue depth first traversal
@@ -108,6 +102,44 @@ bool bvh_closest_hit(Ray ray, out HitInfo hit_info)
 
     return hit_info.d < 1.0 / 0.0;
 }
+
+vec3 heatmap(float value)
+{
+    vec3 heat;
+    heat.r = smoothstep(0.5, 0.8, value);
+    if(value >= 0.90) {
+        heat.r *= (1.1 - value) * 5.0;
+    }
+    if(value > 0.7) {
+        heat.g = smoothstep(1.0, 0.7, value);
+    } else {
+        heat.g = smoothstep(0.0, 0.7, value);
+    }
+    heat.b = smoothstep(1.0, 0.0, value);
+    if(value <= 0.3) {
+        heat.b *= value / 0.3;
+    }
+    return heat;
+}
+
+vec3 TurboColormap(in float x) {
+  const vec4 kRedVec4 = vec4(0.13572138, 4.61539260, -42.66032258, 132.13108234);
+  const vec4 kGreenVec4 = vec4(0.09140261, 2.19418839, 4.84296658, -14.18503333);
+  const vec4 kBlueVec4 = vec4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+  const vec2 kRedVec2 = vec2(-152.94239396, 59.28637943);
+  const vec2 kGreenVec2 = vec2(4.27729857, 2.82956604);
+  const vec2 kBlueVec2 = vec2(-89.90310912, 27.34824973);
+
+  x = clamp(x, 0.0, 1.0);
+  vec4 v4 = vec4( 1.0, x, x * x, x * x * x);
+  vec2 v2 = v4.zw * v4.z;
+  return vec3(
+    dot(v4, kRedVec4)   + dot(v2, kRedVec2),
+    dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
+    dot(v4, kBlueVec4)  + dot(v2, kBlueVec2)
+  );
+}
+
 
 layout (location = 0) in float4 i_vertex_color;
 layout (location = 1) in float2 i_uv;
@@ -131,6 +163,7 @@ void main()
     // accumulators
     float3 color = float3(0.0);
     float3 throughput = float3(1.0);
+    uint hit_count = 0;
 
     const uint MAX_BOUNCE = 3;
 
@@ -151,6 +184,8 @@ void main()
     // The intersection and attributes interpolation is done at the end of the loop, because the first rays are rasterized
     for (u32 i_bounce = 0; i_bounce < MAX_BOUNCE; i_bounce += 1)
     {
+        hit_count += hit_info.box_inter_count;
+
         float3 tangent;
         float3 bitangent;
         make_orthogonal_coordinate_system(surface_normal, bitangent, tangent);
@@ -248,6 +283,9 @@ void main()
         // Compute normal from triangle
         float3 triangle_normal =  normalize(cross(e1, e2));
     }
+
+    float hit_ratio = clamp(float(hit_count) / 500, 0.0, 1.0);
+    color = TurboColormap(hit_ratio);
 
     o_color = float4(color, 1.0);
 }

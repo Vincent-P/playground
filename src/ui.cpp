@@ -193,18 +193,16 @@ void Context::display_ui()
 
 bool Context::begin_window(std::string_view name, bool is_visible, ImGuiWindowFlags /*flags*/)
 {
-    if (windows.count(name))
-    {
-        auto &window = windows.at(name);
-        if (window.is_visible)
-        {
-            ImGui::Begin(name.data(), &window.is_visible, 0);
-            return true;
-        }
-    }
-    else
+    if (!windows.contains(name))
     {
         windows[name] = {.name = std::string(name), .is_visible = is_visible};
+    }
+
+    auto &window = windows.at(name);
+    if (window.is_visible)
+    {
+        ImGui::Begin(name.data(), &window.is_visible, 0);
+        return true;
     }
 
     return false;

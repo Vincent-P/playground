@@ -91,13 +91,7 @@ bool bvh_closest_hit(Ray ray, out HitInfo hit_info)
         // internal node
         else
         {
-            float d       = 0.0;
-            float3 normal = float3(0.0);
-            Box bbox;
-            bbox.center     = (node.bbox_min + node.bbox_max) * 0.5;
-            bbox.radius     = (node.bbox_max - node.bbox_min) * 0.5;
-            bbox.inv_radius = 1 / bbox.radius;
-            if (ray_box_intersection(bbox, ray, d, normal, inv_ray_dir))
+            if (fast_box_intersection(node.bbox_min, node.bbox_max, ray, inv_ray_dir))
             {
                 hit_info.box_inter_count += 1;
                 // if the ray intersects this node bounding box then i_node += 1 will continue depth first traversal
@@ -130,6 +124,24 @@ vec3 heatmap(float value)
         heat.b *= value / 0.3;
     }
     return heat;
+}
+
+vec3 TurboColormap(in float x) {
+  const vec4 kRedVec4 = vec4(0.13572138, 4.61539260, -42.66032258, 132.13108234);
+  const vec4 kGreenVec4 = vec4(0.09140261, 2.19418839, 4.84296658, -14.18503333);
+  const vec4 kBlueVec4 = vec4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+  const vec2 kRedVec2 = vec2(-152.94239396, 59.28637943);
+  const vec2 kGreenVec2 = vec2(4.27729857, 2.82956604);
+  const vec2 kBlueVec2 = vec2(-89.90310912, 27.34824973);
+
+  x = clamp(x, 0.0, 1.0);
+  vec4 v4 = vec4( 1.0, x, x * x, x * x * x);
+  vec2 v2 = v4.zw * v4.z;
+  return vec3(
+    dot(v4, kRedVec4)   + dot(v2, kRedVec2),
+    dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
+    dot(v4, kBlueVec4)  + dot(v2, kBlueVec2)
+  );
 }
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
@@ -167,6 +179,7 @@ void main()
 
     // accumulators
     const uint MAX_BOUNCE = 3;
+    uint hit_count = 0;
     HitInfo hit_info;
     float3 o_color = float3(0.0);
     float3 throughput = float3(1.0);
@@ -181,6 +194,8 @@ void main()
             o_color   += background_color * throughput;
             break;
         }
+
+        hit_count += hit_info.box_inter_count;
 
         // -- Fetch hit info and vertex attributes manually
         Material material          = materials[hit_info.i_material];
@@ -272,6 +287,9 @@ void main()
         ray.origin    = (ray.origin + hit_info.d * ray.direction) + surface_normal * 0.001;
         ray.direction = tangent_to_world * wi;
     }
+
+    float hit_ratio = clamp(float(hit_count) / 500, 0.0, 1.0);
+    o_color = heatmap(hit_ratio);
 
     imageStore(global_images_2d_rgba32f[storage_output_frame], pixel_pos, vec4(o_color, 1.0));
 }

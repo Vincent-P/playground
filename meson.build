@@ -147,22 +147,26 @@ shaders_dep = declare_dependency(sources: shader_targets)
 
 # - Main target
 main_src = [
+  'src/asset_manager.cpp',
   'src/main.cpp',
   'src/app.cpp',
   'src/camera.cpp',
   'src/ecs.cpp',
   'src/scene.cpp',
   'src/gltf.cpp',
+  'src/glb.cpp',
   'src/inputs.cpp',
   'src/tools.cpp',
   'src/ui.cpp',
 
   'src/base/pool.cpp',
   'src/base/vectors.cpp',
+  'src/base/free_list.cpp',
 
   'src/platform/file_watcher.cpp',
+  'src/platform/mapped_file.cpp',
 
-  'src/render/bvh.cpp',
+  # 'src/render/bvh.cpp',
   'src/render/renderer.cpp',
   'src/render/gpu_pool.cpp',
   'src/render/ring_buffer.cpp',
@@ -170,6 +174,7 @@ main_src = [
   'src/render/vulkan/context.cpp',
   'src/render/vulkan/commands.cpp',
   'src/render/vulkan/descriptor_set.cpp',
+  'src/render/vulkan/bindless_set.cpp',
   'src/render/vulkan/image.cpp',
   'src/render/vulkan/buffer.cpp',
   'src/render/vulkan/device.cpp',

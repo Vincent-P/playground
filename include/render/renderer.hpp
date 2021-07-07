@@ -20,19 +20,6 @@ namespace gltf {struct Model;}
 namespace UI {struct Context;}
 struct Mesh;
 struct Material;
-
-struct PACKED RenderMeshData
-{
-    float4x4 transform;
-    Handle<Mesh> mesh_handle;
-    u32 i_material;
-    u32 vertex_offset;
-    u32 index_offset;
-    u32 index_count;
-    u32 texture_offset = 0;
-    u32 pad0;
-};
-
 class Scene;
 
 struct RenderTargets
@@ -124,7 +111,6 @@ struct StbImage
 struct Renderer
 {
     Settings settings;
-
     // Base renderer
     gfx::Context context;
     gfx::Device device;
@@ -155,25 +141,6 @@ struct Renderer
     TonemapPass tonemap_pass;
 
     // Geometry pools
-    GpuPool vertex_buffer;
-    GpuPool index_buffer;
-    GpuPool render_mesh_data;
-    Vec<u32> render_mesh_indices;
-    bool render_mesh_data_dirty = false;
-
-    Handle<gfx::Buffer> material_buffer;
-    Handle<gfx::Buffer> material_buffer_staging;
-    u32 material_transfer = u32_invalid;
-
-    BVH bvh;
-    Handle<gfx::Buffer> bvh_nodes_buffer;
-    Handle<gfx::Buffer> bvh_nodes_buffer_staging;
-    Handle<gfx::Buffer> bvh_faces_buffer;
-    Handle<gfx::Buffer> bvh_faces_buffer_staging;
-    u32 bvh_transfer = u32_invalid;
-
-    u64 geometry_transfer_done_value = u64_invalid;
-
     Handle<gfx::GraphicsProgram> opaque_program;
     Handle<gfx::GraphicsProgram> opaque_prepass_program;
     Handle<gfx::ComputeProgram> path_tracing_program;
