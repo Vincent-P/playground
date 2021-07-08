@@ -74,10 +74,13 @@ target_link_libraries(engine
 
 
 target_compile_definitions(engine PRIVATE
-    $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
-    $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
-    $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
-    $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
-    $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-    $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-    )
+  $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
+  $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
+  $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
+  $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
+  $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
+  $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
+  )
+
+add_subdirectory(shaders/)
+add_dependencies(engine shaders)
