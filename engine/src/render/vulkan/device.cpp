@@ -162,7 +162,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
     VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.poolSizeCount              = pool_sizes.size();
+    pool_info.poolSizeCount              = static_cast<u32>(pool_sizes.size());
     pool_info.pPoolSizes                 = pool_sizes.data();
     pool_info.maxSets                    = 128;
 
@@ -197,7 +197,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
         VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-        pool_info.poolSizeCount              = pool_sizes.size();
+        pool_info.poolSizeCount              = static_cast<u32>(pool_sizes.size());
         pool_info.pPoolSizes                 = pool_sizes.data();
         pool_info.maxSets                    = 16;
 
@@ -210,7 +210,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
         VkPushConstantRange push_constant_range;
         push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
         push_constant_range.offset     = 0;
-        push_constant_range.size       = device.push_constant_layout.size;
+        push_constant_range.size       = static_cast<u32>(device.push_constant_layout.size);
 
         VkDescriptorSetLayout layouts[] = {device.global_sets.uniform.layout, device.global_sets.sampled_images.layout, device.global_sets.storage_images.layout};
 
@@ -273,7 +273,7 @@ void Device::destroy(const Context &context)
 
 /// --- Global descriptor set
 
-void Device::bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range)
+void Device::bind_global_uniform_buffer(Handle<Buffer> buffer_handle, u32 offset, usize range)
 {
     bind_uniform_buffer(global_sets.uniform, 0, buffer_handle, offset, range);
 }

@@ -121,8 +121,8 @@ std::ostream& operator<<(std::ostream& os, const float4 &v)
 
 float4x4::float4x4(float value)
 {
-    for (auto &value : values) {
-        value = 0.0f;
+    for (auto &uninit : values) {
+        uninit = 0.0f;
     }
 
     values[0] = value;

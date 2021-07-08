@@ -248,14 +248,13 @@ void add_component(World &world, EntityId entity, ComponentId component_id, void
     // copy components to its new bucket
     auto new_row          = add_entity_id_to_storage(new_storage, entity);
     usize i_old_component = 0;
-    for (auto component_id : old_storage.type)
+    for (auto old_component_id : old_storage.type)
     {
         auto &component_storage = old_storage.components[i_old_component++];
         void *src               = &component_storage.data[old_row * component_storage.component_size];
-        usize component_size    = component_storage.component_size;
 
-        auto i_new_component = get_component_idx(new_storage.type, component_id).value();
-        add_component_to_storage(new_storage, i_new_component, src, component_size);
+        auto i_new_component = get_component_idx(new_storage.type, old_component_id).value();
+        add_component_to_storage(new_storage, i_new_component, src, component_storage.component_size);
     }
 
     // add the new component
@@ -300,9 +299,9 @@ void remove_component(World &world, EntityId entity, ComponentId component_id)
     // copy components to a its new bucket
     auto new_row          = add_entity_id_to_storage(new_storage, entity);
     usize i_new_component = 0;
-    for (auto component_id : new_storage.type)
+    for (auto new_component_id : new_storage.type)
     {
-        auto i_old_component    = *get_component_idx(old_storage.type, component_id);
+        auto i_old_component    = *get_component_idx(old_storage.type, new_component_id);
         auto &component_storage = old_storage.components[i_old_component];
         void *src               = &component_storage.data[old_row * component_storage.component_size];
         usize component_size    = component_storage.component_size;

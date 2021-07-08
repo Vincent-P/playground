@@ -56,7 +56,7 @@ struct GpuPool
     std::pair<bool, u32> allocate(u32 element_count);
     void free(u32 offset);
 
-    bool update(u32 offset, u32 element_count, const void* data);
+    bool update(u32 offset, u32 element_count, const void* src);
     bool is_up_to_date(u32 offset);
 
     inline bool has_changes() const { return dirty_allocations.empty() == false; }

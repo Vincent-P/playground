@@ -79,13 +79,13 @@ struct Sampler
 
 struct Texture
 {
-    u32 image;
-    u32 sampler;
+    usize image;
+    usize sampler;
 };
 
 struct Buffer
 {
-    u32 byte_length;
+    usize byte_length;
     Vec<u8> data;
 };
 
@@ -180,9 +180,9 @@ struct Model
     Vec<Image> images;
 
     Vec<Vertex>vertices;
-    Vec<u32> indices;
+    Vec<usize> indices;
 
-    Vec<u32> nodes_preorder;
+    Vec<usize> nodes_preorder;
     Vec<float4x4> cached_transforms;
 };
 

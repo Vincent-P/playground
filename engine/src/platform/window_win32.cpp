@@ -37,7 +37,7 @@ inline Window *get_window_from_handle(HWND hwnd)
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-void Window::create(Window &window, usize width, usize height, std::string_view title)
+void Window::create(Window &window, u32 width, u32 height, std::string_view title)
 {
     window.title  = std::string(title);
     window.width  = width;
@@ -348,7 +348,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     // Process displayable characters.
                     static std::array<wchar_t, 3> buffer{};
 
-                    wchar_t codepoint = wParam;
+                    wchar_t codepoint = static_cast<wchar_t>(wParam);
                     bool clear        = false;
 
                     if (is_high_surrogate(codepoint))
@@ -428,7 +428,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
             window.push_event<event::MouseMove>({x, y});
-            window.mouse_position = float2(x, y);
+            window.mouse_position = float2(float(x), float(y));
             return 0;
         }
 

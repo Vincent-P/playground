@@ -74,8 +74,8 @@ void Context::on_mouse_movement(platform::Window &window, double /*xpos*/, doubl
 void Context::start_frame(platform::Window &window, Inputs &inputs)
 {
     ImGuiIO &io                  = ImGui::GetIO();
-    io.DisplaySize.x             = window.width;
-    io.DisplaySize.y             = window.height;
+    io.DisplaySize.x             = float(window.width);
+    io.DisplaySize.y             = float(window.height);
     io.DisplayFramebufferScale.x = window.get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window.get_dpi_scale().y;
 

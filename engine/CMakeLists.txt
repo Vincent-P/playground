@@ -56,6 +56,7 @@ endif()
 
 add_executable(engine ${SOURCE_FILES})
 set_target_properties(engine PROPERTIES CXX_STANDARD 20)
+target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(engine PRIVATE src)
 target_include_directories(engine SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)

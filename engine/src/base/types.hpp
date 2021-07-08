@@ -87,10 +87,7 @@ inline uint3 operator-(const uint3 &a, const uint3 &b) { return {a.x - b.x, a.y 
 
 // --- User-defined literals
 
-constexpr inline uint operator"" _K(unsigned long long value) { return value * 1000u; }
-
-constexpr inline uint operator"" _KiB(unsigned long long value) { return value << 10; }
-
-constexpr inline uint operator"" _MiB(unsigned long long value) { return value << 20; }
-
-constexpr inline uint operator"" _GiB(unsigned long long value) { return value << 30; }
+constexpr inline u64 operator"" _K(u64 value) { return value * 1000u; }
+constexpr inline u64 operator"" _KiB(u64 value) { return value << 10; }
+constexpr inline u64 operator"" _MiB(u64 value) { return value << 20; }
+constexpr inline u64 operator"" _GiB(u64 value) { return value << 30; }

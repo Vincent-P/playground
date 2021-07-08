@@ -85,8 +85,8 @@ struct ComputeWork : TransferWork
 
     void clear_image(Handle<Image> image, VkClearColorValue clear_color);
 
-    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
-    void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
+    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
+    void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
     void bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
     void bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
     void bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle);

@@ -13,6 +13,9 @@
 
 namespace fs = std::filesystem;
 
+#define U32(x) static_cast<u32>(x)
+#define FLOAT(x) static_cast<float>(x)
+
 namespace gltf
 {
 struct GltfPrimitiveAttribute
@@ -42,9 +45,9 @@ static Option<GltfPrimitiveAttribute> gltf_primitive_attribute(Model &model, con
 {
     if (attributes[attribute].error() == simdjson::SUCCESS)
     {
-        uint accessor_i                 = attributes[attribute].get_uint64();
+        u32 accessor_i                 = static_cast<u32>(attributes[attribute].get_uint64());
         simdjson::dom::element accessor = root["accessors"].at(accessor_i);
-        uint view_i                     = accessor["bufferView"].get_uint64();
+        u32 view_i                     = static_cast<u32>(accessor["bufferView"].get_uint64());
         simdjson::dom::element view                       = root["bufferViews"].at(view_i);
         auto &buffer                    = model.buffers[view["buffer"]];
 
@@ -125,7 +128,7 @@ Model load_model(fs::path path)
         Vec<std::future<Image>> images_data;
         images_data.resize(doc["images"].get_array().size());
 
-        uint i = 0;
+        uint i_image = 0;
         for (const auto &json_image : doc["images"])
         {
             std::string_view image_name = json_image["uri"].get_string();
@@ -133,21 +136,21 @@ Model load_model(fs::path path)
             auto image_path = fs::path(path).remove_filename();
             image_path += fs::path(image_name);
 
-            images_data[i] = std::async(std::launch::async, [=]() {
+            images_data[i_image] = std::async(std::launch::async, [=]() {
                 Image image;
                 image.data = tools::read_file(image_path);
                 image.srgb = false;
                 return image;
             });
 
-            i++;
+            i_image++;
         }
 
         model.images.resize(images_data.size());
 
-        for (uint i = 0; i < images_data.size(); i++)
+        for (i_image = 0; i_image < images_data.size(); i_image++)
         {
-            model.images[i] = images_data[i].get();
+            model.images[i_image] = images_data[i_image].get();
         }
     }
 
@@ -160,9 +163,9 @@ Model load_model(fs::path path)
         if (json_material["emissiveFactor"].error() == simdjson::SUCCESS)
         {
             auto emissive_factor      = json_material["emissiveFactor"];
-            material.emissive_factor.r = emissive_factor.at(0).get_double();
-            material.emissive_factor.g = emissive_factor.at(1).get_double();
-            material.emissive_factor.b = emissive_factor.at(2).get_double();
+            material.emissive_factor.r = static_cast<float>(emissive_factor.at(0).get_double());
+            material.emissive_factor.g = static_cast<float>(emissive_factor.at(1).get_double());
+            material.emissive_factor.b = static_cast<float>(emissive_factor.at(2).get_double());
         }
 
         if (json_material["pbrMetallicRoughness"].error() == simdjson::SUCCESS)
@@ -172,24 +175,24 @@ Model load_model(fs::path path)
             if (json_pbr["baseColorFactor"].error() == simdjson::SUCCESS)
             {
                 auto base_color_factors      = json_pbr["baseColorFactor"];
-                material.base_color_factor.r = base_color_factors.at(0).get_double();
-                material.base_color_factor.g = base_color_factors.at(1).get_double();
-                material.base_color_factor.b = base_color_factors.at(2).get_double();
-                material.base_color_factor.a = base_color_factors.at(3).get_double();
+                material.base_color_factor.r = static_cast<float>(base_color_factors.at(0).get_double());
+                material.base_color_factor.g = static_cast<float>(base_color_factors.at(1).get_double());
+                material.base_color_factor.b = static_cast<float>(base_color_factors.at(2).get_double());
+                material.base_color_factor.a = static_cast<float>(base_color_factors.at(3).get_double());
             }
 
             if (json_pbr["metallicFactor"].error() == simdjson::SUCCESS)
             {
-                material.metallic_factor = json_pbr["metallicFactor"].get_double();
+                material.metallic_factor = static_cast<float>(json_pbr["metallicFactor"].get_double());
             }
             if (json_pbr["roughnessFactor"].error() == simdjson::SUCCESS)
             {
-                material.roughness_factor = json_pbr["roughnessFactor"].get_double();
+                material.roughness_factor = static_cast<float>(json_pbr["roughnessFactor"].get_double());
             }
 
             if (json_pbr["baseColorTexture"].error() == simdjson::SUCCESS)
             {
-                u32 i_texture               = json_pbr["baseColorTexture"].at_key("index").get_uint64();
+                u32 i_texture               = U32(json_pbr["baseColorTexture"].at_key("index").get_uint64());
                 material.base_color_texture = i_texture;
 
                 auto i_image = model.textures[i_texture].image;
@@ -199,14 +202,14 @@ Model load_model(fs::path path)
 
             if (json_pbr["metallicRoughnessTexture"].error() == simdjson::SUCCESS)
             {
-                u32 i_texture                       = json_pbr["metallicRoughnessTexture"].at_key("index").get_uint64();
+                u32 i_texture                       = U32(json_pbr["metallicRoughnessTexture"].at_key("index").get_uint64());
                 material.metallic_roughness_texture = i_texture;
             }
         }
 
         if (json_material["normalTexture"].error() == simdjson::SUCCESS)
         {
-            u32 i_texture           = json_material["normalTexture"].at_key("index").get_uint64();
+            u32 i_texture           = U32(json_material["normalTexture"].at_key("index").get_uint64());
             material.normal_texture = i_texture;
         }
 
@@ -225,11 +228,11 @@ Model load_model(fs::path path)
             Primitive primitive{};
             if (json_has(json_primitive, "material"))
             {
-                primitive.material = json_primitive["material"].get_uint64();
+                primitive.material = U32(json_primitive["material"].get_uint64());
             }
             else
             {
-                primitive.material = model.materials.size() - 1;
+                primitive.material = U32(model.materials.size() - 1);
             }
 
             if (json_has(json_primitive, "mode"))
@@ -310,14 +313,14 @@ Model load_model(fs::path path)
             }
 
             {
-                uint accessor_i                 = json_primitive["indices"].get_uint64();
+                uint accessor_i                 = U32(json_primitive["indices"].get_uint64());
                 simdjson::dom::element accessor = doc["accessors"].at(accessor_i);
-                uint view_i                     = accessor["bufferView"].get_uint64();
+                uint view_i                     = U32(accessor["bufferView"].get_uint64());
                 auto view                       = doc["bufferViews"].at(view_i);
                 auto &buffer                    = model.buffers[view["buffer"]];
 
                 auto component_type = ComponentType(static_cast<u32>(accessor["componentType"].get_uint64()));
-                u32 count         = accessor["count"].get_uint64();
+                u32 count         = U32(accessor["count"].get_uint64());
                 auto acc_offset  = json_get_or<u64>(accessor, "byteOffset", 0);
                 usize view_offset = view["byteOffset"];
                 usize offset      = acc_offset + view_offset;
@@ -354,7 +357,7 @@ Model load_model(fs::path path)
                 primitive.index_count = count;
             }
 
-            mesh.primitives.push_back(model.primitives.size());
+            mesh.primitives.push_back(U32(model.primitives.size()));
             model.primitives.push_back(primitive);
         }
         model.meshes.push_back(std::move(mesh));
@@ -373,7 +376,7 @@ Model load_model(fs::path path)
         {
             usize i = 0;
             for (double val : json_node["matrix"]) {
-                node.transform.at(i%4, i/4) = val;
+                node.transform.at(i%4, i/4) = static_cast<float>(val);
                 i += 1;
             }
 
@@ -384,26 +387,26 @@ Model load_model(fs::path path)
         if (json_node["translation"].error() == simdjson::SUCCESS)
         {
             auto translation_factors = json_node["translation"];
-            node.translation.x       = translation_factors.at(0).get_double();
-            node.translation.y       = translation_factors.at(1).get_double();
-            node.translation.z       = translation_factors.at(2).get_double();
+            node.translation.x       = static_cast<float>(translation_factors.at(0).get_double());
+            node.translation.y       = static_cast<float>(translation_factors.at(1).get_double());
+            node.translation.z       = static_cast<float>(translation_factors.at(2).get_double());
         }
 
         if (json_node["rotation"].error() == simdjson::SUCCESS)
         {
             const auto &rotation = json_node["rotation"];
-            node.rotation        = float4(rotation.at(0).get_double(),
-                                   rotation.at(1).get_double(),
-                                   rotation.at(2).get_double(),
-                                   rotation.at(3).get_double());
+            node.rotation        = float4(static_cast<float>(rotation.at(0).get_double()),
+                                          static_cast<float>(rotation.at(1).get_double()),
+                                          static_cast<float>(rotation.at(2).get_double()),
+                                          static_cast<float>(rotation.at(3).get_double()));
         }
 
         if (json_node["scale"].error() == simdjson::SUCCESS)
         {
             auto scale_factors = json_node["scale"];
-            node.scale.x       = scale_factors.at(0).get_double();
-            node.scale.y       = scale_factors.at(1).get_double();
-            node.scale.z       = scale_factors.at(2).get_double();
+            node.scale.x       = static_cast<float>(scale_factors.at(0).get_double());
+            node.scale.y       = static_cast<float>(scale_factors.at(1).get_double());
+            node.scale.z       = static_cast<float>(scale_factors.at(2).get_double());
         }
 
         if (json_node["children"].error() == simdjson::SUCCESS)
@@ -412,7 +415,7 @@ Model load_model(fs::path path)
             node.children.reserve(children.size());
             for (u64 child_i : children)
             {
-                node.children.push_back(child_i);
+                node.children.push_back(U32(child_i));
             }
         }
 
@@ -439,7 +442,7 @@ Model load_model(fs::path path)
     for (auto scene_root : model.scene)
     {
         nodes_stack.push_back(u32_invalid);
-        nodes_stack.push_back(scene_root);
+        nodes_stack.push_back(U32(scene_root));
     }
 
     while (!nodes_stack.empty())

@@ -173,7 +173,7 @@ void update_bindless_set(Device &device, BindlessSet &set)
         copy.descriptorCount  = 1;
     }
 
-    vkUpdateDescriptorSets(device.device, writes.size(), writes.data(), copies.size(), copies.data());
+    vkUpdateDescriptorSets(device.device, static_cast<u32>(writes.size()), writes.data(), static_cast<u32>(copies.size()), copies.data());
     set.pending_bind.clear();
     set.pending_unbind.clear();
 }

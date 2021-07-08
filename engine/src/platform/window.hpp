@@ -166,7 +166,7 @@ struct Window_Xcb
 
 struct Window
 {
-    static void create(Window &window, usize width, usize height, const std::string_view title);
+    static void create(Window &window, u32 width, u32 height, const std::string_view title);
     ~Window() = default;
 
     void destroy();

@@ -467,7 +467,7 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
     std::memset(options, 0, sizeof(ImguiOptions));
     options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
     options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
-    options->first_vertex = vert_offset / sizeof(ImDrawVert);
+    options->first_vertex = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
     options->vertices_pointer = 0;
 
     // -- Upload ImGui's vertices and indices
@@ -804,7 +804,7 @@ void Renderer::update(Scene &scene)
     global_data->camera_position            = float4(main_camera_transform->position, 1.0);
     global_data->vertex_buffer_ptr          = 0;
     global_data->primitive_buffer_ptr       = 0;
-    global_data->resolution                 = float2(settings.render_resolution.x, settings.render_resolution.y);
+    global_data->resolution                 = float2(float(settings.render_resolution.x), float(settings.render_resolution.y));
     global_data->delta_t                    = 0.016f;
     global_data->frame_count                = frame_count;
     global_data->camera_moved               = main_camera->view != last_view || main_camera->projection != last_proj;
@@ -829,15 +829,15 @@ void Renderer::update(Scene &scene)
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
 
     VkViewport viewport{};
-    viewport.width    = settings.render_resolution.x;
-    viewport.height   = settings.render_resolution.y;
+    viewport.width    = float(settings.render_resolution.x);
+    viewport.height   = float(settings.render_resolution.y);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     cmd.set_viewport(viewport);
 
     VkRect2D scissor = {};
-    scissor.extent.width  = viewport.width;
-    scissor.extent.height = viewport.height;
+    scissor.extent.width  = settings.render_resolution.x;
+    scissor.extent.height = settings.render_resolution.y;
     cmd.set_scissor(scissor);
 
 #if 0

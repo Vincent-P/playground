@@ -106,7 +106,7 @@ void GpuPool::free(u32 offset)
     this->length -= element_count;
 }
 
-bool GpuPool::update(u32 offset, u32 element_count, const void* data)
+bool GpuPool::update(u32 offset, u32 element_count, const void* src)
 {
     if (this->valid_allocations.contains(offset) == false)
     {
@@ -122,7 +122,7 @@ bool GpuPool::update(u32 offset, u32 element_count, const void* data)
     }
 
     void *dst = this->data + offset * this->element_size;
-    std::memcpy(dst, data, element_count * this->element_size);
+    std::memcpy(dst, src, element_count * this->element_size);
 
     this->dirty_allocations.insert(offset);
 

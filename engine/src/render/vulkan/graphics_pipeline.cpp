@@ -58,7 +58,7 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
     subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.inputAttachmentCount = 0;
     subpass.pInputAttachments    = nullptr;
-    subpass.colorAttachmentCount = color_refs.size();
+    subpass.colorAttachmentCount = static_cast<u32>(color_refs.size());
     subpass.pColorAttachments    = color_refs.data();
     subpass.pResolveAttachments  = nullptr;
     subpass.pDepthStencilAttachment = render_attachments.depth ? &depth_ref : nullptr;
@@ -133,47 +133,47 @@ void Device::destroy_renderpass(Handle<RenderPass> renderpass_handle)
 
 /// --- Framebuffer
 
-Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &desc)
+Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &fb_desc)
 {
     // Imageless framebuffer
     RenderAttachments render_attachments;
     Vec<VkFramebufferAttachmentImageInfo> image_infos;
-    image_infos.reserve(desc.attachments_format.size() + 1);
+    image_infos.reserve(fb_desc.attachments_format.size() + 1);
 
-    for (u32 i_image = 0; i_image < desc.attachments_format.size(); i_image++)
+    for (u32 i_image = 0; i_image < fb_desc.attachments_format.size(); i_image++)
     {
         image_infos.emplace_back();
         auto &image_info           = image_infos.back();
         image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
         image_info.flags           = 0;
         image_info.usage           = color_attachment_usage;
-        image_info.width           = desc.width;
-        image_info.height          = desc.height;
-        image_info.layerCount      = desc.layer_count;
+        image_info.width           = fb_desc.width;
+        image_info.height          = fb_desc.height;
+        image_info.layerCount      = fb_desc.layer_count;
         image_info.viewFormatCount = 1;
-        image_info.pViewFormats    = &desc.attachments_format[i_image];
+        image_info.pViewFormats    = &fb_desc.attachments_format[i_image];
 
-        render_attachments.colors.push_back({.format = desc.attachments_format[i_image]});
+        render_attachments.colors.push_back({.format = fb_desc.attachments_format[i_image]});
     }
 
-    if (desc.depth_format)
+    if (fb_desc.depth_format)
     {
         image_infos.emplace_back();
         auto &image_info           = image_infos.back();
         image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
         image_info.flags           = 0;
         image_info.usage           = depth_attachment_usage;
-        image_info.width           = desc.width;
-        image_info.height          = desc.height;
-        image_info.layerCount      = desc.layer_count;
+        image_info.width           = fb_desc.width;
+        image_info.height          = fb_desc.height;
+        image_info.layerCount      = fb_desc.layer_count;
         image_info.viewFormatCount = 1;
-        image_info.pViewFormats    = &desc.depth_format.value();
+        image_info.pViewFormats    = &fb_desc.depth_format.value();
 
-        render_attachments.depth = {.format = desc.depth_format.value()};
+        render_attachments.depth = {.format = fb_desc.depth_format.value()};
     }
 
     VkFramebufferAttachmentsCreateInfo attachments_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO};
-    attachments_info.attachmentImageInfoCount           = image_infos.size();
+    attachments_info.attachmentImageInfoCount           = static_cast<u32>(image_infos.size());
     attachments_info.pAttachmentImageInfos              = image_infos.data();
 
     auto &renderpass = *renderpasses.get(find_or_create_renderpass(render_attachments));
@@ -182,30 +182,30 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &des
     fb_info.pNext                   = &attachments_info;
     fb_info.flags                   = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT;
     fb_info.renderPass              = renderpass.vkhandle;
-    fb_info.attachmentCount         = image_infos.size();
-    fb_info.width                   = desc.width;
-    fb_info.height                  = desc.height;
-    fb_info.layers                  = desc.layer_count;
+    fb_info.attachmentCount         = static_cast<u32>(image_infos.size());
+    fb_info.width                   = fb_desc.width;
+    fb_info.height                  = fb_desc.height;
+    fb_info.layers                  = fb_desc.layer_count;
 
     VkFramebuffer vkhandle = VK_NULL_HANDLE;
     VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &vkhandle));
 
     return framebuffers.add({
             .vkhandle = vkhandle,
-            .desc = desc
+            .desc = fb_desc
         });
 }
 
-Handle<Framebuffer> Device::find_or_create_framebuffer(const FramebufferDescription &desc)
+Handle<Framebuffer> Device::find_or_create_framebuffer(const FramebufferDescription &fb_desc)
 {
     for (auto &[handle, framebuffer] : framebuffers)
     {
-        if (framebuffer->desc == desc)
+        if (framebuffer->desc == fb_desc)
         {
             return handle;
         }
     }
-    return create_framebuffer(desc);
+    return create_framebuffer(fb_desc);
 }
 
 void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
@@ -228,10 +228,10 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
     push_constant_range.offset     = 0;
-    push_constant_range.size       = push_constant_layout.size;
+    push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount             = sets.size();
+    pipeline_layout_info.setLayoutCount             = static_cast<u32>(sets.size());
     pipeline_layout_info.pSetLayouts                = sets.data();
     pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
     pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
@@ -281,7 +281,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
     VkPipelineDynamicStateCreateInfo dyn_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dyn_i.dynamicStateCount                = dynamic_states.size();
+    dyn_i.dynamicStateCount                = static_cast<u32>(dynamic_states.size());
     dyn_i.pDynamicStates                   = dynamic_states.data();
 
     VkPipelineVertexInputStateCreateInfo vert_i = { .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
@@ -296,7 +296,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     VkPipelineRasterizationConservativeStateCreateInfoEXT conservative = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT,
         .conservativeRasterizationMode    = VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT,
-        .extraPrimitiveOverestimationSize = 0.1, // in pixels
+        .extraPrimitiveOverestimationSize = 0.1f, // in pixels
     };
 
     VkPipelineRasterizationStateCreateInfo rast_i = {
@@ -349,7 +349,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 
     VkPipelineColorBlendStateCreateInfo colorblend_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
     colorblend_i.flags             = 0;
-    colorblend_i.attachmentCount   = att_states.size();
+    colorblend_i.attachmentCount   = static_cast<u32>(att_states.size());
     colorblend_i.pAttachments      = att_states.data();
     colorblend_i.logicOpEnable     = VK_FALSE;
     colorblend_i.logicOp           = VK_LOGIC_OP_COPY;
@@ -449,6 +449,6 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     program.pipelines.push_back(pipeline);
     program.render_states.push_back(render_state);
 
-    return program.pipelines.size();
+    return static_cast<u32>(program.pipelines.size());
 }
 }

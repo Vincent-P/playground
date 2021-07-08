@@ -47,7 +47,7 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
     }
 
     // Set the file types
-    if (hr = pFileOpen->SetFileTypes(filters.size(), filters.data()), !SUCCEEDED(hr))
+    if (hr = pFileOpen->SetFileTypes(static_cast<UINT>(filters.size()), filters.data()), !SUCCEEDED(hr))
     {
         return {};
     }

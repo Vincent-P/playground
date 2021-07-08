@@ -164,7 +164,7 @@ struct Device
     void flush_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
-    void bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range);
+    void bind_global_uniform_buffer(Handle<Buffer> buffer_handle, u32 offset, usize range);
     void bind_global_storage_image(u32 index, Handle<Image> image_handle);
     void bind_global_sampled_image(u32 index, Handle<Image> image_handle);
     inline Handle<Image> get_global_sampled_image(u32 index) { return get_image_descriptor(global_sets.sampled_images, index); }

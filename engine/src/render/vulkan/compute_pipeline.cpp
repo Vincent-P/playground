@@ -21,10 +21,10 @@ void Device::recreate_program_internal(ComputeProgram &program)
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
     push_constant_range.offset     = 0;
-    push_constant_range.size       = push_constant_layout.size;
+    push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = sets.size();
+    pipeline_layout_info.setLayoutCount = static_cast<u32>(sets.size());
     pipeline_layout_info.pSetLayouts    = sets.data();
     pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
     pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
@@ -58,10 +58,10 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
     push_constant_range.offset     = 0;
-    push_constant_range.size       = push_constant_layout.size;
+    push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = sets.size();
+    pipeline_layout_info.setLayoutCount = static_cast<u32>(sets.size());
     pipeline_layout_info.pSetLayouts    = sets.data();
     pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
     pipeline_layout_info.pPushConstantRanges        = &push_constant_range;

@@ -61,10 +61,10 @@ struct EntityId
         #if 0
         return {.is_component = 0, .id = family::identifier()};
         #else
-        EntityId id;
-        id.is_component = 0;
-        id.id = family::identifier();
-        return id;
+        EntityId new_id;
+        new_id.is_component = 0;
+        new_id.id = family::identifier();
+        return new_id;
         #endif
     }
 
@@ -73,10 +73,10 @@ struct EntityId
         #if 0
         return {.is_component = 1, .id = family::type<T>()};
         #else
-        EntityId id;
-        id.is_component = 1;
-        id.id = family::type<T>();
-        return id;
+        EntityId new_id;
+        new_id.is_component = 1;
+        new_id.id = family::type<T>();
+        return new_id;
         #endif
     }
 
@@ -116,7 +116,7 @@ struct ComponentStorage
 {
     // chunks like Unity DOTS?
     Vec<u8> data;   // buffer
-    uint component_size{0}; // element size in bytes
+    usize component_size{0}; // element size in bytes
 
     bool operator==(const ComponentStorage&) const = default;
 };
@@ -213,10 +213,10 @@ inline std::tuple<bool, Vec<u32>> archetype_contains(const Archetype &query, con
         return std::make_tuple(false, found);
     }
 
-    for (usize i_archetype = 0; i_archetype < archetype.size(); i_archetype++)
+    for (u32 i_archetype = 0; i_archetype < archetype.size(); i_archetype++)
     {
         auto component_id = archetype[i_archetype];
-        for (usize i_query = 0; i_query < query.size(); i_query++)
+        for (u32 i_query = 0; i_query < query.size(); i_query++)
         {
             if (component_id == query[i_query])
             {

@@ -28,7 +28,7 @@ inline void imgui_select(const char *title, const char **items, usize items_size
 
     ImGui::Text("%s", title);
     if (ImGui::BeginCombo(id.c_str(), items[current_item], ImGuiComboFlags_NoArrowButton)) {
-	for (size_t n = 0; n < items_size; n++) {
+	for (uint n = 0; n < items_size; n++) {
 	    bool is_selected = (current_item == n);
 	    if (ImGui::Selectable(items[n], is_selected)) {
 		current_item = n;

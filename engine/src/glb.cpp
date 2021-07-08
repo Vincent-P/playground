@@ -196,8 +196,8 @@ static void process_json(Scene &scene, rapidjson::Document &document, const Chun
 
                 new_submesh.vertex_count = 0;
                 new_submesh.index_count  = 0;
-                new_submesh.first_vertex = new_mesh.positions.size();
-                new_submesh.first_index  = new_mesh.indices.size();
+                new_submesh.first_vertex = static_cast<u32>(new_mesh.positions.size());
+                new_submesh.first_index  = static_cast<u32>(new_mesh.indices.size());
 
                 {
                     auto accessor = get_accessor(accessors[attributes["POSITION"].GetInt()]);
@@ -209,7 +209,7 @@ static void process_json(Scene &scene, rapidjson::Document &document, const Chun
 
                     assert(byte_stride == 3 * sizeof(u16));
 
-                    auto u16_to_float = [](u16 unorm) -> float { return double(unorm) / 65535.0f; };
+                    auto u16_to_float = [](u16 unorm) -> float { return float(unorm) / 65535.0f; };
 
                     new_mesh.positions.reserve(bufferview.byte_length / byte_stride);
                     for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1)

@@ -7,24 +7,24 @@ namespace vulkan
 {
 Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 {
-    BufferDescription desc = buffer_desc;
-    if (desc.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT && !this->desc.buffer_device_address)
+    BufferDescription new_buffer = buffer_desc;
+    if (new_buffer.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT && !this->desc.buffer_device_address)
     {
-        desc.usage ^= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        new_buffer.usage ^= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     }
 
     VkBufferCreateInfo buffer_info = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    buffer_info.usage              = desc.usage;
+    buffer_info.usage              = new_buffer.usage;
 
-    buffer_info.size               = desc.size;
+    buffer_info.size               = new_buffer.size;
     buffer_info.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
     buffer_info.queueFamilyIndexCount = 0;
     buffer_info.pQueueFamilyIndices   = nullptr;
 
     VmaAllocationCreateInfo alloc_info{};
-    alloc_info.usage     = desc.memory_usage;
+    alloc_info.usage     = new_buffer.memory_usage;
     alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-    alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(desc.name.c_str()));
+    alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(new_buffer.name.c_str()));
 
     VkBuffer vkhandle = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -41,7 +41,7 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
         VkDebugUtilsObjectNameInfoEXT name_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         name_info.objectHandle                  = reinterpret_cast<u64>(vkhandle);
         name_info.objectType                    = VK_OBJECT_TYPE_BUFFER;
-        name_info.pObjectName                   = desc.name.c_str();
+        name_info.pObjectName                   = new_buffer.name.c_str();
         VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &name_info));
     }
 
@@ -54,7 +54,7 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
     }
 
     return buffers.add({
-            .desc = desc,
+            .desc = new_buffer,
             .vkhandle = vkhandle,
             .allocation = allocation,
             .gpu_address = gpu_address,

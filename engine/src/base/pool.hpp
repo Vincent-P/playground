@@ -32,12 +32,12 @@ template <typename T> class Pool
 
         Iterator() = default;
 
-        Iterator(Pool &_pool, usize _index = 0)
+        Iterator(Pool &_pool, u32 _index = 0)
             : pool{&_pool}
             , current_index{_index}
             , value{}
         {
-            for (; current_index < pool->data.size(); current_index++)
+            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
@@ -82,7 +82,7 @@ template <typename T> class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < this->pool->data.size());
+            assert(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }
@@ -91,7 +91,7 @@ template <typename T> class Pool
         {
             assert(this->pool);
             current_index++;
-            for (; current_index < pool->data.size(); current_index++)
+            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
@@ -109,7 +109,7 @@ template <typename T> class Pool
             assert(this->pool && n > 0);
             for (int i = 0; i < n; i++)
             {
-                for (; current_index < pool->data.size(); current_index++)
+                for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
                 {
                     // index() returns a zero-based index of the type
                     // 0: handle_type
@@ -124,7 +124,7 @@ template <typename T> class Pool
         }
     private:
         Pool *pool        = nullptr;
-        usize current_index = 0;
+        u32 current_index = 0;
         value_type value = {};
     };
     class ConstIterator
@@ -138,12 +138,12 @@ template <typename T> class Pool
 
         ConstIterator() = default;
 
-        ConstIterator(const Pool &_pool, usize _index = 0)
+        ConstIterator(const Pool &_pool, u32 _index = 0)
             : pool{&_pool}
             , current_index{_index}
             , value{}
         {
-            for (; current_index < pool->data.size(); current_index++)
+            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
@@ -188,7 +188,7 @@ template <typename T> class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < this->pool->data.size());
+            assert(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }
@@ -197,7 +197,7 @@ template <typename T> class Pool
         {
             assert(this->pool);
             current_index++;
-            for (; current_index < pool->data.size(); current_index++)
+            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
                 // index() returns a zero-based index of the type
                 // 0: handle_type
@@ -215,7 +215,7 @@ template <typename T> class Pool
             assert(this->pool && n > 0);
             for (int i = 0; i < n; i++)
             {
-                for (; current_index < pool->data.size(); current_index++)
+                for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
                 {
                     // index() returns a zero-based index of the type
                     // 0: handle_type
@@ -230,7 +230,7 @@ template <typename T> class Pool
         }
     private:
         const Pool *pool        = nullptr;
-        usize current_index = 0;
+        u32 current_index = 0;
         value_type value = {};
     };
 
@@ -266,7 +266,7 @@ template <typename T> class Pool
 
   public:
     Pool() = default;
-    Pool(usize capacity)
+    Pool(u32 capacity)
     {
         data.reserve(capacity);
         keys.reserve(capacity);
@@ -279,7 +279,7 @@ template <typename T> class Pool
         if (!first_free.is_valid())
         {
             data.push_back(std::move(value));
-            auto handle = handle_type(data.size() - 1);
+            auto handle = handle_type(static_cast<u32>(data.size() - 1));
             keys.push_back(handle);
             return handle;
         }
@@ -304,7 +304,7 @@ template <typename T> class Pool
         if (!first_free.is_valid())
         {
             data.push_back(value);
-            auto handle = handle_type(data.size() - 1);
+            auto handle = handle_type(static_cast<u32>(data.size() - 1));
             keys.push_back(handle);
             return handle;
         }
@@ -386,17 +386,17 @@ template <typename T> class Pool
 
     Iterator end()
     {
-        return Iterator(*this, data.size());
+        return Iterator(*this, static_cast<u32>(data.size()));
     }
 
     ConstIterator end() const
     {
-        return ConstIterator(*this, data.size());
+        return ConstIterator(*this, static_cast<u32>(data.size()));
     }
 
     bool operator==(const Pool &rhs) const = default;
 
-    usize size() const
+    u32 size() const
     {
         return data_size;
     }
@@ -407,7 +407,7 @@ template <typename T> class Pool
     handle_type first_free; // free list head ptr
     Vec<element_type> data;
     Vec<handle_type> keys;
-    usize data_size{0};
+    u32 data_size{0};
 
     friend class Iterator;
 };

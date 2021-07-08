@@ -11,6 +11,7 @@
 #elif defined(_WIN64)
 
 #    include <Windows.h>
+#include "platform/utils_win32.hpp"
 
 #endif
 
@@ -125,7 +126,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 
     assert(ReadDirectoryChangesW(watch.directory_handle,
                                  watch.buffer.data(),
-                                 watch.buffer.size(),
+                                 static_cast<DWORD>(watch.buffer.size()),
                                  true,
                                  FILE_NOTIFY_CHANGE_LAST_WRITE,
                                  nullptr,
@@ -161,7 +162,7 @@ static void fetch_events_internal(FileWatcher &fw)
             event.wd = watch.wd;
 
             std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
-            event.name = std::string{wname.begin(), wname.end()};
+            event.name = utf16_to_utf8(wname);
             event.len = p_event->FileNameLength / sizeof(wchar_t);
             fw.current_events.push_back(std::move(event));
 
@@ -174,7 +175,7 @@ static void fetch_events_internal(FileWatcher &fw)
 
         assert(ReadDirectoryChangesW(watch.directory_handle,
                                      watch.buffer.data(),
-                                     watch.buffer.size(),
+                                     static_cast<DWORD>(watch.buffer.size()),
                                      true,
                                      FILE_NOTIFY_CHANGE_LAST_WRITE,
                                      nullptr,

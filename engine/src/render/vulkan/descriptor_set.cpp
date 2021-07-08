@@ -40,7 +40,7 @@ DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &d
     descriptor_set.descriptors.resize(descriptors.size(), empty);
 
     VkDescriptorSetLayoutCreateInfo desc_layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    desc_layout_info.bindingCount = bindings.size();
+    desc_layout_info.bindingCount = static_cast<u32>(bindings.size());
     desc_layout_info.pBindings    = bindings.data();
 
     VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &descriptor_set.layout));
@@ -54,7 +54,7 @@ void destroy_descriptor_set(Device &device, DescriptorSet &set)
 {
     if (!set.vkhandles.empty())
     {
-        vkFreeDescriptorSets(device.device, device.descriptor_pool, set.vkhandles.size(), set.vkhandles.data());
+        vkFreeDescriptorSets(device.device, device.descriptor_pool, static_cast<u32>(set.vkhandles.size()), set.vkhandles.data());
     }
     vkDestroyDescriptorSetLayout(device.device, set.layout, nullptr);
 }
@@ -189,7 +189,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         }
     }
 
-    vkUpdateDescriptorSets(device.device, writes.size(), writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device.device, static_cast<u32>(writes.size()), writes.data(), 0, nullptr);
 
     set.vkhandles.push_back(vkhandle);
 

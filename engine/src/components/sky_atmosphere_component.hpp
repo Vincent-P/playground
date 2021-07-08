@@ -20,7 +20,7 @@ struct SkyAtmosphereComponent
     float3 rayleigh_scattering_color = {0.160114273f, 0.374151886f, 0.913440645f};
     float rayleigh_scattering_scale =  3.62366191e-05f;
 
-    float3 absorption_color = {0.326312512, 0.944298208, 0.0426716395};
+    float3 absorption_color = {0.326312512f, 0.944298208f, 0.0426716395f};
     float absorption_scale = 1.99195551e-06f;
 
     float planet_radius     = 6360000.0f;

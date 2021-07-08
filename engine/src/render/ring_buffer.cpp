@@ -17,9 +17,9 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
     return buf;
 }
 
-std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
+std::pair<void*, u32> RingBuffer::allocate(gfx::Device &device, usize len)
 {
-    usize aligned_len = ((len / 256u) + 1u) * 256u;
+    u32 aligned_len = ((static_cast<u32>(len) / 256u) + 1u) * 256u;
 
     // TODO: handle the correct number of frame instead of ALWAYS the last one
     // check that we dont overwrite previous frame's content
@@ -29,10 +29,10 @@ std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
     // if offset + aligned_len is outside the buffer go back to the beginning (ring buffer)
     if ((offset % size) + aligned_len >= size)
     {
-        offset = ((offset / size) + 1u) * size;
+        offset = ((offset / static_cast<u32>(size)) + 1u) * static_cast<u32>(size);
     }
 
-    usize allocation_offset = offset % size;
+    u32 allocation_offset = offset % size;
 
     void *dst = device.map_buffer<u8>(buffer) + allocation_offset;
 

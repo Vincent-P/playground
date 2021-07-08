@@ -32,7 +32,7 @@ void Work::bind_global_set()
             device->global_sets.storage_images.set,
         };
 
-        u32 offsets_count = device->global_sets.uniform.dynamic_offsets.size();
+        u32 offsets_count = static_cast<u32>(device->global_sets.uniform.dynamic_offsets.size());
         const u32 *offsets = device->global_sets.uniform.dynamic_offsets.data();
 
 
@@ -154,7 +154,7 @@ void Work::barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::p
         buffer.usage = usage_dst;
     }
 
-    vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, buffer_barriers.size(), buffer_barriers.data(), image_barriers.size(), image_barriers.data());
+    vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, static_cast<u32>(buffer_barriers.size()), buffer_barriers.data(), static_cast<u32>(image_barriers.size()), image_barriers.data());
 }
 
 /// --- TransferWork
@@ -173,7 +173,7 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::
         };
     }
 
-    vkCmdCopyBuffer(command_buffer, src_buffer.vkhandle, dst_buffer.vkhandle, buffer_copies.size(), buffer_copies.data());
+    vkCmdCopyBuffer(command_buffer, src_buffer.vkhandle, dst_buffer.vkhandle, static_cast<u32>(buffer_copies.size()), buffer_copies.data());
 }
 
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
@@ -229,7 +229,7 @@ void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 3, 1, &set, offsets.size(), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 3, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
@@ -245,7 +245,7 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
     vkCmdClearColorImage(command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_view.range);
 }
 
-void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
+void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size)
 {
     auto &program = *device->compute_programs.get(program_handle);
     auto &buffer = *device->buffers.get(buffer_handle);
@@ -253,7 +253,7 @@ void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
 }
 
-void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
+void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size)
 {
     auto &program = *device->graphics_programs.get(program_handle);
     auto &buffer = *device->buffers.get(buffer_handle);
@@ -287,7 +287,7 @@ void ComputeWork::bind_storage_image(Handle<GraphicsProgram> program_handle, u32
 
 void ComputeWork::push_constant(const void *data, usize len)
 {
-    vkCmdPushConstants(command_buffer, device->global_sets.pipeline_layout, VK_SHADER_STAGE_ALL, 0, len, data);
+    vkCmdPushConstants(command_buffer, device->global_sets.pipeline_layout, VK_SHADER_STAGE_ALL, 0, static_cast<u32>(len), data);
 }
 
 /// --- GraphicsWork
@@ -314,13 +314,13 @@ void GraphicsWork::begin_pass(Handle<RenderPass> renderpass_handle, Handle<Frame
     auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
 
     Vec<VkImageView> views(attachments.size());
-    for (u32 i_attachment = 0; i_attachment < attachments.size(); i_attachment++)
+    for (usize i_attachment = 0; i_attachment < attachments.size(); i_attachment++)
     {
         views[i_attachment] = device->images.get(attachments[i_attachment])->full_view.vkhandle;
     }
 
     VkRenderPassAttachmentBeginInfo attachments_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO };
-    attachments_info.attachmentCount = views.size();
+    attachments_info.attachmentCount = static_cast<u32>(views.size());
     attachments_info.pAttachments = views.data();
 
     VkRenderPassBeginInfo begin_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
@@ -329,7 +329,7 @@ void GraphicsWork::begin_pass(Handle<RenderPass> renderpass_handle, Handle<Frame
     begin_info.framebuffer = framebuffer.vkhandle;
     begin_info.renderArea.extent.width = framebuffer.desc.width;
     begin_info.renderArea.extent.height = framebuffer.desc.height;
-    begin_info.clearValueCount = clear_values.size();
+    begin_info.clearValueCount = static_cast<u32>(clear_values.size());
     begin_info.pClearValues = clear_values.data();
 
     vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -351,7 +351,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 3, 1, &set, offsets.size(), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 3, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
@@ -386,7 +386,7 @@ void Device::reset_work_pool(WorkPool &work_pool)
     for (auto &command_pool : work_pool.command_pools)
     {
         if (!command_pool.free_list.empty()) {
-            vkFreeCommandBuffers(this->device, command_pool.vk_handle, command_pool.free_list.size(), command_pool.free_list.data());
+            vkFreeCommandBuffers(this->device, command_pool.vk_handle, static_cast<u32>(command_pool.free_list.size()), command_pool.free_list.data());
         }
         command_pool.free_list.clear();
 
@@ -510,7 +510,7 @@ void Device::submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> 
     value_list.reserve(work.wait_fence_list.size() + 1);
     stage_list.reserve(work.wait_fence_list.size() + 1);
 
-    for (uint i = 0; i < work.wait_fence_list.size(); i++)
+    for (usize i = 0; i < work.wait_fence_list.size(); i++)
     {
         semaphore_list.push_back(work.wait_fence_list[i].timeline_semaphore);
         value_list.push_back(work.wait_value_list[i]);
@@ -526,19 +526,19 @@ void Device::submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> 
     }
 
     VkTimelineSemaphoreSubmitInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO};
-    timeline_info.waitSemaphoreValueCount = value_list.size();
+    timeline_info.waitSemaphoreValueCount = static_cast<u32>(value_list.size());
     timeline_info.pWaitSemaphoreValues = value_list.data();
-    timeline_info.signalSemaphoreValueCount = local_signal_values.size();
+    timeline_info.signalSemaphoreValueCount = static_cast<u32>(local_signal_values.size());
     timeline_info.pSignalSemaphoreValues = local_signal_values.data();
 
     VkSubmitInfo submit_info            = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
     submit_info.pNext                   = &timeline_info;
-    submit_info.waitSemaphoreCount      = semaphore_list.size();
+    submit_info.waitSemaphoreCount      = static_cast<u32>(semaphore_list.size());
     submit_info.pWaitSemaphores         = semaphore_list.data();
     submit_info.pWaitDstStageMask       = stage_list.data();
     submit_info.commandBufferCount      = 1;
     submit_info.pCommandBuffers         = &work.command_buffer;
-    submit_info.signalSemaphoreCount    = signal_list.size();
+    submit_info.signalSemaphoreCount    = static_cast<u32>(signal_list.size());
     submit_info.pSignalSemaphores       = signal_list.data();
 
     VK_CHECK(vkQueueSubmit(work.queue, 1, &submit_info, VK_NULL_HANDLE));
@@ -583,7 +583,7 @@ void Device::wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_valu
     assert(wait_values.size() == fences.size());
 
     Vec<VkSemaphore> semaphores(fences.size());
-    for (uint i_fence = 0; i_fence < fences.size(); i_fence += 1)
+    for (usize i_fence = 0; i_fence < fences.size(); i_fence += 1)
     {
         semaphores[i_fence] = fences[i_fence].timeline_semaphore;
     }
@@ -591,7 +591,7 @@ void Device::wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_valu
     // 10 sec in nanoseconds
     u64 timeout = 10llu*1000llu*1000llu*1000llu;
     VkSemaphoreWaitInfo wait_info = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO };
-    wait_info.semaphoreCount = fences.size();
+    wait_info.semaphoreCount = static_cast<u32>(fences.size());
     wait_info.pSemaphores = semaphores.data();
     wait_info.pValues = wait_values.data();
     VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
