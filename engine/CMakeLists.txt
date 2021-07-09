@@ -19,7 +19,6 @@ set(SOURCE_FILES
   src/render/renderer.cpp
   src/render/gpu_pool.cpp
   src/render/ring_buffer.cpp
-
   src/render/vulkan/context.cpp
   src/render/vulkan/commands.cpp
   src/render/vulkan/descriptor_set.cpp
@@ -50,11 +49,11 @@ elseif (UNIX)
     ${SOURCE_FILES}
     src/platform/window_xcb.cpp)
 
-else()
-
 endif()
 
 add_executable(engine ${SOURCE_FILES})
+install(TARGETS engine RUNTIME)
+
 set_target_properties(engine PROPERTIES CXX_STANDARD 20)
 target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
 

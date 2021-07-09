@@ -26,9 +26,9 @@ set(GLSL_FILES
   taa.comp.glsl
   )
 
-foreach(GLSL_FILE ${GLSL_FILES})
+foreach(GLSL_FILE IN LISTS GLSL_FILES)
   get_filename_component(FILE_NAME ${GLSL_FILE} NAME)
-  set(SPIRV_FILE "${PROJECT_BINARY_DIR}/${FILE_NAME}.spv")
+  set(SPIRV_FILE "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}
@@ -36,8 +36,10 @@ foreach(GLSL_FILE ${GLSL_FILES})
     DEPENDS ${GLSL_FILE} ${GLSL_INCLUDES}
     )
 
+
   list(APPEND SPIRV_FILES ${SPIRV_FILE})
-endforeach(GLSL_FILE)
+endforeach()
 
 
 add_custom_target(shaders DEPENDS ${SPIRV_FILES})
+install(FILES ${SPIRV_FILES} DESTINATION bin/shaders)

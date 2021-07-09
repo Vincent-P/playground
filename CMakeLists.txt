@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.19)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install/)
+
 project(test-vulkan LANGUAGES CXX)
 
 find_package(Vulkan REQUIRED)

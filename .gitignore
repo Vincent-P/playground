@@ -1,14 +1,5 @@
-.vs
+.*
 build*
-models
-!models/Sponza
-lib
-*.spv
-.ccls-cache
-*.cap
-*.debugtarget
-.clangd
-.log
-.cache
+install
 compile_commands.json
-out
+CMakeUserPresets.json
