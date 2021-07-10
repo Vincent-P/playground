@@ -10,6 +10,7 @@
 
 #include "render/ring_buffer.hpp"
 #include "render/bvh.hpp"
+#include "render/streamer.hpp"
 
 namespace gfx = vulkan;
 
@@ -43,11 +44,6 @@ struct ImGuiPass
 {
     Handle<gfx::GraphicsProgram> program;
     Handle<gfx::Image>  font_atlas;
-    Handle<gfx::Buffer> font_atlas_staging;
-
-    // transfer stuff
-    bool should_upload_atlas;
-    u64 transfer_done_value = u64_invalid;
 };
 
 struct PACKED TonemapOptions
@@ -117,13 +113,14 @@ struct Renderer
     Handle<gfx::Image> empty_storage_image;
 
     // User renderer
+    Streamer streamer;
+
     Handle<gfx::Image> depth_buffer;
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;
     RenderTargets swapchain_rt;
     RenderTargets depth_only_rt;
 
-    gfx::Fence transfer_done;
 
     ImGuiPass imgui_pass;
     TonemapPass tonemap_pass;

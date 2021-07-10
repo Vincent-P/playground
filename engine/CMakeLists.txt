@@ -18,6 +18,7 @@ set(SOURCE_FILES
   # src/render/bvh.cpp
   src/render/renderer.cpp
   src/render/ring_buffer.cpp
+  src/render/streamer.cpp
   src/render/vulkan/context.cpp
   src/render/vulkan/commands.cpp
   src/render/vulkan/descriptor_set.cpp

@@ -158,13 +158,11 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
     }
 
     auto &io = ImGui::GetIO();
-    uchar *pixels = nullptr;
+        uchar *pixels = nullptr;
     int width  = 0;
     int height = 0;
     io.Fonts->Build();
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-
-    usize font_atlas_size = width * height * sizeof(u32);
 
     imgui_pass.font_atlas = device.create_image({
             .name = "Font Atlas",
@@ -172,24 +170,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .format = VK_FORMAT_R8G8B8A8_UNORM,
         });
 
-    imgui_pass.font_atlas_staging = device.create_buffer({
-            .name = "Imgui font atlas staging",
-            .size = font_atlas_size,
-            .usage = gfx::source_buffer_usage,
-            .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-        });
-
-    uchar *p_font_atlas = device.map_buffer<uchar>(imgui_pass.font_atlas_staging);
-    for (uint i = 0; i < font_atlas_size; i++)
-    {
-        p_font_atlas[i] = pixels[i];
-    }
-    device.flush_buffer(imgui_pass.font_atlas_staging);
-    imgui_pass.should_upload_atlas = true;
-
     ImGui::GetIO().Fonts->SetTexID((void *)((u64)device.get_image_sampled_index(imgui_pass.font_atlas)));
-
-    renderer.transfer_done = device.create_fence();
 
     // global set
     return renderer;
@@ -200,13 +181,13 @@ void Renderer::destroy()
     device.wait_idle();
 
     device.destroy_fence(fence);
-    device.destroy_fence(transfer_done);
 
     for (auto &work_pool : work_pools)
     {
         device.destroy_work_pool(work_pool);
     }
 
+    streamer.destroy();
     surface.destroy(context, device);
     device.destroy(context);
     context.destroy();
@@ -296,7 +277,8 @@ bool Renderer::start_frame()
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
     u64 wait_value = frame_count < FRAME_QUEUE_LENGTH ? 0 : frame_count-FRAME_QUEUE_LENGTH+1;
-    device.wait_for_fences({fence, transfer_done}, {wait_value, wait_value});
+    streamer.wait();
+    device.wait_for_fences({fence}, {wait_value});
 
     // reset the command buffers
     auto &work_pool = work_pools[current_frame];
@@ -587,19 +569,17 @@ void Renderer::update(Scene &scene)
     swapchain_rt.image = surface.images[surface.current_image];
 
     // -- Transfer stuff
-    gfx::TransferWork transfer_cmd = device.get_transfer_work(work_pool);
-    transfer_cmd.begin();
-
-    if (imgui_pass.should_upload_atlas)
+    if (frame_count == 0)
     {
-        transfer_cmd.clear_barrier(imgui_pass.font_atlas, gfx::ImageUsage::TransferDst);
-        transfer_cmd.copy_buffer_to_image(imgui_pass.font_atlas_staging, imgui_pass.font_atlas);
-        imgui_pass.should_upload_atlas = false;
-        imgui_pass.transfer_done_value = frame_count+1;
+        auto &io = ImGui::GetIO();
+        uchar *pixels = nullptr;
+        int width  = 0;
+        int height = 0;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+        streamer.init(&device);
+        streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
     }
-
-    transfer_cmd.end();
-    device.submit(transfer_cmd, {transfer_done}, {frame_count+1});
+    streamer.update(work_pool);
 
     // -- Update global data
     CameraComponent *main_camera = nullptr;
@@ -641,6 +621,24 @@ void Renderer::update(Scene &scene)
     device.bind_global_uniform_buffer(dynamic_uniform_buffer.buffer, global_offset, sizeof(GlobalUniform));
     device.update_globals();
 
+
+    // -- Get geometry from the scene
+    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>([&](LocalToWorldComponent &local_to_world, RenderMeshComponent &render_mesh){
+        if (render_mesh.i_mesh >= this->render_meshes.size())
+        {
+            // load mesh
+        }
+        else
+        {
+            // add instance to list of instances to draw
+        }
+    });
+
+    // Generate draw calls for instances
+    // foreach instance
+    //   if model has not loaded: continue
+    //   add to draw_call
+
     // -- Draw frame
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
@@ -662,7 +660,6 @@ void Renderer::update(Scene &scene)
     scissor.extent.height = settings.render_resolution.y;
     cmd.set_scissor(scissor);
 
-#if 0
     // Depth prepass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
@@ -674,10 +671,9 @@ void Renderer::update(Scene &scene)
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
     cmd.end_pass();
-#endif
 
     ImGui::Render();
-    if (device.get_fence_value(transfer_done) >= imgui_pass.transfer_done_value)
+    if (streamer.is_uploaded(imgui_pass.font_atlas))
     {
         do_imgui_pass(*this, cmd, swapchain_rt, imgui_pass, true);
     }
