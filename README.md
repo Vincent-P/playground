@@ -24,13 +24,16 @@ Features:
 ```
 $ git clone https://github.com/Vincent-P/test-vulkan.git
 $ cd test-vulkan
-$ mkdir build
-$ cd build
-$ cmake -G Ninja ..
-$ ninja
+$ cmake --preset default
+$ cmake --build --preset default
 ```
 
-- The executable needs to be started from the build directory.
+- To execute it, make sure to install it
+```
+$ cmake --build --preset default --target install
+```
+
+- The executable will be in `install/bin/engine.exe` and needs to be started in `install/bin`.
 
 # Dependencies
 - STB Image (https://github.com/nothings/stb)

@@ -67,8 +67,8 @@ struct ImageView
 {
     VkImageSubresourceRange range;
     VkImageView vkhandle;
-    u32 sampled_idx;
-    u32 storage_idx;
+    u32 sampled_idx = u32_invalid;
+    u32 storage_idx = u32_invalid;
     VkFormat format;
     std::string name;
 

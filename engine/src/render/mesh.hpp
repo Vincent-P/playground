@@ -31,7 +31,6 @@ struct Mesh
     Vec<u32> indices;
     Vec<float3> positions;
     Vec<SubMesh> submeshes;
-    Vec<float4x4> submeshes_transforms;
 
     bool operator==(const Mesh &other) const = default;
 };

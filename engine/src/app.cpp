@@ -16,7 +16,7 @@ App::App()
     platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     ui = UI::Context::create();
 
-    renderer = Renderer::create(window);
+    renderer = Renderer::create(window, &asset_manager);
 
     watcher       = platform::FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");
@@ -37,7 +37,7 @@ App::App()
     inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
     inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
 
-    scene.init();
+    scene.init(&asset_manager);
 }
 
 App::~App()

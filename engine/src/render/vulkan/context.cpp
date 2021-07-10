@@ -16,6 +16,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
                                                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                      void * /*unused*/)
 {
+    // Read-after-write on bindless render targets
+    if (pCallbackData->messageIdNumber == 1287084845)
+    {
+        return VK_FALSE;
+    }
+
     logger::error("{}\n", pCallbackData->pMessage);
 
     if (pCallbackData->objectCount)

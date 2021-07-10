@@ -8,7 +8,6 @@
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
-#include "render/gpu_pool.hpp"
 #include "render/ring_buffer.hpp"
 #include "render/bvh.hpp"
 
@@ -21,6 +20,7 @@ namespace UI {struct Context;}
 struct Mesh;
 struct Material;
 class Scene;
+class AssetManager;
 
 struct RenderTargets
 {
@@ -96,21 +96,11 @@ struct PACKED PushConstants
     u32 render_mesh_idx = u32_invalid;
 };
 
-struct StbImage
-{
-    int width       = 0;
-    int height      = 0;
-    u8 *pixels      = nullptr;
-    Handle<gfx::Buffer> staging_buffer;
-    Handle<gfx::Image> gpu_image;
-    int nb_comp     = 0;
-    VkFormat format = VK_FORMAT_UNDEFINED;
-};
-
-
 struct Renderer
 {
     Settings settings;
+    AssetManager *asset_manager;
+
     // Base renderer
     gfx::Context context;
     gfx::Device device;
@@ -125,8 +115,6 @@ struct Renderer
 
     Handle<gfx::Image> empty_sampled_image;
     Handle<gfx::Image> empty_storage_image;
-    Vec<Handle<gfx::Image>> render_textures;
-    Vec<StbImage> upload_images;
 
     // User renderer
     Handle<gfx::Image> depth_buffer;
@@ -142,16 +130,10 @@ struct Renderer
 
     // Geometry pools
     Handle<gfx::GraphicsProgram> opaque_program;
-    Handle<gfx::GraphicsProgram> opaque_prepass_program;
-    Handle<gfx::ComputeProgram> path_tracing_program;
-    Handle<gfx::GraphicsProgram> path_tracing_hybrid_program;
-    Handle<gfx::ComputeProgram> taa;
-    Handle<gfx::Image> history_buffers[2];
-    u32 current_history = 0;
 
     /// ---
 
-    static Renderer create(const platform::Window &window);
+    static Renderer create(const platform::Window &window, AssetManager *_asset_manager);
     void destroy();
 
     void display_ui(UI::Context &ui);
@@ -168,12 +150,3 @@ struct Renderer
     bool start_frame();
     bool end_frame(gfx::ComputeWork &cmd);
 };
-
-inline uint3 dispatch_size(uint3 image_size, uint threads_xy, uint threads_z = 1)
-{
-    return {
-        .x = image_size.x / threads_xy + uint(image_size.x % threads_xy != 0),
-        .y = image_size.y / threads_xy + uint(image_size.y % threads_xy != 0),
-        .z = image_size.z / threads_z  + uint(image_size.z % threads_z  != 0),
-    };
-}

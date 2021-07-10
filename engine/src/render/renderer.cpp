@@ -6,7 +6,6 @@
 #include "base/numerics.hpp"
 #include "camera.hpp"
 #include "gltf.hpp"
-#include "render/gpu_pool.hpp"
 #include "render/vulkan/commands.hpp"
 #include "render/vulkan/device.hpp"
 #include "render/vulkan/resources.hpp"
@@ -14,6 +13,7 @@
 #include "vulkan/vulkan_core.h"
 #include "render/material.hpp"
 
+#include "asset_manager.hpp"
 #include "ui.hpp"
 #include "scene.hpp"
 #include "components/camera_component.hpp"
@@ -27,9 +27,10 @@
 #include <stb_image.h>
 
 
-Renderer Renderer::create(const platform::Window &window)
+Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_manager)
 {
     Renderer renderer = {};
+    renderer.asset_manager = _asset_manager;
 
     auto &context = renderer.context;
     auto &physical_devices = context.physical_devices;
@@ -153,8 +154,7 @@ Renderer Renderer::create(const platform::Window &window)
         imgui_pass.program = device.create_program("imgui", gui_state);
 
         gfx::RenderState state = {.alpha_blending = true};
-        uint gui_default = device.compile(imgui_pass.program, state);
-        UNUSED(gui_default);
+        device.compile(imgui_pass.program, state);
     }
 
     auto &io = ImGui::GetIO();
@@ -188,130 +188,6 @@ Renderer Renderer::create(const platform::Window &window)
     imgui_pass.should_upload_atlas = true;
 
     ImGui::GetIO().Fonts->SetTexID((void *)((u64)device.get_image_sampled_index(imgui_pass.font_atlas)));
-
-    #if 0
-    // Create the luminance pass
-    auto &tonemap_pass = renderer.tonemap_pass;
-
-    tonemap_pass.tonemap = device.create_program("tonemap", {
-        .shader = device.create_shader("shaders/tonemap.comp.glsl.spv"),
-        .descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-        },
-    });
-
-    renderer.path_tracing_program = device.create_program("pathtracer", {
-        .shader = device.create_shader("shaders/path_tracer.comp.glsl.spv"),
-        .descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertex buffer
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // index buffer
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes buffer
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // material buffer
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH nodes buffer
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH faces buffer
-        },
-    });
-
-    {
-        renderer.path_tracing_hybrid_program = device.create_program("hybrid pathtracer", {
-            .vertex_shader   =  device.create_shader("shaders/opaque.vert.spv"),
-            .fragment_shader =  device.create_shader("shaders/hybrid.frag.spv"),
-            .renderpass = renderer.hdr_rt.load_renderpass,
-            .descriptors =  {
-                {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertex buffer
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // index buffer
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes buffer
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // material buffer
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH nodes buffer
-                {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // BVH faces buffer
-            },
-        });
-
-        gfx::RenderState render_state   = {};
-        render_state.depth.test         = VK_COMPARE_OP_EQUAL;
-        render_state.depth.enable_write = false;
-        device.compile(renderer.path_tracing_hybrid_program, render_state);
-    }
-
-    renderer.taa = device.create_program("taa", {
-        .shader = device.create_shader("shaders/taa.comp.glsl.spv"),
-        .descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-        },
-    });
-
-    tonemap_pass.build_histo = device.create_program("build luminance histogram", {
-        .shader = device.create_shader("shaders/build_luminance_histo.comp.spv"),
-        .descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
-        },
-    });
-
-    tonemap_pass.average_histo = device.create_program("average luminance histogram", {
-        .shader = device.create_shader("shaders/average_luminance_histo.comp.spv"),
-        .descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1},
-        },
-    });
-
-    tonemap_pass.histogram = device.create_buffer({
-        .name  = "Luminance histogram",
-        .size  = 256 * sizeof(uint),
-        .usage = gfx::storage_buffer_usage,
-    });
-
-    tonemap_pass.average_luminance = device.create_image({
-        .name          = "Average luminance",
-        .size          = {1, 1, 1},
-        .type          = VK_IMAGE_TYPE_2D,
-        .format        = VK_FORMAT_R32_SFLOAT,
-        .usages        = gfx::storage_image_usage,
-    });
-
-    // Create gltf program
-    {
-        gfx::GraphicsState state = {};
-        state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
-        state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
-        state.renderpass        = renderer.hdr_rt.load_renderpass;
-        state.descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertices
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // materials
-        };
-        renderer.opaque_program  = device.create_program("gltf opaque", state);
-
-        gfx::RenderState render_state   = {};
-        render_state.depth.test         = VK_COMPARE_OP_EQUAL;
-        render_state.depth.enable_write = false;
-        uint opaque_default             = device.compile(renderer.opaque_program, render_state);
-        UNUSED(opaque_default);
-    }
-    {
-        gfx::GraphicsState state = {};
-        state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
-        state.fragment_shader    = device.create_shader("shaders/opaque_prepass.frag.spv");
-        state.renderpass        = renderer.depth_only_rt.load_renderpass;
-        state.descriptors =  {
-            {.type = gfx::DescriptorType::DynamicBuffer, .count = 1},
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // vertices
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // render meshes
-            {.type = gfx::DescriptorType::StorageBuffer, .count = 1}, // materials
-        };
-        renderer.opaque_prepass_program  = device.create_program("gltf opaque", state);
-
-        gfx::RenderState render_state   = {};
-        render_state.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        render_state.depth.enable_write = true;
-        uint opaque_default             = device.compile(renderer.opaque_prepass_program, render_state);
-        UNUSED(opaque_default);
-    }
-    #endif
 
     renderer.transfer_done = device.create_fence();
 
@@ -438,8 +314,9 @@ bool Renderer::start_frame()
 static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTargets &output, ImGuiPass &pass_data, bool clear_rt = true)
 {
     auto &device = renderer.device;
-
     ImDrawData *data = ImGui::GetDrawData();
+
+    // -- Prepare Imgui draw commands
     assert(sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
     assert(sizeof(ImDrawIdx)  * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
 
@@ -452,26 +329,22 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
     auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(device, indices_size);
     auto *indices = reinterpret_cast<ImDrawIdx*>(p_indices);
 
-
-    struct PACKED ImguiOptions
+    struct ImguiDrawCommand
     {
-        float2 scale;
-        float2 translation;
-        u64 vertices_pointer;
-        u32 first_vertex;
-        u32 pad1;
-        u32 texture_binding_per_draw[64];
+        u32 texture_id;
+        u32 vertex_count;
+        u32 index_offset;
+        i32 vertex_offset;
+        VkRect2D scissor;
     };
 
-    auto *options = renderer.bind_shader_options<ImguiOptions>(cmd, pass_data.program);
-    std::memset(options, 0, sizeof(ImguiOptions));
-    options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
-    options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
-    options->first_vertex = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
-    options->vertices_pointer = 0;
+    Vec<ImguiDrawCommand> draws;
+    float2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
+    float2 clip_scale = data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-    // -- Upload ImGui's vertices and indices
     u32 i_draw = 0;
+    i32 vertex_offset = 0;
+    u32 index_offset  = 0;
     for (int i = 0; i < data->CmdListsCount; i++)
     {
         const auto &cmd_list = *data->CmdLists[i];
@@ -493,43 +366,9 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
         for (int command_index = 0; command_index < cmd_list.CmdBuffer.Size && i_draw < 64; command_index++)
         {
             const auto &draw_command = cmd_list.CmdBuffer[command_index];
+
+            // Prepare the texture to be sampled
             u32 texture_id = static_cast<u32>((u64)draw_command.TextureId);
-            options->texture_binding_per_draw[i_draw] = texture_id;
-            cmd.barrier(device.get_global_sampled_image(texture_id), gfx::ImageUsage::GraphicsShaderRead);
-            i_draw += 1;
-        }
-    }
-
-    // -- Update shader data
-
-    cmd.barrier(output.image, gfx::ImageUsage::ColorAttachment);
-
-    cmd.begin_pass(clear_rt ? output.clear_renderpass : output.load_renderpass, output.framebuffer, {output.image}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}});
-
-    float2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
-    float2 clip_scale = data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-    VkViewport viewport{};
-    viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
-    viewport.height   = data->DisplaySize.y * data->FramebufferScale.y;
-    viewport.minDepth = 1.0f;
-    viewport.maxDepth = 1.0f;
-    cmd.set_viewport(viewport);
-
-    cmd.bind_storage_buffer(pass_data.program, 1, renderer.dynamic_vertex_buffer.buffer);
-    cmd.bind_pipeline(pass_data.program, 0);
-    cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT16, ind_offset);
-
-    i32 vertex_offset = 0;
-    u32 index_offset  = 0;
-    i_draw = 0;
-    for (int list = 0; list < data->CmdListsCount; list++)
-    {
-        const auto &cmd_list = *data->CmdLists[list];
-
-        for (int command_index = 0; command_index < cmd_list.CmdBuffer.Size && i_draw < 64; command_index++)
-        {
-            const auto &draw_command = cmd_list.CmdBuffer[command_index];
 
             // Project scissor/clipping rectangles into framebuffer space
             ImVec4 clip_rect;
@@ -545,14 +384,63 @@ static void do_imgui_pass(Renderer &renderer, gfx::GraphicsWork& cmd, RenderTarg
             scissor.extent.width  = static_cast<u32>(clip_rect.z - clip_rect.x);
             scissor.extent.height = static_cast<u32>(clip_rect.w - clip_rect.y);
 
-            cmd.set_scissor(scissor);
-            cmd.push_constant<PushConstants>({.draw_idx = i_draw});
-            cmd.draw_indexed({.vertex_count = draw_command.ElemCount, .index_offset = index_offset, .vertex_offset = vertex_offset});
+            draws.push_back({.texture_id = texture_id, .vertex_count = draw_command.ElemCount, .index_offset = index_offset, .vertex_offset = vertex_offset, .scissor = scissor});
             i_draw += 1;
 
             index_offset += draw_command.ElemCount;
         }
         vertex_offset += cmd_list.VtxBuffer.Size;
+    }
+
+    // -- Rendering
+    struct PACKED ImguiOptions
+    {
+        float2 scale;
+        float2 translation;
+        u64 vertices_pointer;
+        u32 first_vertex;
+        u32 pad1;
+        u32 texture_binding_per_draw[64];
+    };
+
+    auto *options = renderer.bind_shader_options<ImguiOptions>(cmd, pass_data.program);
+    std::memset(options, 0, sizeof(ImguiOptions));
+    options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
+    options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
+    options->first_vertex = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
+    options->vertices_pointer = 0;
+
+
+    // Barriers
+    cmd.barrier(output.image, gfx::ImageUsage::ColorAttachment);
+    for (i_draw = 0; i_draw < draws.size(); i_draw += 1)
+    {
+        const auto &draw = draws[i_draw];
+
+        options->texture_binding_per_draw[i_draw] = draw.texture_id;
+        cmd.barrier(device.get_global_sampled_image(draw.texture_id), gfx::ImageUsage::GraphicsShaderRead);
+    }
+
+    // Draw pass
+    cmd.begin_pass(clear_rt ? output.clear_renderpass : output.load_renderpass, output.framebuffer, {output.image}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}});
+
+    VkViewport viewport{};
+    viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
+    viewport.height   = data->DisplaySize.y * data->FramebufferScale.y;
+    viewport.minDepth = 1.0f;
+    viewport.maxDepth = 1.0f;
+    cmd.set_viewport(viewport);
+
+    cmd.bind_storage_buffer(pass_data.program, 1, renderer.dynamic_vertex_buffer.buffer);
+    cmd.bind_pipeline(pass_data.program, 0);
+    cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT16, ind_offset);
+
+    for (i_draw = 0; i_draw < draws.size(); i_draw += 1)
+    {
+        const auto &draw = draws[i_draw];
+        cmd.set_scissor(draw.scissor);
+        cmd.push_constant<PushConstants>({.draw_idx = i_draw});
+        cmd.draw_indexed({.vertex_count = draw.vertex_count, .index_offset = draw.index_offset, .vertex_offset = draw.vertex_offset});
     }
 
     cmd.end_pass();
@@ -623,65 +511,61 @@ void Renderer::display_ui(UI::Context &ui)
     }
 }
 
-#if 0
-static void load_mesh(Renderer &renderer, const Scene &scene, const LocalToWorldComponent &transform, const RenderMeshComponent &render_mesh_component)
+static void recreate_framebuffers(Renderer &r)
 {
-    const auto &mesh     = *scene.meshes.get(render_mesh_component.mesh_handle);
-    // const auto &material = *scene.materials.get(render_mesh_component.material_handle);
+    auto &device   = r.device;
+    auto &settings = r.settings;
 
-    const Vertex *mesh_vertices = scene.vertices.data() + mesh.vertex_offset;
-    const u32 *mesh_indices     = scene.indices.data() + mesh.index_offset;
+    device.wait_idle();
 
-    bool success = true;
+    device.destroy_image(r.depth_buffer);
+    r.depth_buffer = device.create_image({
+        .name   = "Depth buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_D32_SFLOAT,
+        .usages = gfx::depth_attachment_usage,
+    });
 
-    // upload the vertices
-    u32 vertices_offset;
-    std::tie(success, vertices_offset) = renderer.vertex_buffer.allocate(mesh.vertex_count);
-    if (!success) {
-        logger::error("[Renderer] load_mesh(): vertex allocation failed.\n");
-        return;
-    }
+    device.destroy_image(r.hdr_rt.image);
+    r.hdr_rt.image = device.create_image({
+        .name   = "HDR buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .usages = gfx::color_attachment_usage,
+    });
+    r.hdr_rt.depth = r.depth_buffer;
 
-    renderer.vertex_buffer.update(vertices_offset, mesh.vertex_count, mesh_vertices);
+    device.destroy_framebuffer(r.hdr_rt.framebuffer);
+    r.hdr_rt.framebuffer = device.create_framebuffer({
+        .width              = settings.render_resolution.x,
+        .height             = settings.render_resolution.y,
+        .attachments_format = {VK_FORMAT_R32G32B32A32_SFLOAT},
+        .depth_format       = VK_FORMAT_D32_SFLOAT,
+    });
 
-    // Because the first vertex index is different in the GpuPool and the scene, the indices need to be updated
-    Vec<u32> new_indices(mesh.index_count);
-    for (usize i_index = 0; i_index < mesh.index_count; i_index += 1) {
-        new_indices[i_index] = mesh_indices[i_index] + vertices_offset - mesh.vertex_offset ;
-    }
-    u32 indices_offset;
-    std::tie(success, indices_offset) = renderer.index_buffer.allocate(mesh.index_count);
-    if (!success) {
-        renderer.vertex_buffer.free(vertices_offset);
-        logger::error("[Renderer] load_mesh(): index allocation failed.\n");
-        return;
-    }
-    renderer.index_buffer.update(indices_offset, mesh.index_count, new_indices.data());
+    device.destroy_image(r.ldr_rt.image);
+    r.ldr_rt.image = device.create_image({
+        .name   = "LDR buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .usages = gfx::color_attachment_usage,
+    });
 
-    RenderMeshData new_mesh_data = {
-        .transform     = transform.transform,
-        .mesh_handle   = render_mesh_component.mesh_handle,
-        .i_material    = render_mesh_component.i_material,
-        .vertex_offset = vertices_offset,
-        .index_offset  = indices_offset,
-        .index_count   = mesh.index_count,
-    };
+    device.destroy_framebuffer(r.ldr_rt.framebuffer);
+    r.ldr_rt.framebuffer = device.create_framebuffer({
+        .width              = settings.render_resolution.x,
+        .height             = settings.render_resolution.y,
+        .attachments_format = {VK_FORMAT_R8G8B8A8_UNORM},
+    });
 
-    u32 new_index;
-    std::tie(success, new_index) = renderer.render_mesh_data.allocate(1);
-    if (!success) {
-        renderer.vertex_buffer.free(vertices_offset);
-        renderer.index_buffer.free(indices_offset);
-        logger::error("[Renderer] load_mesh(): render mesh data allocation failed.\n");
-        return;
-    }
-
-    renderer.render_mesh_data.update(new_index, 1, &new_mesh_data);
-    renderer.render_mesh_indices.push_back(new_index);
-
-    renderer.render_mesh_data_dirty = true;
+    device.destroy_framebuffer(r.depth_only_rt.framebuffer);
+    r.depth_only_rt.framebuffer = device.create_framebuffer({
+        .width              = settings.render_resolution.x,
+        .height             = settings.render_resolution.y,
+        .attachments_format = {},
+        .depth_format       = VK_FORMAT_D32_SFLOAT,
+    });
 }
-#endif
 
 void Renderer::update(Scene &scene)
 {
@@ -694,68 +578,7 @@ void Renderer::update(Scene &scene)
 
     if (settings.resolution_dirty)
     {
-        device.wait_idle();
-
-        device.destroy_image(depth_buffer);
-        depth_buffer = device.create_image({
-                .name = "Depth buffer",
-                .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-                .format = VK_FORMAT_D32_SFLOAT,
-                .usages = gfx::depth_attachment_usage,
-            });
-
-        device.destroy_image(hdr_rt.image);
-        hdr_rt.image = device.create_image({
-            .name = "HDR buffer",
-            .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-            .usages = gfx::color_attachment_usage,
-            });
-        hdr_rt.depth = depth_buffer;
-
-        for (uint i_history = 0; i_history < 2; i_history += 1)
-        {
-            device.destroy_image(history_buffers[i_history]);
-            history_buffers[i_history] = device.create_image({
-                .name = fmt::format("History buffer #{}", i_history),
-                .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .usages = gfx::storage_image_usage,
-            });
-        }
-
-        device.destroy_framebuffer(hdr_rt.framebuffer);
-        hdr_rt.framebuffer = device.create_framebuffer({
-                .width = settings.render_resolution.x,
-                .height = settings.render_resolution.y,
-                .attachments_format = {VK_FORMAT_R32G32B32A32_SFLOAT},
-                .depth_format = VK_FORMAT_D32_SFLOAT,
-            });
-
-        device.destroy_image(ldr_rt.image);
-        ldr_rt.image = device.create_image({
-            .name = "LDR buffer",
-            .size = {settings.render_resolution.x, settings.render_resolution.y, 1},
-            .format = VK_FORMAT_R8G8B8A8_UNORM,
-            .usages = gfx::color_attachment_usage,
-            });
-
-
-        device.destroy_framebuffer(ldr_rt.framebuffer);
-        ldr_rt.framebuffer = device.create_framebuffer({
-                .width = settings.render_resolution.x,
-                .height = settings.render_resolution.y,
-                .attachments_format = {VK_FORMAT_R8G8B8A8_UNORM},
-            });
-
-        device.destroy_framebuffer(depth_only_rt.framebuffer);
-        depth_only_rt.framebuffer = device.create_framebuffer({
-                .width = settings.render_resolution.x,
-                .height = settings.render_resolution.y,
-                .attachments_format = {},
-                .depth_format = VK_FORMAT_D32_SFLOAT,
-            });
-
+        recreate_framebuffers(*this);
         settings.resolution_dirty = false;
     }
 
@@ -819,7 +642,6 @@ void Renderer::update(Scene &scene)
     device.update_globals();
 
     // -- Draw frame
-
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
 
@@ -841,7 +663,6 @@ void Renderer::update(Scene &scene)
     cmd.set_scissor(scissor);
 
 #if 0
-
     // Depth prepass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
@@ -853,104 +674,6 @@ void Renderer::update(Scene &scene)
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
     cmd.end_pass();
-
-    // TAA
-    {
-        cmd.barrier(depth_buffer, gfx::ImageUsage::ComputeShaderRead);
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
-        cmd.barrier(history_buffers[(frame_count+1)%2], gfx::ImageUsage::ComputeShaderRead);
-        cmd.barrier(history_buffers[(frame_count)%2], gfx::ImageUsage::ComputeShaderReadWrite);
-
-        struct PACKED TaaOptions
-        {
-            uint sampled_depth_buffer;
-            uint sampled_hdr_buffer;
-            uint sampled_previous_history;
-            uint storage_output_frame;
-        };
-
-        auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
-        auto *options                     = this->bind_shader_options<TaaOptions>(cmd, taa);
-        options->sampled_depth_buffer     = device.get_image_sampled_index(hdr_rt.depth);
-        options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_rt.image);
-        options->sampled_previous_history = device.get_image_sampled_index(history_buffers[(frame_count+1)%2]);
-        options->storage_output_frame     = device.get_image_storage_index(history_buffers[frame_count%2]);
-        cmd.bind_pipeline(taa);
-        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
-    }
-
-    // Build luminance histogram
-    {
-        cmd.barrier(history_buffers[(frame_count)%2], gfx::ImageUsage::ComputeShaderRead);
-        cmd.barrier(tonemap_pass.histogram, gfx::BufferUsage::ComputeShaderReadWrite);
-
-        struct PACKED BuildHistoOptions
-        {
-            u64 luminance_buffer;
-            float min_log_luminance;
-            float one_over_log_luminance_range;
-            uint sampled_hdr_texture;
-        };
-
-        auto *options                = this->bind_shader_options<BuildHistoOptions>(cmd, tonemap_pass.build_histo);
-        options->luminance_buffer    = device.get_buffer_address(tonemap_pass.histogram);
-        options->sampled_hdr_texture = device.get_image_sampled_index(history_buffers[(frame_count)%2]);
-        options->min_log_luminance   = -10.f;
-        options->one_over_log_luminance_range = 1.f / 12.f;
-
-        cmd.fill_buffer(tonemap_pass.histogram, 0);
-
-        cmd.bind_storage_buffer(tonemap_pass.build_histo, 1, tonemap_pass.histogram);
-        cmd.bind_pipeline(tonemap_pass.build_histo);
-        cmd.dispatch(dispatch_size(device.get_image_size(hdr_rt.image), 16));
-    }
-
-    // Reduce the histogram to an average value for the tonemapping
-    {
-        cmd.barrier(tonemap_pass.average_luminance, gfx::ImageUsage::ComputeShaderReadWrite);
-        cmd.barrier(tonemap_pass.histogram, gfx::BufferUsage::ComputeShaderReadWrite);
-
-        struct PACKED AverageHistoOptions
-        {
-            uint  pixel_count;
-            float min_log_luminance;
-            float log_luminance_range;
-            float tau;
-            u64 luminance_buffer;
-            uint storage_luminance_output;
-        };
-
-        auto hdr_image_size = device.get_image_size(hdr_rt.image);
-
-        auto *options                = this->bind_shader_options<AverageHistoOptions>(cmd, tonemap_pass.average_histo);
-        options->pixel_count         = hdr_image_size.x * hdr_image_size.y;
-        options->min_log_luminance   = -10.f;
-        options->log_luminance_range = 12.f;
-        options->tau                 = 1.1f;
-        options->luminance_buffer    = device.get_buffer_address(tonemap_pass.histogram);
-        options->storage_luminance_output = device.get_image_storage_index(tonemap_pass.average_luminance);
-
-        cmd.bind_storage_buffer(tonemap_pass.average_histo, 1, tonemap_pass.histogram);
-        cmd.bind_pipeline(tonemap_pass.average_histo);
-        cmd.dispatch({1, 1, 1});
-    }
-
-    // Tonemap compute
-    {
-        cmd.barrier(tonemap_pass.average_luminance, gfx::ImageUsage::ComputeShaderRead);
-        cmd.clear_barrier(ldr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
-
-        auto hdr_buffer_size              = device.get_image_size(history_buffers[(frame_count)%2]);
-        auto *options                     = this->bind_shader_options<TonemapOptions>(cmd, tonemap_pass.tonemap);
-        *options = tonemap_pass.options;
-        options->sampled_hdr_buffer       = device.get_image_sampled_index(history_buffers[(frame_count)%2]);
-        options->sampled_luminance_output = device.get_image_sampled_index(tonemap_pass.average_luminance);
-        options->storage_output_frame     = device.get_image_storage_index(ldr_rt.image);
-        cmd.bind_pipeline(tonemap_pass.tonemap);
-        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
-
-        cmd.barrier(ldr_rt.image, gfx::ImageUsage::GraphicsShaderRead);
-    }
 #endif
 
     ImGui::Render();

@@ -305,6 +305,8 @@ static void process_json(Scene &scene, rapidjson::Document &document, const Chun
             }
         }
     }
+
+    // create a stack and traverse nodes, each node append a new mesh_instance
 }
 
 Scene load_file(const std::string_view &path)

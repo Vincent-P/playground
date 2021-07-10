@@ -6,6 +6,8 @@
 
 #include "base/logger.hpp"
 
+#include "asset_manager.hpp"
+#include "glb.hpp"
 #include "platform/file_dialog.hpp"
 
 #include "components/camera_component.hpp"
@@ -116,10 +118,11 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
 }
 
 
-void Scene::init()
+void Scene::init(AssetManager *_asset_manager)
 {
     main_camera = world.create_entity(std::string_view{"Camera"}, TransformComponent{}, CameraComponent{}, InputCameraComponent{});
     world.singleton_add_component(SkyAtmosphereComponent{});
+    asset_manager = _asset_manager;
 }
 
 void Scene::destroy()
@@ -301,6 +304,26 @@ void Scene::display_ui(UI::Context &ui)
 
     if (ui.begin_window("Scene"))
     {
+
+        if (ImGui::Button("Load scene"))
+        {
+            auto file_path = platform::file_dialog({{"GLB", "*.glb"}});
+            if (file_path)
+            {
+                auto scene = glb::load_file(file_path->string());
+                for (auto &mesh : scene.meshes)
+                {
+                    asset_manager->meshes.add(mesh);
+                }
+
+                for (auto &instance : scene.instances)
+                {
+                    world.create_entity(std::string_view{"MeshInstance"}, LocalToWorldComponent{instance.transform}, RenderMeshComponent{instance.i_mesh, u32_invalid});
+                }
+            }
+        }
+
+
         for (auto& [entity, _] : world.entity_index)
         {
             if (world.is_component(entity)) { continue; }

@@ -6,12 +6,14 @@
 #include "render/material.hpp"
 
 class Inputs;
+class AssetManager;
+
 namespace UI {struct Context;}
 
 class Scene
 {
 public:
-    void init();
+    void init(AssetManager *_asset_manager);
     void destroy();
 
     void import_model(Handle<gltf::Model> model_handle);
@@ -19,6 +21,7 @@ public:
 
     void display_ui(UI::Context &ui);
 
+    AssetManager *asset_manager;
     ECS::World world;
     ECS::EntityId main_camera;
     Vec<ECS::EntityId> meshes_entities;

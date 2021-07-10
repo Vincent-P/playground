@@ -4,8 +4,6 @@
 #include "platform/file_dialog.hpp"
 #include "ui.hpp"
 
-#include "glb.hpp"
-
 #include <fmt/format.h>
 
 void AssetManager::load_texture(const std::filesystem::path &path)
@@ -39,7 +37,7 @@ void AssetManager::choose_texture(Handle<Texture> &selected)
 
     if (ImGui::BeginPopup("textureselect"))
     {
-        ImGui::Text("Textures:");
+        ImGui::Text("Textures (%u):", textures.size());
         ImGui::Separator();
 
         if (ImGui::BeginTable("Assets", 4))
@@ -105,9 +103,8 @@ void AssetManager::choose_mesh(Handle<Mesh> &selected)
         }
     }
 
-    if (ImGui::BeginPopup("meshselect"))
     {
-        ImGui::Text("Meshes:");
+        ImGui::Text("Meshes (%u):", meshes.size());
         ImGui::Separator();
 
         if (ImGui::BeginTable("Assets", 4))
@@ -138,8 +135,6 @@ void AssetManager::choose_mesh(Handle<Mesh> &selected)
 
             ImGui::EndTable();
         }
-
-        ImGui::EndPopup();
     }
 }
 
@@ -159,19 +154,6 @@ void AssetManager::display_ui(UI::Context &ui)
 
         static Handle<Texture> s_texture_example {};
         choose_texture(s_texture_example);
-
-        if (ImGui::Button("Load scene"))
-        {
-            auto file_path = platform::file_dialog({{"GLB", "*.glb"}});
-            if (file_path)
-            {
-                auto scene = glb::load_file(file_path->string());
-                for (auto &mesh : scene.meshes)
-                {
-                    meshes.add(mesh);
-                }
-            }
-        }
 
         static Handle<Mesh> s_mesh_example {};
         choose_mesh(s_mesh_example);

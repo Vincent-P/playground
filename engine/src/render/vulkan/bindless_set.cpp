@@ -78,6 +78,11 @@ void unbind_descriptor(BindlessSet &set, u32 index)
 
 void update_bindless_set(Device &device, BindlessSet &set)
 {
+    if (set.pending_bind.empty() && set.pending_unbind.empty())
+    {
+        return;
+    }
+
     Vec<VkWriteDescriptorSet> writes;
     writes.reserve(set.pending_bind.size());
 
