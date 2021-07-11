@@ -13,9 +13,11 @@ layout(set = 3, binding = 2) buffer InstancesBuffer {
     RenderInstance render_instances[];
 };
 
+layout(location = 0) out flat u32 o_triangle_id;
 void main()
 {
     RenderInstance instance = render_instances[first_instance + gl_InstanceIndex];
     float4 position = instance.transform * float4(positions[gl_VertexIndex].xyz, 1.0);
     gl_Position = globals.camera_projection * globals.camera_view * position;
+    o_triangle_id = gl_VertexIndex / 3;
 }

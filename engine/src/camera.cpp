@@ -79,6 +79,44 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
     return projection;
 }
 
+float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, float4x4 *inverse)
+{
+    auto n = near_plane;
+
+    float focal_length = 1.0f / std::tan(to_radians(fov) / 2.0f); // = 2n / (height)
+    // aspect_ratio = width/height
+    float x  =  focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
+    float y  = -focal_length; // -2n/height
+
+    // bad things will happen in the inverse
+    assert(x != 0.0f);
+    assert(y != 0.0f);
+    assert(n != 0.0f);
+
+    // clang-format off
+    float4x4 projection{{
+        x,    0.0f, 0.0f,  0.0f,
+        0.0f, y,    0.0f,  0.0f,
+        0.0f, 0.0f,    0,     n,
+        0.0f, 0.0f, -1.0f, 0.0f,
+    }};
+    // clang-format on
+
+    if (inverse)
+    {
+        // clang-format off
+        *inverse = float4x4({
+            1/x,  0.0f, 0.0f, 0.0f,
+            0.0f, 1/y,  0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, 1/n,  0.0f,
+        });
+        // clang-format on
+    }
+
+    return projection;
+}
+
 float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 {
     (void)(inverse);

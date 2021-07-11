@@ -2,7 +2,7 @@
 
 #include "render/vulkan/device.hpp"
 
-RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc)
+RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc, bool align)
 {
     RingBuffer buf;
     buf.name = desc.name;
@@ -14,12 +14,17 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
             .usage        = buf.usage,
             .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
         });
+    buf.should_align = align;
     return buf;
 }
 
 std::pair<void*, u32> RingBuffer::allocate(gfx::Device &device, usize len)
 {
     u32 aligned_len = ((static_cast<u32>(len) / 256u) + 1u) * 256u;
+    if (!should_align)
+    {
+        aligned_len = len;
+    }
 
     // TODO: handle the correct number of frame instead of ALWAYS the last one
     // check that we dont overwrite previous frame's content

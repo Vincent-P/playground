@@ -8,6 +8,7 @@
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
+#include "render/mesh.hpp"
 #include "render/ring_buffer.hpp"
 #include "render/bvh.hpp"
 #include "render/streamer.hpp"
@@ -49,21 +50,7 @@ struct ImGuiPass
 struct PACKED TonemapOptions
 {
     uint sampled_hdr_buffer;
-    uint sampled_luminance_output;
     uint storage_output_frame;
-    uint selected;
-    float exposure;
-};
-
-struct TonemapPass
-{
-    Handle<gfx::ComputeProgram> tonemap;
-    Handle<gfx::ComputeProgram> build_histo;
-    Handle<gfx::ComputeProgram> average_histo;
-
-    Handle<gfx::Buffer> histogram;
-    Handle<gfx::Image> average_luminance;
-    TonemapOptions options = {};
 };
 
 struct PACKED GlobalUniform
@@ -96,6 +83,8 @@ struct RenderMesh
 {
     Handle<gfx::Buffer> positions;
     Handle<gfx::Buffer> indices;
+    u32 vertex_count = 0;
+    Vec<SubMesh> submeshes;
 };
 
 struct PACKED RenderInstance
@@ -134,16 +123,16 @@ struct Renderer
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;
     RenderTargets swapchain_rt;
-    RenderTargets depth_only_rt;
 
     Vec<RenderMesh> render_meshes;
     Vec<RenderInstance> render_instances;
+    RingBuffer instances_data;
 
     ImGuiPass imgui_pass;
-    TonemapPass tonemap_pass;
 
     // Geometry pools
     Handle<gfx::GraphicsProgram> opaque_program;
+    Handle<gfx::ComputeProgram> tonemap_program;
 
     /// ---
 

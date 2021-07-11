@@ -17,8 +17,6 @@ void Work::begin()
     VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     binfo.flags                    = 0;
     vkBeginCommandBuffer(command_buffer, &binfo);
-
-    bind_global_set();
 }
 
 void Work::bind_global_set()

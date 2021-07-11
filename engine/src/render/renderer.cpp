@@ -99,6 +99,12 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .gpu_usage = gfx::index_buffer_usage,
         });
 
+    renderer.instances_data = RingBuffer::create(device, {
+            .name = "Dynamic indices",
+            .size = 64_MiB,
+            .gpu_usage = gfx::storage_buffer_usage,
+        }, false);
+
     // Create Render targets
     renderer.swapchain_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = surface.format.format}}});
     renderer.swapchain_rt.load_renderpass = device.find_or_create_renderpass({.colors = {{.format = surface.format.format, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}});
@@ -115,7 +121,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
     renderer.hdr_rt.clear_renderpass  = device.find_or_create_renderpass({
             .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
-            .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD }},
+            .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
         });
 
     renderer.hdr_rt.load_renderpass  = device.find_or_create_renderpass({
@@ -130,14 +136,6 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
     renderer.ldr_rt.load_renderpass  = device.find_or_create_renderpass({
             .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
             .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}
-        });
-
-    renderer.depth_only_rt.load_renderpass = device.find_or_create_renderpass({
-            .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-        });
-
-    renderer.depth_only_rt.clear_renderpass = device.find_or_create_renderpass({
-            .depth = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
         });
 
     // Create ImGui pass
@@ -171,6 +169,36 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         });
 
     ImGui::GetIO().Fonts->SetTexID((void *)((u64)device.get_image_sampled_index(imgui_pass.font_atlas)));
+
+    // Create opaque program
+    {
+        gfx::GraphicsState state = {};
+        state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
+        state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
+        state.renderpass         = renderer.hdr_rt.load_renderpass;
+        state.descriptors        = {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer}, // options
+            {.count = 1, .type = gfx::DescriptorType::StorageBuffer}, // vertices
+            {.count = 1, .type = gfx::DescriptorType::StorageBuffer}, // instances
+        };
+        renderer.opaque_program = device.create_program("gltf opaque", state);
+
+        gfx::RenderState render_state   = {};
+        render_state.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        render_state.depth.enable_write = true;
+        uint opaque_default             = device.compile(renderer.opaque_program, render_state);
+        UNUSED(opaque_default);
+    }
+
+    {
+
+        renderer.tonemap_program = device.create_program("tonemap", {
+        .shader = device.create_shader("shaders/tonemap.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
+    }
 
     // global set
     return renderer;
@@ -287,6 +315,7 @@ bool Renderer::start_frame()
     dynamic_uniform_buffer.start_frame();
     dynamic_vertex_buffer.start_frame();
     dynamic_index_buffer.start_frame();
+    instances_data.start_frame();
 
     // receipt contains the image acquired semaphore
     bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
@@ -446,6 +475,7 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
     dynamic_uniform_buffer.end_frame();
     dynamic_vertex_buffer.end_frame();
     dynamic_index_buffer.end_frame();
+    instances_data.end_frame();
     return false;
 }
 
@@ -471,14 +501,20 @@ void Renderer::display_ui(UI::Context &ui)
         ui.end_window();
     }
 
+    if (ui.begin_window("Textures"))
+    {
+        for (uint i = 5; i <= 8; i += 1)
+        {
+            ImGui::Text("[%u]", i);
+            ImGui::Image((void*)((u64)i), float2(256.0f, 256.0f));
+        }
+
+
+        ui.end_window();
+    }
+
     if (ui.begin_window("Shaders"))
     {
-        if (ImGui::CollapsingHeader("Tonemapping"))
-        {
-            static std::array options{"Reinhard", "Exposure", "Clamp", "ACES"};
-            tools::imgui_select("Tonemap", options.data(), options.size(), tonemap_pass.options.selected);
-            ImGui::SliderFloat("Exposure", &tonemap_pass.options.exposure, 0.0f, 2.0f);
-        }
         ui.end_window();
     }
 
@@ -539,14 +575,6 @@ static void recreate_framebuffers(Renderer &r)
         .height             = settings.render_resolution.y,
         .attachments_format = {VK_FORMAT_R8G8B8A8_UNORM},
     });
-
-    device.destroy_framebuffer(r.depth_only_rt.framebuffer);
-    r.depth_only_rt.framebuffer = device.create_framebuffer({
-        .width              = settings.render_resolution.x,
-        .height             = settings.render_resolution.y,
-        .attachments_format = {},
-        .depth_format       = VK_FORMAT_D32_SFLOAT,
-    });
 }
 
 void Renderer::update(Scene &scene)
@@ -592,7 +620,7 @@ void Renderer::update(Scene &scene)
         }
     });
     assert(main_camera != nullptr);
-    main_camera->projection = camera::perspective(main_camera->fov, (float)settings.render_resolution.x/settings.render_resolution.y, main_camera->near_plane, main_camera->far_plane, &main_camera->projection_inverse);
+    main_camera->projection = camera::infinite_perspective(main_camera->fov, (float)settings.render_resolution.x/settings.render_resolution.y, main_camera->near_plane, &main_camera->projection_inverse);
 
     static float4x4 last_view = main_camera->view;
     static float4x4 last_proj = main_camera->projection;
@@ -630,24 +658,27 @@ void Renderer::update(Scene &scene)
         {
             if (render_mesh_component.i_mesh >= this->render_meshes.size())
             {
-                u32 start = asset_manager->meshes.size() - this->render_meshes.size();
-                for (u32 i_mesh = start; i_mesh < asset_manager->meshes.size(); i_mesh += 1)
+                for (u32 i_mesh = this->render_meshes.size(); i_mesh < asset_manager->meshes.size(); i_mesh += 1)
                 {
                     auto &mesh_asset = asset_manager->meshes[i_mesh];
 
+                    logger::info("Uploading mesh asset #{}\n", i_mesh);
+
                     RenderMesh render_mesh = {};
                     render_mesh.positions  = device.create_buffer({
-                        .name  = "Positions buffers",
-                        .size  = mesh_asset.positions.size() * sizeof(float3),
+                        .name  = "Positions buffer",
+                        .size  = mesh_asset.positions.size() * sizeof(float4),
                         .usage = gfx::storage_buffer_usage,
                     });
                     render_mesh.indices  = device.create_buffer({
-                        .name  = "Positions indices",
+                        .name  = "Index buffer",
                         .size  = mesh_asset.indices.size() * sizeof(u32),
-                        .usage = gfx::storage_buffer_usage,
+                        .usage = gfx::index_buffer_usage,
                     });
+                    render_mesh.vertex_count = static_cast<u32>(mesh_asset.indices.size());
+                    render_mesh.submeshes = mesh_asset.submeshes;
 
-                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float3));
+                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
                     streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
 
                     this->render_meshes.push_back(render_mesh);
@@ -656,20 +687,30 @@ void Renderer::update(Scene &scene)
             else
             {
                 render_instances.push_back({
-                    .i_render_mesh = render_mesh_component.i_mesh,
                     .transform     = local_to_world_component.transform,
+                    .i_render_mesh = render_mesh_component.i_mesh,
                 });
             }
         });
 
-    for (const auto &render_instance : render_instances)
+    Vec<u32> instances_to_draw;
+    for (u32 i_render_instance = 0; i_render_instance < render_instances.size(); i_render_instance += 1)
     {
+        const auto &render_instance = render_instances[i_render_instance];
         const auto &render_mesh = render_meshes[render_instance.i_render_mesh];
-        if (!streamer.is_uploaded(render_mesh.positions) || streamer.is_uploaded(render_mesh.indices) )
+        if (!streamer.is_uploaded(render_mesh.positions) || !streamer.is_uploaded(render_mesh.indices) )
         {
             continue;
         }
+        instances_to_draw.push_back(i_render_instance);
+    }
 
+    auto [p_instances, instance_offset] = instances_data.allocate(device, instances_to_draw.size() * sizeof(RenderInstance));
+    auto *p_instances_data = reinterpret_cast<RenderInstance*>(p_instances);
+    for (u32 i_to_draw = 0; i_to_draw < instances_to_draw.size(); i_to_draw += 1)
+    {
+        u32 i_render_instance = instances_to_draw[i_to_draw];
+        p_instances_data[i_to_draw] = render_instances[i_render_instance];
     }
 
     // Generate draw calls for instances
@@ -680,6 +721,7 @@ void Renderer::update(Scene &scene)
     // -- Draw frame
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
+    cmd.bind_global_set();
 
     // vulkan hack: this command buffer will wait for the image acquire semaphore
     cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -698,17 +740,53 @@ void Renderer::update(Scene &scene)
     scissor.extent.height = settings.render_resolution.y;
     cmd.set_scissor(scissor);
 
-    // Depth prepass
-    cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-    cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
-    cmd.begin_pass(depth_only_rt.clear_renderpass, depth_only_rt.framebuffer, {depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-    cmd.end_pass();
-
     // Opaque pass
     cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
     cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+
+    struct PACKED OpaqueOptions
+    {
+        u32 first_instance;
+    };
+
+    auto *options = this->bind_shader_options<OpaqueOptions>(cmd, opaque_program);
+    options->first_instance = instance_offset / static_cast<u32>(sizeof(RenderInstance));
+
+    for (auto i_render_instance : instances_to_draw)
+    {
+        const auto &render_instance = render_instances[i_render_instance];
+        const auto &render_mesh     = render_meshes[render_instance.i_render_mesh];
+
+        cmd.bind_storage_buffer(opaque_program, 1, render_mesh.positions);
+        cmd.bind_storage_buffer(opaque_program, 2, instances_data.buffer);
+        cmd.bind_pipeline(opaque_program, 0);
+
+        for (const auto &submesh : render_mesh.submeshes)
+        {
+            cmd.push_constant<PushConstants>({});
+            cmd.bind_index_buffer(render_mesh.indices, VK_INDEX_TYPE_UINT32);
+            cmd.draw_indexed({.vertex_count    = submesh.index_count,
+                              .index_offset    = submesh.first_index,
+                              .instance_offset = i_render_instance});
+        }
+    }
+
     cmd.end_pass();
+
+    // Tonemap
+    {
+        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
+        cmd.clear_barrier(ldr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+
+        auto hdr_buffer_size              = device.get_image_size(hdr_rt.image);
+
+        auto *options                     = this->bind_shader_options<TonemapOptions>(cmd, tonemap_program);
+        options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_rt.image);
+        options->storage_output_frame     = device.get_image_storage_index(ldr_rt.image);
+        cmd.bind_pipeline(tonemap_program);
+        cmd.dispatch({hdr_buffer_size.x / 16, hdr_buffer_size.y / 16, 1});
+    }
 
     ImGui::Render();
     if (streamer.is_uploaded(imgui_pass.font_atlas))

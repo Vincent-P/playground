@@ -311,6 +311,7 @@ void Scene::display_ui(UI::Context &ui)
             if (file_path)
             {
                 auto scene = glb::load_file(file_path->string());
+                auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
                 for (auto &mesh : scene.meshes)
                 {
                     asset_manager->meshes.push_back(mesh);
@@ -318,7 +319,7 @@ void Scene::display_ui(UI::Context &ui)
 
                 for (auto &instance : scene.instances)
                 {
-                    world.create_entity(std::string_view{"MeshInstance"}, LocalToWorldComponent{instance.transform}, RenderMeshComponent{instance.i_mesh, u32_invalid});
+                    world.create_entity(std::string_view{"MeshInstance"}, LocalToWorldComponent{instance.transform}, RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
                 }
             }
         }

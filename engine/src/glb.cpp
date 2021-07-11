@@ -78,8 +78,6 @@ struct Accessor
     int nb_component = 0;
     int bufferview_index = 0;
     int byte_offset = 0;
-    u32 min;
-    u32 max;
     float min_float;
     float max_float;
 };
@@ -88,6 +86,7 @@ struct BufferView
 {
     int byte_offset = 0;
     int byte_length = 0;
+    int byte_stride = -1;
 };
 
 static Accessor get_accessor(const rapidjson::Value &object)
@@ -145,6 +144,9 @@ static BufferView get_bufferview(const rapidjson::Value &object)
         res.byte_offset = bufferview["byteOffset"].GetInt();
     }
     res.byte_length = bufferview["byteLength"].GetInt();
+    if (bufferview.HasMember("byteStride")) {
+        res.byte_stride = bufferview["byteStride"].GetInt();
+    }
     return res;
 }
 
@@ -200,50 +202,62 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
                 new_submesh.first_index  = static_cast<u32>(new_mesh.indices.size());
 
                 {
-                    auto accessor = get_accessor(accessors[attributes["POSITION"].GetInt()]);
-                    new_submesh.vertex_count = accessor.count;
+                    auto accessor_json = accessors[attributes["POSITION"].GetInt()].GetObject();
+                    auto accessor = get_accessor(accessor_json);
                     auto bufferview = get_bufferview(bufferviews[accessor.bufferview_index]);
+                    usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
 
-                    usize byte_stride = gltf::size_of(accessor.component_type) * accessor.nb_component;
-                    assert(accessor.component_type == gltf::ComponentType::UnsignedShort);
-
-                    assert(byte_stride == 3 * sizeof(u16));
-
-                    auto u16_to_float = [](u16 unorm) -> float { return float(unorm) / 65535.0f; };
-
-                    new_mesh.positions.reserve(bufferview.byte_length / byte_stride);
+                    // Copy the data from the binary buffer
+                    new_mesh.positions.reserve(accessor.count);
                     for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1)
                     {
                         usize offset = bufferview.byte_offset + accessor.byte_offset + i_position * byte_stride;
-                        const auto *components = reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
-                        new_mesh.positions.push_back({u16_to_float(components[0]), u16_to_float(components[1]), u16_to_float(components[2])});
+                        float4 new_position = {};
+
+                        if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
+                            const auto *components = reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
+                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
+                        }
+                        else if (accessor.component_type == gltf::ComponentType::Float) {
+                            const auto *components = reinterpret_cast<const float*>(ptr_offset(binary_chunk->data, offset));
+                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
+                        }
+                        else {
+                            assert(false);
+                        }
+
+                        new_mesh.positions.push_back(new_position);
                     }
+
+                    new_submesh.vertex_count = accessor.count;
                 }
 
                 assert(primitive.HasMember("indices"));
                 {
-                    auto accessor = get_accessor(accessors[primitive["indices"].GetInt()]);
-                    new_submesh.index_count = accessor.count;
+                    auto accessor_json = accessors[primitive["indices"].GetInt()].GetObject();
+                    auto accessor = get_accessor(accessor_json);
                     auto bufferview = get_bufferview(bufferviews[accessor.bufferview_index]);
+                    usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
 
-                    usize byte_stride = gltf::size_of(accessor.component_type);
-
-                    new_mesh.indices.reserve(bufferview.byte_length / byte_stride);
+                    // Copy the data from the binary buffer
+                    new_mesh.indices.reserve(accessor.count);
                     for (usize i_index = 0; i_index < usize(accessor.count); i_index += 1)
                     {
                         u32 index;
                         usize offset = bufferview.byte_offset + accessor.byte_offset + i_index * byte_stride;
                         if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
-                            index = *reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
+                            index = new_submesh.first_vertex + *reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
                         }
                         else if (accessor.component_type == gltf::ComponentType::UnsignedInt) {
-                            index = *reinterpret_cast<const u32*>(ptr_offset(binary_chunk->data, offset));
+                            index = new_submesh.first_vertex + *reinterpret_cast<const u32*>(ptr_offset(binary_chunk->data, offset));
                         }
                         else {
                             assert(false);
                         }
                         new_mesh.indices.push_back(index);
                     }
+
+                    new_submesh.index_count = accessor.count;
 
                     index_acc += accessor.count;
                 }
@@ -409,7 +423,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
 
                 for (u32 i_child = 0; i_child < children.Size(); i_child += 1)
                 {
-                    i_node_stack.push_back(children[children.Size() - i_child].GetUint());
+                    i_node_stack.push_back(children[i_child].GetUint());
                     transforms_stack.push_back(transform);
                 }
             }

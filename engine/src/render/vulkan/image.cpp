@@ -120,14 +120,12 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     {
         auto &image = *images.get(handle);
         image.full_view.sampled_idx = bind_descriptor(global_sets.sampled_images, {.image = {handle}});
-        logger::info("Binding image ({}) in sampled images #{}\n", image_desc.name, image.full_view.sampled_idx);
     }
 
     if (is_storage)
     {
         auto &image = *images.get(handle);
         image.full_view.storage_idx = bind_descriptor(global_sets.storage_images, {.image = {handle}});
-        logger::info("Binding image ({}) in storage images #{}\n", image_desc.name, image.full_view.storage_idx);
     }
 
     return handle;

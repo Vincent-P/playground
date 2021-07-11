@@ -16,7 +16,7 @@ struct Mesh
 {
     std::string name;
     Vec<u32> indices;
-    Vec<float3> positions;
+    Vec<float4> positions;
     Vec<SubMesh> submeshes;
 
     bool operator==(const Mesh &other) const = default;

@@ -17,7 +17,7 @@ BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, con
 
     VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
                                      | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-                                     | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+                                     ;
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
         = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
@@ -164,8 +164,19 @@ void update_bindless_set(Device &device, BindlessSet &set)
     }
 
     // Copy descriptor #0 (null, empty image) to unbind
-    for (auto to_bind : set.pending_unbind)
+    for (auto to_unbind : set.pending_unbind)
     {
+        bool already_bound = false;
+        for (auto to_bind : set.pending_bind)
+        {
+            if (to_unbind == to_bind)
+            {
+                already_bound = true;
+                break;
+            }
+        }
+        if (already_bound) { continue; }
+
         copies.emplace_back();
         auto &copy = copies.back();
         copy                  = {.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET};
@@ -174,7 +185,7 @@ void update_bindless_set(Device &device, BindlessSet &set)
         copy.srcArrayElement  = 0;
         copy.dstSet           = set.set;
         copy.dstBinding       = 0;
-        copy.dstArrayElement  = to_bind;
+        copy.dstArrayElement  = to_unbind;
         copy.descriptorCount  = 1;
     }
 

@@ -24,8 +24,9 @@ struct RingBuffer
     u32 last_frame_size = 0;
     u32 this_frame_size = 0;
     Handle<gfx::Buffer> buffer;
+    bool should_align = true;
 
-    static RingBuffer create(gfx::Device &device, const RingBufferDescription &desc);
+    static RingBuffer create(gfx::Device &device, const RingBufferDescription &desc, bool align = true);
     std::pair<void*, u32> allocate(gfx::Device &device, usize len);
     void start_frame();
     void end_frame();
