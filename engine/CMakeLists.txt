@@ -5,7 +5,6 @@ set(SOURCE_FILES
   src/camera.cpp
   src/ecs.cpp
   src/scene.cpp
-  src/gltf.cpp
   src/glb.cpp
   src/inputs.cpp
   src/tools.cpp
@@ -15,7 +14,6 @@ set(SOURCE_FILES
   src/base/free_list.cpp
   src/platform/file_watcher.cpp
   src/platform/mapped_file.cpp
-  # src/render/bvh.cpp
   src/render/renderer.cpp
   src/render/ring_buffer.cpp
   src/render/streamer.cpp

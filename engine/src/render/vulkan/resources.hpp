@@ -158,7 +158,7 @@ struct DepthState
 struct RasterizationState
 {
     bool enable_conservative_rasterization{false};
-    bool culling{false};
+    bool culling{true};
 
     bool operator==(const RasterizationState &) const = default;
 };

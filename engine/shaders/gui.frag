@@ -21,7 +21,6 @@ layout(set = 3, binding = 0) uniform Options {
     u64 vertices_ptr_ptr;
     u32 first_vertex;
     u32 pad4;
-    uvec4 texture_binding_per_draw[64/4];
 };
 
 
@@ -31,7 +30,6 @@ layout(location = 0) out float4 o_color;
 
 void main()
 {
-    uint texture_id = texture_binding_per_draw[push_constants.draw_idx/4][push_constants.draw_idx%4];
-    o_color = texture(global_textures[texture_id], i_uv) * i_color;
+    o_color = texture(global_textures[push_constants.gui_texture_id], i_uv) * i_color;
     o_color.rgb *= o_color.a;
 }

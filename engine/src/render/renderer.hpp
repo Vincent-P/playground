@@ -10,12 +10,11 @@
 
 #include "render/mesh.hpp"
 #include "render/ring_buffer.hpp"
-#include "render/bvh.hpp"
 #include "render/streamer.hpp"
 
 namespace gfx = vulkan;
 
-inline constexpr uint FRAME_QUEUE_LENGTH = 1;
+inline constexpr uint FRAME_QUEUE_LENGTH = 2;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -56,27 +55,21 @@ struct PACKED TonemapOptions
 struct PACKED GlobalUniform
 {
     float4x4 camera_view;
-    float4x4 camera_proj;
+    float4x4 camera_projection;
     float4x4 camera_view_inverse;
     float4x4 camera_projection_inverse;
     float4x4 camera_previous_view;
     float4x4 camera_previous_projection;
-    float4   camera_position;
-    u64 vertex_buffer_ptr;
-    u64 primitive_buffer_ptr;
-    float2   resolution;
+    float2 resolution;
     float delta_t;
     u32 frame_count;
-    u32 camera_moved;
-    u32 render_texture_offset;
     float2 jitter_offset;
-    u32 is_path_tracing;
 };
 
 struct PACKED PushConstants
 {
-    u32 draw_idx        = u32_invalid;
-    u32 render_mesh_idx = u32_invalid;
+    u32 draw_id        = u32_invalid;
+    u32 gui_texture_id = u32_invalid;
 };
 
 struct RenderMesh

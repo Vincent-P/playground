@@ -1,6 +1,5 @@
 #include "scene.hpp"
 
-#include "gltf.hpp"
 #include "inputs.hpp"
 #include "camera.hpp"
 

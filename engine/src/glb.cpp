@@ -152,24 +152,6 @@ static BufferView get_bufferview(const rapidjson::Value &object)
 
 static void process_json(Scene &new_scene, rapidjson::Document &document, const Chunk *binary_chunk)
 {
-    if (document.HasMember("extensionsRequired"))
-    {
-        logger::info("Extensions required:\n");
-        for (const auto &extension : document["extensionsRequired"].GetArray())
-        {
-            logger::info("\t- {}\n", extension.GetString());
-        }
-    }
-
-    if (document.HasMember("extensionsUsed"))
-    {
-        logger::info("Extensions used:\n");
-        for (const auto &extension : document["extensionsUsed"].GetArray())
-        {
-            logger::info("\t- {}\n", extension.GetString());
-        }
-    }
-
     const auto &accessors = document["accessors"].GetArray();
     const auto &bufferviews = document["bufferViews"].GetArray();
 
@@ -179,16 +161,12 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
     {
         for (auto &mesh : document["meshes"].GetArray())
         {
-            logger::info("Mesh\n");
-
             new_scene.meshes.emplace_back();
             auto &new_mesh = new_scene.meshes.back();
 
-            usize i_primitive = 0;
             for (auto &primitive : mesh["primitives"].GetArray())
 
             {
-                logger::info("\tprimitive #{}\n", i_primitive++);
                 assert(primitive.HasMember("attributes"));
                 const auto &attributes = primitive["attributes"].GetObject();
                 assert(attributes.HasMember("POSITION"));

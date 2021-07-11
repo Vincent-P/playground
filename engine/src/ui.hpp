@@ -1,6 +1,5 @@
 #pragma once
 #include "base/types.hpp"
-#include "eva-icons.hpp"
 
 #include <imgui/imgui.h>
 #include <string>

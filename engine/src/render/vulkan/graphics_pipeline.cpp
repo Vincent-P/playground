@@ -315,8 +315,6 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
         .lineWidth               = 1.0f,
     };
 
-    rast_i.cullMode = VK_CULL_MODE_NONE;
-
     // TODO: from render_pass
     Vec<VkPipelineColorBlendAttachmentState> att_states;
     att_states.reserve(renderpass.attachments.colors.size());

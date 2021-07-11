@@ -97,7 +97,7 @@ namespace std
     {
         std::size_t operator()(vulkan::Descriptor const& descriptor) const noexcept
         {
-            usize hash = hash_value(descriptor.raw.one);
+            usize hash = descriptor.raw.one;
             return hash;
         }
     };

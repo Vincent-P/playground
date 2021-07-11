@@ -27,18 +27,10 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     float4x4 camera_projection_inverse;
     float4x4 camera_previous_view;
     float4x4 camera_previous_projection;
-    float4   camera_position;
-    u32 mdr0;
-    u32 mdr2;
-    u32 mdr3;
-    u32 mdr4;
     float2   resolution;
     float delta_t;
     u32 frame_count;
-    u32 camera_moved;
-    u32 render_texture_offset;
     float2 jitter_offset;
-    u32 is_path_tracing;
 } globals;
 
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
@@ -49,8 +41,8 @@ layout(set = 2, binding = 0, rgba32f) uniform image2D global_images_2d_rgba32f[]
 layout(set = 2, binding = 0, r32f) uniform image2D global_images_2d_r32f[];
 
 layout(push_constant) uniform PushConstants {
-    u32 draw_idx;
-    u32 render_mesh_idx;
+    u32 draw_id;
+    u32 gui_texture_id;
 } push_constants;
 
 #endif
