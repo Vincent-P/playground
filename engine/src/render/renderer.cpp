@@ -77,6 +77,11 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         device.create_work_pool(work_pool);
     }
 
+    for (auto &timestamp_pool : renderer.timestamp_pools)
+    {
+        device.create_query_pool(timestamp_pool, TIMESTAMPS_PER_FRAME);
+    }
+
     // Prepare the frame synchronization
     renderer.fence = device.create_fence();
 
@@ -212,6 +217,11 @@ void Renderer::destroy()
         device.destroy_work_pool(work_pool);
     }
 
+    for (auto &timestamp_pool : timestamp_pools)
+    {
+        device.destroy_query_pool(timestamp_pool);
+    }
+
     streamer.destroy();
     surface.destroy(context, device);
     device.destroy(context);
@@ -307,7 +317,16 @@ bool Renderer::start_frame()
 
     // reset the command buffers
     auto &work_pool = work_pools[current_frame];
+    auto &timestamp_pool = timestamp_pools[current_frame];
+
     device.reset_work_pool(work_pool);
+
+    timestamps.clear();
+    device.get_query_results(timestamp_pool, 0, 2, timestamps);
+
+    logger::info("frame time: {} ms\n", 1.e-6f * device.get_ns_per_timestamp() * (timestamps[1] - timestamps[0]));
+
+    device.reset_query_pool(timestamp_pool, 0, TIMESTAMPS_PER_FRAME);
 
     dynamic_uniform_buffer.start_frame();
     dynamic_vertex_buffer.start_frame();
@@ -455,6 +474,7 @@ void Renderer::update(Scene &scene)
 
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
     auto &work_pool    = work_pools[current_frame];
+    auto &timestamp_pool = timestamp_pools[current_frame];
     swapchain_rt.image = surface.images[surface.current_image];
 
 
@@ -575,6 +595,8 @@ void Renderer::update(Scene &scene)
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
     cmd.bind_global_set();
+
+    cmd.timestamp_query(timestamp_pool, 0);
 
     // vulkan only: this command buffer will wait for the image acquire semaphore
     cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -772,6 +794,8 @@ void Renderer::update(Scene &scene)
     }
 
     cmd.barrier(swapchain_rt.image, gfx::ImageUsage::Present);
+
+    cmd.timestamp_query(timestamp_pool, 1);
     cmd.end();
 
     if (end_frame(cmd))

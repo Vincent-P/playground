@@ -12,7 +12,6 @@
 #include "render/vulkan/descriptor_set.hpp"
 #include "render/vulkan/bindless_set.hpp"
 
-#include <array>
 #include <utility>
 #include <string_view>
 #include <vulkan/vulkan.h>
@@ -21,21 +20,6 @@
 namespace vulkan
 {
 struct Surface;
-
-struct CommandPool
-{
-    VkCommandPool vk_handle = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> free_list = {};
-};
-
-struct WorkPool
-{
-    std::array<CommandPool, 3> command_pools;
-
-    inline CommandPool &graphics() { return command_pools[to_underlying(QueueType::Graphics)]; }
-    inline CommandPool &compute()  { return command_pools[to_underlying(QueueType::Compute)];  }
-    inline CommandPool &transfer() { return command_pools[to_underlying(QueueType::Transfer)]; }
-};
 
 enum BuiltinSampler
 {
@@ -112,6 +96,12 @@ struct Device
     GraphicsWork get_graphics_work(WorkPool &work_pool);
     ComputeWork  get_compute_work (WorkPool &work_pool);
     TransferWork get_transfer_work(WorkPool &work_pool);
+
+    void create_query_pool(QueryPool &query_pool, u32 query_capacity);
+    void reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count);
+    void destroy_query_pool(QueryPool &query_pool);
+    void get_query_results(QueryPool &query_pool, u32 first_query, u32 count, Vec<u64> &results);
+    inline float get_ns_per_timestamp() const { return physical_device.properties.limits.timestampPeriod; }
 
     Fence create_fence(u64 initial_value = 0);
     u64 get_fence_value(Fence &fence);

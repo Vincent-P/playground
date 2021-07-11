@@ -14,7 +14,8 @@
 
 namespace gfx = vulkan;
 
-inline constexpr uint FRAME_QUEUE_LENGTH = 2;
+inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
+inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -100,6 +101,8 @@ struct Renderer
     gfx::Surface surface;
     uint frame_count;
     std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
+    std::array<gfx::QueryPool, FRAME_QUEUE_LENGTH> timestamp_pools;
+    Vec<u64> timestamps;
     gfx::Fence fence;
 
     RingBuffer dynamic_uniform_buffer;

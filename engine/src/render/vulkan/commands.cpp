@@ -155,6 +155,27 @@ void Work::barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::p
     vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, static_cast<u32>(buffer_barriers.size()), buffer_barriers.data(), static_cast<u32>(image_barriers.size()), image_barriers.data());
 }
 
+// Queries
+void Work::reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count)
+{
+    vkCmdResetQueryPool(command_buffer, query_pool.vkhandle, first_query, count);
+}
+
+void Work::begin_query(QueryPool &query_pool, u32 index)
+{
+    vkCmdBeginQuery(command_buffer, query_pool.vkhandle, index, 0);
+}
+
+void Work::end_query(QueryPool &query_pool, u32 index)
+{
+    vkCmdEndQuery(command_buffer, query_pool.vkhandle, index);
+}
+
+void Work::timestamp_query(QueryPool &query_pool, u32 index)
+{
+    vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, query_pool.vkhandle, index);
+}
+
 /// --- TransferWork
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes)
 {
@@ -399,6 +420,36 @@ void Device::destroy_work_pool(WorkPool &work_pool)
         vkDestroyCommandPool(device, command_pool.vk_handle, nullptr);
     }
 }
+
+// CommandPool
+void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
+{
+    VkQueryPoolCreateInfo pool_info = {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    pool_info.queryCount = query_capacity;
+
+    VK_CHECK(vkCreateQueryPool(device, &pool_info, nullptr, &query_pool.vkhandle));
+}
+
+void Device::reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count)
+{
+    vkResetQueryPool(device, query_pool.vkhandle, first_query, count);
+}
+
+void Device::destroy_query_pool(QueryPool &query_pool)
+{
+    vkDestroyQueryPool(device, query_pool.vkhandle, nullptr);
+    query_pool.vkhandle = VK_NULL_HANDLE;
+}
+
+void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count, Vec<u64> &results)
+{
+    usize old_size = results.size();
+    results.resize(old_size + count);
+
+    vkGetQueryPoolResults(device, query_pool.vkhandle, first_query, count, count * sizeof(u64), results.data() + old_size, sizeof(u64), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+}
+
 
 // Work
 static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_type)

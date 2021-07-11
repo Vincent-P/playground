@@ -1,10 +1,12 @@
 #pragma once
+#include "base/algorithms.hpp"
 #include "base/handle.hpp"
 #include "base/vector.hpp"
 #include "render/vulkan/resources.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <vulkan/vulkan.h>
+#include <array>
 
 
 namespace vulkan
@@ -13,15 +15,24 @@ struct Device;
 struct Image;
 struct Surface;
 
-// A request to send a resource to another queue
-// TODO:
-// ResourceTransfer t = cmd1.send_to(image1, cmd2);
-// cmd1.receive(t);
-struct ResourceTransfer
+struct QueryPool
 {
-    int sender;
-    int receiver;
-    int resource;
+    VkQueryPool vkhandle = VK_NULL_HANDLE;
+};
+
+struct CommandPool
+{
+    VkCommandPool vk_handle = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> free_list = {};
+};
+
+struct WorkPool
+{
+    std::array<CommandPool, 3> command_pools;
+
+    inline CommandPool &graphics() { return command_pools[to_underlying(QueueType::Graphics)]; }
+    inline CommandPool &compute()  { return command_pools[to_underlying(QueueType::Compute)];  }
+    inline CommandPool &transfer() { return command_pools[to_underlying(QueueType::Transfer)]; }
 };
 
 // DX12-like fence used for CPU/CPU, CPU/GPU, or GPU/GPU synchronization
@@ -52,10 +63,6 @@ struct Work
     void bind_global_set();
     void end();
 
-    // TODO:
-    ResourceTransfer send_to(int receiver, int resource);
-    void receive(ResourceTransfer transfer);
-
     void wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst);
 
     // vulkan hacks:
@@ -67,6 +74,12 @@ struct Work
     void barrier(Handle<Image> image, ImageUsage usage_destination);
     void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
     void barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::pair<Handle<Buffer>, BufferUsage>> buffers);
+
+    // queries
+    void reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count);
+    void begin_query(QueryPool &query_pool, u32 index);
+    void end_query(QueryPool &query_pool, u32 index);
+    void timestamp_query(QueryPool &query_pool, u32 index);
 };
 
 struct TransferWork : Work
