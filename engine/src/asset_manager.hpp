@@ -22,5 +22,5 @@ public:
     void display_ui(UI::Context &ui);
 
     Pool<Texture> textures;
-    Pool<Mesh> meshes;
+    Vec<Mesh> meshes;
 };

@@ -102,40 +102,6 @@ void AssetManager::choose_mesh(Handle<Mesh> &selected)
             ImGui::OpenPopup("meshselect");
         }
     }
-
-    {
-        ImGui::Text("Meshes (%u):", meshes.size());
-        ImGui::Separator();
-
-        if (ImGui::BeginTable("Assets", 4))
-        {
-            ImGui::TableSetupColumn("Handle");
-            ImGui::TableSetupColumn("Meshes");
-
-            ImGui::TableHeadersRow();
-
-            for (auto [h, p_mesh] : meshes)
-            {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-
-                ImGui::Text("#%u", h.value());
-
-                ImGui::TableNextColumn();
-
-                ImGui::Image(0, ImVec2(32, 32));
-
-                bool clicked = ImGui::Selectable("", false, ImGuiSelectableFlags_SpanAllColumns);
-
-                if (clicked)
-                {
-                    selected = h;
-                }
-            }
-
-            ImGui::EndTable();
-        }
-    }
 }
 
 
@@ -154,9 +120,6 @@ void AssetManager::display_ui(UI::Context &ui)
 
         static Handle<Texture> s_texture_example {};
         choose_texture(s_texture_example);
-
-        static Handle<Mesh> s_mesh_example {};
-        choose_mesh(s_mesh_example);
 
         ui.end_window();
     }

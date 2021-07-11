@@ -313,7 +313,7 @@ void Scene::display_ui(UI::Context &ui)
                 auto scene = glb::load_file(file_path->string());
                 for (auto &mesh : scene.meshes)
                 {
-                    asset_manager->meshes.add(mesh);
+                    asset_manager->meshes.push_back(mesh);
                 }
 
                 for (auto &instance : scene.instances)

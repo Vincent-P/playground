@@ -4,26 +4,18 @@ set(GLSL_INCLUDES
   include/constants.h
   include/csm.h
   include/globals.h
-  include/imgui.h
   include/maths.h
   include/pbr.h
   include/raytracing.h
   include/types.h
-  include/voxels.h
   )
 
 set(GLSL_FILES
   gui.frag
   gui.vert
-  tonemap.comp.glsl
-  average_luminance_histo.comp
-  build_luminance_histo.comp
-  opaque.vert
   opaque.frag
-  opaque_prepass.frag
-  path_tracer.comp.glsl
-  hybrid.frag
-  taa.comp.glsl
+  opaque.vert
+  tonemap.comp
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)

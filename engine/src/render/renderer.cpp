@@ -623,16 +623,54 @@ void Renderer::update(Scene &scene)
 
 
     // -- Get geometry from the scene
-    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>([&](LocalToWorldComponent &local_to_world, RenderMeshComponent &render_mesh){
-        if (render_mesh.i_mesh >= this->render_meshes.size())
+    render_instances.clear();
+
+    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
+        [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
         {
-            // load mesh
-        }
-        else
+            if (render_mesh_component.i_mesh >= this->render_meshes.size())
+            {
+                u32 start = asset_manager->meshes.size() - this->render_meshes.size();
+                for (u32 i_mesh = start; i_mesh < asset_manager->meshes.size(); i_mesh += 1)
+                {
+                    auto &mesh_asset = asset_manager->meshes[i_mesh];
+
+                    RenderMesh render_mesh = {};
+                    render_mesh.positions  = device.create_buffer({
+                        .name  = "Positions buffers",
+                        .size  = mesh_asset.positions.size() * sizeof(float3),
+                        .usage = gfx::storage_buffer_usage,
+                    });
+                    render_mesh.indices  = device.create_buffer({
+                        .name  = "Positions indices",
+                        .size  = mesh_asset.indices.size() * sizeof(u32),
+                        .usage = gfx::storage_buffer_usage,
+                    });
+
+                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float3));
+                    streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
+
+                    this->render_meshes.push_back(render_mesh);
+                }
+            }
+            else
+            {
+                render_instances.push_back({
+                    .i_render_mesh = render_mesh_component.i_mesh,
+                    .transform     = local_to_world_component.transform,
+                });
+            }
+        });
+
+    for (const auto &render_instance : render_instances)
+    {
+        const auto &render_mesh = render_meshes[render_instance.i_render_mesh];
+        if (!streamer.is_uploaded(render_mesh.positions) || streamer.is_uploaded(render_mesh.indices) )
         {
-            // add instance to list of instances to draw
+            continue;
         }
-    });
+
+    }
 
     // Generate draw calls for instances
     // foreach instance

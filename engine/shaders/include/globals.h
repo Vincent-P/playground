@@ -9,39 +9,10 @@
 
 /// --- Structures
 
-struct Vertex
-{
-    float3 position;
-    float pad00;
-    float3 normal;
-    float pad01;
-    float2 uv0;
-    float2 uv1;
-    float4 color0;
-};
-
-
-struct RenderMeshData
+struct RenderInstance
 {
     float4x4 transform;
-    u32 i_mesh;
-    u32 gen_mesh;
-    u32 i_material;
-    u32 vertex_offset;
-    u32 index_offset;
-    u32 index_count;
-    u32 texture_offset;
-    u32 pad0;
-};
-struct Material
-{
-    float4 base_color_factor;
-    float4 emissive_factor;
-    float metallic_factor;
-    float roughness_factor;
-    u32 base_color_texture;
-    u32 normal_texture;
-    u32 metallic_roughness_texture;
+    u32 i_render_mesh;
     u32 pad00;
     u32 pad01;
     u32 pad10;

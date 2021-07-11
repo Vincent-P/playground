@@ -1,6 +1,30 @@
 #include "types.h"
 #include "globals.h"
-#include "imgui.h"
+
+layout(set = 3, binding = 0) uniform Options {
+    float2 scale;
+    float2 translation;
+    u64 vertices_ptr_ptr;
+    u32 first_vertex;
+    u32 pad4;
+    uvec4 texture_binding_per_draw[64/4];
+};
+
+struct ImGuiVertex
+{
+    float2 position;
+    float2 uv;
+    uint color;
+    uint pad00;
+    uint pad01;
+    uint pad10;
+};
+
+layout(set = 3, binding = 1) buffer VerticesBuffer {
+    ImGuiVertex vertices[];
+} vertices_ptr;
+
+
 
 layout(location = 0) out float2 o_uv;
 layout(location = 1) out float4 o_color;

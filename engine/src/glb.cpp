@@ -148,7 +148,7 @@ static BufferView get_bufferview(const rapidjson::Value &object)
     return res;
 }
 
-static void process_json(Scene &scene, rapidjson::Document &document, const Chunk *binary_chunk)
+static void process_json(Scene &new_scene, rapidjson::Document &document, const Chunk *binary_chunk)
 {
     if (document.HasMember("extensionsRequired"))
     {
@@ -179,8 +179,8 @@ static void process_json(Scene &scene, rapidjson::Document &document, const Chun
         {
             logger::info("Mesh\n");
 
-            scene.meshes.emplace_back();
-            auto &new_mesh = scene.meshes.back();
+            new_scene.meshes.emplace_back();
+            auto &new_mesh = new_scene.meshes.back();
 
             usize i_primitive = 0;
             for (auto &primitive : mesh["primitives"].GetArray())
@@ -306,7 +306,116 @@ static void process_json(Scene &scene, rapidjson::Document &document, const Chun
         }
     }
 
-    // create a stack and traverse nodes, each node append a new mesh_instance
+    u32 i_scene = 0;
+    if (document.HasMember("scene"))
+    {
+        i_scene = document["scene"].GetUint();
+    }
+
+    auto scenes = document["scenes"].GetArray();
+    auto nodes = document["nodes"].GetArray();
+
+    auto scene = scenes[i_scene].GetObject();
+    auto roots = scene["nodes"].GetArray();
+
+    Vec<u32> i_node_stack;
+    Vec<float4x4> transforms_stack;
+    i_node_stack.reserve(nodes.Size());
+    transforms_stack.reserve(nodes.Size());
+
+    auto get_transform = [](auto node) {
+        float4x4 transform = float4x4::identity();
+
+
+        if (node.HasMember("matrix"))
+        {
+            usize i = 0;
+            auto matrix = node["matrix"].GetArray();
+            assert(matrix.Size() == 16);
+
+            for (u32 i_element = 0; i_element < matrix.Size(); i_element += 1) {
+                transform.at(i%4, i/4) = static_cast<float>(matrix[i_element].GetDouble());
+            }
+        }
+
+        if (node.HasMember("translation"))
+        {
+            auto translation_factors = node["translation"].GetArray();
+            float4x4 translation = float4x4::identity();
+            translation.at(0, 3) = static_cast<float>(translation_factors[0].GetDouble());
+            translation.at(1, 3) = static_cast<float>(translation_factors[1].GetDouble());
+            translation.at(2, 3) = static_cast<float>(translation_factors[2].GetDouble());
+            transform = translation;
+        }
+
+        if (node.HasMember("rotation"))
+        {
+            auto rotation = node["rotation"].GetArray();
+            float4 quaternion;
+            quaternion.x = static_cast<float>(rotation[0].GetDouble());
+            quaternion.y = static_cast<float>(rotation[1].GetDouble());
+            quaternion.z = static_cast<float>(rotation[2].GetDouble());
+            quaternion.w = static_cast<float>(rotation[3].GetDouble());
+
+            transform = transform * float4x4({
+                1.0f - 2.0f*quaternion.y*quaternion.y - 2.0f*quaternion.z*quaternion.z, 2.0f*quaternion.x*quaternion.y - 2.0f*quaternion.z*quaternion.w, 2.0f*quaternion.x*quaternion.z + 2.0f*quaternion.y*quaternion.w, 0.0f,
+                2.0f*quaternion.x*quaternion.y + 2.0f*quaternion.z*quaternion.w, 1.0f - 2.0f*quaternion.x*quaternion.x - 2.0f*quaternion.z*quaternion.z, 2.0f*quaternion.y*quaternion.z - 2.0f*quaternion.x*quaternion.w, 0.0f,
+                2.0f*quaternion.x*quaternion.z - 2.0f*quaternion.y*quaternion.w, 2.0f*quaternion.y*quaternion.z + 2.0f*quaternion.x*quaternion.w, 1.0f - 2.0f*quaternion.x*quaternion.x - 2.0f*quaternion.y*quaternion.y, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f,
+            });
+        }
+
+        if (node.HasMember("scale"))
+        {
+            auto scale_factors = node["scale"].GetArray();
+            float4x4 scale = {};
+            scale.at(0, 0) = static_cast<float>(scale_factors[0].GetDouble());
+            scale.at(1, 1) = static_cast<float>(scale_factors[1].GetDouble());
+            scale.at(2, 2) = static_cast<float>(scale_factors[2].GetDouble());
+            scale.at(3, 3) = 1.0f;
+
+            transform = transform * scale;
+        }
+
+        return transform;
+    };
+
+    for (auto &root : roots)
+    {
+        u32 i_root = root.GetUint();
+
+        i_node_stack.clear();
+        transforms_stack.clear();
+
+        i_node_stack.push_back(i_root);
+        transforms_stack.push_back(float4x4::identity());
+
+        while (!i_node_stack.empty())
+        {
+            u32 i_node = i_node_stack.back(); i_node_stack.pop_back();
+            float4x4 parent_transform = transforms_stack.back(); transforms_stack.pop_back();
+
+            auto node      = nodes[i_node].GetObject();
+            auto transform = parent_transform * get_transform(node);
+
+            if (node.HasMember("mesh"))
+            {
+                new_scene.instances.push_back({.i_mesh = node["mesh"].GetUint(), .transform = transform});
+            }
+
+            if (node.HasMember("children"))
+            {
+                auto children = node["children"].GetArray();
+
+                for (u32 i_child = 0; i_child < children.Size(); i_child += 1)
+                {
+                    i_node_stack.push_back(children[children.Size() - i_child].GetUint());
+                    transforms_stack.push_back(transform);
+                }
+            }
+        }
+    }
+
 }
 
 Scene load_file(const std::string_view &path)

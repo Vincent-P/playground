@@ -88,8 +88,23 @@ struct PACKED GlobalUniform
 
 struct PACKED PushConstants
 {
-    u32 draw_idx = u32_invalid;
+    u32 draw_idx        = u32_invalid;
     u32 render_mesh_idx = u32_invalid;
+};
+
+struct RenderMesh
+{
+    Handle<gfx::Buffer> positions;
+    Handle<gfx::Buffer> indices;
+};
+
+struct PACKED RenderInstance
+{
+    float4x4 transform;
+    u32 i_render_mesh;
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
 };
 
 struct Renderer
@@ -121,6 +136,8 @@ struct Renderer
     RenderTargets swapchain_rt;
     RenderTargets depth_only_rt;
 
+    Vec<RenderMesh> render_meshes;
+    Vec<RenderInstance> render_instances;
 
     ImGuiPass imgui_pass;
     TonemapPass tonemap_pass;

@@ -27,14 +27,18 @@ void Streamer::update(gfx::WorkPool &work_pool)
     {
         if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
         {
+            auto &staging = staging_areas[upload.i_staging];
             upload.state = UploadState::Done;
+            staging.in_use = true;
         }
     }
     for (auto &[dst_image, upload] : image_uploads)
     {
         if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
         {
+            auto &staging = staging_areas[upload.i_staging];
             upload.state = UploadState::Done;
+            staging.in_use = true;
         }
     }
 
