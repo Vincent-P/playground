@@ -2,20 +2,20 @@
 
 #include "base/handle.hpp"
 
+#include "render/base_renderer.hpp"
+#include "render/mesh.hpp"
+#include "render/ring_buffer.hpp"
+#include "render/streamer.hpp"
+
 #include "render/vulkan/commands.hpp"
 #include "render/vulkan/context.hpp"
 #include "render/vulkan/device.hpp"
 #include "render/vulkan/resources.hpp"
 #include "render/vulkan/surface.hpp"
 
-#include "render/mesh.hpp"
-#include "render/ring_buffer.hpp"
-#include "render/streamer.hpp"
+#include <chrono>
 
 namespace gfx = vulkan;
-
-inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
-inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
 
 namespace gltf {struct Model;}
 namespace UI {struct Context;}
@@ -23,15 +23,6 @@ struct Mesh;
 struct Material;
 class Scene;
 class AssetManager;
-
-struct RenderTargets
-{
-    Handle<gfx::RenderPass> clear_renderpass;
-    Handle<gfx::RenderPass> load_renderpass;
-    Handle<gfx::Framebuffer> framebuffer;
-    Handle<gfx::Image> image;
-    Handle<gfx::Image> depth;
-};
 
 struct Settings
 {
@@ -90,35 +81,19 @@ struct PACKED RenderInstance
     u32 pad10;
 };
 
+
 struct Renderer
 {
-    Settings settings;
+    BaseRenderer base_renderer;
+
     AssetManager *asset_manager;
-
-    // Base renderer
-    gfx::Context context;
-    gfx::Device device;
-    gfx::Surface surface;
-    uint frame_count;
-    std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
-    std::array<gfx::QueryPool, FRAME_QUEUE_LENGTH> timestamp_pools;
-    Vec<u64> timestamps;
-    gfx::Fence fence;
-
-    RingBuffer dynamic_uniform_buffer;
-    RingBuffer dynamic_vertex_buffer;
-    RingBuffer dynamic_index_buffer;
-
-    Handle<gfx::Image> empty_sampled_image;
-    Handle<gfx::Image> empty_storage_image;
-
-    // User renderer
+    Settings settings;
     Streamer streamer;
+
 
     Handle<gfx::Image> depth_buffer;
     RenderTargets hdr_rt;
     RenderTargets ldr_rt;
-    RenderTargets swapchain_rt;
 
     Vec<RenderMesh> render_meshes;
     Vec<RenderInstance> render_instances;
@@ -126,7 +101,6 @@ struct Renderer
 
     ImGuiPass imgui_pass;
 
-    // Geometry pools
     Handle<gfx::GraphicsProgram> opaque_program;
     Handle<gfx::ComputeProgram> tonemap_program;
 
@@ -137,12 +111,6 @@ struct Renderer
 
     void display_ui(UI::Context &ui);
     void update(Scene &scene);
-
-    // Ring buffer uniforms
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
-    template<typename T> T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
-    template<typename T> T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
 
     void reload_shader(std::string_view shader_name);
     void on_resize();

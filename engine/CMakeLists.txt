@@ -15,6 +15,8 @@ set(SOURCE_FILES
   src/platform/file_watcher.cpp
   src/platform/mapped_file.cpp
   src/render/renderer.cpp
+  src/render/render_timings.cpp
+  src/render/base_renderer.cpp
   src/render/ring_buffer.cpp
   src/render/streamer.cpp
   src/render/vulkan/context.cpp
