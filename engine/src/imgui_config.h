@@ -1,5 +1,5 @@
 #pragma once
-#include "base/types.hpp"
+#include "exo/types.h"
 
 //---- Don't define obsolete functions/enums/behaviors. Consider enabling from time to time after updating to avoid using soon-to-be obsolete function/names.
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS

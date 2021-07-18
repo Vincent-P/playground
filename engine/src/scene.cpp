@@ -1,19 +1,19 @@
-#include "scene.hpp"
+#include "scene.h"
 
-#include "inputs.hpp"
-#include "camera.hpp"
+#include "inputs.h"
+#include "camera.h"
 
-#include "base/logger.hpp"
+#include <exo/logger.h>
 
-#include "asset_manager.hpp"
-#include "glb.hpp"
-#include "platform/file_dialog.hpp"
+#include "asset_manager.h"
+#include "glb.h"
+#include <cross/file_dialog.h>
 
-#include "components/camera_component.hpp"
-#include "components/input_camera_component.hpp"
-#include "components/sky_atmosphere_component.hpp"
-#include "components/mesh_component.hpp"
-#include "components/transform_component.hpp"
+#include "components/camera_component.h"
+#include "components/input_camera_component.h"
+#include "components/sky_atmosphere_component.h"
+#include "components/mesh_component.h"
+#include "components/transform_component.h"
 
 #include <fmt/format.h>
 

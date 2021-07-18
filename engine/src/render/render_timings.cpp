@@ -1,7 +1,7 @@
-#include "render_timings.hpp"
+#include "render_timings.h"
 
-#include "base/logger.hpp"
-#include "base_renderer.hpp"
+#include <exo/logger.h>
+#include "base_renderer.h"
 
 
 void RenderTimings::create(gfx::Device &device)

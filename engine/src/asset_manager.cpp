@@ -1,8 +1,8 @@
-#include "asset_manager.hpp"
+#include "asset_manager.h"
 
 #include "imgui/imgui.h"
-#include "platform/file_dialog.hpp"
-#include "ui.hpp"
+#include <cross/file_dialog.h>
+#include "ui.h"
 
 #include <fmt/format.h>
 

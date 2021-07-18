@@ -1,6 +1,6 @@
-#include "render/base_renderer.hpp"
+#include "render/base_renderer.h"
 
-#include "base/logger.hpp"
+#include <exo/logger.h>
 
 BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDescription desc)
 {

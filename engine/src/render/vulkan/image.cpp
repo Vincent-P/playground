@@ -1,7 +1,7 @@
-#include "render/vulkan/bindless_set.hpp"
-#include "render/vulkan/resources.hpp"
-#include "render/vulkan/device.hpp"
-#include "render/vulkan/utils.hpp"
+#include "render/vulkan/bindless_set.h"
+#include "render/vulkan/resources.h"
+#include "render/vulkan/device.h"
+#include "render/vulkan/utils.h"
 #include "vulkan/vulkan_core.h"
 
 namespace vulkan

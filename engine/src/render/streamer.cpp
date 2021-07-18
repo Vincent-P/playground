@@ -1,5 +1,5 @@
-#include "render/streamer.hpp"
-#include "render/vulkan/device.hpp"
+#include "render/streamer.h"
+#include "render/vulkan/device.h"
 
 void Streamer::init(gfx::Device *_device)
 {

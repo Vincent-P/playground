@@ -1,9 +1,9 @@
-#include "glb.hpp"
+#include "glb.h"
 
-#include "base/algorithms.hpp"
-#include "base/numerics.hpp"
-#include "base/types.hpp"
-#include "base/logger.hpp"
+#include <exo/algorithms.h>
+#include <exo/numerics.h>
+#include <exo/types.h>
+#include <exo/logger.h>
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>

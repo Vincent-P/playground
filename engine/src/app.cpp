@@ -1,8 +1,8 @@
-#include "app.hpp"
+#include "app.h"
 
-#include "base/logger.hpp"
-#include "camera.hpp"
-#include "platform/file_watcher.hpp"
+#include <exo/logger.h>
+#include "camera.h"
+#include <cross/file_watcher.h>
 
 #include <algorithm>
 #include <imgui/imgui.h>

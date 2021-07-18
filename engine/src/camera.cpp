@@ -1,4 +1,4 @@
-#include "camera.hpp"
+#include "camera.h"
 
 #include <cmath>
 

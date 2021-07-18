@@ -1,10 +1,10 @@
-#include "render/vulkan/surface.hpp"
+#include "render/vulkan/surface.h"
 
-#include "platform/window.hpp"
-#include "render/vulkan/context.hpp"
-#include "render/vulkan/device.hpp"
-#include "render/vulkan/resources.hpp"
-#include "render/vulkan/utils.hpp"
+#include <cross/window.h>
+#include "render/vulkan/context.h"
+#include "render/vulkan/device.h"
+#include "render/vulkan/resources.h"
+#include "render/vulkan/utils.h"
 #include "vulkan/vulkan_core.h"
 
 namespace vulkan

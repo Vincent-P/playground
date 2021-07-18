@@ -1,9 +1,9 @@
-#include "app.hpp"
-#include "base/types.hpp"
-#include "base/logger.hpp"
+#include "app.h"
+#include <exo/types.h>
+#include <exo/logger.h>
 
-#include "glb.hpp"
-#include "asset_manager.hpp"
+#include "glb.h"
+#include "asset_manager.h"
 
 #if defined (ENABLE_DOCTEST)
 #define DOCTEST_CONFIG_COLORS_NONE

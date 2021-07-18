@@ -6,7 +6,7 @@ add_library(imgui
   imgui/imgui_widgets.cpp)
 
 target_compile_definitions(imgui PUBLIC IMGUI_USER_CONFIG="imgui_config.h")
-target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/engine/src/)
+target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/exo/include/ ${CMAKE_SOURCE_DIR}/engine/src/)
 set_target_properties(imgui PROPERTIES CXX_STANDARD 20)
 target_compile_options(imgui PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 

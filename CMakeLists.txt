@@ -26,6 +26,7 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
 
+
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<CXX_COMPILER_ID:MSVC>:/permissive->
 
@@ -47,4 +48,6 @@ set(THIRD_PARTY_CXX_FLAGS
   )
 
 add_subdirectory(third_party)
+add_subdirectory(exo)
+add_subdirectory(cross)
 add_subdirectory(engine)

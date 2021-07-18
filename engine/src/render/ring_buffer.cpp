@@ -1,6 +1,6 @@
-#include "render/ring_buffer.hpp"
+#include "render/ring_buffer.h"
 
-#include "render/vulkan/device.hpp"
+#include "render/vulkan/device.h"
 
 RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc, bool align)
 {

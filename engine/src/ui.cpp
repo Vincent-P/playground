@@ -1,9 +1,8 @@
-#include "ui.hpp"
+#include "ui.h"
 
-#include "base/types.hpp"
-#include "base/algorithms.hpp"
-#include "inputs.hpp"
-#include "platform/window.hpp"
+#include <exo/algorithms.h>
+#include "inputs.h"
+#include <cross/window.h>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>

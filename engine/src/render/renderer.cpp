@@ -1,13 +1,13 @@
-#include "render/renderer.hpp"
+#include "render/renderer.h"
 
-#include "base/logger.hpp"
-#include "asset_manager.hpp"
-#include "camera.hpp"
-#include "ui.hpp"
-#include "scene.hpp"
-#include "components/camera_component.hpp"
-#include "components/transform_component.hpp"
-#include "components/mesh_component.hpp"
+#include <exo/logger.h>
+#include "asset_manager.h"
+#include "camera.h"
+#include "ui.h"
+#include "scene.h"
+#include "components/camera_component.h"
+#include "components/transform_component.h"
+#include "components/mesh_component.h"
 
 Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_manager)
 {
@@ -432,12 +432,9 @@ void Renderer::update(Scene &scene)
         cmd.bind_storage_buffer(opaque_program, 2, instances_data.buffer);
         cmd.bind_pipeline(opaque_program, 0);
 
-        for (const auto &submesh : render_mesh.submeshes)
-        {
-            cmd.push_constant<PushConstants>({.draw_id = i_draw});
-            cmd.draw_indexed({.vertex_count = submesh.index_count, .index_offset = submesh.first_index, .instance_offset = i_render_instance});
-            i_draw += 1;
-        }
+        cmd.push_constant<PushConstants>({.draw_id = i_draw});
+        cmd.draw_indexed({.vertex_count = render_mesh.vertex_count, .index_offset = 0, .instance_offset = i_render_instance});
+        i_draw += 1;
     }
 
     cmd.end_pass();

@@ -9,11 +9,6 @@ set(SOURCE_FILES
   src/inputs.cpp
   src/tools.cpp
   src/ui.cpp
-  src/base/pool.cpp
-  src/base/vectors.cpp
-  src/base/free_list.cpp
-  src/platform/file_watcher.cpp
-  src/platform/mapped_file.cpp
   src/render/renderer.cpp
   src/render/render_timings.cpp
   src/render/base_renderer.cpp
@@ -31,26 +26,6 @@ set(SOURCE_FILES
   src/render/vulkan/graphics_pipeline.cpp
   src/render/vulkan/compute_pipeline.cpp)
 
-if (WIN32)
-
-  set(SOURCE_FILES
-    ${SOURCE_FILES}
-    src/platform/file_dialog_win32.cpp
-    src/platform/utils_win32.cpp
-    src/platform/window_win32.cpp)
-
-  set(ENGINE_LIBS
-    ${ENGINE_LIBS}
-    imm32)
-
-elseif (UNIX)
-
-  set(SOURCE_FILES
-    ${SOURCE_FILES}
-    src/platform/window_xcb.cpp)
-
-endif()
-
 add_executable(engine ${SOURCE_FILES})
 install(TARGETS engine RUNTIME)
 
@@ -61,7 +36,8 @@ target_include_directories(engine PRIVATE src)
 target_include_directories(engine SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 
 target_link_libraries(engine
-  ${ENGINE_LIBS}
+  exo
+  cross
   imgui
   simdjson
   fmt
@@ -70,16 +46,6 @@ target_link_libraries(engine
   vma
   Vulkan::Vulkan
   Threads::Threads)
-
-
-target_compile_definitions(engine PRIVATE
-  $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
-  $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
-  $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
-  $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
-  $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-  $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-  )
 
 add_subdirectory(shaders/)
 add_dependencies(engine shaders)

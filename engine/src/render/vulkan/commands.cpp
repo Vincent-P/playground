@@ -1,10 +1,10 @@
-#include "render/vulkan/commands.hpp"
-#include "render/vulkan/descriptor_set.hpp"
-#include "render/vulkan/device.hpp"
+#include "render/vulkan/commands.h"
+#include "render/vulkan/descriptor_set.h"
+#include "render/vulkan/device.h"
 
-#include "render/vulkan/queues.hpp"
-#include "render/vulkan/surface.hpp"
-#include "render/vulkan/utils.hpp"
+#include "render/vulkan/queues.h"
+#include "render/vulkan/surface.h"
+#include "render/vulkan/utils.h"
 #include "vulkan/vulkan_core.h"
 
 namespace vulkan

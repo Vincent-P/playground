@@ -36,6 +36,24 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
 layout(set = 1, binding = 0) uniform sampler3D global_textures_3d[];
 
+struct UIVert
+{
+    float2 position;
+    float2 uv;
+    uint color;
+    uint pad00;
+    uint pad01;
+    uint pad10;
+};
+
+layout(set = 1, binding = 1) buffer global_ui_vert {
+    UIVert vertices[];
+} global_buffers_ui_vert[];
+
+layout(set = 1, binding = 1) buffer global_position {
+    float4 positions[];
+} global_buffers_positions[];
+
 layout(set = 2, binding = 0, rgba8) uniform image2D global_images_2d_rgba8[];
 layout(set = 2, binding = 0, rgba32f) uniform image2D global_images_2d_rgba32f[];
 layout(set = 2, binding = 0, r32f) uniform image2D global_images_2d_r32f[];

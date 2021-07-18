@@ -1,7 +1,7 @@
-#include "ecs.hpp"
-#include "ui.hpp"
+#include "ecs.h"
+#include "ui.h"
 
-#include "base/logger.hpp"
+#include <exo/logger.h>
 
 #include <array>
 #include <algorithm>

@@ -1,10 +1,10 @@
-#include "inputs.hpp"
+#include "inputs.h"
 
-#include "base/types.hpp"
-#include "base/option.hpp"
-#include "base/algorithms.hpp"
-#include "platform/window.hpp"
-#include "ui.hpp"
+#include <exo/types.h>
+#include <exo/option.h>
+#include <exo/algorithms.h>
+#include <cross/window.h>
+#include "ui.h"
 
 #include <imgui/imgui.h>
 #include <ranges>
