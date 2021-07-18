@@ -125,6 +125,15 @@ struct GraphicsWork : ComputeWork
     };
     void draw_indexed(const DrawIndexedOptions &options);
 
+    struct DrawOptions
+    {
+        u32 vertex_count    = 0;
+        u32 instance_count  = 1;
+        i32 vertex_offset   = 0;
+        u32 instance_offset = 0;
+    };
+    void draw(const DrawOptions &options);
+
     void set_scissor(const VkRect2D &rect);
     void set_viewport(const VkViewport &viewport);
 

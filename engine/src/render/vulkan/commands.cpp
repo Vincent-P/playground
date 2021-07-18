@@ -28,6 +28,7 @@ void Work::bind_global_set()
             find_or_create_descriptor_set(*device, device->global_sets.uniform),
             device->global_sets.sampled_images.set,
             device->global_sets.storage_images.set,
+            device->global_sets.storage_buffers.set,
         };
 
         u32 offsets_count = static_cast<u32>(device->global_sets.uniform.dynamic_offsets.size());
@@ -248,7 +249,7 @@ void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 3, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 4, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
@@ -317,6 +318,11 @@ void GraphicsWork::draw_indexed(const DrawIndexedOptions &options)
     vkCmdDrawIndexed(command_buffer, options.vertex_count, options.instance_count, options.index_offset, options.vertex_offset, options.instance_offset);
 }
 
+void GraphicsWork::draw(const DrawOptions &options)
+{
+    vkCmdDraw(command_buffer, options.vertex_count, options.instance_count, options.vertex_offset, options.instance_offset);
+}
+
 void GraphicsWork::set_scissor(const VkRect2D &rect)
 {
     vkCmdSetScissor(command_buffer, 0, 1, &rect);
@@ -370,7 +376,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
     offsets.reserve(program.descriptor_set.dynamic_offsets.size());
     offsets.insert(offsets.end(), program.descriptor_set.dynamic_offsets.begin(), program.descriptor_set.dynamic_offsets.end());
 
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 3, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 4, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 

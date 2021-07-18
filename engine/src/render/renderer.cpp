@@ -28,6 +28,13 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .gpu_usage = gfx::storage_buffer_usage,
         }, false);
 
+    renderer.render_meshes_buffer = device.create_buffer({
+            .name = "Meshes description buffer",
+            .size = 32_KiB,
+            .usage = gfx::storage_buffer_usage,
+            .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+        });
+
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
     renderer.settings.render_resolution = {surface.extent.width, surface.extent.height};
@@ -60,7 +67,6 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         gui_state.renderpass = renderer.base_renderer.swapchain_rt.clear_renderpass;
         gui_state.descriptors =  {
             {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}},
-            {{.count = 1, .type = gfx::DescriptorType::StorageBuffer}},
         };
         imgui_pass.program = device.create_program("imgui", gui_state);
 
@@ -91,8 +97,6 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         state.renderpass         = renderer.hdr_rt.load_renderpass;
         state.descriptors        = {
             {.count = 1, .type = gfx::DescriptorType::DynamicBuffer}, // options
-            {.count = 1, .type = gfx::DescriptorType::StorageBuffer}, // vertices
-            {.count = 1, .type = gfx::DescriptorType::StorageBuffer}, // instances
         };
         renderer.opaque_program = device.create_program("gltf opaque", state);
 
@@ -325,13 +329,20 @@ void Renderer::update(Scene &scene)
                     render_mesh.indices      = device.create_buffer({
                         .name  = "Index buffer",
                         .size  = mesh_asset.indices.size() * sizeof(u32),
-                        .usage = gfx::index_buffer_usage,
+                        .usage = gfx::storage_buffer_usage,
                     });
                     render_mesh.vertex_count = static_cast<u32>(mesh_asset.indices.size());
                     render_mesh.submeshes    = mesh_asset.submeshes;
 
+                    RenderMeshGPU gpu = {};
+                    gpu.positions_descriptor = device.get_buffer_storage_index(render_mesh.positions);
+                    gpu.indices_descriptor = device.get_buffer_storage_index(render_mesh.indices);
+
                     streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
                     streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
+
+                    auto *meshes_gpu = reinterpret_cast<RenderMeshGPU*>(device.map_buffer(this->render_meshes_buffer));
+                    meshes_gpu[this->render_meshes.size()] = gpu;
 
                     this->render_meshes.push_back(render_mesh);
                 }
@@ -416,10 +427,16 @@ void Renderer::update(Scene &scene)
     struct PACKED OpaqueOptions
     {
         u32 first_instance;
+        u32 instances_descriptor;
+        u32 meshes_descriptor;
     };
 
     auto *options           = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
     options->first_instance = instance_offset / static_cast<u32>(sizeof(RenderInstance));
+    options->instances_descriptor = device.get_buffer_storage_index(instances_data.buffer);
+    options->meshes_descriptor = device.get_buffer_storage_index(render_meshes_buffer);
+
+    cmd.bind_pipeline(opaque_program, 0);
 
     uint i_draw = 0;
     for (auto i_render_instance : instances_to_draw)
@@ -427,13 +444,8 @@ void Renderer::update(Scene &scene)
         const auto &render_instance = render_instances[i_render_instance];
         const auto &render_mesh     = render_meshes[render_instance.i_render_mesh];
 
-        cmd.bind_index_buffer(render_mesh.indices, VK_INDEX_TYPE_UINT32);
-        cmd.bind_storage_buffer(opaque_program, 1, render_mesh.positions);
-        cmd.bind_storage_buffer(opaque_program, 2, instances_data.buffer);
-        cmd.bind_pipeline(opaque_program, 0);
-
         cmd.push_constant<PushConstants>({.draw_id = i_draw});
-        cmd.draw_indexed({.vertex_count = render_mesh.vertex_count, .index_offset = 0, .instance_offset = i_render_instance});
+        cmd.draw({.vertex_count = render_mesh.vertex_count, .instance_offset = i_render_instance});
         i_draw += 1;
     }
 
@@ -542,15 +554,16 @@ void Renderer::update(Scene &scene)
             float2 translation;
             u64 vertices_pointer;
             u32 first_vertex;
-            u32 pad1;
+            u32 vertices_descriptor_index;
         };
 
         auto *options = base_renderer.bind_shader_options<ImguiOptions>(cmd, imgui_pass.program);
         std::memset(options, 0, sizeof(ImguiOptions));
         options->scale            = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
         options->translation      = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
-        options->first_vertex     = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
         options->vertices_pointer = 0;
+        options->first_vertex     = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
+        options->vertices_descriptor_index = device.get_buffer_storage_index(base_renderer.dynamic_vertex_buffer.buffer);
 
         // Barriers
         for (i_draw = 0; i_draw < draws.size(); i_draw += 1)
@@ -570,7 +583,6 @@ void Renderer::update(Scene &scene)
         viewport.maxDepth = 1.0f;
         cmd.set_viewport(viewport);
 
-        cmd.bind_storage_buffer(imgui_pass.program, 1, base_renderer.dynamic_vertex_buffer.buffer);
         cmd.bind_pipeline(imgui_pass.program, 0);
         cmd.bind_index_buffer(base_renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT16, ind_offset);
 

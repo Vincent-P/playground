@@ -34,6 +34,7 @@ struct GlobalDescriptorSets
     DescriptorSet uniform;
     BindlessSet storage_images;
     BindlessSet sampled_images;
+    BindlessSet storage_buffers;
 };
 
 struct PushConstantLayout
@@ -61,10 +62,6 @@ struct Device
     VkDescriptorPool descriptor_pool;
     PushConstantLayout push_constant_layout;
     GlobalDescriptorSets global_sets;
-
-    DescriptorSet global_uniform_set;
-    BindlessSet storage_images_bindless;
-    BindlessSet sampled_images_bindless;
 
     Pool<Shader> shaders;
     Pool<GraphicsProgram> graphics_programs;
@@ -145,6 +142,7 @@ struct Device
 
     Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);
     void destroy_buffer(Handle<Buffer> buffer_handle);
+    u32 get_buffer_storage_index(Handle<Buffer> buffer_handle);
 
     void *map_buffer(Handle<Buffer> buffer_handle);
     u64 get_buffer_address(Handle<Buffer> buffer_handle);

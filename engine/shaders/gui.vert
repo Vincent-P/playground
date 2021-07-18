@@ -1,36 +1,20 @@
 #include "types.h"
 #include "globals.h"
 
-layout(set = 3, binding = 0) uniform Options {
+layout(set = SHADER_SET, binding = 0) uniform Options {
     float2 scale;
     float2 translation;
     u64 vertices_ptr_ptr;
     u32 first_vertex;
-    u32 pad4;
+    u32 vertices_descriptor_index;
     uvec4 texture_binding_per_draw[64/4];
 };
-
-struct ImGuiVertex
-{
-    float2 position;
-    float2 uv;
-    uint color;
-    uint pad00;
-    uint pad01;
-    uint pad10;
-};
-
-layout(set = 3, binding = 1) buffer VerticesBuffer {
-    ImGuiVertex vertices[];
-} vertices_ptr;
-
-
 
 layout(location = 0) out float2 o_uv;
 layout(location = 1) out float4 o_color;
 void main()
 {
-    ImGuiVertex vertex = vertices_ptr.vertices[first_vertex + gl_VertexIndex];
+    ImGuiVertex vertex = global_buffers_ui_vert[vertices_descriptor_index].vertices[first_vertex + gl_VertexIndex];
 
     gl_Position = float4( vertex.position * scale + translation, 0.0, 1.0 );
     o_uv        = vertex.uv;

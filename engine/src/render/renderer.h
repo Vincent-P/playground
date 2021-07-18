@@ -72,6 +72,14 @@ struct RenderMesh
     Vec<SubMesh> submeshes;
 };
 
+struct PACKED RenderMeshGPU
+{
+    u32 positions_descriptor;
+    u32 indices_descriptor;
+    u32 pad00;
+    u32 pad01;
+};
+
 struct PACKED RenderInstance
 {
     float4x4 transform;
@@ -96,6 +104,7 @@ struct Renderer
     RenderTargets ldr_rt;
 
     Vec<RenderMesh> render_meshes;
+    Handle<gfx::Buffer> render_meshes_buffer;
     Vec<RenderInstance> render_instances;
     RingBuffer instances_data;
 

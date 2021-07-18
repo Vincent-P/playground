@@ -128,6 +128,7 @@ struct Buffer
     BufferUsage usage = BufferUsage::None;
     void *mapped;
     u64 gpu_address;
+    u32 descriptor_idx = u32_invalid;
 
     bool operator==(const Buffer &b) const = default;
 };

@@ -95,7 +95,7 @@ void update_bindless_set(Device &device, BindlessSet &set)
     if (set.descriptor_type.type == DescriptorType::SampledImage || set.descriptor_type.type == DescriptorType::StorageImage) {
         images_info.reserve(writes.capacity());
     }
-    else {
+    else if (set.descriptor_type.type == DescriptorType::StorageBuffer) {
         buffers_info.reserve(writes.capacity());
     }
 
@@ -126,40 +126,21 @@ void update_bindless_set(Device &device, BindlessSet &set)
             });
             write.pImageInfo = &images_info.back();
         }
+        else if (set.descriptor_type.type == DescriptorType::StorageBuffer)
+        {
+            const auto &descriptor = set.descriptors[to_bind].buffer;
+            const auto &buffer = *device.buffers.get(descriptor.buffer_handle);
+
+            buffers_info.push_back({
+                .buffer = buffer.vkhandle,
+                .offset = 0,
+                .range  = buffer.desc.size,
+            });
+            write.pBufferInfo = &buffers_info.back();
+        }
         else
         {
             assert(false);
-
-            const auto &descriptor = set.descriptors[to_bind].dynamic;
-            const auto &buffer = *device.buffers.get(descriptor.buffer_handle);
-
-            VkDescriptorBufferInfo buffer_info;
-            buffer_info.range  = descriptor.size;
-            buffer_info.offset = 0;
-            buffer_info.buffer = buffer.vkhandle;
-
-#if 0
-            if (global_set.dynamic_offset != global_set.pending_offset)
-            {
-                global_set.dynamic_offset = global_set.pending_offset;
-            }
-
-            if (global_set.dynamic_buffer != global_set.pending_buffer
-                || global_set.dynamic_range != global_set.pending_range)
-            {
-                global_set.dynamic_buffer = global_set.pending_buffer;
-                global_set.dynamic_range  = global_set.pending_range;
-
-                writes.push_back({
-                    .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .dstSet          = global_set.vkset,
-                    .dstBinding      = 0,
-                    .descriptorCount = 1,
-                    .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-                    .pBufferInfo     = &buffer_info,
-                });
-            }
-#endif
         }
     }
 

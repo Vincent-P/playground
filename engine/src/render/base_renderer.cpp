@@ -60,7 +60,7 @@ BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDes
 
     renderer.dynamic_uniform_buffer = RingBuffer::create(device, {
             .name = "Dynamic Uniform",
-            .size = 32_KiB,
+            .size = 128_KiB,
             .gpu_usage = gfx::uniform_buffer_usage,
         });
 

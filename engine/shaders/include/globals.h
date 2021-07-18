@@ -9,6 +9,15 @@
 
 /// --- Structures
 
+
+struct RenderMesh
+{
+    u32 positions_descriptor;
+    u32 indices_descriptor;
+    u32 pad00;
+    u32 pad01;
+};
+
 struct RenderInstance
 {
     float4x4 transform;
@@ -18,7 +27,23 @@ struct RenderInstance
     u32 pad10;
 };
 
+struct ImGuiVertex
+{
+    float2 position;
+    float2 uv;
+    uint color;
+    uint pad00;
+    uint pad01;
+    uint pad10;
+};
+
 /// --- Global bindings
+
+layout(push_constant) uniform PushConstants {
+    u32 draw_id;
+    u32 gui_texture_id;
+} push_constants;
+
 
 layout(set = 0, binding = 0) uniform GlobalUniform {
     float4x4 camera_view;
@@ -36,31 +61,16 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
 layout(set = 1, binding = 0) uniform sampler3D global_textures_3d[];
 
-struct UIVert
-{
-    float2 position;
-    float2 uv;
-    uint color;
-    uint pad00;
-    uint pad01;
-    uint pad10;
-};
-
-layout(set = 1, binding = 1) buffer global_ui_vert {
-    UIVert vertices[];
-} global_buffers_ui_vert[];
-
-layout(set = 1, binding = 1) buffer global_position {
-    float4 positions[];
-} global_buffers_positions[];
-
 layout(set = 2, binding = 0, rgba8) uniform image2D global_images_2d_rgba8[];
 layout(set = 2, binding = 0, rgba32f) uniform image2D global_images_2d_rgba32f[];
 layout(set = 2, binding = 0, r32f) uniform image2D global_images_2d_r32f[];
 
-layout(push_constant) uniform PushConstants {
-    u32 draw_id;
-    u32 gui_texture_id;
-} push_constants;
+layout(set = 3, binding = 0) buffer UiVerticesBuffer  { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
+layout(set = 3, binding = 0) buffer InstancesBuffer   { RenderInstance render_instances[]; } global_buffers_instances[];
+layout(set = 3, binding = 0) buffer MeshesBuffer      { RenderMesh render_meshes[]; } global_buffers_meshes[];
+layout(set = 3, binding = 0) buffer PositionsBuffer   { float4 positions[]; } global_buffers_positions[];
+layout(set = 3, binding = 0) buffer IndicesBuffer     { u32 indices[]; } global_buffers_indices[];
+
+#define SHADER_SET 4
 
 #endif

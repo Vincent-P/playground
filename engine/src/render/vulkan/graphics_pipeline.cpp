@@ -223,7 +223,13 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
 {
     DescriptorSet set = create_descriptor_set(*this, graphics_state.descriptors);
 
-    std::array sets = {global_sets.uniform.layout, global_sets.sampled_images.layout, global_sets.storage_images.layout, set.layout};
+    std::array sets = {
+        global_sets.uniform.layout,
+        global_sets.sampled_images.layout,
+        global_sets.storage_images.layout,
+        global_sets.storage_buffers.layout,
+        set.layout,
+    };
 
     VkPushConstantRange push_constant_range;
     push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;

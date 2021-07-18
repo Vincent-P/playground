@@ -154,17 +154,17 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     /// --- Descriptor sets pool
     {
         std::array pool_sizes{
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 16384},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 16384},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 16384},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 16384},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1024},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1024},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1024},
         };
 
         VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         pool_info.poolSizeCount              = static_cast<u32>(pool_sizes.size());
         pool_info.pPoolSizes                 = pool_sizes.data();
-        pool_info.maxSets                    = 16384;
+        pool_info.maxSets                    = 1024;
 
         VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.descriptor_pool));
     }
@@ -192,27 +192,33 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 1024},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1024},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         .descriptorCount = 1024},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         .descriptorCount = 16 * 1024},
         };
 
         VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
         pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
         pool_info.poolSizeCount              = static_cast<u32>(pool_sizes.size());
         pool_info.pPoolSizes                 = pool_sizes.data();
-        pool_info.maxSets                    = 16;
+        pool_info.maxSets                    = 1024;
 
         VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_sets.pool));
 
-        device.global_sets.sampled_images = create_bindless_set(device, device.global_sets.pool, "bindless sampled images", {.count = 1024, .type = DescriptorType::SampledImage});
-        device.global_sets.storage_images = create_bindless_set(device, device.global_sets.pool, "bindless storage images", {.count = 1024, .type = DescriptorType::StorageImage});
-        device.global_sets.uniform        = create_descriptor_set(device, {{.count = 1, .type = DescriptorType::DynamicBuffer}});
+        device.global_sets.sampled_images  = create_bindless_set(device, device.global_sets.pool, "bindless sampled images",  {.count = 1024, .type = DescriptorType::SampledImage});
+        device.global_sets.storage_images  = create_bindless_set(device, device.global_sets.pool, "bindless storage images",  {.count = 1024, .type = DescriptorType::StorageImage});
+        device.global_sets.storage_buffers = create_bindless_set(device, device.global_sets.pool, "bindless storage buffers", {.count = 16 * 1024, .type = DescriptorType::StorageBuffer});
+        device.global_sets.uniform         = create_descriptor_set(device, {{.count = 1, .type = DescriptorType::DynamicBuffer}});
 
         VkPushConstantRange push_constant_range;
         push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
         push_constant_range.offset     = 0;
         push_constant_range.size       = static_cast<u32>(device.push_constant_layout.size);
 
-        VkDescriptorSetLayout layouts[] = {device.global_sets.uniform.layout, device.global_sets.sampled_images.layout, device.global_sets.storage_images.layout};
+        VkDescriptorSetLayout layouts[] = {
+            device.global_sets.uniform.layout,
+            device.global_sets.sampled_images.layout,
+            device.global_sets.storage_images.layout,
+            device.global_sets.storage_buffers.layout,
+        };
 
         VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
         pipeline_layout_info.setLayoutCount             = ARRAY_SIZE(layouts);
@@ -264,6 +270,7 @@ void Device::destroy(const Context &context)
 
     destroy_bindless_set(*this, global_sets.sampled_images);
     destroy_bindless_set(*this, global_sets.storage_images);
+    destroy_bindless_set(*this, global_sets.storage_buffers);
     vkDestroyDescriptorPool(device, global_sets.pool, nullptr);
     vkDestroyPipelineLayout(device, global_sets.pipeline_layout, nullptr);
 
@@ -282,6 +289,7 @@ void Device::update_globals()
 {
     update_bindless_set(*this, global_sets.sampled_images);
     update_bindless_set(*this, global_sets.storage_images);
+    update_bindless_set(*this, global_sets.storage_buffers);
 }
 
 }

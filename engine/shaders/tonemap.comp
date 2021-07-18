@@ -3,7 +3,7 @@
 #include "constants.h"
 #include "globals.h"
 
-layout(set = 3, binding = 0) uniform Options {
+layout(set = SHADER_SET, binding = 0) uniform Options {
     uint sampled_hdr_buffer;
     uint storage_output_frame;
 };

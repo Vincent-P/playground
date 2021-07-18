@@ -53,12 +53,20 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
         gpu_address = vkGetBufferDeviceAddress(device, &address_info);
     }
 
-    return buffers.add({
+    auto handle = buffers.add({
             .desc = new_buffer,
             .vkhandle = vkhandle,
             .allocation = allocation,
             .gpu_address = gpu_address,
         });
+
+    if (buffer_info.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+    {
+        auto &buffer = *buffers.get(handle);
+        buffer.descriptor_idx = bind_descriptor(global_sets.storage_buffers, {.buffer = {handle}});
+    }
+
+    return handle;
 }
 
 void Device::destroy_buffer(Handle<Buffer> buffer_handle)
@@ -115,6 +123,14 @@ void Device::flush_buffer(Handle<Buffer> buffer_handle)
     {
         vmaFlushAllocation(allocator, buffer.allocation, 0, buffer.desc.size);
     }
+}
+u32 Device::get_buffer_storage_index(Handle<Buffer> buffer_handle)
+{
+    if (auto *buffer = buffers.get(buffer_handle))
+    {
+        return buffer->descriptor_idx;
+    }
+    return 0;
 }
 
 }
