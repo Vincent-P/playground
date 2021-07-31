@@ -68,8 +68,10 @@ struct RenderMesh
 {
     Handle<gfx::Buffer> positions;
     Handle<gfx::Buffer> indices;
-    u32 vertex_count = 0;
     Vec<SubMesh> submeshes;
+
+    Vec<u32> instances;
+    u32 first_instance = 0;
 };
 
 struct PACKED RenderMeshGPU
@@ -104,9 +106,12 @@ struct Renderer
     RenderTargets ldr_rt;
 
     Vec<RenderMesh> render_meshes;
-    Handle<gfx::Buffer> render_meshes_buffer;
     Vec<RenderInstance> render_instances;
+    Handle<gfx::Buffer> render_meshes_buffer;
     RingBuffer instances_data;
+
+    Vec<u32> meshes_to_draw;
+    Vec<u32> instances_to_draw;
 
     ImGuiPass imgui_pass;
 

@@ -1,6 +1,7 @@
 #include "glb.h"
 
 #include <exo/algorithms.h>
+#include <exo/collections/vector.h>
 #include <exo/numerics.h>
 #include <exo/types.h>
 #include <exo/logger.h>
@@ -157,15 +158,17 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
 
     u32 index_acc = 0;
 
+    Vec<u32> mesh_remap;
     if (document.HasMember("meshes"))
     {
+        mesh_remap.resize(document["meshes"].GetArray().Size());
+        u32 i_current_mesh = 0;
+
         for (auto &mesh : document["meshes"].GetArray())
         {
-            new_scene.meshes.emplace_back();
-            auto &new_mesh = new_scene.meshes.back();
+            Mesh new_mesh = {};
 
             for (auto &primitive : mesh["primitives"].GetArray())
-
             {
                 assert(primitive.HasMember("attributes"));
                 const auto &attributes = primitive["attributes"].GetObject();
@@ -295,7 +298,33 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
                              int(not_full));
 #endif
             }
+
+            u32 i_similar_mesh = u32_invalid;
+            for (u32 i_mesh = 0; i_mesh < new_scene.meshes.size(); i_mesh += 1)
+            {
+                const auto &mesh = new_scene.meshes[i_mesh];
+                if (mesh.is_similar(new_mesh))
+                {
+                    i_similar_mesh = i_mesh;
+                    break;
+                }
+            }
+
+            if (i_similar_mesh == u32_invalid)
+            {
+                mesh_remap[i_current_mesh] = new_scene.meshes.size();
+                new_scene.meshes.push_back(std::move(new_mesh));
+            }
+            else
+            {
+                mesh_remap[i_current_mesh] = i_similar_mesh;
+            }
+
+            i_current_mesh += 1;
         }
+
+
+        logger::info("Loaded {} unique meshes from {} meshes in file.\n", new_scene.meshes.size(), mesh_remap.size());
     }
 
     u32 i_scene = 0;
@@ -392,7 +421,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
 
             if (node.HasMember("mesh"))
             {
-                new_scene.instances.push_back({.i_mesh = node["mesh"].GetUint(), .transform = transform});
+                new_scene.instances.push_back({.i_mesh = mesh_remap[node["mesh"].GetUint()], .transform = transform});
             }
 
             if (node.HasMember("children"))

@@ -10,6 +10,8 @@ struct SubMesh
     u32 first_vertex;
     u32 index_count;
     u32 vertex_count;
+
+    bool operator==(const SubMesh &other) const = default;
 };
 
 struct Mesh
@@ -19,5 +21,7 @@ struct Mesh
     Vec<float4> positions;
     Vec<SubMesh> submeshes;
 
+    // doesn't check the name
+    bool is_similar(const Mesh &other) const { return indices == other.indices && positions == other.positions && submeshes == other.submeshes; }
     bool operator==(const Mesh &other) const = default;
 };

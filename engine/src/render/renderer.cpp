@@ -1,8 +1,10 @@
 #include "render/renderer.h"
 
 #include <exo/logger.h>
+#include <vulkan/vulkan_core.h>
 #include "asset_manager.h"
 #include "camera.h"
+#include "render/vulkan/resources.h"
 #include "ui.h"
 #include "scene.h"
 #include "components/camera_component.h"
@@ -23,14 +25,14 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
 
     renderer.instances_data = RingBuffer::create(device, {
-            .name = "Dynamic indices",
+            .name = "Instances data",
             .size = 64_MiB,
             .gpu_usage = gfx::storage_buffer_usage,
         }, false);
 
     renderer.render_meshes_buffer = device.create_buffer({
             .name = "Meshes description buffer",
-            .size = 32_KiB,
+            .size = 2_MiB,
             .usage = gfx::storage_buffer_usage,
             .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
         });
@@ -103,6 +105,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         gfx::RenderState render_state   = {};
         render_state.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
         render_state.depth.enable_write = true;
+        render_state.rasterization.culling = false;
         uint opaque_default             = device.compile(renderer.opaque_program, render_state);
         UNUSED(opaque_default);
     }
@@ -308,6 +311,10 @@ void Renderer::update(Scene &scene)
 
     // -- Get geometry from the scene and prepare the draw commands
     render_instances.clear();
+    for (auto &render_mesh : render_meshes)
+    {
+        render_mesh.instances.clear();
+    }
 
     scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
         [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
@@ -329,19 +336,19 @@ void Renderer::update(Scene &scene)
                     render_mesh.indices      = device.create_buffer({
                         .name  = "Index buffer",
                         .size  = mesh_asset.indices.size() * sizeof(u32),
-                        .usage = gfx::storage_buffer_usage,
+                        .usage = gfx::storage_buffer_usage | gfx::index_buffer_usage,
                     });
-                    render_mesh.vertex_count = static_cast<u32>(mesh_asset.indices.size());
                     render_mesh.submeshes    = mesh_asset.submeshes;
 
                     RenderMeshGPU gpu = {};
                     gpu.positions_descriptor = device.get_buffer_storage_index(render_mesh.positions);
-                    gpu.indices_descriptor = device.get_buffer_storage_index(render_mesh.indices);
+                    gpu.indices_descriptor   = device.get_buffer_storage_index(render_mesh.indices);
 
                     streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
                     streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
 
                     auto *meshes_gpu = reinterpret_cast<RenderMeshGPU*>(device.map_buffer(this->render_meshes_buffer));
+                    assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
                     meshes_gpu[this->render_meshes.size()] = gpu;
 
                     this->render_meshes.push_back(render_mesh);
@@ -349,6 +356,7 @@ void Renderer::update(Scene &scene)
             }
             else
             {
+                render_meshes[render_mesh_component.i_mesh].instances.push_back(render_instances.size());
                 render_instances.push_back({
                     .transform     = local_to_world_component.transform,
                     .i_render_mesh = render_mesh_component.i_mesh,
@@ -356,16 +364,21 @@ void Renderer::update(Scene &scene)
             }
         });
 
-    Vec<u32> instances_to_draw;
-    for (u32 i_render_instance = 0; i_render_instance < render_instances.size(); i_render_instance += 1)
+    meshes_to_draw.clear();
+    instances_to_draw.clear();
+    for (u32 i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
     {
-        const auto &render_instance = render_instances[i_render_instance];
-        const auto &render_mesh     = render_meshes[render_instance.i_render_mesh];
-        if (!streamer.is_uploaded(render_mesh.positions) || !streamer.is_uploaded(render_mesh.indices))
+        auto &render_mesh = render_meshes[i_render_mesh];
+        if (!streamer.is_uploaded(render_mesh.positions) || !streamer.is_uploaded(render_mesh.indices) || render_mesh.instances.empty())
         {
             continue;
         }
-        instances_to_draw.push_back(i_render_instance);
+        meshes_to_draw.push_back(i_render_mesh);
+        render_mesh.first_instance = instances_to_draw.size();
+        for (auto i_instance : render_mesh.instances)
+        {
+            instances_to_draw.push_back(i_instance);
+        }
     }
 
     auto [p_instances, instance_offset] = instances_data.allocate(device, instances_to_draw.size() * sizeof(RenderInstance));
@@ -439,14 +452,16 @@ void Renderer::update(Scene &scene)
     cmd.bind_pipeline(opaque_program, 0);
 
     uint i_draw = 0;
-    for (auto i_render_instance : instances_to_draw)
+    for (auto i_render_mesh : meshes_to_draw)
     {
-        const auto &render_instance = render_instances[i_render_instance];
-        const auto &render_mesh     = render_meshes[render_instance.i_render_mesh];
+        const auto &render_mesh     = render_meshes[i_render_mesh];
 
-        cmd.push_constant<PushConstants>({.draw_id = i_draw});
-        cmd.draw({.vertex_count = render_mesh.vertex_count, .instance_offset = i_render_instance});
-        i_draw += 1;
+        for (const auto &submesh : render_mesh.submeshes)
+        {
+            cmd.push_constant<PushConstants>({.draw_id = i_draw});
+            cmd.draw({.vertex_count = submesh.index_count, .instance_count = static_cast<u32>(render_mesh.instances.size()), .vertex_offset = static_cast<i32>(submesh.first_index), .instance_offset = render_mesh.first_instance});
+            i_draw += 1;
+        }
     }
 
     cmd.end_pass();
