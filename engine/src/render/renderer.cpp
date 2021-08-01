@@ -242,10 +242,15 @@ void Renderer::display_ui(UI::Context &ui)
         float2 min = ImGui::GetWindowContentRegionMin();
         float2 size = float2(min.x < max.x ? max.x - min.x : min.x, min.y < max.y ? max.y - min.y : min.y);
 
-        if (static_cast<uint>(size.x) != settings.render_resolution.x || static_cast<uint>(size.y) != settings.render_resolution.y)
+        uint2 desired_size = {
+            static_cast<uint>(size.x * settings.resolution_scale),
+            static_cast<uint>(size.y * settings.resolution_scale)
+        };
+
+        if (desired_size.x != settings.render_resolution.x || desired_size.y != settings.render_resolution.y)
         {
-            settings.render_resolution.x = static_cast<uint>(size.x);
-            settings.render_resolution.y = static_cast<uint>(size.y);
+            settings.render_resolution.x = desired_size.x;
+            settings.render_resolution.y = desired_size.y;
             settings.resolution_dirty = true;
         }
 
@@ -275,6 +280,7 @@ void Renderer::display_ui(UI::Context &ui)
     {
         if (ImGui::CollapsingHeader("Renderer"))
         {
+            ImGui::SliderFloat("Resolution scale", &settings.resolution_scale, 0.25f, 1.0f);
             ImGui::Checkbox("Enable TAA", &settings.enable_taa);
             ImGui::Checkbox("Enable Path tracing", &settings.enable_path_tracing);
         }

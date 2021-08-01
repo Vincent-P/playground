@@ -27,6 +27,7 @@ class AssetManager;
 
 struct Settings
 {
+    float resolution_scale = 0.5f;
     uint2 render_resolution;
     bool resolution_dirty;
     bool enable_taa = true;
