@@ -109,6 +109,7 @@ void AssetManager::display_ui(UI::Context &ui)
 {
     if (ui.begin_window("Assets"))
     {
+        ImGui::Text("Textures (%u):", textures.size());
         if (ImGui::Button("Load texture"))
         {
             auto file_path = platform::file_dialog({{"PNG", "*.png"}, {"JPG", "*.jpg"}});
@@ -120,6 +121,8 @@ void AssetManager::display_ui(UI::Context &ui)
 
         static Handle<Texture> s_texture_example {};
         choose_texture(s_texture_example);
+
+        ImGui::Text("Meshes (%zu):", meshes.size());
 
         ui.end_window();
     }

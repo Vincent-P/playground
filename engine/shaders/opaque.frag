@@ -26,9 +26,11 @@ uvec3 hash(vec2 s)
     return pcg3d(u.xyz);
 }
 
+layout(location = 0) flat in uint i_instance_index;
 layout(location = 0) out vec4 o_color;
 void main()
 {
-        vec2 seed = vec2(gl_PrimitiveID % 256, gl_PrimitiveID / 256);
-	o_color = vec4(vec3(hash(seed)) * (1.0/float(0xffffffffu)), 1.0);
+        vec2 seed = vec2(i_instance_index % 256, i_instance_index / 256);
+        vec3 color = vec3(hash(seed)) * (1.0/float(0xffffffffu));
+	o_color = vec4(color, 1.0);
 }

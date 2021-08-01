@@ -1,15 +1,27 @@
 #include "render/renderer.h"
 
-#include <exo/logger.h>
-#include <vulkan/vulkan_core.h>
 #include "asset_manager.h"
 #include "camera.h"
+#include "render/bvh.h"
 #include "render/vulkan/resources.h"
 #include "ui.h"
 #include "scene.h"
 #include "components/camera_component.h"
 #include "components/transform_component.h"
 #include "components/mesh_component.h"
+
+#include <exo/logger.h>
+#include <exo/quaternion.h>
+#include <vulkan/vulkan_core.h>
+
+static uint3 dispatch_size(uint3 size, u32 threads)
+{
+    return {
+        (size.x / threads) + uint(size.x % threads != 0),
+        (size.y / threads) + uint(size.y % threads != 0),
+        (size.z / threads) + uint(size.z % threads != 0),
+    };
+}
 
 Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_manager)
 {
@@ -36,6 +48,13 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .usage = gfx::storage_buffer_usage,
             .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
         });
+
+    renderer.tlas_buffer = device.create_buffer({
+        .name         = "TLAS BVH buffer",
+        .size         = 32_MiB,
+        .usage        = gfx::storage_buffer_usage,
+        .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    });
 
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
@@ -111,14 +130,19 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
     }
 
     // Create tonemap program
-    {
-        renderer.tonemap_program = device.create_program("tonemap", {
-            .shader = device.create_shader("shaders/tonemap.comp.spv"),
-            .descriptors =  {
-                {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-            },
-        });
-    }
+    renderer.tonemap_program = device.create_program("tonemap", {
+        .shader = device.create_shader("shaders/tonemap.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
+
+    renderer.path_tracer_program = device.create_program("path tracer", {
+        .shader = device.create_shader("shaders/path_tracer.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
 
     return renderer;
 }
@@ -310,84 +334,7 @@ void Renderer::update(Scene &scene)
     main_camera->projection = camera::infinite_perspective(main_camera->fov, (float)settings.render_resolution.x / settings.render_resolution.y, main_camera->near_plane, &main_camera->projection_inverse);
 
     // -- Get geometry from the scene and prepare the draw commands
-    render_instances.clear();
-    for (auto &render_mesh : render_meshes)
-    {
-        render_mesh.instances.clear();
-    }
-
-    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
-        [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
-        {
-            if (render_mesh_component.i_mesh >= this->render_meshes.size())
-            {
-                for (u32 i_mesh = this->render_meshes.size(); i_mesh < asset_manager->meshes.size(); i_mesh += 1)
-                {
-                    auto &mesh_asset = asset_manager->meshes[i_mesh];
-
-                    logger::info("Uploading mesh asset #{}\n", i_mesh);
-
-                    RenderMesh render_mesh   = {};
-                    render_mesh.positions    = device.create_buffer({
-                        .name  = "Positions buffer",
-                        .size  = mesh_asset.positions.size() * sizeof(float4),
-                        .usage = gfx::storage_buffer_usage,
-                    });
-                    render_mesh.indices      = device.create_buffer({
-                        .name  = "Index buffer",
-                        .size  = mesh_asset.indices.size() * sizeof(u32),
-                        .usage = gfx::storage_buffer_usage | gfx::index_buffer_usage,
-                    });
-                    render_mesh.submeshes    = mesh_asset.submeshes;
-
-                    RenderMeshGPU gpu = {};
-                    gpu.positions_descriptor = device.get_buffer_storage_index(render_mesh.positions);
-                    gpu.indices_descriptor   = device.get_buffer_storage_index(render_mesh.indices);
-
-                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
-                    streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
-
-                    auto *meshes_gpu = reinterpret_cast<RenderMeshGPU*>(device.map_buffer(this->render_meshes_buffer));
-                    assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
-                    meshes_gpu[this->render_meshes.size()] = gpu;
-
-                    this->render_meshes.push_back(render_mesh);
-                }
-            }
-            else
-            {
-                render_meshes[render_mesh_component.i_mesh].instances.push_back(render_instances.size());
-                render_instances.push_back({
-                    .transform     = local_to_world_component.transform,
-                    .i_render_mesh = render_mesh_component.i_mesh,
-                });
-            }
-        });
-
-    meshes_to_draw.clear();
-    instances_to_draw.clear();
-    for (u32 i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
-    {
-        auto &render_mesh = render_meshes[i_render_mesh];
-        if (!streamer.is_uploaded(render_mesh.positions) || !streamer.is_uploaded(render_mesh.indices) || render_mesh.instances.empty())
-        {
-            continue;
-        }
-        meshes_to_draw.push_back(i_render_mesh);
-        render_mesh.first_instance = instances_to_draw.size();
-        for (auto i_instance : render_mesh.instances)
-        {
-            instances_to_draw.push_back(i_instance);
-        }
-    }
-
-    auto [p_instances, instance_offset] = instances_data.allocate(device, instances_to_draw.size() * sizeof(RenderInstance));
-    auto *p_instances_data              = reinterpret_cast<RenderInstance *>(p_instances);
-    for (u32 i_to_draw = 0; i_to_draw < instances_to_draw.size(); i_to_draw += 1)
-    {
-        u32 i_render_instance       = instances_to_draw[i_to_draw];
-        p_instances_data[i_to_draw] = render_instances[i_render_instance];
-    }
+    this->prepare_geometry(scene);
 
     // -- Update global data
     static float4x4 last_view = main_camera->view;
@@ -427,44 +374,74 @@ void Renderer::update(Scene &scene)
     viewport.maxDepth = 1.0f;
     cmd.set_viewport(viewport);
 
-    VkRect2D scissor = {};
+    VkRect2D scissor      = {};
     scissor.extent.width  = settings.render_resolution.x;
     scissor.extent.height = settings.render_resolution.y;
     cmd.set_scissor(scissor);
 
     // Opaque pass
-    cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-    cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
-    cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
-
-    struct PACKED OpaqueOptions
+    if (settings.enable_path_tracing)
     {
-        u32 first_instance;
-        u32 instances_descriptor;
-        u32 meshes_descriptor;
-    };
-
-    auto *options           = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
-    options->first_instance = instance_offset / static_cast<u32>(sizeof(RenderInstance));
-    options->instances_descriptor = device.get_buffer_storage_index(instances_data.buffer);
-    options->meshes_descriptor = device.get_buffer_storage_index(render_meshes_buffer);
-
-    cmd.bind_pipeline(opaque_program, 0);
-
-    uint i_draw = 0;
-    for (auto i_render_mesh : meshes_to_draw)
-    {
-        const auto &render_mesh     = render_meshes[i_render_mesh];
-
-        for (const auto &submesh : render_mesh.submeshes)
+        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+        struct PACKED PathTracerOptions
         {
-            cmd.push_constant<PushConstants>({.draw_id = i_draw});
-            cmd.draw({.vertex_count = submesh.index_count, .instance_count = static_cast<u32>(render_mesh.instances.size()), .vertex_offset = static_cast<i32>(submesh.first_index), .instance_offset = render_mesh.first_instance});
-            i_draw += 1;
-        }
-    }
+            u32 tlas_descriptor;
+            u32 storage_output;
+            u32 instances_descriptor;
+            u32 meshes_descriptor;
+            u32 first_instance;
+        };
 
-    cmd.end_pass();
+        auto *options                 = base_renderer.bind_shader_options<PathTracerOptions>(cmd, path_tracer_program);
+        options->tlas_descriptor      = device.get_buffer_storage_index(tlas_buffer);
+        options->storage_output       = device.get_image_storage_index(hdr_rt.image);
+        options->instances_descriptor = device.get_buffer_storage_index(instances_data.buffer);
+        options->meshes_descriptor    = device.get_buffer_storage_index(render_meshes_buffer);
+        options->first_instance       = this->first_instance;
+
+        auto hdr_buffer_size = device.get_image_size(hdr_rt.image);
+
+        cmd.bind_pipeline(path_tracer_program);
+        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
+    }
+    else
+    {
+        cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
+        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
+        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+
+        struct PACKED OpaqueOptions
+        {
+            u32 first_instance;
+            u32 instances_descriptor;
+            u32 meshes_descriptor;
+        };
+
+        auto *options                 = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
+        options->first_instance       = this->first_instance;
+        options->instances_descriptor = device.get_buffer_storage_index(instances_data.buffer);
+        options->meshes_descriptor    = device.get_buffer_storage_index(render_meshes_buffer);
+
+        cmd.bind_pipeline(opaque_program, 0);
+
+        uint i_draw = 0;
+        for (auto i_render_mesh : meshes_to_draw)
+        {
+            const auto &render_mesh = render_meshes[i_render_mesh];
+
+            for (const auto &submesh : render_mesh.submeshes)
+            {
+                cmd.push_constant<PushConstants>({.draw_id = i_draw});
+                cmd.draw({.vertex_count    = submesh.index_count,
+                          .instance_count  = static_cast<u32>(render_mesh.instances.size()),
+                          .vertex_offset   = static_cast<i32>(submesh.first_index),
+                          .instance_offset = render_mesh.first_instance});
+                i_draw += 1;
+            }
+        }
+
+        cmd.end_pass();
+    }
 
     // Tonemap
     {
@@ -477,7 +454,7 @@ void Renderer::update(Scene &scene)
         options->sampled_hdr_buffer   = device.get_image_sampled_index(hdr_rt.image);
         options->storage_output_frame = device.get_image_storage_index(ldr_rt.image);
         cmd.bind_pipeline(tonemap_program);
-        cmd.dispatch({hdr_buffer_size.x / 16, hdr_buffer_size.y / 16, 1});
+        cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
     }
 
     // ImGui pass
@@ -622,4 +599,153 @@ void Renderer::update(Scene &scene)
         on_resize();
         return;
     }
+}
+
+void Renderer::prepare_geometry(Scene &scene)
+{
+    auto &device = base_renderer.device;
+
+    render_instances.clear();
+    for (auto &render_mesh : render_meshes)
+    {
+        render_mesh.instances.clear();
+    }
+
+    scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
+        [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
+        {
+            if (render_mesh_component.i_mesh >= this->render_meshes.size())
+            {
+                for (u32 i_mesh = this->render_meshes.size(); i_mesh < asset_manager->meshes.size(); i_mesh += 1)
+                {
+                    auto &mesh_asset = asset_manager->meshes[i_mesh];
+
+                    logger::info("Uploading mesh asset #{}\n", i_mesh);
+
+                    RenderMesh render_mesh   = {};
+                    render_mesh.positions    = device.create_buffer({
+                        .name  = "Positions buffer",
+                        .size  = mesh_asset.positions.size() * sizeof(float4),
+                        .usage = gfx::storage_buffer_usage,
+                    });
+                    render_mesh.indices      = device.create_buffer({
+                        .name  = "Index buffer",
+                        .size  = mesh_asset.indices.size() * sizeof(u32),
+                        .usage = gfx::storage_buffer_usage | gfx::index_buffer_usage,
+                    });
+                    render_mesh.submeshes    = mesh_asset.submeshes;
+
+                    BVH bvh         = create_blas(mesh_asset.indices, mesh_asset.positions);
+                    render_mesh.bvh = device.create_buffer({
+                        .name  = "BLAS BVH",
+                        .size  = bvh.nodes.size() * sizeof(BVHNode),
+                        .usage = gfx::storage_buffer_usage,
+                    });
+                    render_mesh.bvh_root = bvh.nodes[0];
+
+                    RenderMeshGPU gpu        = {};
+                    gpu.positions_descriptor = device.get_buffer_storage_index(render_mesh.positions);
+                    gpu.indices_descriptor   = device.get_buffer_storage_index(render_mesh.indices);
+                    gpu.bvh_descriptor       = device.get_buffer_storage_index(render_mesh.bvh);
+
+                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
+                    streamer.upload(render_mesh.indices, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32));
+                    streamer.upload(render_mesh.bvh, bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode));
+
+                    auto *meshes_gpu = reinterpret_cast<RenderMeshGPU*>(device.map_buffer(this->render_meshes_buffer));
+                    assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
+                    meshes_gpu[this->render_meshes.size()] = gpu;
+
+                    this->render_meshes.push_back(render_mesh);
+                }
+            }
+            else
+            {
+                render_meshes[render_mesh_component.i_mesh].instances.push_back(render_instances.size());
+
+                float4x4 translation = float4x4::identity();
+                translation.at(0, 3) = local_to_world_component.translation.x;
+                translation.at(1, 3) = local_to_world_component.translation.y;
+                translation.at(2, 3) = local_to_world_component.translation.z;
+
+                float4x4 rotation = float4x4_from_quaternion(local_to_world_component.quaternion);
+
+                float4x4 scale = float4x4::identity();
+                scale.at(0, 0) = local_to_world_component.scale.x;
+                scale.at(1, 1) = local_to_world_component.scale.y;
+                scale.at(2, 2) = local_to_world_component.scale.z;
+
+                float4x4 otw = translation * rotation * scale;
+
+                translation.at(0, 3) = - local_to_world_component.translation.x;
+                translation.at(1, 3) = - local_to_world_component.translation.y;
+                translation.at(2, 3) = - local_to_world_component.translation.z;
+
+                scale.at(0, 0) = 1.0f / local_to_world_component.scale.x;
+                scale.at(1, 1) = 1.0f / local_to_world_component.scale.y;
+                scale.at(2, 2) = 1.0f / local_to_world_component.scale.z;
+
+                rotation = transpose(rotation);
+
+                float4x4 wto = scale * rotation * translation;
+
+                render_instances.push_back({
+                    .object_to_world     = otw,
+                    .world_to_object     = wto,
+                    .i_render_mesh = render_mesh_component.i_mesh,
+                });
+            }
+        });
+
+    meshes_to_draw.clear();
+    instances_to_draw.clear();
+    for (u32 i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
+    {
+        auto &render_mesh = render_meshes[i_render_mesh];
+        if (!streamer.is_uploaded(render_mesh.positions) || !streamer.is_uploaded(render_mesh.indices) || render_mesh.instances.empty())
+        {
+            continue;
+        }
+        meshes_to_draw.push_back(i_render_mesh);
+        render_mesh.first_instance = instances_to_draw.size();
+        for (auto i_instance : render_mesh.instances)
+        {
+            instances_to_draw.push_back(i_instance);
+        }
+    }
+
+    auto [p_instances, instance_offset] = instances_data.allocate(device, instances_to_draw.size() * sizeof(RenderInstance));
+    auto *p_instances_data              = reinterpret_cast<RenderInstance *>(p_instances);
+    for (u32 i_to_draw = 0; i_to_draw < instances_to_draw.size(); i_to_draw += 1)
+    {
+        u32 i_render_instance       = instances_to_draw[i_to_draw];
+        p_instances_data[i_to_draw] = render_instances[i_render_instance];
+    }
+
+    this->first_instance = instance_offset / static_cast<u32>(sizeof(RenderInstance));
+
+    // TODO: Build TLAS
+    Vec<BVHNode> roots;
+    Vec<float4x4> transforms;
+    Vec<u32> indices;
+    roots.resize(instances_to_draw.size());
+    transforms.resize(instances_to_draw.size());
+    indices.resize(instances_to_draw.size());
+
+    for (u32 i_draw = 0; i_draw < instances_to_draw.size(); i_draw += 1)
+    {
+        u32 i_instance = instances_to_draw[i_draw];
+        const auto &render_instance = render_instances[i_instance];
+        const auto &render_mesh = render_meshes[render_instance.i_render_mesh];
+
+        roots[i_draw] = render_mesh.bvh_root;
+        transforms[i_draw] = render_instance.object_to_world;
+        indices[i_draw] = i_draw;
+    }
+
+    BVH tlas = create_tlas(roots, transforms, indices);
+
+    auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
+    assert(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
+    std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
 }

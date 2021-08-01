@@ -9,18 +9,18 @@
 
 /// --- Structures
 
-
 struct RenderMesh
 {
     u32 positions_descriptor;
     u32 indices_descriptor;
-    u32 pad00;
+    u32 bvh_descriptor;
     u32 pad01;
 };
 
 struct RenderInstance
 {
-    float4x4 transform;
+    float4x4 object_to_world;
+    float4x4 world_to_object;
     u32 i_render_mesh;
     u32 pad00;
     u32 pad01;
@@ -35,6 +35,14 @@ struct ImGuiVertex
     uint pad00;
     uint pad01;
     uint pad10;
+};
+
+struct BVHNode
+{
+    float3 bbox_min;
+    u32    prim_index;
+    float3 bbox_max;
+    u32    next_node;
 };
 
 /// --- Global bindings
@@ -70,6 +78,7 @@ layout(set = 3, binding = 0) buffer InstancesBuffer   { RenderInstance render_in
 layout(set = 3, binding = 0) buffer MeshesBuffer      { RenderMesh render_meshes[]; } global_buffers_meshes[];
 layout(set = 3, binding = 0) buffer PositionsBuffer   { float4 positions[]; } global_buffers_positions[];
 layout(set = 3, binding = 0) buffer IndicesBuffer     { u32 indices[]; } global_buffers_indices[];
+layout(set = 3, binding = 0) buffer BVHBuffer         { BVHNode nodes[]; } global_buffers_bvh[];
 
 #define SHADER_SET 4
 

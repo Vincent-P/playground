@@ -5,6 +5,7 @@
 #include <cross/mapped_file.h>
 #include <exo/collections/vector.h>
 #include "render/mesh.h"
+#include "render/material.h"
 
 namespace glb
 {
@@ -20,6 +21,7 @@ namespace glb
         platform::MappedFile file;
         Vec<Mesh> meshes;
         Vec<MeshInstance> instances;
+        Vec<Material> materials;
     };
 
     Scene load_file(const std::string_view &path);

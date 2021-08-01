@@ -36,7 +36,7 @@ struct float2
     /// --- swizzle black magic
     // clang-format off
     #include "vectors_swizzle.h"
-    #define VEC2_S2(a, b) float2 a##b() { return {a, b}; }
+    #define VEC2_S2(a, b) float2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
     // clang-format on
 
@@ -76,10 +76,10 @@ struct float3
     /// --- swizzle black magic
     // clang-format off
     #include "vectors_swizzle.h"
-    #define VEC3_S3(a, b, c) float3 a##b##c() { return {a, b, c}; }
+    #define VEC3_S3(a, b, c) float3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
     #undef VEC3_S2
-    #define VEC3_S2(a, b) float2 a##b() { return {a, b}; }
+    #define VEC3_S2(a, b) float2 a##b() const { return {a, b}; }
     VEC3_SWIZZLES
     // clang-format on
 
@@ -131,13 +131,13 @@ struct float4
     /// --- swizzle black magic
     // clang-format off
     #include "vectors_swizzle.h"
-    #define VEC4_S4(a, b, c, d) float4 a##b##c##d() { return {a, b, c, d}; }
+    #define VEC4_S4(a, b, c, d) float4 a##b##c##d() const { return {a, b, c, d}; }
     VEC4_SWIZZLES
     #undef VEC4_S3
-    #define VEC4_S3(a, b, c) float3 a##b##c() { return {a, b, c}; }
+    #define VEC4_S3(a, b, c) float3 a##b##c() const { return {a, b, c}; }
     VEC4_SWIZZLES
     #undef VEC4_S2
-    #define VEC4_S2(a, b) float2 a##b() { return {a, b}; }
+    #define VEC4_S2(a, b) float2 a##b() const { return {a, b}; }
     VEC4_SWIZZLES
     // clang-format on
 

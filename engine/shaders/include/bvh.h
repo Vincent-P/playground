@@ -14,7 +14,7 @@ struct Face
 struct BVHNode
 {
     float3 bbox_min;
-    u32    face_index;
+    u32    prim_index;
     float3 bbox_max;
     u32    next_node;
 };

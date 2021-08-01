@@ -192,7 +192,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1024},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          .descriptorCount = 1024},
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1024},
-            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         .descriptorCount = 16 * 1024},
+            VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         .descriptorCount = 32 * 1024},
         };
 
         VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
@@ -205,7 +205,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
         device.global_sets.sampled_images  = create_bindless_set(device, device.global_sets.pool, "bindless sampled images",  {.count = 1024, .type = DescriptorType::SampledImage});
         device.global_sets.storage_images  = create_bindless_set(device, device.global_sets.pool, "bindless storage images",  {.count = 1024, .type = DescriptorType::StorageImage});
-        device.global_sets.storage_buffers = create_bindless_set(device, device.global_sets.pool, "bindless storage buffers", {.count = 16 * 1024, .type = DescriptorType::StorageBuffer});
+        device.global_sets.storage_buffers = create_bindless_set(device, device.global_sets.pool, "bindless storage buffers", {.count = 32 * 1024, .type = DescriptorType::StorageBuffer});
         device.global_sets.uniform         = create_descriptor_set(device, {{.count = 1, .type = DescriptorType::DynamicBuffer}});
 
         VkPushConstantRange push_constant_range;

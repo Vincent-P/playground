@@ -1,6 +1,5 @@
 #pragma once
 #include <exo/types.h>
-#include "render/vulkan/resources.h"
 
 // unity-like pbr materials?
 enum struct MaterialType

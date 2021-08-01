@@ -4,6 +4,7 @@
 #include "camera.h"
 
 #include <exo/logger.h>
+#include <exo/quaternion.h>
 
 #include "asset_manager.h"
 #include "glb.h"
@@ -316,12 +317,46 @@ void Scene::display_ui(UI::Context &ui)
                     asset_manager->meshes.push_back(mesh);
                 }
 
-                for (auto &instance : scene.instances)
+                for (const auto &instance : scene.instances)
                 {
-                    world.create_entity(std::string_view{"MeshInstance"}, LocalToWorldComponent{instance.transform}, RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
+                    LocalToWorldComponent transform;
+                    transform.translation = instance.transform.col(3).xyz();
+                    transform.scale = float3(
+                        instance.transform.col(0).xyz().norm(),
+                        instance.transform.col(1).xyz().norm(),
+                        instance.transform.col(2).xyz().norm()
+                        );
+                    float4x4 m = instance.transform;
+                    // Set translation to zero
+                    m.at(0, 3) = 0.0;
+                    m.at(1, 3) = 0.0;
+                    m.at(2, 3) = 0.0;
+                    // Divide by scale
+                    m.at(0, 0) /= transform.scale.x;
+                    m.at(1, 0) /= transform.scale.x;
+                    m.at(2, 0) /= transform.scale.x;
+                    m.at(0, 1) /= transform.scale.y;
+                    m.at(1, 1) /= transform.scale.y;
+                    m.at(2, 1) /= transform.scale.y;
+                    m.at(0, 2) /= transform.scale.z;
+                    m.at(1, 2) /= transform.scale.z;
+                    m.at(2, 2) /= transform.scale.z;
+                    transform.quaternion = quaternion_from_float4x4(m);
+
+                    world.create_entity(std::string_view{"MeshInstance"}, std::move(transform), RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
                 }
             }
         }
+
+        usize mesh_instances_count = 0;
+        for (auto& [entity, _] : world.entity_index)
+        {
+            if (world.has_component<RenderMeshComponent>(entity))
+            {
+                mesh_instances_count += 1;
+            }
+        }
+        ImGui::Text("Render mesh instances: %zu", mesh_instances_count);
 
 
         for (auto& [entity, _] : world.entity_index)
@@ -369,8 +404,8 @@ void Scene::display_ui(UI::Context &ui)
                 ImGui::Separator();
                 ImGui::TextUnformatted(LocalToWorldComponent::type_name());
                 ImGui::Separator();
-                auto &transform = component->transform;
-                ImGui::SliderFloat3("Translation", transform.col(3).data(), -100.0f, 100.0f);
+                ImGui::SliderFloat3("Translation", component->translation.raw, -100.0f, 100.0f);
+                ImGui::SliderFloat3("Scale", component->scale.raw, 1.0f, 10.0f);
                 ImGui::Spacing();
             }
             }

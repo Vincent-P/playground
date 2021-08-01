@@ -5,13 +5,6 @@
 #include "maths.h"
 #include "constants.h"
 
-struct Box
-{
-    float3 center;
-    float3 radius;
-    float3 inv_radius;
-};
-
 struct Sphere
 {
     float3 center;
@@ -28,8 +21,9 @@ struct Triangle
 struct Ray
 {
     float3 origin;
-    /** Unit direction of propagation */
+    float t_min;
     float3 direction;
+    float t_max;
 };
 
 // -- Intersection functions
@@ -38,63 +32,10 @@ bool fast_box_intersection(float3 box_min, float3 box_max, Ray ray, float3 inv_r
 {
   float3 t0 = (box_min - ray.origin) * inv_ray_dir;
   float3 t1 = (box_max - ray.origin) * inv_ray_dir;
-  float3 tmin = min(t0,t1);
-  float3 tmax = max(t0,t1);
-  return max3(tmin) <= min3(tmax);
+  float tmin = max3(min(t0,t1));
+  float tmax = min3(max(t0,t1));
+  return tmax > 0.0 && tmin <= tmax;
 }
-
-// vec3 box.radius:       independent half-length along the X, Y, and Z axes
-bool ray_box_intersection(Box box, Ray ray, out float distance, out float3 normal, in float3 _invRayDirection) {
-
-    // Move to the box's reference frame. This is unavoidable and un-optimizable.
-    ray.origin = (ray.origin - box.center);
-
-    float winding = (max3(abs(ray.origin) * box.inv_radius) < 1.0) ? -1.0 : 1.0;
-
-    // We'll use the negated sign of the ray direction in several places, so precompute it.
-    // The sign() instruction is fast...but surprisingly not so fast that storing the result
-    // temporarily isn't an advantage.
-    float3 sgn = -sign(ray.direction);
-
-    // Ray-plane intersection. For each pair of planes, choose the one that is front-facing
-    // to the ray and compute the distance to it.
-    float3 distanceToPlane = box.radius * winding * sgn - ray.origin;
-    distanceToPlane *= _invRayDirection;
-
-    // Perform all three ray-box tests and cast to 0 or 1 on each axis.
-    // Use a macro to eliminate the redundant code (no efficiency boost from doing so, of course!)
-    // Could be written with
-#   define TEST(U, VW)\
-         /* Is there a hit on this axis in front of the origin? Use multiplication instead of && for a small speedup */\
-         (distanceToPlane.U >= 0.0) && \
-         /* Is that hit within the face of the box? */\
-         all(lessThan(abs(ray.origin.VW + ray.direction.VW * distanceToPlane.U), box.radius.VW))
-
-    bvec3 test = bvec3(TEST(x, yz), TEST(y, zx), TEST(z, xy));
-
-    // CMOV chain that guarantees exactly one element of sgn is preserved and that the value has the right sign
-    sgn = test.x ? vec3(sgn.x, 0.0, 0.0) : (test.y ? vec3(0.0, sgn.y, 0.0) : vec3(0.0, 0.0, test.z ? sgn.z : 0.0));
-#   undef TEST
-
-    // At most one element of sgn is non-zero now. That element carries the negative sign of the
-    // ray direction as well. Notice that we were able to drop storage of the test vector from registers,
-    // because it will never be used again.
-
-    // Mask the distance by the non-zero axis
-    // Dot product is faster than this CMOV chain, but doesn't work when distanceToPlane contains nans or infs.
-    //
-    distance = (sgn.x != 0.0) ? distanceToPlane.x : ((sgn.y != 0.0) ? distanceToPlane.y : distanceToPlane.z);
-
-    // Normal must face back along the ray. If you need
-    // to know whether we're entering or leaving the box,
-    // then just look at the value of winding. If you need
-    // texture coordinates, then use box.invDirection * hitPoint.
-
-    normal = sgn;
-
-    return (sgn.x != 0) || (sgn.y != 0) || (sgn.z != 0);
-}
-
 
 bool ray_sphere_nearest_intersection(Ray ray, Sphere sphere, out float d, out float3 normal)
 {

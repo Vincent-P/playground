@@ -14,4 +14,5 @@ private:
     u32 *array = nullptr;
     u32 head = 0;
     u32 capacity;
+    u32 size;
 };

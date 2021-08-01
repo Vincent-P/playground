@@ -6,6 +6,7 @@
 #include "render/mesh.h"
 #include "render/ring_buffer.h"
 #include "render/streamer.h"
+#include "render/bvh.h"
 
 #include "render/vulkan/commands.h"
 #include "render/vulkan/context.h"
@@ -68,6 +69,8 @@ struct RenderMesh
 {
     Handle<gfx::Buffer> positions;
     Handle<gfx::Buffer> indices;
+    Handle<gfx::Buffer> bvh;
+    BVHNode bvh_root = {};
     Vec<SubMesh> submeshes;
 
     Vec<u32> instances;
@@ -78,13 +81,14 @@ struct PACKED RenderMeshGPU
 {
     u32 positions_descriptor;
     u32 indices_descriptor;
-    u32 pad00;
+    u32 bvh_descriptor;
     u32 pad01;
 };
 
 struct PACKED RenderInstance
 {
-    float4x4 transform;
+    float4x4 object_to_world;
+    float4x4 world_to_object;
     u32 i_render_mesh;
     u32 pad00;
     u32 pad01;
@@ -109,14 +113,17 @@ struct Renderer
     Vec<RenderInstance> render_instances;
     Handle<gfx::Buffer> render_meshes_buffer;
     RingBuffer instances_data;
+    u32 first_instance = 0;
 
     Vec<u32> meshes_to_draw;
     Vec<u32> instances_to_draw;
+    Handle<gfx::Buffer> tlas_buffer;
 
     ImGuiPass imgui_pass;
 
     Handle<gfx::GraphicsProgram> opaque_program;
     Handle<gfx::ComputeProgram> tonemap_program;
+    Handle<gfx::ComputeProgram> path_tracer_program;
 
     /// ---
 
@@ -126,6 +133,9 @@ struct Renderer
     void display_ui(UI::Context &ui);
     void update(Scene &scene);
 
+    void prepare_geometry(Scene &scene);
+
+    // base_renderer
     void reload_shader(std::string_view shader_name);
     void on_resize();
     bool start_frame();

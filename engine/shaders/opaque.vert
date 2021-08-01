@@ -7,6 +7,8 @@ layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 meshes_descriptor;
 };
 
+
+layout(location = 0) flat out uint o_instance_index;
 void main()
 {
     RenderInstance instance = global_buffers_instances[instances_descriptor].render_instances[first_instance + gl_InstanceIndex];
@@ -15,5 +17,6 @@ void main()
     u32    index    = global_buffers_indices[mesh.indices_descriptor].indices[gl_VertexIndex];
     float4 position = global_buffers_positions[mesh.positions_descriptor].positions[index];
 
-    gl_Position = globals.camera_projection * globals.camera_view * instance.transform * float4(position.xyz, 1.0);
+    gl_Position = globals.camera_projection * globals.camera_view * instance.object_to_world * float4(position.xyz, 1.0);
+    o_instance_index = gl_InstanceIndex;
 }

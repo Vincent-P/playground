@@ -1,0 +1,213 @@
+#version 460
+
+#include "globals.h"
+#include "raytracing.h"
+
+// http://www.jcgt.org/published/0009/03/02/
+uvec3 pcg3d(uvec3 v) {
+
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    v ^= v >> 16u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    return v;
+}
+
+uvec3 hash(vec2 s)
+{
+    uvec4 u = uvec4(s, uint(s.x) ^ uint(s.y), uint(s.x) + uint(s.y));
+    return pcg3d(u.xyz);
+}
+
+
+layout(set = SHADER_SET, binding = 0) uniform Options {
+    u32 tlas_descriptor;
+    u32 storage_output;
+    u32 instances_descriptor;
+    u32 meshes_descriptor;
+    u32 first_instance;
+};
+
+
+struct HitInfo
+{
+    float d;
+    u32 box_inter_count;
+    float3 barycentrics;
+    u32 triangle_id;
+    u32 instance_id;
+};
+
+bool blas_closest_hit(Ray ray, u32 i_instance, out HitInfo hit_info)
+{
+    hit_info.d = 1.0 / 0.0;
+    hit_info.box_inter_count = 0;
+    hit_info.barycentrics = float3(0.0);
+    hit_info.triangle_id = u32_invalid;
+    hit_info.instance_id = u32_invalid;
+
+    RenderInstance instance = global_buffers_instances[instances_descriptor].render_instances[first_instance + i_instance];
+    RenderMesh mesh = global_buffers_meshes[meshes_descriptor].render_meshes[instance.i_render_mesh];
+
+    ray.origin    = (instance.world_to_object * float4(ray.origin, 1.0)).xyz;
+    ray.direction = (instance.world_to_object * float4(ray.direction, 0.0)).xyz;
+
+    float3 inv_ray_dir = 1.0 / ray.direction;
+
+    uint i_node = 0;
+    while (i_node != u32_invalid)
+    {
+        BVHNode node = global_buffers_bvh[nonuniformEXT(mesh.bvh_descriptor)].nodes[i_node];
+
+        if (node.prim_index != u32_invalid)
+        {
+            u32    i_v0 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 0];
+            u32    i_v1 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 1];
+            u32    i_v2 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 2];
+            float3 p0   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v0].xyz;
+            float3 p1   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v1].xyz;
+            float3 p2   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v2].xyz;
+
+            float d = 0.0;
+            Triangle tri;
+            tri.v0 = p0;
+            tri.e0 = p1 - p0;
+            tri.e1 = p2 - p0;
+            float3 barycentrics = triangle_intersection(ray, tri, d);
+
+            if (0.0 < d && d < hit_info.d)
+            {
+                hit_info.d            = d;
+                hit_info.barycentrics = barycentrics;
+                hit_info.triangle_id  = node.prim_index;
+            }
+        }
+        else
+        {
+            bool hit_bbox = fast_box_intersection(node.bbox_min, node.bbox_max, ray, inv_ray_dir);
+            if (hit_bbox)
+            {
+                hit_info.box_inter_count += 1;
+                i_node += 1;
+                continue;
+            }
+        }
+
+        // the ray missed the triangle or the node's bounding box, skip the subtree
+        i_node = node.next_node;
+    }
+
+    return hit_info.d < 1.0 / 0.0;
+}
+
+bool tlas_closest_hit(Ray ray, out HitInfo hit_info)
+{
+    float3 inv_ray_dir = 1.0 / ray.direction;
+
+    hit_info.d = 1.0 / 0.0;
+    hit_info.box_inter_count = 0;
+    hit_info.barycentrics = float3(0.0);
+    hit_info.triangle_id = u32_invalid;
+    hit_info.instance_id = u32_invalid;
+
+    uint i_node = 0;
+    uint iter = 0;
+    while (i_node != u32_invalid && iter < 500)
+    {
+        iter += 1;
+
+        BVHNode node = global_buffers_bvh[tlas_descriptor].nodes[i_node];
+
+        bool hit_bbox = fast_box_intersection(node.bbox_min, node.bbox_max, ray, inv_ray_dir);
+        if (hit_bbox)
+        {
+            hit_info.box_inter_count += 1;
+
+            if (node.prim_index != u32_invalid)
+            {
+                HitInfo leaf_hit_info;
+                // intersect primitive
+                bool hit_leaf = blas_closest_hit(ray, node.prim_index, leaf_hit_info);
+                hit_info.box_inter_count += leaf_hit_info.box_inter_count;
+                if (leaf_hit_info.d < hit_info.d)
+                {
+                    hit_info.instance_id = node.prim_index;
+                    hit_info.d = leaf_hit_info.d;
+                    hit_info.barycentrics = leaf_hit_info.barycentrics;
+                    hit_info.triangle_id  = leaf_hit_info.triangle_id;
+                }
+                i_node = node.next_node;
+                // hit_info.leaf_inter_count += leaf_hit_info.box_inter_count;
+            }
+            else
+            {
+                i_node += 1;
+                continue;
+            }
+        }
+
+        i_node = node.next_node;
+    }
+
+    return hit_info.d < 1.0 / 0.0;
+}
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uint  local_idx  = gl_LocalInvocationIndex;
+    uint3 global_idx = gl_GlobalInvocationID;
+    uint3 group_idx  = gl_WorkGroupID;
+
+    int2 pixel_pos = int2(global_idx.xy);
+    int2 output_size = imageSize(global_images_2d_rgba32f[storage_output]);
+
+    if (any(greaterThan(pixel_pos, output_size)))
+    {
+        return;
+    }
+
+    float2 screen_uv  = (float2(pixel_pos) + float2(0.5)) / globals.resolution;
+    float3 clip_space = float3(screen_uv * 2.0 - 1.0, 1.0);
+
+    // Create a pixel ray
+    #if 0
+    float4x4 view_rows = transpose(globals.camera_view);
+    float aspect_ratio = globals.camera_projection[1][1] / globals.camera_projection[0][0];
+    float tan_half_fov_y = 1.0 / globals.camera_projection[1][1];
+    Ray ray;
+    ray.origin    = globals.camera_view_inverse[3].xyz;
+    ray.direction =
+        + (clip_space.x * tan_half_fov_y * aspect_ratio) * view_rows[0].xyz
+        + (clip_space.y * tan_half_fov_y) * view_rows[1].xyz
+        - view_rows[2].xyz;
+    #else
+    Ray ray;
+    ray.origin    = globals.camera_view_inverse[3].xyz;
+
+    float4 near_plane_world = globals.camera_view_inverse * (globals.camera_projection_inverse * float4(clip_space, 1.0));
+    near_plane_world /= near_plane_world.w;
+    ray.direction = normalize(near_plane_world.xyz - ray.origin);
+    #endif
+
+    BVHNode tlas_root = global_buffers_bvh[tlas_descriptor].nodes[0];
+    HitInfo hit_info;
+    bool hit = tlas_closest_hit(ray, hit_info);
+
+    float3 o_color = float3(hit_info.box_inter_count / 1000.0);
+    if (hit)
+    {
+        vec2 seed = vec2(hit_info.instance_id % 256, hit_info.instance_id / 256);
+        o_color += vec3(hash(seed)) * (1.0/float(0xffffffffu));
+    }
+
+    imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(o_color, 1.0));
+}
