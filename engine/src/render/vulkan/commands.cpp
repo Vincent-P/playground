@@ -210,6 +210,51 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
     vkCmdCopyBuffer(command_buffer, src_buffer.vkhandle, dst_buffer.vkhandle, 1, &copy);
 }
 
+void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
+{
+    auto &src_image = *device->images.get(src);
+    auto &dst_image = *device->images.get(dst);
+
+    VkImageCopy copy                   = {};
+    copy.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
+    copy.srcSubresource.mipLevel       = src_image.full_view.range.baseMipLevel;
+    copy.srcSubresource.baseArrayLayer = src_image.full_view.range.baseArrayLayer;
+    copy.srcSubresource.layerCount     = src_image.full_view.range.layerCount;
+    copy.srcOffset                     = {.x = 0, .y = 0, .z = 0};
+    copy.dstSubresource.aspectMask     = dst_image.full_view.range.aspectMask;
+    copy.dstSubresource.mipLevel       = dst_image.full_view.range.baseMipLevel;
+    copy.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
+    copy.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
+    copy.dstOffset                     = {.x = 0, .y = 0, .z = 0};
+    copy.extent.width                  = std::min(src_image.desc.size.x, dst_image.desc.size.x);
+    copy.extent.height                 = std::min(src_image.desc.size.y, dst_image.desc.size.y);
+    copy.extent.depth                  = std::min(src_image.desc.size.z, dst_image.desc.size.z);
+
+    vkCmdCopyImage(command_buffer, src_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+}
+
+void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
+{
+    auto &src_image = *device->images.get(src);
+    auto &dst_image = *device->images.get(dst);
+
+    VkImageBlit blit                   = {};
+    blit.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
+    blit.srcSubresource.mipLevel       = src_image.full_view.range.baseMipLevel;
+    blit.srcSubresource.baseArrayLayer = src_image.full_view.range.baseArrayLayer;
+    blit.srcSubresource.layerCount     = src_image.full_view.range.layerCount;
+    blit.srcOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
+    blit.srcOffsets[1]                 = {.x = static_cast<i32>(src_image.desc.size.x), .y = static_cast<i32>(src_image.desc.size.y), .z = static_cast<i32>(src_image.desc.size.z)};
+    blit.dstSubresource.aspectMask     = dst_image.full_view.range.aspectMask;
+    blit.dstSubresource.mipLevel       = dst_image.full_view.range.baseMipLevel;
+    blit.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
+    blit.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
+    blit.dstOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
+    blit.dstOffsets[1]                 = {.x = static_cast<i32>(dst_image.desc.size.x), .y = static_cast<i32>(dst_image.desc.size.y), .z = static_cast<i32>(dst_image.desc.size.z)};
+
+    vkCmdBlitImage(command_buffer, src_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+}
+
 void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst)
 {
     auto &src_buffer = *device->buffers.get(src);
@@ -333,29 +378,25 @@ void GraphicsWork::set_viewport(const VkViewport &viewport)
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
-void GraphicsWork::begin_pass(Handle<RenderPass> renderpass_handle, Handle<Framebuffer> framebuffer_handle, Vec<Handle<Image>> attachments, Vec<VkClearValue> clear_values)
+void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, Vec<LoadOp> load_ops)
 {
-    auto &renderpass = *device->renderpasses.get(renderpass_handle);
     auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
+    auto &renderpass = device->find_or_create_renderpass(framebuffer, load_ops);
 
-    Vec<VkImageView> views(attachments.size());
-    for (usize i_attachment = 0; i_attachment < attachments.size(); i_attachment++)
+    Vec<VkClearValue> clear_colors;
+    clear_colors.reserve(load_ops.size());
+    for (auto &load_op : load_ops)
     {
-        views[i_attachment] = device->images.get(attachments[i_attachment])->full_view.vkhandle;
+        clear_colors.push_back(load_op.color);
     }
 
-    VkRenderPassAttachmentBeginInfo attachments_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO };
-    attachments_info.attachmentCount = static_cast<u32>(views.size());
-    attachments_info.pAttachments = views.data();
-
-    VkRenderPassBeginInfo begin_info = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-    begin_info.pNext = &attachments_info;
-    begin_info.renderPass = renderpass.vkhandle;
-    begin_info.framebuffer = framebuffer.vkhandle;
-    begin_info.renderArea.extent.width = framebuffer.desc.width;
-    begin_info.renderArea.extent.height = framebuffer.desc.height;
-    begin_info.clearValueCount = static_cast<u32>(clear_values.size());
-    begin_info.pClearValues = clear_values.data();
+    VkRenderPassBeginInfo begin_info    = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    begin_info.renderPass               = renderpass.vkhandle;
+    begin_info.framebuffer              = framebuffer.vkhandle;
+    begin_info.renderArea.extent.width  = framebuffer.format.width;
+    begin_info.renderArea.extent.height = framebuffer.format.height;
+    begin_info.clearValueCount          = static_cast<u32>(clear_colors.size());
+    begin_info.pClearValues             = clear_colors.data();
 
     vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }

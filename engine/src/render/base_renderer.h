@@ -10,15 +10,6 @@ namespace gfx = vulkan;
 inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
 inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
 
-struct RenderTargets
-{
-    Handle<gfx::RenderPass> clear_renderpass;
-    Handle<gfx::RenderPass> load_renderpass;
-    Handle<gfx::Framebuffer> framebuffer;
-    Handle<gfx::Image> image;
-    Handle<gfx::Image> depth;
-};
-
 struct BaseRenderer
 {
     // Base renderer
@@ -37,7 +28,6 @@ struct BaseRenderer
     Handle<gfx::Image> empty_sampled_image;
     Handle<gfx::Image> empty_storage_image;
 
-    RenderTargets swapchain_rt;
 
     /// ---
 

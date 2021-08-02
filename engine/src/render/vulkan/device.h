@@ -66,7 +66,6 @@ struct Device
     Pool<Shader> shaders;
     Pool<GraphicsProgram> graphics_programs;
     Pool<ComputeProgram> compute_programs;
-    Pool<RenderPass> renderpasses;
     Pool<Framebuffer> framebuffers;
     Pool<Image> images;
     Pool<Buffer> buffers;
@@ -119,14 +118,11 @@ struct Device
     void destroy_program(Handle<GraphicsProgram> program_handle);
     unsigned compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
 
-    Handle<RenderPass> create_renderpass(const RenderAttachments &render_attachments);
-    Handle<RenderPass> find_or_create_renderpass(const RenderAttachments &render_attachments);
-    Handle<RenderPass> find_or_create_renderpass(Handle<Framebuffer> framebuffer_handle);
-    void destroy_renderpass(Handle<RenderPass> renderpass_handle);
-
-    Handle<Framebuffer> create_framebuffer(const FramebufferDescription &desc);
-    Handle<Framebuffer> find_or_create_framebuffer(const FramebufferDescription &desc);
+    // Framebuffers
+    Handle<Framebuffer> create_framebuffer(const FramebufferFormat &desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment = {});
     void destroy_framebuffer(Handle<Framebuffer> framebuffer_handle);
+
+    RenderPass &find_or_create_renderpass(Framebuffer &framebuffer, const Vec<LoadOp> &load_ops); // private
 
     // Compute pipeline
     void recreate_program_internal(ComputeProgram &compute_program);

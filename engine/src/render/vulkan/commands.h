@@ -86,6 +86,8 @@ struct TransferWork : Work
 {
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes);
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
+    void copy_image(Handle<Image> src, Handle<Image> dst);
+    void blit_image(Handle<Image> src, Handle<Image> dst);
     void copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst);
     void fill_buffer(Handle<Buffer> buffer_handle, u32 data);
     void transfer();
@@ -137,7 +139,7 @@ struct GraphicsWork : ComputeWork
     void set_scissor(const VkRect2D &rect);
     void set_viewport(const VkViewport &viewport);
 
-    void begin_pass(Handle<RenderPass> renderpass_handle, Handle<Framebuffer> framebuffer_handle, Vec<Handle<Image>> attachments, Vec<VkClearValue> clear_values);
+    void begin_pass(Handle<Framebuffer> framebuffer_handle, Vec<LoadOp> load_ops);
     void end_pass();
 
     using ComputeWork::bind_pipeline; // make it visible on GraphicsWork

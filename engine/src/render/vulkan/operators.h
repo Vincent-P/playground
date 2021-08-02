@@ -12,4 +12,5 @@ bool operator==(const VkImageSubresourceRange &a, const VkImageSubresourceRange 
 bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b);
 bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b);
 bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b);
+bool operator==(const VkClearValue &a, const VkClearValue &b);
 }

@@ -2,7 +2,6 @@ set(GLSL_INCLUDES
   include/atmosphere.h
   include/bvh.h
   include/constants.h
-  include/csm.h
   include/globals.h
   include/maths.h
   include/pbr.h

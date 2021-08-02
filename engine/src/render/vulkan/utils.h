@@ -472,4 +472,16 @@ inline VkImageViewType view_type_from_image(VkImageType type)
     return VK_IMAGE_VIEW_TYPE_2D;
 }
 
+inline VkAttachmentLoadOp to_vk(LoadOp op)
+{
+    switch (op.type)
+    {
+    case LoadOp::Type::Load: return VK_ATTACHMENT_LOAD_OP_LOAD;
+    case LoadOp::Type::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+    case LoadOp::Type::Ignore: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+    assert(false);
+    return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
+}
+
 }

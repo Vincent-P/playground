@@ -105,10 +105,12 @@ struct Renderer
     Settings settings;
     Streamer streamer;
 
-
     Handle<gfx::Image> depth_buffer;
-    RenderTargets hdr_rt;
-    RenderTargets ldr_rt;
+    Handle<gfx::Image> hdr_buffer;
+    Handle<gfx::Image> ldr_buffer;
+    Handle<gfx::Framebuffer> hdr_depth_fb;
+    Handle<gfx::Framebuffer> ldr_fb;
+    Handle<gfx::Framebuffer> ldr_depth_fb;
 
     Vec<RenderMesh> render_meshes;
     Vec<RenderInstance> render_instances;

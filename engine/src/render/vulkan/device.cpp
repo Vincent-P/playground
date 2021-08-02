@@ -250,9 +250,6 @@ void Device::destroy(const Context &context)
     for (auto &[handle, _] : shaders)
         destroy_shader(handle);
 
-    for (auto &[handle, _] : renderpasses)
-        destroy_renderpass(handle);
-
     for (auto &[handle, _] : framebuffers)
         destroy_framebuffer(handle);
 

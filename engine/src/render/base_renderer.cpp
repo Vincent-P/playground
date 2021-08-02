@@ -76,16 +76,6 @@ BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDes
             .gpu_usage = gfx::index_buffer_usage,
         });
 
-    // Create Render targets
-    renderer.swapchain_rt.clear_renderpass = device.find_or_create_renderpass({.colors = {{.format = surface.format.format}}});
-    renderer.swapchain_rt.load_renderpass  = device.find_or_create_renderpass({.colors = {{.format = surface.format.format, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}}});
-
-    renderer.swapchain_rt.framebuffer = device.create_framebuffer({
-        .width              = surface.extent.width,
-        .height             = surface.extent.height,
-        .attachments_format = {surface.format.format},
-    });
-
     return renderer;
 }
 
@@ -185,13 +175,6 @@ void BaseRenderer::on_resize()
     device.wait_idle();
     surface.destroy_swapchain(device);
     surface.create_swapchain(device);
-
-    device.destroy_framebuffer(swapchain_rt.framebuffer);
-    swapchain_rt.framebuffer = device.create_framebuffer({
-            .width = surface.extent.width,
-            .height = surface.extent.height,
-            .attachments_format = {surface.format.format},
-        });
 }
 
 bool BaseRenderer::start_frame()

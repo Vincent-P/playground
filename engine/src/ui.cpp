@@ -98,6 +98,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
     ImGui::NewFrame();
 
 
+    #if 0
     auto *viewport = ImGui::GetMainViewport();
 
     ImGui::SetNextWindowPos(viewport->GetWorkPos());
@@ -168,6 +169,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
         }
     }
     ImGui::End();
+    #endif
 }
 
 void Context::destroy() { ImGui::DestroyContext(); }

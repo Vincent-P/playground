@@ -60,32 +60,13 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
     renderer.settings.resolution_dirty  = true;
     renderer.settings.render_resolution = {surface.extent.width, surface.extent.height};
 
-    renderer.hdr_rt.clear_renderpass = device.find_or_create_renderpass({
-        .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
-        .depth  = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
-    });
-
-    renderer.hdr_rt.load_renderpass = device.find_or_create_renderpass({
-        .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-        .depth  = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-    });
-
-    renderer.ldr_rt.clear_renderpass = device.find_or_create_renderpass({
-        .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_CLEAR}},
-        .depth  = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-    });
-    renderer.ldr_rt.load_renderpass  = device.find_or_create_renderpass({
-        .colors = {{.format = VK_FORMAT_R32G32B32A32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-        .depth  = {{.format = VK_FORMAT_D32_SFLOAT, .load_op = VK_ATTACHMENT_LOAD_OP_LOAD}},
-    });
-
     // Create ImGui pass
     auto &imgui_pass = renderer.imgui_pass;
     {
         gfx::GraphicsState gui_state = {};
         gui_state.vertex_shader   =  device.create_shader("shaders/gui.vert.spv");
         gui_state.fragment_shader =  device.create_shader("shaders/gui.frag.spv");
-        gui_state.renderpass = renderer.base_renderer.swapchain_rt.clear_renderpass;
+        gui_state.attachments_format = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
         gui_state.descriptors =  {
             {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}},
         };
@@ -115,7 +96,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         gfx::GraphicsState state = {};
         state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
         state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
-        state.renderpass         = renderer.hdr_rt.load_renderpass;
+        state.attachments_format = {.attachments_format = {VK_FORMAT_R32G32B32A32_SFLOAT}, .depth_format = VK_FORMAT_D32_SFLOAT};
         state.descriptors        = {
             {.count = 1, .type = gfx::DescriptorType::DynamicBuffer}, // options
         };
@@ -153,9 +134,75 @@ void Renderer::destroy()
     base_renderer.destroy();
 }
 
+static void recreate_framebuffers(Renderer &r)
+{
+    auto &device   = r.base_renderer.device;
+    auto &surface  = r.base_renderer.surface;
+    auto &settings = r.settings;
+
+    device.wait_idle();
+
+    settings.render_resolution = {surface.extent.width, surface.extent.height};
+
+    // Re-create images
+    device.destroy_image(r.depth_buffer);
+    device.destroy_image(r.hdr_buffer);
+    device.destroy_image(r.ldr_buffer);
+
+    r.depth_buffer = device.create_image({
+        .name   = "Depth buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_D32_SFLOAT,
+        .usages = gfx::depth_attachment_usage,
+    });
+
+    r.hdr_buffer = device.create_image({
+        .name   = "HDR buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .usages = gfx::color_attachment_usage,
+    });
+
+    r.ldr_buffer = device.create_image({
+        .name   = "LDR buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .usages = gfx::color_attachment_usage,
+    });
+
+    // Re-create framebuffers
+    device.destroy_framebuffer(r.hdr_depth_fb);
+    device.destroy_framebuffer(r.ldr_depth_fb);
+    device.destroy_framebuffer(r.ldr_depth_fb);
+
+    r.hdr_depth_fb = device.create_framebuffer(
+        {
+            .width  = settings.render_resolution.x,
+            .height = settings.render_resolution.y,
+        },
+        {r.hdr_buffer},
+        r.depth_buffer);
+
+    r.ldr_depth_fb = device.create_framebuffer(
+        {
+            .width  = settings.render_resolution.x,
+            .height = settings.render_resolution.y,
+        },
+        {r.ldr_buffer},
+        r.depth_buffer);
+
+    r.ldr_fb = device.create_framebuffer(
+        {
+            .width  = settings.render_resolution.x,
+            .height = settings.render_resolution.y,
+        },
+        {r.ldr_buffer});
+}
+
 void Renderer::on_resize()
 {
     base_renderer.on_resize();
+    recreate_framebuffers(*this);
 }
 
 void Renderer::reload_shader(std::string_view shader_name)
@@ -183,81 +230,11 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
     return false;
 }
 
-static void recreate_framebuffers(Renderer &r)
-{
-    auto &device   = r.base_renderer.device;
-    auto &settings = r.settings;
-
-    device.wait_idle();
-
-    device.destroy_image(r.depth_buffer);
-    r.depth_buffer = device.create_image({
-        .name   = "Depth buffer",
-        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
-        .format = VK_FORMAT_D32_SFLOAT,
-        .usages = gfx::depth_attachment_usage,
-    });
-
-    device.destroy_image(r.hdr_rt.image);
-    r.hdr_rt.image = device.create_image({
-        .name   = "HDR buffer",
-        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
-        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-        .usages = gfx::color_attachment_usage,
-    });
-    r.hdr_rt.depth = r.depth_buffer;
-
-    device.destroy_framebuffer(r.hdr_rt.framebuffer);
-    r.hdr_rt.framebuffer = device.create_framebuffer({
-        .width              = settings.render_resolution.x,
-        .height             = settings.render_resolution.y,
-        .attachments_format = {VK_FORMAT_R32G32B32A32_SFLOAT},
-        .depth_format       = VK_FORMAT_D32_SFLOAT,
-    });
-
-    device.destroy_image(r.ldr_rt.image);
-    r.ldr_rt.image = device.create_image({
-        .name   = "LDR buffer",
-        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .usages = gfx::color_attachment_usage,
-    });
-
-    device.destroy_framebuffer(r.ldr_rt.framebuffer);
-    r.ldr_rt.framebuffer = device.create_framebuffer({
-        .width              = settings.render_resolution.x,
-        .height             = settings.render_resolution.y,
-        .attachments_format = {VK_FORMAT_R8G8B8A8_UNORM},
-    });
-}
-
 void Renderer::display_ui(UI::Context &ui)
 {
     auto &device = base_renderer.device;
 
     ImGuiWindowFlags fb_flags = 0;// ImGuiWindowFlags_NoDecoration;
-    if (ui.begin_window("Framebuffer", true, fb_flags))
-    {
-        float2 max = ImGui::GetWindowContentRegionMax();
-        float2 min = ImGui::GetWindowContentRegionMin();
-        float2 size = float2(min.x < max.x ? max.x - min.x : min.x, min.y < max.y ? max.y - min.y : min.y);
-
-        uint2 desired_size = {
-            static_cast<uint>(size.x * settings.resolution_scale),
-            static_cast<uint>(size.y * settings.resolution_scale)
-        };
-
-        if (desired_size.x != settings.render_resolution.x || desired_size.y != settings.render_resolution.y)
-        {
-            settings.render_resolution.x = desired_size.x;
-            settings.render_resolution.y = desired_size.y;
-            settings.resolution_dirty = true;
-        }
-
-        ImGui::Image((void*)((u64)device.get_image_sampled_index(ldr_rt.image)), size);
-
-        ui.end_window();
-    }
 
     if (ui.begin_window("Textures"))
     {
@@ -304,12 +281,11 @@ void Renderer::update(Scene &scene)
         settings.resolution_dirty = false;
     }
 
-    auto &device = base_renderer.device;
-    auto current_frame = base_renderer.frame_count % FRAME_QUEUE_LENGTH;
-    auto &work_pool    = base_renderer.work_pools[current_frame];
-    auto &timings      = base_renderer.timings[current_frame];
-    auto &swapchain_rt = base_renderer.swapchain_rt;
-    swapchain_rt.image = base_renderer.surface.images[base_renderer.surface.current_image];
+    auto &device         = base_renderer.device;
+    auto current_frame   = base_renderer.frame_count % FRAME_QUEUE_LENGTH;
+    auto &work_pool      = base_renderer.work_pools[current_frame];
+    auto &timings        = base_renderer.timings[current_frame];
+    auto swapchain_image = base_renderer.surface.images[base_renderer.surface.current_image];
 
     // -- Transfer stuff
     if (base_renderer.frame_count == 0)
@@ -388,7 +364,7 @@ void Renderer::update(Scene &scene)
     // Opaque pass
     if (settings.enable_path_tracing)
     {
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+        cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
         struct PACKED PathTracerOptions
         {
             u32 tlas_descriptor;
@@ -400,12 +376,12 @@ void Renderer::update(Scene &scene)
 
         auto *options                 = base_renderer.bind_shader_options<PathTracerOptions>(cmd, path_tracer_program);
         options->tlas_descriptor      = device.get_buffer_storage_index(tlas_buffer);
-        options->storage_output       = device.get_image_storage_index(hdr_rt.image);
+        options->storage_output       = device.get_image_storage_index(hdr_buffer);
         options->instances_descriptor = device.get_buffer_storage_index(instances_data.buffer);
         options->meshes_descriptor    = device.get_buffer_storage_index(render_meshes_buffer);
         options->first_instance       = this->first_instance;
 
-        auto hdr_buffer_size = device.get_image_size(hdr_rt.image);
+        auto hdr_buffer_size = device.get_image_size(hdr_buffer);
 
         cmd.bind_pipeline(path_tracer_program);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
@@ -413,8 +389,8 @@ void Renderer::update(Scene &scene)
     else
     {
         cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ColorAttachment);
-        cmd.begin_pass(hdr_rt.clear_renderpass, hdr_rt.framebuffer, {hdr_rt.image, depth_buffer}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}, {{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}});
+        cmd.barrier(hdr_buffer, gfx::ImageUsage::ColorAttachment);
+        cmd.begin_pass(hdr_depth_fb, {gfx::LoadOp::clear({{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}), gfx::LoadOp::clear({{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}})});
 
         struct PACKED OpaqueOptions
         {
@@ -451,14 +427,14 @@ void Renderer::update(Scene &scene)
 
     // Tonemap
     {
-        cmd.barrier(hdr_rt.image, gfx::ImageUsage::ComputeShaderRead);
-        cmd.clear_barrier(ldr_rt.image, gfx::ImageUsage::ComputeShaderReadWrite);
+        cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderRead);
+        cmd.clear_barrier(ldr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
-        auto hdr_buffer_size = device.get_image_size(hdr_rt.image);
+        auto hdr_buffer_size = device.get_image_size(hdr_buffer);
 
         auto *options                 = base_renderer.bind_shader_options<TonemapOptions>(cmd, tonemap_program);
-        options->sampled_hdr_buffer   = device.get_image_sampled_index(hdr_rt.image);
-        options->storage_output_frame = device.get_image_storage_index(ldr_rt.image);
+        options->sampled_hdr_buffer   = device.get_image_sampled_index(hdr_buffer);
+        options->storage_output_frame = device.get_image_storage_index(ldr_buffer);
         cmd.bind_pipeline(tonemap_program);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
     }
@@ -571,8 +547,9 @@ void Renderer::update(Scene &scene)
         }
 
         // Draw pass
-        cmd.barrier(swapchain_rt.image, gfx::ImageUsage::ColorAttachment);
-        cmd.begin_pass(swapchain_rt.clear_renderpass, swapchain_rt.framebuffer, {swapchain_rt.image}, {{{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}});
+        cmd.barrier(ldr_buffer, gfx::ImageUsage::ColorAttachment);
+        cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
+        cmd.begin_pass(ldr_fb, {gfx::LoadOp::load()});
 
         VkViewport viewport{};
         viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
@@ -595,7 +572,10 @@ void Renderer::update(Scene &scene)
         cmd.end_pass();
     }
 
-    cmd.barrier(swapchain_rt.image, gfx::ImageUsage::Present);
+    cmd.barrier(ldr_buffer, gfx::ImageUsage::TransferSrc);
+    cmd.clear_barrier(swapchain_image, gfx::ImageUsage::TransferDst);
+    cmd.blit_image(ldr_buffer, swapchain_image);
+    cmd.barrier(swapchain_image, gfx::ImageUsage::Present);
 
     timings.end_label(cmd);
     cmd.end();

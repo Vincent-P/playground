@@ -235,4 +235,10 @@ bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo 
     return a.flags == b.flags && a.renderPass == b.renderPass && a.width == b.width && a.height == b.height
            && a.layers == b.layers;
 }
+
+
+bool operator==(const VkClearValue &a, const VkClearValue &b)
+{
+    return std::memcmp(&a, &b, sizeof(VkClearValue)) == 0;
+}
 }

@@ -180,43 +180,75 @@ struct RenderState
     bool operator==(const RenderState &) const = default;
 };
 
-struct FramebufferDescription
+
+struct LoadOp
+{
+    enum struct Type
+    {
+        Load,
+        Clear,
+        Ignore
+    };
+
+    Type type;
+    VkClearValue color;
+
+    static inline LoadOp load()
+    {
+        LoadOp load_op;
+        load_op.type = Type::Load;
+        load_op.color = {};
+        return load_op;
+    }
+
+    static inline LoadOp clear(VkClearValue color)
+    {
+        LoadOp load_op;
+        load_op.type = Type::Clear;
+        load_op.color = color;
+        return load_op;
+    }
+
+    static inline LoadOp ignore()
+    {
+        LoadOp load_op;
+        load_op.type = Type::Ignore;
+        load_op.color = {};
+        return load_op;
+    }
+
+    inline bool operator==(const LoadOp& other) const
+    { 
+        return this->type == other.type && this->color == other.color;
+    }
+};
+
+struct RenderPass
+{
+    VkRenderPass vkhandle;
+    Vec<LoadOp> load_ops;
+};
+
+struct FramebufferFormat
 {
     u32 width = 0;
     u32 height = 0;
     u32 layer_count = 1;
     Vec<VkFormat> attachments_format;
     Option<VkFormat> depth_format;
-    bool operator==(const FramebufferDescription &) const = default;
+    bool operator==(const FramebufferFormat &) const = default;
 };
 
 struct  Framebuffer
 {
     VkFramebuffer vkhandle = VK_NULL_HANDLE;
-    FramebufferDescription desc;
+    FramebufferFormat format;
+    Vec<Handle<Image>> color_attachments;
+    Handle<Image> depth_attachment;
+
+    Vec<RenderPass> renderpasses;
+
     bool operator==(const Framebuffer &) const = default;
-};
-
-struct RenderAttachment
-{
-    VkFormat format = VK_FORMAT_UNDEFINED;
-    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-    VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    VkAttachmentStoreOp store_op = VK_ATTACHMENT_STORE_OP_STORE;
-    bool operator==(const RenderAttachment &) const = default;
-};
-
-struct RenderAttachments
-{
-    Vec<RenderAttachment> colors;
-    Option<RenderAttachment> depth;
-    bool operator==(const RenderAttachments &) const = default;
-};
-
-struct RenderPass
-{
-    VkRenderPass vkhandle;
-    RenderAttachments attachments;
 };
 
 // Everything needed to build a pipeline except render state which is a separate struct
@@ -224,7 +256,7 @@ struct GraphicsState
 {
     Handle<Shader> vertex_shader;
     Handle<Shader> fragment_shader;
-    Handle<RenderPass> renderpass;
+    FramebufferFormat attachments_format;
     Vec<DescriptorType> descriptors;
 };
 
@@ -239,6 +271,7 @@ struct GraphicsProgram
     VkPipelineLayout pipeline_layout;
     Vec<VkPipeline> pipelines;
     VkPipelineCache cache;
+    VkRenderPass renderpass;
 
     // data binded to the program
     DescriptorSet descriptor_set;

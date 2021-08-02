@@ -9,15 +9,18 @@ namespace vulkan
 
 /// --- Renderpass
 
-Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_attachments)
+RenderPass create_renderpass(Device &device, const FramebufferFormat &format, const Vec<LoadOp> &load_ops)
 {
+    u32 attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
+    assert(load_ops.size() == attachments_count);
+
     Vec<VkAttachmentReference> color_refs;
-    color_refs.reserve(render_attachments.colors.size());
+    color_refs.reserve(format.attachments_format.size());
 
     Vec<VkAttachmentDescription> attachment_descriptions;
-    attachment_descriptions.reserve(render_attachments.colors.size() + 1);
+    attachment_descriptions.reserve(attachments_count);
 
-    for (const auto &color : render_attachments.colors)
+    for (u32 i_color = 0; i_color < format.attachments_format.size(); i_color += 1)
     {
         color_refs.push_back({
                 .attachment = static_cast<u32>(attachment_descriptions.size()),
@@ -25,13 +28,13 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
             });
 
         attachment_descriptions.push_back(VkAttachmentDescription{
-                .format = color.format,
-                .samples = color.samples,
-                .loadOp = color.load_op,
-                .storeOp = color.store_op,
-                .initialLayout = color.load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            });
+            .format        = format.attachments_format[i_color],
+            .samples       = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp        = to_vk(load_ops[i_color]),
+            .storeOp       = VK_ATTACHMENT_STORE_OP_STORE,
+            .initialLayout = load_ops[i_color].type == LoadOp::Type::Clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        });
     }
 
     VkAttachmentReference depth_ref{
@@ -39,17 +42,17 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     };
 
-    if (render_attachments.depth)
+    if (format.depth_format.has_value())
     {
         depth_ref.attachment = static_cast<u32>(attachment_descriptions.size());
 
         attachment_descriptions.push_back(VkAttachmentDescription{
-                .format = render_attachments.depth->format,
-                .samples = render_attachments.depth->samples,
-                .loadOp = render_attachments.depth->load_op,
-                .storeOp = render_attachments.depth->store_op,
-                .initialLayout = render_attachments.depth->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                .finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                .format        = format.depth_format.value(),
+                .samples       = VK_SAMPLE_COUNT_1_BIT,
+                .loadOp        = to_vk(load_ops.back()),
+                .storeOp       = VK_ATTACHMENT_STORE_OP_STORE,
+                .initialLayout = load_ops.back().type == LoadOp::Type::Clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                .finalLayout   = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
             });
     }
 
@@ -61,7 +64,7 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
     subpass.colorAttachmentCount = static_cast<u32>(color_refs.size());
     subpass.pColorAttachments    = color_refs.data();
     subpass.pResolveAttachments  = nullptr;
-    subpass.pDepthStencilAttachment = render_attachments.depth ? &depth_ref : nullptr;
+    subpass.pDepthStencilAttachment = format.depth_format.has_value() ? &depth_ref : nullptr;
     subpass.preserveAttachmentCount = 0;
     subpass.pPreserveAttachments    = nullptr;
 
@@ -74,138 +77,71 @@ Handle<RenderPass> Device::create_renderpass(const RenderAttachments &render_att
     rp_info.pDependencies          = nullptr;
 
     VkRenderPass vk_renderpass = VK_NULL_HANDLE;
-    VK_CHECK(vkCreateRenderPass(device, &rp_info, nullptr, &vk_renderpass));
+    VK_CHECK(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
 
-    return renderpasses.add({
-            .vkhandle = vk_renderpass,
-            .attachments = render_attachments,
-        });
+    return {.vkhandle = vk_renderpass, .load_ops = load_ops};
 }
 
-Handle<RenderPass> Device::find_or_create_renderpass(const RenderAttachments &render_attachments)
+RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, const Vec<LoadOp> &load_ops)
 {
-    for (auto &[handle, renderpass] : renderpasses)
+    assert(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
+    assert(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
+
+    for (auto &renderpass : framebuffer.renderpasses)
     {
-        if (renderpass->attachments == render_attachments)
+        if (renderpass.load_ops == load_ops)
         {
-            return handle;
+            return renderpass;
         }
     }
 
-    return this->create_renderpass(render_attachments);
-}
-
-Handle<RenderPass> Device::find_or_create_renderpass(Handle<Framebuffer> framebuffer_handle)
-{
-    auto &framebuffer = *this->framebuffers.get(framebuffer_handle);
-
-    RenderAttachments render_attachments;
-
-    for (u32 i_image = 0; i_image < framebuffer.desc.attachments_format.size(); i_image++)
-    {
-        render_attachments.colors.push_back({.format = framebuffer.desc.attachments_format[i_image]});
-    }
-
-    if (framebuffer.desc.depth_format)
-    {
-        render_attachments.depth = {.format = framebuffer.desc.depth_format.value()};
-    }
-
-    for (auto &[handle, renderpass] : renderpasses)
-    {
-        if (renderpass->attachments == render_attachments)
-        {
-            return handle;
-        }
-    }
-
-    return this->create_renderpass(render_attachments);
-}
-
-void Device::destroy_renderpass(Handle<RenderPass> renderpass_handle)
-{
-    if (auto *renderpass = renderpasses.get(renderpass_handle))
-    {
-        vkDestroyRenderPass(device, renderpass->vkhandle, nullptr);
-        renderpasses.remove(renderpass_handle);
-    }
+    framebuffer.renderpasses.push_back(create_renderpass(*this, framebuffer.format, load_ops));
+    return framebuffer.renderpasses.back();
 }
 
 /// --- Framebuffer
 
-Handle<Framebuffer> Device::create_framebuffer(const FramebufferDescription &fb_desc)
+Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment)
 {
-    // Imageless framebuffer
-    RenderAttachments render_attachments;
-    Vec<VkFramebufferAttachmentImageInfo> image_infos;
-    image_infos.reserve(fb_desc.attachments_format.size() + 1);
+    Framebuffer fb = {};
+    fb.format = desc;
+    fb.color_attachments = color_attachments;
+    fb.depth_attachment = depth_attachment;
 
-    for (u32 i_image = 0; i_image < fb_desc.attachments_format.size(); i_image++)
+    assert(fb.format.attachments_format.empty());
+    assert(fb.format.depth_format.has_value() == false);
+
+    u32 attachments_count = fb.color_attachments.size() + (fb.depth_attachment.is_valid() ? 1 : 0);
+
+    Vec<VkImageView> attachment_views;
+    attachment_views.reserve(attachments_count);
+    for (auto &attachment : fb.color_attachments)
     {
-        image_infos.emplace_back();
-        auto &image_info           = image_infos.back();
-        image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
-        image_info.flags           = 0;
-        image_info.usage           = color_attachment_usage;
-        image_info.width           = fb_desc.width;
-        image_info.height          = fb_desc.height;
-        image_info.layerCount      = fb_desc.layer_count;
-        image_info.viewFormatCount = 1;
-        image_info.pViewFormats    = &fb_desc.attachments_format[i_image];
-
-        render_attachments.colors.push_back({.format = fb_desc.attachments_format[i_image]});
+        auto &image = *this->images.get(attachment);
+        attachment_views.push_back(image.full_view.vkhandle);
+        fb.format.attachments_format.push_back(image.desc.format);
+    }
+    if (fb.depth_attachment.is_valid())
+    {
+        auto &image = *this->images.get(fb.depth_attachment);
+        attachment_views.push_back(image.full_view.vkhandle);
+        fb.format.depth_format = image.desc.format;
     }
 
-    if (fb_desc.depth_format)
-    {
-        image_infos.emplace_back();
-        auto &image_info           = image_infos.back();
-        image_info                 = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO};
-        image_info.flags           = 0;
-        image_info.usage           = depth_attachment_usage;
-        image_info.width           = fb_desc.width;
-        image_info.height          = fb_desc.height;
-        image_info.layerCount      = fb_desc.layer_count;
-        image_info.viewFormatCount = 1;
-        image_info.pViewFormats    = &fb_desc.depth_format.value();
-
-        render_attachments.depth = {.format = fb_desc.depth_format.value()};
-    }
-
-    VkFramebufferAttachmentsCreateInfo attachments_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO};
-    attachments_info.attachmentImageInfoCount           = static_cast<u32>(image_infos.size());
-    attachments_info.pAttachmentImageInfos              = image_infos.data();
-
-    auto &renderpass = *renderpasses.get(find_or_create_renderpass(render_attachments));
+    auto &renderpass = this->find_or_create_renderpass(fb, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
 
     VkFramebufferCreateInfo fb_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-    fb_info.pNext                   = &attachments_info;
-    fb_info.flags                   = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT;
     fb_info.renderPass              = renderpass.vkhandle;
-    fb_info.attachmentCount         = static_cast<u32>(image_infos.size());
-    fb_info.width                   = fb_desc.width;
-    fb_info.height                  = fb_desc.height;
-    fb_info.layers                  = fb_desc.layer_count;
+    fb_info.attachmentCount         = attachments_count;
+    fb_info.pAttachments            = attachment_views.data();
+    fb_info.width                   = fb.format.width;
+    fb_info.height                  = fb.format.height;
+    fb_info.layers                  = fb.format.layer_count;
 
-    VkFramebuffer vkhandle = VK_NULL_HANDLE;
-    VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &vkhandle));
+    fb.vkhandle = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &fb.vkhandle));
 
-    return framebuffers.add({
-            .vkhandle = vkhandle,
-            .desc = fb_desc
-        });
-}
-
-Handle<Framebuffer> Device::find_or_create_framebuffer(const FramebufferDescription &fb_desc)
-{
-    for (auto &[handle, framebuffer] : framebuffers)
-    {
-        if (framebuffer->desc == fb_desc)
-        {
-            return handle;
-        }
-    }
-    return create_framebuffer(fb_desc);
+    return framebuffers.add(std::move(fb));
 }
 
 void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
@@ -213,6 +149,11 @@ void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
     if (auto *framebuffer = framebuffers.get(framebuffer_handle))
     {
         vkDestroyFramebuffer(device, framebuffer->vkhandle, nullptr);
+
+        for (auto &renderpass : framebuffer->renderpasses)
+        {
+            vkDestroyRenderPass(device, renderpass.vkhandle, nullptr);
+        }
         framebuffers.remove(framebuffer_handle);
     }
 }
@@ -249,11 +190,15 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
     VkPipelineCache cache = VK_NULL_HANDLE;
     VK_CHECK(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
 
+    u32 attachments_count = graphics_state.attachments_format.attachments_format.size() + (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
+    auto renderpass = create_renderpass(*this, graphics_state.attachments_format, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
+
     return graphics_programs.add({
         .name = name,
         .graphics_state = graphics_state,
         .pipeline_layout = pipeline_layout,
         .cache = cache,
+        .renderpass = renderpass.vkhandle,
         .descriptor_set = std::move(set),
     });
 }
@@ -269,6 +214,7 @@ void Device::destroy_program(Handle<GraphicsProgram> program_handle)
 
         vkDestroyPipelineCache(device, program->cache, nullptr);
         vkDestroyPipelineLayout(device, program->pipeline_layout, nullptr);
+        vkDestroyRenderPass(device, program->renderpass, nullptr);
 
         destroy_descriptor_set(*this, program->descriptor_set);
 
@@ -281,8 +227,6 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     auto *p_program = graphics_programs.get(program_handle);
     assert(p_program);
     auto &program = *p_program;
-
-    const auto &renderpass = *this->renderpasses.get(program.graphics_state.renderpass);
 
     Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
@@ -321,11 +265,10 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
         .lineWidth               = 1.0f,
     };
 
-    // TODO: from render_pass
     Vec<VkPipelineColorBlendAttachmentState> att_states;
-    att_states.reserve(renderpass.attachments.colors.size());
+    att_states.reserve(program.graphics_state.attachments_format.attachments_format.size());
 
-    for (const auto &color_attachment : renderpass.attachments.colors)
+    for (const auto &color_attachment : program.graphics_state.attachments_format.attachments_format)
     {
         UNUSED(color_attachment);
 
@@ -390,7 +333,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     VkPipelineMultisampleStateCreateInfo ms_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms_i.flags                                = 0;
     ms_i.pSampleMask                          = nullptr;
-    ms_i.rasterizationSamples                 = renderpass.attachments.colors.empty() ? VK_SAMPLE_COUNT_1_BIT : renderpass.attachments.colors[0].samples;
+    ms_i.rasterizationSamples                 = VK_SAMPLE_COUNT_1_BIT;
     ms_i.sampleShadingEnable                  = VK_FALSE;
     ms_i.alphaToCoverageEnable                = VK_FALSE;
     ms_i.alphaToOneEnable                     = VK_FALSE;
@@ -434,7 +377,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     pipe_i.pDepthStencilState           = &ds_i;
     pipe_i.pStages                      = shader_stages.data();
     pipe_i.stageCount                   = static_cast<u32>(shader_stages.size());
-    pipe_i.renderPass                   = renderpass.vkhandle;
+    pipe_i.renderPass                   = program.renderpass;
     pipe_i.subpass                      = 0;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
