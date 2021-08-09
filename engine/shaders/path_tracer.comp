@@ -39,16 +39,16 @@ bool blas_closest_hit(Ray ray, u32 i_instance, out HitInfo hit_info)
     uint i_node = 0;
     while (i_node != u32_invalid)
     {
-        BVHNode node = global_buffers_bvh[nonuniformEXT(mesh.bvh_descriptor)].nodes[i_node];
+        BVHNode node = get_blas_node(mesh.bvh_root, i_node);
 
         if (node.prim_index != u32_invalid)
         {
             u32    i_v0 = get_index(mesh.first_index + node.prim_index + 0);
             u32    i_v1 = get_index(mesh.first_index + node.prim_index + 1);
             u32    i_v2 = get_index(mesh.first_index + node.prim_index + 2);
-            float3 p0   = get_position_non_uniform(mesh.positions_descriptor, i_v0).xyz;
-            float3 p1   = get_position_non_uniform(mesh.positions_descriptor, i_v1).xyz;
-            float3 p2   = get_position_non_uniform(mesh.positions_descriptor, i_v2).xyz;
+            float3 p0   = get_position(mesh.first_position, i_v0).xyz;
+            float3 p1   = get_position(mesh.first_position, i_v1).xyz;
+            float3 p2   = get_position(mesh.first_position, i_v2).xyz;
 
             float d = 0.0;
             Triangle tri;
@@ -194,9 +194,9 @@ void main()
         u32    i_v0 = get_index(mesh.first_index + hit_info.triangle_id + 0);
         u32    i_v1 = get_index(mesh.first_index + hit_info.triangle_id + 1);
         u32    i_v2 = get_index(mesh.first_index + hit_info.triangle_id + 2);
-        float3 p0   = get_position_non_uniform(mesh.positions_descriptor, i_v0).xyz;
-        float3 p1   = get_position_non_uniform(mesh.positions_descriptor, i_v1).xyz;
-        float3 p2   = get_position_non_uniform(mesh.positions_descriptor, i_v2).xyz;
+        float3 p0   = get_position(mesh.first_position, i_v0).xyz;
+        float3 p1   = get_position(mesh.first_position, i_v1).xyz;
+        float3 p2   = get_position(mesh.first_position, i_v2).xyz;
         float3 e1 = p1 - p0;
         float3 e2 = p2 - p0;
 

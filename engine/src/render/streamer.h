@@ -43,7 +43,7 @@ public:
     void upload(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset = 0);
     void upload(Handle<gfx::Image> image, const void *data, usize len);
     bool is_uploaded(Handle<gfx::Image> image);
-    bool is_uploaded(Handle<gfx::Buffer> buffer, usize len = 0, usize dst_offset = 0);
+    bool is_uploaded(Handle<gfx::Buffer> buffer, usize dst_offset = 0);
 
     gfx::Device *device;
     gfx::Fence transfer_done;

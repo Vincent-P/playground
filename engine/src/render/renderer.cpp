@@ -69,7 +69,10 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .usage = gfx::storage_buffer_usage | gfx::indirext_buffer_usage,
         });
 
-    renderer.index_buffer = UnifiedBufferStorage::create(device, "Unified index buffer", 256_MiB, sizeof(u32), gfx::index_buffer_usage);
+    renderer.index_buffer            = UnifiedBufferStorage::create(device, "Unified index buffer", 256_MiB, sizeof(u32), gfx::index_buffer_usage);
+    renderer.vertex_positions_buffer = UnifiedBufferStorage::create(device, "Unified positions buffer", 128_MiB, sizeof(u32));
+    renderer.bvh_nodes_buffer        = UnifiedBufferStorage::create(device, "Unified bvh buffer", 256_MiB, sizeof(u32));
+    renderer.submeshes_buffer        = UnifiedBufferStorage::create(device, "Unified submeshes buffer", 32_MiB, sizeof(u32));
 
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
@@ -421,6 +424,9 @@ void Renderer::update(Scene &scene)
     global_data->tlas_descriptor                   = device.get_buffer_storage_index(tlas_buffer);
     global_data->submesh_instances_count           = this->submesh_instances_to_draw.size();
     global_data->index_buffer_descriptor           = device.get_buffer_storage_index(this->index_buffer.buffer);
+    global_data->vertex_positions_descriptor       = device.get_buffer_storage_index(this->vertex_positions_buffer.buffer);
+    global_data->bvh_nodes_descriptor              = device.get_buffer_storage_index(this->bvh_nodes_buffer.buffer);
+    global_data->submeshes_descriptor              = device.get_buffer_storage_index(this->submeshes_buffer.buffer);
 
     last_view = main_camera->view;
     last_proj = main_camera->projection;
@@ -763,41 +769,24 @@ void Renderer::prepare_geometry(Scene &scene)
                     auto &mesh_asset = asset_manager->meshes[i_mesh];
 
                     logger::info("Uploading mesh asset #{}\n", i_mesh);
+                    BVH bvh         = create_blas(mesh_asset.indices, mesh_asset.positions);
 
                     RenderMesh render_mesh   = {};
-                    render_mesh.positions    = device.create_buffer({
-                        .name  = "Positions buffer",
-                        .size  = mesh_asset.positions.size() * sizeof(float4),
-                        .usage = gfx::storage_buffer_usage,
-                    });
-                    render_mesh.submeshes      = device.create_buffer({
-                        .name  = "Submeshes buffer",
-                        .size  = mesh_asset.submeshes.size() * sizeof(SubMesh),
-                        .usage = gfx::storage_buffer_usage,
-                    });
-
-                    BVH bvh         = create_blas(mesh_asset.indices, mesh_asset.positions);
-                    render_mesh.bvh = device.create_buffer({
-                        .name  = "BLAS BVH",
-                        .size  = bvh.nodes.size() * sizeof(BVHNode),
-                        .usage = gfx::storage_buffer_usage,
-                    });
                     render_mesh.bvh_root = bvh.nodes[0];
 
-                    RenderMeshGPU gpu        = {};
-                    gpu.positions_descriptor = device.get_buffer_storage_index(render_mesh.positions);
-                    gpu.first_index          = this->index_buffer.allocate(mesh_asset.indices.size());
-                    gpu.bvh_descriptor       = device.get_buffer_storage_index(render_mesh.bvh);
-                    gpu.submeshes_descriptor = device.get_buffer_storage_index(render_mesh.submeshes);
+                    render_mesh.gpu.first_position = this->vertex_positions_buffer.allocate(mesh_asset.positions.size());
+                    render_mesh.gpu.first_index    = this->index_buffer.allocate(mesh_asset.indices.size());
+                    render_mesh.gpu.bvh_root       = this->bvh_nodes_buffer.allocate(bvh.nodes.size());
+                    render_mesh.gpu.first_submesh  = this->submeshes_buffer.allocate(mesh_asset.submeshes.size());
 
-                    streamer.upload(render_mesh.positions, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4));
-                    streamer.upload(this->index_buffer.buffer, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32), gpu.first_index * sizeof(u32));
-                    streamer.upload(render_mesh.bvh, bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode));
-                    streamer.upload(render_mesh.submeshes, mesh_asset.submeshes.data(), mesh_asset.submeshes.size() * sizeof(SubMesh));
+                    streamer.upload(this->vertex_positions_buffer.buffer, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4), render_mesh.gpu.first_position * sizeof(float4));
+                    streamer.upload(this->index_buffer.buffer, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32), render_mesh.gpu.first_index * sizeof(u32));
+                    streamer.upload(this->bvh_nodes_buffer.buffer, bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode), render_mesh.gpu.bvh_root * sizeof(BVHNode));
+                    streamer.upload(this->submeshes_buffer.buffer, mesh_asset.submeshes.data(), mesh_asset.submeshes.size() * sizeof(SubMesh), render_mesh.gpu.first_submesh * sizeof(SubMesh));
 
-                    auto *meshes_gpu = reinterpret_cast<RenderMeshGPU*>(device.map_buffer(this->render_meshes_buffer));
+                    auto *meshes_gpu = reinterpret_cast<RenderMeshGPU *>(device.map_buffer(this->render_meshes_buffer));
                     assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
-                    meshes_gpu[this->render_meshes.size()] = gpu;
+                    meshes_gpu[this->render_meshes.size()] = render_mesh.gpu;
 
                     this->render_meshes.push_back(render_mesh);
 
@@ -814,7 +803,7 @@ void Renderer::prepare_geometry(Scene &scene)
     {
         auto &render_mesh = render_meshes[i_render_mesh];
         auto &mesh_asset  = asset_manager->meshes[i_render_mesh];
-        if (!streamer.is_uploaded(render_mesh.positions) || render_mesh.instances.empty())
+        if (!streamer.is_uploaded(this->vertex_positions_buffer.buffer, render_mesh.gpu.first_position * sizeof(float4)) || render_mesh.instances.empty())
         {
             continue;
         }

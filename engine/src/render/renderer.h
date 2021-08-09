@@ -67,7 +67,12 @@ struct PACKED GlobalUniform
     u32 tlas_descriptor;
     u32 submesh_instances_count;
     u32 index_buffer_descriptor;
-    u32 pad10;
+    u32 vertex_positions_descriptor;
+
+    u32 bvh_nodes_descriptor;
+    u32 submeshes_descriptor;
+    u32 pad00;
+    u32 pad01;
 };
 
 struct PACKED PushConstants
@@ -76,16 +81,22 @@ struct PACKED PushConstants
     u32 gui_texture_id = u32_invalid;
 };
 
+// Descriptors for a mesh
+struct PACKED RenderMeshGPU
+{
+    u32 first_position;
+    u32 first_index;
+    u32 bvh_root;
+    u32 first_submesh;
+};
+
 // A 3D model
 struct RenderMesh
 {
-    Handle<gfx::Buffer> positions;
-    Handle<gfx::Buffer> bvh;
-    Handle<gfx::Buffer> submeshes;
     BVHNode bvh_root = {};
-
     Vec<u32> instances;
     u32 first_instance = 0;
+    RenderMeshGPU gpu;
 };
 
 // One drawcall, one material instance
@@ -95,15 +106,6 @@ struct SubMeshInstance
     u32 i_submesh;
     u32 i_instance;
     u32 i_draw;
-};
-
-// Descriptors for a mesh
-struct PACKED RenderMeshGPU
-{
-    u32 positions_descriptor;
-    u32 first_index;
-    u32 bvh_descriptor;
-    u32 submeshes_descriptor;
 };
 
 // One object in the world
@@ -139,7 +141,11 @@ struct Renderer
     Vec<RenderInstance> render_instances;
     Handle<gfx::Buffer> render_meshes_buffer;
     Handle<gfx::Buffer> tlas_buffer;
+
     UnifiedBufferStorage index_buffer;
+    UnifiedBufferStorage vertex_positions_buffer;
+    UnifiedBufferStorage bvh_nodes_buffer;
+    UnifiedBufferStorage submeshes_buffer;
 
 
     // Draw data

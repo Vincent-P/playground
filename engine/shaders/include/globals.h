@@ -11,10 +11,10 @@
 
 struct RenderMesh
 {
-    u32 positions_descriptor;
+    u32 first_position;
     u32 first_index;
-    u32 bvh_descriptor;
-    u32 submeshes_descriptor;
+    u32 bvh_root;
+    u32 first_submesh;
 };
 
 struct RenderInstance
@@ -102,7 +102,12 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     u32 tlas_descriptor;
     u32 submesh_instances_count;
     u32 index_buffer_descriptor;
-    u32 pad10;
+    u32 vertex_positions_descriptor;
+
+    u32 bvh_nodes_descriptor;
+    u32 submeshes_descriptor;
+    u32 pad00;
+    u32 pad01;
 } globals;
 
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
@@ -142,14 +147,9 @@ u32 get_index(u32 i_index)
     return global_buffers_indices[globals.index_buffer_descriptor].indices[i_index];
 }
 
-float4 get_position(u32 positions_descriptor, u32 i_position)
+float4 get_position(u32 first_position, u32 i_position)
 {
-    return global_buffers_positions[positions_descriptor].positions[i_position];
-}
-
-float4 get_position_non_uniform(nonuniformEXT u32 positions_descriptor, u32 i_position)
-{
-    return global_buffers_positions[positions_descriptor].positions[i_position];
+    return global_buffers_positions[globals.vertex_positions_descriptor].positions[first_position + i_position];
 }
 
 BVHNode get_tlas_node(u32 i_node)
@@ -157,13 +157,18 @@ BVHNode get_tlas_node(u32 i_node)
     return global_buffers_bvh[globals.tlas_descriptor].nodes[i_node];
 }
 
+BVHNode get_blas_node(u32 bvh_root, u32 i_node)
+{
+    return global_buffers_bvh[globals.bvh_nodes_descriptor].nodes[bvh_root + i_node];
+}
+
 SubMeshInstance get_submesh_instance(u32 i_submesh_instance)
 {
     return global_buffers_submesh_instances[globals.submesh_instances_data_descriptor].submesh_instances[globals.submesh_instances_offset + i_submesh_instance];
 }
 
-SubMesh get_submesh_non_uniform(nonuniformEXT u32 submeshes_descriptor, u32 i_submesh)
+SubMesh get_submesh(u32 first_submesh, u32 i_submesh)
 {
-    return global_buffers_submeshes[submeshes_descriptor].submeshes[i_submesh];
+    return global_buffers_submeshes[globals.submeshes_descriptor].submeshes[first_submesh + i_submesh];
 }
 #endif

@@ -149,7 +149,7 @@ void Streamer::upload(Handle<gfx::Image> image, const void *data, usize len)
     image_uploads[image] = upload_resource(*this, data, len, 0);
 }
 
-bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer, usize len, usize dst_offset)
+bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer, usize dst_offset)
 {
     for (auto &upload : buffer_uploads[buffer])
     {

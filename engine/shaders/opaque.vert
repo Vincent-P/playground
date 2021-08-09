@@ -8,7 +8,7 @@ void main()
     RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 
     u32    index    = gl_VertexIndex;
-    float4 position = get_position(mesh.positions_descriptor, index);
+    float4 position = get_position(mesh.first_position, index);
 
 
     float4x4 projection = globals.camera_projection;

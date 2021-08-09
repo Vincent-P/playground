@@ -30,19 +30,19 @@ void main()
     RenderInstance instance          = get_render_instance(submesh_instance.i_instance);
     RenderMesh mesh                  = get_render_mesh(submesh_instance.i_mesh);
 
-    SubMesh submesh = get_submesh_non_uniform(mesh.submeshes_descriptor, submesh_instance.i_submesh);
+    SubMesh submesh = get_submesh(mesh.first_submesh, submesh_instance.i_submesh);
 
     u32 i_draw = submesh_instance.i_draw;
 
     DRAW_ARGUMENTS_BUFFER.arguments[i_draw].vertex_count    = submesh.index_count;
-    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count  = 1;
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count  = 0;
     DRAW_ARGUMENTS_BUFFER.arguments[i_draw].index_offset    = mesh.first_index + submesh.first_index;
     DRAW_ARGUMENTS_BUFFER.arguments[i_draw].vertex_offset   = 0;
     DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_offset = submesh_instance.i_instance;
 
     barrier();
 
+    atomicAdd(DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count, 1);
     atomicAdd(DRAW_ARGUMENTS_BUFFER.draw_count, 1);
-    // atomicAdd(DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count, 1);
     // atomicMin(DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_offset, submesh_instance.i_instance);
 }
