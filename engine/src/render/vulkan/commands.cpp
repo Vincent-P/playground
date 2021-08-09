@@ -178,18 +178,18 @@ void Work::timestamp_query(QueryPool &query_pool, u32 index)
 }
 
 /// --- TransferWork
-void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes)
+void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<u32, u32, u32>> offsets_src_dst_size)
 {
     auto &src_buffer = *device->buffers.get(src);
     auto &dst_buffer = *device->buffers.get(dst);
 
-    Vec<VkBufferCopy> buffer_copies(offsets_sizes.size());
-    for (usize i_copy = 0; i_copy < offsets_sizes.size(); i_copy += 1)
+    Vec<VkBufferCopy> buffer_copies(offsets_src_dst_size.size());
+    for (usize i_copy = 0; i_copy < offsets_src_dst_size.size(); i_copy += 1)
     {
         buffer_copies[i_copy] = {
-            .srcOffset = offsets_sizes[i_copy].first,
-            .dstOffset = offsets_sizes[i_copy].first,
-            .size      = offsets_sizes[i_copy].second,
+            .srcOffset = std::get<0>(offsets_src_dst_size[i_copy]),
+            .dstOffset = std::get<1>(offsets_src_dst_size[i_copy]),
+            .size = std::get<2>(offsets_src_dst_size[i_copy]),
         };
     }
 
@@ -366,6 +366,14 @@ void GraphicsWork::draw_indexed(const DrawIndexedOptions &options)
 void GraphicsWork::draw(const DrawOptions &options)
 {
     vkCmdDraw(command_buffer, options.vertex_count, options.instance_count, options.vertex_offset, options.instance_offset);
+}
+
+
+void GraphicsWork::draw_indexed_indirect_count(const DrawIndexedIndirectCountOptions &options)
+{
+    auto &arguments = *device->buffers.get(options.arguments_buffer);
+    auto &count = *device->buffers.get(options.count_buffer);
+    vkCmdDrawIndexedIndirectCount(command_buffer, arguments.vkhandle, options.arguments_offset, count.vkhandle, options.count_offset, options.max_draw_count, options.stride);
 }
 
 void GraphicsWork::set_scissor(const VkRect2D &rect)

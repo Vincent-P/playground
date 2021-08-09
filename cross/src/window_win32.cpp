@@ -1,6 +1,5 @@
 #include "cross/window.h"
 
-#include <exo/algorithms.h>
 #include "utils_win32.h"
 
 #include <fmt/core.h>

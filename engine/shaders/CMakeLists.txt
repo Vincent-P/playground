@@ -14,8 +14,10 @@ set(GLSL_FILES
   gui.vert
   opaque.frag
   opaque.vert
+  taa.comp
   tonemap.comp
   path_tracer.comp
+  gen_draw_calls.comp
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)
@@ -24,7 +26,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}
-    COMMAND glslc --target-env=vulkan1.2 -O -std=460 ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL_FILE} -o ${SPIRV_FILE} -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL_FILE} -o ${SPIRV_FILE} -I ${CMAKE_CURRENT_SOURCE_DIR}/include
     DEPENDS ${GLSL_FILE} ${GLSL_INCLUDES}
     )
 

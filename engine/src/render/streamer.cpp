@@ -23,13 +23,16 @@ void Streamer::destroy()
 
 void Streamer::update(gfx::WorkPool &work_pool)
 {
-    for (auto &[dst_buffer, upload] : buffer_uploads)
+    for (auto &[dst_buffer, uploads] : buffer_uploads)
     {
-        if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
+        for (auto &upload : uploads)
         {
-            auto &staging = staging_areas[upload.i_staging];
-            upload.state = UploadState::Done;
-            staging.in_use = true;
+            if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
+            {
+                auto &staging = staging_areas[upload.i_staging];
+                upload.state = UploadState::Done;
+                staging.in_use = false;
+            }
         }
     }
     for (auto &[dst_image, upload] : image_uploads)
@@ -38,7 +41,7 @@ void Streamer::update(gfx::WorkPool &work_pool)
         {
             auto &staging = staging_areas[upload.i_staging];
             upload.state = UploadState::Done;
-            staging.in_use = true;
+            staging.in_use = false;
         }
     }
 
@@ -49,13 +52,16 @@ void Streamer::update(gfx::WorkPool &work_pool)
     gfx::TransferWork transfer_cmd = device->get_transfer_work(work_pool);
     transfer_cmd.begin();
 
-    for (auto &[dst_buffer, upload] : buffer_uploads)
+    for (auto &[dst_buffer, uploads] : buffer_uploads)
     {
-        if (upload.state == UploadState::Requested)
+        for (auto &upload : uploads)
         {
-            auto &staging = staging_areas[upload.i_staging];
-            transfer_cmd.copy_buffer(staging.buffer, dst_buffer);
-            upload.state = UploadState::Uploading;
+            if (upload.state == UploadState::Requested)
+            {
+                auto &staging = staging_areas[upload.i_staging];
+                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, {{0, upload.dst_offset, upload.len}});
+                upload.state = UploadState::Uploading;
+            }
         }
     }
 
@@ -81,7 +87,7 @@ static u32 find_or_create_staging(Streamer &streamer, usize len)
     for (u32 i = 0; i < streamer.staging_areas.size(); i += 1)
     {
         auto &staging = streamer.staging_areas[i];
-        if (!staging.in_use && staging.size <= len)
+        if (!staging.in_use && len <= staging.size)
         {
             staging.in_use = true;
             return i;
@@ -105,7 +111,7 @@ static u32 find_or_create_staging(Streamer &streamer, usize len)
     return static_cast<u32>(streamer.staging_areas.size()) - 1;
 }
 
-static ResourceUpload upload_resource(Streamer &streamer, const void *data, usize len)
+static ResourceUpload upload_resource(Streamer &streamer, const void *data, usize len, usize dst_offset)
 {
     u32 i_staging = find_or_create_staging(streamer, len);
     auto &staging = streamer.staging_areas[i_staging];
@@ -118,24 +124,41 @@ static ResourceUpload upload_resource(Streamer &streamer, const void *data, usiz
     upload.i_staging = i_staging;
     upload.transfer_id = streamer.current_transfer;
     upload.state = UploadState::Requested;
+    upload.dst_offset = dst_offset;
+    upload.len = len;
 
     streamer.current_transfer += 1;
     return upload;
 }
 
-void Streamer::upload(Handle<gfx::Buffer> buffer, const void *data, usize len)
+void Streamer::upload(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset)
 {
-    buffer_uploads[buffer] = upload_resource(*this, data, len);
+    for (auto &upload : buffer_uploads[buffer])
+    {
+        if (upload.dst_offset == dst_offset)
+        {
+            upload = upload_resource(*this, data, len, dst_offset);
+            return;
+        }
+    }
+    buffer_uploads[buffer].push_back(upload_resource(*this, data, len, dst_offset));
 }
 
 void Streamer::upload(Handle<gfx::Image> image, const void *data, usize len)
 {
-    image_uploads[image] = upload_resource(*this, data, len);
+    image_uploads[image] = upload_resource(*this, data, len, 0);
 }
 
-bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer)
+bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer, usize len, usize dst_offset)
 {
-    return buffer_uploads.contains(buffer) && buffer_uploads.at(buffer).state == UploadState::Done;
+    for (auto &upload : buffer_uploads[buffer])
+    {
+        if (upload.state == UploadState::Done && upload.dst_offset == dst_offset)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Streamer::is_uploaded(Handle<gfx::Image> image)

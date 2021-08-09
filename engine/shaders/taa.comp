@@ -1,0 +1,47 @@
+#include "types.h"
+#include "constants.h"
+#include "globals.h"
+
+layout(set = SHADER_SET, binding = 0) uniform Options {
+    uint sampled_hdr_buffer;
+    uint sampled_previous_history;
+    uint storage_current_history;
+};
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uint local_idx   = gl_LocalInvocationIndex;
+    uint3 global_idx = gl_GlobalInvocationID;
+    uint3 group_idx  = gl_WorkGroupID;
+
+    int2 pixel_pos = int2(global_idx.xy);
+    int2 output_size = imageSize(global_images_2d_rgba32f[storage_current_history]);
+    int2 input_size = textureSize(global_textures[sampled_hdr_buffer], LOD0);
+    float2 input_texel = 1.0 / float2(input_size);
+    float2 output_texel = 1.0 / float2(output_size);
+
+    if (any(greaterThan(pixel_pos, output_size)))
+    {
+        return;
+    }
+
+    float2 uv = (float2(pixel_pos) + float2(0.5)) / float2(output_size);
+
+    uint2 texel_input = uint2(uv * input_size);
+
+    float2 jittered_sample = (float2(texel_input) + float2(0.5) - globals.jitter_offset) * input_texel;
+    uint2  jittered_output = uint2(jittered_sample * output_size);
+    float2 jittered_sample_output_tc = (float2(jittered_output) + 0.5) * output_texel;
+
+    float2 jittered_sample_input_tc = jittered_sample + globals.jitter_offset * input_texel;
+    float4 hdr_color     = texture(global_textures[sampled_hdr_buffer], jittered_sample_input_tc);
+    float4 history_color = texture(global_textures[sampled_previous_history], uv);
+
+    float weight = 0.1;
+    float confidence = clamp(1.0 - length(output_size * abs(jittered_sample_output_tc - uv)), 0.0, 1.0);
+
+    float3 output_color = mix(history_color.rgb, hdr_color.rgb, weight*confidence);
+
+    imageStore(global_images_2d_rgba32f[storage_current_history], pixel_pos, float4(output_color, 1.0));
+}

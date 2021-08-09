@@ -1,4 +1,5 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
 
 #include "globals.h"
 #include "hash.h"
@@ -6,11 +7,7 @@
 #include "pbr.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
-    u32 tlas_descriptor;
     u32 storage_output;
-    u32 instances_descriptor;
-    u32 meshes_descriptor;
-    u32 first_instance;
 };
 
 
@@ -31,8 +28,8 @@ bool blas_closest_hit(Ray ray, u32 i_instance, out HitInfo hit_info)
     hit_info.triangle_id = u32_invalid;
     hit_info.instance_id = u32_invalid;
 
-    RenderInstance instance = global_buffers_instances[instances_descriptor].render_instances[first_instance + i_instance];
-    RenderMesh mesh = global_buffers_meshes[meshes_descriptor].render_meshes[instance.i_render_mesh];
+    RenderInstance instance = get_render_instance(i_instance);
+    RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 
     ray.origin    = (instance.world_to_object * float4(ray.origin, 1.0)).xyz;
     ray.direction = (instance.world_to_object * float4(ray.direction, 0.0)).xyz;
@@ -46,12 +43,12 @@ bool blas_closest_hit(Ray ray, u32 i_instance, out HitInfo hit_info)
 
         if (node.prim_index != u32_invalid)
         {
-            u32    i_v0 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 0];
-            u32    i_v1 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 1];
-            u32    i_v2 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[node.prim_index + 2];
-            float3 p0   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v0].xyz;
-            float3 p1   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v1].xyz;
-            float3 p2   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v2].xyz;
+            u32    i_v0 = get_index(mesh.first_index + node.prim_index + 0);
+            u32    i_v1 = get_index(mesh.first_index + node.prim_index + 1);
+            u32    i_v2 = get_index(mesh.first_index + node.prim_index + 2);
+            float3 p0   = get_position_non_uniform(mesh.positions_descriptor, i_v0).xyz;
+            float3 p1   = get_position_non_uniform(mesh.positions_descriptor, i_v1).xyz;
+            float3 p2   = get_position_non_uniform(mesh.positions_descriptor, i_v2).xyz;
 
             float d = 0.0;
             Triangle tri;
@@ -101,7 +98,7 @@ bool tlas_closest_hit(Ray ray, out HitInfo hit_info)
     {
         iter += 1;
 
-        BVHNode node = global_buffers_bvh[tlas_descriptor].nodes[i_node];
+        BVHNode node = get_tlas_node(i_node);
 
         bool hit_bbox = fast_box_intersection(node.bbox_min, node.bbox_max, ray, inv_ray_dir);
         if (hit_bbox)
@@ -151,14 +148,21 @@ void main()
         return;
     }
 
-    float2 screen_uv  = (float2(pixel_pos) + float2(0.5)) / globals.resolution;
+    float2 screen_uv  = (float2(pixel_pos) + float2(0.5)) / float2(output_size);
     float3 clip_space = float3(screen_uv * 2.0 - 1.0, 1.0);
+
+    // TAA jitter
+    float2 texel_size = 1.0 / float2(output_size);
+    float2 current_jitter = globals.jitter_offset * texel_size;
+    clip_space.xy += current_jitter;
 
     // Create a pixel ray
     float4x4 view_rows = transpose(globals.camera_view);
     float aspect_ratio = globals.camera_projection[1][1] / globals.camera_projection[0][0];
     float tan_half_fov_y = 1.0 / globals.camera_projection[1][1];
     Ray ray;
+    ray.t_min = 0.0;
+    ray.t_max = 1.0 / 0.0;
     ray.origin    = globals.camera_view_inverse[3].xyz;
     ray.direction =
         + (clip_space.x * tan_half_fov_y * aspect_ratio) * view_rows[0].xyz
@@ -171,7 +175,7 @@ void main()
     const float3 BACKGROUND_COLOR = float3(1.0);
     uint hit_count = 0;
     HitInfo hit_info;
-    float3 o_color = float3(0.0);
+    float3 radiance = float3(0.0);
     float3 throughput = float3(1.0);
 
     for (u32 i_bounce = 0; i_bounce < MAX_BOUNCE; i_bounce += 1)
@@ -179,20 +183,20 @@ void main()
 
         if (tlas_closest_hit(ray, hit_info) == false)
         {
-            o_color = BACKGROUND_COLOR * throughput;
+            radiance = BACKGROUND_COLOR * throughput;
             break;
         }
 
-        RenderInstance instance = global_buffers_instances[instances_descriptor].render_instances[first_instance + hit_info.instance_id];
-        RenderMesh mesh = global_buffers_meshes[meshes_descriptor].render_meshes[instance.i_render_mesh];
+        RenderInstance instance = get_render_instance(hit_info.instance_id);
+        RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 
         // -- Fetch geometry information
-        u32    i_v0 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[hit_info.triangle_id + 0];
-        u32    i_v1 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[hit_info.triangle_id + 1];
-        u32    i_v2 = global_buffers_indices[nonuniformEXT(mesh.indices_descriptor)].indices[hit_info.triangle_id + 2];
-        float3 p0   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v0].xyz;
-        float3 p1   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v1].xyz;
-        float3 p2   = global_buffers_positions[nonuniformEXT(mesh.positions_descriptor)].positions[i_v2].xyz;
+        u32    i_v0 = get_index(mesh.first_index + hit_info.triangle_id + 0);
+        u32    i_v1 = get_index(mesh.first_index + hit_info.triangle_id + 1);
+        u32    i_v2 = get_index(mesh.first_index + hit_info.triangle_id + 2);
+        float3 p0   = get_position_non_uniform(mesh.positions_descriptor, i_v0).xyz;
+        float3 p1   = get_position_non_uniform(mesh.positions_descriptor, i_v1).xyz;
+        float3 p2   = get_position_non_uniform(mesh.positions_descriptor, i_v2).xyz;
         float3 e1 = p1 - p0;
         float3 e2 = p2 - p0;
 
@@ -214,13 +218,15 @@ void main()
         float3 brdf = lambert_brdf(wo, wi, albedo);
         float pdf = lambert_pdf(wo, wi) ;
 
-        o_color    += emissive * throughput;
+        radiance    += emissive * throughput;
         throughput *= brdf / pdf;
 
         // -- Bounce
         ray.origin    = (ray.origin + hit_info.d * ray.direction) + surface_normal * 0.001;
         ray.direction = tangent_to_world * wi;
+        ray.t_min = 0.0;
+        ray.t_max = 5.0;
     }
 
-    imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(o_color, 1.0));
+    imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(radiance, 1.0));
 }

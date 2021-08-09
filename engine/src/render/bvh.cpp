@@ -74,7 +74,7 @@ static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize pri
         temp_nodes[i_node].left_child = prim_start;
     }
     // more than one primitive, create an internal node
-    else
+    else if (prim_split > 1 + prim_start)
     {
         temp_nodes[i_node].left_child = temp_nodes.size();
         temp_nodes.emplace_back();
@@ -86,7 +86,7 @@ static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize pri
     {
         temp_nodes[i_node].right_child = prim_split;
     }
-    else
+    else if (prim_end > 1 + prim_split)
     {
         temp_nodes[i_node].right_child = temp_nodes.size();
         temp_nodes.emplace_back();

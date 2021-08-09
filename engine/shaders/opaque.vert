@@ -1,22 +1,19 @@
 #include "types.h"
 #include "globals.h"
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
-    u32 first_instance;
-    u32 instances_descriptor;
-    u32 meshes_descriptor;
-};
-
-
 layout(location = 0) flat out uint o_instance_index;
 void main()
 {
-    RenderInstance instance = global_buffers_instances[instances_descriptor].render_instances[first_instance + gl_InstanceIndex];
-    RenderMesh mesh = global_buffers_meshes[meshes_descriptor].render_meshes[instance.i_render_mesh];
+    RenderInstance instance = get_render_instance(gl_InstanceIndex);
+    RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 
-    u32    index    = global_buffers_indices[mesh.indices_descriptor].indices[gl_VertexIndex];
-    float4 position = global_buffers_positions[mesh.positions_descriptor].positions[index];
+    u32    index    = gl_VertexIndex;
+    float4 position = get_position(mesh.positions_descriptor, index);
 
-    gl_Position = globals.camera_projection * globals.camera_view * instance.object_to_world * float4(position.xyz, 1.0);
+
+    float4x4 projection = globals.camera_projection;
+    projection[2][0] = globals.jitter_offset.x / globals.render_resolution.x;
+    projection[2][1] = globals.jitter_offset.y / globals.render_resolution.y;
+    gl_Position = projection * globals.camera_view * instance.object_to_world * float4(position.xyz, 1.0);
     o_instance_index = gl_InstanceIndex;
 }

@@ -84,7 +84,7 @@ struct Work
 
 struct TransferWork : Work
 {
-    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::pair<u32, u32>> offsets_sizes);
+    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<u32, u32, u32>> offsets_src_dst_size);
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
     void copy_image(Handle<Image> src, Handle<Image> dst);
     void blit_image(Handle<Image> src, Handle<Image> dst);
@@ -115,26 +115,38 @@ struct ComputeWork : TransferWork
     }
 };
 
+struct DrawIndexedOptions
+{
+    u32 vertex_count    = 0;
+    u32 instance_count  = 1;
+    u32 index_offset    = 0;
+    i32 vertex_offset   = 0;
+    u32 instance_offset = 0;
+};
+
+struct DrawOptions
+{
+    u32 vertex_count    = 0;
+    u32 instance_count  = 1;
+    i32 vertex_offset   = 0;
+    u32 instance_offset = 0;
+};
+
+struct DrawIndexedIndirectCountOptions
+{
+    Handle<Buffer> arguments_buffer = {};
+    usize arguments_offset = 0;
+    Handle<Buffer> count_buffer = {};
+    usize count_offset = 0;
+    u32 max_draw_count = 0;
+    u32 stride = sizeof(DrawIndexedOptions);
+};
+
 struct GraphicsWork : ComputeWork
 {
-    struct DrawIndexedOptions
-    {
-        u32 vertex_count    = 0;
-        u32 instance_count  = 1;
-        u32 index_offset    = 0;
-        i32 vertex_offset   = 0;
-        u32 instance_offset = 0;
-    };
     void draw_indexed(const DrawIndexedOptions &options);
-
-    struct DrawOptions
-    {
-        u32 vertex_count    = 0;
-        u32 instance_count  = 1;
-        i32 vertex_offset   = 0;
-        u32 instance_offset = 0;
-    };
     void draw(const DrawOptions &options);
+    void draw_indexed_indirect_count(const DrawIndexedIndirectCountOptions &options);
 
     void set_scissor(const VkRect2D &rect);
     void set_viewport(const VkViewport &viewport);

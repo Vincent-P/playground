@@ -28,6 +28,7 @@ inline constexpr VkBufferUsageFlags storage_buffer_usage = VK_BUFFER_USAGE_STORA
 inline constexpr VkBufferUsageFlags index_buffer_usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 inline constexpr VkBufferUsageFlags uniform_buffer_usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 inline constexpr VkBufferUsageFlags source_buffer_usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+inline constexpr VkBufferUsageFlags indirext_buffer_usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
 struct ImageAccess
 {
@@ -218,7 +219,7 @@ struct LoadOp
     }
 
     inline bool operator==(const LoadOp& other) const
-    { 
+    {
         return this->type == other.type && this->color == other.color;
     }
 };

@@ -1,5 +1,4 @@
 #pragma once
-#include <exo/algorithms.h>
 #include <exo/types.h>
 #include <exo/option.h>
 #include <exo/collections/vector.h>
@@ -24,6 +23,7 @@ struct Surface;
 enum BuiltinSampler
 {
     Default = 0,
+    Nearest = 1,
     Count
 };
 

@@ -192,7 +192,7 @@ bool BaseRenderer::start_frame()
     device.reset_work_pool(work_pool);
 
     timing.get_results(device);
-    for (u32 i_label = 0; i_label < timing.labels.size(); i_label += 1)
+    for (u32 i_label = 0; false && i_label < timing.labels.size(); i_label += 1)
     {
         logger::info("[{}]: CPU {:.4f} ms | GPU {:.4f} ms\n", timing.labels[i_label], timing.cpu[i_label], timing.gpu[i_label]);
     }

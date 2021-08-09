@@ -177,7 +177,6 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
                 new_mesh.submeshes.emplace_back();
                 auto &new_submesh = new_mesh.submeshes.back();
 
-                new_submesh.vertex_count = 0;
                 new_submesh.index_count  = 0;
                 new_submesh.first_vertex = static_cast<u32>(new_mesh.positions.size());
                 new_submesh.first_index  = static_cast<u32>(new_mesh.indices.size());
@@ -209,8 +208,6 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
 
                         new_mesh.positions.push_back(new_position);
                     }
-
-                    new_submesh.vertex_count = accessor.count;
                 }
 
                 assert(primitive.HasMember("indices"));

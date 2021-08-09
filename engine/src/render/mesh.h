@@ -9,7 +9,6 @@ struct SubMesh
     u32 first_index;
     u32 first_vertex;
     u32 index_count;
-    u32 vertex_count;
     u32 i_material;
 
     bool operator==(const SubMesh &other) const = default;

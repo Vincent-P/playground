@@ -32,9 +32,9 @@ bool fast_box_intersection(float3 box_min, float3 box_max, Ray ray, float3 inv_r
 {
   float3 t0 = (box_min - ray.origin) * inv_ray_dir;
   float3 t1 = (box_max - ray.origin) * inv_ray_dir;
-  float tmin = max3(min(t0,t1));
-  float tmax = min3(max(t0,t1));
-  return tmax > 0.0 && tmin <= tmax;
+  float tmin = max(max3(min(t0,t1)), ray.t_min);
+  float tmax = min(min3(max(t0,t1)), ray.t_max);
+  return tmin <= tmax;
 }
 
 bool ray_sphere_nearest_intersection(Ray ray, Sphere sphere, out float d, out float3 normal)

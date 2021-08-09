@@ -1,0 +1,48 @@
+#include "types.h"
+#include "constants.h"
+#include "globals.h"
+
+layout(set = SHADER_SET, binding = 0) uniform Options {
+    u32 draw_arguments_descriptor;
+};
+
+#define DRAW_ARGUMENTS_BUFFER global_buffers_draw_arguments[draw_arguments_descriptor]
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+void main()
+{
+    uint local_idx  = gl_LocalInvocationIndex;
+    uint global_idx = gl_GlobalInvocationID.x;
+
+    if (global_idx == 0)
+    {
+        DRAW_ARGUMENTS_BUFFER.draw_count = 0;
+    }
+
+    barrier();
+
+    if (global_idx >= globals.submesh_instances_count)
+    {
+        return;
+    }
+
+    SubMeshInstance submesh_instance = get_submesh_instance(global_idx);
+    RenderInstance instance          = get_render_instance(submesh_instance.i_instance);
+    RenderMesh mesh                  = get_render_mesh(submesh_instance.i_mesh);
+
+    SubMesh submesh = get_submesh_non_uniform(mesh.submeshes_descriptor, submesh_instance.i_submesh);
+
+    u32 i_draw = submesh_instance.i_draw;
+
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].vertex_count    = submesh.index_count;
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count  = 1;
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].index_offset    = mesh.first_index + submesh.first_index;
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].vertex_offset   = 0;
+    DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_offset = submesh_instance.i_instance;
+
+    barrier();
+
+    atomicAdd(DRAW_ARGUMENTS_BUFFER.draw_count, 1);
+    // atomicAdd(DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_count, 1);
+    // atomicMin(DRAW_ARGUMENTS_BUFFER.arguments[i_draw].instance_offset, submesh_instance.i_instance);
+}

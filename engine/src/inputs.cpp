@@ -2,7 +2,6 @@
 
 #include <exo/types.h>
 #include <exo/option.h>
-#include <exo/algorithms.h>
 #include <cross/window.h>
 #include "ui.h"
 

@@ -20,6 +20,8 @@ struct ResourceUpload
     u32 i_staging;
     u64 transfer_id;
     UploadState state;
+    usize dst_offset;
+    usize len;
 };
 
 // CPU Memory staging area
@@ -38,10 +40,10 @@ public:
     void update(gfx::WorkPool &work_pool);
     void destroy();
 
-    void upload(Handle<gfx::Buffer> buffer, const void *data, usize len);
+    void upload(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset = 0);
     void upload(Handle<gfx::Image> image, const void *data, usize len);
     bool is_uploaded(Handle<gfx::Image> image);
-    bool is_uploaded(Handle<gfx::Buffer> buffer);
+    bool is_uploaded(Handle<gfx::Buffer> buffer, usize len = 0, usize dst_offset = 0);
 
     gfx::Device *device;
     gfx::Fence transfer_done;
@@ -52,6 +54,6 @@ public:
     Vec<StagingArea> staging_areas;
     usize cpu_memory_usage;
 
-    std::unordered_map<Handle<gfx::Buffer>, ResourceUpload> buffer_uploads;
+    std::unordered_map<Handle<gfx::Buffer>, Vec<ResourceUpload>> buffer_uploads;
     std::unordered_map<Handle<gfx::Image>, ResourceUpload> image_uploads;
 };
