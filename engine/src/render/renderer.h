@@ -150,7 +150,6 @@ struct Renderer
 
     // Draw data
     Vec<SubMeshInstance> submesh_instances_to_draw;
-    Vec<u32> instances_to_draw;
     RingBuffer instances_data;
     RingBuffer submesh_instances_data;
     Handle<gfx::Buffer> draw_arguments;

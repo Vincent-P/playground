@@ -728,7 +728,13 @@ void Renderer::prepare_geometry(Scene &scene)
         {
             if (render_mesh_component.i_mesh < this->render_meshes.size())
             {
-                render_meshes[render_mesh_component.i_mesh].instances.push_back(render_instances.size());
+                auto &render_mesh = render_meshes[render_mesh_component.i_mesh];
+                if (!streamer.is_uploaded(this->vertex_positions_buffer.buffer, render_mesh.gpu.first_position * sizeof(float4)))
+                {
+                    return;
+                }
+
+                render_mesh.instances.push_back(render_instances.size());
 
                 float4x4 translation = float4x4::identity();
                 translation.at(0, 3) = local_to_world_component.translation.x;
@@ -797,18 +803,18 @@ void Renderer::prepare_geometry(Scene &scene)
 
     // Gather all submesh instances and instances data from the meshes and instances lists
     submesh_instances_to_draw.clear();
-    instances_to_draw.clear();
     this->draw_count = 0;
     for (u32 i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
     {
         auto &render_mesh = render_meshes[i_render_mesh];
         auto &mesh_asset  = asset_manager->meshes[i_render_mesh];
-        if (!streamer.is_uploaded(this->vertex_positions_buffer.buffer, render_mesh.gpu.first_position * sizeof(float4)) || render_mesh.instances.empty())
+
+        if (render_mesh.instances.empty())
         {
             continue;
         }
 
-        render_mesh.first_instance = instances_to_draw.size();
+        render_mesh.first_instance = render_mesh.instances[0];
         for (u32 i_instance : render_mesh.instances)
         {
             for (u32 i_submesh = 0; i_submesh < mesh_asset.submeshes.size(); i_submesh += 1)
@@ -816,23 +822,17 @@ void Renderer::prepare_geometry(Scene &scene)
                 SubMeshInstance submesh_instance = {};
                 submesh_instance.i_mesh          = i_render_mesh;
                 submesh_instance.i_submesh       = i_submesh;
-                submesh_instance.i_instance      = submesh_instances_to_draw.size();
+                submesh_instance.i_instance      = i_instance;
                 submesh_instance.i_draw          = this->draw_count + i_submesh;
                 submesh_instances_to_draw.push_back(submesh_instance);
             }
-            instances_to_draw.push_back(i_instance);
         }
         this->draw_count += mesh_asset.submeshes.size();
     }
 
     // Upload all data to draw
-    auto [p_instances, instance_offset] = instances_data.allocate(device, instances_to_draw.size() * sizeof(RenderInstance));
-    auto *p_instances_data              = reinterpret_cast<RenderInstance *>(p_instances);
-    for (u32 i_to_draw = 0; i_to_draw < instances_to_draw.size(); i_to_draw += 1)
-    {
-        u32 i_render_instance                 = instances_to_draw[i_to_draw];
-        p_instances_data[i_to_draw]           = render_instances[i_render_instance];
-    }
+    auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance));
+    std::memcpy(p_instances, render_instances.data(), render_instances.size() * sizeof(RenderInstance));
     this->instances_offset = instance_offset / static_cast<u32>(sizeof(RenderInstance));
 
     usize submesh_instances_size = submesh_instances_to_draw.size() * sizeof(SubMesh);
@@ -844,18 +844,17 @@ void Renderer::prepare_geometry(Scene &scene)
     Vec<BVHNode> roots;
     Vec<float4x4> transforms;
     Vec<u32> indices;
-    roots.resize(instances_to_draw.size());
-    transforms.resize(instances_to_draw.size());
-    indices.resize(instances_to_draw.size());
-    for (u32 i_draw = 0; i_draw < instances_to_draw.size(); i_draw += 1)
+    roots.resize(render_instances.size());
+    transforms.resize(render_instances.size());
+    indices.resize(render_instances.size());
+    for (u32 i_instance = 0; i_instance < render_instances.size(); i_instance += 1)
     {
-        u32 i_instance              = instances_to_draw[i_draw];
         const auto &render_instance = render_instances[i_instance];
         const auto &render_mesh     = render_meshes[render_instance.i_render_mesh];
 
-        roots[i_draw]      = render_mesh.bvh_root;
-        transforms[i_draw] = render_instance.object_to_world;
-        indices[i_draw]    = i_draw;
+        roots[i_instance]      = render_mesh.bvh_root;
+        transforms[i_instance] = render_instance.object_to_world;
+        indices[i_instance]    = i_instance;
     }
     BVH tlas = create_tlas(roots, transforms, indices);
     auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
