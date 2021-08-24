@@ -71,7 +71,7 @@ struct PACKED GlobalUniform
 
     u32 bvh_nodes_descriptor;
     u32 submeshes_descriptor;
-    u32 pad00;
+    u32 culled_instances_indices_descriptor;
     u32 pad01;
 };
 
@@ -149,10 +149,14 @@ struct Renderer
 
 
     // Draw data
-    Vec<SubMeshInstance> submesh_instances_to_draw;
-    RingBuffer instances_data;
-    RingBuffer submesh_instances_data;
-    Handle<gfx::Buffer> draw_arguments;
+    Vec<SubMeshInstance> submesh_instances_to_draw;           // instance x submeshes from mesh from the scene
+    RingBuffer submesh_instances_data;                        // for every instance x submesh, corresponding SubMeshInstance
+    RingBuffer instances_data;                                // for every instance, corresponding RenderInstance
+    Handle<gfx::Buffer> instance_visibility;                  // for every instance, 0: not visible, 1: visible
+    Handle<gfx::Buffer> group_sum_reduction;                  // count of visible instance for each visibility group
+    Handle<gfx::Buffer> culled_instance_scan_indices;         // scan of culled instances index in instances_data (00112233 for example if visible instances are every other 2)
+    Handle<gfx::Buffer> culled_instances_compact_indices;     // above indices but compacted and ready to draw (0123 for above example)
+    Handle<gfx::Buffer> draw_arguments;                       // gpu draws, one draw per mesh, instance index refers to compact indices
 
     // global uniform data
     u32 instances_offset = 0;
@@ -168,7 +172,10 @@ struct Renderer
     Handle<gfx::ComputeProgram> path_tracer_program;
 
     u32 draw_count;
-    Handle<gfx::ComputeProgram> gen_draw_calls_program;
+    Handle<gfx::ComputeProgram> init_draw_calls_program;
+    Handle<gfx::ComputeProgram> instances_culling_program;
+    Handle<gfx::ComputeProgram> parallel_prefix_sum_program;
+    Handle<gfx::ComputeProgram> copy_culled_instances_index_program;
 
     /// ---
 

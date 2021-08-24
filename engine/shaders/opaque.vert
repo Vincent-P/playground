@@ -4,8 +4,10 @@
 layout(location = 0) flat out uint o_instance_index;
 void main()
 {
-    RenderInstance instance = get_render_instance(gl_InstanceIndex);
-    RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
+    u32 i_submesh_instance = global_buffers_uint[globals.culled_instances_indices_descriptor].data[gl_InstanceIndex];
+    SubMeshInstance submesh_instance = get_submesh_instance(i_submesh_instance);
+    RenderInstance instance = get_render_instance(submesh_instance.i_instance);
+    RenderMesh mesh = get_render_mesh(submesh_instance.i_mesh);
 
     u32    index    = gl_VertexIndex;
     float4 position = get_position(mesh.first_position, index);

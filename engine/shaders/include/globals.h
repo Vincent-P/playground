@@ -106,7 +106,7 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 
     u32 bvh_nodes_descriptor;
     u32 submeshes_descriptor;
-    u32 pad00;
+    u32 culled_instances_indices_descriptor;
     u32 pad01;
 } globals;
 
@@ -127,6 +127,7 @@ layout(set = 3, binding = 0) buffer PositionsBuffer             { float4 positio
 layout(set = 3, binding = 0) buffer IndicesBuffer               { u32 indices[]; } global_buffers_indices[];
 layout(set = 3, binding = 0) buffer BVHBuffer                   { BVHNode nodes[]; } global_buffers_bvh[];
 layout(set = 3, binding = 0) buffer DrawArgumentsBuffer         { u32 draw_count; DrawIndexedOptions arguments[]; } global_buffers_draw_arguments[];
+layout(set = 3, binding = 0) buffer UintBuffer         { u32 data[]; } global_buffers_uint[];
 
 #define SHADER_SET 4
 

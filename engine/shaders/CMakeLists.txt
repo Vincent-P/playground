@@ -17,7 +17,10 @@ set(GLSL_FILES
   taa.comp
   tonemap.comp
   path_tracer.comp
-  gen_draw_calls.comp
+  init_draw_calls.comp
+  instances_culling.comp
+  scan/parallel_prefix_sum.comp
+  scan/copy_instances_index.comp
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)

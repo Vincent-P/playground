@@ -1,0 +1,28 @@
+#include "types.h"
+#include "constants.h"
+#include "globals.h"
+
+layout(set = SHADER_SET, binding = 0) uniform Options {
+    u32 instances_visibility_descriptor;
+};
+
+#define PREDICATE_BUFFER global_buffers_uint[instances_visibility_descriptor].data
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+void main()
+{
+    uint local_idx  = gl_LocalInvocationIndex;
+    uint global_idx = gl_GlobalInvocationID.x;
+
+    if (global_idx >= globals.submesh_instances_count)
+    {
+        return;
+    }
+
+    SubMeshInstance submesh_instance = get_submesh_instance(global_idx);
+    RenderInstance instance          = get_render_instance(submesh_instance.i_instance);
+    RenderMesh mesh                  = get_render_mesh(submesh_instance.i_mesh);
+    SubMesh submesh                  = get_submesh(mesh.first_submesh, submesh_instance.i_submesh);
+
+    PREDICATE_BUFFER[global_idx] = u32(submesh_instance.i_instance % 2 == 0);
+}
