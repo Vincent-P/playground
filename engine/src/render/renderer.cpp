@@ -44,7 +44,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .gpu_usage = gfx::storage_buffer_usage,
         }, false);
 
-    renderer.instance_visibility = device.create_buffer({
+    renderer.predicate_buffer = device.create_buffer({
             .name = "Instance visibility",
             .size = 1_MiB,
             .usage = gfx::storage_buffer_usage,
@@ -56,7 +56,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             .usage = gfx::storage_buffer_usage,
         });
 
-    renderer.culled_instance_scan_indices = device.create_buffer({
+    renderer.scanned_indices = device.create_buffer({
             .name = "Culled instances scan indices",
             .size = 1_MiB,
             .usage = gfx::storage_buffer_usage,
@@ -90,6 +90,12 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
     renderer.draw_arguments = device.create_buffer({
             .name = "Indirect Draw arguments",
+            .size = 2_MiB,
+            .usage = gfx::storage_buffer_usage | gfx::indirext_buffer_usage,
+        });
+
+    renderer.culled_draw_arguments = device.create_buffer({
+            .name = "Culled Indirect Draw arguments",
             .size = 2_MiB,
             .usage = gfx::storage_buffer_usage | gfx::indirext_buffer_usage,
         });
@@ -202,6 +208,20 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         },
     });
 
+    renderer.drawcalls_fill_predicate_program = device.create_program("draw calls fill predicate", {
+        .shader = device.create_shader("shaders/drawcalls_fill_predicate.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
+
+
+    renderer.copy_draw_calls_program = device.create_program("copy culled draw calls", {
+        .shader = device.create_shader("shaders/copy_draw_calls.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
 
     auto compute_halton = [](int index, int radix)
         {
@@ -380,12 +400,12 @@ void Renderer::display_ui(UI::Context &ui)
             {
                 settings.resolution_dirty = true;
             }
-            ImGui::Checkbox("Enable TAA", &settings.enable_taa);
             if (ImGui::Checkbox("TAA: Clear history", &settings.clear_history))
             {
                 first_accumulation_frame = base_renderer.frame_count;
             }
             ImGui::Checkbox("Enable Path tracing", &settings.enable_path_tracing);
+            ImGui::Checkbox("Freeze camera culling", &settings.freeze_camera_culling);
         }
         ui.end_window();
     }
@@ -523,94 +543,46 @@ void Renderer::update(Scene &scene)
     }
     else
     {
-        // clear buffers
-        cmd.barrier(instance_visibility, gfx::BufferUsage::TransferDst);
-        cmd.barrier(group_sum_reduction, gfx::BufferUsage::TransferDst);
-        cmd.barrier(culled_instance_scan_indices, gfx::BufferUsage::TransferDst);
-        cmd.fill_buffer(instance_visibility, 0);
-        cmd.fill_buffer(group_sum_reduction, 0);
-        cmd.fill_buffer(culled_instance_scan_indices, 0);
-        cmd.barrier(instance_visibility, gfx::BufferUsage::ComputeShaderReadWrite);
-        cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
-        cmd.barrier(culled_instance_scan_indices, gfx::BufferUsage::ComputeShaderReadWrite);
-
-        // Prepare draw calls with instance count = 0
+        // Instances culling
         {
+            u32 submesh_instances_to_cull = static_cast<u32>(submesh_instances_to_draw.size());
+
+            // Prepare draw calls with instance count = 0
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
             struct PACKED GenDrawCallOptions
             {
                 u32 draw_arguments_descriptor;
             };
-
+            {
             auto *options                      = base_renderer.bind_shader_options<GenDrawCallOptions>(cmd, init_draw_calls_program);
             options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
-
+            }
             cmd.bind_pipeline(init_draw_calls_program);
             cmd.dispatch(dispatch_size({this->draw_count, 1, 1}, 32));
-        }
 
-        // Cull instances
-        {
-            cmd.barrier(instance_visibility, gfx::BufferUsage::ComputeShaderReadWrite);
+            // Frustum culling
+            static float4x4 culling_view = main_camera->view;
+            if (settings.freeze_camera_culling == false)
+            {
+                culling_view = main_camera->view;
+            }
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
+            cmd.fill_buffer(predicate_buffer, 0);
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
             struct PACKED CullInstancesOptions
             {
+                float4x4 camera_view;
                 u32 instances_visibility_descriptor;
             };
-
             auto *options                            = base_renderer.bind_shader_options<CullInstancesOptions>(cmd, instances_culling_program);
-            options->instances_visibility_descriptor = device.get_buffer_storage_index(instance_visibility);
-
+            options->camera_view                     = culling_view;
+            options->instances_visibility_descriptor = device.get_buffer_storage_index(predicate_buffer);
             cmd.bind_pipeline(instances_culling_program);
-            cmd.dispatch(dispatch_size({static_cast<u32>(submesh_instances_to_draw.size()), 1, 1}, 32));
-        }
+            cmd.dispatch(dispatch_size({submesh_instances_to_cull, 1, 1}, 32));
 
-        // Scan instances
-        {
-            cmd.barrier(instance_visibility, gfx::BufferUsage::ComputeShaderRead);
-            cmd.barrier(culled_instance_scan_indices, gfx::BufferUsage::ComputeShaderReadWrite);
-            cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED ScanOptions
-            {
-                u32 input_descriptor;
-                u32 output_descriptor;
-                u32 reduction_group_sum_descriptor;
-            };
-
-            auto *options                           = base_renderer.bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
-            options->input_descriptor               = device.get_buffer_storage_index(instance_visibility);
-            options->output_descriptor              = device.get_buffer_storage_index(culled_instance_scan_indices);
-            options->reduction_group_sum_descriptor = device.get_buffer_storage_index(group_sum_reduction);
-
-            cmd.bind_pipeline(parallel_prefix_sum_program);
-            cmd.dispatch(dispatch_size({static_cast<u32>(this->submesh_instances_to_draw.size()), 1, 1}, 128));
-        }
-
-        // Scan group sums
-        {
-            cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED ScanOptions
-            {
-                u32 input_descriptor;
-                u32 output_descriptor;
-                u32 reduction_group_sum_descriptor;
-            };
-
-            auto *options                           = base_renderer.bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
-            options->input_descriptor               = device.get_buffer_storage_index(group_sum_reduction);
-            options->output_descriptor              = options->input_descriptor;
-            options->reduction_group_sum_descriptor = u32_invalid;
-
-            cmd.bind_pipeline(parallel_prefix_sum_program);
-            cmd.dispatch({1, 1, 1}); // 128 groups seems plenty (128*128 = 16k submesh instances)
-        }
-
-        // Copy instances data
-        {
-            cmd.barrier(culled_instance_scan_indices, gfx::BufferUsage::ComputeShaderRead);
-            cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderRead);
-            cmd.barrier(culled_instances_compact_indices, gfx::BufferUsage::ComputeShaderReadWrite);
+            // Copy culled instances indices
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
-
             struct PACKED CopyInstancesOptions
             {
                 u32 predicate_descriptor;
@@ -619,18 +591,54 @@ void Renderer::update(Scene &scene)
                 u32 instances_index_descriptor;
                 u32 draw_arguments_descriptor;
             };
-
-            auto *options                           = base_renderer.bind_shader_options<CopyInstancesOptions>(cmd, copy_culled_instances_index_program);
-            options->predicate_descriptor           = device.get_buffer_storage_index(instance_visibility);
-            options->scanned_indices_descriptor     = device.get_buffer_storage_index(culled_instance_scan_indices);
-            options->reduction_group_sum_descriptor = device.get_buffer_storage_index(group_sum_reduction);
-            options->instances_index_descriptor     = device.get_buffer_storage_index(culled_instances_compact_indices);
-            options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
-
-            cmd.bind_pipeline(copy_culled_instances_index_program);
-            cmd.dispatch(dispatch_size({static_cast<u32>(this->submesh_instances_to_draw.size()), 1, 1}, 128));
+            CopyInstancesOptions copy_options           = {};
+            copy_options.predicate_descriptor           = device.get_buffer_storage_index(predicate_buffer);
+            copy_options.scanned_indices_descriptor     = device.get_buffer_storage_index(scanned_indices);
+            copy_options.reduction_group_sum_descriptor = device.get_buffer_storage_index(group_sum_reduction);
+            copy_options.instances_index_descriptor     = device.get_buffer_storage_index(culled_instances_compact_indices);
+            copy_options.draw_arguments_descriptor      = device.get_buffer_storage_index(draw_arguments);
+            this->compact_buffer(cmd, submesh_instances_to_cull, copy_culled_instances_index_program, &copy_options, sizeof(CopyInstancesOptions));
         }
 
+        // Compact draw calls
+        {
+            // Fill draw calls predicate buffer
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
+            cmd.fill_buffer(predicate_buffer, 0);
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
+
+            cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
+            struct PACKED FillPredicateOptions
+            {
+                u32 predicate_descriptor;
+                u32 draw_arguments_descriptor;
+            };
+            auto *options                      = base_renderer.bind_shader_options<FillPredicateOptions>(cmd, drawcalls_fill_predicate_program);
+            options->predicate_descriptor      = device.get_buffer_storage_index(predicate_buffer);
+            options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
+            cmd.bind_pipeline(drawcalls_fill_predicate_program);
+            cmd.dispatch(dispatch_size({this->draw_count, 1, 1}, 32));
+
+            cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
+            cmd.barrier(culled_draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
+            struct PACKED CopyDrawcallsOptions
+            {
+                u32 predicate_descriptor;
+                u32 scanned_indices_descriptor;
+                u32 reduction_group_sum_descriptor;
+                u32 draw_arguments_descriptor;
+                u32 culled_draw_arguments_descriptor;
+            };
+            CopyDrawcallsOptions copy_options = {};
+            copy_options.predicate_descriptor             = device.get_buffer_storage_index(predicate_buffer);
+            copy_options.scanned_indices_descriptor       = device.get_buffer_storage_index(scanned_indices);
+            copy_options.reduction_group_sum_descriptor   = device.get_buffer_storage_index(group_sum_reduction);
+            copy_options.draw_arguments_descriptor        = device.get_buffer_storage_index(draw_arguments);
+            copy_options.culled_draw_arguments_descriptor = device.get_buffer_storage_index(culled_draw_arguments);
+            this->compact_buffer(cmd, this->draw_count, copy_draw_calls_program, &copy_options, sizeof(CopyDrawcallsOptions));
+        }
+
+        // Opaque pass
         cmd.clear_barrier(hdr_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
         cmd.begin_pass(hdr_depth_fb, {gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
@@ -642,7 +650,7 @@ void Renderer::update(Scene &scene)
             };
             auto *options                      = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
             cmd.bind_pipeline(opaque_program, 0);
-            cmd.draw_indexed_indirect_count({.arguments_buffer = draw_arguments, .arguments_offset = sizeof(u32), .count_buffer = draw_arguments, .max_draw_count = this->draw_count});
+            cmd.draw_indexed_indirect_count({.arguments_buffer = culled_draw_arguments, .arguments_offset = sizeof(u32), .count_buffer = culled_draw_arguments, .max_draw_count = this->draw_count});
         }
 
         cmd.end_pass();
@@ -1002,4 +1010,73 @@ void Renderer::prepare_geometry(Scene &scene)
     auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
     assert(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
     std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
+}
+
+
+void Renderer::compact_buffer(gfx::ComputeWork &cmd, u32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len)
+{
+    auto &device  = base_renderer.device;
+
+    assert(count < 128 * 128);
+
+    // clear buffers
+    cmd.barrier(group_sum_reduction, gfx::BufferUsage::TransferDst);
+    cmd.barrier(scanned_indices, gfx::BufferUsage::TransferDst);
+    cmd.fill_buffer(group_sum_reduction, 0);
+    cmd.fill_buffer(scanned_indices, 0);
+    cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
+    cmd.barrier(scanned_indices, gfx::BufferUsage::ComputeShaderReadWrite);
+
+    // Scan predicate buffer
+    {
+        cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderRead);
+        cmd.barrier(scanned_indices, gfx::BufferUsage::ComputeShaderReadWrite);
+        cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
+        struct PACKED ScanOptions
+        {
+            u32 input_descriptor;
+            u32 output_descriptor;
+            u32 reduction_group_sum_descriptor;
+        };
+
+        auto *options                           = base_renderer.bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
+        options->input_descriptor               = device.get_buffer_storage_index(predicate_buffer);
+        options->output_descriptor              = device.get_buffer_storage_index(scanned_indices);
+        options->reduction_group_sum_descriptor = device.get_buffer_storage_index(group_sum_reduction);
+
+        cmd.bind_pipeline(parallel_prefix_sum_program);
+        cmd.dispatch(dispatch_size({count, 1, 1}, 128));
+    }
+
+    // Scan group sums
+    {
+        cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
+        struct PACKED ScanOptions
+        {
+            u32 input_descriptor;
+            u32 output_descriptor;
+            u32 reduction_group_sum_descriptor;
+        };
+
+        auto *options                           = base_renderer.bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
+        options->input_descriptor               = device.get_buffer_storage_index(group_sum_reduction);
+        options->output_descriptor              = options->input_descriptor;
+        options->reduction_group_sum_descriptor = u32_invalid;
+
+        cmd.bind_pipeline(parallel_prefix_sum_program);
+        cmd.dispatch({1, 1, 1}); // 128 groups seems plenty (128*128 = 16k elements)
+    }
+
+    // Copy elements that match predicate
+    {
+        cmd.barrier(scanned_indices, gfx::BufferUsage::ComputeShaderRead);
+        cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderRead);
+
+        auto [options, options_offset] = base_renderer.dynamic_uniform_buffer.allocate(device, options_len);
+        std::memcpy(options, options_data, options_len);
+        cmd.bind_uniform_buffer(copy_program, 0, base_renderer.dynamic_uniform_buffer.buffer, options_offset, options_len);
+
+        cmd.bind_pipeline(copy_program);
+        cmd.dispatch(dispatch_size({count, 1, 1}, 128));
+    }
 }

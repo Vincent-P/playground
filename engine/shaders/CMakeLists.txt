@@ -21,6 +21,8 @@ set(GLSL_FILES
   instances_culling.comp
   scan/parallel_prefix_sum.comp
   scan/copy_instances_index.comp
+  drawcalls_fill_predicate.comp
+  scan/copy_draw_calls.comp
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)
