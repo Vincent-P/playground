@@ -48,10 +48,10 @@ BuddyAllocator BuddyAllocator::create(u32 capacity)
     allocator.free_lists[0].push_front(0);
     allocator.block_free[block_unique_index(0, allocator.levels_count, 0)] = true;
 
-    logger::info("Buddy allocator ({})\n", total_size(allocator.levels_count));
+    // logger::info("Buddy allocator ({})\n", total_size(allocator.levels_count));
     for (u32 i_level = 0; i_level < allocator.levels_count; i_level += 1)
     {
-        logger::info("[{}] size of level: {}\n", i_level, block_size_of_level(allocator.levels_count, i_level));
+        // logger::info("[{}] size of level: {}\n", i_level, block_size_of_level(allocator.levels_count, i_level));
     }
 
 
@@ -114,7 +114,7 @@ u32 BuddyAllocator::allocate(u32 size)
         }
     }
     u32 offset = allocate_block(size, i_level);
-    logger::info("[Allocator] allocated {} bytes at offset {} level #{}\n", size, offset, i_level);
+    // logger::info("[Allocator] allocated {} bytes at offset {} level #{}\n", size, offset, i_level);
     allocated += block_size_of_level(levels_count, i_level);
     return offset;
 }

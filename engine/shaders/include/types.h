@@ -15,6 +15,8 @@
 #define int4 ivec4
 #define float4x4 mat4
 #define float3x3 mat3
+#define float2x2 mat2
+#define float2x3 mat3x2
 
 #define u32 uint
 #define u64 uint64_t

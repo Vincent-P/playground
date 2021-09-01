@@ -4,8 +4,8 @@
 #include "types.h"
 
 // http://www.jcgt.org/published/0009/03/02/
-uvec3 pcg3d(uvec3 v) {
-
+uvec3 pcg3d(uvec3 v)
+{
     v = v * 1664525u + 1013904223u;
 
     v.x += v.y*v.z;
@@ -31,6 +31,5 @@ float3 hash_color(uvec3 hash)
 {
     return float3(hash) * (1.0/float(0xffffffffu));
 }
-
 
 #endif

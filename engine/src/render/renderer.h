@@ -128,10 +128,12 @@ struct Renderer
     Settings settings;
     Streamer streamer;
 
+    Handle<gfx::Image> visibility_buffer;
     Handle<gfx::Image> depth_buffer;
     Handle<gfx::Image> hdr_buffer;
     Handle<gfx::Image> ldr_buffer;
     Handle<gfx::Image> history_buffers[2];
+    Handle<gfx::Framebuffer> visibility_depth_fb;
     Handle<gfx::Framebuffer> hdr_depth_fb;
     Handle<gfx::Framebuffer> ldr_fb;
     Handle<gfx::Framebuffer> ldr_depth_fb;
@@ -167,12 +169,15 @@ struct Renderer
 
     ImGuiPass imgui_pass;
 
+    // Main render passes
     Handle<gfx::GraphicsProgram> opaque_program;
     Handle<gfx::ComputeProgram> tonemap_program;
     Handle<gfx::ComputeProgram> taa_program;
     float2 halton_sequence[16];
     Handle<gfx::ComputeProgram> path_tracer_program;
+    Handle<gfx::ComputeProgram> visibility_shading_program;
 
+    // Indirect draw/GPU culling
     u32 draw_count;
     Handle<gfx::ComputeProgram> init_draw_calls_program;
     Handle<gfx::ComputeProgram> instances_culling_program;

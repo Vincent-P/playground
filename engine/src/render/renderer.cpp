@@ -145,7 +145,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         gfx::GraphicsState state = {};
         state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
         state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
-        state.attachments_format = {.attachments_format = {VK_FORMAT_R16G16B16A16_SFLOAT}, .depth_format = VK_FORMAT_D32_SFLOAT};
+        state.attachments_format = {.attachments_format = {VK_FORMAT_R32G32_UINT}, .depth_format = VK_FORMAT_D32_SFLOAT};
         state.descriptors        = {
             {.count = 1, .type = gfx::DescriptorType::DynamicBuffer}, // options
         };
@@ -223,6 +223,13 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         },
     });
 
+    renderer.visibility_shading_program = device.create_program("visibility shading", {
+        .shader = device.create_shader("shaders/visibility_shading.comp.spv"),
+        .descriptors =  {
+            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
+        },
+    });
+
     auto compute_halton = [](int index, int radix)
         {
             float result = 0.f;
@@ -273,8 +280,16 @@ static void recreate_framebuffers(Renderer &r)
     device.destroy_image(r.depth_buffer);
     device.destroy_image(r.hdr_buffer);
     device.destroy_image(r.ldr_buffer);
+    device.destroy_image(r.visibility_buffer);
     device.destroy_image(r.history_buffers[0]);
     device.destroy_image(r.history_buffers[1]);
+
+    r.visibility_buffer = device.create_image({
+        .name   = "Visibility buffer",
+        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .format = VK_FORMAT_R32G32_UINT,
+        .usages = gfx::color_attachment_usage | gfx::storage_image_usage,
+    });
 
     r.depth_buffer = device.create_image({
         .name   = "Depth buffer",
@@ -311,6 +326,14 @@ static void recreate_framebuffers(Renderer &r)
     device.destroy_framebuffer(r.hdr_depth_fb);
     device.destroy_framebuffer(r.ldr_depth_fb);
     device.destroy_framebuffer(r.ldr_fb);
+
+    r.visibility_depth_fb = device.create_framebuffer(
+        {
+            .width  = scaled_resolution.x,
+            .height = scaled_resolution.y,
+        },
+        {r.visibility_buffer},
+        r.depth_buffer);
 
     r.hdr_depth_fb = device.create_framebuffer(
         {
@@ -638,22 +661,42 @@ void Renderer::update(Scene &scene)
             this->compact_buffer(cmd, this->draw_count, copy_draw_calls_program, &copy_options, sizeof(CopyDrawcallsOptions));
         }
 
-        // Opaque pass
-        cmd.clear_barrier(hdr_buffer, gfx::ImageUsage::ColorAttachment);
+        // Fill visibility
+        cmd.clear_barrier(visibility_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.begin_pass(hdr_depth_fb, {gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
+        cmd.begin_pass(visibility_depth_fb, {gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
 
+        struct PACKED OpaqueOptions
         {
-            struct PACKED OpaqueOptions
-            {
-                u32 nothing;
-            };
-            auto *options                      = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
+            u32 nothing;
+        };
+        {
+            auto *options = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
             cmd.bind_pipeline(opaque_program, 0);
             cmd.draw_indexed_indirect_count({.arguments_buffer = culled_draw_arguments, .arguments_offset = sizeof(u32), .count_buffer = culled_draw_arguments, .max_draw_count = this->draw_count});
         }
-
         cmd.end_pass();
+
+        // Deferred shading
+
+        struct ShadingOptions
+        {
+            u32 sampled_visibility_buffer;
+            u32 sampled_depth_buffer;
+            u32 storage_hdr_buffer;
+        };
+        cmd.barrier(visibility_buffer, gfx::ImageUsage::ComputeShaderRead);
+        cmd.barrier(depth_buffer, gfx::ImageUsage::ComputeShaderRead);
+        cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
+        auto hdr_buffer_size = device.get_image_size(hdr_buffer);
+        {
+            auto *options                      = base_renderer.bind_shader_options<ShadingOptions>(cmd, visibility_shading_program);
+            options->sampled_visibility_buffer = device.get_image_sampled_index(visibility_buffer);
+            options->sampled_depth_buffer      = device.get_image_sampled_index(depth_buffer);
+            options->storage_hdr_buffer        = device.get_image_storage_index(hdr_buffer);
+            cmd.bind_pipeline(visibility_shading_program);
+            cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
+        }
     }
 
     auto &current_history = history_buffers[current_frame%2];

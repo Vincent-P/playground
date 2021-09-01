@@ -1,0 +1,196 @@
+#include "globals.h"
+#include "constants.h"
+#include "hash.h"
+#include "maths.h"
+#include "raytracing.h"
+#include "bvh.h"
+
+
+///
+struct DerivativesOutput
+{
+    float3 db_dx;
+    float3 db_dy;
+};
+
+// Computes the partial derivatives of a triangle from the projected screen space vertices
+DerivativesOutput compute_partial_deritatives(float2 s0, float2 s1, float2 s2)
+{
+    DerivativesOutput result;
+    float d = 1.0 / determinant(float2x2(s2 - s1, s0 - s1));
+    result.db_dx = float3(s1.y - s2.y, s2.y - s0.y, s0.y - s1.y) * d;
+    result.db_dy = float3(s2.x - s1.x, s0.x - s2.x, s1.x - s0.x) * d;
+    return result;
+}
+
+// Helper functions to interpolate vertex attributes at point 'd' using the partial derivatives
+float3 interpolate_attribute_3(float3x3 attributes, float3 db_dx, float3 db_dy, float2 d)
+{
+    float3 attribute_x = attributes * db_dx;
+    float3 attribute_y = attributes * db_dy;
+    float3 attribute_s = float3(attributes[0][0], attributes[1][0], attributes[2][0]); // row 0
+
+    return (attribute_s + d.x * attribute_x + d.y * attribute_y);
+}
+
+float interpolate_attribute(float3 attributes, float3 db_dx, float3 db_dy, float2 d)
+{
+    float attribute_x = dot(attributes, db_dx);
+    float attribute_y = dot(attributes, db_dy);
+    float attribute_s = attributes[0];
+
+    return (attribute_s + d.x * attribute_x + d.y * attribute_y);
+}
+
+struct GradientInterpolationResults
+{
+    float2 interp;
+    float2 dx;
+    float2 dy;
+};
+
+// Interpolate 2D attributes using the partial derivatives and generates dx and dy for texture sampling.
+GradientInterpolationResults interpolate_attribute_with_gradient(float2x3 attributes, float3 db_dx, float3 db_dy, float2 d, float2 p_two_over_res)
+{
+    float3 attr0 = float3(attributes[0][0], attributes[1][0], attributes[2][0]); // row 0
+    float3 attr1 = float3(attributes[0][1], attributes[1][1], attributes[2][1]); // row 1
+    float2 attribute_x = float2(dot(db_dx, attr0), dot(db_dx, attr1));
+    float2 attribute_y = float2(dot(db_dy, attr0), dot(db_dy, attr1));
+    float2 attribute_s = attributes[0]; // col 0
+
+    GradientInterpolationResults result;
+    result.dx = attribute_x * p_two_over_res.x;
+    result.dy = attribute_y * p_two_over_res.y;
+    result.interp = (attribute_s + d.x * attribute_x + d.y * attribute_y);
+    return result;
+}
+///
+
+layout(set = SHADER_SET, binding = 0) uniform Options {
+    uint sampled_visibility_buffer;
+    uint sampled_depth_buffer;
+    uint storage_hdr_buffer;
+};
+
+#define V_BUFFER  global_textures_uint[sampled_visibility_buffer]
+#define DEPTH_BUFFER  global_textures[sampled_depth_buffer]
+#define HDR_BUFFER global_images_2d_rgba32f[storage_hdr_buffer]
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uint local_idx   = gl_LocalInvocationIndex;
+    uint3 global_idx = gl_GlobalInvocationID;
+    uint3 group_idx  = gl_WorkGroupID;
+
+    int2 pixel_pos = int2(global_idx.xy);
+    int2 output_size = imageSize(HDR_BUFFER);
+    if (any(greaterThan(pixel_pos, output_size)))
+    {
+        return;
+    }
+
+    float2 uv         = float2(pixel_pos) / float2(output_size);
+    float depth       = texelFetch(DEPTH_BUFFER, pixel_pos, LOD0).r;
+    float3 clip_space = float3(uv * 2.0 - float2(1.0), depth);
+
+    // TAA jitter
+    float2 texel_size = 1.0 / float2(output_size);
+    float2 current_jitter = globals.jitter_offset * texel_size;
+    clip_space.xy += current_jitter;
+
+    // Early exit if the pixel does not contain a triangle
+    if (depth == 0.0)
+    {
+        imageStore(HDR_BUFFER, pixel_pos, float4(0.0, 0.0, 0.0, 1.0));
+        return;
+    }
+
+    uint2 visibility = texelFetch(V_BUFFER, pixel_pos, LOD0).rg;
+    uint i_submesh_instance = visibility[0];
+    uint triangle_id = visibility[1];
+
+    // Fetch geometry
+    SubMeshInstance submesh_instance = get_submesh_instance(i_submesh_instance);
+    RenderInstance instance          = get_render_instance(submesh_instance.i_instance);
+    RenderMesh mesh                  = get_render_mesh(submesh_instance.i_mesh);
+    SubMesh submesh                  = get_submesh(mesh.first_submesh, submesh_instance.i_submesh);
+
+    // triangle indices
+    u32 i0 = get_index(mesh.first_index + submesh.first_index + triangle_id * 3 + 0);
+    u32 i1 = get_index(mesh.first_index + submesh.first_index + triangle_id * 3 + 1);
+    u32 i2 = get_index(mesh.first_index + submesh.first_index + triangle_id * 3 + 2);
+
+    // vertex positions in model space
+    float4 p0 = instance.object_to_world * float4(get_position(mesh.first_position, i0).xyz, 1.0);
+    float4 p1 = instance.object_to_world * float4(get_position(mesh.first_position, i1).xyz, 1.0);
+    float4 p2 = instance.object_to_world * float4(get_position(mesh.first_position, i2).xyz, 1.0);
+
+    // transform vertex positions to clip space
+    float4 c0 = globals.camera_projection * (globals.camera_view * p0);
+    float4 c1 = globals.camera_projection * (globals.camera_view * p1);
+    float4 c2 = globals.camera_projection * (globals.camera_view * p2);
+
+    // perspective divide
+    float3 one_over_w = 1.0f / float3(c0.w, c1.w, c2.w);
+    c0 *= one_over_w[0];
+    c1 *= one_over_w[1];
+    c2 *= one_over_w[2];
+
+    // Compute partial derivatives. This is necessary to interpolate triangle attributes per pixel.
+    DerivativesOutput deritatives = compute_partial_deritatives(c0.xy, c1.xy, c2.xy);
+
+    // Calculate delta vector (d) that points from the projected vertex 0 to the current screen point
+    float2 d = clip_space.xy + -c0.xy;
+
+    // Interpolate the 1/w (one_over_w) for all three vertices of the triangle
+    // using the barycentric coordinates and the delta vector
+    float w = 1.0 / interpolate_attribute(one_over_w, deritatives.db_dx, deritatives.db_dy, d);
+
+    // Reconstruct the Z value at this screen point performing only the necessary matrix * vector multiplication
+    // operations that involve computing Z
+    float z = globals.camera_projection[2][2] * w + globals.camera_projection[3][2];
+
+    // Calculate the world position coordinates:
+    // First the projected coordinates at this point are calculated using In.screenPos and the computed Z value at this point.
+    // Then, multiplying the perspective projected coordinates by the inverse view-projection matrix (invVP) produces world coordinates
+    float3 world_pos = (globals.camera_view_inverse * (globals.camera_projection_inverse * float4(clip_space.xy * w, z, w))).xyz;
+
+    // Ray trace triangle for debug
+    float3 e1   = p1.xyz - p0.xyz;
+    float3 e2   = p2.xyz - p0.xyz;
+    float3 surface_normal = normalize(cross(e1, e2));
+
+    // Create AO ray
+    uint rng_seed = init_seed(pixel_pos, globals.frame_count);
+
+    Ray ray;
+    ray.t_min     = 0.0;
+    ray.t_max     = 3.0;
+    ray.origin    = world_pos + 0.01 * surface_normal;
+    ray.direction = normalize(surface_normal + random_unit_vector(rng_seed));
+
+    float4 o_color = float4(1.0);
+
+    HitInfo hit_info;
+    if (tlas_any_hit(ray, hit_info))
+    {
+        // ambient hit
+        o_color.rgb = float3(0.0);
+    }
+    else
+    {
+        o_color.rgb = float3(1.0) * dot(surface_normal, ray.direction);
+    }
+
+    #if 0
+    o_color.rgb = hash_color(hash(float2(i_submesh_instance % 256, i_submesh_instance / 256)));
+    o_color.rgb = hash_color(hash(float2(triangle_id % 256, triangle_id / 256)));
+    o_color.rgb = surface_normal;
+    o_color.rgb = float3(z*z);
+    o_color.rgb = float3(depth);
+    o_color.rgb = fract(world_pos);
+    #endif
+
+    imageStore(HDR_BUFFER, pixel_pos, o_color);
+}

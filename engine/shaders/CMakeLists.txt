@@ -19,10 +19,11 @@ set(GLSL_FILES
   path_tracer.comp
   init_draw_calls.comp
   instances_culling.comp
+  drawcalls_fill_predicate.comp
   scan/parallel_prefix_sum.comp
   scan/copy_instances_index.comp
-  drawcalls_fill_predicate.comp
   scan/copy_draw_calls.comp
+  visibility_shading.comp
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)

@@ -111,7 +111,9 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 } globals;
 
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
+layout(set = 1, binding = 0) uniform usampler2D global_textures_uint[];
 layout(set = 1, binding = 0) uniform sampler3D global_textures_3d[];
+layout(set = 1, binding = 0) uniform usampler3D global_textures_3d_uint[];
 
 layout(set = 2, binding = 0, rgba8) uniform image2D global_images_2d_rgba8[];
 layout(set = 2, binding = 0, rgba16f) uniform image2D global_images_2d_rgba16f[];
