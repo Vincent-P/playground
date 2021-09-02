@@ -35,7 +35,8 @@ static FileWatcher create_internal()
     assert(fw.inotify_fd > 0);
 
     int flags = fcntl(fw.inotify_fd, F_GETFL, 0);
-    assert(fcntl(fw.inotify_fd, F_SETFL, flags | O_NONBLOCK) >= 0);
+    int res = fcntl(fw.inotify_fd, F_SETFL, flags | O_NONBLOCK) >= 0;
+    assert(res);
 
     fw.current_events.reserve(10);
 
@@ -102,7 +103,8 @@ static void destroy_internal(FileWatcher &fw)
     for (auto &watch : fw.watches)
     {
         (void)(watch); // TODO: custom assert, unused variable on release
-        assert(CloseHandle(watch.directory_handle));
+        BOOL res = CloseHandle(watch.directory_handle);
+        assert(res);
     }
 }
 
@@ -124,14 +126,15 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
     watch.overlapped = {};
     watch.buffer     = {};
 
-    assert(ReadDirectoryChangesW(watch.directory_handle,
+    BOOL res = ReadDirectoryChangesW(watch.directory_handle,
                                  watch.buffer.data(),
                                  static_cast<DWORD>(watch.buffer.size()),
                                  true,
                                  FILE_NOTIFY_CHANGE_LAST_WRITE,
                                  nullptr,
                                  &watch.overlapped,
-                                 nullptr));
+                                 nullptr);
+    assert(res);
 
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
@@ -143,7 +146,7 @@ static void fetch_events_internal(FileWatcher &fw)
     {
 
         DWORD bread = 0;
-        auto res    = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
+        BOOL res    = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
         if (!res)
         {
             auto error = GetLastError();
@@ -173,14 +176,15 @@ static void fetch_events_internal(FileWatcher &fw)
             offset += p_event->NextEntryOffset;
         }
 
-        assert(ReadDirectoryChangesW(watch.directory_handle,
-                                     watch.buffer.data(),
-                                     static_cast<DWORD>(watch.buffer.size()),
-                                     true,
-                                     FILE_NOTIFY_CHANGE_LAST_WRITE,
-                                     nullptr,
-                                     &watch.overlapped,
-                                     nullptr));
+        res = ReadDirectoryChangesW(watch.directory_handle,
+                                 watch.buffer.data(),
+                                 static_cast<DWORD>(watch.buffer.size()),
+                                 true,
+                                 FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 nullptr,
+                                 &watch.overlapped,
+                                 nullptr);
+        assert(res);
     }
 }
 #endif
