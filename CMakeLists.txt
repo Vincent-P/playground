@@ -17,6 +17,7 @@ add_compile_options(
   # Disable warnings for external headers
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
+  $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
   )
 
 # C++ flags for the project's code

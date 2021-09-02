@@ -914,7 +914,7 @@ void Renderer::prepare_geometry(Scene &scene)
 
 
     // Upload new models and collect mesh instances from the scene
-    constexpr u32 UPLOAD_PER_FRAME = 4;
+    constexpr u32 UPLOAD_PER_FRAME = 1;
     u32 i_upload = 0;
     scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
         [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
@@ -961,9 +961,9 @@ void Renderer::prepare_geometry(Scene &scene)
                     .i_render_mesh       = render_mesh_component.i_mesh,
                 });
             }
-            else if (i_upload < UPLOAD_PER_FRAME)
+            else
             {
-                for (u32 i_mesh = this->render_meshes.size(); i_mesh < asset_manager->meshes.size(); i_mesh += 1)
+                for (u32 i_mesh = this->render_meshes.size(); i_upload < UPLOAD_PER_FRAME && i_mesh < asset_manager->meshes.size(); i_mesh += 1)
                 {
                     auto &mesh_asset = asset_manager->meshes[i_mesh];
 

@@ -35,7 +35,8 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+        "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /RTC1"
       }
     },
     {
@@ -50,7 +51,8 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO":  "/Zi /O2 /Ob2 /DNDEBUG /QPar" // 0b2 instead of 0b1 to enable inlining, QPar to enable auto loop unrolling
       }
     }
   ],

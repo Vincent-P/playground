@@ -105,6 +105,11 @@ void main()
         ray.direction = tangent_to_world * wi;
         ray.t_min = 0.0;
         ray.t_max = 5.0;
+
+        #if 0
+        radiance = fract(ray.origin.xyz);
+        break;
+        #endif
     }
 
     imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(radiance, 1.0));

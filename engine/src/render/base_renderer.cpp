@@ -38,9 +38,8 @@ BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDes
     // Create the GPU
     device = gfx::Device::create(context, desc);
 
-    // Create empty images to full the slot #0 on bindless descriptors
-    renderer.empty_sampled_image = device.create_image({.name = "Empty sampled image", .usages = gfx::sampled_image_usage | gfx::storage_image_usage});
-    renderer.empty_storage_image = device.create_image({.name = "Empty storage image", .usages = gfx::storage_image_usage});
+    // Create an empty image to full the slot #0 on bindless descriptors
+    renderer.empty_image = device.create_image({.name = "Empty image", .usages = gfx::sampled_image_usage | gfx::storage_image_usage});
 
     // Create the drawing surface
     surface = gfx::Surface::create(context, device, window);
@@ -192,13 +191,12 @@ bool BaseRenderer::start_frame()
     device.reset_work_pool(work_pool);
 
     timing.get_results(device);
-    for (u32 i_label = 0; false && i_label < timing.labels.size(); i_label += 1)
+    for (u32 i_label = 0; i_label < timing.labels.size(); i_label += 1)
     {
         logger::info("[{}]: CPU {:.4f} ms | GPU {:.4f} ms\n", timing.labels[i_label], timing.cpu[i_label], timing.gpu[i_label]);
     }
 
     timing.reset(device);
-
 
     dynamic_uniform_buffer.start_frame();
     dynamic_vertex_buffer.start_frame();

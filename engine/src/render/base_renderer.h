@@ -25,9 +25,7 @@ struct BaseRenderer
     RingBuffer dynamic_vertex_buffer;
     RingBuffer dynamic_index_buffer;
 
-    Handle<gfx::Image> empty_sampled_image;
-    Handle<gfx::Image> empty_storage_image;
-
+    Handle<gfx::Image> empty_image;
 
     /// ---
 

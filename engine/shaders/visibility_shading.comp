@@ -5,7 +5,6 @@
 #include "raytracing.h"
 #include "bvh.h"
 
-
 ///
 struct DerivativesOutput
 {
@@ -166,7 +165,7 @@ void main()
 
     Ray ray;
     ray.t_min     = 0.0;
-    ray.t_max     = 3.0;
+    ray.t_max     = 1.0;
     ray.origin    = world_pos + 0.01 * surface_normal;
     ray.direction = normalize(surface_normal + random_unit_vector(rng_seed));
 
@@ -183,7 +182,7 @@ void main()
         o_color.rgb = float3(1.0) * dot(surface_normal, ray.direction);
     }
 
-    #if 0
+    #if 1
     o_color.rgb = hash_color(hash(float2(i_submesh_instance % 256, i_submesh_instance / 256)));
     o_color.rgb = hash_color(hash(float2(triangle_id % 256, triangle_id / 256)));
     o_color.rgb = surface_normal;
