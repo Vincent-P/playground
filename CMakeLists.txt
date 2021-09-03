@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 
 set(CMAKE_CXX_STANDARD 17)
 
-project(test-vulkan LANGUAGES CXX)
+project(test-vulkan LANGUAGES C CXX)
 
 find_package(Vulkan REQUIRED)
 find_package(Threads)

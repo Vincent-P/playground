@@ -41,10 +41,9 @@ target_link_libraries(engine
   exo
   cross
   imgui
-  simdjson
-  stb_image
   meshopt
   vma
+  libktx
   Vulkan::Vulkan
   Threads::Threads)
 
