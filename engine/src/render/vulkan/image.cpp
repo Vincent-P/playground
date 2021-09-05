@@ -54,7 +54,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     image_info.extent.width          = image_desc.size.x;
     image_info.extent.height         = image_desc.size.y;
     image_info.extent.depth          = image_desc.size.z;
-    image_info.mipLevels             = 1;
+    image_info.mipLevels             = image_desc.mip_levels;
     image_info.arrayLayers           = 1;
     image_info.samples               = image_desc.samples;
     image_info.initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -161,7 +161,10 @@ u32 Device::get_image_sampled_index(Handle<Image> image_handle)
     {
         return image->full_view.sampled_idx;
     }
-    return 0;
+    else
+    {
+        return u32_invalid;
+    }
 }
 
 u32 Device::get_image_storage_index(Handle<Image> image_handle)
@@ -170,6 +173,9 @@ u32 Device::get_image_storage_index(Handle<Image> image_handle)
     {
         return image->full_view.storage_idx;
     }
-    return 0;
+    else
+    {
+        return u32_invalid;
+    }
 }
 };

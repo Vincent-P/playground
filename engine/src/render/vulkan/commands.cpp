@@ -255,27 +255,12 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
     vkCmdBlitImage(command_buffer, src_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
 }
 
-void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst)
+void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst, Vec<VkBufferImageCopy> buffer_copy_regions)
 {
     auto &src_buffer = *device->buffers.get(src);
     auto &dst_image  = *device->images.get(dst);
 
-    VkBufferImageCopy region = {};
-    region.bufferOffset = 0;
-
-    // If either of these values is zero, that aspect of the buffer memory is considered to be tightly packed according to the imageExtent.
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-
-    region.imageSubresource.mipLevel = dst_image.full_view.range.baseMipLevel;
-    region.imageSubresource.aspectMask = dst_image.full_view.range.aspectMask;
-    region.imageSubresource.layerCount = dst_image.full_view.range.layerCount;
-    region.imageSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
-    region.imageExtent.width = dst_image.desc.size.x;
-    region.imageExtent.height = dst_image.desc.size.y;
-    region.imageExtent.depth = dst_image.desc.size.z;
-
-    vkCmdCopyBufferToImage(command_buffer, src_buffer.vkhandle, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(command_buffer, src_buffer.vkhandle, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, buffer_copy_regions.size(), buffer_copy_regions.data());
 }
 
 void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)

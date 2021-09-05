@@ -100,7 +100,8 @@ target_compile_definitions(libktx PUBLIC
   KTX_FEATURE_WRITE=0
   BASISD_SUPPORT_KTX2_ZSTD=0
   BASISD_SUPPORT_KTX2=0
-  BASISD_SUPPORT_FXT1=0)
+  BASISD_SUPPORT_FXT1=0
+  BASISU_NO_ITERATOR_DEBUG_LEVEL)
 
 
 target_include_directories(libktx SYSTEM PUBLIC libktx/include/)

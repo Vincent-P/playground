@@ -13,8 +13,12 @@ struct RenderMesh
 {
     u32 first_position;
     u32 first_index;
-    u32 bvh_root;
     u32 first_submesh;
+    u32 bvh_root;
+    u32 first_uv;
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
 };
 
 struct RenderInstance
@@ -70,6 +74,22 @@ struct DrawIndexedOptions
     u32 instance_offset;
 };
 
+
+struct Material
+{
+    float4 base_color_factor;
+    float4 emissive_factor;
+    float metallic_factor;
+    float roughness_factor;
+    u32 base_color_texture;
+    u32 normal_texture;
+    u32 metallic_roughness_texture;
+    float rotation;
+    float2 offset;
+    float2 scale;
+    float2 pad00;
+};
+
 /// --- Global bindings
 
 layout(push_constant) uniform PushConstants {
@@ -107,7 +127,9 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     u32 bvh_nodes_descriptor;
     u32 submeshes_descriptor;
     u32 culled_instances_indices_descriptor;
-    u32 pad01;
+    u32 materials_descriptor;
+
+    u32 vertex_uvs_descriptor;
 } globals;
 
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];
@@ -126,10 +148,12 @@ layout(set = 3, binding = 0) buffer MeshesBuffer                { RenderMesh ren
 layout(set = 3, binding = 0) buffer SubMeshInstancesBuffer      { SubMeshInstance submesh_instances[]; } global_buffers_submesh_instances[];
 layout(set = 3, binding = 0) buffer SubMeshesBuffer             { SubMesh submeshes[]; } global_buffers_submeshes[];
 layout(set = 3, binding = 0) buffer PositionsBuffer             { float4 positions[]; } global_buffers_positions[];
+layout(set = 3, binding = 0) buffer UvsBuffer                   { float2 uvs[]; } global_buffers_uvs[];
 layout(set = 3, binding = 0) buffer IndicesBuffer               { u32 indices[]; } global_buffers_indices[];
 layout(set = 3, binding = 0) buffer BVHBuffer                   { BVHNode nodes[]; } global_buffers_bvh[];
 layout(set = 3, binding = 0) buffer DrawArgumentsBuffer         { u32 draw_count; DrawIndexedOptions arguments[]; } global_buffers_draw_arguments[];
-layout(set = 3, binding = 0) buffer UintBuffer         { u32 data[]; } global_buffers_uint[];
+layout(set = 3, binding = 0) buffer UintBuffer                  { u32 data[]; } global_buffers_uint[];
+layout(set = 3, binding = 0) buffer MaterialsBuffer             { Material materials[]; } global_buffers_materials[];
 
 #define SHADER_SET 4
 
@@ -155,6 +179,11 @@ float4 get_position(u32 first_position, u32 i_position)
     return global_buffers_positions[globals.vertex_positions_descriptor].positions[first_position + i_position];
 }
 
+float2 get_uv(u32 first_uv, u32 i_uv)
+{
+    return global_buffers_uvs[globals.vertex_uvs_descriptor].uvs[first_uv + i_uv];
+}
+
 BVHNode get_tlas_node(u32 i_node)
 {
     return global_buffers_bvh[globals.tlas_descriptor].nodes[i_node];
@@ -173,5 +202,10 @@ SubMeshInstance get_submesh_instance(u32 i_submesh_instance)
 SubMesh get_submesh(u32 first_submesh, u32 i_submesh)
 {
     return global_buffers_submeshes[globals.submeshes_descriptor].submeshes[first_submesh + i_submesh];
+}
+
+Material get_material(u32 i_material)
+{
+    return global_buffers_materials[globals.materials_descriptor].materials[i_material];
 }
 #endif

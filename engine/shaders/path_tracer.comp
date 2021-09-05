@@ -69,6 +69,7 @@ void main()
         RenderInstance instance = get_render_instance(hit_info.instance_id);
         RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 
+
         // -- Fetch geometry information
         u32    i_v0 = get_index(mesh.first_index + hit_info.triangle_id + 0);
         u32    i_v1 = get_index(mesh.first_index + hit_info.triangle_id + 1);

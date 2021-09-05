@@ -63,6 +63,12 @@ GradientInterpolationResults interpolate_attribute_with_gradient(float2x3 attrib
     result.interp = (attribute_s + d.x * attribute_x + d.y * attribute_y);
     return result;
 }
+
+
+float depthLinearization(float depth, float near, float far)
+{
+	return (2.0 * near) / (far + near - depth * (far - near));
+}
 ///
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
@@ -101,7 +107,7 @@ void main()
     // Early exit if the pixel does not contain a triangle
     if (depth == 0.0)
     {
-        imageStore(HDR_BUFFER, pixel_pos, float4(0.0, 0.0, 0.0, 1.0));
+        imageStore(HDR_BUFFER, pixel_pos, float4(0.6, 0.9, 0.9, 1.0));
         return;
     }
 
@@ -114,6 +120,7 @@ void main()
     RenderInstance instance          = get_render_instance(submesh_instance.i_instance);
     RenderMesh mesh                  = get_render_mesh(submesh_instance.i_mesh);
     SubMesh submesh                  = get_submesh(mesh.first_submesh, submesh_instance.i_submesh);
+    Material material                = get_material(submesh.i_material);
 
     // triangle indices
     u32 i0 = get_index(mesh.first_index + submesh.first_index + triangle_id * 3 + 0);
@@ -125,22 +132,35 @@ void main()
     float4 p1 = instance.object_to_world * float4(get_position(mesh.first_position, i1).xyz, 1.0);
     float4 p2 = instance.object_to_world * float4(get_position(mesh.first_position, i2).xyz, 1.0);
 
-    // transform vertex positions to clip space
-    float4 c0 = globals.camera_projection * (globals.camera_view * p0);
-    float4 c1 = globals.camera_projection * (globals.camera_view * p1);
-    float4 c2 = globals.camera_projection * (globals.camera_view * p2);
+    // unpack uvs
+    mat3 translation = mat3(1,0,0, 0,1,0, material.offset.x, material.offset.y, 1);
+    mat3 rotation = mat3(
+        cos(material.rotation), sin(material.rotation), 0,
+       -sin(material.rotation), cos(material.rotation), 0,
+                    0,             0, 1
+    );
+    mat3 scale = mat3(material.scale.x,0,0, 0,material.scale.y,0, 0,0,1);
+    mat3 matrix = translation * rotation * scale;
+    float2 uv0 = (matrix * float3(get_uv(mesh.first_uv, i0), 1)).xy;
+    float2 uv1 = (matrix * float3(get_uv(mesh.first_uv, i1), 1)).xy;
+    float2 uv2 = (matrix * float3(get_uv(mesh.first_uv, i2), 1)).xy;
 
-    // perspective divide
-    float3 one_over_w = 1.0f / float3(c0.w, c1.w, c2.w);
-    c0 *= one_over_w[0];
-    c1 *= one_over_w[1];
-    c2 *= one_over_w[2];
+    // transform vertex positions to clip space
+    float4 ndc0 = globals.camera_projection * (globals.camera_view * p0);
+    float4 ndc1 = globals.camera_projection * (globals.camera_view * p1);
+    float4 ndc2 = globals.camera_projection * (globals.camera_view * p2);
+
+    // perspective divide, c012 are now in ndc space
+    float3 one_over_w = 1.0f / float3(ndc0.w, ndc1.w, ndc2.w);
+    ndc0 *= one_over_w[0];
+    ndc1 *= one_over_w[1];
+    ndc2 *= one_over_w[2];
 
     // Compute partial derivatives. This is necessary to interpolate triangle attributes per pixel.
-    DerivativesOutput deritatives = compute_partial_deritatives(c0.xy, c1.xy, c2.xy);
+    DerivativesOutput deritatives = compute_partial_deritatives(ndc0.xy, ndc1.xy, ndc2.xy);
 
     // Calculate delta vector (d) that points from the projected vertex 0 to the current screen point
-    float2 d = clip_space.xy + -c0.xy;
+    float2 d = clip_space.xy - ndc0.xy;
 
     // Interpolate the 1/w (one_over_w) for all three vertices of the triangle
     // using the barycentric coordinates and the delta vector
@@ -154,6 +174,30 @@ void main()
     // First the projected coordinates at this point are calculated using In.screenPos and the computed Z value at this point.
     // Then, multiplying the perspective projected coordinates by the inverse view-projection matrix (invVP) produces world coordinates
     float3 world_pos = (globals.camera_view_inverse * (globals.camera_projection_inverse * float4(clip_space.xy * w, z, w))).xyz;
+
+    // TEXTURE COORD INTERPOLATION
+    // Apply perspective correction to texture coordinates
+    float2x3 texCoords;
+    texCoords[0] = uv0 * one_over_w[0];
+    texCoords[1] = uv1 * one_over_w[1];
+    texCoords[2] = uv2 * one_over_w[2];
+
+    // Interpolate texture coordinates and calculate the gradients for texture sampling with mipmapping support
+    GradientInterpolationResults results = interpolate_attribute_with_gradient(texCoords, deritatives.db_dx, deritatives.db_dy, d, 1.0 / output_size);
+
+    const float near_plane = 0.1;
+    const float far_plane = 100.0;
+    float linearZ = z / (w * near_plane);
+    float mip = pow(pow(linearZ, 0.9f) * 5.0f, 1.5f);
+
+    float2 texCoordDX = results.dx * w * mip;
+    float2 texCoordDY = results.dy * w * mip;
+    float2 texCoord   = results.interp * w;
+
+
+
+
+
 
     // Ray trace triangle for debug
     float3 e1   = p1.xyz - p0.xyz;
@@ -182,13 +226,22 @@ void main()
         o_color.rgb = float3(1.0) * dot(surface_normal, ray.direction);
     }
 
-    #if 1
+    o_color.rgb *= material.base_color_factor.rgb;
+    if (material.base_color_texture != u32_invalid)
+    {
+
+        o_color.rgb *= textureGrad(global_textures[nonuniformEXT(material.base_color_texture)], texCoord, texCoordDX, texCoordDY).rgb;
+    }
+
+    #if 0
     o_color.rgb = hash_color(hash(float2(i_submesh_instance % 256, i_submesh_instance / 256)));
     o_color.rgb = hash_color(hash(float2(triangle_id % 256, triangle_id / 256)));
     o_color.rgb = surface_normal;
     o_color.rgb = float3(z*z);
     o_color.rgb = float3(depth);
     o_color.rgb = fract(world_pos);
+    o_color.rgb = float3(mip);
+    o_color.rgb = float3(texCoord, 0);
     #endif
 
     imageStore(HDR_BUFFER, pixel_pos, o_color);

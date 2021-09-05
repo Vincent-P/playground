@@ -396,14 +396,12 @@ struct World
             auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
             if (contains)
             {
-
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
                     // TODO: there is a loop over query in component_ref that could be removed if it was possible
                     // to loop over ComponentTypes for each query and then pass that as arguments to the lambda
                     lambda(impl::component_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
-
             }
         }
     }
@@ -417,14 +415,12 @@ struct World
             auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
             if (contains)
             {
-
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
                     // TODO: there is a loop over query in component_ref that could be removed if it was possible
                     // to loop over ComponentTypes for each query and then pass that as arguments to the lambda
                     lambda(impl::component_const_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
-
             }
         }
     }

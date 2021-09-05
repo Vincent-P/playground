@@ -16,6 +16,7 @@
 #include <exo/quaternion.h>
 #include <variant>
 #include <vulkan/vulkan_core.h>
+#include <ktx.h>
 
 static uint3 dispatch_size(uint3 size, u32 threads)
 {
@@ -101,9 +102,17 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         });
 
     renderer.index_buffer            = UnifiedBufferStorage::create(device, "Unified index buffer", 256_MiB, sizeof(u32), gfx::index_buffer_usage);
-    renderer.vertex_positions_buffer = UnifiedBufferStorage::create(device, "Unified positions buffer", 128_MiB, sizeof(u32));
-    renderer.bvh_nodes_buffer        = UnifiedBufferStorage::create(device, "Unified bvh buffer", 256_MiB, sizeof(u32));
-    renderer.submeshes_buffer        = UnifiedBufferStorage::create(device, "Unified submeshes buffer", 32_MiB, sizeof(u32));
+    renderer.vertex_positions_buffer = UnifiedBufferStorage::create(device, "Unified positions buffer", 128_MiB, sizeof(float4));
+    renderer.vertex_uvs_buffer       = UnifiedBufferStorage::create(device, "Unified uvs buffer", 64_MiB, sizeof(float2));
+    renderer.bvh_nodes_buffer        = UnifiedBufferStorage::create(device, "Unified bvh buffer", 256_MiB, sizeof(BVHNode));
+    renderer.submeshes_buffer        = UnifiedBufferStorage::create(device, "Unified submeshes buffer", 32_MiB, sizeof(SubMesh));
+
+    renderer.materials_buffer = device.create_buffer({
+        .name         = "Materials buffer",
+        .size         = 2_MiB,
+        .usage        = gfx::storage_buffer_usage,
+        .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    });
 
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
@@ -493,30 +502,32 @@ void Renderer::update(Scene &scene)
     static float4x4 last_view = main_camera->view;
     static float4x4 last_proj = main_camera->projection;
 
-    auto *global_data                              = base_renderer.bind_global_options<GlobalUniform>();
-    global_data->camera_view                       = main_camera->view;
-    global_data->camera_projection                 = main_camera->projection;
-    global_data->camera_view_inverse               = main_camera->view_inverse;
-    global_data->camera_projection_inverse         = main_camera->projection_inverse;
-    global_data->camera_previous_view              = last_view;
-    global_data->camera_previous_projection        = last_proj;
-    global_data->render_resolution                 = float2(std::floor(settings.resolution_scale * settings.render_resolution.x), std::floor(settings.resolution_scale * settings.render_resolution.y));
-    global_data->jitter_offset                     = current_sample;
-    global_data->delta_t                           = 0.016f;
-    global_data->frame_count                       = base_renderer.frame_count;
-    global_data->first_accumulation_frame          = this->first_accumulation_frame;
-    global_data->meshes_data_descriptor            = device.get_buffer_storage_index(render_meshes_buffer);
-    global_data->instances_data_descriptor         = device.get_buffer_storage_index(instances_data.buffer);
-    global_data->instances_offset                  = this->instances_offset;
-    global_data->submesh_instances_data_descriptor = device.get_buffer_storage_index(submesh_instances_data.buffer);
-    global_data->submesh_instances_offset          = this->submesh_instances_offset;
-    global_data->tlas_descriptor                   = device.get_buffer_storage_index(tlas_buffer);
-    global_data->submesh_instances_count           = this->submesh_instances_to_draw.size();
-    global_data->index_buffer_descriptor           = device.get_buffer_storage_index(this->index_buffer.buffer);
-    global_data->vertex_positions_descriptor       = device.get_buffer_storage_index(this->vertex_positions_buffer.buffer);
-    global_data->bvh_nodes_descriptor              = device.get_buffer_storage_index(this->bvh_nodes_buffer.buffer);
-    global_data->submeshes_descriptor              = device.get_buffer_storage_index(this->submeshes_buffer.buffer);
-    global_data->culled_instances_indices_descriptor  = device.get_buffer_storage_index(culled_instances_compact_indices);
+    auto *global_data                                = base_renderer.bind_global_options<GlobalUniform>();
+    global_data->camera_view                         = main_camera->view;
+    global_data->camera_projection                   = main_camera->projection;
+    global_data->camera_view_inverse                 = main_camera->view_inverse;
+    global_data->camera_projection_inverse           = main_camera->projection_inverse;
+    global_data->camera_previous_view                = last_view;
+    global_data->camera_previous_projection          = last_proj;
+    global_data->render_resolution                   = float2(std::floor(settings.resolution_scale * settings.render_resolution.x), std::floor(settings.resolution_scale * settings.render_resolution.y));
+    global_data->jitter_offset                       = current_sample;
+    global_data->delta_t                             = 0.016f;
+    global_data->frame_count                         = base_renderer.frame_count;
+    global_data->first_accumulation_frame            = this->first_accumulation_frame;
+    global_data->meshes_data_descriptor              = device.get_buffer_storage_index(render_meshes_buffer);
+    global_data->instances_data_descriptor           = device.get_buffer_storage_index(instances_data.buffer);
+    global_data->instances_offset                    = this->instances_offset;
+    global_data->submesh_instances_data_descriptor   = device.get_buffer_storage_index(submesh_instances_data.buffer);
+    global_data->submesh_instances_offset            = this->submesh_instances_offset;
+    global_data->tlas_descriptor                     = device.get_buffer_storage_index(tlas_buffer);
+    global_data->submesh_instances_count             = this->submesh_instances_to_draw.size();
+    global_data->index_buffer_descriptor             = device.get_buffer_storage_index(this->index_buffer.buffer);
+    global_data->vertex_positions_descriptor         = device.get_buffer_storage_index(this->vertex_positions_buffer.buffer);
+    global_data->bvh_nodes_descriptor                = device.get_buffer_storage_index(this->bvh_nodes_buffer.buffer);
+    global_data->submeshes_descriptor                = device.get_buffer_storage_index(this->submeshes_buffer.buffer);
+    global_data->culled_instances_indices_descriptor = device.get_buffer_storage_index(culled_instances_compact_indices);
+    global_data->materials_descriptor                = device.get_buffer_storage_index(this->materials_buffer);
+    global_data->vertex_uvs_descriptor               = device.get_buffer_storage_index(this->vertex_uvs_buffer.buffer);
 
     last_view = main_camera->view;
     last_proj = main_camera->projection;
@@ -977,8 +988,10 @@ void Renderer::prepare_geometry(Scene &scene)
                     render_mesh.gpu.first_index    = this->index_buffer.allocate(mesh_asset.indices.size());
                     render_mesh.gpu.bvh_root       = this->bvh_nodes_buffer.allocate(bvh.nodes.size());
                     render_mesh.gpu.first_submesh  = this->submeshes_buffer.allocate(mesh_asset.submeshes.size());
+                    render_mesh.gpu.first_uv       = this->vertex_uvs_buffer.allocate(mesh_asset.uvs.size());
 
                     streamer.upload(this->vertex_positions_buffer.buffer, mesh_asset.positions.data(), mesh_asset.positions.size() * sizeof(float4), render_mesh.gpu.first_position * sizeof(float4));
+                    streamer.upload(this->vertex_uvs_buffer.buffer, mesh_asset.uvs.data(), mesh_asset.uvs.size() * sizeof(float2), render_mesh.gpu.first_uv * sizeof(float2));
                     streamer.upload(this->index_buffer.buffer, mesh_asset.indices.data(), mesh_asset.indices.size() * sizeof(u32), render_mesh.gpu.first_index * sizeof(u32));
                     streamer.upload(this->bvh_nodes_buffer.buffer, bvh.nodes.data(), bvh.nodes.size() * sizeof(BVHNode), render_mesh.gpu.bvh_root * sizeof(BVHNode));
                     streamer.upload(this->submeshes_buffer.buffer, mesh_asset.submeshes.data(), mesh_asset.submeshes.size() * sizeof(SubMesh), render_mesh.gpu.first_submesh * sizeof(SubMesh));
@@ -987,12 +1000,73 @@ void Renderer::prepare_geometry(Scene &scene)
                     assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
                     meshes_gpu[this->render_meshes.size()] = render_mesh.gpu;
 
+                    auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
+                    for (const auto &submesh : mesh_asset.submeshes)
+                    {
+                        assert(submesh.i_material < 2_MiB / sizeof(Material));
+                        if (submesh.i_material >= render_materials.size())
+                        {
+                            for (usize i_material = render_materials.size(); i_material <= submesh.i_material; i_material += 1)
+                            {
+                                // Copy material to GPU
+                                materials_gpu[i_material] = asset_manager->materials[i_material];
+
+                                RenderMaterial render_material = {};
+
+                                u32 i_texture_asset = asset_manager->materials[i_material].base_color_texture;
+
+                                if (i_texture_asset != u32_invalid)
+                                {
+                                    if (i_texture_asset >= textures.size())
+                                    {
+                                        for (usize i_texture = textures.size(); i_texture <= i_texture_asset; i_texture += 1)
+                                        {
+                                            textures.emplace_back();
+                                        }
+                                        // upload texture i_texture_asset
+
+                                        ktxTexture2 *texture = reinterpret_cast<ktxTexture2*>(asset_manager->textures[i_texture_asset].ktx_texture);
+                                        // TODO: Add a name field to textures
+                                        textures[i_texture_asset] = device.create_image({
+                                            .name   = "Base color/Albedo",
+                                            .size   = {texture->baseWidth, texture->baseHeight, texture->baseDepth},
+                                            .mip_levels = texture->numLevels,
+                                            .format = static_cast<VkFormat>(texture->vkFormat),
+                                        });
+                                        streamer.upload(textures[i_texture_asset], texture);
+                                    }
+
+                                    render_material.base_color_texture = textures[i_texture_asset];
+                                }
+
+                                // all texture indices from CPU side points to the asset manager
+                                materials_gpu[i_material].base_color_texture = device.get_image_sampled_index(render_material.base_color_texture);
+
+                                render_materials.push_back(render_material);
+                            }
+                        }
+                    }
+
                     this->render_meshes.push_back(render_mesh);
 
                     i_upload += 1;
                 }
             }
         });
+
+    auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
+    for (u32 i_material = 0; i_material < render_materials.size(); i_material += 1)
+    {
+        const auto &material_asset = asset_manager->materials[i_material];
+        const auto &render_material = render_materials[i_material];
+        auto &material_gpu = materials_gpu[i_material];
+
+        u32 base_color_descriptor = streamer.is_uploaded(render_material.base_color_texture) ? device.get_image_sampled_index(render_material.base_color_texture) : u32_invalid;
+        if (material_gpu.base_color_texture != base_color_descriptor)
+        {
+            material_gpu.base_color_texture = base_color_descriptor;
+        }
+    }
 
     // Gather all submesh instances and instances data from the meshes and instances lists
     submesh_instances_to_draw.clear();

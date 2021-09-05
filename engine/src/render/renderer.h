@@ -72,7 +72,12 @@ struct PACKED GlobalUniform
     u32 bvh_nodes_descriptor;
     u32 submeshes_descriptor;
     u32 culled_instances_indices_descriptor;
+    u32 materials_descriptor;
+
+    u32 vertex_uvs_descriptor;
+    u32 pad00;
     u32 pad01;
+    u32 pad10;
 };
 
 struct PACKED PushConstants
@@ -86,8 +91,12 @@ struct PACKED RenderMeshGPU
 {
     u32 first_position;
     u32 first_index;
-    u32 bvh_root;
     u32 first_submesh;
+    u32 bvh_root;
+    u32 first_uv;
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
 };
 
 // A 3D model
@@ -95,6 +104,7 @@ struct RenderMesh
 {
     BVHNode bvh_root = {};
     Vec<u32> instances;
+    Vec<u32> materials;
     u32 first_instance = 0;
     RenderMeshGPU gpu;
 };
@@ -117,6 +127,12 @@ struct PACKED RenderInstance
     u32 pad00;
     u32 pad01;
     u32 pad10;
+};
+
+
+struct RenderMaterial
+{
+    Handle<gfx::Image> base_color_texture;
 };
 
 
@@ -146,8 +162,15 @@ struct Renderer
 
     UnifiedBufferStorage index_buffer;
     UnifiedBufferStorage vertex_positions_buffer;
+    UnifiedBufferStorage vertex_uvs_buffer;
     UnifiedBufferStorage bvh_nodes_buffer;
     UnifiedBufferStorage submeshes_buffer;
+
+
+    // Materials
+    Vec<RenderMaterial> render_materials;
+    Vec<Handle<gfx::Image>> textures;
+    Handle<gfx::Buffer> materials_buffer;
 
     // Scan
     Handle<gfx::Buffer> predicate_buffer;        // hold predicate for each element, (for example in instance culling, 0: not visible, 1: visible)

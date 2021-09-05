@@ -57,7 +57,7 @@ void App::display_ui()
     renderer.display_ui(ui);
     inputs.display_ui(ui);
     scene.display_ui(ui);
-    asset_manager.display_ui(ui);
+    // asset_manager.display_ui(ui);
 }
 
 void App::run()

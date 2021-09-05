@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#if 0
 void AssetManager::load_texture(const std::filesystem::path &path)
 {
     textures.add({.name = path.string()});
@@ -127,3 +128,4 @@ void AssetManager::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
+#endif

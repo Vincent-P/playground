@@ -14,14 +14,33 @@ enum struct UploadState
     Done
 };
 
-// Buffer upload request
-struct ResourceUpload
+struct BufferUpload
 {
-    u32 i_staging;
-    u64 transfer_id;
-    UploadState state;
-    usize dst_offset;
-    usize len;
+    u32 i_staging;     // index of staging area
+    u64 transfer_id;   // upload frame, when the current frame is greater than the upload frame the upload is done
+    UploadState state; // Resource state
+    usize len;         // length in bytes of the upload
+};
+
+struct BufferUploads
+{
+    std::unordered_map<usize, BufferUpload> offsets;
+};
+
+struct ImageRegion
+{
+    u32 mip_level = 0;
+    u32 layer     = 0;
+    usize offset  = 0; // offset in the source buffer
+};
+
+struct ImageUpload
+{
+    u32 i_staging;     // index of staging area
+    u64 transfer_id;   // upload frame, when the current frame is greater than the upload frame the upload is done
+    UploadState state; // Resource state
+    usize len;         // length in bytes of the upload
+    Vec<ImageRegion> regions;
 };
 
 // CPU Memory staging area
@@ -40,10 +59,15 @@ public:
     void update(gfx::WorkPool &work_pool);
     void destroy();
 
+    // Buffers
     void upload(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset = 0);
+    bool is_uploaded(Handle<gfx::Buffer> buffer);
+    bool is_uploaded(Handle<gfx::Buffer> buffer, usize dst_offset);
+
+    // Images
     void upload(Handle<gfx::Image> image, const void *data, usize len);
+    void upload(Handle<gfx::Image> image, void *texture);
     bool is_uploaded(Handle<gfx::Image> image);
-    bool is_uploaded(Handle<gfx::Buffer> buffer, usize dst_offset = 0);
 
     gfx::Device *device;
     gfx::Fence transfer_done;
@@ -54,6 +78,6 @@ public:
     Vec<StagingArea> staging_areas;
     usize cpu_memory_usage;
 
-    std::unordered_map<Handle<gfx::Buffer>, Vec<ResourceUpload>> buffer_uploads;
-    std::unordered_map<Handle<gfx::Image>, ResourceUpload> image_uploads;
+    std::unordered_map<Handle<gfx::Buffer>, BufferUploads> buffer_uploads;
+    std::unordered_map<Handle<gfx::Image>, ImageUpload> image_uploads;
 };

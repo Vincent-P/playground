@@ -22,6 +22,7 @@ namespace glb
         Vec<Mesh> meshes;
         Vec<MeshInstance> instances;
         Vec<Material> materials;
+        Vec<void*> images;
     };
 
     Scene load_file(const std::string_view &path);

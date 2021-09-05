@@ -8,7 +8,11 @@
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 #include <meshoptimizer.h>
+
+#include <ktx.h>
 
 namespace gltf
 {
@@ -181,35 +185,12 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
                 new_submesh.first_vertex = static_cast<u32>(new_mesh.positions.size());
                 new_submesh.first_index  = static_cast<u32>(new_mesh.indices.size());
 
+                if (primitive.HasMember("material"))
                 {
-                    auto accessor_json = accessors[attributes["POSITION"].GetInt()].GetObject();
-                    auto accessor = get_accessor(accessor_json);
-                    auto bufferview = get_bufferview(bufferviews[accessor.bufferview_index]);
-                    usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
-
-                    // Copy the data from the binary buffer
-                    new_mesh.positions.reserve(accessor.count);
-                    for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1)
-                    {
-                        usize offset = bufferview.byte_offset + accessor.byte_offset + i_position * byte_stride;
-                        float4 new_position = {};
-
-                        if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
-                            const auto *components = reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
-                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
-                        }
-                        else if (accessor.component_type == gltf::ComponentType::Float) {
-                            const auto *components = reinterpret_cast<const float*>(ptr_offset(binary_chunk->data, offset));
-                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
-                        }
-                        else {
-                            assert(false);
-                        }
-
-                        new_mesh.positions.push_back(new_position);
-                    }
+                    new_submesh.i_material   = primitive["material"].GetUint() + 1; // #0 is the default one for primitives without materials
                 }
 
+                // -- Attributes
                 assert(primitive.HasMember("indices"));
                 {
                     auto accessor_json = accessors[primitive["indices"].GetInt()].GetObject();
@@ -238,6 +219,76 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
                     new_submesh.index_count = accessor.count;
 
                     index_acc += accessor.count;
+                }
+
+                u32 vertex_count = 0;
+                {
+                    auto accessor_json = accessors[attributes["POSITION"].GetInt()].GetObject();
+                    auto accessor = get_accessor(accessor_json);
+                    vertex_count = accessor.count;
+                    auto bufferview = get_bufferview(bufferviews[accessor.bufferview_index]);
+                    usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
+
+                    // Copy the data from the binary buffer
+                    new_mesh.positions.reserve(accessor.count);
+                    for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1)
+                    {
+                        usize offset = bufferview.byte_offset + accessor.byte_offset + i_position * byte_stride;
+                        float4 new_position = {};
+
+                        if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
+                            const auto *components = reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
+                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
+                        }
+                        else if (accessor.component_type == gltf::ComponentType::Float) {
+                            const auto *components = reinterpret_cast<const float*>(ptr_offset(binary_chunk->data, offset));
+                            new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
+                        }
+                        else {
+                            assert(false);
+                        }
+
+                        new_mesh.positions.push_back(new_position);
+                    }
+                }
+
+                if (attributes.HasMember("TEXCOORD_0"))
+                {
+                    auto accessor_json = accessors[attributes["TEXCOORD_0"].GetInt()].GetObject();
+                    auto accessor = get_accessor(accessor_json);
+                    assert(accessor.count == vertex_count);
+                    auto bufferview = get_bufferview(bufferviews[accessor.bufferview_index]);
+                    usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
+
+                    // Copy the data from the binary buffer
+                    new_mesh.uvs.reserve(accessor.count);
+                    for (usize i_uv = 0; i_uv < usize(accessor.count); i_uv += 1)
+                    {
+                        usize offset = bufferview.byte_offset + accessor.byte_offset + i_uv * byte_stride;
+                        float2 new_uv = {};
+
+                        if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
+                            const auto *components = reinterpret_cast<const u16*>(ptr_offset(binary_chunk->data, offset));
+                            new_uv = {float(components[0]), float(components[1])};
+                        }
+                        else if (accessor.component_type == gltf::ComponentType::Float) {
+                            const auto *components = reinterpret_cast<const float*>(ptr_offset(binary_chunk->data, offset));
+                            new_uv = {float(components[0]), float(components[1])};
+                        }
+                        else {
+                            assert(false);
+                        }
+
+                        new_mesh.uvs.push_back(new_uv);
+                    }
+                }
+                else
+                {
+                    new_mesh.uvs.reserve(vertex_count);
+                    for (u32 i = 0; i < vertex_count; i += 1)
+                    {
+                        new_mesh.uvs.push_back(float2(0.0f, 0.0f));
+                    }
                 }
 
 #if defined(BUILD_MESHLETS)
@@ -322,6 +373,159 @@ static void process_json(Scene &new_scene, rapidjson::Document &document, const 
 
 
         logger::info("Loaded {} unique meshes from {} meshes in file.\n", new_scene.meshes.size(), mesh_remap.size());
+    }
+
+    if (document.HasMember("images"))
+    {
+        u32 i_image = 0;
+        for (auto &image : document["images"].GetArray())
+        {
+            ktxTexture2* ktx_texture = nullptr;
+            if (image.HasMember("mimeType"))
+            {
+                const char *mime_type = image["mimeType"].GetString();
+                int bufferview_index = image["bufferView"].GetInt();
+
+                logger::info("[GLB] image #{} has mimeType {}\n", i_image, mime_type);
+
+                if (std::string_view(mime_type) == "image/ktx2")
+                {
+                    auto bufferview = get_bufferview(bufferviews[bufferview_index]);
+
+                    KTX_error_code result = KTX_SUCCESS;
+
+                    const u8 *image_data = reinterpret_cast<const u8 *>(ptr_offset(binary_chunk->data, bufferview.byte_offset));
+                    usize size           = bufferview.byte_length;
+                    result               = ktxTexture2_CreateFromMemory(image_data, size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
+
+                    if (result == KTX_SUCCESS)
+                    {
+                        logger::info("baseWidth: {} | baseHeight: {} | numDimensions: {} | numLevels: {} | numLayers: {}\n", ktx_texture->baseWidth, ktx_texture->baseHeight, ktx_texture->numDimensions, ktx_texture->numLevels, ktx_texture->numLayers);
+
+                        if (ktxTexture2_NeedsTranscoding(ktx_texture))
+                        {
+                            // https://github.com/KhronosGroup/3D-Formats-Guidelines/blob/main/KTXDeveloperGuide.md
+                            // Assume gpu that supports BC only
+                            // ETC1S / BasisLZ Codec
+                            //   RGB/A     : KTX_TTF_BC7_RGBA
+                            //   R         : KTX_TTF_BC4_R
+                            //   RG        : KTX_TTF_BC5_RG
+                            // UASTC Codec :KTX_TTF_BC7_RGBA
+
+                            ktx_transcode_fmt_e target_format = KTX_TTF_BC7_RGBA;
+
+                            u32 nb_components = ktxTexture2_GetNumComponents(ktx_texture);
+                            if (ktx_texture->supercompressionScheme == KTX_SS_BASIS_LZ)
+                            {
+                                if (nb_components == 1)
+                                {
+                                    target_format = KTX_TTF_BC4_R;
+                                }
+                                else if (nb_components == 2)
+                                {
+                                    target_format = KTX_TTF_BC5_RG;
+                                }
+                            }
+
+                            logger::info("transcoding texture to BC7 RGBA\n");
+                            result = ktxTexture2_TranscodeBasis(ktx_texture, target_format, 0);
+                            if (result != KTX_SUCCESS)
+                            {
+                                logger::error("Could not transcode the input texture to the selected target format.\n");
+                                ktxTexture_Destroy(reinterpret_cast<ktxTexture*>(ktx_texture));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        logger::error("invalid ktx file\n");
+                    }
+                }
+            }
+            new_scene.images.push_back(ktx_texture);
+            i_image += 1;
+        }
+    }
+
+    new_scene.materials.emplace_back();
+    if (document.HasMember("materials"))
+    {
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        document["materials"].Accept(writer);
+        logger::info("[GLB] materials: {}\n", buffer.GetString());
+
+        for (const auto &material : document["materials"].GetArray())
+        {
+            Material new_material = {};
+            if (material.HasMember("pbrMetallicRoughness"))
+            {
+                const auto &pbr_metallic_roughness = material["pbrMetallicRoughness"].GetObj();
+
+                // {"baseColorTexture":{"index":0,"texCoord":0,"extensions":{"KHR_texture_transform":{"offset":[0.125,0],"scale":[0.000183150187,0.000244200259]}}},"metallicFactor":0,"roughnessFactor":0.400000006}
+                if (pbr_metallic_roughness.HasMember("baseColorTexture"))
+                {
+                    const auto &base_color_texture  = pbr_metallic_roughness["baseColorTexture"];
+                    u32 texture_index               = base_color_texture["index"].GetUint();
+
+                    const auto &texture = document["textures"][texture_index];
+                    // texture: {"extensions":{"KHR_texture_basisu":{"source":0}}}
+
+                    bool has_extension = false;
+                    if (texture.HasMember("extensions"))
+                    {
+                        for (const auto &extension : texture["extensions"].GetObj())
+                        {
+                            if (std::string_view(extension.name.GetString()) == std::string_view("KHR_texture_basisu"))
+                            {
+                                has_extension = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!has_extension)
+                    {
+                        logger::error("[GLB] Material references a texture that isn't in basis format.\n");
+                    }
+                    else
+                    {
+                        new_material.base_color_texture = texture["extensions"]["KHR_texture_basisu"]["source"].GetUint();
+                    }
+
+                    // TODO: Assert that all textures of this material have the same texture transform
+                    if (base_color_texture.HasMember("extensions") && base_color_texture["extensions"].HasMember("KHR_texture_transform"))
+                    {
+                        const auto &extension = base_color_texture["extensions"]["KHR_texture_transform"];
+                        if (extension.HasMember("offset"))
+                        {
+                            new_material.offset.raw[0] = extension["offset"].GetArray()[0].GetFloat();
+                            new_material.offset.raw[1] = extension["offset"].GetArray()[1].GetFloat();
+                        }
+                        if (extension.HasMember("scale"))
+                        {
+                            new_material.scale.raw[0] = extension["scale"].GetArray()[0].GetFloat();
+                            new_material.scale.raw[1] = extension["scale"].GetArray()[1].GetFloat();
+                        }
+                        if (extension.HasMember("rotation"))
+                        {
+                            new_material.rotation = extension["rotation"].GetFloat();
+                        }
+                    }
+                }
+
+                if (pbr_metallic_roughness.HasMember("baseColorFactor"))
+                {
+                    new_material.base_color_factor = {1.0, 1.0, 1.0, 1.0};
+                    for (usize i = 0; i < 4; i += 1)
+                    {
+                        new_material.base_color_factor.raw[i] = pbr_metallic_roughness["baseColorFactor"].GetArray()[i].GetFloat();
+                    }
+                }
+            }
+
+            new_scene.materials.push_back(std::move(new_material));
+        }
     }
 
     u32 i_scene = 0;

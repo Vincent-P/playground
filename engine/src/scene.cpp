@@ -312,9 +312,30 @@ void Scene::display_ui(UI::Context &ui)
             {
                 auto scene = glb::load_file(file_path->string());
                 auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
-                for (auto &mesh : scene.meshes)
+
+                auto old_textures_count = asset_manager->textures.size();
+                auto old_materials_count = asset_manager->materials.size();
+
+                for (auto mesh : scene.meshes)
                 {
-                    asset_manager->meshes.push_back(mesh);
+                    for (auto &submesh : mesh.submeshes)
+                    {
+                        submesh.i_material += old_materials_count;
+                    }
+                    asset_manager->meshes.push_back(std::move(mesh));
+                }
+
+                for (auto material : scene.materials)
+                {
+                    if (material.base_color_texture != u32_invalid) {
+                        material.base_color_texture += old_textures_count;
+                    }
+                    asset_manager->materials.push_back(std::move(material));
+                }
+
+                for (void *texture : scene.images)
+                {
+                    asset_manager->textures.push_back(Texture{texture});
                 }
 
                 for (const auto &instance : scene.instances)
