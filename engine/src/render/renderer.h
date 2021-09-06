@@ -12,7 +12,6 @@
 #include "render/vulkan/commands.h"
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
-#include "render/vulkan/resources.h"
 #include "render/vulkan/surface.h"
 
 #include <chrono>

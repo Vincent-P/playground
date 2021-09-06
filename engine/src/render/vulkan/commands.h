@@ -1,9 +1,13 @@
 #pragma once
-#include <exo/algorithms.h>
-#include <exo/handle.h>
 #include <exo/collections/vector.h>
-#include "render/vulkan/resources.h"
-#include "vulkan/vulkan_core.h"
+#include <exo/collections/enum_array.h>
+#include <exo/handle.h>
+#include <exo/option.h>
+
+#include "render/vulkan/queues.h"
+#include "render/vulkan/image.h"
+#include "render/vulkan/buffer.h"
+#include "render/vulkan/synchronization.h"
 
 #include <vulkan/vulkan.h>
 #include <array>
@@ -14,11 +18,11 @@ namespace vulkan
 struct Device;
 struct Image;
 struct Surface;
-
-struct QueryPool
-{
-    VkQueryPool vkhandle = VK_NULL_HANDLE;
-};
+struct QueryPool;
+struct ComputeProgram;
+struct GraphicsProgram;
+struct Framebuffer;
+struct LoadOp;
 
 struct CommandPool
 {
@@ -28,18 +32,11 @@ struct CommandPool
 
 struct WorkPool
 {
-    std::array<CommandPool, 3> command_pools;
+    EnumArray<CommandPool, QueueType> command_pools;
 
-    inline CommandPool &graphics() { return command_pools[to_underlying(QueueType::Graphics)]; }
-    inline CommandPool &compute()  { return command_pools[to_underlying(QueueType::Compute)];  }
-    inline CommandPool &transfer() { return command_pools[to_underlying(QueueType::Transfer)]; }
-};
-
-// DX12-like fence used for CPU/CPU, CPU/GPU, or GPU/GPU synchronization
-struct Fence
-{
-    VkSemaphore timeline_semaphore = VK_NULL_HANDLE;
-    u64 value = 0;
+    inline CommandPool &graphics() { return command_pools[QueueType::Graphics]; }
+    inline CommandPool &compute()  { return command_pools[QueueType::Compute];  }
+    inline CommandPool &transfer() { return command_pools[QueueType::Transfer]; }
 };
 
 // Command buffer / Queue abstraction

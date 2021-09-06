@@ -3,7 +3,6 @@
 #include <exo/types.h>
 #include <exo/option.h>
 #include <exo/collections/vector.h>
-#include <exo/algorithms.h>
 #include <cross/window.h>
 
 #include <optional>
@@ -19,15 +18,16 @@ enum struct Action : uint
 #define X(display_name, enum) enum,
 #include "input_bindings.def"
 #undef X
+    Count
 };
 
-inline constexpr std::array<const char *, to_underlying(Action::Count) + 1> action_to_string_array{
+inline constexpr EnumArray<const char *, Action> action_to_string_array{
 #define X(display_name, enum) display_name,
 #include "input_bindings.def"
 #undef X
 };
 
-inline constexpr const char *to_string(Action action) { return action_to_string_array[to_underlying(action)]; }
+inline constexpr const char *to_string(Action action) { return action_to_string_array[action]; }
 
 struct KeyBinding
 {
@@ -54,8 +54,8 @@ class Inputs
   private:
     std::unordered_map<Action, KeyBinding> bindings;
 
-    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed           = {};
-    std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};
+    EnumArray<bool, VirtualKey> keys_pressed           = {};
+    EnumArray<bool, MouseButton> mouse_buttons_pressed = {};
 
     Option<int2> scroll_this_frame = {};
     Option<int2> mouse_drag_start  = {};

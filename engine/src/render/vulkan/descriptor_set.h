@@ -25,8 +25,8 @@ struct BufferDescriptor
 struct DynamicDescriptor
 {
     Handle<Buffer> buffer_handle;
-    usize size;
-    u32 offset;
+    usize          size;
+    u32            offset;
 };
 
 struct DescriptorType
@@ -42,7 +42,7 @@ struct DescriptorType
         struct
         {
             u32 count : 24;
-            u32 type  :  8;
+            u32 type : 8;
         };
         u32 raw;
     };
@@ -52,12 +52,13 @@ struct Descriptor
 {
     union
     {
-        ImageDescriptor image;
-        BufferDescriptor buffer;
+        ImageDescriptor   image;
+        BufferDescriptor  buffer;
         DynamicDescriptor dynamic;
 
         // for std::hash
-        struct {
+        struct
+        {
             u64 one;
             u64 two;
             u64 three;
@@ -68,37 +69,57 @@ struct Descriptor
 struct DescriptorSet
 {
     VkDescriptorSetLayout layout;
-    Vec<Descriptor> descriptors;
-    Vec<DescriptorType> descriptor_desc;
+    Vec<Descriptor>       descriptors;
+    Vec<DescriptorType>   descriptor_desc;
 
     // linear map
     Vec<VkDescriptorSet> vkhandles;
-    Vec<usize> hashes;
+    Vec<usize>           hashes;
 
     // dynamic offsets
     Vec<usize> dynamic_descriptors;
-    Vec<u32> dynamic_offsets;
+    Vec<u32>   dynamic_offsets;
 };
 
 DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &descriptors);
-void destroy_descriptor_set(Device &device, DescriptorSet &set);
+void          destroy_descriptor_set(Device &device, DescriptorSet &set);
 
 void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
 void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle);
 void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle);
 
 VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set);
+
+// -- Utils
+
+inline VkDescriptorType to_vk(DescriptorType type)
+{
+    switch (type.type)
+    {
+    case DescriptorType::SampledImage:
+        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case DescriptorType::StorageImage:
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case DescriptorType::StorageBuffer:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case DescriptorType::DynamicBuffer:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    }
+    assert(false);
+    return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 }
+
+} // namespace vulkan
 
 namespace std
 {
-    template<>
-    struct hash<vulkan::Descriptor>
+template <>
+struct hash<vulkan::Descriptor>
+{
+    std::size_t operator()(vulkan::Descriptor const &descriptor) const noexcept
     {
-        std::size_t operator()(vulkan::Descriptor const& descriptor) const noexcept
-        {
-            usize hash = descriptor.raw.one;
-            return hash;
-        }
-    };
-}
+        usize hash = descriptor.raw.one;
+        return hash;
+    }
+};
+} // namespace std

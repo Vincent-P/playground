@@ -3,8 +3,8 @@
 #include "render/mesh.h"
 
 #include <exo/aabb.h>
-#include <exo/logger.h>
 #include <exo/algorithms.h>
+#include <exo/logger.h>
 
 struct TempBVHNode
 {

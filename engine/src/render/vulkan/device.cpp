@@ -4,6 +4,7 @@
 #include <exo/logger.h>
 
 #include "render/vulkan/bindless_set.h"
+#include "render/vulkan/context.h"
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/utils.h"
 #include "render/vulkan/surface.h"

@@ -18,7 +18,7 @@
 inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
-std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
+EnumArray<uint, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
 #include "cross/window_keys.def"
 #undef X
@@ -97,11 +97,11 @@ float2 Window::get_dpi_scale() const
 
 static void update_key(Window &window, VirtualKey key)
 {
-    auto old         = window.keys_pressed[to_underlying(key)];
-    auto native_key  = native_to_virtual[to_underlying(key)];
+    auto old         = window.keys_pressed[key];
+    auto native_key  = native_to_virtual[key];
     auto pressed     = (GetKeyState(native_key) & 0x8000) != 0;
 
-    window.keys_pressed[to_underlying(key)] = pressed;
+    window.keys_pressed[key] = pressed;
 
     if (old != pressed)
     {
@@ -281,26 +281,29 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         case WM_KEYDOWN:
         {
             auto key = VirtualKey::Count;
-            for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
+            for (usize i = 0; i < static_cast<usize>(VirtualKey::Count); i++)
             {
-                uint win32_virtual_key = native_to_virtual[i];
+                auto virtual_key = static_cast<VirtualKey>(i);
+                uint win32_virtual_key = native_to_virtual[virtual_key];
                 if (wParam == win32_virtual_key)
                 {
-                    key = static_cast<VirtualKey>(i);
+                    key = virtual_key;
                     break;
                 }
             }
 
-            auto state = ButtonState::Pressed;
-            if (uMsg == WM_KEYUP)
+            if (key != VirtualKey::Count)
             {
-                state = ButtonState::Released;
+                auto state = ButtonState::Pressed;
+                if (uMsg == WM_KEYUP)
+                {
+                    state = ButtonState::Released;
+                }
+                fmt::print("{} {}\n", to_string(state), to_string(key));
+
+                window.push_event<event::Key>({.key = key, .state = state});
+                window.keys_pressed[key] = state == ButtonState::Pressed;
             }
-
-            fmt::print("{} {}\n", to_string(state), to_string(key));
-
-            window.push_event<event::Key>({.key = key, .state = state});
-            window.keys_pressed[to_underlying(key)] = state == ButtonState::Pressed;
             return 0;
         }
 
@@ -456,7 +459,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
                 window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Pressed});
-                window.mouse_buttons_pressed[to_underlying(button)] = true;
+                window.mouse_buttons_pressed[button] = true;
                 return 0;
             }
 
@@ -483,7 +486,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
                 window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Released});
-                window.mouse_buttons_pressed[to_underlying(button)] = true;
+                window.mouse_buttons_pressed[button] = true;
                 return 0;
             }
     }

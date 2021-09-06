@@ -2,9 +2,10 @@
 #include <exo/handle.h>
 #include <exo/collections/vector.h>
 #include <unordered_map>
-#include "render/vulkan/commands.h"
 
-namespace vulkan { struct WorkPool;}
+#include "render/vulkan/synchronization.h"
+
+namespace vulkan { struct WorkPool; struct Buffer; struct Image; struct Device;}
 namespace gfx = vulkan;
 
 enum struct UploadState

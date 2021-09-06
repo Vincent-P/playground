@@ -5,7 +5,6 @@
 #include "render/bvh.h"
 #include "render/mesh.h"
 #include "render/unified_buffer_storage.h"
-#include "render/vulkan/resources.h"
 #include "ui.h"
 #include "scene.h"
 #include "components/camera_component.h"

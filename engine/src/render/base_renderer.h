@@ -1,4 +1,5 @@
 #pragma once
+#include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/surface.h"
 
@@ -8,7 +9,6 @@
 namespace gfx = vulkan;
 
 inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
-inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
 
 struct BaseRenderer
 {

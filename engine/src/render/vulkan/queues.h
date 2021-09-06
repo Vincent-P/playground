@@ -8,6 +8,6 @@ namespace vulkan
         Graphics = 0,
         Compute  = 1,
         Transfer = 2,
-        None
+        Count
     };
 }

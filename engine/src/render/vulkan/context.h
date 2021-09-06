@@ -9,14 +9,7 @@ namespace platform { struct Window; }
 
 namespace vulkan
 {
-
-struct PhysicalDevice
-{
-    VkPhysicalDevice vkdevice;
-    VkPhysicalDeviceProperties properties;
-    VkPhysicalDeviceVulkan12Features vulkan12_features;
-    VkPhysicalDeviceFeatures2 features;
-};
+struct PhysicalDevice;
 
 struct Context
 {

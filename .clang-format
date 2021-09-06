@@ -4,13 +4,14 @@ ColumnLimit: 220
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: false
+AlignConsecutiveDeclarations: true
 AlignEscapedNewlines: Right
 AlignTrailingComments: true
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: true
-AllowShortFunctionsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: false
+AlwaysBreakTemplateDeclarations : true
 BinPackArguments: false
 BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Allman

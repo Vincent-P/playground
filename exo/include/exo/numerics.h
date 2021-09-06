@@ -13,6 +13,8 @@ using u64   = std::uint64_t;
 using usize = std::size_t;
 using uchar = unsigned char;
 using uint  = unsigned int;
+using f32   = float;
+using f64   = double;
 
 static constexpr u32 u32_invalid = ~0lu;
 static constexpr u64 u64_invalid = ~0llu;

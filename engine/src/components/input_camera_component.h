@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/types.h>
-#include <exo/algorithms.h>
+#include <exo/collections/enum_array.h>
 
 #include <array>
 #include <imgui/imgui.h>
@@ -26,17 +26,16 @@ struct InputCameraComponent
     inline void display_ui();
 };
 
-static constexpr std::array<const char *, to_underlying(InputCameraComponent::States::Count) + 1> input_camera_states_to_string_array{
+static constexpr EnumArray<const char *, InputCameraComponent::States> input_camera_states_to_string_array{
     "Idle",
     "Move",
     "Orbit",
     "Zoom",
-    "INVALID"
 };
 
 inline constexpr const char *to_string(InputCameraComponent::States action)
 {
-    return input_camera_states_to_string_array[to_underlying(action)];
+    return input_camera_states_to_string_array[action];
 }
 
 inline void InputCameraComponent::display_ui()

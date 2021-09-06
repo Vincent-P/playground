@@ -2,6 +2,7 @@
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
 
+#include "render/vulkan/queries.h"
 #include "render/vulkan/queues.h"
 #include "render/vulkan/surface.h"
 #include "render/vulkan/utils.h"
@@ -494,7 +495,7 @@ void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count
 // Work
 static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_type)
 {
-    auto &command_pool = work_pool.command_pools[to_underlying(queue_type)];
+    auto &command_pool = work_pool.command_pools[queue_type];
 
     Work work = {};
     work.device = &device;

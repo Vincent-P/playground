@@ -1,8 +1,7 @@
-#include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/resources.h"
+#include "render/vulkan/pipelines.h"
+
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vulkan
 {

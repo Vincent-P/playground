@@ -4,21 +4,23 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/pool.h>
 
-#include "render/vulkan/context.h"
-#include "render/vulkan/commands.h"
-#include "render/vulkan/queues.h"
-#include "render/vulkan/resources.h"
-#include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/bindless_set.h"
+#include "render/vulkan/buffer.h" // needed for Pool<Image> TODO: investigate why we cant fwd declare
+#include "render/vulkan/commands.h"
+#include "render/vulkan/descriptor_set.h"
+#include "render/vulkan/image.h" // needed for Pool<Image> TODO: investigate why we cant fwd declare
+#include "render/vulkan/physical_device.h"
+#include "render/vulkan/pipelines.h"
+#include "render/vulkan/synchronization.h"
 
-#include <utility>
-#include <string_view>
-#include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
 namespace vulkan
 {
 struct Surface;
+struct Context;
+struct WorkPool;
+struct QueryPool;
 
 enum BuiltinSampler
 {

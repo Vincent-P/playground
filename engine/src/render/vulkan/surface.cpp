@@ -3,9 +3,7 @@
 #include <cross/window.h>
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
-#include "render/vulkan/resources.h"
 #include "render/vulkan/utils.h"
-#include "vulkan/vulkan_core.h"
 
 namespace vulkan
 {
@@ -28,9 +26,9 @@ Surface Surface::create(Context &context, Device &device, const platform::Window
 #endif
 
     // Query support, needed before present
-    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.graphics_family_idx, surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Graphics)]));
-    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.compute_family_idx,  surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Compute)]));
-    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.transfer_family_idx, surface.surface, &surface.present_queue_supported[to_underlying(QueueType::Transfer)]));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.graphics_family_idx, surface.surface, &surface.present_queue_supported[QueueType::Graphics]));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.compute_family_idx,  surface.surface, &surface.present_queue_supported[QueueType::Compute]));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.transfer_family_idx, surface.surface, &surface.present_queue_supported[QueueType::Transfer]));
 
     surface.create_swapchain(device);
 

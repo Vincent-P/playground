@@ -27,7 +27,6 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
 
-
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<CXX_COMPILER_ID:MSVC>:/permissive->
 
@@ -39,6 +38,10 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/wd4201>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-nested-anon-types>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-gnu-anonymous-struct>
+
+  # build time profiling
+  # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-ftime-trace>
+  $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
 
 # C++ flags for third party libraries
@@ -46,6 +49,7 @@ set(THIRD_PARTY_CXX_FLAGS
   # Disable warnings for third-party libs
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
+  $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
 
 add_subdirectory(third_party)

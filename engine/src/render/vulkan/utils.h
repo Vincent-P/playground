@@ -3,9 +3,10 @@
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 
-#include "render/vulkan/resources.h"
-#include "vulkan/vulkan_core.h"
+#include "render/vulkan/image.h"
+#include "render/vulkan/buffer.h"
 
+#include <vulkan/vulkan.h>
 #include <stdexcept>
 
 namespace vulkan
@@ -435,30 +436,6 @@ inline VkBufferMemoryBarrier get_buffer_barrier(VkBuffer buffer, const BufferAcc
     return b;
 }
 
-inline VkPrimitiveTopology to_vk(PrimitiveTopology topology)
-{
-    switch (topology)
-    {
-    case PrimitiveTopology::TriangleList: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    case PrimitiveTopology::PointList: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    }
-    return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-}
-
-
-inline VkDescriptorType to_vk(DescriptorType type)
-{
-    switch(type.type)
-    {
-    case DescriptorType::SampledImage: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    case DescriptorType::StorageImage: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    case DescriptorType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case DescriptorType::DynamicBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    }
-    assert(false);
-    return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-}
-
 inline bool is_depth_format(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT;
@@ -470,18 +447,6 @@ inline VkImageViewType view_type_from_image(VkImageType type)
         return VK_IMAGE_VIEW_TYPE_2D;
     }
     return VK_IMAGE_VIEW_TYPE_2D;
-}
-
-inline VkAttachmentLoadOp to_vk(LoadOp op)
-{
-    switch (op.type)
-    {
-    case LoadOp::Type::Load: return VK_ATTACHMENT_LOAD_OP_LOAD;
-    case LoadOp::Type::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
-    case LoadOp::Type::Ignore: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    }
-    assert(false);
-    return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
 }
 
 }

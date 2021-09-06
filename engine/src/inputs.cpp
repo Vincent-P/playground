@@ -2,6 +2,7 @@
 
 #include <exo/types.h>
 #include <exo/option.h>
+#include <exo/algorithms.h>
 #include <cross/window.h>
 #include "ui.h"
 
@@ -17,32 +18,32 @@ bool Inputs::is_pressed(Action action) const
     {
         const auto &binding = binding_it->second;
         return std::ranges::all_of(binding.keys, [&](VirtualKey key) { return is_pressed(key); })
-               && std::ranges::all_of(binding.mouse_buttons, [&](MouseButton button) { return is_pressed(button); });
+            && std::ranges::all_of(binding.mouse_buttons, [&](MouseButton button) { return is_pressed(button); });
     }
 
     return false;
 }
 
-bool Inputs::is_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
+bool Inputs::is_pressed(VirtualKey key) const { return keys_pressed[key]; }
 
-bool Inputs::is_pressed(MouseButton button) const { return mouse_buttons_pressed[to_underlying(button)]; }
+bool Inputs::is_pressed(MouseButton button) const { return mouse_buttons_pressed[button]; }
 
 void Inputs::process(const Vec<platform::event::Event> &events)
 {
-    scroll_this_frame = std::nullopt;
+    scroll_this_frame        = std::nullopt;
     auto last_mouse_position = mouse_position;
 
     for (const auto &event : events)
     {
         if (std::holds_alternative<platform::event::Key>(event))
         {
-            const auto &key                      = std::get<platform::event::Key>(event);
-            keys_pressed[to_underlying(key.key)] = key.state == ButtonState::Pressed;
+            const auto &key       = std::get<platform::event::Key>(event);
+            keys_pressed[key.key] = key.state == ButtonState::Pressed;
         }
         else if (std::holds_alternative<platform::event::MouseClick>(event))
         {
-            const auto &mouse_click                                  = std::get<platform::event::MouseClick>(event);
-            mouse_buttons_pressed[to_underlying(mouse_click.button)] = mouse_click.state == ButtonState::Pressed;
+            const auto &mouse_click                   = std::get<platform::event::MouseClick>(event);
+            mouse_buttons_pressed[mouse_click.button] = mouse_click.state == ButtonState::Pressed;
 
             if (mouse_click.button == MouseButton::Left)
             {
@@ -76,15 +77,14 @@ void Inputs::process(const Vec<platform::event::Event> &events)
         }
         else if (std::holds_alternative<platform::event::MouseMove>(event))
         {
-            auto move = std::get<platform::event::MouseMove>(event);
+            auto move           = std::get<platform::event::MouseMove>(event);
             last_mouse_position = {move.x, move.y};
         }
     }
 
-
     if (last_mouse_position.x != mouse_position.x || last_mouse_position.y != mouse_position.y)
     {
-        mouse_delta = {last_mouse_position.x - mouse_position.x, last_mouse_position.y - mouse_position.y};
+        mouse_delta    = {last_mouse_position.x - mouse_position.x, last_mouse_position.y - mouse_position.y};
         mouse_position = {last_mouse_position.x, last_mouse_position.y};
 
         if (mouse_drag_start)
@@ -118,7 +118,7 @@ void Inputs::display_ui(UI::Context &ui)
     {
         if (ImGui::CollapsingHeader("Keys"))
         {
-            for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
+            for (usize i = 0; i < static_cast<usize>(VirtualKey::Count); i++)
             {
                 auto key = static_cast<VirtualKey>(i);
                 ImGui::Text("%s: %s", to_string(key), is_pressed(key) ? "Pressed" : "Released");
@@ -127,7 +127,7 @@ void Inputs::display_ui(UI::Context &ui)
 
         if (ImGui::CollapsingHeader("Mouse buttons"))
         {
-            for (uint i = 0; i < to_underlying(MouseButton::Count); i++)
+            for (usize i = 0; i < static_cast<usize>(MouseButton::Count); i++)
             {
                 auto button = static_cast<MouseButton>(i);
                 ImGui::Text("%s: %s", to_string(button), is_pressed(button) ? "Pressed" : "Released");

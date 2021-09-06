@@ -1,6 +1,5 @@
 #include "ui.h"
 
-#include <exo/algorithms.h>
 #include "inputs.h"
 #include <cross/window.h>
 
@@ -80,7 +79,7 @@ void Context::start_frame(platform::Window &window, Inputs &inputs)
 
     io.MousePos = window.mouse_position;
 
-    static_assert(to_underlying(MouseButton::Count) == 5);
+    static_assert(static_cast<usize>(MouseButton::Count) == 5u);
     for (uint i = 0; i < 5; i++)
     {
         io.MouseDown[i] = inputs.is_pressed(static_cast<MouseButton>(i));

@@ -2,7 +2,7 @@
 #include <exo/types.h>
 #include <exo/option.h>
 #include <exo/collections/vector.h>
-#include <exo/algorithms.h>
+#include <exo/collections/enum_array.h>
 
 #include <array>
 #include <string>
@@ -29,31 +29,31 @@ enum struct MouseButton : uint
     Count
 };
 
-inline constexpr std::array<const char *, to_underlying(MouseButton::Count) + 1> mouse_button_to_string{
+inline constexpr EnumArray<const char *, MouseButton> mouse_button_to_string{
     "Left mouse button",
     "Right mouse button",
     "Middle mouse button (wheel)",
     "Side mouse button forward",
     "Side mouse button backward",
-    "COUNT",
 };
 
-inline constexpr const char *to_string(MouseButton button) { return mouse_button_to_string[to_underlying(button)]; }
+inline constexpr const char *to_string(MouseButton button) { return mouse_button_to_string[button]; }
 
 enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
 #include "cross/window_keys.def"
 #undef X
+    Count
 };
 
-inline constexpr std::array<const char *, to_underlying(VirtualKey::Count) + 1> key_to_string{
+inline constexpr EnumArray<const char *, VirtualKey> key_to_string{
 #define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
 #include "cross/window_keys.def"
 #undef X
 };
 
-inline constexpr const char *to_string(VirtualKey key) { return key_to_string[to_underlying(key)]; }
+inline constexpr const char *to_string(VirtualKey key) { return key_to_string[key]; }
 
 enum class ButtonState
 {
@@ -185,10 +185,10 @@ struct Window
 
     [[nodiscard]] float2 get_dpi_scale() const;
 
-    [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[to_underlying(key)]; }
+    [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[key]; }
     [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const
     {
-        return mouse_buttons_pressed[to_underlying(button)];
+        return mouse_buttons_pressed[button];
     }
     [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
 
@@ -210,8 +210,8 @@ struct Window
 
     Vec<event::Event> events;
 
-    std::array<bool, to_underlying(VirtualKey::Count) + 1> keys_pressed           = {};
-    std::array<bool, to_underlying(MouseButton::Count) + 1> mouse_buttons_pressed = {};
+    EnumArray<bool, VirtualKey> keys_pressed           = {};
+    EnumArray<bool, MouseButton> mouse_buttons_pressed = {};
 
 #if defined(_WIN64)
     Window_Win32 win32;

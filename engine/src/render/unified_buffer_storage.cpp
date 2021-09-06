@@ -2,8 +2,6 @@
 
 #include "render/vulkan/device.h"
 
-#include <exo/buddy_allocator.h>
-
 
 UnifiedBufferStorage UnifiedBufferStorage::create(gfx::Device &device, std::string name, u32 size_in_bytes, u32 element_size, u32 gpu_usage)
 {

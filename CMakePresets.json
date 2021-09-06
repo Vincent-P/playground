@@ -64,12 +64,16 @@
     {
       "name": "msvc",
       "configurePreset": "msvc",
-      "nativeToolOptions": [ "-m" ]
+      "environment": {
+        "UseMultiToolTask ":  "true"
+      }
     },
     {
       "name": "msvc-rel",
       "configurePreset": "msvc-rel",
-      "nativeToolOptions": [ "-m" ]
+      "environment": {
+        "UseMultiToolTask ":  "true"
+      }
     }
   ]
 }

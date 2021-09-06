@@ -1,7 +1,10 @@
 #pragma once
 #include <exo/types.h>
 #include <exo/collections/vector.h>
+#include <exo/collections/enum_array.h>
 #include <exo/handle.h>
+
+#include "render/vulkan/queues.h"
 
 #include <array>
 #include <vulkan/vulkan.h>
@@ -19,7 +22,7 @@ struct Surface
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
-    std::array<VkBool32, 3> present_queue_supported;
+    EnumArray<VkBool32, QueueType> present_queue_supported;
     VkSurfaceFormatKHR format;
     VkPresentModeKHR present_mode;
     VkExtent2D extent;

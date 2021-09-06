@@ -1,8 +1,8 @@
 #include "render_timings.h"
 
-#include <exo/logger.h>
-#include "base_renderer.h"
+#include "render/vulkan/device.h"
 
+#include <exo/logger.h>
 
 void RenderTimings::create(gfx::Device &device)
 {

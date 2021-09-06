@@ -1,9 +1,9 @@
 #pragma once
-#include "render/vulkan/resources.h"
 
 #include <exo/handle.h>
 #include <exo/buddy_allocator.h>
 
+namespace vulkan {struct Buffer; struct Device;}
 namespace gfx = vulkan;
 
 namespace vulkan {struct Device;}
