@@ -18,7 +18,7 @@
 inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
-EnumArray<uint, VirtualKey> native_to_virtual{
+EnumArray<i32, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
 #include "cross/window_keys.def"
 #undef X
@@ -86,8 +86,9 @@ void Window::destroy() {}
 
 float2 Window::get_dpi_scale() const
 {
-    int dpi     = GetDpiForWindow(win32.window);
-    float scale = dpi / 96.0f;
+    uint dpi     = GetDpiForWindow(win32.window);
+    assert(dpi != 0);
+    float scale = static_cast<float>(dpi) / 96.0f;
     if (scale <= 0.0f)
     {
         scale = 1.0f;
@@ -284,8 +285,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             for (usize i = 0; i < static_cast<usize>(VirtualKey::Count); i++)
             {
                 auto virtual_key = static_cast<VirtualKey>(i);
-                uint win32_virtual_key = native_to_virtual[virtual_key];
-                if (wParam == win32_virtual_key)
+                auto win32_virtual_key = native_to_virtual[virtual_key];
+                if (static_cast<i32>(wParam) == win32_virtual_key)
                 {
                     key = virtual_key;
                     break;
@@ -386,7 +387,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             HIMC himc = ImmGetContext(hwnd);
             if (lParam & GCS_COMPSTR) // Retrieve or update the reading string of the current composition.
             {
-                auto size = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
+                i32 res = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
+                assert(res > 0);
+                u32 size = static_cast<u32>(res);
                 if (size)
                 {
                     std::wstring result;
@@ -397,7 +400,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             }
             else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
             {
-                auto size = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
+                i32 res = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
+                assert(res > 0);
+                u32 size = static_cast<u32>(res);
                 if (size)
                 {
                     std::wstring result;

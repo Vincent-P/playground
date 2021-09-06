@@ -67,7 +67,7 @@ void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle)
 }
 
 
-void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size)
+void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
     assert(set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer);
     set.descriptors[slot].dynamic = {buffer_handle, size, offset};

@@ -63,7 +63,7 @@ void Streamer::update(gfx::WorkPool &work_pool)
             if (upload.state == UploadState::Requested)
             {
                 auto &staging = staging_areas[upload.i_staging];
-                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, {{0, dst_offset, upload.len}});
+                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, {{0u, dst_offset, upload.len}});
                 upload.state = UploadState::Uploading;
             }
         }

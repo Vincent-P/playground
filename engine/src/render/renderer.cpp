@@ -115,7 +115,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
-    renderer.settings.render_resolution = {surface.extent.width, surface.extent.height};
+    renderer.settings.render_resolution = {static_cast<float>(surface.extent.width), static_cast<float>(surface.extent.height)};
 
     // Create ImGui pass
     auto &imgui_pass = renderer.imgui_pass;
@@ -238,12 +238,12 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
         },
     });
 
-    auto compute_halton = [](int index, int radix)
+    auto compute_halton = [](u32 index, u32 radix)
         {
             float result = 0.f;
             float fraction = 1.f / float(radix);
 
-            while (index > 0)
+            while (index != 0)
             {
                 result += float(index % radix) * fraction;
 
@@ -254,7 +254,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
             return result;
         };
 
-    for (usize i_halton = 0; i_halton < ARRAY_SIZE(renderer.halton_sequence); i_halton++)
+    for (u32 i_halton = 0; i_halton < ARRAY_SIZE(renderer.halton_sequence); i_halton++)
     {
         renderer.halton_sequence[i_halton].x = compute_halton(i_halton + 1, 2);
         renderer.halton_sequence[i_halton].y = compute_halton(i_halton + 1, 3);
@@ -277,11 +277,11 @@ static void recreate_framebuffers(Renderer &r)
 
     device.wait_idle();
 
-    settings.render_resolution = {surface.extent.width, surface.extent.height};
+    settings.render_resolution = {static_cast<float>(surface.extent.width), static_cast<float>(surface.extent.height)};
 
     uint3 scaled_resolution = {};
-    scaled_resolution.x = settings.resolution_scale * settings.render_resolution.x;
-    scaled_resolution.y = settings.resolution_scale * settings.render_resolution.y;
+    scaled_resolution.x = static_cast<u32>(settings.resolution_scale * settings.render_resolution.x);
+    scaled_resolution.y = static_cast<u32>(settings.resolution_scale * settings.render_resolution.y);
     scaled_resolution.z = 1;
 
     // Re-create images
@@ -294,7 +294,7 @@ static void recreate_framebuffers(Renderer &r)
 
     r.visibility_buffer = device.create_image({
         .name   = "Visibility buffer",
-        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .size   = to_uint(float3(settings.render_resolution, 1.0f)),
         .format = VK_FORMAT_R32G32_UINT,
         .usages = gfx::color_attachment_usage | gfx::storage_image_usage,
     });
@@ -315,7 +315,7 @@ static void recreate_framebuffers(Renderer &r)
 
     r.ldr_buffer = device.create_image({
         .name   = "LDR buffer",
-        .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+        .size   = to_uint(float3(settings.render_resolution, 1.0f)),
         .format = VK_FORMAT_R8G8B8A8_UNORM,
         .usages = gfx::color_attachment_usage,
     });
@@ -324,7 +324,7 @@ static void recreate_framebuffers(Renderer &r)
     {
         r.history_buffers[i_history] = device.create_image({
             .name   = fmt::format("History buffer #{}", i_history),
-            .size   = {settings.render_resolution.x, settings.render_resolution.y, 1},
+            .size   = to_uint(float3(settings.render_resolution, 1.0f)),
             .format = VK_FORMAT_R32G32B32A32_SFLOAT,
             .usages = gfx::storage_image_usage,
         });
@@ -361,8 +361,8 @@ static void recreate_framebuffers(Renderer &r)
 
     r.ldr_fb = device.create_framebuffer(
         {
-            .width  = settings.render_resolution.x,
-            .height = settings.render_resolution.y,
+            .width  = static_cast<u32>(settings.render_resolution.x),
+            .height = static_cast<u32>(settings.render_resolution.y),
         },
         {r.ldr_buffer});
 }
@@ -402,10 +402,6 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
 
 void Renderer::display_ui(UI::Context &ui)
 {
-    auto &device = base_renderer.device;
-
-    ImGuiWindowFlags fb_flags = 0;// ImGuiWindowFlags_NoDecoration;
-
     if (ui.begin_window("Textures"))
     {
         for (uint i = 5; i <= 8; i += 1)
@@ -469,9 +465,12 @@ void Renderer::update(Scene &scene)
     {
         auto &io      = ImGui::GetIO();
         uchar *pixels = nullptr;
-        int width     = 0;
-        int height    = 0;
-        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+        int imgui_width     = 0;
+        int imgui_height    = 0;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &imgui_width, &imgui_height);
+        assert(imgui_width > 0 && imgui_height > 0);
+        u32 width = static_cast<u32>(imgui_width);
+        u32 height = static_cast<u32>(imgui_height);
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
     }
@@ -519,7 +518,7 @@ void Renderer::update(Scene &scene)
     global_data->submesh_instances_data_descriptor   = device.get_buffer_storage_index(submesh_instances_data.buffer);
     global_data->submesh_instances_offset            = this->submesh_instances_offset;
     global_data->tlas_descriptor                     = device.get_buffer_storage_index(tlas_buffer);
-    global_data->submesh_instances_count             = this->submesh_instances_to_draw.size();
+    global_data->submesh_instances_count             = static_cast<u32>(this->submesh_instances_to_draw.size());
     global_data->index_buffer_descriptor             = device.get_buffer_storage_index(this->index_buffer.buffer);
     global_data->vertex_positions_descriptor         = device.get_buffer_storage_index(this->vertex_positions_buffer.buffer);
     global_data->bvh_nodes_descriptor                = device.get_buffer_storage_index(this->bvh_nodes_buffer.buffer);
@@ -544,17 +543,19 @@ void Renderer::update(Scene &scene)
     // vulkan only: this command buffer will wait for the image acquire semaphore
     cmd.wait_for_acquired(base_renderer.surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    VkViewport viewport{};
-    viewport.width    = std::floor(settings.resolution_scale * float(settings.render_resolution.x));
-    viewport.height   = std::floor(settings.resolution_scale * float(settings.render_resolution.y));
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    cmd.set_viewport(viewport);
+    {
+        VkViewport viewport{};
+        viewport.width    = std::floor(settings.resolution_scale * settings.render_resolution.x);
+        viewport.height   = std::floor(settings.resolution_scale * settings.render_resolution.y);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        cmd.set_viewport(viewport);
 
-    VkRect2D scissor      = {};
-    scissor.extent.width  = settings.resolution_scale * settings.render_resolution.x;
-    scissor.extent.height = settings.resolution_scale * settings.render_resolution.y;
-    cmd.set_scissor(scissor);
+        VkRect2D scissor      = {};
+        scissor.extent.width  = static_cast<u32>(settings.resolution_scale * settings.render_resolution.x);
+        scissor.extent.height = static_cast<u32>(settings.resolution_scale * settings.render_resolution.y);
+        cmd.set_scissor(scissor);
+    }
 
     // Opaque pass
     if (settings.enable_path_tracing)
@@ -682,6 +683,7 @@ void Renderer::update(Scene &scene)
         };
         {
             auto *options = base_renderer.bind_shader_options<OpaqueOptions>(cmd, opaque_program);
+            options->nothing = 42;
             cmd.bind_pipeline(opaque_program, 0);
             cmd.draw_indexed_indirect_count({.arguments_buffer = culled_draw_arguments, .arguments_offset = sizeof(u32), .count_buffer = culled_draw_arguments, .max_draw_count = this->draw_count});
         }
@@ -774,8 +776,8 @@ void Renderer::update(Scene &scene)
         assert(sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
         assert(sizeof(ImDrawIdx) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
 
-        u32 vertices_size = data->TotalVtxCount * sizeof(ImDrawVert);
-        u32 indices_size  = data->TotalIdxCount * sizeof(ImDrawIdx);
+        u32 vertices_size = static_cast<u32>(data->TotalVtxCount) * sizeof(ImDrawVert);
+        u32 indices_size  = static_cast<u32>(data->TotalIdxCount) * sizeof(ImDrawIdx);
 
         auto [p_vertices, vert_offset] = base_renderer.dynamic_vertex_buffer.allocate(device, vertices_size);
         auto *vertices                 = reinterpret_cast<ImDrawVert *>(p_vertices);
@@ -861,7 +863,7 @@ void Renderer::update(Scene &scene)
         options->scale            = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
         options->translation      = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
         options->vertices_pointer = 0;
-        options->first_vertex     = vert_offset / static_cast<u32>(sizeof(ImDrawVert));
+        options->first_vertex     = static_cast<u32>(vert_offset / sizeof(ImDrawVert));
         options->vertices_descriptor_index = device.get_buffer_storage_index(base_renderer.dynamic_vertex_buffer.buffer);
 
         // Barriers
@@ -937,7 +939,7 @@ void Renderer::prepare_geometry(Scene &scene)
                     return;
                 }
 
-                render_mesh.instances.push_back(render_instances.size());
+                render_mesh.instances.push_back(static_cast<u32>(render_instances.size()));
 
                 float4x4 translation = float4x4::identity();
                 translation.at(0, 3) = local_to_world_component.translation.x;
@@ -973,7 +975,7 @@ void Renderer::prepare_geometry(Scene &scene)
             }
             else
             {
-                for (u32 i_mesh = this->render_meshes.size(); i_upload < UPLOAD_PER_FRAME && i_mesh < asset_manager->meshes.size(); i_mesh += 1)
+                for (auto i_mesh = this->render_meshes.size(); i_upload < UPLOAD_PER_FRAME && i_mesh < asset_manager->meshes.size(); i_mesh += 1)
                 {
                     auto &mesh_asset = asset_manager->meshes[i_mesh];
 
@@ -1056,7 +1058,6 @@ void Renderer::prepare_geometry(Scene &scene)
     auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
     for (u32 i_material = 0; i_material < render_materials.size(); i_material += 1)
     {
-        const auto &material_asset = asset_manager->materials[i_material];
         const auto &render_material = render_materials[i_material];
         auto &material_gpu = materials_gpu[i_material];
 
@@ -1093,18 +1094,18 @@ void Renderer::prepare_geometry(Scene &scene)
                 submesh_instances_to_draw.push_back(submesh_instance);
             }
         }
-        this->draw_count += mesh_asset.submeshes.size();
+        this->draw_count += static_cast<u32>(mesh_asset.submeshes.size());
     }
 
     // Upload all data to draw
     auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance));
     std::memcpy(p_instances, render_instances.data(), render_instances.size() * sizeof(RenderInstance));
-    this->instances_offset = instance_offset / static_cast<u32>(sizeof(RenderInstance));
+    this->instances_offset = static_cast<u32>(instance_offset / sizeof(RenderInstance));
 
     usize submesh_instances_size = submesh_instances_to_draw.size() * sizeof(SubMesh);
     auto [p_submesh_instances, submesh_instance_offset] = submesh_instances_data.allocate(device, submesh_instances_size);
     std::memcpy(p_submesh_instances, submesh_instances_to_draw.data(), submesh_instances_size);
-    this->submesh_instances_offset = submesh_instance_offset / static_cast<u32>(sizeof(SubMeshInstance));
+    this->submesh_instances_offset = static_cast<u32>(submesh_instance_offset / sizeof(SubMeshInstance));
 
     // Build and upload the TLAS
     Vec<BVHNode> roots;

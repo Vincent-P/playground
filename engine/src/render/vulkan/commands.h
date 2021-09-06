@@ -81,7 +81,7 @@ struct Work
 
 struct TransferWork : Work
 {
-    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<u32, u32, u32>> offsets_src_dst_size);
+    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<usize, usize, usize>> offsets_src_dst_size);
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
     void copy_image(Handle<Image> src, Handle<Image> dst);
     void blit_image(Handle<Image> src, Handle<Image> dst);
@@ -97,8 +97,8 @@ struct ComputeWork : TransferWork
 
     void clear_image(Handle<Image> image, VkClearColorValue clear_color);
 
-    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
-    void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, u32 offset, usize size);
+    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
+    void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
     void bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
     void bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
     void bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle);
@@ -125,7 +125,7 @@ struct DrawOptions
 {
     u32 vertex_count    = 0;
     u32 instance_count  = 1;
-    i32 vertex_offset   = 0;
+    u32 vertex_offset   = 0;
     u32 instance_offset = 0;
 };
 
@@ -153,6 +153,6 @@ struct GraphicsWork : ComputeWork
 
     using ComputeWork::bind_pipeline; // make it visible on GraphicsWork
     void bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index);
-    void bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16, u32 offset = 0);
+    void bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16, usize offset = 0);
 };
 }

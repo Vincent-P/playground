@@ -243,6 +243,24 @@ float4x4 operator*(const float4x4 &a, const float4x4 &b)
     return result;
 }
 
+float3 floor(float3 v)
+{
+    return {
+        std::floor(v.x),
+        std::floor(v.y),
+        std::floor(v.z)
+    };
+}
+
+uint3 to_uint(float3 v)
+{
+    return {
+        static_cast<u32>(v.x),
+        static_cast<u32>(v.y),
+        static_cast<u32>(v.z)
+    };
+}
+
 /// --- Tests
 
 #if defined(ENABLE_DOCTEST)

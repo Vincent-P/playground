@@ -2,8 +2,43 @@
 #include "exo/numerics.h"
 #include <iosfwd>
 
+
 struct float3;
 struct float4;
+
+
+struct int2
+{
+    i32 x;
+    i32 y;
+
+    bool operator==(const int2 &b) const = default;
+};
+
+struct uint2
+{
+    u32 x;
+    u32 y;
+
+    bool operator==(const uint2 &b) const = default;
+};
+
+struct uint3
+{
+    u32 x;
+    u32 y;
+    u32 z;
+
+    bool operator==(const uint3 &b) const = default;
+};
+
+inline int2 operator+(const int2 &a, const int2 &b) { return {a.x + b.x, a.y + b.y}; }
+inline int2 operator-(const int2 &a, const int2 &b) { return {a.x - b.x, a.y - b.y}; }
+inline uint2 operator+(const uint2 &a, const uint2 &b) { return {a.x + b.x, a.y + b.y}; }
+inline uint2 operator-(const uint2 &a, const uint2 &b) { return {a.x - b.x, a.y - b.y}; }
+inline uint3 operator+(const uint3 &a, const uint3 &b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+inline uint3 operator-(const uint3 &a, const uint3 &b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+
 
 struct float2
 {
@@ -56,6 +91,12 @@ struct float3
         : float3(_x, _x, _x)
     {
     }
+
+    constexpr float3(float2 v2, float _z)
+        : float3(v2.x, v2.y, _z)
+    {
+    }
+
 
     float squared_norm() const;
     float norm() const;
@@ -212,3 +253,6 @@ float4 operator*(const float4x4 &m, const float4 &v);
 inline constexpr auto float3_RIGHT   = float3(1, 0, 0);
 inline constexpr auto float3_UP      = float3(0, 1, 0);
 inline constexpr auto float3_FORWARD = float3(0, 0, -1);
+
+float3 floor(float3 v);
+uint3 to_uint(float3 v);

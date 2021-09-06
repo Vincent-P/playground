@@ -283,7 +283,7 @@ void Device::destroy(const Context &context)
 
 /// --- Global descriptor set
 
-void Device::bind_global_uniform_buffer(Handle<Buffer> buffer_handle, u32 offset, usize range)
+void Device::bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range)
 {
     bind_uniform_buffer(global_sets.uniform, 0, buffer_handle, offset, range);
 }

@@ -112,7 +112,7 @@ void* BaseRenderer::bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::Compu
     return options;
 }
 
-void* BaseRenderer::bind_global_options( usize options_len)
+void* BaseRenderer::bind_global_options(usize options_len)
 {
     auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
     device.bind_global_uniform_buffer(dynamic_uniform_buffer.buffer, options_offset, options_len);

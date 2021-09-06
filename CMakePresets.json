@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 20,
@@ -27,7 +27,7 @@
       "name": "msvc",
       "displayName": "MSVC",
       "description": "MSVC solution",
-      "generator": "Visual Studio 16 2019",
+      "generator": "Visual Studio 17 2022",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "architecture": {
         "value": "x64",
@@ -43,7 +43,7 @@
       "name": "msvc-rel",
       "displayName": "MSVC",
       "description": "MSVC solution",
-      "generator": "Visual Studio 16 2019",
+      "generator": "Visual Studio 17 2022",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "architecture": {
         "value": "x64",

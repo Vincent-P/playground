@@ -65,7 +65,7 @@ void RenderTimings::get_results(gfx::Device &device)
 
     for (u32 i = 0; i < labels.size(); i += 1) {
         gpu.push_back(
-            1.e-6 * device.get_ns_per_timestamp() * (gpu_ticks[2*i+1] - gpu_ticks[2*i])
+            1.e-6 * device.get_ns_per_timestamp() * static_cast<double>(gpu_ticks[2*i+1] - gpu_ticks[2*i])
             );
 
         auto duration = std::chrono::duration<double>(cpu_ticks[2*i+1] - cpu_ticks[2*i]);

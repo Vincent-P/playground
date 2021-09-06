@@ -11,15 +11,15 @@ struct TempBVHNode
     // internal nodes
     AABB bbox;
     float3 bbox_center;
-    u32 left_child  = u32_invalid;
-    u32 right_child = u32_invalid;
+    usize left_child  = u64_invalid;
+    usize right_child = u64_invalid;
 
     // traversal order
-    u32 depth_first_index = u32_invalid;
-    u32 next_node_index   = u32_invalid;
+    usize depth_first_index = u64_invalid;
+    usize next_node_index   = u64_invalid;
 
     // geometry indices
-    u32 prim_index = u32_invalid;
+    usize prim_index = u64_invalid;
 };
 
 // Creates internal nodes from leaves bounding boxes at indices [prim_start, prim_end]
@@ -27,7 +27,6 @@ static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize pri
 {
     auto &node = temp_nodes[i_node];
 
-    auto prim_count = prim_end - prim_start;
     if (prim_end <= prim_start) {
         logger::error("BVH: create_bvh_rec should be called with at least one primitive.\n");
         return;
@@ -45,8 +44,10 @@ static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize pri
     // -- Median splitting
     // get the largest axis
     uint max_comp = extent(node.bbox).max_comp();
-    // sort triangles nodes
-    std::sort(temp_nodes.begin() + prim_start, temp_nodes.begin() + prim_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center.raw[max_comp] < b.bbox_center.raw[max_comp]; });
+    // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
+    i64 offset_start = static_cast<i64>(prim_start);
+    i64 offset_end = static_cast<i64>(prim_end);
+    std::sort(temp_nodes.begin() + offset_start, temp_nodes.begin() + offset_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center.raw[max_comp] < b.bbox_center.raw[max_comp]; });
     // split at middle
     float3 split_center = node.bbox_center;
     usize prim_split     = prim_start;
@@ -101,12 +102,12 @@ static void bvh_set_temp_order(Vec<TempBVHNode> &temp_nodes, usize &counter, usi
     temp_nodes[i_node].next_node_index   = i_next;
     counter += 1;
 
-    if (temp_nodes[i_node].left_child != u32_invalid)
+    if (temp_nodes[i_node].left_child != u64_invalid)
     {
         bvh_set_temp_order(temp_nodes, counter, temp_nodes[i_node].left_child, temp_nodes[i_node].right_child);
     }
 
-    if (temp_nodes[i_node].right_child != u32_invalid)
+    if (temp_nodes[i_node].right_child != u64_invalid)
     {
         bvh_set_temp_order(temp_nodes, counter, temp_nodes[i_node].right_child, i_next);
     }
@@ -122,15 +123,15 @@ static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
 
     Vec<BVHNode> nodes;
 
-    u32 primitives_count = temp_nodes.size();
-    u32 root_index       = temp_nodes.size();
+    auto primitives_count = temp_nodes.size();
+    auto root_index       = temp_nodes.size();
 
     // emplace root node
     temp_nodes.emplace_back();
     create_bvh_rec(temp_nodes, root_index, 0, primitives_count);
 
     usize counter = 0;
-    bvh_set_temp_order(temp_nodes, counter, root_index, u32_invalid);
+    bvh_set_temp_order(temp_nodes, counter, root_index, u64_invalid);
 
     nodes.resize(temp_nodes.size());
 
@@ -146,19 +147,19 @@ static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
         auto &temp_node = temp_nodes[i_temp_node];
         auto &node      = nodes[temp_node.depth_first_index];
 
-        node.prim_index = temp_node.prim_index;
+        node.prim_index = static_cast<u32>(temp_node.prim_index);
         node.bbox_min   = temp_node.bbox.min;
         node.bbox_max   = temp_node.bbox.max;
-        node.next_node  = temp_node.next_node_index == u32_invalid ? u32_invalid : temp_nodes[temp_node.next_node_index].depth_first_index;
+        node.next_node  = temp_node.next_node_index == u64_invalid ? u32_invalid : static_cast<u32>(temp_nodes[temp_node.next_node_index].depth_first_index);
 
         if (output_graph)
         {
             logger::info("{} [label=\"{}\"];\n", temp_node.depth_first_index, fmt::format("depth id: {} \\n next: {}\\n face id: {}", temp_node.depth_first_index, node.next_node, node.prim_index));
-            if (temp_node.left_child != u32_invalid)
+            if (temp_node.left_child != u64_invalid)
             {
                 logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.left_child].depth_first_index);
             }
-            if (temp_node.right_child != u32_invalid)
+            if (temp_node.right_child != u64_invalid)
             {
                 logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.right_child].depth_first_index);
             }
@@ -182,7 +183,7 @@ BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
     usize primitives_count = indices.size() / 3;
     temp_nodes.reserve(primitives_count * 2);
 
-    auto get_vertex = [&](u32 i_index) { return positions[indices[i_index]]; };
+    auto get_vertex = [&](usize i_index) { return positions[indices[i_index]]; };
 
     // Compute the bouding box of each triangle
     for (usize i_index = 0; i_index < indices.size(); i_index += 3)

@@ -10,7 +10,7 @@ namespace vulkan
 
 RenderPass create_renderpass(Device &device, const FramebufferFormat &format, const Vec<LoadOp> &load_ops)
 {
-    u32 attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
+    auto attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
     assert(load_ops.size() == attachments_count);
 
     Vec<VkAttachmentReference> color_refs;
@@ -100,17 +100,17 @@ RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, const Ve
 
 /// --- Framebuffer
 
-Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment)
+Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment)
 {
     Framebuffer fb = {};
-    fb.format = desc;
+    fb.format = fb_desc;
     fb.color_attachments = color_attachments;
     fb.depth_attachment = depth_attachment;
 
     assert(fb.format.attachments_format.empty());
     assert(fb.format.depth_format.has_value() == false);
 
-    u32 attachments_count = fb.color_attachments.size() + (fb.depth_attachment.is_valid() ? 1 : 0);
+    auto attachments_count = fb.color_attachments.size() + (fb.depth_attachment.is_valid() ? 1 : 0);
 
     Vec<VkImageView> attachment_views;
     attachment_views.reserve(attachments_count);
@@ -131,7 +131,7 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &desc, co
 
     VkFramebufferCreateInfo fb_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
     fb_info.renderPass              = renderpass.vkhandle;
-    fb_info.attachmentCount         = attachments_count;
+    fb_info.attachmentCount         = static_cast<u32>(attachments_count);
     fb_info.pAttachments            = attachment_views.data();
     fb_info.width                   = fb.format.width;
     fb_info.height                  = fb.format.height;
@@ -189,7 +189,7 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
     VkPipelineCache cache = VK_NULL_HANDLE;
     VK_CHECK(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
 
-    u32 attachments_count = graphics_state.attachments_format.attachments_format.size() + (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
+    auto attachments_count = graphics_state.attachments_format.attachments_format.size() + (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
     auto renderpass = create_renderpass(*this, graphics_state.attachments_format, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
 
     return graphics_programs.add({

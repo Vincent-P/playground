@@ -14,8 +14,8 @@ struct UnifiedBufferStorage
     Handle<gfx::Buffer> buffer;
     u32 element_size = 0;
 
-    static UnifiedBufferStorage create(gfx::Device &device, std::string name, u32 size_in_bytes, u32 element_size, u32 gpu_usage = 0);
-    u32 allocate(u32 nb_element);
+    static UnifiedBufferStorage create(gfx::Device &device, std::string name, usize size_in_bytes, u32 element_size, u32 gpu_usage = 0);
+    u32 allocate(usize nb_element);
     void free(u32 offset);
     void destroy();
 };

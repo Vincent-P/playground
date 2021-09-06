@@ -1,6 +1,7 @@
 #include "render/ring_buffer.h"
 
 #include "render/vulkan/device.h"
+#include <exo/algorithms.h>
 
 RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc, bool align)
 {
@@ -18,9 +19,9 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
     return buf;
 }
 
-std::pair<void*, u32> RingBuffer::allocate(gfx::Device &device, usize len)
+std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
 {
-    u32 aligned_len = ((static_cast<u32>(len) / 256u) + 1u) * 256u;
+    auto aligned_len = round_up_to_alignment(256, len);
     if (!should_align)
     {
         aligned_len = len;
@@ -28,16 +29,16 @@ std::pair<void*, u32> RingBuffer::allocate(gfx::Device &device, usize len)
 
     // TODO: handle the correct number of frame instead of ALWAYS the last one
     // check that we dont overwrite previous frame's content
-    usize last_frame_start = last_frame_end - last_frame_size;
+    auto last_frame_start = last_frame_end - last_frame_size;
     assert(offset + aligned_len < last_frame_start + size);
 
     // if offset + aligned_len is outside the buffer go back to the beginning (ring buffer)
     if ((offset % size) + aligned_len >= size)
     {
-        offset = ((offset / static_cast<u32>(size)) + 1u) * static_cast<u32>(size);
+        offset = ((offset / size) + 1u) * size;
     }
 
-    u32 allocation_offset = offset % size;
+    auto allocation_offset = offset % size;
 
     void *dst = device.map_buffer<u8>(buffer) + allocation_offset;
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.21)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -17,18 +17,25 @@ add_compile_options(
   # Disable warnings for external headers
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
+
+  # Optimize for AVX2
   $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
   )
 
 # C++ flags for the project's code
+# https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#compilers
 set(APP_CXX_FLAGS
   # Warning level
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wshadow>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
 
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<CXX_COMPILER_ID:MSVC>:/permissive->
+  $<$<CXX_COMPILER_ID:MSVC>:/w14640> # Enable warning on thread un-safe static member initialization
 
   # 0-sized array
   $<$<CXX_COMPILER_ID:MSVC>:/wd4200>

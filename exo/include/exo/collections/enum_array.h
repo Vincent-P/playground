@@ -1,6 +1,10 @@
 #pragma once
 #include "exo/numerics.h"
 
+#if !defined(NDEBUG)
+#include <cassert>
+#endif
+
 template <typename Enum>
 concept EnumCount = requires(Enum e)
 {
@@ -31,6 +35,7 @@ struct EnumArray
 template <typename T, EnumCount E>
 constexpr const T &EnumArray<T, E>::operator[](E e) const
 {
+    assert(static_cast<usize>(e) < SIZE);
     return array[static_cast<usize>(e)];
 }
 

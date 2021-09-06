@@ -28,7 +28,7 @@ class AssetManager;
 struct Settings
 {
     float resolution_scale = 1.0f;
-    uint2 render_resolution;
+    float2 render_resolution;
     bool resolution_dirty;
     bool clear_history = true;
     bool enable_path_tracing = false;

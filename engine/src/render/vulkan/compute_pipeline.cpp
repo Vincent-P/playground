@@ -29,8 +29,8 @@ void Device::recreate_program_internal(ComputeProgram &program)
     push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = static_cast<u32>(sets.size());
-    pipeline_layout_info.pSetLayouts    = sets.data();
+    pipeline_layout_info.setLayoutCount             = static_cast<u32>(sets.size());
+    pipeline_layout_info.pSetLayouts                = sets.data();
     pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
     pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
 
@@ -38,18 +38,18 @@ void Device::recreate_program_internal(ComputeProgram &program)
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
 
     VkComputePipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    pipeline_info.stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-    pipeline_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    pipeline_info.stage.module = shader.vkhandle;
-    pipeline_info.stage.pName = "main";
-    pipeline_info.layout = pipeline_layout;
+    pipeline_info.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    pipeline_info.stage.stage                 = VK_SHADER_STAGE_COMPUTE_BIT;
+    pipeline_info.stage.module                = shader.vkhandle;
+    pipeline_info.stage.pName                 = "main";
+    pipeline_info.layout                      = pipeline_layout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
 
-    program.pipeline = pipeline;
+    program.pipeline        = pipeline;
     program.pipeline_layout = pipeline_layout;
-    program.descriptor_set = std::move(set);
+    program.descriptor_set  = std::move(set);
 }
 
 Handle<ComputeProgram> Device::create_program(std::string name, const ComputeState &compute_state)
@@ -72,8 +72,8 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
     push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount = static_cast<u32>(sets.size());
-    pipeline_layout_info.pSetLayouts    = sets.data();
+    pipeline_layout_info.setLayoutCount             = static_cast<u32>(sets.size());
+    pipeline_layout_info.pSetLayouts                = sets.data();
     pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
     pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
 
@@ -81,11 +81,11 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
 
     VkComputePipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    pipeline_info.stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-    pipeline_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    pipeline_info.stage.module = shader.vkhandle;
-    pipeline_info.stage.pName = "main";
-    pipeline_info.layout = pipeline_layout;
+    pipeline_info.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    pipeline_info.stage.stage                 = VK_SHADER_STAGE_COMPUTE_BIT;
+    pipeline_info.stage.module                = shader.vkhandle;
+    pipeline_info.stage.pName                 = "main";
+    pipeline_info.layout                      = pipeline_layout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
@@ -100,11 +100,11 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
     }
 
     return compute_programs.add({
-        .name = name,
-        .state = compute_state,
-        .pipeline = pipeline,
+        .name            = name,
+        .state           = compute_state,
+        .pipeline        = pipeline,
         .pipeline_layout = pipeline_layout,
-        .descriptor_set = std::move(set),
+        .descriptor_set  = std::move(set),
     });
 }
 
@@ -119,4 +119,4 @@ void Device::destroy_program(Handle<ComputeProgram> program_handle)
         compute_programs.remove(program_handle);
     }
 }
-}
+} // namespace vulkan
