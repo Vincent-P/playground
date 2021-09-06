@@ -38,10 +38,6 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/wd4201>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-nested-anon-types>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-gnu-anonymous-struct>
-
-  # build time profiling
-  # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-ftime-trace>
-  $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
 
 # C++ flags for third party libraries

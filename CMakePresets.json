@@ -65,14 +65,14 @@
       "name": "msvc",
       "configurePreset": "msvc",
       "environment": {
-        "UseMultiToolTask ":  "true"
+        "UseMultiToolTask":  "true"
       }
     },
     {
       "name": "msvc-rel",
       "configurePreset": "msvc-rel",
       "environment": {
-        "UseMultiToolTask ":  "true"
+        "UseMultiToolTask":  "true"
       }
     }
   ]
