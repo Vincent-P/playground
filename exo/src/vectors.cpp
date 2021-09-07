@@ -1,70 +1,124 @@
 #include "exo/types.h"
 
-#include <cmath>
-#include <cstring>
+#include <cmath> // for std::round
 #if defined(ENABLE_DOCTEST)
 #include <doctest.h>
 #endif
-#include <iostream>
 
-float dot(const float2 &a, const float2 &b)
+template<typename V>
+auto max_impl(V a)
 {
-    return a.x*b.x + a.y*b.y;
+    auto res = a[0];
+    for (usize i_component = 1; i_component < V::SIZE; i_component += 1)
+    {
+        res = std::max(res, a[i_component]);
+    }
+    return res;
 }
 
-float dot(const float3 &a, const float3 &b)
+template<typename V>
+usize max_comp_impl(V a)
 {
-    return a.x*b.x + a.y*b.y + a.z*b.z;
+    usize i_max_comp = 0;
+    for (usize i_component = 1; i_component < V::SIZE; i_component += 1)
+    {
+        if (a[i_component] > a[i_max_comp])
+        {
+            i_max_comp = i_component;
+        }
+    }
+    return i_max_comp;
 }
 
-float dot(const float4 &a, const float4 &b)
+template<typename V>
+float dot_impl(V a, V b)
 {
-    return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
+    float res = 0.0f;
+    for (usize i_component = 0; i_component < V::SIZE; i_component += 1)
+    {
+        res += a[i_component] + b[i_component];
+    }
+    return res;
 }
 
-template <typename T>
-static T normalize_impl(const T &v)
+template<typename V>
+float length_impl(V a)
 {
-    T normalized = v;
-    float inv_sqrt = 1.0f / v.norm();
-    normalized = inv_sqrt * normalized;
-    return normalized;
+    float squared_length = dot_impl(a, a);
+    return std::sqrt(squared_length);
 }
+
+template<typename V>
+float distance_impl(V a, V b)
+{
+    return length_impl(b - a);
+}
+
+template<typename V>
+V normalize_impl(V a)
+{
+    float inverse_len = length_impl(a);
+    return inverse_len * a;
+}
+
+template<typename V>
+V round_impl(V a)
+{
+    V res = V{0};
+    for (usize i_component = 0; i_component < V::SIZE; i_component += 1)
+    {
+        res[i_component] = std::round(a[i_component]);
+    }
+    return res;
+}
+
+template<typename V>
+V floor_impl(V a)
+{
+    V res = V{0};
+    for (usize i_component = 0; i_component < V::SIZE; i_component += 1)
+    {
+        res[i_component] = std::floor(a[i_component]);
+    }
+    return res;
+}
+
 
 // clang-format off
-float2 normalize(const float2 &v) { return normalize_impl(v); }
-float3 normalize(const float3 &v) { return normalize_impl(v); }
-float4 normalize(const float4 &v) { return normalize_impl(v); }
+float max(float2 v) { return max_impl(v); }
+float max(float3 v) { return max_impl(v); }
+float max(float4 v) { return max_impl(v); }
+
+usize max_comp(float2 v) { return max_comp_impl(v); }
+usize max_comp(float3 v) { return max_comp_impl(v); }
+usize max_comp(float4 v) { return max_comp_impl(v); }
+
+float length(float2 v) { return length_impl(v); }
+float length(float3 v) { return length_impl(v); }
+float length(float4 v) { return length_impl(v); }
+
+float distance(float2 a, float2 b) { return distance_impl(a, b); }
+float distance(float3 a, float3 b) { return distance_impl(a, b); }
+float distance(float4 a, float4 b) { return distance_impl(a, b); }
+
+float dot(float2 a, float2 b) { return dot_impl(a, b); }
+float dot(float3 a, float3 b) { return dot_impl(a, b); }
+float dot(float4 a, float4 b) { return dot_impl(a, b); }
+
+float2 normalize(float2 v) { return normalize_impl(v); }
+float3 normalize(float3 v) { return normalize_impl(v); }
+float4 normalize(float4 v) { return normalize_impl(v); }
+
+float2 round(float2 v) { return round_impl(v); }
+float3 round(float3 v) { return round_impl(v); }
+float4 round(float4 v) { return round_impl(v); }
+
+float2 floor(float2 v) { return floor_impl(v); }
+float3 floor(float3 v) { return floor_impl(v); }
+float4 floor(float4 v) { return floor_impl(v); }
 // clang-format on
 
-float2 round(const float2 &v)
-{
-    return float2(
-        std::round(v.x),
-        std::round(v.y)
-    );
-}
-
-float3 round(const float3 &v)
-{
-    return float3(
-        std::round(v.x),
-        std::round(v.y),
-        std::round(v.z)
-    );
-}
-
-float4 round(const float4 &v)
-{
-    return float4(
-        std::round(v.x),
-        std::round(v.y),
-        std::round(v.z),
-        std::round(v.w)
-    );
-}
-
-float3 cross(const float3 &a, const float3 &b)
+float3 cross(float3 a, float3 b)
 {
     return {
         a.y * b.z - b.y * a.z,
@@ -73,193 +127,36 @@ float3 cross(const float3 &a, const float3 &b)
     };
 }
 
-// clang-format off
-float float2::squared_norm() const { return dot(*this, *this); }
-float float3::squared_norm() const { return dot(*this, *this); }
-float float4::squared_norm() const { return dot(*this, *this); }
-float float2::norm() const { return std::sqrt(squared_norm()); }
-float float3::norm() const { return std::sqrt(squared_norm()); }
-float float4::norm() const { return std::sqrt(squared_norm()); }
-
-u32 float2::max_comp() const { return x > y ? 0 : 1; };
-u32 float3::max_comp() const { return x > y ? (x > z ? 0 : 2) : (y > z ? 1 : 2); };
-
-bool operator==(const float2 &a, const float2 &b)  { return a.x == b.x && a.y == b.y; }
-float2 operator+(const float2 &a, const float2 &b) { return {a.x + b.x, a.y + b.y}; }
-float2 operator-(const float2 &a, const float2 &b) { return {a.x - b.x, a.y - b.y}; }
-float2 operator*(const float2 &a, const float2 &b) { return {a.x * b.x, a.y * b.y}; }
-float2 operator*(const float a, const float2 &v)   { return {a * v.x, a * v.y}; }
-
-bool operator==(const float3 &a, const float3 &b)  { return a.x == b.x && a.y == b.y && a.z == b.z; }
-float3 operator+(const float3 &a, const float3 &b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-float3 operator-(const float3 &a, const float3 &b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
-float3 operator*(const float3 &a, const float3 &b) { return {a.x * b.x, a.y * b.y, a.z * b.z}; }
-float3 operator*(const float a, const float3 &v)   { return {a * v.x, a * v.y, a * v.z}; }
-
-bool operator==(const float4 &a, const float4 &b)   { return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w; }
-float4 operator+(const float4 &a, const float4 &b)  { return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}; }
-float4 operator-(const float4 &a, const float4 &b)  { return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}; }
-float4 operator*(const float4 &a, const float4 &b)  { return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w}; }
-float4 operator*(const float a, const float4 &v)    { return {a * v.x, a * v.y, a * v.z, a * v.w}; }
-// clang-format on
-
-std::ostream& operator<<(std::ostream& os, const float2 &v)
+// Raw access
+template <typename V>
+const typename V::element_type &at_const(const V &v, usize i)
 {
-    os << "(" << v.x << ", " << v.y << ")";
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, const float3 &v)
-{
-    os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, const float4 &v)
-{
-    os << "(" << v.x << ", " << v.y <<  ", " << v.z << ", " << v.w << ")";
-    return os;
+    assert(i < V::SIZE);
+    return v[i];
 }
 
-float4x4::float4x4(float value)
+template <typename V>
+typename V::element_type &at(V &v, usize i)
 {
-    for (auto &uninit : values) {
-        uninit = 0.0f;
-    }
-
-    values[0] = value;
-    values[5] = value;
-    values[10] = value;
-    values[15] = value;
+    return const_cast<typename V::element_type &>(at_const(static_cast<const V &>(v), i));
 }
 
-float4x4::float4x4(const float (&_values)[16])
-{
-    for (uint col = 0; col < 4; col++) {
-        for (uint row = 0; row < 4; row++) {
-            this->at(row, col) = _values[row * 4 + col];
-        }
-    }
-}
+#define DATA_IMPL(vector_type)       vector_type::element_type *vector_type::data() { return &x; }
+#define CONST_DATA_IMPL(vector_type) const vector_type::element_type *vector_type::data() const { return &x; }
 
-float4x4 float4x4::identity()
-{
-    return float4x4(1.0f);
-}
+#define RAW_ACCESS_IMPL(vector_type) \
+    DATA_IMPL(vector_type) \
+    CONST_DATA_IMPL(vector_type) \
+    vector_type::element_type &vector_type::operator[](usize i) { return at(*this, i); } \
+    const vector_type::element_type &vector_type::operator[](usize i) const { return at_const(*this, i); }
 
-const float &float4x4::at(usize row, usize col) const
-{
-    assert(row < 4 && col < 4);
-    // values are stored in columns
-    return values[col * 4 + row];
-}
-
-float &float4x4::at(usize row, usize col)
-{
-    assert(row < 4 && col < 4);
-    // values are stored in columns
-    return values[col * 4 + row];
-}
-
-
-const float4 &float4x4::col(usize col) const
-{
-    assert(col < 4);
-    return *reinterpret_cast<const float4*>(&values[col * 4]);
-}
-
-float4 &float4x4::col(usize col)
-{
-    assert(col < 4);
-    return *reinterpret_cast<float4*>(&values[col * 4]);
-}
-
-float4x4 transpose(const float4x4 &m)
-{
-    float4x4 result;
-    for (usize row = 0; row < 4; row++) {
-        for (usize col = 0; col < 4; col++) {
-            result.at(row, col) = m.at(col, row);
-        }
-    }
-    return result;
-}
-
-float4x4 operator*(float a, const float4x4 &m)
-{
-    float4x4 result;
-    for (usize i = 0; i < 16; i++) {
-        result.values[i] = a * m.values[i];
-    }
-    return result;
-}
-
-float4 operator*(const float4x4 &m, const float4 &v)
-{
-    float4 result;
-    for (usize row = 0; row < 4; row++) {
-        for (usize col = 0; col < 4; col++) {
-            result.raw[row] += m.at(row, col) * v.raw[col];
-        }
-    }
-    return result;
-}
-
-bool operator==(const float4x4 &a, const float4x4 &b)
-{
-    return std::memcmp(a.values, b.values, sizeof(a.values)) == 0;
-}
-
-float4x4 operator+(const float4x4 &a, const float4x4 &b)
-{
-    float4x4 result;
-    for (usize col = 0; col < 4; col++) {
-        for (usize row = 0; row < 4; row++) {
-            result.at(row, col) = a.at(row, col) + b.at(row, col);
-        }
-    }
-    return result;
-}
-
-float4x4 operator-(const float4x4 &a, const float4x4 &b)
-{
-    float4x4 result;
-    for (usize col = 0; col < 4; col++) {
-        for (usize row = 0; row < 4; row++) {
-            result.at(row, col) = a.at(row, col) - b.at(row, col);
-        }
-    }
-    return result;
-}
-
-float4x4 operator*(const float4x4 &a, const float4x4 &b)
-{
-    float4x4 result;
-    for (usize col = 0; col < 4; col++) {
-        for (usize row = 0; row < 4; row++) {
-            for (usize i = 0; i < 4; i++) {
-                result.at(row, col) += a.at(row, i) * b.at(i, col);
-            }
-        }
-    }
-    return result;
-}
-
-float3 floor(float3 v)
-{
-    return {
-        std::floor(v.x),
-        std::floor(v.y),
-        std::floor(v.z)
-    };
-}
-
-uint3 to_uint(float3 v)
-{
-    return {
-        static_cast<u32>(v.x),
-        static_cast<u32>(v.y),
-        static_cast<u32>(v.z)
-    };
-}
+RAW_ACCESS_IMPL(int2)
+RAW_ACCESS_IMPL(uint2)
+RAW_ACCESS_IMPL(float2)
+RAW_ACCESS_IMPL(int3)
+RAW_ACCESS_IMPL(uint3)
+RAW_ACCESS_IMPL(float3)
+RAW_ACCESS_IMPL(float4)
 
 /// --- Tests
 
