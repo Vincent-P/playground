@@ -56,15 +56,15 @@ AABB calculate_bounds(Vec<TempBVHNode> &temp_nodes, usize prim_start, usize prim
     return bounds;
 }
 
-static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes, usize i_node, usize prim_start, usize prim_end)
+static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes, usize i_root, usize prim_count)
 {
     Vec<usize> i_node_stack(temp_nodes.capacity());
     Vec<usize> prim_start_stack(temp_nodes.capacity());
     Vec<usize> prim_end_stack(temp_nodes.capacity());
 
-    i_node_stack.push_back(i_node);
-    prim_start_stack.push_back(prim_start);
-    prim_end_stack.push_back(prim_end);
+    i_node_stack.push_back(i_root);
+    prim_start_stack.push_back(0);
+    prim_end_stack.push_back(prim_count);
 
     while (!i_node_stack.empty())
     {
@@ -178,7 +178,7 @@ static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
 
     // emplace root node
     temp_nodes.emplace_back();
-    create_temp_bvh(temp_nodes, root_index, 0, primitives_count);
+    create_temp_bvh(temp_nodes, root_index, primitives_count);
 
     usize counter = 0;
     bvh_set_temp_order(temp_nodes, counter, root_index, u64_invalid);
