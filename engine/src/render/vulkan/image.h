@@ -40,7 +40,7 @@ enum struct ImageUsage
 struct ImageDescription
 {
     std::string           name                                        = "No name";
-    uint3                 size                                        = {1, 1, 1};
+    int3                  size                                        = {1, 1, 1};
     u32                   mip_levels                                  = 1;
     VkImageType           type                                        = VK_IMAGE_TYPE_2D;
     VkFormat              format                                      = VK_FORMAT_R8G8B8A8_UNORM;

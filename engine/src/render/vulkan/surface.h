@@ -23,14 +23,15 @@ struct Surface
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
     EnumArray<VkBool32, QueueType> present_queue_supported;
-    VkSurfaceFormatKHR format;
-    VkPresentModeKHR present_mode;
-    VkExtent2D extent;
-    u32 previous_image = 0;
-    u32 current_image = 0;
-    Vec<Handle<Image>> images;
-    Vec<VkSemaphore> image_acquired_semaphores;
-    Vec<VkSemaphore> can_present_semaphores;
+    VkSurfaceFormatKHR             format;
+    VkPresentModeKHR               present_mode;
+    i32                            width          = 1;
+    i32                            height         = 1;
+    u32                            previous_image = 0;
+    u32                            current_image  = 0;
+    Vec<Handle<Image>>             images;
+    Vec<VkSemaphore>               image_acquired_semaphores;
+    Vec<VkSemaphore>               can_present_semaphores;
 
     static Surface create(Context &context, Device &device, const platform::Window &window);
     void destroy(Context &context, Device &device);

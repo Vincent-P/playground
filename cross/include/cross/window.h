@@ -139,8 +139,8 @@ using Event = std::variant<Key, MouseClick, Char, IMEComposition, IMEComposition
 
 struct Caret
 {
-    int2 position;
-    int2 size;
+    int2 position{0};
+    int2 size{0};
 };
 
 struct Window;
@@ -198,7 +198,7 @@ struct Window
     std::string title;
     uint width;
     uint height;
-    float2 mouse_position;
+    float2 mouse_position = {0.0f};
 
     bool stop{false};
     Option<Caret> caret{};

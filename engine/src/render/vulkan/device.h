@@ -136,7 +136,7 @@ struct Device
     void destroy_image(Handle<Image> image_handle);
     u32 get_image_sampled_index(Handle<Image> image_handle);
     u32 get_image_storage_index(Handle<Image> image_handle);
-    uint3 get_image_size(Handle<Image> image_handle);
+    int3 get_image_size(Handle<Image> image_handle);
 
     Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);
     void destroy_buffer(Handle<Buffer> buffer_handle);

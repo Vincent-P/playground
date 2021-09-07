@@ -9,10 +9,10 @@
 struct TempBVHNode
 {
     // internal nodes
-    AABB bbox;
-    float3 bbox_center;
-    usize left_child  = u64_invalid;
-    usize right_child = u64_invalid;
+    AABB   bbox        = {};
+    float3 bbox_center = {0.0f};
+    usize  left_child  = u64_invalid;
+    usize  right_child = u64_invalid;
 
     // traversal order
     usize depth_first_index = u64_invalid;
@@ -43,17 +43,17 @@ static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize pri
 
     // -- Median splitting
     // get the largest axis
-    uint max_comp = extent(node.bbox).max_comp();
+    usize i_max_comp = max_comp(extent(node.bbox));
     // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
     i64 offset_start = static_cast<i64>(prim_start);
     i64 offset_end = static_cast<i64>(prim_end);
-    std::sort(temp_nodes.begin() + offset_start, temp_nodes.begin() + offset_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center.raw[max_comp] < b.bbox_center.raw[max_comp]; });
+    std::sort(temp_nodes.begin() + offset_start, temp_nodes.begin() + offset_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
     // split at middle
     float3 split_center = node.bbox_center;
     usize prim_split     = prim_start;
     for (; prim_split < prim_end; prim_split += 1)
     {
-        if (temp_nodes[prim_split].bbox_center.raw[max_comp] > split_center.raw[max_comp])
+        if (temp_nodes[prim_split].bbox_center[i_max_comp] > split_center[i_max_comp])
         {
             break;
         }

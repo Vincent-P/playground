@@ -56,7 +56,7 @@ static float ReciprocalSqrt(float x)
 
 inline float4 quaternion_from_float4x4(float4x4 m)
 {
-    float4 q;
+    float4 q = {0.0f};
 
     if (m.at(0, 0) + m.at(1, 1) + m.at(2, 2) > 0.0f)
     {

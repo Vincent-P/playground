@@ -61,5 +61,5 @@ class Inputs
     Option<int2> mouse_drag_start  = {};
     Option<int2> mouse_drag_delta  = {};
     Option<int2> mouse_delta       = {};
-    int2 mouse_position = {};
+    int2         mouse_position    = {0};
 };

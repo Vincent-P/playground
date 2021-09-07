@@ -245,7 +245,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                     for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1)
                     {
                         usize  offset       = bufferview.byte_offset + accessor.byte_offset + i_position * byte_stride;
-                        float4 new_position = {};
+                        float4 new_position = {1.0f};
 
                         if (accessor.component_type == gltf::ComponentType::UnsignedShort)
                         {
@@ -279,7 +279,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                     for (usize i_uv = 0; i_uv < usize(accessor.count); i_uv += 1)
                     {
                         usize  offset = bufferview.byte_offset + accessor.byte_offset + i_uv * byte_stride;
-                        float2 new_uv = {};
+                        float2 new_uv = {1.0f};
 
                         if (accessor.component_type == gltf::ComponentType::UnsignedShort)
                         {
@@ -460,13 +460,13 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                         const auto &extension = j_base_color_texture["extensions"]["KHR_texture_transform"];
                         if (extension.HasMember("offset"))
                         {
-                            new_material.offset.raw[0] = extension["offset"].GetArray()[0].GetFloat();
-                            new_material.offset.raw[1] = extension["offset"].GetArray()[1].GetFloat();
+                            new_material.offset[0] = extension["offset"].GetArray()[0].GetFloat();
+                            new_material.offset[1] = extension["offset"].GetArray()[1].GetFloat();
                         }
                         if (extension.HasMember("scale"))
                         {
-                            new_material.scale.raw[0] = extension["scale"].GetArray()[0].GetFloat();
-                            new_material.scale.raw[1] = extension["scale"].GetArray()[1].GetFloat();
+                            new_material.scale[0] = extension["scale"].GetArray()[0].GetFloat();
+                            new_material.scale[1] = extension["scale"].GetArray()[1].GetFloat();
                         }
                         if (extension.HasMember("rotation"))
                         {
@@ -480,7 +480,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                     new_material.base_color_factor = {1.0, 1.0, 1.0, 1.0};
                     for (u32 i = 0; i < 4; i += 1)
                     {
-                        new_material.base_color_factor.raw[i] = j_pbr["baseColorFactor"].GetArray()[i].GetFloat();
+                        new_material.base_color_factor[i] = j_pbr["baseColorFactor"].GetArray()[i].GetFloat();
                     }
                 }
             }
@@ -534,7 +534,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
         if (j_node.HasMember("rotation"))
         {
             auto   rotation = j_node["rotation"].GetArray();
-            float4 quaternion;
+            float4 quaternion = {0.0f};
             quaternion.x = static_cast<float>(rotation[0].GetDouble());
             quaternion.y = static_cast<float>(rotation[1].GetDouble());
             quaternion.z = static_cast<float>(rotation[2].GetDouble());

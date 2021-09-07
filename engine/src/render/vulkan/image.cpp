@@ -51,9 +51,9 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     VkImageCreateInfo image_info     = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     image_info.imageType             = image_desc.type;
     image_info.format                = image_desc.format;
-    image_info.extent.width          = image_desc.size.x;
-    image_info.extent.height         = image_desc.size.y;
-    image_info.extent.depth          = image_desc.size.z;
+    image_info.extent.width          = static_cast<u32>(image_desc.size.x);
+    image_info.extent.height         = static_cast<u32>(image_desc.size.y);
+    image_info.extent.depth          = static_cast<u32>(image_desc.size.z);
     image_info.mipLevels             = image_desc.mip_levels;
     image_info.arrayLayers           = 1;
     image_info.samples               = image_desc.samples;
@@ -146,13 +146,13 @@ void Device::destroy_image(Handle<Image> image_handle)
     }
 }
 
-uint3 Device::get_image_size(Handle<Image> image_handle)
+int3 Device::get_image_size(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
         return image->desc.size;
     }
-    return {};
+    return {0};
 }
 
 u32 Device::get_image_sampled_index(Handle<Image> image_handle)

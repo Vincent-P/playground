@@ -230,9 +230,9 @@ void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
     copy.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
     copy.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
     copy.dstOffset                     = {.x = 0, .y = 0, .z = 0};
-    copy.extent.width                  = std::min(src_image.desc.size.x, dst_image.desc.size.x);
-    copy.extent.height                 = std::min(src_image.desc.size.y, dst_image.desc.size.y);
-    copy.extent.depth                  = std::min(src_image.desc.size.z, dst_image.desc.size.z);
+    copy.extent.width                  = static_cast<u32>(std::min(src_image.desc.size.x, dst_image.desc.size.x));
+    copy.extent.height                 = static_cast<u32>(std::min(src_image.desc.size.y, dst_image.desc.size.y));
+    copy.extent.depth                  = static_cast<u32>(std::min(src_image.desc.size.z, dst_image.desc.size.z));
 
     vkCmdCopyImage(command_buffer, src_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 }
@@ -392,8 +392,8 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, Vec<LoadOp
     VkRenderPassBeginInfo begin_info    = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     begin_info.renderPass               = renderpass.vkhandle;
     begin_info.framebuffer              = framebuffer.vkhandle;
-    begin_info.renderArea.extent.width  = framebuffer.format.width;
-    begin_info.renderArea.extent.height = framebuffer.format.height;
+    begin_info.renderArea.extent.width  = static_cast<u32>(framebuffer.format.width);
+    begin_info.renderArea.extent.height = static_cast<u32>(framebuffer.format.height);
     begin_info.clearValueCount          = static_cast<u32>(clear_colors.size());
     begin_info.pClearValues             = clear_colors.data();
 

@@ -13,6 +13,7 @@
 
 #include "exo/numerics.h"
 #include "exo/vectors.h"
+#include "exo/matrices.h"
 #if !defined(NDEBUG)
 #include <cassert>
 #endif

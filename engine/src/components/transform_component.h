@@ -19,9 +19,9 @@ struct TransformComponent
 
 struct LocalToWorldComponent
 {
-    float3 translation;
-    float3 scale;
-    float4 quaternion;
+    float3 translation = {0.0f};
+    float3 scale       = {1.0f};
+    float4 quaternion  = {0.0f};
 
     static const char *type_name() { return "LocalToWorldComponent"; }
 

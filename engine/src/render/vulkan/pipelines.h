@@ -112,8 +112,8 @@ struct RenderPass
 
 struct FramebufferFormat
 {
-    u32 width = 0;
-    u32 height = 0;
+    i32 width = 0;
+    i32 height = 0;
     u32 layer_count = 1;
     Vec<VkFormat> attachments_format;
     Option<VkFormat> depth_format;

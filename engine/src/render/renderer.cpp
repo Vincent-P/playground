@@ -17,13 +17,13 @@
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>
 
-static uint3 dispatch_size(uint3 size, u32 threads)
+static uint3 dispatch_size(int3 size, i32 threads)
 {
-    return {
-        (size.x / threads) + uint(size.x % threads != 0),
-        (size.y / threads) + uint(size.y % threads != 0),
-        (size.z / threads) + uint(size.z % threads != 0),
-    };
+    return uint3(int3{
+        (size.x / threads) + i32(size.x % threads != 0),
+        (size.y / threads) + i32(size.y % threads != 0),
+        (size.z / threads) + i32(size.z % threads != 0),
+        });
 }
 
 Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_manager)
@@ -115,7 +115,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
     // Create Render targets
     renderer.settings.resolution_dirty  = true;
-    renderer.settings.render_resolution = {static_cast<float>(surface.extent.width), static_cast<float>(surface.extent.height)};
+    renderer.settings.render_resolution = int2(surface.width, surface.height);
 
     // Create ImGui pass
     auto &imgui_pass = renderer.imgui_pass;
@@ -141,7 +141,7 @@ Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_m
 
         imgui_pass.font_atlas = device.create_image({
             .name   = "Font Atlas",
-            .size   = {static_cast<u32>(width), static_cast<u32>(height), 1},
+            .size   = {width, height, 1},
             .format = VK_FORMAT_R8G8B8A8_UNORM,
         });
 
@@ -277,12 +277,9 @@ static void recreate_framebuffers(Renderer &r)
 
     device.wait_idle();
 
-    settings.render_resolution = {static_cast<float>(surface.extent.width), static_cast<float>(surface.extent.height)};
+    settings.render_resolution = int2(surface.width, surface.height);
 
-    uint3 scaled_resolution = {};
-    scaled_resolution.x = static_cast<u32>(settings.resolution_scale * settings.render_resolution.x);
-    scaled_resolution.y = static_cast<u32>(settings.resolution_scale * settings.render_resolution.y);
-    scaled_resolution.z = 1;
+    int3 scaled_resolution = int3(int2(settings.resolution_scale * float2(settings.render_resolution)), 1);
 
     // Re-create images
     device.destroy_image(r.depth_buffer);
@@ -294,7 +291,7 @@ static void recreate_framebuffers(Renderer &r)
 
     r.visibility_buffer = device.create_image({
         .name   = "Visibility buffer",
-        .size   = to_uint(float3(settings.render_resolution, 1.0f)),
+        .size   = int3(settings.render_resolution, 1.0),
         .format = VK_FORMAT_R32G32_UINT,
         .usages = gfx::color_attachment_usage | gfx::storage_image_usage,
     });
@@ -315,7 +312,7 @@ static void recreate_framebuffers(Renderer &r)
 
     r.ldr_buffer = device.create_image({
         .name   = "LDR buffer",
-        .size   = to_uint(float3(settings.render_resolution, 1.0f)),
+        .size   = int3(settings.render_resolution, 1.0),
         .format = VK_FORMAT_R8G8B8A8_UNORM,
         .usages = gfx::color_attachment_usage,
     });
@@ -324,7 +321,7 @@ static void recreate_framebuffers(Renderer &r)
     {
         r.history_buffers[i_history] = device.create_image({
             .name   = fmt::format("History buffer #{}", i_history),
-            .size   = to_uint(float3(settings.render_resolution, 1.0f)),
+            .size   = int3(settings.render_resolution, 1.0),
             .format = VK_FORMAT_R32G32B32A32_SFLOAT,
             .usages = gfx::storage_image_usage,
         });
@@ -361,8 +358,8 @@ static void recreate_framebuffers(Renderer &r)
 
     r.ldr_fb = device.create_framebuffer(
         {
-            .width  = static_cast<u32>(settings.render_resolution.x),
-            .height = static_cast<u32>(settings.render_resolution.y),
+            .width  = settings.render_resolution.x,
+            .height = settings.render_resolution.y,
         },
         {r.ldr_buffer});
 }
@@ -489,7 +486,9 @@ void Renderer::update(Scene &scene)
             }
         });
     assert(main_camera != nullptr);
-    main_camera->projection = camera::infinite_perspective(main_camera->fov, (float)settings.render_resolution.x / settings.render_resolution.y, main_camera->near_plane, &main_camera->projection_inverse);
+    float2 float_resolution = float2(settings.render_resolution);
+    float aspect_ratio = float_resolution.x / float_resolution.y;
+    main_camera->projection = camera::infinite_perspective(main_camera->fov, aspect_ratio, main_camera->near_plane, &main_camera->projection_inverse);
 
     // -- Get geometry from the scene and prepare the draw commands
     this->prepare_geometry(scene);
@@ -507,7 +506,7 @@ void Renderer::update(Scene &scene)
     global_data->camera_projection_inverse           = main_camera->projection_inverse;
     global_data->camera_previous_view                = last_view;
     global_data->camera_previous_projection          = last_proj;
-    global_data->render_resolution                   = float2(std::floor(settings.resolution_scale * settings.render_resolution.x), std::floor(settings.resolution_scale * settings.render_resolution.y));
+    global_data->render_resolution                   = floor(settings.resolution_scale * float2(settings.render_resolution)),
     global_data->jitter_offset                       = current_sample;
     global_data->delta_t                             = 0.016f;
     global_data->frame_count                         = base_renderer.frame_count;
@@ -544,16 +543,18 @@ void Renderer::update(Scene &scene)
     cmd.wait_for_acquired(base_renderer.surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     {
+        float2 scaled_resolution = floor(settings.resolution_scale * float2(settings.render_resolution));
+
         VkViewport viewport{};
-        viewport.width    = std::floor(settings.resolution_scale * settings.render_resolution.x);
-        viewport.height   = std::floor(settings.resolution_scale * settings.render_resolution.y);
+        viewport.width    = scaled_resolution.x;
+        viewport.height   = scaled_resolution.y;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         cmd.set_viewport(viewport);
 
         VkRect2D scissor      = {};
-        scissor.extent.width  = static_cast<u32>(settings.resolution_scale * settings.render_resolution.x);
-        scissor.extent.height = static_cast<u32>(settings.resolution_scale * settings.render_resolution.y);
+        scissor.extent.width  = static_cast<u32>(scaled_resolution.x);
+        scissor.extent.height = static_cast<u32>(scaled_resolution.y);
         cmd.set_scissor(scissor);
     }
 
@@ -579,7 +580,7 @@ void Renderer::update(Scene &scene)
     {
         // Instances culling
         {
-            u32 submesh_instances_to_cull = static_cast<u32>(submesh_instances_to_draw.size());
+            i32 submesh_instances_to_cull = static_cast<i32>(submesh_instances_to_draw.size());
 
             // Prepare draw calls with instance count = 0
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
@@ -592,7 +593,7 @@ void Renderer::update(Scene &scene)
             options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
             }
             cmd.bind_pipeline(init_draw_calls_program);
-            cmd.dispatch(dispatch_size({this->draw_count, 1, 1}, 32));
+            cmd.dispatch(dispatch_size({static_cast<i32>(this->draw_count), 1, 1}, 32));
 
             // Frustum culling
             static float4x4 culling_view = main_camera->view;
@@ -651,7 +652,7 @@ void Renderer::update(Scene &scene)
             options->predicate_descriptor      = device.get_buffer_storage_index(predicate_buffer);
             options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
             cmd.bind_pipeline(drawcalls_fill_predicate_program);
-            cmd.dispatch(dispatch_size({this->draw_count, 1, 1}, 32));
+            cmd.dispatch(dispatch_size({static_cast<i32>(this->draw_count), 1, 1}, 32));
 
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
             cmd.barrier(culled_draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
@@ -669,7 +670,7 @@ void Renderer::update(Scene &scene)
             copy_options.reduction_group_sum_descriptor   = device.get_buffer_storage_index(group_sum_reduction);
             copy_options.draw_arguments_descriptor        = device.get_buffer_storage_index(draw_arguments);
             copy_options.culled_draw_arguments_descriptor = device.get_buffer_storage_index(culled_draw_arguments);
-            this->compact_buffer(cmd, this->draw_count, copy_draw_calls_program, &copy_options, sizeof(CopyDrawcallsOptions));
+            this->compact_buffer(cmd, static_cast<i32>(this->draw_count), copy_draw_calls_program, &copy_options, sizeof(CopyDrawcallsOptions));
         }
 
         // Fill visibility
@@ -1030,7 +1031,7 @@ void Renderer::prepare_geometry(Scene &scene)
                                         // TODO: Add a name field to textures
                                         textures[i_texture_asset] = device.create_image({
                                             .name   = "Base color/Albedo",
-                                            .size   = {texture->baseWidth, texture->baseHeight, texture->baseDepth},
+                                            .size   = int3(uint3{texture->baseWidth, texture->baseHeight, texture->baseDepth}),
                                             .mip_levels = texture->numLevels,
                                             .format = static_cast<VkFormat>(texture->vkFormat),
                                         });
@@ -1130,7 +1131,7 @@ void Renderer::prepare_geometry(Scene &scene)
 }
 
 
-void Renderer::compact_buffer(gfx::ComputeWork &cmd, u32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len)
+void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len)
 {
     auto &device  = base_renderer.device;
 

@@ -27,12 +27,12 @@ class AssetManager;
 
 struct Settings
 {
-    float resolution_scale = 1.0f;
-    float2 render_resolution;
-    bool resolution_dirty;
-    bool clear_history = true;
-    bool enable_path_tracing = false;
-    bool freeze_camera_culling = false;
+    float resolution_scale      = {1.0f};
+    int2  render_resolution     = {0};
+    bool  resolution_dirty      = {true};
+    bool  clear_history         = {true};
+    bool  enable_path_tracing   = {false};
+    bool  freeze_camera_culling = {false};
 };
 
 struct ImGuiPass
@@ -217,7 +217,7 @@ struct Renderer
     void update(Scene &scene);
 
     void prepare_geometry(Scene &scene);
-    void compact_buffer(gfx::ComputeWork &cmd, u32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
+    void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
 
     // base_renderer
     void reload_shader(std::string_view shader_name);

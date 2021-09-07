@@ -14,17 +14,17 @@ enum struct MaterialType
 
 struct PACKED Material
 {
-    float4 base_color_factor       = float4(1.0f);
-    float4 emissive_factor         = float4(0.0f);
-    float metallic_factor          = 1.0f;
-    float roughness_factor         = 1.0f;
-    u32 base_color_texture         = u32_invalid;
-    u32 normal_texture             = u32_invalid;
-    u32 metallic_roughness_texture = u32_invalid;
-    float rotation                 = 0;
-    float2 offset                  = float2(0.0f, 0.0f);
-    float2 scale                   = float2(1.0f, 1.0f);
-    float2 pad00;
+    float4 base_color_factor          = float4(1.0f);
+    float4 emissive_factor            = float4(0.0f);
+    float  metallic_factor            = 1.0f;
+    float  roughness_factor           = 1.0f;
+    u32    base_color_texture         = u32_invalid;
+    u32    normal_texture             = u32_invalid;
+    u32    metallic_roughness_texture = u32_invalid;
+    float  rotation                   = 0;
+    float2 offset                     = float2(0.0f, 0.0f);
+    float2 scale                      = float2(1.0f, 1.0f);
+    float2 pad00                      = {0.0f};
 
     bool operator==(const Material &other) const = default;
 };

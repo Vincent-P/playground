@@ -39,8 +39,8 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
     struct GizmoAxis
     {
         const char *label;
-        float3      axis;
-        float2      projected_point;
+        float3      axis            = {0.0f};
+        float2      projected_point = {0.0f};
         ImU32       color;
         bool        draw_line;
     };
@@ -65,7 +65,8 @@ static void draw_gizmo(ECS::World &world, ECS::EntityId main_camera)
     }
 
     // sort by distance to the camera
-    std::sort(std::begin(axes), std::end(axes), [&](const GizmoAxis &a, const GizmoAxis &b) { return (camera_position - a.axis).squared_norm() > (camera_position - b.axis).squared_norm(); });
+    auto squared_norm = [](auto v) { return dot(v, v); };
+    std::sort(std::begin(axes), std::end(axes), [&](const GizmoAxis &a, const GizmoAxis &b) { return squared_norm(camera_position - a.axis) > squared_norm(camera_position - b.axis); });
 
     // Set the window position to match the framebuffer right corner
     ImGui::Begin("Framebuffer");
@@ -328,7 +329,9 @@ void Scene::display_ui(UI::Context &ui)
                 {
                     LocalToWorldComponent transform;
                     transform.translation = instance.transform.col(3).xyz();
-                    transform.scale       = float3(instance.transform.col(0).xyz().norm(), instance.transform.col(1).xyz().norm(), instance.transform.col(2).xyz().norm());
+                    transform.scale[0]    = length(instance.transform.col(0));
+                    transform.scale[1]    = length(instance.transform.col(1));
+                    transform.scale[2]    = length(instance.transform.col(2));
                     float4x4 m            = instance.transform;
                     // Set translation to zero
                     m.at(0, 3) = 0.0;
@@ -409,8 +412,8 @@ void Scene::display_ui(UI::Context &ui)
                     ImGui::Separator();
                     ImGui::TextUnformatted(LocalToWorldComponent::type_name());
                     ImGui::Separator();
-                    ImGui::SliderFloat3("Translation", component->translation.raw, -100.0f, 100.0f);
-                    ImGui::SliderFloat3("Scale", component->scale.raw, 1.0f, 10.0f);
+                    ImGui::SliderFloat3("Translation", component->translation.data(), -100.0f, 100.0f);
+                    ImGui::SliderFloat3("Scale", component->scale.data(), 1.0f, 10.0f);
                     ImGui::Spacing();
                 }
             }

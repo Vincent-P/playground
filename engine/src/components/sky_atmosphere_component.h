@@ -62,16 +62,16 @@ inline SkyAtmosphereComponent component_from_parameters(const AtmosphereParamete
 
 #define COLOR_FROM_SCALE(raw, norm) (norm == 0.0f ? float3(0.0f) : (1.0f/norm) * raw)
 
-    component.mie_scattering_scale = params.mie_scattering.norm();
+    component.mie_scattering_scale = length(params.mie_scattering);
     component.mie_scattering_color = COLOR_FROM_SCALE(params.mie_scattering, component.mie_scattering_scale);
 
-    component.mie_absorption_scale = mie_absorption.norm();
+    component.mie_absorption_scale = length(mie_absorption);
     component.mie_absorption_color = COLOR_FROM_SCALE(mie_absorption, component.mie_absorption_scale);
 
-    component.rayleigh_scattering_scale = params.rayleigh_scattering.norm();
+    component.rayleigh_scattering_scale = length(params.rayleigh_scattering);
     component.rayleigh_scattering_color = COLOR_FROM_SCALE(params.rayleigh_scattering, component.rayleigh_scattering_scale);
 
-    component.absorption_scale = params.absorption_extinction.norm();
+    component.absorption_scale = length(params.absorption_extinction);
     component.absorption_color = COLOR_FROM_SCALE(params.absorption_extinction, component.absorption_scale);
 
 #undef COLOR_FROM_SCALE

@@ -18,10 +18,11 @@ struct InputCameraComponent
 
     States state = States::Idle;
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
-    float r     = 6.0f;
-    float theta = -78.0f;
-    float phi   = -65.0f;
-    float3 target;
+    float              r      = 6.0f;
+    float              theta  = -78.0f;
+    float              phi    = -65.0f;
+    float3             target = {0.0f};
+
     static const char *type_name() { return "InputCameraComponent"; }
     inline void display_ui();
 };

@@ -133,8 +133,8 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc,
     fb_info.renderPass              = renderpass.vkhandle;
     fb_info.attachmentCount         = static_cast<u32>(attachments_count);
     fb_info.pAttachments            = attachment_views.data();
-    fb_info.width                   = fb.format.width;
-    fb_info.height                  = fb.format.height;
+    fb_info.width                   = static_cast<u32>(fb.format.width);
+    fb_info.height                  = static_cast<u32>(fb.format.height);
     fb_info.layers                  = fb.format.layer_count;
 
     fb.vkhandle = VK_NULL_HANDLE;

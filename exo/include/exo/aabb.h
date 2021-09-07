@@ -3,8 +3,8 @@
 
 struct AABB
 {
-    float3 min;
-    float3 max;
+    float3 min = {0.0f};
+    float3 max = {0.0f};
 };
 
 inline float3 center(const AABB &aabb)
@@ -21,11 +21,11 @@ inline void extend(AABB &aabb, float3 new_point)
 {
     for (uint i_comp = 0; i_comp < 3; i_comp += 1)
     {
-        if (new_point.raw[i_comp] < aabb.min.raw[i_comp]) {
-            aabb.min.raw[i_comp] = new_point.raw[i_comp];
+        if (new_point[i_comp] < aabb.min[i_comp]) {
+            aabb.min[i_comp] = new_point[i_comp];
         }
-        if (new_point.raw[i_comp] > aabb.max.raw[i_comp]) {
-            aabb.max.raw[i_comp] = new_point.raw[i_comp];
+        if (new_point[i_comp] > aabb.max[i_comp]) {
+            aabb.max[i_comp] = new_point[i_comp];
         }
     }
 }

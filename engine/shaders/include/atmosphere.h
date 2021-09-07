@@ -24,14 +24,14 @@ struct DensityProfileLayer
 struct DensityProfile
 {
     DensityProfileLayer layers[2];
-    float3 pad10;
+    float3 pad10 = {0.0f};
     float width;
 };
 
 struct AtmosphereParameters
 {
     // The solar irradiance at the top of the atmosphere.
-    float3 solar_irradiance;
+    float3 solar_irradiance = {0.0f};
     // The sun's angular radius. Warning: the implementation uses approximations
     // that are valid only if this angle is smaller than 0.1 radians.
     float sun_angular_radius;
@@ -49,21 +49,21 @@ struct AtmosphereParameters
     // density is maximum (usually the bottom of the atmosphere), as a function of
     // wavelength. The scattering coefficient at altitude h is equal to
     // 'rayleigh_scattering' times 'rayleigh_density' at this altitude.
-    float3 rayleigh_scattering;
+    float3 rayleigh_scattering = {0.0f};
     // The distance between the planet center and the bottom of the atmosphere.
     float bottom_radius;
     // The scattering coefficient of aerosols at the altitude where their density
     // is maximum (usually the bottom of the atmosphere), as a function of
     // wavelength. The scattering coefficient at altitude h is equal to
     // 'mie_scattering' times 'mie_density' at this altitude.
-    float3 mie_scattering;
+    float3 mie_scattering = {0.0f};
     // The distance between the planet center and the top of the atmosphere.
     float top_radius;
     // The extinction coefficient of aerosols at the altitude where their density
     // is maximum (usually the bottom of the atmosphere), as a function of
     // wavelength. The extinction coefficient at altitude h is equal to
     // 'mie_extinction' times 'mie_density' at this altitude.
-    float3 mie_extinction;
+    float3 mie_extinction = {0.0f};
     // The asymetry parameter for the Cornette-Shanks phase function for the
     // aerosols.
     float mie_phase_function_g;
@@ -71,10 +71,10 @@ struct AtmosphereParameters
     // the altitude where their density is maximum, as a function of wavelength.
     // The extinction coefficient at altitude h is equal to
     // 'absorption_extinction' times 'absorption_density' at this altitude.
-    float3 absorption_extinction;
+    float3 absorption_extinction = {0.0f};
     float pad0;
     // The average albedo of the ground.
-    float3 ground_albedo;
+    float3 ground_albedo = {0.0f};
     // The cosine of the maximum Sun zenith angle for which atmospheric scattering
     // must be precomputed (for maximum precision, use the smallest Sun zenith
     // angle yielding negligible sky light radiance values. For instance, for the
@@ -113,10 +113,10 @@ float get_profile_density(DensityProfile profile, float h)
 
 struct MediumRGB
 {
-    float3 rayleigh_scattering;
-    float3 mie_scattering;
-    float3 scattering;
-    float3 extinction;
+    float3 rayleigh_scattering = {0.0f};
+    float3 mie_scattering = {0.0f};
+    float3 scattering = {0.0f};
+    float3 extinction = {0.0f};
 };
 
 MediumRGB sample_medium(AtmosphereParameters atmosphere, float r)
