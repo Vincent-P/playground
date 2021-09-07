@@ -115,6 +115,14 @@ static void update_key(Window &window, VirtualKey key)
     }
 }
 
+void Window::set_title(std::string &&  new_title)
+{
+    this->title = std::move(new_title);
+    auto utf16_title = utf8_to_utf16(title);
+    auto res =  SetWindowTextW(win32.window, utf16_title.c_str());
+    assert(res != 0);
+}
+
 void Window::poll_events()
 {
     // need to take care of shit, control and alt manually...

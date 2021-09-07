@@ -1,15 +1,12 @@
 #pragma once
 
 #include <exo/types.h>
+#include <exo/time.h>
 #include <exo/collections/vector.h>
 
 #include "render/vulkan/queries.h"
 
 #include <string>
-#include <chrono>
-
-using Clock = std::chrono::high_resolution_clock;
-using Timepoint = std::chrono::time_point<Clock>;
 namespace vulkan { struct Device;  struct Work;};
 namespace gfx = vulkan;
 

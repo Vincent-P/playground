@@ -26,7 +26,7 @@ static uint3 dispatch_size(int3 size, i32 threads)
         });
 }
 
-Renderer Renderer::create(const platform::Window &window, AssetManager *_asset_manager)
+Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager)
 {
     Renderer renderer = {};
     renderer.asset_manager = _asset_manager;
@@ -457,6 +457,10 @@ void Renderer::update(Scene &scene)
     auto &timings        = base_renderer.timings[current_frame];
     auto swapchain_image = base_renderer.surface.images[base_renderer.surface.current_image];
 
+    gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
+    cmd.begin();
+    timings.begin_label(cmd, "Frame");
+
     // -- Transfer stuff
     if (base_renderer.frame_count == 0)
     {
@@ -532,12 +536,9 @@ void Renderer::update(Scene &scene)
     device.update_globals();
 
     // -- Do the actual rendering
-    gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
-    cmd.begin();
+
     cmd.bind_global_set();
     cmd.bind_index_buffer(this->index_buffer.buffer, VK_INDEX_TYPE_UINT32);
-
-    timings.begin_label(cmd, "Frame");
 
     // vulkan only: this command buffer will wait for the image acquire semaphore
     cmd.wait_for_acquired(base_renderer.surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);

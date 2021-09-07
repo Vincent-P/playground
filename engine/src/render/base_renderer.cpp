@@ -1,8 +1,9 @@
 #include "render/base_renderer.h"
 
 #include <exo/logger.h>
+#include <cross/window.h>
 
-BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDescription desc)
+BaseRenderer BaseRenderer::create(platform::Window &window, gfx::DeviceDescription desc)
 {
     BaseRenderer renderer = {};
 
@@ -12,7 +13,8 @@ BaseRenderer BaseRenderer::create(const platform::Window &window, gfx::DeviceDes
     auto &surface = renderer.surface;
 
     // Initialize the API
-    context = gfx::Context::create(true, &window);
+    renderer.window = &window;
+    context = gfx::Context::create(false, &window);
 
     // Pick a GPU
     u32 i_selected = u32_invalid;
@@ -191,12 +193,11 @@ bool BaseRenderer::start_frame()
     device.reset_work_pool(work_pool);
 
     timing.get_results(device);
-#if 0
-    for (u32 i_label = 0; i_label < timing.labels.size(); i_label += 1)
+    if (!timing.labels.empty() && window)
     {
-        logger::info("[{}]: CPU {:.4f} ms | GPU {:.4f} ms\n", timing.labels[i_label], timing.cpu[i_label], timing.gpu[i_label]);
+        auto s = fmt::format("CPU {:.4f} ms | GPU {:.4f} ms\n", timing.cpu[0], timing.gpu[0]);
+        window->set_title(std::move(s));
     }
-#endif
 
     timing.reset(device);
 

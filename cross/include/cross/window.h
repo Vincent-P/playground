@@ -171,6 +171,7 @@ struct Window
 
     void destroy();
 
+    void set_title(std::string && new_title);
     void poll_events();
 
     // caret operations

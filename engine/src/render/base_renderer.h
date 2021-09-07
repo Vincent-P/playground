@@ -8,11 +8,14 @@
 
 namespace gfx = vulkan;
 
+namespace platform { struct Window; }
+
 inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
 
 struct BaseRenderer
 {
     // Base renderer
+    platform::Window *window = nullptr;
     gfx::Context context;
     gfx::Device device;
     gfx::Surface surface;
@@ -29,7 +32,7 @@ struct BaseRenderer
 
     /// ---
 
-    static BaseRenderer create(const platform::Window &window, gfx::DeviceDescription desc);
+    static BaseRenderer create(platform::Window &window, gfx::DeviceDescription desc);
     void destroy();
 
     // Ring buffer uniforms

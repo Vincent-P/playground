@@ -210,7 +210,7 @@ struct Renderer
 
     /// ---
 
-    static Renderer create(const platform::Window &window, AssetManager *_asset_manager);
+    static Renderer create(platform::Window &window, AssetManager *_asset_manager);
     void destroy();
 
     void display_ui(UI::Context &ui);

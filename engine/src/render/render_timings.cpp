@@ -3,6 +3,7 @@
 #include "render/vulkan/device.h"
 
 #include <exo/logger.h>
+#include <exo/time.h>
 
 void RenderTimings::create(gfx::Device &device)
 {
@@ -68,9 +69,8 @@ void RenderTimings::get_results(gfx::Device &device)
             1.e-6 * device.get_ns_per_timestamp() * static_cast<double>(gpu_ticks[2*i+1] - gpu_ticks[2*i])
             );
 
-        auto duration = std::chrono::duration<double>(cpu_ticks[2*i+1] - cpu_ticks[2*i]);
         cpu.push_back(
-            double(1.e3 * duration.count())
+            elapsed_ms<double>(cpu_ticks[2*i], cpu_ticks[2*i+1])
             );
     }
 
