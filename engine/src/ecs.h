@@ -204,13 +204,13 @@ template <Componentable... ComponentTypes> Archetype create_archetype()
     return result;
 }
 
-inline std::tuple<bool, Vec<u32>> archetype_contains(const Archetype &query, const Archetype &archetype)
+inline bool archetype_contains(Vec<u32> &found, const Archetype &query, const Archetype &archetype)
 {
-    Vec<u32> found(query.size(), u32_invalid);
+    found.resize(query.size(), u32_invalid);
 
     if (query.size() > archetype.size())
     {
-        return std::make_tuple(false, found);
+        return false;
     }
 
     for (u32 i_archetype = 0; i_archetype < archetype.size(); i_archetype++)
@@ -230,11 +230,11 @@ inline std::tuple<bool, Vec<u32>> archetype_contains(const Archetype &query, con
     {
         if (component_found == u32_invalid)
         {
-            return std::make_tuple(false, found);
+            return false;
         }
     }
 
-    return std::make_tuple(true, found);
+    return true;
 }
 
 Option<usize> get_component_idx(const Archetype &type, ComponentId component_id);
@@ -266,7 +266,7 @@ template <Componentable Component> Option<usize> get_component_idx(const Archety
 }
 
 // returns a reference to a component from a query, used to simulate a constexpr loop in for_each
-template <Componentable Component> Component &component_ref(const Archetype &query, usize i_row, const Vec<u32> query_indices, ArchetypeStorage &storage)
+template <Componentable Component> Component &component_ref(const Archetype &query, usize i_row, const Vec<u32> &query_indices, ArchetypeStorage &storage)
 {
     const auto component_id = EntityId::component<Component>();
     usize i_query = 0;
@@ -280,7 +280,7 @@ template <Componentable Component> Component &component_ref(const Archetype &que
     return *reinterpret_cast<Component*>(&component_storage.data[component_byte_idx]);
 }
 
-template <Componentable Component> const Component &component_const_ref(const Archetype &query, usize i_row, const Vec<u32> query_indices, const ArchetypeStorage &storage)
+template <Componentable Component> const Component &component_const_ref(const Archetype &query, usize i_row, const Vec<u32> &query_indices, const ArchetypeStorage &storage)
 {
     const auto component_id = EntityId::component<Component>();
     usize i_query = 0;
@@ -390,11 +390,11 @@ struct World
     template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda)
     {
         auto query = impl::create_archetype<ComponentTypes...>();
+        Vec<u32> query_indices;
 
         for (auto &[h, storage] : archetypes.archetype_storages)
         {
-            auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
-            if (contains)
+            if (impl::archetype_contains(query_indices, query, storage->type))
             {
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
@@ -403,17 +403,18 @@ struct World
                     lambda(impl::component_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
             }
+            query_indices.clear();
         }
     }
 
     template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda) const
     {
         auto query = impl::create_archetype<ComponentTypes...>();
+        Vec<u32> query_indices;
 
         for (const auto &[h, storage] : archetypes.archetype_storages)
         {
-            auto [contains, query_indices] = impl::archetype_contains(query, storage->type);
-            if (contains)
+            if (impl::archetype_contains(query_indices, query, storage->type))
             {
                 for (usize i_row = 0; i_row < storage->size; i_row++)
                 {
@@ -422,6 +423,7 @@ struct World
                     lambda(impl::component_const_ref<ComponentTypes>(query, i_row, query_indices, *storage)...);
                 }
             }
+            query_indices.clear();
         }
     }
 

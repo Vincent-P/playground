@@ -3,6 +3,8 @@
 
 #if !defined(NDEBUG)
 #include <cassert>
+#else
+#define assert(x)
 #endif
 
 template <typename Enum>

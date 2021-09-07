@@ -348,7 +348,9 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                 const char *mime_type        = j_image["mimeType"].GetString();
                 u32         bufferview_index = j_image["bufferView"].GetUint();
 
+                #if 0
                 logger::info("[GLB] image #{} has mimeType {}\n", i_image, mime_type);
+                #endif
 
                 if (std::string_view(mime_type) == "image/ktx2")
                 {
@@ -362,12 +364,14 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
                     if (result == KTX_SUCCESS)
                     {
+                        #if 0
                         logger::info("baseWidth: {} | baseHeight: {} | numDimensions: {} | numLevels: {} | numLayers: {}\n",
                                      ktx_texture->baseWidth,
                                      ktx_texture->baseHeight,
                                      ktx_texture->numDimensions,
                                      ktx_texture->numLevels,
                                      ktx_texture->numLayers);
+                        #endif
 
                         if (ktxTexture2_NeedsTranscoding(ktx_texture))
                         {
@@ -394,7 +398,6 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                                 }
                             }
 
-                            logger::info("transcoding texture to BC7 RGBA\n");
                             result = ktxTexture2_TranscodeBasis(ktx_texture, target_format, 0);
                             if (result != KTX_SUCCESS)
                             {

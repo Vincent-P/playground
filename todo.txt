@@ -1,8 +1,5 @@
-make a custom vector class with u32 size @exo
 make a custom vector class with fixed capacity on stack @exo
 rewrite Pool container without <variant>
-fix all warnings on msvc /W4 + clang -Wall -Wextra @project
-remove as much static/reinterpret_cast as possible
 profile CPU usage on bistro exterior @renderer
 profile build time @project
 use PBR materials from glTF @renderer
@@ -15,3 +12,5 @@ x Move files around (again) to match Rust's crate structure: one folder per crat
 x Fetch the correct triangle in visibility shading @visibility
 x Basic rendering, using a visibility buffer and raytraced AO @renderer @visibility
 x Parse materials/images from glTF and upload them to GPU @renderer @gltf
+x fix all warnings on msvc /W4 + clang -Wall -Wextra @project
+x remove as much static/reinterpret_cast as possible

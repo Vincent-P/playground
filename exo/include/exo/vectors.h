@@ -42,10 +42,22 @@ float3 cross(float3 a, float3 b);
 #define VECTOR_RAW_ACCESS(vector_type, size, inner_type)                                                                                                                                                                   \
     static constexpr usize SIZE = size;                                                                                                                                                                                    \
     using element_type          = inner_type;                                                                                                                                                                              \
-    element_type &      operator[](usize i_component);                                                                                                                                                                     \
-    const element_type &operator[](usize i_component) const;                                                                                                                                                               \
-    element_type *      data();                                                                                                                                                                                            \
-    const element_type *data() const;
+    element_type &operator[](usize i_component)                                                                                                                                                                            \
+    {                                                                                                                                                                                                                      \
+        return data()[i_component];                                                                                                                                                                                        \
+    }                                                                                                                                                                                                                      \
+    const element_type &operator[](usize i_component) const                                                                                                                                                                \
+    {                                                                                                                                                                                                                      \
+        return data()[i_component];                                                                                                                                                                                        \
+    }                                                                                                                                                                                                                      \
+    constexpr element_type *data()                                                                                                                                                                                         \
+    {                                                                                                                                                                                                                      \
+        return &x;                                                                                                                                                                                                         \
+    }                                                                                                                                                                                                                      \
+    constexpr const element_type *data() const                                                                                                                                                                             \
+    {                                                                                                                                                                                                                      \
+        return &x;                                                                                                                                                                                                         \
+    }
 
 struct int2
 {

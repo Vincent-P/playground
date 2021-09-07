@@ -6,6 +6,8 @@
 #include <exo/algorithms.h>
 #include <exo/logger.h>
 
+#include <intrin.h>
+
 struct TempBVHNode
 {
     // internal nodes
@@ -22,76 +24,125 @@ struct TempBVHNode
     usize prim_index = u64_invalid;
 };
 
-// Creates internal nodes from leaves bounding boxes at indices [prim_start, prim_end]
-static void create_bvh_rec(Vec<TempBVHNode> &temp_nodes, usize i_node, usize prim_start, usize prim_end)
+inline float3 extract_float3(__m128 v)
 {
-    auto &node = temp_nodes[i_node];
+    alignas(16) float temp[4];
+    _mm_store_ps(temp, v);
+    return float3(temp[0], temp[1], temp[2]);
+}
 
-    if (prim_end <= prim_start) {
-        logger::error("BVH: create_bvh_rec should be called with at least one primitive.\n");
-        return;
-    }
-
-    // Compute internal node's bounding box based on primitive nodes at [prim_start, prim_end[
-    node.bbox = temp_nodes[prim_start].bbox;
-    for (usize i_tri = prim_start + 1; i_tri < prim_end; i_tri += 1)
+AABB calculate_bounds(Vec<TempBVHNode> &temp_nodes, usize prim_start, usize prim_end)
+{
+    AABB bounds;
+    if (prim_start == prim_end)
     {
-        extend(node.bbox, temp_nodes[i_tri].bbox);
+        bounds.min = float3(0.0f);
+        bounds.max = float3(0.0f);
     }
-    node.bbox_center = center(node.bbox);
-
-
-    // -- Median splitting
-    // get the largest axis
-    usize i_max_comp = max_comp(extent(node.bbox));
-    // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
-    i64 offset_start = static_cast<i64>(prim_start);
-    i64 offset_end = static_cast<i64>(prim_end);
-    std::sort(temp_nodes.begin() + offset_start, temp_nodes.begin() + offset_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
-    // split at middle
-    float3 split_center = node.bbox_center;
-    usize prim_split     = prim_start;
-    for (; prim_split < prim_end; prim_split += 1)
+    else
     {
-        if (temp_nodes[prim_split].bbox_center[i_max_comp] > split_center[i_max_comp])
+        __m128 bboxMin = _mm_set1_ps(FLT_MAX);
+        __m128 bboxMax = _mm_set1_ps(-FLT_MAX);
+        for (usize i = prim_start; i < prim_end; ++i)
         {
-            break;
+            __m128 nodeBoundsMin = _mm_loadu_ps(temp_nodes[i].bbox.min.data());
+            __m128 nodeBoundsMax = _mm_loadu_ps(temp_nodes[i].bbox.max.data());
+            bboxMin              = _mm_min_ps(bboxMin, nodeBoundsMin);
+            bboxMax              = _mm_max_ps(bboxMax, nodeBoundsMax);
         }
+        bounds.min = extract_float3(bboxMin);
+        bounds.max = extract_float3(bboxMax);
     }
-    if (prim_split == prim_end)
-    {
-        prim_split = prim_end - 1;
-    }
+    return bounds;
+}
 
-    if (!(prim_start <= prim_split && prim_split < prim_end))
-    {
-        DEBUG_BREAK();
-    }
+static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes, usize i_node, usize prim_start, usize prim_end)
+{
+    Vec<usize> i_node_stack(temp_nodes.capacity());
+    Vec<usize> prim_start_stack(temp_nodes.capacity());
+    Vec<usize> prim_end_stack(temp_nodes.capacity());
 
-    // -- Create left child
-    // there is only one primitive on the left of the split, create a leaf node
-    if (prim_split - prim_start == 1)
-    {
-        temp_nodes[i_node].left_child = prim_start;
-    }
-    // more than one primitive, create an internal node
-    else if (prim_split > 1 + prim_start)
-    {
-        temp_nodes[i_node].left_child = temp_nodes.size();
-        temp_nodes.emplace_back();
-        create_bvh_rec(temp_nodes, temp_nodes[i_node].left_child, prim_start, prim_split);
-    }
+    i_node_stack.push_back(i_node);
+    prim_start_stack.push_back(prim_start);
+    prim_end_stack.push_back(prim_end);
 
-    // -- Create right child
-    if (prim_end - prim_split == 1)
+    while (!i_node_stack.empty())
     {
-        temp_nodes[i_node].right_child = prim_split;
-    }
-    else if (prim_end > 1 + prim_split)
-    {
-        temp_nodes[i_node].right_child = temp_nodes.size();
-        temp_nodes.emplace_back();
-        create_bvh_rec(temp_nodes, temp_nodes[i_node].right_child, prim_split, prim_end);
+        usize i_node = i_node_stack.back(); i_node_stack.pop_back();
+        usize prim_start = prim_start_stack.back(); prim_start_stack.pop_back();
+        usize prim_end = prim_end_stack.back(); prim_end_stack.pop_back();
+
+        auto &node = temp_nodes[i_node];
+
+        if (prim_end <= prim_start) {
+            // logger::error("BVH: create_temp_bvh should be called with at least one primitive.\n");
+            return;
+        }
+
+        // Compute internal node's bounding box based on primitive nodes at [prim_start, prim_end[
+        node.bbox = calculate_bounds(temp_nodes, prim_start, prim_end);
+        node.bbox_center = center(node.bbox);
+
+
+        // -- Median splitting
+        // get the largest axis
+        usize i_max_comp = max_comp(extent(node.bbox));
+        // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
+        i64 offset_start = static_cast<i64>(prim_start);
+        i64 offset_end = static_cast<i64>(prim_end);
+        std::sort(temp_nodes.begin() + offset_start, temp_nodes.begin() + offset_end, [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
+        // split at middle
+        float3 split_center = node.bbox_center;
+        usize prim_split     = prim_start;
+        for (; prim_split < prim_end; prim_split += 1)
+        {
+            if (temp_nodes[prim_split].bbox_center[i_max_comp] > split_center[i_max_comp])
+            {
+                break;
+            }
+        }
+        if (prim_split == prim_end)
+        {
+            prim_split = prim_end - 1;
+        }
+
+        if (!(prim_start <= prim_split && prim_split < prim_end))
+        {
+            DEBUG_BREAK();
+        }
+
+        // -- Create right child
+        if (prim_end - prim_split == 1)
+        {
+            temp_nodes[i_node].right_child = prim_split;
+        }
+        else if (prim_end > 1 + prim_split)
+        {
+            temp_nodes[i_node].right_child = temp_nodes.size();
+            temp_nodes.emplace_back();
+
+            // create_bvh_rec(temp_nodes, temp_nodes[i_node].right_child, prim_split, prim_end);
+            i_node_stack.push_back(temp_nodes[i_node].right_child);
+            prim_start_stack.push_back(prim_split);
+            prim_end_stack.push_back(prim_end);
+        }
+
+        // -- Create left child
+        // there is only one primitive on the left of the split, create a leaf node
+        if (prim_split - prim_start == 1)
+        {
+            temp_nodes[i_node].left_child = prim_start;
+        }
+        // more than one primitive, create an internal node
+        else if (prim_split > 1 + prim_start)
+        {
+            temp_nodes[i_node].left_child = temp_nodes.size();
+            temp_nodes.emplace_back();
+            // create_bvh_rec(temp_nodes, temp_nodes[i_node].left_child, prim_start, prim_split);
+            i_node_stack.push_back(temp_nodes[i_node].left_child);
+            prim_start_stack.push_back(prim_start);
+            prim_end_stack.push_back(prim_split);
+        }
     }
 }
 
@@ -128,7 +179,7 @@ static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
 
     // emplace root node
     temp_nodes.emplace_back();
-    create_bvh_rec(temp_nodes, root_index, 0, primitives_count);
+    create_temp_bvh(temp_nodes, root_index, 0, primitives_count);
 
     usize counter = 0;
     bvh_set_temp_order(temp_nodes, counter, root_index, u64_invalid);

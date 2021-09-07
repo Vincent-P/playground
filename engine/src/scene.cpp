@@ -377,9 +377,8 @@ void Scene::display_ui(UI::Context &ui)
                 tag = internal_id->tag;
             }
 
-            auto formatted_name = fmt::format("{}##{}", tag, entity.raw);
             bool is_selected    = selected_entity && *selected_entity == entity;
-            if (ImGui::Selectable(formatted_name.c_str(), &is_selected))
+            if (ImGui::Selectable(tag, &is_selected))
             {
                 selected_entity = entity;
             }

@@ -31,9 +31,9 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
     VmaAllocation allocation = VK_NULL_HANDLE;
 
     VK_CHECK(vmaCreateBuffer(allocator,
-                             reinterpret_cast<VkBufferCreateInfo *>(&buffer_info),
+                             &buffer_info,
                              &alloc_info,
-                             reinterpret_cast<VkBuffer *>(&vkhandle),
+                             &vkhandle,
                              &allocation,
                              nullptr));
 

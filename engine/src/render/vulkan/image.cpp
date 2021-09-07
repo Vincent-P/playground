@@ -79,9 +79,9 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
         alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(image_desc.name.c_str()));
 
         VK_CHECK(vmaCreateImage(allocator,
-                                reinterpret_cast<VkImageCreateInfo *>(&image_info),
+                                &image_info,
                                 &alloc_info,
-                                reinterpret_cast<VkImage *>(&vkhandle),
+                                &vkhandle,
                                 &allocation,
                                 nullptr));
     }
