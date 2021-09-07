@@ -7,6 +7,8 @@ project(test-vulkan LANGUAGES C CXX)
 find_package(Vulkan REQUIRED)
 find_package(Threads)
 
+# add_compile_definitions(ENABLE_DOCTEST)
+
 # Global C++ flags
 add_compile_options(
   # colored output when using ninja generator

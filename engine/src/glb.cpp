@@ -92,7 +92,7 @@ struct BufferView
 {
     u32 byte_offset = 0;
     u32 byte_length = 1;
-    u32 byte_stride = 4;
+    u32 byte_stride = 0;
 };
 
 static Accessor get_accessor(const rapidjson::Value &object)

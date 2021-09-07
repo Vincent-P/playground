@@ -82,8 +82,8 @@ void Streamer::update(gfx::WorkPool &work_pool)
             {
                 VkBufferImageCopy &buffer_copy_region              = buffer_copy_regions[i_region];
 
-                i32 width  = std::max(image.desc.size.x >> buffer_copy_region.imageSubresource.mipLevel, 1);
-                i32 height = std::max(image.desc.size.y >> buffer_copy_region.imageSubresource.mipLevel, 1);
+                i32 width  = std::max(image.desc.size.x >> upload.regions[i_region].mip_level, 1);
+                i32 height = std::max(image.desc.size.y >> upload.regions[i_region].mip_level, 1);
 
                 buffer_copy_region                                 = {};
                 buffer_copy_region.imageSubresource.aspectMask     = image.full_view.range.aspectMask;
