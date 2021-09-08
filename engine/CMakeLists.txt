@@ -44,6 +44,7 @@ target_link_libraries(engine
   meshopt
   vma
   libktx
+  libspng
   Vulkan::Vulkan
   Threads::Threads)
 

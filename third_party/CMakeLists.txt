@@ -116,3 +116,36 @@ target_compile_options(libktx PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_link_libraries(libktx
   Vulkan::Vulkan
   Threads::Threads)
+
+
+# zlib-ng
+add_library(zlib_ng
+    zlib_ng/adler32.c
+    zlib_ng/chunkset.c
+    zlib_ng/compare258.c
+    zlib_ng/compress.c
+    zlib_ng/crc32.c
+    zlib_ng/crc32_comb.c
+    zlib_ng/deflate.c
+    zlib_ng/deflate_fast.c
+    zlib_ng/deflate_medium.c
+    zlib_ng/deflate_quick.c
+    zlib_ng/deflate_slow.c
+    zlib_ng/functable.c
+    zlib_ng/infback.c
+    zlib_ng/inffast.c
+    zlib_ng/inflate.c
+    zlib_ng/inftrees.c
+    zlib_ng/insert_string.c
+    zlib_ng/trees.c
+    zlib_ng/uncompr.c
+    zlib_ng/zutil.c
+    )
+target_include_directories(zlib_ng SYSTEM PUBLIC zlib_ng/)
+target_compile_definitions(zlib_ng PRIVATE ZLIB_COMPAT)
+
+#libspng
+add_library(libspng libspng/spng.c)
+target_link_libraries(libspng zlib_ng)
+target_include_directories(libspng SYSTEM PUBLIC libspng/)
+target_compile_definitions(libspng PUBLIC SPNG_STATIC)
