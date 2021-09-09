@@ -1,10 +1,11 @@
 #include "inputs.h"
 
-#include <exo/types.h>
+#include "ui.h"
+
+#include <exo/prelude.h>
 #include <exo/option.h>
 #include <exo/algorithms.h>
 #include <cross/window.h>
-#include "ui.h"
 
 #include <imgui/imgui.h>
 #include <ranges>

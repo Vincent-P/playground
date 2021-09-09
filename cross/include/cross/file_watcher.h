@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
 
 #include <functional>

@@ -15,10 +15,9 @@
 
 #endif
 
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include <exo/algorithms.h>
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 

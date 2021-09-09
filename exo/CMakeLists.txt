@@ -1,10 +1,10 @@
 set(SOURCE_FILES
   src/lib.cpp
   src/pool.cpp
-  src/vectors.cpp
-  src/matrices.cpp
   src/free_list.cpp
   src/buddy_allocator.cpp
+  src/maths/vectors.cpp
+  src/maths/matrices.cpp
   )
 
 add_library(exo STATIC ${SOURCE_FILES})

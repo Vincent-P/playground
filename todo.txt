@@ -1,5 +1,7 @@
-make a custom vector class with fixed capacity on stack @exo
 rewrite Pool container without <variant>
+write an Arena (slab?linear?) container, which is a Pool without free, for the ECS archetype graph
+remove the tools header and make proper abstractions @project
+make a custom vector class with fixed capacity on stack @exo
 profile CPU usage on bistro exterior @renderer
 profile build time @project
 use PBR materials from glTF @renderer

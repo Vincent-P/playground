@@ -1,3 +1,5 @@
+// -*- mode: glsl; -*-
+
 #ifndef MATHS_H
 #define MATHS_H
 
@@ -46,32 +48,11 @@ void make_orthogonal_coordinate_system(float3 v1, out float3 v2, out float3 v3)
     v3 = cross(v1, v2);
 }
 
-// RNG
-
-uint init_seed(uint2 pixel_pos, uint frame_count)
+// rng contains two random floats between 0 and 1
+float3 random_unit_vector(float2 rng)
 {
-    return uint(uint(pixel_pos.x) * uint(1973) + uint(pixel_pos.y) * uint(9277) + uint(frame_count) * uint(26699)) | uint(1);
-}
-
-uint wang_hash(inout uint seed)
-{
-    seed = uint(seed ^ uint(61)) ^ uint(seed >> uint(16));
-    seed *= uint(9);
-    seed = seed ^ (seed >> 4);
-    seed *= uint(0x27d4eb2d);
-    seed = seed ^ (seed >> 15);
-    return seed;
-}
-
-float random_float_01(inout uint seed)
-{
-    return float(wang_hash(seed)) / 4294967296.0;
-}
-
-float3 random_unit_vector(inout uint rng_seed)
-{
-    float z = random_float_01(rng_seed) * 2.0 - 1.0;
-    float a = random_float_01(rng_seed) * 2.0 * PI;
+    float z = rng[0] * 2.0 - 1.0;
+    float a = rng[1] * 2.0 * PI;
     float r = sqrt(1.0f - z * z);
     float x = r * cos(a);
     float y = r * sin(a);

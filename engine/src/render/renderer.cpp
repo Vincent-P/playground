@@ -1,5 +1,8 @@
 #include "render/renderer.h"
 
+#include <exo/logger.h>
+#include <exo/maths/quaternion.h>
+
 #include "asset_manager.h"
 #include "camera.h"
 #include "render/bvh.h"
@@ -11,8 +14,6 @@
 #include "components/transform_component.h"
 #include "components/mesh_component.h"
 
-#include <exo/logger.h>
-#include <exo/quaternion.h>
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>

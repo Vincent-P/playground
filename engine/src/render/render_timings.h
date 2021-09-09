@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exo/types.h>
 #include <exo/time.h>
+#include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
 
 #include "render/vulkan/queries.h"

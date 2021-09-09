@@ -1,5 +1,4 @@
 #pragma once
-#include <exo/types.h>
 #include <exo/option.h>
 #include <exo/collections/vector.h>
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include "../shaders/include/atmosphere.h"
 
 #include <imgui/imgui.h>

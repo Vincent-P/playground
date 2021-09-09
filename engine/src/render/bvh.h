@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include <exo/collections/vector.h>
 
 struct PACKED BVHNode

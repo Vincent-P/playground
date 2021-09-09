@@ -1,6 +1,6 @@
 #pragma once
 
-#include "exo/numerics.h"
+#include "exo/prelude.h"
 #include <array>
 #include <deque>
 #include <vector>

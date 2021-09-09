@@ -1,9 +1,13 @@
+// -*- mode: glsl; -*-
+
 #ifndef RAYTRACING_H
 #define RAYTRACING_H
 
 #include "types.h"
 #include "maths.h"
 #include "constants.h"
+
+// -- Structs
 
 struct Sphere
 {

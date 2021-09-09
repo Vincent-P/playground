@@ -1,6 +1,6 @@
 #pragma once
 
-#include <exo/types.h>
+#include <exo/maths/matrices.h>
 
 namespace camera
 {

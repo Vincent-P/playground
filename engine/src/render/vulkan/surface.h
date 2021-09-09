@@ -1,8 +1,8 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/maths/numerics.h>
+#include <exo/handle.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
-#include <exo/handle.h>
 
 #include "render/vulkan/queues.h"
 

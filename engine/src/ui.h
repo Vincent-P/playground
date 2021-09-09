@@ -1,11 +1,10 @@
 #pragma once
-#include <exo/types.h>
 
-#include <imgui/imgui.h>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
+using ImGuiWindowFlags = int;
 namespace platform { struct Window; }
 
 class Inputs;

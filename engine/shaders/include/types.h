@@ -1,6 +1,7 @@
+// -*- mode: glsl; -*-
+
 #ifndef TYPES_H
 #define TYPES_H
-
 
 #extension GL_ARB_gpu_shader_int64 : require
 

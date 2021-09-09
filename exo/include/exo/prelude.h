@@ -10,23 +10,16 @@
 #define CXX_UNKNOWN
 #endif
 
+#include "exo/maths/numerics.h"
+#include "exo/maths/vectors.h"
+#include "exo/maths/matrices.h"
 
-#include "exo/numerics.h"
-#include "exo/vectors.h"
-#include "exo/matrices.h"
 #if !defined(NDEBUG)
 #include <cassert>
 #else
 #define assert(x)
 #endif
 #include <cstddef>
-
-#define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(*_arr))
-
-#define not_implemented()                                                                                              \
-    {                                                                                                                  \
-        assert(false);                                                                                                 \
-    }
 
 #if defined(CXX_MSVC)
 #define PACKED
@@ -35,6 +28,7 @@
 #endif
 
 #define UNUSED(x) (void)(x)
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(*x))
 
 /// --- Constants
 
@@ -54,7 +48,6 @@ constexpr double to_radians(double degres)
     return degres * PI / 180.0;
 }
 
-/// --- Vector types
 // --- User-defined literals
 
 constexpr inline u64 operator"" _K(u64 value) { return value * 1000u; }

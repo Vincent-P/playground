@@ -1,6 +1,7 @@
 #include "camera.h"
 
-#include <cmath>
+#include <exo/prelude.h>
+#include <cmath> // std::tan
 
 namespace camera
 {

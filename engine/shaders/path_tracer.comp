@@ -48,7 +48,7 @@ void main()
         + (clip_space.y * tan_half_fov_y) * view_rows[1].xyz
         - view_rows[2].xyz;
 
-    uint rng_seed = init_seed(pixel_pos, globals.frame_count);
+    uint3 rng_seed = uint3(pixel_pos, globals.frame_count);
 
     const uint MAX_BOUNCE = 2;
     const float3 BACKGROUND_COLOR = float3(1.0);
@@ -93,8 +93,10 @@ void main()
         const float3 emissive = float3(0.0);
 
         // -- BRDF
+        float2 rng = hash3(rng_seed).xy;
+
         float3 wo = world_to_tangent * -ray.direction;
-        float3 wi = lambert_sample(rng_seed);
+        float3 wi = lambert_sample(rng);
         float3 brdf = lambert_brdf(wo, wi, albedo);
         float pdf = lambert_pdf(wo, wi) ;
 

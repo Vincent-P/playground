@@ -2,7 +2,7 @@
 
 #include "render/mesh.h"
 
-#include <exo/aabb.h>
+#include <exo/maths/aabb.h>
 #include <exo/algorithms.h>
 #include <exo/logger.h>
 

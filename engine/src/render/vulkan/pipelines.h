@@ -1,9 +1,9 @@
 #pragma once
 
-#include <exo/types.h>
-#include <exo/collections/vector.h>
+#include <exo/maths/numerics.h>
 #include <exo/option.h>
 #include <exo/handle.h>
+#include <exo/collections/vector.h>
 
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/operators.h"

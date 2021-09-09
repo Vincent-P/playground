@@ -1,7 +1,7 @@
-#include "exo/matrices.h"
+#include "exo/maths/matrices.h"
 
-#include "exo/types.h"
-#include <cstring>
+#include "exo/prelude.h"
+#include <cstring> // for std::memcmp
 
 float4x4::float4x4(float value)
 {

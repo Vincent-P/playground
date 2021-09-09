@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/prelude.h>
 
 // unity-like pbr materials?
 enum struct MaterialType

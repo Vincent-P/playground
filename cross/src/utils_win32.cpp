@@ -1,6 +1,6 @@
 #include "utils_win32.h"
 
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include <windows.h>
 
 namespace platform

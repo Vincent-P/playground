@@ -357,7 +357,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 default:
                 {
                     // Process displayable characters.
-                    static std::array<wchar_t, 3> buffer{};
+                    static wchar_t buffer[3] = {0, 0, 0};
 
                     wchar_t codepoint = static_cast<wchar_t>(wParam);
                     bool clear        = false;
@@ -379,8 +379,10 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
                     if (clear)
                     {
-                        window.push_event<event::Char>({utf16_to_utf8(buffer.data())});
-                        buffer.fill(0);
+                        window.push_event<event::Char>({utf16_to_utf8(buffer)});
+                        buffer[0] = 0;
+                        buffer[1] = 0;
+                        buffer[2] = 0;
                     }
                     break;
                 }

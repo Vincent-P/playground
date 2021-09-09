@@ -1,10 +1,11 @@
 #pragma once
 
-#include "exo/types.h"
+#include "exo/prelude.h"
 #include "exo/handle.h"
 #include "exo/collections/vector.h"
 
 #include <variant>
+#include <type_traits>
 
 /**
    A Pool is a linear allocator with a free-list.
@@ -20,8 +21,11 @@
  **/
 
 /// --- Pool allocator
-template <typename T> class Pool
+template <typename T>
+class Pool
 {
+    // static_assert(std::is_trivial<T>::value);
+
     class Iterator
     {
       public:

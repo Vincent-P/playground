@@ -1,5 +1,5 @@
 #pragma once
-#include "exo/numerics.h"
+#include "exo/prelude.h"
 
 #include <execution>
 #include <iterator>

@@ -1,5 +1,5 @@
 #pragma once
-#include "exo/numerics.h"
+#include "exo/maths/numerics.h"
 
 struct uint2;
 struct uint3;
@@ -64,6 +64,7 @@ struct int2
     i32 x;
     i32 y;
 
+    constexpr int2() = default;
     constexpr int2(i32 _x, i32 _y);
     constexpr int2(i32 val);
 
@@ -88,8 +89,9 @@ struct uint2
     u32 x;
     u32 y;
 
+    constexpr uint2() = default;
     constexpr uint2(u32 _x, u32 _y);
-    constexpr uint2(u32 val = 0.0f);
+    constexpr uint2(u32 val);
 
     // conversions
     explicit constexpr uint2(float2 v);
@@ -112,8 +114,9 @@ struct float2
     float x;
     float y;
 
+    constexpr float2() = default;
     constexpr float2(float _x, float _y);
-    constexpr float2(float val = 0.0f);
+    constexpr float2(float val);
 
     // conversions
     explicit constexpr float2(uint2 v);
@@ -137,9 +140,10 @@ struct int3
     i32 y;
     i32 z;
 
+    constexpr int3() = default;
     constexpr int3(i32 _x, i32 _y, i32 _z);
     constexpr int3(int2 v, i32 z);
-    constexpr int3(i32 val = 0);
+    constexpr int3(i32 val);
 
     // conversions
     explicit constexpr int3(uint3 v);
@@ -167,9 +171,10 @@ struct uint3
     u32 y;
     u32 z;
 
+    constexpr uint3() = default;
     constexpr uint3(u32 _x, u32 _y, u32 _z);
     constexpr uint3(uint2 v, u32 z);
-    constexpr uint3(u32 val = 0u);
+    constexpr uint3(u32 val);
 
     // conversions
     explicit constexpr uint3(int3 v);
@@ -197,6 +202,7 @@ struct float3
     float y;
     float z;
 
+    constexpr float3() = default;
     constexpr float3(float _x, float _y, float _z);
     constexpr float3(float2 v2, float z);
     constexpr float3(float _x);
@@ -228,10 +234,11 @@ struct float4
     float z;
     float w;
 
+    constexpr float4() = default;
     constexpr float4(float _x, float _y, float _z, float _w);
     constexpr float4(float2 v, float _z, float _w);
     constexpr float4(float3 v, float _w);
-    constexpr float4(float val = 0.0f);
+    constexpr float4(float val);
 
     bool operator==(const float4 &b) const = default;
     VECTOR_RAW_ACCESS(float4, 4, float)
@@ -338,3 +345,15 @@ constexpr float4 operator*(float a, float4 b)  { return {a * b.x, a * b.y, a * b
 inline constexpr auto float3_RIGHT   = float3{1, 0, 0};
 inline constexpr auto float3_UP      = float3{0, 1, 0};
 inline constexpr auto float3_FORWARD = float3{0, 0, -1};
+
+#if 0
+#include <type_traits>
+#define CHECK(x) static_assert(std::is_trivial<x>::value && std::is_standard_layout<x>::value);
+CHECK(uint2)
+CHECK(int2)
+CHECK(float3)
+CHECK(uint3)
+CHECK(int3)
+CHECK(float4)
+#undef CHECK
+#endif

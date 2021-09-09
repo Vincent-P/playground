@@ -1,9 +1,13 @@
 #include "app.h"
-#include <exo/types.h>
+
+#include <exo/prelude.h>
 #include <exo/logger.h>
+#include <exo/defer.h>
 
 #include "glb.h"
 #include "asset_manager.h"
+
+#include <filesystem>
 
 #if defined (ENABLE_DOCTEST)
 #define DOCTEST_CONFIG_COLORS_NONE
@@ -24,6 +28,7 @@ int main(int argc, char **argv)
     #else
     UNUSED(argc);
     UNUSED(argv);
+    logger::info("Current path: {}\n", std::filesystem::current_path());
     #endif
 
     App app;

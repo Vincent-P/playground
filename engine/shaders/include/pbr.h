@@ -8,14 +8,15 @@
 
 // -- Lambertian
 
-float3 cos_sample_hemisphere(inout uint rng_seed)
+// rng is two floats between 0 and 1
+float3 cos_sample_hemisphere(float2 rng)
 {
-    return normalize(float3(0, 0, 1) + random_unit_vector(rng_seed));
+    return normalize(float3(0, 0, 1) + random_unit_vector(rng));
 }
 
-float3 lambert_sample(inout uint rng_seed)
+float3 lambert_sample(float2 rng)
 {
-    return cos_sample_hemisphere(rng_seed);
+    return cos_sample_hemisphere(rng);
 }
 
 float3 lambert_brdf(float3 wo, float3 wi, float3 albedo)
@@ -57,11 +58,9 @@ vec3 sampleGGXVNDF(vec3 Ve, float alpha_x, float alpha_y, float U1, float U2)
 }
 
 // importance sample the ggx visible normals
-float3 sample_ggx_vndf(float3 V, float roughness, inout uint rng_seed)
+float3 sample_ggx_vndf(float3 V, float roughness, float2 rng)
 {
-    float u1 = random_float_01(rng_seed);
-    float u2 = random_float_01(rng_seed);
-    return sampleGGXVNDF(V, roughness, roughness, u1, u2);
+    return sampleGGXVNDF(V, roughness, roughness, rng[0], rng[1]);
 }
 
 // Smith's GGX shadow masking function, "PBR Diffuse Lighting for GGX+SmithMicrosurfaces"
@@ -113,9 +112,9 @@ float3 fresnel_shlick(float VdotH, float3 F0)
     return F0 + (1.0 - F0) * pow(1 - abs(VdotH), 5);
 }
 
-float3 smith_ggx_sample(float3 wo, float roughness, inout uint rng_seed)
+float3 smith_ggx_sample(float3 wo, float roughness, float2 rng)
 {
-    return normalize(reflect(-wo, sample_ggx_vndf(wo, roughness, rng_seed)));
+    return normalize(reflect(-wo, sample_ggx_vndf(wo, roughness, rng)));
 }
 
 float3 smith_ggx_brdf(float3 N, float3 V, float3 L, float3 albedo, float roughness, float metallic, out float3 kD)
@@ -155,6 +154,5 @@ float smith_ggx_pdf(float3 wo, float3 wi, float roughness)
     // convert the pdf from the half hangle (microfacet normal wh) to incoming angle (wo)
     return smith_ggx_vndpdf(wo, wh, roughness) / (4 * safe_dot(wo, wh));
 }
-
 
 #endif

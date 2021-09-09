@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/maths/vectors.h>
 #include <exo/collections/enum_array.h>
 
 #include <array>

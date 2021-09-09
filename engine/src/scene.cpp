@@ -1,14 +1,14 @@
 #include "scene.h"
 
-#include "inputs.h"
-#include "camera.h"
 
 #include <exo/logger.h>
-#include <exo/quaternion.h>
+#include <exo/maths/quaternion.h>
+#include <cross/file_dialog.h>
 
+#include "inputs.h"
+#include "camera.h"
 #include "asset_manager.h"
 #include "glb.h"
-#include <cross/file_dialog.h>
 
 #include "components/camera_component.h"
 #include "components/input_camera_component.h"

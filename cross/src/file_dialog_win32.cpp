@@ -1,6 +1,6 @@
 #include "cross/file_dialog.h"
 
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include "utils_win32.h"
 
 #include <windows.h>

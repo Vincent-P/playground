@@ -1,9 +1,10 @@
 #pragma once
-#include <exo/collections/pool.h>
-#include <exo/types.h>
-#include <exo/collections/vector.h>
-#include <exo/option.h>
 #include "ui.h"
+
+#include <exo/prelude.h>
+#include <exo/option.h>
+#include <exo/collections/pool.h>
+#include <exo/collections/vector.h>
 
 #include <unordered_map>
 #include <unordered_set>

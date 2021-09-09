@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/types.h>
-#include <exo/collections/vector.h>
+#include <exo/prelude.h>
 #include <exo/logger.h>
+#include <exo/collections/vector.h>
 
 #include "render/vulkan/image.h"
 #include "render/vulkan/buffer.h"

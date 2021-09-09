@@ -1,6 +1,6 @@
 #include "render/vulkan/device.h"
 
-#include <exo/types.h>
+#include <exo/prelude.h>
 #include <exo/logger.h>
 
 #include "render/vulkan/bindless_set.h"

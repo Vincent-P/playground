@@ -1,7 +1,9 @@
 #pragma once
 
-#include <exo/types.h>
+#include <exo/maths/numerics.h>
 #include <exo/handle.h>
+
+#include <string_view>
 
 namespace vulkan {struct Buffer; struct Device;};
 namespace gfx = vulkan;

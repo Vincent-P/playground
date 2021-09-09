@@ -1,8 +1,8 @@
-#include "exo/types.h"
+#include "exo/maths/vectors.h"
 
 #include <cmath> // for std::round
+
 #if defined(ENABLE_DOCTEST)
-#include "exo/matrices.h"
 #include <doctest.h>
 #endif
 

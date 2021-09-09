@@ -1,11 +1,5 @@
 #pragma once
-#include "exo/numerics.h"
-
-#if !defined(NDEBUG)
-#include <cassert>
-#else
-#define assert(x)
-#endif
+#include "exo/prelude.h"
 
 template <typename Enum>
 concept EnumCount = requires(Enum e)

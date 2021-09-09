@@ -1,7 +1,17 @@
+// -*- mode: glsl; -*-
+
 #ifndef HASH_H
 #define HASH_H
 
 #include "types.h"
+
+// https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+uint pcg(uint v)
+{
+    uint state = v * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
 
 // http://www.jcgt.org/published/0009/03/02/
 uvec3 pcg3d(uvec3 v)
@@ -21,15 +31,31 @@ uvec3 pcg3d(uvec3 v)
     return v;
 }
 
-uvec3 hash(vec2 s)
+uvec3 hash3(uvec3 seed)
 {
-    uvec4 u = uvec4(s, uint(s.x) ^ uint(s.y), uint(s.x) + uint(s.y));
-    return pcg3d(u.xyz);
+    return pcg3d(seed);
 }
 
-float3 hash_color(uvec3 hash)
+uvec3 hash2_3(uvec2 seed)
+{
+    uvec4 u = uvec4(seed, seed.x ^ seed.y, seed.x + seed.y);
+    return hash3(u.xyz);
+}
+
+uvec3 hash1_3(uint seed)
+{
+    uvec2 u = uvec2(seed % 256, seed / 256);
+    return hash2_3(u.xy);
+}
+
+float3 hash_to_float3(uvec3 hash)
 {
     return float3(hash) * (1.0/float(0xffffffffu));
+}
+
+float hash_to_float(uint hash)
+{
+    return hash * (1.0/float(0xffffffffu));
 }
 
 #endif

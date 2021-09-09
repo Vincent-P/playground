@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/types.h>
+#include <exo/maths/vectors.h>
 
 #include <imgui/imgui.h>
 

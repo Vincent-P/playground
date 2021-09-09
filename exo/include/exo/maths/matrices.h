@@ -1,5 +1,5 @@
 #pragma once
-#include "exo/vectors.h"
+#include "exo/maths/vectors.h"
 
 struct float4x4;
 
