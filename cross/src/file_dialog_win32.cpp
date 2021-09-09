@@ -1,6 +1,7 @@
 #include "cross/file_dialog.h"
 
 #include <exo/prelude.h>
+#include <exo/defer.h>
 #include "utils_win32.h"
 
 #include <windows.h>
@@ -26,63 +27,38 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
     }
 
 
-    HRESULT hr = 0;
-
     // Call CoInitializeEx to initialize the COM library.
-    if (hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE), !SUCCEEDED(hr))
-    {
-        return {};
-    }
-
-    IFileOpenDialog *pFileOpen = nullptr;
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (!SUCCEEDED(hr)) { return {}; }
+    DEFER { CoUninitialize(); };
 
     // Call CoCreateInstance to create the Common Item Dialog object and get a pointer to the object's IFileOpenDialog interface.
-    if (hr = CoCreateInstance(CLSID_FileOpenDialog,
-                          nullptr,
-                          CLSCTX_ALL,
-                          IID_IFileOpenDialog,
-                              reinterpret_cast<void **>(&pFileOpen)), !SUCCEEDED(hr))
-    {
-        return {};
-    }
+    IFileOpenDialog *pFileOpen = nullptr;
+    hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_IFileOpenDialog, reinterpret_cast<void **>(&pFileOpen));
+    if (!SUCCEEDED(hr)) { return {}; }
+    DEFER { pFileOpen->Release(); };
 
     // Set the file types
-    if (hr = pFileOpen->SetFileTypes(static_cast<UINT>(filters.size()), filters.data()), !SUCCEEDED(hr))
-    {
-        return {};
-    }
+    hr = pFileOpen->SetFileTypes(static_cast<UINT>(filters.size()), filters.data());
+    if (!SUCCEEDED(hr)) { return {}; }
 
     // Call the object's Show method, which shows the dialog box to the user. This method blocks until the user dismisses the dialog box.
-    if (hr = pFileOpen->Show(nullptr), !SUCCEEDED(hr))
-    {
-        return {};
-    }
+    hr = pFileOpen->Show(nullptr);
+    if (!SUCCEEDED(hr)) { return {}; }
 
     // Call the object's GetResult method. This method returns a pointer to a second COM object, called a Shell item object.
     // The Shell item, which implements the IShellItem interface, represents the file that the user selected.
     IShellItem *pItem = nullptr;
-    if (hr = pFileOpen->GetResult(&pItem), !SUCCEEDED(hr))
-    {
-        return {};
-    }
+    hr = hr = pFileOpen->GetResult(&pItem);
+    if (!SUCCEEDED(hr)) { return {}; }
+    DEFER { pItem->Release(); };
 
-    PWSTR pszFilePath;
     // Call the Shell item's GetDisplayName method. This method gets the file path, in the form of a string.
-    if (hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath), !SUCCEEDED(hr))
-    {
-        return {};
-    }
+    PWSTR pszFilePath = nullptr;
+    hr = hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+    if (!SUCCEEDED(hr)) { return {}; }
+    DEFER { CoTaskMemFree(pszFilePath); };
 
-    std::filesystem::path path{utf16_to_utf8(pszFilePath)};
-
-    CoTaskMemFree(pszFilePath);
-
-    pItem->Release();
-    pFileOpen->Release();
-
-    // Call CoUninitialize to uninitialize the COM library.
-    CoUninitialize();
-
-    return path;
+    return utf16_to_utf8(pszFilePath);
 }
 }
