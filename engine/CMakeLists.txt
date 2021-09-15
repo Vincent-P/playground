@@ -13,6 +13,7 @@ set(SOURCE_FILES
   src/render/render_timings.cpp
   src/render/base_renderer.cpp
   src/render/bvh.cpp
+  src/render/texture.cpp
   src/render/ring_buffer.cpp
   src/render/streamer.cpp
   src/render/unified_buffer_storage.cpp

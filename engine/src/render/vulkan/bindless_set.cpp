@@ -141,7 +141,7 @@ void update_bindless_set(Device &device, BindlessSet &set)
         }
         else
         {
-            assert(false);
+            ASSERT(false);
         }
     }
 

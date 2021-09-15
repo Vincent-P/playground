@@ -11,7 +11,6 @@
 #include <rapidjson/stringbuffer.h>
 #include <meshoptimizer.h>
 
-#include <ktx.h>
 #include <string_view>
 
 namespace gltf
@@ -44,7 +43,7 @@ inline u32 size_of(ComponentType type)
         return 4;
 
     default:
-        assert(false);
+        ASSERT(false);
         return 4;
     }
 }
@@ -144,7 +143,7 @@ static Accessor get_accessor(const rapidjson::Value &object)
     }
     else
     {
-        assert(false);
+        ASSERT(false);
     }
 
     return res;
@@ -183,9 +182,9 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
             for (auto &j_primitive : j_mesh["primitives"].GetArray())
             {
-                assert(j_primitive.HasMember("attributes"));
+                ASSERT(j_primitive.HasMember("attributes"));
                 const auto &j_attributes = j_primitive["attributes"].GetObject();
-                assert(j_attributes.HasMember("POSITION"));
+                ASSERT(j_attributes.HasMember("POSITION"));
 
                 new_mesh.submeshes.emplace_back();
                 auto &new_submesh = new_mesh.submeshes.back();
@@ -200,7 +199,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                 }
 
                 // -- Attributes
-                assert(j_primitive.HasMember("indices"));
+                ASSERT(j_primitive.HasMember("indices"));
                 {
                     auto  j_accessor  = j_accessors[j_primitive["indices"].GetUint()].GetObject();
                     auto  accessor    = get_accessor(j_accessor);
@@ -223,7 +222,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                         }
                         else
                         {
-                            assert(false);
+                            ASSERT(false);
                         }
                         new_mesh.indices.push_back(index);
                     }
@@ -258,7 +257,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                         }
                         else
                         {
-                            assert(false);
+                            ASSERT(false);
                         }
 
                         new_mesh.positions.push_back(new_position);
@@ -269,7 +268,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                 {
                     auto j_accessor = j_accessors[j_attributes["TEXCOORD_0"].GetUint()].GetObject();
                     auto accessor   = get_accessor(j_accessor);
-                    assert(accessor.count == vertex_count);
+                    ASSERT(accessor.count == vertex_count);
                     auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
                     usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
 
@@ -292,7 +291,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                         }
                         else
                         {
-                            assert(false);
+                            ASSERT(false);
                         }
 
                         new_mesh.uvs.push_back(new_uv);
@@ -338,81 +337,28 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
     if (j_document.HasMember("images"))
     {
-        usize i_image = 0;
         for (auto &j_image : j_document["images"].GetArray())
         {
-            ktxTexture2 *ktx_texture = nullptr;
-            if (j_image.HasMember("mimeType"))
+            if (!j_image.HasMember("mimeType") || !j_image.HasMember("bufferView"))
             {
-                const char *mime_type        = j_image["mimeType"].GetString();
-                u32         bufferview_index = j_image["bufferView"].GetUint();
-
-                #if 0
-                logger::info("[GLB] image #{} has mimeType {}\n", i_image, mime_type);
-                #endif
-
-                if (std::string_view(mime_type) == "image/ktx2")
-                {
-                    auto bufferview = get_bufferview(j_bufferviews[bufferview_index]);
-
-                    KTX_error_code result = KTX_SUCCESS;
-
-                    const u8 *image_data = reinterpret_cast<const u8 *>(ptr_offset(binary_chunk->data, bufferview.byte_offset));
-                    usize     size       = bufferview.byte_length;
-                    result               = ktxTexture2_CreateFromMemory(image_data, size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
-
-                    if (result == KTX_SUCCESS)
-                    {
-                        #if 0
-                        logger::info("baseWidth: {} | baseHeight: {} | numDimensions: {} | numLevels: {} | numLayers: {}\n",
-                                     ktx_texture->baseWidth,
-                                     ktx_texture->baseHeight,
-                                     ktx_texture->numDimensions,
-                                     ktx_texture->numLevels,
-                                     ktx_texture->numLayers);
-                        #endif
-
-                        if (ktxTexture2_NeedsTranscoding(ktx_texture))
-                        {
-                            // https://github.com/KhronosGroup/3D-Formats-Guidelines/blob/main/KTXDeveloperGuide.md
-                            // Assume gpu that supports BC only
-                            // ETC1S / BasisLZ Codec
-                            //   RGB/A     : KTX_TTF_BC7_RGBA
-                            //   R         : KTX_TTF_BC4_R
-                            //   RG        : KTX_TTF_BC5_RG
-                            // UASTC Codec :KTX_TTF_BC7_RGBA
-
-                            ktx_transcode_fmt_e target_format = KTX_TTF_BC7_RGBA;
-
-                            u32 nb_components = ktxTexture2_GetNumComponents(ktx_texture);
-                            if (ktx_texture->supercompressionScheme == KTX_SS_BASIS_LZ)
-                            {
-                                if (nb_components == 1)
-                                {
-                                    target_format = KTX_TTF_BC4_R;
-                                }
-                                else if (nb_components == 2)
-                                {
-                                    target_format = KTX_TTF_BC5_RG;
-                                }
-                            }
-
-                            result = ktxTexture2_TranscodeBasis(ktx_texture, target_format, 0);
-                            if (result != KTX_SUCCESS)
-                            {
-                                logger::error("Could not transcode the input texture to the selected target format.\n");
-                                ktxTexture_Destroy(reinterpret_cast<ktxTexture *>(ktx_texture));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        logger::error("invalid ktx file\n");
-                    }
-                }
+                break;
             }
-            new_scene.images.push_back(ktx_texture);
-            i_image += 1;
+
+            std::string_view mime_type        = j_image["mimeType"].GetString();
+            auto             bufferview_index = j_image["bufferView"].GetUint();
+            auto             bufferview       = get_bufferview(j_bufferviews[bufferview_index]);
+
+            const u8 *image_data = reinterpret_cast<const u8 *>(ptr_offset(binary_chunk->data, bufferview.byte_offset));
+            usize     size       = bufferview.byte_length;
+
+            if (mime_type == "image/ktx2")
+            {
+                new_scene.textures.push_back(Texture::from_ktx2(image_data, size));
+            }
+            else if (mime_type == "image/png")
+            {
+                new_scene.textures.push_back(Texture::from_png(image_data, size));
+            }
         }
     }
 
@@ -515,7 +461,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
         {
             usize i      = 0;
             auto  matrix = j_node["matrix"].GetArray();
-            assert(matrix.Size() == 16);
+            ASSERT(matrix.Size() == 16);
 
             for (u32 i_element = 0; i_element < matrix.Size(); i_element += 1)
             {

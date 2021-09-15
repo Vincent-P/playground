@@ -307,7 +307,7 @@ void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32
 {
     auto &program = *device->compute_programs.get(program_handle);
     auto &buffer  = *device->buffers.get(buffer_handle);
-    assert(offset + size < buffer.desc.size);
+    ASSERT(offset + size < buffer.desc.size);
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
 }
 
@@ -315,7 +315,7 @@ void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u3
 {
     auto &program = *device->graphics_programs.get(program_handle);
     auto &buffer  = *device->buffers.get(buffer_handle);
-    assert(offset + size < buffer.desc.size);
+    ASSERT(offset + size < buffer.desc.size);
     ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
 }
 
@@ -519,7 +519,7 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
                            : queue_type == QueueType::Transfer ? device.transfer_family_idx
                                                                : u32_invalid;
 
-    assert(queue_family_idx != u32_invalid);
+    ASSERT(queue_family_idx != u32_invalid);
     vkGetDeviceQueue(device.device, queue_family_idx, 0, &work.queue);
 
     work.queue_type = queue_type;
@@ -677,7 +677,7 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 
 void Device::wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_values)
 {
-    assert(wait_values.size() == fences.size());
+    ASSERT(wait_values.size() == fences.size());
 
     Vec<VkSemaphore> semaphores(fences.size());
     for (usize i_fence = 0; i_fence < fences.size(); i_fence += 1)

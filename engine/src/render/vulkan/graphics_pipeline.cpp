@@ -11,7 +11,7 @@ namespace vulkan
 RenderPass create_renderpass(Device &device, const FramebufferFormat &format, const Vec<LoadOp> &load_ops)
 {
     auto attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
-    assert(load_ops.size() == attachments_count);
+    ASSERT(load_ops.size() == attachments_count);
 
     Vec<VkAttachmentReference> color_refs;
     color_refs.reserve(format.attachments_format.size());
@@ -83,8 +83,8 @@ RenderPass create_renderpass(Device &device, const FramebufferFormat &format, co
 
 RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, const Vec<LoadOp> &load_ops)
 {
-    assert(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
-    assert(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
+    ASSERT(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
+    ASSERT(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
 
     for (auto &renderpass : framebuffer.renderpasses)
     {
@@ -107,8 +107,8 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc,
     fb.color_attachments = color_attachments;
     fb.depth_attachment = depth_attachment;
 
-    assert(fb.format.attachments_format.empty());
-    assert(fb.format.depth_format.has_value() == false);
+    ASSERT(fb.format.attachments_format.empty());
+    ASSERT(fb.format.depth_format.has_value() == false);
 
     auto attachments_count = fb.color_attachments.size() + (fb.depth_attachment.is_valid() ? 1 : 0);
 
@@ -224,7 +224,7 @@ void Device::destroy_program(Handle<GraphicsProgram> program_handle)
 unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state)
 {
     auto *p_program = graphics_programs.get(program_handle);
-    assert(p_program);
+    ASSERT(p_program);
     auto &program = *p_program;
 
     Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};

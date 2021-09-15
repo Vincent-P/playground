@@ -320,9 +320,9 @@ void Scene::display_ui(UI::Context &ui)
                     asset_manager->materials.push_back(std::move(material));
                 }
 
-                for (void *texture : scene.images)
+                for (auto texture : scene.textures)
                 {
-                    asset_manager->textures.push_back(Texture{texture});
+                    asset_manager->textures.push_back(std::move(texture));
                 }
 
                 for (const auto &instance : scene.instances)

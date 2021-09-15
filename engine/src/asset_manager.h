@@ -3,15 +3,11 @@
 
 #include "render/material.h"
 #include "render/mesh.h"
+#include "render/texture.h"
 
 #include <filesystem>
 
 namespace UI { struct Context; }
-
-struct Texture
-{
-    void *ktx_texture;
-};
 
 class AssetManager
 {

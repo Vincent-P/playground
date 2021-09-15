@@ -159,7 +159,7 @@ inline ImageAccess get_src_image_access(ImageUsage usage)
     }
     break;
     default:
-        assert(false);
+        ASSERT(false);
         break;
     };
     return access;
@@ -241,7 +241,7 @@ inline ImageAccess get_dst_image_access(ImageUsage usage)
     }
     break;
     default:
-        assert(false);
+        ASSERT(false);
         break;
     };
     return access;
@@ -339,7 +339,7 @@ inline BufferAccess get_src_buffer_access(BufferUsage usage)
     }
     break;
     default:
-        assert(false);
+        ASSERT(false);
         break;
     };
     return access;
@@ -417,7 +417,7 @@ inline BufferAccess get_dst_buffer_access(BufferUsage usage)
     }
     break;
     default:
-        assert(false);
+        ASSERT(false);
         break;
     };
     return access;

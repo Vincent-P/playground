@@ -14,12 +14,10 @@
 #include "exo/maths/vectors.h"
 #include "exo/maths/matrices.h"
 
-#if !defined(NDEBUG)
-#include <cassert>
-#else
-#define assert(x)
-#endif
 #include <cstddef>
+
+
+/// --- Portable compiler attribute/builtins
 
 #if defined(CXX_MSVC)
 #define PACKED
@@ -27,8 +25,26 @@
 #define PACKED __attribute__((packed))
 #endif
 
+namespace exo
+{
+#if defined(CXX_MSVC)
+[[noreturn]] __forceinline void unreachable() {__assume(0);}
+#else
+[[noreturn]] inline __attribute__((always_inline)) void unreachable() {__builtin_unreachable();}
+#endif
+}
+
+// --- Useful macros
+
 #define UNUSED(x) (void)(x)
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(*x))
+
+#if !defined(NDEBUG)
+#include <cassert>
+#define ASSERT(x) assert(x)
+#else
+#define ASSERT(x)
+#endif
 
 /// --- Constants
 

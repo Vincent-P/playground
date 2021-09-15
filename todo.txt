@@ -1,3 +1,4 @@
+finish basic texture struct
 rewrite Pool container without <variant>
 write an Arena (slab?linear?) container, which is a Pool without free, for the ECS archetype graph
 remove the tools header and make proper abstractions @project

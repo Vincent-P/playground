@@ -45,16 +45,16 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
     float x  =  focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
     float y  = -focal_length; // -2n/height
 
-    assert((n - f) != 0.0f);
+    ASSERT((n - f) != 0.0f);
     float n_on_f_minus_n = n / (f - n);
 
     float A = n_on_f_minus_n;
     float B = f * A;
 
     // bad things will happen in the inverse
-    assert(B != 0.0f);
-    assert(x != 0.0f);
-    assert(y != 0.0f);
+    ASSERT(B != 0.0f);
+    ASSERT(x != 0.0f);
+    ASSERT(y != 0.0f);
 
     // clang-format off
     float4x4 projection{{
@@ -90,9 +90,9 @@ float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, f
     float y  = -focal_length; // -2n/height
 
     // bad things will happen in the inverse
-    assert(x != 0.0f);
-    assert(y != 0.0f);
-    assert(n != 0.0f);
+    ASSERT(x != 0.0f);
+    ASSERT(y != 0.0f);
+    ASSERT(n != 0.0f);
 
     // clang-format off
     float4x4 projection{{
@@ -125,9 +125,9 @@ float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
     float y_range = max_clip.y - min_clip.y;
     float z_range = max_clip.z - min_clip.z;
 
-    assert(x_range != 0.0f);
-    assert(y_range != 0.0f);
-    assert(z_range != 0.0f);
+    ASSERT(x_range != 0.0f);
+    ASSERT(y_range != 0.0f);
+    ASSERT(z_range != 0.0f);
 
     // clang-format off
     float4x4 projection = float4x4({
@@ -138,7 +138,7 @@ float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
     });
     // clang-format on
 
-    assert(!inverse);
+    ASSERT(!inverse);
 
     return projection;
 }

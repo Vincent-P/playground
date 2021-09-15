@@ -6,6 +6,7 @@
 #include <exo/collections/vector.h>
 #include "render/mesh.h"
 #include "render/material.h"
+#include "render/texture.h"
 
 namespace glb
 {
@@ -22,7 +23,7 @@ namespace glb
         Vec<Mesh> meshes;
         Vec<MeshInstance> instances;
         Vec<Material> materials;
-        Vec<void*> images;
+        Vec<Texture> textures;
     };
 
     Scene load_file(const std::string_view &path);

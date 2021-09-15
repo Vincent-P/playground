@@ -30,7 +30,7 @@ std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
     // TODO: handle the correct number of frame instead of ALWAYS the last one
     // check that we dont overwrite previous frame's content
     auto last_frame_start = last_frame_end - last_frame_size;
-    assert(offset + aligned_len < last_frame_start + size);
+    ASSERT(offset + aligned_len < last_frame_start + size);
 
     // if offset + aligned_len is outside the buffer go back to the beginning (ring buffer)
     if ((offset % size) + aligned_len >= size)

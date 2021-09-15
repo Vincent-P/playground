@@ -61,7 +61,7 @@ void destroy_descriptor_set(Device &device, DescriptorSet &set)
 
 void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle)
 {
-    assert(set.descriptor_desc[slot].type == DescriptorType::SampledImage
+    ASSERT(set.descriptor_desc[slot].type == DescriptorType::SampledImage
            || set.descriptor_desc[slot].type == DescriptorType::StorageImage);
     set.descriptors[slot].image = {image_handle};
 }
@@ -69,7 +69,7 @@ void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle)
 
 void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
-    assert(set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer);
+    ASSERT(set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer);
     set.descriptors[slot].dynamic = {buffer_handle, size, offset};
 
     for (usize i_dynamic = 0; i_dynamic < set.dynamic_descriptors.size(); i_dynamic++)
@@ -87,7 +87,7 @@ void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
 
 void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle)
 {
-    assert(set.descriptor_desc[slot].type == DescriptorType::StorageBuffer);
+    ASSERT(set.descriptor_desc[slot].type == DescriptorType::StorageBuffer);
     set.descriptors[slot].buffer = {buffer_handle};
 }
 

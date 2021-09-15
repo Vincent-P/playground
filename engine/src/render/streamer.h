@@ -7,6 +7,7 @@
 
 namespace vulkan { struct WorkPool; struct Buffer; struct Image; struct Device;}
 namespace gfx = vulkan;
+struct Texture;
 
 enum struct UploadState
 {
@@ -67,7 +68,7 @@ public:
 
     // Images
     void upload(Handle<gfx::Image> image, const void *data, usize len);
-    void upload(Handle<gfx::Image> image, void *texture);
+    void upload(Handle<gfx::Image> image, const Texture &texture);
     bool is_uploaded(Handle<gfx::Image> image);
 
     gfx::Device *device;

@@ -272,7 +272,7 @@ template <Componentable Component> Component &component_ref(const Archetype &que
     const auto component_id = EntityId::component<Component>();
     usize i_query = 0;
     for (; query[i_query] != component_id; i_query++) {}
-    assert(i_query < query.size());
+    ASSERT(i_query < query.size());
 
     usize i_component = query_indices[i_query];
     auto &component_storage = storage.components[i_component];
@@ -286,7 +286,7 @@ template <Componentable Component> const Component &component_const_ref(const Ar
     const auto component_id = EntityId::component<Component>();
     usize i_query = 0;
     for (; query[i_query] != component_id; i_query++) {}
-    assert(i_query < query.size());
+    ASSERT(i_query < query.size());
 
     usize i_component = query_indices[i_query];
     const auto &component_storage = storage.components[i_component];

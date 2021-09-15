@@ -19,7 +19,7 @@ UnifiedBufferStorage UnifiedBufferStorage::create(gfx::Device &device, std::stri
 u32 UnifiedBufferStorage::allocate(usize nb_element)
 {
     u32 byte_offset = allocator.allocate(nb_element * this->element_size);
-    assert(byte_offset % this->element_size == 0);
+    ASSERT(byte_offset % this->element_size == 0);
     return  byte_offset / this->element_size;
 }
 

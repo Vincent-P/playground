@@ -87,14 +87,14 @@ class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
+            ASSERT(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }
 
         Iterator &operator++()
         {
-            assert(this->pool);
+            ASSERT(this->pool);
             current_index++;
             for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
@@ -111,7 +111,7 @@ class Pool
 
         Iterator &operator++(int n)
         {
-            assert(this->pool && n > 0);
+            ASSERT(this->pool && n > 0);
             for (int i = 0; i < n; i++)
             {
                 for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
@@ -193,14 +193,14 @@ class Pool
 
         reference operator*()
         {
-            assert(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
+            ASSERT(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
             value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
             return value;
         }
 
         ConstIterator &operator++()
         {
-            assert(this->pool);
+            ASSERT(this->pool);
             current_index++;
             for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
             {
@@ -217,7 +217,7 @@ class Pool
 
         ConstIterator &operator++(int n)
         {
-            assert(this->pool && n > 0);
+            ASSERT(this->pool && n > 0);
             for (int i = 0; i < n; i++)
             {
                 for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
@@ -336,7 +336,7 @@ class Pool
 
         if (handle != keys[handle.value()])
         {
-            assert(!"use after free");
+            ASSERT(!"use after free");
             return nullptr;
         }
 
@@ -352,7 +352,7 @@ class Pool
 
         if (handle != keys[handle.value()])
         {
-            assert(!"use after free");
+            ASSERT(!"use after free");
             return nullptr;
         }
 
@@ -361,10 +361,10 @@ class Pool
 
     void remove(handle_type handle)
     {
-        assert(data_size != 0);
+        ASSERT(data_size != 0);
         if (!handle.is_valid())
         {
-            assert(false);
+            ASSERT(false);
         }
 
         data_size -= 1;

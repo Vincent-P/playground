@@ -25,7 +25,7 @@ template <typename T> struct Handle
         static u32 cur_gen = 0;
         gen                = cur_gen++;
 
-        assert(index != u32_invalid);
+        ASSERT(index != u32_invalid);
     }
 
     constexpr Handle &operator=(const Handle &other) = default;

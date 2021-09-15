@@ -27,6 +27,9 @@ void main()
         return;
     }
 
+    imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(1.0, 0.0, 0.0, 1.0));
+    return;
+
     float2 screen_uv  = (float2(pixel_pos) + float2(0.5)) / float2(output_size);
     float3 clip_space = float3(screen_uv * 2.0 - 1.0, 1.0);
 

@@ -1,8 +1,9 @@
 #include "render/streamer.h"
-#include "render/vulkan/device.h"
 
-#include <algorithm> // for std::max mdrr
-#include <ktx.h>
+#include "render/vulkan/device.h"
+#include "render/texture.h"
+
+#include <algorithm> // for std::max
 
 void Streamer::init(gfx::Device *_device)
 {
@@ -203,31 +204,28 @@ void Streamer::upload(Handle<gfx::Image> image, const void *data, usize len)
     current_transfer += 1;
 }
 
-void Streamer::upload(Handle<gfx::Image> image, void *texture)
+void Streamer::upload(Handle<gfx::Image> image, const Texture &texture)
 {
-    ktxTexture2 *ktx_texture = reinterpret_cast<ktxTexture2*>(texture);
-
-    u32 i_staging = find_or_create_staging(*this, ktx_texture->dataSize);
+    u32 i_staging = find_or_create_staging(*this, texture.data_size);
     auto &staging = staging_areas[i_staging];
 
     // Copy the source data into the staging
     void *dst = device->map_buffer(staging.buffer);
-    std::memcpy(dst, ktx_texture->pData, ktx_texture->dataSize);
+    std::memcpy(dst, texture.raw_data, texture.data_size);
 
     ImageUpload &upload  = image_uploads[image];
     upload.i_staging     = i_staging;
     upload.transfer_id   = current_transfer;
     upload.state         = UploadState::Requested;
-    upload.len           = ktx_texture->dataSize;
+    upload.len           = texture.data_size;
 
     auto &regions = upload.regions;
-    regions.resize(ktx_texture->numLevels);
-    for (u32 i_level = 0; i_level < ktx_texture->numLevels; i_level += 1)
+    regions.resize(texture.mip_offsets.size());
+    for (u32 i_level = 0; i_level < texture.mip_offsets.size(); i_level += 1)
     {
-        KTX_error_code result = ktxTexture_GetImageOffset(reinterpret_cast<ktxTexture *>(ktx_texture), i_level, 0, 0, &regions[i_level].offset);
-        assert(result == KTX_SUCCESS);
         regions[i_level].mip_level = i_level;
         regions[i_level].layer     = 0;
+        regions[i_level].offset = texture.mip_offsets[i_level];
     }
 
     current_transfer += 1;

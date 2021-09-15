@@ -34,7 +34,7 @@ float4x4 float4x4::identity()
 
 const float &float4x4::at(usize row, usize col) const
 {
-    assert(row < 4 && col < 4);
+    ASSERT(row < 4 && col < 4);
     // values are stored in columns
     return values[col * 4 + row];
 }
@@ -46,7 +46,7 @@ float &float4x4::at(usize row, usize col)
 
 const float4 &float4x4::col(usize col) const
 {
-    assert(col < 4);
+    ASSERT(col < 4);
     return *reinterpret_cast<const float4 *>(&values[col * 4]);
 }
 

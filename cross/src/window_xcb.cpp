@@ -94,7 +94,7 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     /// --- Setup keyboard state using Xkbcommon
 
     window.xcb.kb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    assert(window.xcb.kb_ctx);
+    ASSERT(window.xcb.kb_ctx);
     window.xcb.device_id = xkb_x11_get_core_keyboard_device_id(window.xcb.connection);
 
     if (window.xcb.device_id != -1)
@@ -111,7 +111,7 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
         window.xcb.keymap           = xkb_keymap_new_from_names(window.xcb.kb_ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
     }
 
-    assert(window.xcb.keymap);
+    ASSERT(window.xcb.keymap);
     if (window.xcb.device_id != -1)
     {
         window.xcb.kb_state
@@ -122,7 +122,7 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
         window.xcb.kb_state = xkb_state_new(window.xcb.keymap);
     }
 
-    assert(window.xcb.kb_state);
+    ASSERT(window.xcb.kb_state);
 
     // flush commands
     xcb_flush(window.xcb.connection);

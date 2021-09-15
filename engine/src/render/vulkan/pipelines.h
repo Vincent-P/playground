@@ -195,7 +195,7 @@ inline VkAttachmentLoadOp to_vk(LoadOp op)
     case LoadOp::Type::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
     case LoadOp::Type::Ignore: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     }
-    assert(false);
+    ASSERT(false);
     return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
 }
 

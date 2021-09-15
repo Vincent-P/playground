@@ -87,7 +87,7 @@ void Window::destroy() {}
 float2 Window::get_dpi_scale() const
 {
     uint dpi     = GetDpiForWindow(win32.window);
-    assert(dpi != 0);
+    ASSERT(dpi != 0);
     float scale = static_cast<float>(dpi) / 96.0f;
     if (scale <= 0.0f)
     {
@@ -120,7 +120,7 @@ void Window::set_title(std::string &&  new_title)
     this->title = std::move(new_title);
     auto utf16_title = utf8_to_utf16(title);
     auto res =  SetWindowTextW(win32.window, utf16_title.c_str());
-    assert(res != 0);
+    ASSERT(res != 0);
 }
 
 void Window::poll_events()
@@ -398,7 +398,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             if (lParam & GCS_COMPSTR) // Retrieve or update the reading string of the current composition.
             {
                 i32 res = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
-                assert(res > 0);
+                ASSERT(res > 0);
                 u32 size = static_cast<u32>(res);
                 if (size)
                 {
@@ -411,7 +411,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
             {
                 i32 res = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
-                assert(res > 0);
+                ASSERT(res > 0);
                 u32 size = static_cast<u32>(res);
                 if (size)
                 {

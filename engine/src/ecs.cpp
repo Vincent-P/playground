@@ -172,7 +172,7 @@ void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void
     auto &component_storage = storage.components[i_component];
 
     // TODO: Remove this hack to fill the component_size correctly
-    assert(component_storage.component_size == 0 || component_storage.component_size == len);
+    ASSERT(component_storage.component_size == 0 || component_storage.component_size == len);
     if (component_storage.component_size == 0)
     {
         component_storage.component_size = len;
@@ -358,7 +358,7 @@ bool has_component(World &world, EntityId entity, ComponentId component)
 
 void *get_component(World &world, EntityId entity, ComponentId component_id)
 {
-    // assert(world.entity_index.contains(entity));
+    // ASSERT(world.entity_index.contains(entity));
     if (!world.entity_index.contains(entity))
     {
         logger::error("ECS: The world does not contain the entity {}\n", to_string(entity));

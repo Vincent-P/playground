@@ -106,7 +106,7 @@ inline VkDescriptorType to_vk(DescriptorType type)
     case DescriptorType::DynamicBuffer:
         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     }
-    assert(false);
+    ASSERT(false);
     return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 }
 

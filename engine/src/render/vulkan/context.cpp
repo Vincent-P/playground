@@ -58,7 +58,7 @@ Context Context::create(bool enable_validation, const platform::Window *window)
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
         instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #else
-        assert(false);
+        ASSERT(false);
 #endif
     }
 

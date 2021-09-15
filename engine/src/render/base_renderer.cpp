@@ -131,13 +131,13 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
     gfx::Shader *found = nullptr;
     for (auto &[shader_h, shader] : device.shaders) {
         if (shader_name == shader->filename) {
-            assert(found == nullptr);
+            ASSERT(found == nullptr);
             found = &(*shader);
         }
     }
 
     if (!found) {
-        assert(false);
+        ASSERT(false);
         return;
     }
 

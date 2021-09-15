@@ -1,6 +1,7 @@
 #include "render/renderer.h"
 
 #include <exo/logger.h>
+#include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 
 #include "asset_manager.h"
@@ -14,6 +15,7 @@
 #include "components/transform_component.h"
 #include "components/mesh_component.h"
 
+#include <cross/mapped_file.h>
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>
@@ -25,6 +27,21 @@ static uint3 dispatch_size(int3 size, i32 threads)
         (size.y / threads) + i32(size.y % threads != 0),
         (size.z / threads) + i32(size.z % threads != 0),
         });
+}
+
+static VkFormat to_vk(PixelFormat pformat)
+{
+    switch (pformat)
+    {
+    case PixelFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+    case PixelFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+    case PixelFormat::BC7_SRGB: return VK_FORMAT_BC7_SRGB_BLOCK;
+    case PixelFormat::BC7_UNORM: return VK_FORMAT_BC7_UNORM_BLOCK;
+    case PixelFormat::BC4_UNORM: return VK_FORMAT_BC4_UNORM_BLOCK;
+    case PixelFormat::BC5_UNORM: return VK_FORMAT_BC5_UNORM_BLOCK;
+    default: ASSERT(false);
+    }
+    exo::unreachable();
 }
 
 Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager)
@@ -431,6 +448,7 @@ void Renderer::display_ui(UI::Context &ui)
             }
             ImGui::Checkbox("Enable Path tracing", &settings.enable_path_tracing);
             ImGui::Checkbox("Freeze camera culling", &settings.freeze_camera_culling);
+            ImGui::Checkbox("Use blue noise", &settings.use_blue_noise);
         }
         ui.end_window();
     }
@@ -470,11 +488,30 @@ void Renderer::update(Scene &scene)
         int imgui_width     = 0;
         int imgui_height    = 0;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &imgui_width, &imgui_height);
-        assert(imgui_width > 0 && imgui_height > 0);
+        ASSERT(imgui_width > 0 && imgui_height > 0);
         u32 width = static_cast<u32>(imgui_width);
         u32 height = static_cast<u32>(imgui_height);
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
+
+        auto bn_file = platform::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/64_64/LDR_RGBA_0.png");
+        if (bn_file)
+        {
+
+            auto bn_texture = Texture::from_png(bn_file->base_addr, bn_file->size);
+
+            blue_noise = device.create_image({
+                .name   = "Blue noise",
+                .size   = int3(bn_texture.width, bn_texture.height, bn_texture.depth),
+                .mip_levels = static_cast<u32>(bn_texture.levels),
+                .format = to_vk(bn_texture.format),
+            });
+            streamer.upload(blue_noise, bn_texture);
+        }
+        else
+        {
+            logger::error("Cannot open blue noise image.\n");
+        }
     }
     streamer.update(work_pool);
 
@@ -490,7 +527,7 @@ void Renderer::update(Scene &scene)
                 main_camera_transform = &transform;
             }
         });
-    assert(main_camera != nullptr);
+    ASSERT(main_camera != nullptr);
     float2 float_resolution = float2(settings.render_resolution);
     float aspect_ratio = float_resolution.x / float_resolution.y;
     main_camera->projection = camera::infinite_perspective(main_camera->fov, aspect_ratio, main_camera->near_plane, &main_camera->projection_inverse);
@@ -698,6 +735,7 @@ void Renderer::update(Scene &scene)
         {
             u32 sampled_visibility_buffer;
             u32 sampled_depth_buffer;
+            u32 sampled_blue_noise;
             u32 storage_hdr_buffer;
         };
         cmd.barrier(visibility_buffer, gfx::ImageUsage::ComputeShaderRead);
@@ -708,6 +746,7 @@ void Renderer::update(Scene &scene)
             auto *options                      = base_renderer.bind_shader_options<ShadingOptions>(cmd, visibility_shading_program);
             options->sampled_visibility_buffer = device.get_image_sampled_index(visibility_buffer);
             options->sampled_depth_buffer      = device.get_image_sampled_index(depth_buffer);
+            options->sampled_blue_noise        = settings.use_blue_noise ? device.get_image_sampled_index(blue_noise) : u32_invalid;
             options->storage_hdr_buffer        = device.get_image_storage_index(hdr_buffer);
             cmd.bind_pipeline(visibility_shading_program);
             cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
@@ -776,8 +815,8 @@ void Renderer::update(Scene &scene)
         ImDrawData *data = ImGui::GetDrawData();
 
         // -- Prepare Imgui draw commands
-        assert(sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
-        assert(sizeof(ImDrawIdx) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
+        ASSERT(sizeof(ImDrawVert) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
+        ASSERT(sizeof(ImDrawIdx) * static_cast<u32>(data->TotalVtxCount) < 1_MiB);
 
         u32 vertices_size = static_cast<u32>(data->TotalVtxCount) * sizeof(ImDrawVert);
         u32 indices_size  = static_cast<u32>(data->TotalIdxCount) * sizeof(ImDrawIdx);
@@ -1001,13 +1040,13 @@ void Renderer::prepare_geometry(Scene &scene)
                     streamer.upload(this->submeshes_buffer.buffer, mesh_asset.submeshes.data(), mesh_asset.submeshes.size() * sizeof(SubMesh), render_mesh.gpu.first_submesh * sizeof(SubMesh));
 
                     auto *meshes_gpu = reinterpret_cast<RenderMeshGPU *>(device.map_buffer(this->render_meshes_buffer));
-                    assert(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
+                    ASSERT(this->render_meshes.size() < 2_MiB / sizeof(RenderMeshGPU));
                     meshes_gpu[this->render_meshes.size()] = render_mesh.gpu;
 
                     auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
                     for (const auto &submesh : mesh_asset.submeshes)
                     {
-                        assert(submesh.i_material < 2_MiB / sizeof(Material));
+                        ASSERT(submesh.i_material < 2_MiB / sizeof(Material));
                         if (submesh.i_material >= render_materials.size())
                         {
                             for (usize i_material = render_materials.size(); i_material <= submesh.i_material; i_material += 1)
@@ -1029,13 +1068,13 @@ void Renderer::prepare_geometry(Scene &scene)
                                         }
                                         // upload texture i_texture_asset
 
-                                        ktxTexture2 *texture = reinterpret_cast<ktxTexture2*>(asset_manager->textures[i_texture_asset].ktx_texture);
+                                        auto &texture = asset_manager->textures[i_texture_asset];
                                         // TODO: Add a name field to textures
                                         textures[i_texture_asset] = device.create_image({
                                             .name   = "Base color/Albedo",
-                                            .size   = int3(uint3{texture->baseWidth, texture->baseHeight, texture->baseDepth}),
-                                            .mip_levels = texture->numLevels,
-                                            .format = static_cast<VkFormat>(texture->vkFormat),
+                                            .size   = int3(texture.width, texture.height, texture.depth),
+                                            .mip_levels = static_cast<u32>(texture.levels),
+                                            .format = to_vk(texture.format),
                                         });
                                         streamer.upload(textures[i_texture_asset], texture);
                                     }
@@ -1128,7 +1167,7 @@ void Renderer::prepare_geometry(Scene &scene)
     }
     BVH tlas = create_tlas(roots, transforms, indices);
     auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
-    assert(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
+    ASSERT(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
     std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
 }
 
@@ -1137,7 +1176,7 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
 {
     auto &device  = base_renderer.device;
 
-    assert(count < 128 * 128);
+    ASSERT(count < 128 * 128);
 
     // clear buffers
     cmd.barrier(group_sum_reduction, gfx::BufferUsage::TransferDst);

@@ -33,6 +33,7 @@ struct Settings
     bool  clear_history         = {true};
     bool  enable_path_tracing   = {false};
     bool  freeze_camera_culling = {false};
+    bool  use_blue_noise        = {false};
 };
 
 struct ImGuiPass
@@ -207,6 +208,9 @@ struct Renderer
     Handle<gfx::ComputeProgram> copy_culled_instances_index_program;
     Handle<gfx::ComputeProgram> drawcalls_fill_predicate_program;
     Handle<gfx::ComputeProgram> copy_draw_calls_program;
+
+    // Misc Textures
+    Handle<gfx::Image> blue_noise;
 
     /// ---
 

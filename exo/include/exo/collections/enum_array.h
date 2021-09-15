@@ -31,7 +31,7 @@ struct EnumArray
 template <typename T, EnumCount E>
 constexpr const T &EnumArray<T, E>::operator[](E e) const
 {
-    assert(static_cast<usize>(e) < SIZE);
+    ASSERT(static_cast<usize>(e) < SIZE);
     return array[static_cast<usize>(e)];
 }
 

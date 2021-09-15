@@ -8,15 +8,9 @@
 
 // -- Lambertian
 
-// rng is two floats between 0 and 1
-float3 cos_sample_hemisphere(float2 rng)
-{
-    return normalize(float3(0, 0, 1) + random_unit_vector(rng));
-}
-
 float3 lambert_sample(float2 rng)
 {
-    return cos_sample_hemisphere(rng);
+    return sample_cosine_weighted_hemisphere(rng);
 }
 
 float3 lambert_brdf(float3 wo, float3 wi, float3 albedo)

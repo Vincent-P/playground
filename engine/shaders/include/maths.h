@@ -49,13 +49,23 @@ void make_orthogonal_coordinate_system(float3 v1, out float3 v2, out float3 v3)
 }
 
 // rng contains two random floats between 0 and 1
-float3 random_unit_vector(float2 rng)
+float3 sample_hemisphere(float2 rng)
 {
-    float z = rng[0] * 2.0 - 1.0;
-    float a = rng[1] * 2.0 * PI;
-    float r = sqrt(1.0f - z * z);
-    float x = r * cos(a);
-    float y = r * sin(a);
+    float z = rng[0];
+    float r = sqrt(max(0.0f, 1.0f - z * z));
+    float phi = 2 * PI * rng[1];
+    float x = r * cos(phi);
+    float y = r * sin(phi);
+    return float3(x, y, z);
+}
+
+float3 sample_cosine_weighted_hemisphere(float2 rng)
+{
+    float z = sqrt(max(0.0f, 1.0f - rng[0]));
+    float r = sqrt(rng[0]);
+    float phi = 2 * PI * rng[1];
+    float x = r * cos(phi);
+    float y = r * sin(phi);
     return float3(x, y, z);
 }
 

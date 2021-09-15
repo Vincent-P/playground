@@ -23,8 +23,8 @@ FreeList FreeList::create(u32 capacity)
 u32 FreeList::allocate()
 {
     u32 free_index = this->head;
-    assert(free_index != u32_invalid);
-    assert(head < this->capacity);
+    ASSERT(free_index != u32_invalid);
+    ASSERT(head < this->capacity);
     this->head = this->array[head];
     this->size += 1;
     return free_index;
@@ -32,7 +32,7 @@ u32 FreeList::allocate()
 
 void FreeList::free(u32 index)
 {
-    assert(index < this->capacity);
+    ASSERT(index < this->capacity);
     this->array[index] = this->head;
     this->head = index;
     this->size -= 1;

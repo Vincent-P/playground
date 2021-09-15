@@ -229,7 +229,7 @@ BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
     BVH bvh;
     Vec<TempBVHNode> temp_nodes;
 
-    assert(indices.size() % 3 == 0); // not triangles??
+    ASSERT(indices.size() % 3 == 0); // not triangles??
     usize primitives_count = indices.size() / 3;
     temp_nodes.reserve(primitives_count * 2);
 
@@ -248,7 +248,7 @@ BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
         node.bbox_center = center(node.bbox);
     }
 
-    assert(temp_nodes.size() == primitives_count);
+    ASSERT(temp_nodes.size() == primitives_count);
 
     bvh.nodes = create_nodes(std::move(temp_nodes));
 
@@ -257,8 +257,8 @@ BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
 
 BVH create_tlas(const Vec<BVHNode> &blas_roots, const Vec<float4x4> &blas_transforms, const Vec<u32> &blas_indices)
 {
-    assert(blas_roots.size() == blas_transforms.size());
-    assert(blas_roots.size() == blas_indices.size());
+    ASSERT(blas_roots.size() == blas_transforms.size());
+    ASSERT(blas_roots.size() == blas_indices.size());
 
     BVH bvh;
     Vec<TempBVHNode> temp_nodes;
@@ -305,7 +305,7 @@ BVH create_tlas(const Vec<BVHNode> &blas_roots, const Vec<float4x4> &blas_transf
         bvh.nodes.emplace_back();
     }
 
-    assert(temp_nodes.size() == primitives_count);
+    ASSERT(temp_nodes.size() == primitives_count);
 
     bvh.nodes = create_nodes(std::move(temp_nodes));
 

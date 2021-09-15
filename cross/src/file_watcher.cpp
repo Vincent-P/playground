@@ -31,11 +31,11 @@ static FileWatcher create_internal()
     FileWatcher fw{};
 
     fw.inotify_fd = inotify_init();
-    assert(fw.inotify_fd > 0);
+    ASSERT(fw.inotify_fd > 0);
 
     int flags = fcntl(fw.inotify_fd, F_GETFL, 0);
     int res = fcntl(fw.inotify_fd, F_SETFL, flags | O_NONBLOCK) >= 0;
-    assert(res);
+    ASSERT(res);
 
     fw.current_events.reserve(10);
 
@@ -44,7 +44,7 @@ static FileWatcher create_internal()
 
 static void destroy_internal(FileWatcher &fw)
 {
-    assert(fw.inotify_fd > 0);
+    ASSERT(fw.inotify_fd > 0);
     fw.inotify_fd = -1;
 }
 
@@ -53,7 +53,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
     Watch watch;
     watch.path = path;
     watch.wd   = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
-    assert(watch.wd > 0);
+    ASSERT(watch.wd > 0);
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
 }
@@ -103,7 +103,7 @@ static void destroy_internal(FileWatcher &fw)
     {
         (void)(watch); // TODO: custom assert, unused variable on release
         BOOL res = CloseHandle(watch.directory_handle);
-        assert(res);
+        ASSERT(res);
     }
 }
 
@@ -133,7 +133,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
                                  nullptr,
                                  &watch.overlapped,
                                  nullptr);
-    assert(res);
+    ASSERT(res);
 
     fw.watches.push_back(std::move(watch));
     return fw.watches.back();
@@ -150,7 +150,7 @@ static void fetch_events_internal(FileWatcher &fw)
         {
             auto error = GetLastError();
             (void)(error); // TODO: custom assert, unused variable on release
-            assert(error == ERROR_IO_INCOMPLETE);
+            ASSERT(error == ERROR_IO_INCOMPLETE);
         }
 
         u8 *p_buffer = watch.buffer.data();
@@ -183,7 +183,7 @@ static void fetch_events_internal(FileWatcher &fw)
                                  nullptr,
                                  &watch.overlapped,
                                  nullptr);
-        assert(res);
+        ASSERT(res);
     }
 }
 #endif

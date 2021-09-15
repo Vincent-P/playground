@@ -36,7 +36,7 @@ static u32 block_unique_index(u32 index_in_level, u32 level)
 BuddyAllocator BuddyAllocator::create(usize capacity)
 {
     // assert that capacity is a power of two
-    assert(std::has_single_bit(capacity));
+    ASSERT(std::has_single_bit(capacity));
 
     // NOTE: std::countr_zero returns an int because "use an int unless you need something else" :|
     u32 log2_capacity = static_cast<u32>(std::countr_zero(capacity / LEAF_SIZE));
@@ -79,7 +79,7 @@ remove the first block from the list at level n and return it
 **/
 u32 BuddyAllocator::allocate_block(usize size, u32 level)
 {
-    assert(level < levels_count);
+    ASSERT(level < levels_count);
     if (free_lists[level].empty())
     {
         u32 first_block = allocate_block(size, level - 1);
@@ -95,8 +95,8 @@ u32 BuddyAllocator::allocate_block(usize size, u32 level)
     }
 
     u32 offset = free_lists[level].front();
-    assert(block_free[block_unique_index(offset, levels_count, level)] == true);
-    assert(block_split[block_unique_index(offset, levels_count, level)] == false);
+    ASSERT(block_free[block_unique_index(offset, levels_count, level)] == true);
+    ASSERT(block_split[block_unique_index(offset, levels_count, level)] == false);
 
     free_lists[level].pop_front();
     block_free[block_unique_index(offset, levels_count, level)] = false;
@@ -105,7 +105,7 @@ u32 BuddyAllocator::allocate_block(usize size, u32 level)
 
 u32 BuddyAllocator::allocate(usize size)
 {
-    assert(size < capacity);
+    ASSERT(size < capacity);
 
     u32 i_level = levels_count - 1;
     for (; i_level > 0; i_level -= 1)
@@ -137,8 +137,8 @@ u32 BuddyAllocator::find_block_level(u32 offset)
 void BuddyAllocator::free_block(u32 offset, u32 level)
 {
     u32 i_block = index_in_level_of(offset, levels_count, level);
-    assert(block_free[block_unique_index(i_block, level)] == false);
-    assert(block_split[block_unique_index(i_block, level)] == false);
+    ASSERT(block_free[block_unique_index(i_block, level)] == false);
+    ASSERT(block_split[block_unique_index(i_block, level)] == false);
 
     u32 i_buddy      = i_block % 2 == 0 ? i_block + 1 : i_block - 1;
     u32 buddy_offset = i_buddy * block_size_of_level(levels_count, level);
