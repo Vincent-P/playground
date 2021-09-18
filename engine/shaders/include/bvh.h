@@ -1,3 +1,5 @@
+// -*- mode: glsl; -*-
+
 #ifndef BVH_HEADER
 #define BVH_HEADER
 

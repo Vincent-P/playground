@@ -1,10 +1,11 @@
 #pragma once
 #include "exo/prelude.h"
+#include <limits>
 
 struct AABB
 {
-    float3 min = {0.0f};
-    float3 max = {0.0f};
+    float3 min = {std::numeric_limits<float>::infinity()};
+    float3 max = {-std::numeric_limits<float>::infinity()};
 };
 
 inline float3 center(const AABB &aabb)
@@ -34,4 +35,11 @@ inline void extend(AABB &aabb, const AABB &other)
 {
     extend(aabb, other.min);
     extend(aabb, other.max);
+}
+
+inline float surface(AABB aabb)
+{
+    float3 diagonal = aabb.max - aabb.min;
+    float surface = 2.0f * (diagonal.x  * diagonal.y + diagonal.x * diagonal.z + diagonal.y * diagonal.z);
+    return surface;
 }

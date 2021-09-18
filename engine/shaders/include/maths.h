@@ -69,4 +69,21 @@ float3 sample_cosine_weighted_hemisphere(float2 rng)
     return float3(x, y, z);
 }
 
+float3 sample_cosine_weighted_hemisphere_from_disk(float2 disk)
+{
+    float r2 = dot(disk, disk);
+    float z  = sqrt(max(0.0, 1.0 - r2));
+    return float3(disk.x, disk.y, z);
+}
+
+float3 random_unit_vector(float2 rng)
+{
+    float z = rng[0] * 2.0 - 1.0;
+    float a = rng[1] * 2.0 * PI;
+    float r = sqrt(1.0f - z * z);
+    float x = r * cos(a);
+    float y = r * sin(a);
+    return float3(x, y, z);
+}
+
 #endif

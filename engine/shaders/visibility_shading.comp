@@ -4,6 +4,8 @@
 #include "maths.h"
 #include "raytracing.h"
 #include "bvh.h"
+#include "sequences.h"
+#include "color_map.h"
 
 ///
 struct DerivativesOutput
@@ -115,73 +117,6 @@ void unpack_uvs(Material material, inout float2 uv0, inout float2 uv1, inout flo
     uv2 = (matrix * float3(uv2, 1)).xy;
 }
 
-const vec2 BlueNoiseInDisk[64] = vec2[64](
-    vec2(0.478712,0.875764),
-    vec2(-0.337956,-0.793959),
-    vec2(-0.955259,-0.028164),
-    vec2(0.864527,0.325689),
-    vec2(0.209342,-0.395657),
-    vec2(-0.106779,0.672585),
-    vec2(0.156213,0.235113),
-    vec2(-0.413644,-0.082856),
-    vec2(-0.415667,0.323909),
-    vec2(0.141896,-0.939980),
-    vec2(0.954932,-0.182516),
-    vec2(-0.766184,0.410799),
-    vec2(-0.434912,-0.458845),
-    vec2(0.415242,-0.078724),
-    vec2(0.728335,-0.491777),
-    vec2(-0.058086,-0.066401),
-    vec2(0.202990,0.686837),
-    vec2(-0.808362,-0.556402),
-    vec2(0.507386,-0.640839),
-    vec2(-0.723494,-0.229240),
-    vec2(0.489740,0.317826),
-    vec2(-0.622663,0.765301),
-    vec2(-0.010640,0.929347),
-    vec2(0.663146,0.647618),
-    vec2(-0.096674,-0.413835),
-    vec2(0.525945,-0.321063),
-    vec2(-0.122533,0.366019),
-    vec2(0.195235,-0.687983),
-    vec2(-0.563203,0.098748),
-    vec2(0.418563,0.561335),
-    vec2(-0.378595,0.800367),
-    vec2(0.826922,0.001024),
-    vec2(-0.085372,-0.766651),
-    vec2(-0.921920,0.183673),
-    vec2(-0.590008,-0.721799),
-    vec2(0.167751,-0.164393),
-    vec2(0.032961,-0.562530),
-    vec2(0.632900,-0.107059),
-    vec2(-0.464080,0.569669),
-    vec2(-0.173676,-0.958758),
-    vec2(-0.242648,-0.234303),
-    vec2(-0.275362,0.157163),
-    vec2(0.382295,-0.795131),
-    vec2(0.562955,0.115562),
-    vec2(0.190586,0.470121),
-    vec2(0.770764,-0.297576),
-    vec2(0.237281,0.931050),
-    vec2(-0.666642,-0.455871),
-    vec2(-0.905649,-0.298379),
-    vec2(0.339520,0.157829),
-    vec2(0.701438,-0.704100),
-    vec2(-0.062758,0.160346),
-    vec2(-0.220674,0.957141),
-    vec2(0.642692,0.432706),
-    vec2(-0.773390,-0.015272),
-    vec2(-0.671467,0.246880),
-    vec2(0.158051,0.062859),
-    vec2(0.806009,0.527232),
-    vec2(-0.057620,-0.247071),
-    vec2(0.333436,-0.516710),
-    vec2(-0.550658,-0.315773),
-    vec2(-0.652078,0.589846),
-    vec2(0.008818,0.530556),
-    vec2(-0.210004,0.519896)
-);
-
 layout(set = SHADER_SET, binding = 0) uniform Options {
     uint sampled_visibility_buffer;
     uint sampled_depth_buffer;
@@ -207,19 +142,6 @@ void main()
         return;
     }
 
-    uint3 rng_seed = uint3(pixel_pos, globals.frame_count);
-    float3 rng = hash_to_float3(hash3(rng_seed));
-
-    float3 noise = float3(0.0);
-    if (sampled_blue_noise != u32_invalid)
-    {
-        float2 noise_uv = float2(pixel_pos) / float2(64.0, 64.0);
-        // fetch from texture
-        noise = texelFetch(global_textures[sampled_blue_noise], pixel_pos % int2(64, 64), LOD0).rgb;
-        // animate blue noise
-        noise = fract(noise + GOLDEN_RATIO * (globals.frame_count % 64));
-    }
-
     float2 screen_uv         = float2(pixel_pos) / float2(output_size);
     float depth       = texelFetch(DEPTH_BUFFER, pixel_pos, LOD0).r;
     float3 clip_space = float3(screen_uv * 2.0 - float2(1.0), depth);
@@ -232,7 +154,7 @@ void main()
     // Early exit if the pixel does not contain a triangle
     if (depth == 0.0)
     {
-        imageStore(HDR_BUFFER, pixel_pos, float4(0.6, 0.9, 0.9, 1.0));
+        imageStore(HDR_BUFFER, pixel_pos, float4(0.1, 0.1, 0.1, 1.0));
         return;
     }
 
@@ -300,21 +222,17 @@ void main()
 
 
 
-
-
-
-
+    // Read material
     float3 albedo = material.base_color_factor.rgb;
     if (material.base_color_texture != u32_invalid)
     {
-
         albedo *= textureGrad(global_textures[nonuniformEXT(material.base_color_texture)], texCoord, texCoordDX, texCoordDY).rgb;
     }
 
+    // Compute tangent frame
     float3 e1   = p1.xyz - p0.xyz;
     float3 e2   = p2.xyz - p0.xyz;
     float3 surface_normal = normalize(cross(e1, e2));
-
     float3 tangent;
     float3 bitangent;
     make_orthogonal_coordinate_system(surface_normal, bitangent, tangent);
@@ -325,48 +243,42 @@ void main()
     Ray ray;
     ray.t_min     = 0.1;
     ray.t_max     = 0.6;
-    ray.origin    = world_pos + 0.001 * surface_normal;
+    ray.origin    = world_pos + 0.025 * surface_normal;
 
-#if 0
-    float3 random_direction = normalize(float3(BlueNoiseInDisk[globals.frame_count % 2], 0.0) + float3(0, 0, 1));
-    float3 rotated_direction;
-    rotated_direction.x = cos(noise[0] * 2 * PI) * random_direction.x - sin(noise[0] * 2 * PI) * random_direction.y;
-    rotated_direction.y = sin(noise[0] * 2 * PI) * random_direction.x + cos(noise[0] * 2 * PI) * random_direction.y;
-    rotated_direction.z = random_direction.z;
-#endif
+    // Init hash + noise
+    float2 u1_u2;
 
-    ray.direction = tangent_to_world * sample_hemisphere(rng.xy);
+    uint3 rng_seed = uint3(pixel_pos, globals.frame_count);
+    float3 rng = hash_to_float3(hash3(rng_seed));
 
-#if 0
-    imageStore(HDR_BUFFER, pixel_pos, float4(ray.direction, 1.0));
-    return;
-#endif
-
-    float AO = 1.0;
-#if 1
-    HitInfo hit_info;
-    if (tlas_any_hit(ray, hit_info))
+    float3 noise = float3(0.0);
+    if (sampled_blue_noise != u32_invalid)
     {
-        // shadow hit, no visibility
-        AO = 0.0;
+        // fetch from texture
+        noise = texelFetch(global_textures[sampled_blue_noise], pixel_pos % int2(256, 256), LOD0).rgb;
+        // animate blue noise
+        noise.xy = apply_r2_sequence(noise.xy, globals.frame_count % 64);
+        u1_u2 = noise.xy;
     }
-#endif
+    else
+    {
+        u1_u2 = rng.xy;
+    }
 
-    float4 o_color = float4(AO * albedo, 1.0);
+    ray.direction = tangent_to_world * sample_cosine_weighted_hemisphere(u1_u2);
 
-#if 0
-    o_color.rgb = hash_to_float3(hash1_3(i_submesh_instance));
-    o_color.rgb = hash_to_float3(hash1_3(triangle_id));
-    o_color.rgb = surface_normal;
-    o_color.rgb = float3(z*z);
-    o_color.rgb = float3(depth);
-    o_color.rgb = fract(world_pos);
-    o_color.rgb = float3(mip);
-    o_color.rgb = float3(texCoord, 0);
-    o_color.rgb = float3(rng[0]);
-    o_color.rgb = hash_to_float3(hash1_3(i_submesh_instance));
-    o_color.rgb = rng;
-#endif
+    HitInfo hit_info;
+    float ao = float(tlas_any_hit(ray, hit_info) == false);
+    float3 radiance = ao * albedo;
 
-    imageStore(HDR_BUFFER, pixel_pos, o_color);
+
+    #if 0
+    imageStore(HDR_BUFFER, pixel_pos, float4(texCoord, 0.0, 1.0));
+
+    const float MAX_INTER = 100.0;
+    imageStore(HDR_BUFFER, pixel_pos, float4(TurboColormap(float(hit_info.box_inter_count) / MAX_INTER), 1.0));
+    return;
+    #endif
+
+    imageStore(HDR_BUFFER, pixel_pos, float4(radiance, 1.0));
 }
