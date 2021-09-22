@@ -2,417 +2,278 @@
 
 #include "exo/prelude.h"
 #include "exo/handle.h"
-#include "exo/collections/vector.h"
-
-#include <variant>
-#include <type_traits>
+#include <iterator>
+#include <xutility>
 
 /**
    A Pool is a linear allocator with a free-list.
    Performance:
      Adding/removing elements is O(1).
      Iterating is O(capacity) and elements are NOT tighly packed because of the free-list.
-
-   Handle is (u32 index, u32 gen).
-
-   Pool is (vector<variant<T, Handle>> elements, vector<Handle> keys).
-   std::variant is used to make the free-list.
-   keys are separated to check use-after-free. (this is bad :()
  **/
 
-/// --- Pool allocator
-template <typename T>
-class Pool
+// Each element in the buffer is prepended with metadata
+union ElementMetadata
 {
-    // static_assert(std::is_trivial<T>::value);
-
-    class Iterator
+    struct
     {
-      public:
+        u32 is_occupied : 1;
+        u32 generation : 31;
+    };
+    u32 raw;
+};
+
+template <typename T>
+struct Pool
+{
+    static constexpr u32 ELEMENT_SIZE = sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T);
+
+    struct Iterator
+    {
         using difference_type   = int;
         using value_type        = std::pair<Handle<T>, T*>;
-        using pointer           = value_type *;
-        using reference         = value_type &;
-        using iterator_category = std::input_iterator_tag;
+        using iterator_category = std::forward_iterator_tag;
 
         Iterator() = default;
+        Iterator(Pool *_pool, u32 _index = 0);
 
-        Iterator(Pool &_pool, u32 _index = 0)
-            : pool{&_pool}
-            , current_index{_index}
-            , value{}
-        {
-            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-            {
-                // index() returns a zero-based index of the type
-                // 0: handle_type
-                // 1: T
-                if (pool->data[current_index].index() == 1)
-                {
-                    break;
-                }
-            }
-        }
+        // input iterator
+        value_type operator*();
+        value_type operator*() const;
+        Iterator &operator++();
 
-        Iterator(const Iterator &rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-        }
+        // forward iterator
+        Iterator operator++(int n);
+        bool operator==(const Iterator &rhs) const = default;
 
-        Iterator(Iterator &&rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-        }
-
-        Iterator &operator=(const Iterator &rhs)
-        {
-            this->pool          = rhs.pool;
-            this->current_index = rhs.current_index;
-            return *this;
-        }
-
-        Iterator &operator=(Iterator &&rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-            return *this;
-        }
-
-        bool operator==(const Iterator &rhs) const
-        {
-            return current_index == rhs.current_index;
-        }
-
-        reference operator*()
-        {
-            ASSERT(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
-            value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
-            return value;
-        }
-
-        Iterator &operator++()
-        {
-            ASSERT(this->pool);
-            current_index++;
-            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-            {
-                // index() returns a zero-based index of the type
-                // 0: handle_type
-                // 1: T
-                if (pool->data[current_index].index() == 1)
-                {
-                    break;
-                }
-            }
-            return *this;
-        }
-
-        Iterator &operator++(int n)
-        {
-            ASSERT(this->pool && n > 0);
-            for (int i = 0; i < n; i++)
-            {
-                for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-                {
-                    // index() returns a zero-based index of the type
-                    // 0: handle_type
-                    // 1: T
-                    if (pool->data[current_index].index() == 1)
-                    {
-                        break;
-                    }
-                }
-            }
-            return *this;
-        }
-    private:
         Pool *pool        = nullptr;
-        u32 current_index = 0;
-        value_type value = {};
-    };
-    class ConstIterator
-    {
-      public:
-        using difference_type   = int;
-        using value_type        = std::pair<Handle<T>, const T*>;
-        using pointer           = const value_type *;
-        using reference         = const value_type &;
-        using iterator_category = std::input_iterator_tag;
-
-        ConstIterator() = default;
-
-        ConstIterator(const Pool &_pool, u32 _index = 0)
-            : pool{&_pool}
-            , current_index{_index}
-            , value{}
-        {
-            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-            {
-                // index() returns a zero-based index of the type
-                // 0: handle_type
-                // 1: T
-                if (pool->data[current_index].index() == 1)
-                {
-                    break;
-                }
-            }
-        }
-
-        ConstIterator(const ConstIterator &rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-        }
-
-        ConstIterator(ConstIterator &&rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-        }
-
-        ConstIterator &operator=(const ConstIterator &rhs)
-        {
-            this->pool          = rhs.pool;
-            this->current_index = rhs.current_index;
-            return *this;
-        }
-
-        ConstIterator &operator=(ConstIterator &&rhs)
-        {
-            this->pool         = rhs.pool;
-            this->current_index = rhs.current_index;
-            return *this;
-        }
-
-        bool operator==(const ConstIterator &rhs) const
-        {
-            return current_index == rhs.current_index;
-        }
-
-        reference operator*()
-        {
-            ASSERT(this->pool && current_index < static_cast<u32>(this->pool->data.size()));
-            value = std::make_pair(this->pool->keys[current_index], &this->pool->get_value_internal(current_index));
-            return value;
-        }
-
-        ConstIterator &operator++()
-        {
-            ASSERT(this->pool);
-            current_index++;
-            for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-            {
-                // index() returns a zero-based index of the type
-                // 0: handle_type
-                // 1: T
-                if (pool->data[current_index].index() == 1)
-                {
-                    break;
-                }
-            }
-            return *this;
-        }
-
-        ConstIterator &operator++(int n)
-        {
-            ASSERT(this->pool && n > 0);
-            for (int i = 0; i < n; i++)
-            {
-                for (; current_index < static_cast<u32>(pool->data.size()); current_index++)
-                {
-                    // index() returns a zero-based index of the type
-                    // 0: handle_type
-                    // 1: T
-                    if (pool->data[current_index].index() == 1)
-                    {
-                        break;
-                    }
-                }
-            }
-            return *this;
-        }
-    private:
-        const Pool *pool        = nullptr;
-        u32 current_index = 0;
+        u32 current_index = u32_invalid;
         value_type value = {};
     };
 
-    // static_assert(std::input_iterator<Iterator>);
+    static_assert(std::forward_iterator<Iterator>);
 
-    using handle_type  = Handle<T>;
-    using element_type = std::variant<handle_type, T>; // < next_free_ptr, value >
-
-    handle_type &get_handle_internal(handle_type handle)
-    {
-        return std::get<handle_type>(data[handle.value()]);
-    }
-
-    T &get_value_internal(u32 index)
-    {
-        return std::get<T>(data[index]);
-    }
-
-    const T &get_value_internal(u32 index) const
-    {
-        return std::get<T>(data[index]);
-    }
-
-    T &get_value_internal(handle_type handle)
-    {
-        return get_value_internal(handle.value());
-    }
-
-    const T &get_value_internal(handle_type handle) const
-    {
-        return get_value_internal(handle.value());
-    }
-
-  public:
     Pool() = default;
-    Pool(u32 capacity)
-    {
-        data.reserve(capacity);
-        keys.reserve(capacity);
-    }
+    Pool(u32 capacity);
 
-    handle_type add(T &&value)
-    {
-        data_size += 1;
+    Handle<T> add(T &&value);
+    const T *get(Handle<T> handle) const;
+    T *get(Handle<T> handle);
+    void remove(Handle<T> handle);
 
-        if (!first_free.is_valid())
-        {
-            data.push_back(std::move(value));
-            auto handle = handle_type(static_cast<u32>(data.size() - 1));
-            keys.push_back(handle);
-            return handle;
-        }
-
-        // Pop the free list
-        handle_type old_first_free = first_free;
-        old_first_free.gen += 1;
-
-        first_free                 = get_handle_internal(old_first_free);
-
-        // put the value in
-        data[old_first_free.value()] = std::move(value);
-        keys[old_first_free.value()] = old_first_free;
-
-        return old_first_free;
-    }
-
-    handle_type add(const T &value)
-    {
-        data_size += 1;
-
-        if (!first_free.is_valid())
-        {
-            data.push_back(value);
-            auto handle = handle_type(static_cast<u32>(data.size() - 1));
-            keys.push_back(handle);
-            return handle;
-        }
-
-        // Pop the free list
-        handle_type old_first_free = first_free;
-        old_first_free.gen += 1;
-
-        first_free                 = get_handle_internal(old_first_free);
-
-        // put the value in
-        data[old_first_free.value()] = value;
-        keys[old_first_free.value()] = old_first_free;
-
-        return old_first_free;
-    }
-
-    const T *get(handle_type handle) const
-    {
-        if (!handle.is_valid())
-        {
-            return nullptr;
-        }
-
-        if (handle != keys[handle.value()])
-        {
-            ASSERT(!"use after free");
-            return nullptr;
-        }
-
-        return &get_value_internal(handle);
-    }
-
-    T *get(handle_type handle)
-    {
-        if (!handle.is_valid())
-        {
-            return nullptr;
-        }
-
-        if (handle != keys[handle.value()])
-        {
-            ASSERT(!"use after free");
-            return nullptr;
-        }
-
-        return &get_value_internal(handle);
-    }
-
-    void remove(handle_type handle)
-    {
-        ASSERT(data_size != 0);
-        if (!handle.is_valid())
-        {
-            ASSERT(false);
-        }
-
-        data_size -= 1;
-
-        // replace the value to remove with the head of the free list
-        auto &data_element = data[handle.value()];
-        auto &key_element  = keys[handle.value()];
-        data_element       = first_free;
-        key_element        = handle_type::invalid();
-
-        // set the new head of the free list to the handle that was just removed
-        first_free    = handle;
-    }
-
-    Iterator begin()
-    {
-        return Iterator(*this, 0);
-    }
-
-    ConstIterator begin() const
-    {
-        return ConstIterator(*this, 0);
-    }
-
-    Iterator end()
-    {
-        return Iterator(*this, static_cast<u32>(data.size()));
-    }
-
-    ConstIterator end() const
-    {
-        return ConstIterator(*this, static_cast<u32>(data.size()));
-    }
+    Iterator begin();
+    Iterator end();
 
     bool operator==(const Pool &rhs) const = default;
 
-    u32 size() const
+    void *buffer   = {};
+    u32 freelist_head = u32_invalid;
+    u32 size     = {};
+    u32 capacity = {};
+};
+
+namespace
+{
+    template<typename T>
+    T* element_ptr(Pool<T> &pool, u32 i)
     {
-        return data_size;
+        return reinterpret_cast<T*>(ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
     }
 
-    inline const void *data_ptr() const { return data.data(); }
+    template<typename T>
+    const T* element_ptr(const Pool<T> &pool, u32 i)
+    {
+        return reinterpret_cast<const T*>(ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
+    }
 
-  private:
-    handle_type first_free; // free list head ptr
-    Vec<element_type> data;
-    Vec<handle_type> keys;
-    u32 data_size{0};
+    template<typename T>
+    u32* freelist_ptr(Pool<T> &pool, u32 i)
+    {
+        return reinterpret_cast<u32*>(element_ptr(pool, i));
+    }
 
-    friend class Iterator;
-};
+    template<typename T>
+    const u32* freelist_ptr(const Pool<T> &pool, u32 i)
+    {
+        return reinterpret_cast<const u32*>(element_ptr(pool, i));
+    }
+
+    template<typename T>
+    ElementMetadata* metadata_ptr(Pool<T> &pool, u32 i)
+    {
+        return reinterpret_cast<ElementMetadata*>(ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata))));
+    }
+
+    template<typename T>
+    const ElementMetadata* metadata_ptr(const Pool<T> &pool, u32 i)
+    {
+        return reinterpret_cast<const ElementMetadata*>(ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata))));
+    }
+}
+
+template<typename T>
+Pool<T>::Pool(u32 capacity)
+{
+    buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
+
+    // Init the free list
+    freelist_head = 0;
+    for (u32 i = 0; i < capacity - 1; i += 1)
+    {
+        auto *metadata = metadata_ptr(*this, i) ;
+        metadata->raw = 0;
+
+        u32 *freelist_element = freelist_ptr(*this, i);
+        *freelist_element = i + 1;
+    }
+    *freelist_ptr(*this, capacity-1) = u32_invalid;
+}
+
+template <typename T>
+Handle<T> Pool<T>::add(T &&value)
+{
+    // Realloc memory if the container is full
+    if (freelist_head == u32_invalid)
+    {
+        assert(size + 1 >= capacity);
+        auto new_capacity = capacity > 0 ? capacity * 2 : 64;
+        void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
+        ASSERT(new_buffer != nullptr);
+        buffer   = new_buffer;
+
+        // extend the freelist
+        freelist_head = capacity;
+        for (u32 i = capacity; i < new_capacity - 1; i += 1)
+        {
+            auto *metadata = metadata_ptr(*this, i) ;
+            metadata->raw = 0;
+
+            u32 *freelist_element = freelist_ptr(*this, i);
+            *freelist_element = i + 1;
+        }
+        *freelist_ptr(*this, new_capacity - 1) = u32_invalid;
+
+        capacity = new_capacity;
+    }
+
+    // Pop the free list head to find an empty place for the new element
+    u32 i_element = freelist_head;
+    freelist_head = *freelist_ptr(*this, i_element);
+
+    // Construct the new element
+    T *   element  = new (element_ptr(*this, i_element)) T{std::forward<T>(value)};
+    auto *metadata = metadata_ptr(*this, i_element);
+    ASSERT(metadata->is_occupied == 0);
+    metadata->is_occupied = 1;
+
+    size += 1;
+
+    return {i_element, metadata->generation};
+}
+
+template <typename T>
+const T *Pool<T>::get(Handle<T> handle) const
+{
+    u32   i_element = handle.index;
+    auto *metadata  = metadata_ptr(*this, i_element);
+    auto *element   = element_ptr(*this, i_element);
+
+    return handle.index < size && metadata->generation == handle.gen ? element : nullptr;
+}
+
+template <typename T>
+T *Pool<T>::get(Handle<T> handle)
+{
+    return const_cast<T *>(static_cast<const Pool<T> &>(*this).get(handle));
+}
+
+template <typename T>
+void Pool<T>::remove(Handle<T> handle)
+{
+    auto *metadata = metadata_ptr(*this, handle.index);
+    auto *element    = element_ptr(*this, handle.index);
+    auto *freelist   = freelist_ptr(*this, handle.index);
+
+    ASSERT(handle.index < size);
+    ASSERT(metadata->generation == handle.gen);
+    ASSERT(metadata->is_occupied == 1);
+
+    // Destruct the element
+    element->~T();
+    metadata->generation = metadata->generation + 1;
+    metadata->is_occupied = 0;
+
+    // Push this slot to the head of the free list
+    *freelist = freelist_head;
+    freelist_head = handle.index;
+
+    size = size - 1;
+}
+
+template <typename T>
+typename Pool<T>::Iterator Pool<T>::begin()
+{
+    return Pool<T>::Iterator(this, 0);
+}
+
+template <typename T>
+typename Pool<T>::Iterator Pool<T>::end()
+{
+    return Pool<T>::Iterator(this, capacity);
+}
+
+
+template <typename T>
+Pool<T>::Iterator::Iterator(Pool<T> *_pool, u32 _index)
+    : pool{_pool}
+    , current_index{_index}
+{
+}
+
+// input iterator
+template <typename T>
+typename Pool<T>::Iterator::value_type Pool<T>::Iterator::operator*()
+{
+    auto *metadata = metadata_ptr(*pool, current_index);
+    auto *element    = element_ptr(*pool, current_index);
+
+    Handle<T> handle = {current_index, metadata->generation};
+    return std::make_pair(handle, element);
+}
+
+template <typename T>
+typename Pool<T>::Iterator::value_type Pool<T>::Iterator::operator*() const
+{
+    auto *metadata = metadata_ptr(*pool, current_index);
+    auto *element  = element_ptr(*pool, current_index);
+
+    Handle<T> handle = {current_index, metadata->generation};
+    return std::make_pair(handle, element);
+}
+
+template <typename T>
+typename Pool<T>::Iterator::Iterator &Pool<T>::Iterator::operator++()
+{
+    for (current_index = current_index + 1; current_index < pool->capacity; current_index += 1)
+    {
+        auto *metadata = metadata_ptr(*pool, current_index);
+        auto *element  = element_ptr(*pool, current_index);
+        if (metadata->is_occupied == 1)
+        {
+            break;
+        }
+    }
+    return *this;
+}
+
+// forward iterator
+template <typename T>
+typename Pool<T>::Iterator Pool<T>::Iterator::operator++(int n)
+{
+    auto copy = *this;
+    for (int i = 0; i < n; i+= 1)
+    {
+        ++copy;
+    }
+    return copy;
+}

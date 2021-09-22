@@ -393,7 +393,7 @@ struct World
         auto query = impl::create_archetype<ComponentTypes...>();
         Vec<u32> query_indices;
 
-        for (auto &[h, storage] : archetypes.archetype_storages)
+        for (auto [h, storage] : archetypes.archetype_storages)
         {
             if (impl::archetype_contains(query_indices, query, storage->type))
             {

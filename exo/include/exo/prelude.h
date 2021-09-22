@@ -34,7 +34,7 @@ namespace exo
 #endif
 }
 
-// --- Useful macros
+// --- Useful macros/functions
 
 #define UNUSED(x) (void)(x)
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(*x))
@@ -45,6 +45,24 @@ namespace exo
 #else
 #define ASSERT(x)
 #endif
+
+template <typename T>
+inline T *ptr_offset(T *ptr, usize offset)
+{
+    return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
+}
+
+template <typename T>
+inline const T *ptr_offset(const T *ptr, usize offset)
+{
+    return reinterpret_cast<const T *>(reinterpret_cast<const char *>(ptr) + offset);
+}
+
+inline usize round_up_to_alignment(usize alignment, usize bytes)
+{
+    const usize mask = alignment - 1;
+    return (bytes + mask) & ~mask;
+}
 
 /// --- Constants
 

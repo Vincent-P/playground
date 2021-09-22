@@ -412,7 +412,7 @@ void World::display_ui(UI::Context &ctx)
             usize entity_count = 0;
             usize component_memory = 0;
 
-            for (auto &[storage_h, storage] : archetypes.archetype_storages)
+            for (auto [storage_h, storage] : archetypes.archetype_storages)
             {
                 ImGui::Separator();
                 ImGui::Text("Storage handle: %u", storage_h.value());

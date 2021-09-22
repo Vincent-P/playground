@@ -2,57 +2,47 @@
 #include "exo/prelude.h"
 #include "exo/hash.h"
 
-template <typename T> class Pool;
+template <typename T> struct Pool;
 
 /// --- Handle type (Typed index that can be invalid)
-template <typename T> struct Handle
+template <typename T>
+struct Handle
 {
-    static Handle invalid()
+    static constexpr Handle invalid()
     {
         return Handle();
     }
 
-    Handle()
-        : index(u32_invalid)
-        , gen(u32_invalid)
+    constexpr Handle()
+        : Handle(u32_invalid, u32_invalid)
     {
     }
 
-    // The gen should be incremented only when creating explicitly a new handle
-    explicit Handle(u32 i)
-        : index(i)
-    {
-        static u32 cur_gen = 0;
-        gen                = cur_gen++;
+    constexpr Handle &operator=(const Handle &other)        = default;
+    constexpr bool    operator==(const Handle &other) const = default;
 
-        ASSERT(index != u32_invalid);
+    [[nodiscard]] constexpr u32 value() const
+    {
+        return index;
     }
 
-    constexpr Handle &operator=(const Handle &other) = default;
-
-    [[nodiscard]] u32 value() const { return index; }
-
-    [[nodiscard]] u64 hash() const
+    [[nodiscard]] constexpr u64 hash() const
     {
         return u64(index) << 32 | gen;
     }
 
-    [[nodiscard]] bool is_valid() const
+    [[nodiscard]] constexpr bool is_valid() const
     {
         return index != u32_invalid && gen != u32_invalid;
     }
 
-    bool operator==(const Handle &b) const
-    {
-        return index == b.index && gen == b.gen;
-    }
-
-    bool operator<(const Handle &b) const
-    {
-        return index < b.index;
-    }
-
   private:
+    constexpr Handle(u32 _index, u32 _gen)
+        : index(_index)
+        , gen(_gen)
+    {
+    }
+
     u32 index;
     u32 gen;
 

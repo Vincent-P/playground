@@ -4,24 +4,6 @@
 #include <execution>
 #include <iterator>
 
-template <typename T>
-inline T *ptr_offset(T *ptr, usize offset)
-{
-    return reinterpret_cast<T *>(reinterpret_cast<char *>(ptr) + offset);
-}
-
-template <typename T>
-inline const T *ptr_offset(const T *ptr, usize offset)
-{
-    return reinterpret_cast<const T *>(reinterpret_cast<const char *>(ptr) + offset);
-}
-
-inline usize round_up_to_alignment(usize alignment, usize bytes)
-{
-    const usize mask = alignment - 1;
-    return (bytes + mask) & ~mask;
-}
-
 // Fallback for compiling with cl.exe
 #if defined(_MSC_VER) && !defined(__clang_major__)
 

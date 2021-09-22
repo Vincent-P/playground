@@ -247,22 +247,22 @@ void Device::destroy(const Context &context)
     if (device == VK_NULL_HANDLE)
         return;
 
-    for (auto &[handle, _] : graphics_programs)
+    for (auto [handle, _] : graphics_programs)
         destroy_program(handle);
 
-    for (auto &[handle, _] : compute_programs)
+    for (auto [handle, _] : compute_programs)
         destroy_program(handle);
 
-    for (auto &[handle, _] : shaders)
+    for (auto [handle, _] : shaders)
         destroy_shader(handle);
 
-    for (auto &[handle, _] : framebuffers)
+    for (auto [handle, _] : framebuffers)
         destroy_framebuffer(handle);
 
-    for (auto &[handle, _] : images)
+    for (auto [handle, _] : images)
         destroy_image(handle);
 
-    for (auto &[handle, _] : buffers)
+    for (auto [handle, _] : buffers)
         destroy_buffer(handle);
 
     for (auto sampler : samplers)

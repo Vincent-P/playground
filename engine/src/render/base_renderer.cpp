@@ -129,7 +129,7 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
 
     // Find the shader that needs to be updated
     gfx::Shader *found = nullptr;
-    for (auto &[shader_h, shader] : device.shaders) {
+    for (auto [shader_h, shader] : device.shaders) {
         if (shader_name == shader->filename) {
             ASSERT(found == nullptr);
             found = &(*shader);
@@ -146,7 +146,7 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
     Vec<Handle<gfx::Shader>> to_remove;
 
     // Update programs using this shader to the new shader
-    for (auto &[program_h, program] : device.compute_programs)
+    for (auto [program_h, program] : device.compute_programs)
     {
         if (program->state.shader.is_valid())
         {
