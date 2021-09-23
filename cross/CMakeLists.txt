@@ -25,11 +25,11 @@ endif()
 
 
 add_library(cross STATIC ${SOURCE_FILES})
+setup_app_target(cross)
 
 target_link_libraries(cross PUBLIC ${CROSS_LIBS})
 target_link_libraries(cross PRIVATE exo fmt)
 
-set_target_properties(cross PROPERTIES CXX_STANDARD 20)
 target_compile_options(cross PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(cross SYSTEM PUBLIC include)

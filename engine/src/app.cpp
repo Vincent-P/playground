@@ -7,9 +7,24 @@
 #include <algorithm>
 #include <imgui/imgui.h>
 #include <variant>
+#include <tracy/Tracy.hpp>
+#include <cstdlib>
 
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
+
+void *operator new(std::size_t count)
+{
+    auto ptr = malloc(count);
+    TracyAlloc(ptr, count);
+    return ptr;
+}
+void operator delete(void *ptr) noexcept
+{
+    TracyFree(ptr);
+    free(ptr);
+}
+
 
 App::App()
 {
@@ -114,5 +129,6 @@ void App::run()
         scene.update(inputs);
         renderer.update(scene);
         watcher.update();
+        FrameMark
     }
 }

@@ -95,7 +95,7 @@ struct BufferView
 
 static Accessor get_accessor(const rapidjson::Value &object)
 {
-    const auto &accessor = object.GetObject();
+    const auto &accessor = object.GetObj();
 
     Accessor res = {};
 
@@ -151,7 +151,7 @@ static Accessor get_accessor(const rapidjson::Value &object)
 
 static BufferView get_bufferview(const rapidjson::Value &object)
 {
-    const auto &bufferview = object.GetObject();
+    const auto &bufferview = object.GetObj();
     BufferView  res        = {};
     if (bufferview.HasMember("byteOffset"))
     {
@@ -183,7 +183,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
             for (auto &j_primitive : j_mesh["primitives"].GetArray())
             {
                 ASSERT(j_primitive.HasMember("attributes"));
-                const auto &j_attributes = j_primitive["attributes"].GetObject();
+                const auto &j_attributes = j_primitive["attributes"].GetObj();
                 ASSERT(j_attributes.HasMember("POSITION"));
 
                 new_mesh.submeshes.emplace_back();
@@ -201,7 +201,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
                 // -- Attributes
                 ASSERT(j_primitive.HasMember("indices"));
                 {
-                    auto  j_accessor  = j_accessors[j_primitive["indices"].GetUint()].GetObject();
+                    auto  j_accessor  = j_accessors[j_primitive["indices"].GetUint()].GetObj();
                     auto  accessor    = get_accessor(j_accessor);
                     auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
                     usize byte_stride = bufferview.byte_stride > 0 ? bufferview.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
@@ -232,7 +232,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
                 usize vertex_count = 0;
                 {
-                    auto j_accessor   = j_accessors[j_attributes["POSITION"].GetUint()].GetObject();
+                    auto j_accessor   = j_accessors[j_attributes["POSITION"].GetUint()].GetObj();
                     auto accessor     = get_accessor(j_accessor);
                     vertex_count      = accessor.count;
                     auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
@@ -266,7 +266,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
                 if (j_attributes.HasMember("TEXCOORD_0"))
                 {
-                    auto j_accessor = j_accessors[j_attributes["TEXCOORD_0"].GetUint()].GetObject();
+                    auto j_accessor = j_accessors[j_attributes["TEXCOORD_0"].GetUint()].GetObj();
                     auto accessor   = get_accessor(j_accessor);
                     ASSERT(accessor.count == vertex_count);
                     auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
@@ -446,7 +446,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
     auto j_scenes = j_document["scenes"].GetArray();
     auto j_nodes  = j_document["nodes"].GetArray();
 
-    auto j_scene = j_scenes[i_scene].GetObject();
+    auto j_scene = j_scenes[i_scene].GetObj();
     auto j_roots = j_scene["nodes"].GetArray();
 
     Vec<u32>      i_node_stack;
@@ -541,7 +541,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
             float4x4 parent_transform = transforms_stack.back();
             transforms_stack.pop_back();
 
-            auto j_node    = j_nodes[i_node].GetObject();
+            auto j_node    = j_nodes[i_node].GetObj();
             auto transform = parent_transform * get_transform(j_node);
 
             if (j_node.HasMember("mesh"))

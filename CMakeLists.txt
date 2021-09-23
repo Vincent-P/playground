@@ -47,6 +47,11 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/wd4201>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-nested-anon-types>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-gnu-anonymous-struct>
+
+
+  # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
+  # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
+
   )
 
 # C++ flags for third party libraries
@@ -56,6 +61,12 @@ set(THIRD_PARTY_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
+
+function(SETUP_APP_TARGET TARGET)
+  message(STATUS "Setting up target ${TARGET}")
+  set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
+  set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+endfunction()
 
 add_subdirectory(third_party)
 add_subdirectory(exo)

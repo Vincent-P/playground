@@ -149,3 +149,7 @@ add_library(libspng libspng/spng.c)
 target_link_libraries(libspng zlib_ng)
 target_include_directories(libspng SYSTEM PUBLIC libspng/)
 target_compile_definitions(libspng PUBLIC SPNG_STATIC)
+
+#tracy profiler
+add_library(tracy tracy/TracyClient.cpp)
+target_compile_definitions(tracy PUBLIC TRACY_ENABLE)

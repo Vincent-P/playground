@@ -8,8 +8,8 @@ set(SOURCE_FILES
   )
 
 add_library(exo STATIC ${SOURCE_FILES})
+setup_app_target(exo)
 
-set_target_properties(exo PROPERTIES CXX_STANDARD 20)
 target_compile_options(exo PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(exo SYSTEM PUBLIC include)

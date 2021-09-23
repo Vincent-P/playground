@@ -30,9 +30,9 @@ set(SOURCE_FILES
   src/render/vulkan/compute_pipeline.cpp)
 
 add_executable(engine ${SOURCE_FILES})
+setup_app_target(engine)
 install(TARGETS engine RUNTIME)
 
-set_target_properties(engine PROPERTIES CXX_STANDARD 20)
 target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(engine PRIVATE src)
@@ -47,7 +47,8 @@ target_link_libraries(engine
   libktx
   libspng
   Vulkan::Vulkan
-  Threads::Threads)
+  Threads::Threads
+  tracy)
 
 add_subdirectory(shaders/)
 add_dependencies(engine shaders)
