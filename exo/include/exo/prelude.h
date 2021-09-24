@@ -38,13 +38,11 @@ namespace exo
 
 #define UNUSED(x) (void)(x)
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(*x))
+#undef assert
+void internal_assert(bool condition, const char *condition_str);
 
-#if !defined(NDEBUG)
-#include <cassert>
-#define ASSERT(x) assert(x)
-#else
-#define ASSERT(x)
-#endif
+#define STR(x) #x
+#define ASSERT(x) internal_assert(x, STR(x))
 
 template <typename T>
 inline T *ptr_offset(T *ptr, usize offset)

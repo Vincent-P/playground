@@ -19,7 +19,6 @@
 #include <exo/algorithms.h>
 
 #include <array>
-#include <cassert>
 
 namespace platform
 {

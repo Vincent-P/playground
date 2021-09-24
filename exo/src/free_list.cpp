@@ -1,7 +1,6 @@
 #include "exo/free_list.h"
 
 #include <cstdlib>
-#include <cassert>
 
 FreeList FreeList::create(u32 capacity)
 {

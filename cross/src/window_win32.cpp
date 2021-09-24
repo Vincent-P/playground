@@ -4,7 +4,6 @@
 
 #include <fmt/core.h>
 
-#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <windows.h>
