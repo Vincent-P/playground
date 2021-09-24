@@ -985,10 +985,10 @@ void Renderer::prepare_geometry(Scene &scene)
     constexpr u32 UPLOAD_PER_FRAME = 1;
     u32 i_upload = 0;
     {
-    ZoneScopedN("for_each render mesh component")
     scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
         [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
         {
+            ZoneScopedN("upload/update mesh component");
             if (render_mesh_component.i_mesh < this->render_meshes.size())
             {
                 auto &render_mesh = render_meshes[render_mesh_component.i_mesh];
@@ -1116,6 +1116,8 @@ void Renderer::prepare_geometry(Scene &scene)
         });
     }
 
+    {
+    ZoneScopedN("Gather instances");
     auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
     for (u32 i_material = 0; i_material < render_materials.size(); i_material += 1)
     {
@@ -1127,6 +1129,7 @@ void Renderer::prepare_geometry(Scene &scene)
         {
             material_gpu.base_color_texture = base_color_descriptor;
         }
+    }
     }
 
     // Gather all submesh instances and instances data from the meshes and instances lists
@@ -1162,6 +1165,8 @@ void Renderer::prepare_geometry(Scene &scene)
     }
 
     // Upload all data to draw
+    {
+    ZoneScopedN("Upoad instances");
     auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance));
     std::memcpy(p_instances, render_instances.data(), render_instances.size() * sizeof(RenderInstance));
     this->instances_offset = static_cast<u32>(instance_offset / sizeof(RenderInstance));
@@ -1170,6 +1175,7 @@ void Renderer::prepare_geometry(Scene &scene)
     auto [p_submesh_instances, submesh_instance_offset] = submesh_instances_data.allocate(device, submesh_instances_size);
     std::memcpy(p_submesh_instances, submesh_instances_to_draw.data(), submesh_instances_size);
     this->submesh_instances_offset = static_cast<u32>(submesh_instance_offset / sizeof(SubMeshInstance));
+    }
 
     // Build and upload the TLAS
     {

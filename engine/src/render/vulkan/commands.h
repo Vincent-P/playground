@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/collections/vector.h>
+#include <exo/collections/dynamic_array.h>
 #include <exo/collections/enum_array.h>
 #include <exo/handle.h>
 #include <exo/option.h>
@@ -24,6 +24,8 @@ struct GraphicsProgram;
 struct Framebuffer;
 struct LoadOp;
 
+inline constexpr usize MAX_SEMAPHORES = 4; // Maximum number of waitable semaphores per command buffer
+
 struct CommandPool
 {
     VkCommandPool vk_handle = VK_NULL_HANDLE;
@@ -44,11 +46,11 @@ struct Work
 {
     Device *device;
 
-    VkCommandBuffer command_buffer;
-    Vec<Fence> wait_fence_list;
-    Vec<u64> wait_value_list;
-    Vec<VkPipelineStageFlags> wait_stage_list;
-    VkQueue queue;
+    VkCommandBuffer                                    command_buffer;
+    DynamicArray<Fence, MAX_SEMAPHORES>                wait_fence_list;
+    DynamicArray<u64, MAX_SEMAPHORES>                  wait_value_list;
+    DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES> wait_stage_list;
+    VkQueue                                            queue;
     QueueType queue_type;
 
     // vulkan hacks:
