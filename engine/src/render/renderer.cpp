@@ -19,6 +19,7 @@
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>
+#include <tracy/Tracy.hpp>
 
 static uint3 dispatch_size(int3 size, i32 threads)
 {
@@ -26,7 +27,7 @@ static uint3 dispatch_size(int3 size, i32 threads)
         (size.x / threads) + i32(size.x % threads != 0),
         (size.y / threads) + i32(size.y % threads != 0),
         (size.z / threads) + i32(size.z % threads != 0),
-        });
+    });
 }
 
 static VkFormat to_vk(PixelFormat pformat)
@@ -240,7 +241,6 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
             {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
         },
     });
-
 
     renderer.copy_draw_calls_program = device.create_program("copy culled draw calls", {
         .shader = device.create_shader("shaders/copy_draw_calls.comp.spv"),
@@ -456,6 +456,8 @@ void Renderer::display_ui(UI::Context &ui)
 
 void Renderer::update(Scene &scene)
 {
+    ZoneScoped;
+
     // -- Handle resize
     if (start_frame())
     {
@@ -518,6 +520,8 @@ void Renderer::update(Scene &scene)
     // -- Get the main camera
     CameraComponent *main_camera              = nullptr;
     TransformComponent *main_camera_transform = nullptr;
+    {
+    ZoneNamedN(camera_update, "Camera update", true);
     scene.world.for_each<TransformComponent, CameraComponent>(
         [&](auto &transform, auto &camera)
         {
@@ -531,6 +535,7 @@ void Renderer::update(Scene &scene)
     float2 float_resolution = float2(settings.render_resolution);
     float aspect_ratio = float_resolution.x / float_resolution.y;
     main_camera->projection = camera::infinite_perspective(main_camera->fov, aspect_ratio, main_camera->near_plane, &main_camera->projection_inverse);
+    }
 
     // -- Get geometry from the scene and prepare the draw commands
     this->prepare_geometry(scene);
@@ -600,6 +605,7 @@ void Renderer::update(Scene &scene)
     // Opaque pass
     if (settings.enable_path_tracing)
     {
+        ZoneNamedN(path_tracing, "Pathtracing", true);
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
         struct PathTracerOptions
@@ -617,6 +623,7 @@ void Renderer::update(Scene &scene)
     }
     else
     {
+        ZoneNamedN(render_opaque, "Render Opaque", true);
         // Instances culling
         {
             i32 submesh_instances_to_cull = static_cast<i32>(submesh_instances_to_draw.size());
@@ -765,6 +772,7 @@ void Renderer::update(Scene &scene)
 
     // TAA
     {
+        ZoneNamedN(taa, "TAA", true);
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(previous_history, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(current_history, gfx::ImageUsage::ComputeShaderReadWrite);
@@ -789,7 +797,7 @@ void Renderer::update(Scene &scene)
     // Tonemap
     auto tonemap_input = current_history;
     {
-
+        ZoneNamedN(tonemap, "Tonemap", true);
         cmd.barrier(tonemap_input, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(ldr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
@@ -812,6 +820,7 @@ void Renderer::update(Scene &scene)
     ImGui::Render();
     if (streamer.is_uploaded(imgui_pass.font_atlas))
     {
+        ZoneNamedN(render_imgui, "ImGui render", true);
         ImDrawData *data = ImGui::GetDrawData();
 
         // -- Prepare Imgui draw commands
@@ -958,6 +967,7 @@ void Renderer::update(Scene &scene)
 
 void Renderer::prepare_geometry(Scene &scene)
 {
+    ZoneScoped;
     auto &device = base_renderer.device;
 
     render_instances.clear();
@@ -970,6 +980,8 @@ void Renderer::prepare_geometry(Scene &scene)
     // Upload new models and collect mesh instances from the scene
     constexpr u32 UPLOAD_PER_FRAME = 1;
     u32 i_upload = 0;
+    {
+    ZoneScopedN("for_each render mesh component")
     scene.world.for_each<LocalToWorldComponent, RenderMeshComponent>(
         [&](LocalToWorldComponent &local_to_world_component, RenderMeshComponent &render_mesh_component)
         {
@@ -1096,6 +1108,7 @@ void Renderer::prepare_geometry(Scene &scene)
                 }
             }
         });
+    }
 
     auto *materials_gpu = reinterpret_cast<Material *>(device.map_buffer(this->materials_buffer));
     for (u32 i_material = 0; i_material < render_materials.size(); i_material += 1)
@@ -1111,6 +1124,8 @@ void Renderer::prepare_geometry(Scene &scene)
     }
 
     // Gather all submesh instances and instances data from the meshes and instances lists
+    {
+    ZoneScopedN("Gather instances");
     submesh_instances_to_draw.clear();
     this->draw_count = 0;
     for (u32 i_render_mesh = 0; i_render_mesh < render_meshes.size(); i_render_mesh += 1)
@@ -1138,6 +1153,7 @@ void Renderer::prepare_geometry(Scene &scene)
         }
         this->draw_count += static_cast<u32>(mesh_asset.submeshes.size());
     }
+    }
 
     // Upload all data to draw
     auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance));
@@ -1153,6 +1169,8 @@ void Renderer::prepare_geometry(Scene &scene)
     Vec<BVHNode> roots;
     Vec<float4x4> transforms;
     Vec<u32> indices;
+    {
+    ZoneScopedN("Build TLAS");
     roots.resize(render_instances.size());
     transforms.resize(render_instances.size());
     indices.resize(render_instances.size());
@@ -1169,11 +1187,13 @@ void Renderer::prepare_geometry(Scene &scene)
     auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
     ASSERT(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
     std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
+    }
 }
 
 
 void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len)
 {
+    ZoneScoped;
     auto &device  = base_renderer.device;
 
     ASSERT(count < 128 * 128);

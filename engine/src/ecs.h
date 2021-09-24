@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <type_traits>
+
+#include <tracy/Tracy.hpp>
 /**
    This ECS implementation is inspired by flecs (https://github.com/SanderMertens/flecs).
    Archetype-based ECS seems easier to implement than something like EnTT that uses sparse sets.
@@ -390,6 +392,7 @@ struct World
 
     template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda)
     {
+        ZoneScoped;
         auto query = impl::create_archetype<ComponentTypes...>();
         Vec<u32> query_indices;
 
@@ -410,6 +413,7 @@ struct World
 
     template <Componentable... ComponentTypes, typename Lambda> void for_each(Lambda lambda) const
     {
+        ZoneScoped;
         auto query = impl::create_archetype<ComponentTypes...>();
         Vec<u32> query_indices;
 

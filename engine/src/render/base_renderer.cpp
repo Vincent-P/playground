@@ -2,6 +2,7 @@
 
 #include <exo/logger.h>
 #include <cross/window.h>
+#include <tracy/Tracy.hpp>
 
 BaseRenderer BaseRenderer::create(platform::Window &window, gfx::DeviceDescription desc)
 {
@@ -180,6 +181,8 @@ void BaseRenderer::on_resize()
 
 bool BaseRenderer::start_frame()
 {
+    ZoneScoped;
+
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
@@ -211,6 +214,8 @@ bool BaseRenderer::start_frame()
 
 bool BaseRenderer::end_frame(gfx::ComputeWork &cmd)
 {
+    ZoneScoped;
+
     // vulkan hack: hint the device to submit a semaphore to wait on before presenting
     cmd.prepare_present(surface);
 

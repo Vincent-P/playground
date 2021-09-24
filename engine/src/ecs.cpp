@@ -10,7 +10,6 @@
 #include <doctest.h>
 #endif
 #include <imgui/imgui.h>
-#include <iostream>
 #include <fmt/format.h>
 
 namespace ECS
@@ -54,6 +53,7 @@ Option<usize> get_component_idx(const Archetype &type, ComponentId component_id)
 ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph, ArchetypeH entity_archetype,
                                                                ComponentId component_type)
 {
+    ZoneScoped;
     auto *entity_storage = graph.archetype_storages.get(entity_archetype);
 
     auto &edges = entity_storage->edges;
@@ -103,6 +103,7 @@ ArchetypeH find_or_create_archetype_storage_removing_component(Archetypes &graph
 ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, ArchetypeH entity_archetype,
                                                              ComponentId component_type)
 {
+    ZoneScoped;
     auto *entity_storage = graph.archetype_storages.get(entity_archetype);
 
     auto &edges = entity_storage->edges;
@@ -150,6 +151,7 @@ ArchetypeH find_or_create_archetype_storage_adding_component(Archetypes &graph, 
 
 ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const Archetype &type)
 {
+    ZoneScoped;
     ArchetypeH current_archetype = graph.root;
     // succesively add components from the root
     for (auto component_type : type)
@@ -161,6 +163,7 @@ ArchetypeH find_or_create_archetype_storage_from_root(Archetypes &graph, const A
 
 usize add_entity_id_to_storage(ArchetypeStorage &storage, EntityId entity)
 {
+    ZoneScoped;
     usize row = storage.entity_ids.size();
     storage.entity_ids.push_back(entity);
     return row;
@@ -168,7 +171,7 @@ usize add_entity_id_to_storage(ArchetypeStorage &storage, EntityId entity)
 
 void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void *data, usize len)
 {
-
+    ZoneScoped;
     auto &component_storage = storage.components[i_component];
 
     // TODO: Remove this hack to fill the component_size correctly
@@ -197,6 +200,7 @@ void add_component_to_storage(ArchetypeStorage &storage, usize i_component, void
 
 void remove_entity_from_storage(ArchetypeStorage &storage, usize entity_row)
 {
+    ZoneScoped;
     auto entity_count = storage.entity_ids.size();
 
     // copy the last element to the old row
@@ -233,6 +237,7 @@ void remove_entity_from_storage(ArchetypeStorage &storage, usize entity_row)
 
 void add_component(World &world, EntityId entity, ComponentId component_id, void *component_data, usize component_size)
 {
+    ZoneScoped;
     // get the entity information in its record
     auto &record = world.entity_index.at(entity);
 
@@ -285,6 +290,7 @@ void add_component(World &world, EntityId entity, ComponentId component_id, void
 
 void remove_component(World &world, EntityId entity, ComponentId component_id)
 {
+    ZoneScoped;
     auto &record = world.entity_index.at(entity);
 
     // find a new bucket
@@ -333,6 +339,7 @@ void remove_component(World &world, EntityId entity, ComponentId component_id)
 
 void set_component(World &world, EntityId entity, ComponentId component_id, void *component_data, usize component_size)
 {
+    ZoneScoped;
     const auto &record      = world.entity_index.at(entity);
     auto &archetype_storage = *world.archetypes.archetype_storages.get(record.archetype);
     auto component_idx      = get_component_idx(archetype_storage.type, component_id);
@@ -358,6 +365,7 @@ bool has_component(World &world, EntityId entity, ComponentId component)
 
 void *get_component(World &world, EntityId entity, ComponentId component_id)
 {
+    ZoneScoped;
     // ASSERT(world.entity_index.contains(entity));
     if (!world.entity_index.contains(entity))
     {
@@ -520,24 +528,6 @@ struct Transform
     static const char *type_name() { return "Transform"; }
     void display_ui() {}
 };
-
-std::ostream &operator<<(std::ostream &os, const Position &t)
-{
-    os << "Position{" << t.a << "}";
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const Rotation &t)
-{
-    os << "Rotation{" << t.a << "}";
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const Transform &t)
-{
-    os << "Transform{" << t.a << "}";
-    return os;
-}
 
 TEST_SUITE("ECS")
 {
