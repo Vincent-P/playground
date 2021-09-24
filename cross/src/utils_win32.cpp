@@ -15,6 +15,7 @@ std::wstring utf8_to_utf16(const std::string_view &str)
     int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
     ASSERT(res > 0);
     usize size_needed = static_cast<usize>(res);
+    //TODO: Remove allocation
     std::wstring result(size_needed, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), result.data(), static_cast<int>(result.size()));
     return result;

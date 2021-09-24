@@ -10,22 +10,6 @@
 #include <intrin.h>
 #include <limits>
 
-struct TempBVHNode
-{
-    // internal nodes
-    AABB   bbox        = {};
-    float3 bbox_center = {0.0f};
-    usize  left_child  = u64_invalid;
-    usize  right_child = u64_invalid;
-
-    // traversal order
-    usize depth_first_index = u64_invalid;
-    usize next_node_index   = u64_invalid;
-
-    // geometry indices
-    usize prim_index = u64_invalid;
-};
-
 inline float3 extract_float3(__m128 v)
 {
     alignas(16) float temp[4];
@@ -65,7 +49,7 @@ static usize temp_bvh_split_median(Vec<TempBVHNode> &temp_nodes, TempBVHNode &no
     // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
     i64 offset_start = static_cast<i64>(prim_start);
     i64 offset_end   = static_cast<i64>(prim_end);
-    std::sort(std::execution::par_unseq,
+    std::sort(/*std::execution::par_unseq,*/
               temp_nodes.begin() + offset_start,
               temp_nodes.begin() + offset_end,
               [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
@@ -94,16 +78,16 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
     i64 offset_start = static_cast<i64>(prim_start);
     i64 offset_end   = static_cast<i64>(prim_end);
-    std::sort(std::execution::par_unseq,
+    std::sort(/*std::execution::par_unseq, */
               temp_nodes.begin() + offset_start,
               temp_nodes.begin() + offset_end,
               [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
 
     struct BucketInfo
     {
-        int count = 0;
-        AABB bounds = {};
-        float cost = std::numeric_limits<float>::infinity();
+        int   count  = 0;
+        AABB  bounds = {};
+        float cost   = std::numeric_limits<float>::infinity();
     };
     constexpr usize BUCKET_COUNT = 12;
     // cost of a ray-aabb intersection in shader relative to ray-tri intersection (ray-tri 2 times slower)
@@ -114,11 +98,11 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     // Place each primitive in a bucket
     for (usize i_prim = prim_start; i_prim < prim_end; i_prim += 1)
     {
-        float point_center = center(temp_nodes[i_prim].bbox)[i_max_comp];
-        float point_in_bbox =  point_center - node.bbox.min[i_max_comp];
-        float bbox_extent = extent(node.bbox)[i_max_comp];
+        float point_center     = center(temp_nodes[i_prim].bbox)[i_max_comp];
+        float point_in_bbox    = point_center - node.bbox.min[i_max_comp];
+        float bbox_extent      = extent(node.bbox)[i_max_comp];
         float point_normalized = point_in_bbox / bbox_extent;
-        usize i_bucket = static_cast<usize>(BUCKET_COUNT * point_normalized);
+        usize i_bucket         = static_cast<usize>(BUCKET_COUNT * point_normalized);
 
         // A prim center may be coplanar to the node.bbox.max i_max_comp plane
         ASSERT(i_bucket <= BUCKET_COUNT);
@@ -148,10 +132,10 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     // Compute the cost of splitting after each bucket
     for (usize i_split_bucket = 0; i_split_bucket < BUCKET_COUNT - 1; i_split_bucket += 1)
     {
-        AABB left = {};
-        int left_count = 0;
-        AABB right = {};
-        int right_count = 0;
+        AABB left        = {};
+        int  left_count  = 0;
+        AABB right       = {};
+        int  right_count = 0;
 
         for (usize i_bucket = 0; i_bucket <= i_split_bucket; i_bucket += 1)
         {
@@ -174,22 +158,22 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
         float cost = std::numeric_limits<float>::infinity();
         if (left_count > 0 && right_count > 0)
         {
-            auto left_area = surface(left);
+            auto left_area  = surface(left);
             auto right_area = surface(right);
-            auto node_area = surface(node.bbox);
-            cost = RAY_BOX_COST + (static_cast<float>(left_count) * left_area  + static_cast<float>(right_count) * right_area) / node_area;
+            auto node_area  = surface(node.bbox);
+            cost            = RAY_BOX_COST + (static_cast<float>(left_count) * left_area + static_cast<float>(right_count) * right_area) / node_area;
         }
         buckets[i_split_bucket].cost = cost;
     }
 
     // Get the cheapest split
-    float min_cost = buckets[0].cost;
+    float min_cost     = buckets[0].cost;
     usize i_min_bucket = 0;
     for (usize i_bucket = 1; i_bucket < BUCKET_COUNT - 1; i_bucket += 1)
     {
         if (buckets[i_bucket].cost < min_cost)
         {
-            min_cost = buckets[i_bucket].cost;
+            min_cost     = buckets[i_bucket].cost;
             i_min_bucket = i_bucket;
         }
     }
@@ -211,15 +195,20 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     return prim_split;
 }
 
-static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes)
+static void create_temp_bvh(BVHScratchMemory &scratch)
 {
-    auto prim_count = temp_nodes.size();
+    auto &prim_start_stack = scratch.prim_start_stack;
+    auto &i_node_stack     = scratch.i_node_stack;
+    auto &prim_end_stack   = scratch.prim_end_stack;
+    auto &temp_nodes       = scratch.temp_nodes;
 
-    Vec<usize> prim_start_stack;
+    auto  prim_count       = temp_nodes.size();
+
+    prim_start_stack.clear();
+    i_node_stack.clear();
+    prim_end_stack.clear();
     prim_start_stack.reserve(temp_nodes.capacity());
-    Vec<usize> i_node_stack;
     i_node_stack.reserve(temp_nodes.capacity());
-    Vec<usize> prim_end_stack;
     prim_end_stack.reserve(temp_nodes.capacity());
 
     i_node_stack.push_back(temp_nodes.size());
@@ -230,11 +219,15 @@ static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes)
 
     while (!prim_start_stack.empty())
     {
-        usize i_node = i_node_stack.back(); i_node_stack.pop_back();
-        usize prim_start = prim_start_stack.back(); prim_start_stack.pop_back();
-        usize prim_end = prim_end_stack.back(); prim_end_stack.pop_back();
+        usize i_node = i_node_stack.back();
+        i_node_stack.pop_back();
+        usize prim_start = prim_start_stack.back();
+        prim_start_stack.pop_back();
+        usize prim_end = prim_end_stack.back();
+        prim_end_stack.pop_back();
 
-        if (prim_start >= prim_end) {
+        if (prim_start >= prim_end)
+        {
             logger::error("BVH: create_temp_bvh should be called with at least one primitive.\n");
             return;
         }
@@ -242,14 +235,14 @@ static void create_temp_bvh(Vec<TempBVHNode> &temp_nodes)
         auto &node = temp_nodes[i_node];
 
         // Compute internal node's bounding box based on primitive nodes at [prim_start, prim_end[
-        node.bbox = calculate_bounds(temp_nodes, prim_start, prim_end);
+        node.bbox        = calculate_bounds(temp_nodes, prim_start, prim_end);
         node.bbox_center = center(node.bbox);
 
-        #if 1
+#if 1
         usize prim_split = temp_bvh_split_sah(temp_nodes, node, prim_start, prim_end);
-        #else
+#else
         usize prim_split = temp_bvh_split_median(temp_nodes, node, prim_start, prim_end);
-        #endif
+#endif
 
         ASSERT(prim_start < prim_split && prim_split < prim_end);
 
@@ -304,22 +297,23 @@ static void bvh_set_temp_order(Vec<TempBVHNode> &temp_nodes, usize &counter, usi
 }
 
 // Create BVH nodes in prefix order, temp_nodes should contain one node per primitive with the correct bounding box
-static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
+static void create_nodes(BVHScratchMemory &scratch, Vec<BVHNode> &nodes)
 {
+    auto &temp_nodes = scratch.temp_nodes;
     if (temp_nodes.empty())
     {
-        return {};
+        return;
     }
 
-    Vec<BVHNode> nodes;
+    nodes.clear();
 
     // emplace root node
     usize root_index = 0;
 
     if (temp_nodes.size() > 1)
     {
-        root_index =  temp_nodes.size();
-        create_temp_bvh(temp_nodes);
+        root_index = temp_nodes.size();
+        create_temp_bvh(scratch);
     }
 
     usize counter = 0;
@@ -362,14 +356,12 @@ static Vec<BVHNode> create_nodes(Vec<TempBVHNode> &&temp_nodes)
     {
         logger::info("}}\n");
     }
-
-    return nodes;
 }
 
-BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
+void create_blas(BVHScratchMemory &scratch, BVH &out, const Vec<u32> &indices, const Vec<float4> &positions)
 {
-    BVH bvh;
-    Vec<TempBVHNode> temp_nodes;
+    auto &temp_nodes = scratch.temp_nodes;
+    temp_nodes.clear();
 
     ASSERT(indices.size() % 3 == 0); // not triangles??
     usize primitives_count = indices.size() / 3;
@@ -392,21 +384,21 @@ BVH create_blas(const Vec<u32> &indices, const Vec<float4> &positions)
 
     ASSERT(temp_nodes.size() == primitives_count);
 
-    bvh.nodes = create_nodes(std::move(temp_nodes));
-
-    return bvh;
+    out.nodes.clear();
+    create_nodes(scratch, out.nodes);
 }
 
-BVH create_tlas(const Vec<BVHNode> &blas_roots, const Vec<float4x4> &blas_transforms, const Vec<u32> &blas_indices)
+void create_tlas(BVHScratchMemory &scratch, BVH &out, const Vec<BVHNode> &blas_roots, const Vec<float4x4> &blas_transforms, const Vec<u32> &blas_indices)
 {
     ASSERT(blas_roots.size() == blas_transforms.size());
     ASSERT(blas_roots.size() == blas_indices.size());
 
-    BVH bvh;
-    Vec<TempBVHNode> temp_nodes;
+    auto &temp_nodes = scratch.temp_nodes;
+    temp_nodes.clear();
 
     usize primitives_count = blas_roots.size();
-    bvh.nodes.reserve(primitives_count * 2);
+    out.nodes.clear();
+    out.nodes.reserve(primitives_count * 2);
     temp_nodes.reserve(primitives_count * 2);
 
     // Compute the bouding box of each primitive
@@ -443,13 +435,9 @@ BVH create_tlas(const Vec<BVHNode> &blas_roots, const Vec<float4x4> &blas_transf
         }
 
         node.bbox_center = center(node.bbox);
-
-        bvh.nodes.emplace_back();
     }
 
     ASSERT(temp_nodes.size() == primitives_count);
 
-    bvh.nodes = create_nodes(std::move(temp_nodes));
-
-    return bvh;
+    create_nodes(scratch, out.nodes);
 }

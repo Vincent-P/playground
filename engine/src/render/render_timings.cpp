@@ -24,7 +24,7 @@ void RenderTimings::begin_label(gfx::Work &cmd, std::string &&label)
         return;
     }
 
-    labels.push_back(label);
+    labels.push_back(std::move(label));
     cmd.timestamp_query(pool, current_query);
     current_query += 1;
 

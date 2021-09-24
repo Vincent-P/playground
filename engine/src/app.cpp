@@ -120,14 +120,13 @@ void App::run()
 
         window.events.clear();
 
-        if (is_minimized)
+        if (!is_minimized)
         {
-            continue;
+            display_ui();
+            scene.update(inputs);
+            renderer.update(scene);
         }
 
-        display_ui();
-        scene.update(inputs);
-        renderer.update(scene);
         watcher.update();
         FrameMark
     }

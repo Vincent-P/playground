@@ -1,7 +1,5 @@
 #pragma once
 
-#include "exo/intrinsics.h"
-
 #include <fmt/core.h>
 #include <fmt/color.h>
 #include <fmt/ostream.h>

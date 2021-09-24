@@ -198,6 +198,7 @@ bool BaseRenderer::start_frame()
     timing.get_results(device);
     if (!timing.labels.empty() && window)
     {
+        //TODO: Remove allocation
         auto s = fmt::format("CPU {:.4f} ms | GPU {:.4f} ms\n", timing.cpu[0], timing.gpu[0]);
         window->set_title(std::move(s));
     }
