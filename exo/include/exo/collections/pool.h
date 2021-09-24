@@ -24,8 +24,7 @@ struct Pool
 {
     static constexpr u32 ELEMENT_SIZE = sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T);
 
-    Pool() = default;
-    Pool(u32 capacity);
+    Pool(u32 _capacity = 64);
 
     Handle<T> add(T &&value);
     const T *get(Handle<T> handle) const;
@@ -139,21 +138,24 @@ struct PoolIterator : IteratorFacade<PoolIterator<T>>
 
 
 template<typename T>
-Pool<T>::Pool(u32 capacity)
+Pool<T>::Pool(u32 _capacity)
 {
+    capacity = _capacity;
     buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
 
     // Init the free list
     freelist_head = 0;
     for (u32 i = 0; i < capacity - 1; i += 1)
     {
-        auto *metadata = metadata_ptr(*this, i) ;
+        auto *metadata = metadata_ptr(*this, i);
         metadata->raw = 0;
 
         u32 *freelist_element = freelist_ptr(*this, i);
         *freelist_element = i + 1;
     }
-    *freelist_ptr(*this, capacity-1) = u32_invalid;
+
+    metadata_ptr(*this, capacity-1)->raw = 0;
+    *freelist_ptr(*this, capacity-1)= u32_invalid;
 }
 
 template <typename T>
@@ -163,7 +165,7 @@ Handle<T> Pool<T>::add(T &&value)
     if (freelist_head == u32_invalid)
     {
         ASSERT(size + 1 >= capacity);
-        auto new_capacity = capacity > 0 ? capacity * 2 : 64;
+        auto new_capacity = capacity * 2;
         void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
         ASSERT(new_buffer != nullptr);
         buffer   = new_buffer;
@@ -178,10 +180,14 @@ Handle<T> Pool<T>::add(T &&value)
             u32 *freelist_element = freelist_ptr(*this, i);
             *freelist_element = i + 1;
         }
-        *freelist_ptr(*this, new_capacity - 1) = u32_invalid;
+
+        metadata_ptr(*this, new_capacity - 1)->raw = 0;
+        *freelist_ptr(*this, new_capacity - 1)     = u32_invalid;
 
         capacity = new_capacity;
     }
+
+    ASSERT(size + 1 < capacity);
 
     // Pop the free list head to find an empty place for the new element
     u32 i_element = freelist_head;
