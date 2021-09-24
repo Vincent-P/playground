@@ -78,7 +78,7 @@ RenderPass create_renderpass(Device &device, const FramebufferFormat &format, st
     VkRenderPass vk_renderpass = VK_NULL_HANDLE;
     VK_CHECK(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
 
-    return {.vkhandle = vk_renderpass, .load_ops = std::vector(load_ops.begin(), load_ops.end())};
+    return {.vkhandle = vk_renderpass, .load_ops = load_ops};
 }
 
 RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops)
@@ -104,7 +104,7 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc,
 {
     Framebuffer fb = {};
     fb.format = fb_desc;
-    fb.color_attachments = {color_attachments.begin(), color_attachments.end()};
+    fb.color_attachments = color_attachments;
     fb.depth_attachment = depth_attachment;
 
     ASSERT(fb.format.attachments_format.empty());
@@ -114,15 +114,15 @@ Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc,
 
     Vec<VkImageView> attachment_views;
     attachment_views.reserve(attachments_count);
-    for (auto &attachment : fb.color_attachments)
+    for (const auto &attachment : fb.color_attachments)
     {
-        auto &image = *this->images.get(attachment);
+        const auto &image = *this->images.get(attachment);
         attachment_views.push_back(image.full_view.vkhandle);
         fb.format.attachments_format.push_back(image.desc.format);
     }
     if (fb.depth_attachment.is_valid())
     {
-        auto &image = *this->images.get(fb.depth_attachment);
+        const auto &image = *this->images.get(fb.depth_attachment);
         attachment_views.push_back(image.full_view.vkhandle);
         fb.format.depth_format = image.desc.format;
     }

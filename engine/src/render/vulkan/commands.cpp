@@ -2,6 +2,7 @@
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
 
+#include "render/vulkan/pipelines.h"
 #include "render/vulkan/queries.h"
 #include "render/vulkan/queues.h"
 #include "render/vulkan/surface.h"
@@ -382,8 +383,7 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<
     auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
     auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
 
-    Vec<VkClearValue> clear_colors;
-    clear_colors.reserve(load_ops.size());
+    DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
     for (auto &load_op : load_ops)
     {
         clear_colors.push_back(load_op.color);

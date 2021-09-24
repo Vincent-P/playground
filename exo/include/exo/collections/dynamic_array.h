@@ -1,11 +1,27 @@
 #pragma once
 #include "exo/prelude.h"
 #include <type_traits>
+#include <span>
+#include <initializer_list>
 
 template <typename T, usize CAPACITY>
 struct DynamicArray
 {
     using Self                  = DynamicArray<T, CAPACITY>;
+
+    constexpr DynamicArray() = default;
+    constexpr DynamicArray(std::span<const T> values)
+    {
+        ASSERT(values.size() < CAPACITY);
+        array_size = values.size();
+        for (usize i = 0; i < array_size; i += 1)
+        {
+            array[i] = values[i];
+        }
+    }
+    constexpr DynamicArray(std::initializer_list<T> list)
+        : DynamicArray(std::span{list})
+        {}
 
     static_assert(std::is_standard_layout<T>());
     // we dont call destructors here, and we dont memcpy or init to 0 so only trivial destructor is needed
@@ -13,21 +29,28 @@ struct DynamicArray
 
     constexpr const T &operator[](usize i) const;
     constexpr T &      operator[](usize i);
+
     // clang-format off
     constexpr const T *begin() const noexcept  { return &array[0]; }
     constexpr T *      begin() noexcept        { return &array[0]; }
     constexpr const T *end() const noexcept    { return begin() + array_size; }
     constexpr T *      end() noexcept          { return begin() + array_size; }
     constexpr usize size() const noexcept      { return end() - begin(); }
+    constexpr bool empty() const noexcept      { return array_size == 0; }
+    constexpr const T *data() const noexcept   { return &array[0]; }
+    constexpr T *data() noexcept               { return &array[0]; }
     // clang-format on
 
     // std::vector-like interface
     constexpr void push_back(T &&value) noexcept;
+    constexpr void push_back(const T &value) noexcept;
     constexpr void clear() noexcept;
     constexpr void resize(usize new_size) noexcept;
+    constexpr T& back() noexcept;
+    constexpr const T& back() const noexcept;
 
-    T  array[CAPACITY];
     usize array_size;
+    T  array[CAPACITY];
 };
 
 template <typename T, usize C>
@@ -52,6 +75,15 @@ constexpr void DynamicArray<T, C>::push_back(T &&value) noexcept
 }
 
 template <typename T, usize C>
+constexpr void DynamicArray<T, C>::push_back(const T &value) noexcept
+{
+    ASSERT(array_size + 1 < C);
+    array[array_size] = value;
+    array_size += 1;
+}
+
+
+template <typename T, usize C>
 constexpr void DynamicArray<T, C>::clear() noexcept
 {
     array_size = 0;
@@ -69,4 +101,35 @@ constexpr void DynamicArray<T, C>::resize(usize new_size) noexcept
     }
 
     array_size = new_size;
+}
+
+template <typename T, usize C>
+constexpr T& DynamicArray<T, C>::back() noexcept
+{
+    return array[array_size - 1];
+}
+
+template <typename T, usize C>
+constexpr const T& DynamicArray<T, C>::back() const noexcept
+{
+    return array[array_size - 1];
+}
+
+template <typename T, usize C1, usize C2>
+constexpr bool operator==(const DynamicArray<T, C1> &lhs, const DynamicArray<T, C2> &rhs)
+{
+    if (lhs.array_size != rhs.array_size)
+    {
+        return false;
+    }
+
+    for (usize i = 0; i < lhs.array_size; i += 1)
+    {
+        if (lhs[i] != rhs[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

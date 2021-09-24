@@ -847,7 +847,9 @@ void Renderer::update(Scene &scene)
             VkRect2D scissor;
         };
 
-        Vec<ImguiDrawCommand> draws;
+        static Vec<ImguiDrawCommand> draws;
+        draws.clear();
+
         float2 clip_off   = data->DisplayPos;       // (0,0) unless using multi-viewports
         float2 clip_scale = data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 

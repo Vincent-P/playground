@@ -5,6 +5,7 @@
 #include <exo/collections/vector.h>
 
 #include <vulkan/vulkan.h>
+#include <span>
 
 namespace vulkan
 {
@@ -82,7 +83,7 @@ struct DescriptorSet
     Vec<usize> dynamic_offsets;
 };
 
-DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &descriptors);
+DescriptorSet create_descriptor_set(Device &device, std::span<const DescriptorType> descriptors);
 void          destroy_descriptor_set(Device &device, DescriptorSet &set);
 
 void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);

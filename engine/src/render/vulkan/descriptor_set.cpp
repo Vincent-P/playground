@@ -9,7 +9,7 @@
 
 namespace vulkan
 {
-DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &descriptors)
+DescriptorSet create_descriptor_set(Device &device, std::span<const DescriptorType> descriptors)
 {
     DescriptorSet descriptor_set = {};
 
@@ -45,7 +45,7 @@ DescriptorSet create_descriptor_set(Device &device, const Vec<DescriptorType> &d
 
     VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &descriptor_set.layout));
 
-    descriptor_set.descriptor_desc = descriptors;
+    descriptor_set.descriptor_desc = {descriptors.begin(), descriptors.end()};
 
     return descriptor_set;
 }

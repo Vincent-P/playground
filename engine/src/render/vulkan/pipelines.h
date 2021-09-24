@@ -3,7 +3,7 @@
 #include <exo/maths/numerics.h>
 #include <exo/option.h>
 #include <exo/handle.h>
-#include <exo/collections/vector.h>
+#include <exo/collections/dynamic_array.h>
 
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/operators.h"
@@ -13,6 +13,11 @@
 
 namespace vulkan
 {
+inline constexpr usize MAX_ATTACHMENTS         = 4; // Maximum number of attachments (color + depth) in a framebuffer
+inline constexpr usize MAX_RENDERPASS          = 4; // Maximum number of renderpass (combination of load operator) per framebuffer
+inline constexpr usize MAX_SHADER_DESCRIPTORS  = 4; // Maximum number of descriptors in a shader descriptor set (usually just one uniform buffer)
+inline constexpr usize MAX_DYNAMIC_DESCRIPTORS = 4; // Maximum number of total dynamic descriptors (in all descriptor sets)
+inline constexpr usize MAX_RENDER_STATES       = 4; // Maximum number of render state per pipeline
 
 struct Shader
 {
@@ -107,7 +112,7 @@ struct LoadOp
 struct RenderPass
 {
     VkRenderPass vkhandle;
-    Vec<LoadOp> load_ops;
+    DynamicArray<LoadOp, MAX_ATTACHMENTS> load_ops;
 };
 
 struct FramebufferFormat
@@ -115,7 +120,7 @@ struct FramebufferFormat
     i32 width = 0;
     i32 height = 0;
     u32 layer_count = 1;
-    Vec<VkFormat> attachments_format;
+    DynamicArray<VkFormat, MAX_ATTACHMENTS> attachments_format;
     Option<VkFormat> depth_format;
     bool operator==(const FramebufferFormat &) const = default;
 };
@@ -124,10 +129,10 @@ struct  Framebuffer
 {
     VkFramebuffer vkhandle = VK_NULL_HANDLE;
     FramebufferFormat format;
-    Vec<Handle<Image>> color_attachments;
+    DynamicArray<Handle<Image>, MAX_ATTACHMENTS> color_attachments;
     Handle<Image> depth_attachment;
 
-    Vec<RenderPass> renderpasses;
+    DynamicArray<RenderPass, MAX_RENDERPASS> renderpasses;
 
     bool operator==(const Framebuffer &) const = default;
 };
@@ -138,7 +143,7 @@ struct GraphicsState
     Handle<Shader> vertex_shader;
     Handle<Shader> fragment_shader;
     FramebufferFormat attachments_format;
-    Vec<DescriptorType> descriptors;
+    DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct GraphicsProgram
@@ -146,11 +151,11 @@ struct GraphicsProgram
     std::string name;
     // state to compile the pipeline
     GraphicsState graphics_state;
-    Vec<RenderState> render_states;
+    DynamicArray<RenderState, MAX_RENDER_STATES> render_states;
 
     // pipeline
     VkPipelineLayout pipeline_layout;
-    Vec<VkPipeline> pipelines;
+    DynamicArray<VkPipeline, MAX_RENDER_STATES> pipelines;
     VkPipelineCache cache;
     VkRenderPass renderpass;
 
@@ -161,7 +166,7 @@ struct GraphicsProgram
 struct ComputeState
 {
     Handle<Shader> shader;
-    Vec<DescriptorType> descriptors;
+    DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct ComputeProgram
