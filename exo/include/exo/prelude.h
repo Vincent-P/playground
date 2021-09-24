@@ -19,11 +19,7 @@
 
 /// --- Portable compiler attribute/builtins
 
-#if defined(CXX_MSVC)
-#define PACKED
-#else
-#define PACKED __attribute__((packed))
-#endif
+#define PACKED(struct_decl) __pragma(pack(push, 1)) struct_decl __pragma(pack(pop))
 
 namespace exo
 {
@@ -86,3 +82,4 @@ constexpr inline u64 operator"" _K(u64 value) { return value * 1000u; }
 constexpr inline u64 operator"" _KiB(u64 value) { return value << 10; }
 constexpr inline u64 operator"" _MiB(u64 value) { return value << 20; }
 constexpr inline u64 operator"" _GiB(u64 value) { return value << 30; }
+constexpr inline usize operator"" _uz(usize value) { return value; }

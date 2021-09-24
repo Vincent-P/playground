@@ -42,7 +42,7 @@ struct ImGuiPass
     Handle<gfx::Image>  font_atlas;
 };
 
-struct PACKED GlobalUniform
+PACKED (struct GlobalUniform
 {
     float4x4 camera_view;
     float4x4 camera_projection;
@@ -78,16 +78,16 @@ struct PACKED GlobalUniform
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};
+};)
 
-struct PACKED PushConstants
+PACKED (struct PushConstants
 {
     u32 draw_id        = u32_invalid;
     u32 gui_texture_id = u32_invalid;
-};
+};)
 
 // Descriptors for a mesh
-struct PACKED RenderMeshGPU
+PACKED (struct RenderMeshGPU
 {
     u32 first_position;
     u32 first_index;
@@ -97,7 +97,7 @@ struct PACKED RenderMeshGPU
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};
+};)
 
 // A 3D model
 struct RenderMesh
@@ -119,7 +119,7 @@ struct SubMeshInstance
 };
 
 // One object in the world
-struct PACKED RenderInstance
+PACKED (struct RenderInstance
 {
     float4x4 object_to_world;
     float4x4 world_to_object;
@@ -127,7 +127,7 @@ struct PACKED RenderInstance
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};
+};)
 
 
 struct RenderMaterial

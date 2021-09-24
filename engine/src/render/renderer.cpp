@@ -602,7 +602,7 @@ void Renderer::update(Scene &scene)
     {
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
-        struct PACKED PathTracerOptions
+        struct PathTracerOptions
         {
             u32 storage_output;
         };
@@ -623,7 +623,7 @@ void Renderer::update(Scene &scene)
 
             // Prepare draw calls with instance count = 0
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED GenDrawCallOptions
+            struct GenDrawCallOptions
             {
                 u32 draw_arguments_descriptor;
             };
@@ -644,7 +644,7 @@ void Renderer::update(Scene &scene)
             cmd.fill_buffer(predicate_buffer, 0);
             cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
             cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED CullInstancesOptions
+            struct CullInstancesOptions
             {
                 float4x4 camera_view;
                 u32 instances_visibility_descriptor;
@@ -657,7 +657,7 @@ void Renderer::update(Scene &scene)
 
             // Copy culled instances indices
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED CopyInstancesOptions
+            struct CopyInstancesOptions
             {
                 u32 predicate_descriptor;
                 u32 scanned_indices_descriptor;
@@ -682,7 +682,7 @@ void Renderer::update(Scene &scene)
             cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
 
             cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED FillPredicateOptions
+            struct FillPredicateOptions
             {
                 u32 predicate_descriptor;
                 u32 draw_arguments_descriptor;
@@ -695,7 +695,7 @@ void Renderer::update(Scene &scene)
 
             cmd.barrier(draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
             cmd.barrier(culled_draw_arguments, gfx::BufferUsage::ComputeShaderReadWrite);
-            struct PACKED CopyDrawcallsOptions
+            struct CopyDrawcallsOptions
             {
                 u32 predicate_descriptor;
                 u32 scanned_indices_descriptor;
@@ -717,7 +717,7 @@ void Renderer::update(Scene &scene)
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
         cmd.begin_pass(visibility_depth_fb, {gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
 
-        struct PACKED OpaqueOptions
+        struct OpaqueOptions
         {
             u32 nothing;
         };
@@ -771,7 +771,7 @@ void Renderer::update(Scene &scene)
 
         auto history_size = device.get_image_size(current_history);
 
-        struct PACKED TAAOptions
+        struct TAAOptions
         {
             uint sampled_hdr_buffer;
             uint sampled_previous_history;
@@ -795,7 +795,7 @@ void Renderer::update(Scene &scene)
 
         auto input_size = device.get_image_size(tonemap_input);
 
-        struct PACKED TonemapOptions
+        struct TonemapOptions
         {
             uint sampled_input;
             uint storage_output_frame;
@@ -891,14 +891,14 @@ void Renderer::update(Scene &scene)
         }
 
         // -- Rendering
-        struct PACKED ImguiOptions
+        PACKED(struct ImguiOptions
         {
             float2 scale;
             float2 translation;
             u64 vertices_pointer;
             u32 first_vertex;
             u32 vertices_descriptor_index;
-        };
+        };)
 
         auto *options = base_renderer.bind_shader_options<ImguiOptions>(cmd, imgui_pass.program);
         std::memset(options, 0, sizeof(ImguiOptions));
@@ -1191,7 +1191,7 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
         cmd.barrier(predicate_buffer, gfx::BufferUsage::ComputeShaderRead);
         cmd.barrier(scanned_indices, gfx::BufferUsage::ComputeShaderReadWrite);
         cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
-        struct PACKED ScanOptions
+        struct ScanOptions
         {
             u32 input_descriptor;
             u32 output_descriptor;
@@ -1210,7 +1210,7 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
     // Scan group sums
     {
         cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderReadWrite);
-        struct PACKED ScanOptions
+        struct ScanOptions
         {
             u32 input_descriptor;
             u32 output_descriptor;
