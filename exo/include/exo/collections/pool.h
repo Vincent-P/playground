@@ -2,6 +2,7 @@
 
 #include "exo/prelude.h"
 #include "exo/handle.h"
+#include "exo/collections/iterator_facade.h"
 #include <iterator>
 #include <xutility>
 
@@ -10,48 +11,18 @@
    Performance:
      Adding/removing elements is O(1).
      Iterating is O(capacity) and elements are NOT tighly packed because of the free-list.
+
+   TODO: Add run length of holes in the metdata to skip big holes when iterating.
  **/
 
-// Each element in the buffer is prepended with metadata
-union ElementMetadata
-{
-    struct
-    {
-        u32 is_occupied : 1;
-        u32 generation : 31;
-    };
-    u32 raw;
-};
+// Impl below helpers
+template<typename T>
+struct PoolIterator;
 
 template <typename T>
 struct Pool
 {
     static constexpr u32 ELEMENT_SIZE = sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T);
-
-    struct Iterator
-    {
-        using difference_type   = int;
-        using value_type        = std::pair<Handle<T>, T*>;
-        using iterator_category = std::forward_iterator_tag;
-
-        Iterator() = default;
-        Iterator(Pool *_pool, u32 _index = 0);
-
-        // input iterator
-        value_type operator*();
-        value_type operator*() const;
-        Iterator &operator++();
-
-        // forward iterator
-        Iterator operator++(int n);
-        bool operator==(const Iterator &rhs) const = default;
-
-        Pool *pool        = nullptr;
-        u32 current_index = u32_invalid;
-        value_type value = {};
-    };
-
-    static_assert(std::forward_iterator<Iterator>);
 
     Pool() = default;
     Pool(u32 capacity);
@@ -61,8 +32,10 @@ struct Pool
     T *get(Handle<T> handle);
     void remove(Handle<T> handle);
 
-    Iterator begin();
-    Iterator end();
+
+    static_assert(std::forward_iterator<PoolIterator<T>>);
+    PoolIterator<T> begin();
+    PoolIterator<T> end();
 
     bool operator==(const Pool &rhs) const = default;
 
@@ -72,8 +45,20 @@ struct Pool
     u32 capacity = {};
 };
 
+// Helpers
 namespace
 {
+    // Each element in the buffer is prepended with metadata
+    union ElementMetadata
+    {
+        struct
+        {
+            u32 is_occupied : 1;
+            u32 generation : 31;
+        };
+        u32 raw;
+    };
+
     template<typename T>
     T* element_ptr(Pool<T> &pool, u32 i)
     {
@@ -112,6 +97,48 @@ namespace
 }
 
 template<typename T>
+struct PoolIterator : IteratorFacade<PoolIterator<T>>
+{
+    PoolIterator() = default;
+    PoolIterator(Pool<T> *_pool, u32 _index = 0)
+        : pool{_pool}
+        , current_index{_index}
+    {
+    }
+
+    std::pair<Handle<T>, T*> dereference() const
+    {
+        auto *metadata = metadata_ptr(*pool, current_index);
+        auto *element  = element_ptr(*pool, current_index);
+
+        Handle<T> handle = {current_index, metadata->generation};
+        return std::make_pair(handle, element);
+    }
+
+    void increment()
+    {
+        for (current_index = current_index + 1; current_index < pool->capacity; current_index += 1)
+        {
+            auto *metadata = metadata_ptr(*pool, current_index);
+            auto *element  = element_ptr(*pool, current_index);
+            if (metadata->is_occupied == 1)
+            {
+                break;
+            }
+        }
+    }
+
+    bool equal_to(const PoolIterator &other) const
+    {
+        return pool == other.pool && current_index == other.current_index;
+    }
+
+    Pool<T> *pool        = nullptr;
+    u32 current_index = u32_invalid;
+};
+
+
+template<typename T>
 Pool<T>::Pool(u32 capacity)
 {
     buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
@@ -135,7 +162,7 @@ Handle<T> Pool<T>::add(T &&value)
     // Realloc memory if the container is full
     if (freelist_head == u32_invalid)
     {
-        assert(size + 1 >= capacity);
+        ASSERT(size + 1 >= capacity);
         auto new_capacity = capacity > 0 ? capacity * 2 : 64;
         void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
         ASSERT(new_buffer != nullptr);
@@ -211,69 +238,13 @@ void Pool<T>::remove(Handle<T> handle)
 }
 
 template <typename T>
-typename Pool<T>::Iterator Pool<T>::begin()
+PoolIterator<T> Pool<T>::begin()
 {
-    return Pool<T>::Iterator(this, 0);
+    return PoolIterator<T>(this, 0);
 }
 
 template <typename T>
-typename Pool<T>::Iterator Pool<T>::end()
+PoolIterator<T> Pool<T>::end()
 {
-    return Pool<T>::Iterator(this, capacity);
-}
-
-
-template <typename T>
-Pool<T>::Iterator::Iterator(Pool<T> *_pool, u32 _index)
-    : pool{_pool}
-    , current_index{_index}
-{
-}
-
-// input iterator
-template <typename T>
-typename Pool<T>::Iterator::value_type Pool<T>::Iterator::operator*()
-{
-    auto *metadata = metadata_ptr(*pool, current_index);
-    auto *element    = element_ptr(*pool, current_index);
-
-    Handle<T> handle = {current_index, metadata->generation};
-    return std::make_pair(handle, element);
-}
-
-template <typename T>
-typename Pool<T>::Iterator::value_type Pool<T>::Iterator::operator*() const
-{
-    auto *metadata = metadata_ptr(*pool, current_index);
-    auto *element  = element_ptr(*pool, current_index);
-
-    Handle<T> handle = {current_index, metadata->generation};
-    return std::make_pair(handle, element);
-}
-
-template <typename T>
-typename Pool<T>::Iterator::Iterator &Pool<T>::Iterator::operator++()
-{
-    for (current_index = current_index + 1; current_index < pool->capacity; current_index += 1)
-    {
-        auto *metadata = metadata_ptr(*pool, current_index);
-        auto *element  = element_ptr(*pool, current_index);
-        if (metadata->is_occupied == 1)
-        {
-            break;
-        }
-    }
-    return *this;
-}
-
-// forward iterator
-template <typename T>
-typename Pool<T>::Iterator Pool<T>::Iterator::operator++(int n)
-{
-    auto copy = *this;
-    for (int i = 0; i < n; i+= 1)
-    {
-        ++copy;
-    }
-    return copy;
+    return PoolIterator<T>(this, capacity);
 }
