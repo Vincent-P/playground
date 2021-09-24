@@ -64,7 +64,7 @@ void Streamer::update(gfx::WorkPool &work_pool)
             if (upload.state == UploadState::Requested)
             {
                 auto &staging = staging_areas[upload.i_staging];
-                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, {{0u, dst_offset, upload.len}});
+                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, std::array{std::make_tuple(0_uz, dst_offset, upload.len)});
                 upload.state = UploadState::Uploading;
             }
         }
@@ -106,7 +106,7 @@ void Streamer::update(gfx::WorkPool &work_pool)
     transfer_batch = current_transfer;
 
     transfer_cmd.end();
-    device->submit(transfer_cmd, {transfer_done}, {transfer_batch});
+    device->submit(transfer_cmd, std::array{transfer_done}, std::array{transfer_batch});
 }
 
 static u32 find_or_create_staging(Streamer &streamer, usize len)

@@ -125,7 +125,7 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
     image.usage = usage_destination;
 }
 
-void Work::barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::pair<Handle<Buffer>, BufferUsage>> buffers)
+void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images, std::span<std::pair<Handle<Buffer>, BufferUsage>> buffers)
 {
     Vec<VkImageMemoryBarrier>  image_barriers;
     Vec<VkBufferMemoryBarrier> buffer_barriers;
@@ -182,7 +182,7 @@ void Work::timestamp_query(QueryPool &query_pool, u32 index)
 }
 
 /// --- TransferWork
-void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<usize, usize, usize>> offsets_src_dst_size)
+void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
     auto &src_buffer = *device->buffers.get(src);
     auto &dst_buffer = *device->buffers.get(dst);
@@ -259,7 +259,7 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
     vkCmdBlitImage(command_buffer, src_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
 }
 
-void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst, Vec<VkBufferImageCopy> buffer_copy_regions)
+void TransferWork::copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst, std::span<VkBufferImageCopy> buffer_copy_regions)
 {
     auto &src_buffer = *device->buffers.get(src);
     auto &dst_image  = *device->images.get(dst);
@@ -377,7 +377,7 @@ void GraphicsWork::set_viewport(const VkViewport &viewport)
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
-void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, Vec<LoadOp> load_ops)
+void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<const LoadOp> load_ops)
 {
     auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
     auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
@@ -582,12 +582,12 @@ void Device::destroy_fence(Fence &fence)
 }
 
 // Submission
-void Device::submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> &signal_values)
+void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<const u64> signal_values)
 {
     // Creathe list of semaphores to wait
     Vec<VkSemaphore> signal_list;
     signal_list.reserve(signal_fences.size() + 1);
-    Vec<u64> local_signal_values = signal_values;
+    Vec<u64> local_signal_values = {signal_values.begin(), signal_values.end()};
     for (const auto &fence : signal_fences)
     {
         signal_list.push_back(fence.timeline_semaphore);
@@ -675,10 +675,11 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
     VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
-void Device::wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_values)
+void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64> wait_values)
 {
     ASSERT(wait_values.size() == fences.size());
 
+    //TODO: Remove allocation
     Vec<VkSemaphore> semaphores(fences.size());
     for (usize i_fence = 0; i_fence < fences.size(); i_fence += 1)
     {

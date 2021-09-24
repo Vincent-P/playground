@@ -107,9 +107,9 @@ struct Device
     void destroy_fence(Fence &fence);
 
     void wait_for_fence(const Fence &fence, u64 wait_value);
-    void wait_for_fences(const Vec<Fence> &fences, const Vec<u64> &wait_values);
+    void wait_for_fences(std::span<const Fence> fences, std::span<const u64> wait_values);
     void wait_idle();
-    void submit(Work &work, const Vec<Fence> &signal_fences, const Vec<u64> &signal_values);
+    void submit(Work &work, std::span<const Fence> signal_fences, std::span<const u64> signal_values);
 
     // Shaders
     Handle<Shader> create_shader(std::string_view path);
@@ -121,10 +121,10 @@ struct Device
     unsigned compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
 
     // Framebuffers
-    Handle<Framebuffer> create_framebuffer(const FramebufferFormat &fb_desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment = {});
+    Handle<Framebuffer> create_framebuffer(const FramebufferFormat &fb_desc, std::span<const Handle<Image>> color_attachments, Handle<Image> depth_attachment = {});
     void destroy_framebuffer(Handle<Framebuffer> framebuffer_handle);
 
-    RenderPass &find_or_create_renderpass(Framebuffer &framebuffer, const Vec<LoadOp> &load_ops); // private
+    RenderPass &find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops); // private
 
     // Compute pipeline
     void recreate_program_internal(ComputeProgram &compute_program);

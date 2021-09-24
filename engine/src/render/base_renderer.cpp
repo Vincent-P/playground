@@ -187,7 +187,7 @@ bool BaseRenderer::start_frame()
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
     u64 wait_value = frame_count < FRAME_QUEUE_LENGTH ? 0 : frame_count-FRAME_QUEUE_LENGTH+1;
-    device.wait_for_fences({fence}, {wait_value});
+    device.wait_for_fences(std::array{fence}, std::array{wait_value});
 
     // reset the command buffers
     auto &work_pool = work_pools[current_frame];
@@ -220,7 +220,7 @@ bool BaseRenderer::end_frame(gfx::ComputeWork &cmd)
     // vulkan hack: hint the device to submit a semaphore to wait on before presenting
     cmd.prepare_present(surface);
 
-    device.submit(cmd, {fence}, {frame_count+1});
+    device.submit(cmd, std::array{fence}, std::array{frame_count + 1_uz});
 
     // present will wait for semaphore
     bool out_of_date_swapchain = device.present(surface, cmd);

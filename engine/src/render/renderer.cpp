@@ -355,7 +355,7 @@ static void recreate_framebuffers(Renderer &r)
             .width  = scaled_resolution.x,
             .height = scaled_resolution.y,
         },
-        {r.visibility_buffer},
+        std::array{r.visibility_buffer},
         r.depth_buffer);
 
     r.hdr_depth_fb = device.create_framebuffer(
@@ -363,7 +363,7 @@ static void recreate_framebuffers(Renderer &r)
             .width  = scaled_resolution.x,
             .height = scaled_resolution.y,
         },
-        {r.hdr_buffer},
+        std::array{r.hdr_buffer},
         r.depth_buffer);
 
     r.ldr_depth_fb = device.create_framebuffer(
@@ -371,7 +371,7 @@ static void recreate_framebuffers(Renderer &r)
             .width  = scaled_resolution.x,
             .height = scaled_resolution.y,
         },
-        {r.ldr_buffer},
+        std::array{r.ldr_buffer},
         r.depth_buffer);
 
     r.ldr_fb = device.create_framebuffer(
@@ -379,7 +379,7 @@ static void recreate_framebuffers(Renderer &r)
             .width  = settings.render_resolution.x,
             .height = settings.render_resolution.y,
         },
-        {r.ldr_buffer});
+        std::array{r.ldr_buffer});
 }
 
 void Renderer::on_resize()
@@ -722,7 +722,7 @@ void Renderer::update(Scene &scene)
         // Fill visibility
         cmd.clear_barrier(visibility_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.begin_pass(visibility_depth_fb, {gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
+        cmd.begin_pass(visibility_depth_fb, std::array{gfx::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}}}), gfx::LoadOp::clear({.depthStencil = {.depth = 0.0f}})});
 
         struct OpaqueOptions
         {
@@ -927,7 +927,7 @@ void Renderer::update(Scene &scene)
         // Draw pass
         cmd.barrier(ldr_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
-        cmd.begin_pass(ldr_fb, {gfx::LoadOp::load()});
+        cmd.begin_pass(ldr_fb, std::array{gfx::LoadOp::load()});
 
         VkViewport viewport{};
         viewport.width    = data->DisplaySize.x * data->FramebufferScale.x;
@@ -1034,7 +1034,9 @@ void Renderer::prepare_geometry(Scene &scene)
                     auto &mesh_asset = asset_manager->meshes[i_mesh];
 
                     logger::info("Uploading mesh asset #{}\n", i_mesh);
-                    BVH bvh         = create_blas(mesh_asset.indices, mesh_asset.positions);
+                    static BVHScratchMemory scratch_bvh = {};
+                    static BVH bvh = {};
+                    create_blas(scratch_bvh, bvh, mesh_asset.indices, mesh_asset.positions);
 
                     RenderMesh render_mesh   = {};
                     render_mesh.bvh_root = bvh.nodes[0];
@@ -1166,11 +1168,14 @@ void Renderer::prepare_geometry(Scene &scene)
     this->submesh_instances_offset = static_cast<u32>(submesh_instance_offset / sizeof(SubMeshInstance));
 
     // Build and upload the TLAS
-    Vec<BVHNode> roots;
-    Vec<float4x4> transforms;
-    Vec<u32> indices;
     {
     ZoneScopedN("Build TLAS");
+    static Vec<BVHNode> roots;
+    static Vec<float4x4> transforms;
+    static Vec<u32> indices;
+    roots.clear();
+    transforms.clear();
+    indices.clear();
     roots.resize(render_instances.size());
     transforms.resize(render_instances.size());
     indices.resize(render_instances.size());
@@ -1183,7 +1188,10 @@ void Renderer::prepare_geometry(Scene &scene)
         transforms[i_instance] = render_instance.object_to_world;
         indices[i_instance]    = i_instance;
     }
-    BVH tlas = create_tlas(roots, transforms, indices);
+
+    static BVHScratchMemory scratch_bvh = {};
+    static BVH tlas = {};
+    create_tlas(scratch_bvh, tlas, roots, transforms, indices);
     auto *tlas_gpu = reinterpret_cast<BVHNode *>(device.map_buffer(tlas_buffer));
     ASSERT(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
     std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));

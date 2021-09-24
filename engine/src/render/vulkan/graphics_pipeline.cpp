@@ -8,7 +8,7 @@ namespace vulkan
 
 /// --- Renderpass
 
-RenderPass create_renderpass(Device &device, const FramebufferFormat &format, const Vec<LoadOp> &load_ops)
+RenderPass create_renderpass(Device &device, const FramebufferFormat &format, std::span<const LoadOp> load_ops)
 {
     auto attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
     ASSERT(load_ops.size() == attachments_count);
@@ -78,17 +78,17 @@ RenderPass create_renderpass(Device &device, const FramebufferFormat &format, co
     VkRenderPass vk_renderpass = VK_NULL_HANDLE;
     VK_CHECK(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
 
-    return {.vkhandle = vk_renderpass, .load_ops = load_ops};
+    return {.vkhandle = vk_renderpass, .load_ops = std::vector(load_ops.begin(), load_ops.end())};
 }
 
-RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, const Vec<LoadOp> &load_ops)
+RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops)
 {
     ASSERT(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
     ASSERT(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
 
     for (auto &renderpass : framebuffer.renderpasses)
     {
-        if (renderpass.load_ops == load_ops)
+        if (std::ranges::equal(renderpass.load_ops, load_ops))
         {
             return renderpass;
         }
@@ -100,11 +100,11 @@ RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, const Ve
 
 /// --- Framebuffer
 
-Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc, const Vec<Handle<Image>> &color_attachments, Handle<Image> depth_attachment)
+Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat &fb_desc, std::span<const Handle<Image>> color_attachments, Handle<Image> depth_attachment)
 {
     Framebuffer fb = {};
     fb.format = fb_desc;
-    fb.color_attachments = color_attachments;
+    fb.color_attachments = {color_attachments.begin(), color_attachments.end()};
     fb.depth_attachment = depth_attachment;
 
     ASSERT(fb.format.attachments_format.empty());

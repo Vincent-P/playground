@@ -70,7 +70,7 @@ struct Work
     void absolute_barrier(Handle<Image> image_handle);
     void barrier(Handle<Image> image, ImageUsage usage_destination);
     void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
-    void barriers(Vec<std::pair<Handle<Image>, ImageUsage>> images, Vec<std::pair<Handle<Buffer>, BufferUsage>> buffers);
+    void barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images, std::span<std::pair<Handle<Buffer>, BufferUsage>> buffers);
 
     // queries
     void reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count);
@@ -81,11 +81,11 @@ struct Work
 
 struct TransferWork : Work
 {
-    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, Vec<std::tuple<usize, usize, usize>> offsets_src_dst_size);
+    void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size);
     void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
     void copy_image(Handle<Image> src, Handle<Image> dst);
     void blit_image(Handle<Image> src, Handle<Image> dst);
-    void copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst, Vec<VkBufferImageCopy> buffer_copy_regions);
+    void copy_buffer_to_image(Handle<Buffer> src, Handle<Image> dst, std::span<VkBufferImageCopy> buffer_copy_regions);
     void fill_buffer(Handle<Buffer> buffer_handle, u32 data);
     void transfer();
 };
@@ -148,7 +148,7 @@ struct GraphicsWork : ComputeWork
     void set_scissor(const VkRect2D &rect);
     void set_viewport(const VkViewport &viewport);
 
-    void begin_pass(Handle<Framebuffer> framebuffer_handle, Vec<LoadOp> load_ops);
+    void begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<const LoadOp> load_ops);
     void end_pass();
 
     using ComputeWork::bind_pipeline; // make it visible on GraphicsWork
