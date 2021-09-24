@@ -33,6 +33,8 @@ add_executable(engine ${SOURCE_FILES})
 setup_app_target(engine)
 install(TARGETS engine RUNTIME)
 
+target_precompile_headers(engine PRIVATE src/pch.h)
+
 target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(engine PRIVATE src)
