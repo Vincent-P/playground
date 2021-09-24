@@ -178,9 +178,9 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
         };
         renderer.opaque_program = device.create_program("gltf opaque", state);
 
-        gfx::RenderState render_state   = {};
-        render_state.depth.test         = VK_COMPARE_OP_GREATER_OR_EQUAL;
-        render_state.depth.enable_write = true;
+        gfx::RenderState render_state      = {};
+        render_state.depth.test            = VK_COMPARE_OP_GREATER_OR_EQUAL;
+        render_state.depth.enable_write    = true;
         render_state.rasterization.culling = false;
         device.compile(renderer.opaque_program, render_state);
     }
@@ -485,18 +485,18 @@ void Renderer::update(Scene &scene)
     // -- Transfer stuff
     if (base_renderer.frame_count == 0)
     {
-        auto &io      = ImGui::GetIO();
-        uchar *pixels = nullptr;
-        int imgui_width     = 0;
-        int imgui_height    = 0;
+        auto & io           = ImGui::GetIO();
+        uchar *pixels       = nullptr;
+        int    imgui_width  = 0;
+        int    imgui_height = 0;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &imgui_width, &imgui_height);
         ASSERT(imgui_width > 0 && imgui_height > 0);
-        u32 width = static_cast<u32>(imgui_width);
+        u32 width  = static_cast<u32>(imgui_width);
         u32 height = static_cast<u32>(imgui_height);
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
-        auto bn_file = platform::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/64_64/LDR_RGBA_0.png");
+        auto bn_file = platform::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/256_256/LDR_RGBA_0.png");
         if (bn_file)
         {
 
@@ -782,12 +782,14 @@ void Renderer::update(Scene &scene)
         struct TAAOptions
         {
             uint sampled_hdr_buffer;
+            uint sampled_depth_buffer;
             uint sampled_previous_history;
             uint storage_current_history;
         };
 
         auto *options                     = base_renderer.bind_shader_options<TAAOptions>(cmd, taa_program);
         options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_buffer);
+        options->sampled_depth_buffer       = device.get_image_sampled_index(depth_buffer);
         options->sampled_previous_history = device.get_image_sampled_index(previous_history);
         options->storage_current_history  = device.get_image_storage_index(current_history);
         cmd.bind_pipeline(taa_program);

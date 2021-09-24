@@ -30,7 +30,7 @@ struct Settings
     float resolution_scale      = {1.0f};
     int2  render_resolution     = {0};
     bool  resolution_dirty      = {true};
-    bool  clear_history         = {true};
+    bool  clear_history         = {false};
     bool  enable_path_tracing   = {false};
     bool  freeze_camera_culling = {false};
     bool  use_blue_noise        = {false};
