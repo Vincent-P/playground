@@ -16,6 +16,9 @@ enum struct ComponentState
 
 struct BaseComponent
 {
+    u64         uid;
+    std::string name;
+
     virtual void load()   = 0;
     virtual void unload() = 0;
     virtual void initialize() = 0;
@@ -24,15 +27,7 @@ struct BaseComponent
   protected:
     ComponentState state;
 };
-
-struct EntityComponent : BaseComponent
-{
-    u64         uid;
-    std::string name;
-    // empty component?
-};
-
-struct SpatialEntityComponent : EntityComponent
+struct SpatialComponent : BaseComponent
 {
     void set_local_transform(const float4x4 &new_transform);
     void set_local_bounds(const float4x4 &new_bounds);
@@ -50,8 +45,8 @@ struct SpatialEntityComponent : EntityComponent
     float4x4 world_transform;
     AABB     world_bounds;
 
-    SpatialEntityComponent *      parent;
-    Vec<SpatialEntityComponent *> children;
+    SpatialComponent *      parent;
+    Vec<SpatialComponent *> children;
 };
 
 /**

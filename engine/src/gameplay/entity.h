@@ -7,7 +7,7 @@
 
 struct BaseComponent;
 struct BaseSystem;
-struct SpatialEntityComponent;
+struct SpatialComponent;
 
 enum struct EntityState
 {
@@ -32,9 +32,14 @@ struct Entity
     // Opposite of activate()
     void deactivate();
 
-    SpatialEntityComponent *root_component = nullptr;
+    SpatialComponent *root_component = nullptr;
     Vec<BaseComponent *> components;
     Vec<BaseSystem *>    local_systems;
 
     EnumArray<Vec<BaseSystem*>, UpdateStages> per_stage_update_list;
+};
+
+struct EntityWorld
+{
+
 };
