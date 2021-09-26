@@ -8,7 +8,7 @@
 #include <string_view>
 #include <variant>
 
-#if defined(_WIN64)
+#if defined(CROSS_WINDOW)
 typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
@@ -144,7 +144,7 @@ struct Caret
 
 struct Window;
 
-#if defined(_WIN64)
+#if defined(CROSS_WINDOW)
 struct Window_Win32
 {
     HWND window;
@@ -213,7 +213,7 @@ struct Window
     EnumArray<bool, VirtualKey> keys_pressed           = {};
     EnumArray<bool, MouseButton> mouse_buttons_pressed = {};
 
-#if defined(_WIN64)
+#if defined(CROSS_WINDOW)
     Window_Win32 win32;
 #else
     Window_Xcb xcb;

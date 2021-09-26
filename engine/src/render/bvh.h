@@ -25,7 +25,7 @@ PACKED(struct BVHNode
     u32    prim_index = u32_invalid;
     float3 bbox_max   = {0.0f};
     u32    next_node  = u32_invalid;
-};)
+})
 
 struct BVHScratchMemory
 {

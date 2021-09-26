@@ -1,19 +1,23 @@
 #pragma once
 #include <exo/maths/numerics.h>
 #include <exo/option.h>
+#include "cross/prelude.h"
 #include <string_view>
-
-using HANDLE = void*;
 
 namespace platform
 {
 
 struct MappedFile
 {
-    HANDLE fd = nullptr;
-    HANDLE mapping = nullptr;
+#if defined (CROSS_WINDOW)
+    void* fd = nullptr;
+    void* mapping = nullptr;
+#else
+    int fd = -1;
+#endif
+
     const void *base_addr = nullptr;
-    u64 size = 0;
+    usize size = 0;
 
     MappedFile() = default;
     MappedFile(const MappedFile &copied) = delete;

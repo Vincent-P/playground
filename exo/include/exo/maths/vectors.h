@@ -346,7 +346,7 @@ inline constexpr auto float3_RIGHT   = float3{1, 0, 0};
 inline constexpr auto float3_UP      = float3{0, 1, 0};
 inline constexpr auto float3_FORWARD = float3{0, 0, -1};
 
-#if 0
+#if 1
 #include <type_traits>
 #define CHECK(x) static_assert(std::is_trivial<x>::value && std::is_standard_layout<x>::value);
 CHECK(uint2)

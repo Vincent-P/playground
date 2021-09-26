@@ -27,7 +27,7 @@ PACKED(struct Material
     float2 pad00                      = {0.0f};
 
     bool operator==(const Material &other) const = default;
-};)
+})
 
 PACKED(struct TextureTransform
 {
@@ -36,4 +36,4 @@ PACKED(struct TextureTransform
     float rotation; // Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a similar rotation of the image clockwise.
 
     bool operator==(const TextureTransform &other) const = default;
-};)
+})

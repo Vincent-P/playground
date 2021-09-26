@@ -1,6 +1,7 @@
 #include "render/vulkan/surface.h"
 
 #include <cross/window.h>
+#include <exo/collections/dynamic_array.h>
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
@@ -52,10 +53,11 @@ void Surface::create_swapchain(Device &device)
     logger::info("Creating swapchain {}x{}\n", width, height);
 
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
-    uint present_modes_count = 0;
+    u32 present_modes_count = 0;
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, nullptr));
 
-    Vec<VkPresentModeKHR> present_modes(present_modes_count);
+    DynamicArray<VkPresentModeKHR, 8> present_modes = {};
+    present_modes.resize(present_modes_count);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, present_modes.data()));
     this->present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
@@ -104,7 +106,10 @@ void Surface::create_swapchain(Device &device)
         }
     }
 
-    auto image_count = capabilities.minImageCount + 2u;
+    auto image_count = capabilities.minImageCount;
+    if (image_count < 3) {
+        image_count = image_count + 1u;
+    }
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
     {
         image_count = capabilities.maxImageCount;

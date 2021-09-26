@@ -4,7 +4,6 @@
 #include "exo/handle.h"
 #include "exo/collections/iterator_facade.h"
 #include <iterator>
-#include <xutility>
 
 /**
    A Pool is a linear allocator with a free-list.
@@ -18,6 +17,9 @@
 // Impl below helpers
 template<typename T>
 struct PoolIterator;
+
+template<typename T>
+struct ConstPoolIterator;
 
 template <typename T>
 struct Pool
@@ -33,8 +35,12 @@ struct Pool
 
 
     static_assert(std::forward_iterator<PoolIterator<T>>);
+    static_assert(std::forward_iterator<ConstPoolIterator<T>>);
     PoolIterator<T> begin();
     PoolIterator<T> end();
+
+    ConstPoolIterator<T> begin() const;
+    ConstPoolIterator<T> end() const;
 
     bool operator==(const Pool &rhs) const = default;
 
@@ -133,6 +139,47 @@ struct PoolIterator : IteratorFacade<PoolIterator<T>>
     }
 
     Pool<T> *pool        = nullptr;
+    u32 current_index = u32_invalid;
+};
+
+template<typename T>
+struct ConstPoolIterator : IteratorFacade<ConstPoolIterator<T>>
+{
+    ConstPoolIterator() = default;
+    ConstPoolIterator(const Pool<T> *_pool, u32 _index = 0)
+        : pool{_pool}
+        , current_index{_index}
+    {
+    }
+
+    std::pair<Handle<T>, const T*> dereference() const
+    {
+        const auto *metadata = metadata_ptr(*pool, current_index);
+        const auto *element  = element_ptr(*pool, current_index);
+
+        Handle<T> handle = {current_index, metadata->generation};
+        return std::make_pair(handle, element);
+    }
+
+    void increment()
+    {
+        for (current_index = current_index + 1; current_index < pool->capacity; current_index += 1)
+        {
+            auto *metadata = metadata_ptr(*pool, current_index);
+            auto *element  = element_ptr(*pool, current_index);
+            if (metadata->is_occupied == 1)
+            {
+                break;
+            }
+        }
+    }
+
+    bool equal_to(const ConstPoolIterator &other) const
+    {
+        return pool == other.pool && current_index == other.current_index;
+    }
+
+    const Pool<T> *pool        = nullptr;
     u32 current_index = u32_invalid;
 };
 
@@ -253,4 +300,17 @@ template <typename T>
 PoolIterator<T> Pool<T>::end()
 {
     return PoolIterator<T>(this, capacity);
+}
+
+
+template <typename T>
+ConstPoolIterator<T> Pool<T>::begin() const
+{
+    return ConstPoolIterator<T>(this, 0);
+}
+
+template <typename T>
+ConstPoolIterator<T> Pool<T>::end() const
+{
+    return ConstPoolIterator<T>(this, capacity);
 }

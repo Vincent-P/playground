@@ -115,6 +115,9 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
             .full_view = full_view,
         });
 
+
+    logger::info("Creating image \"{}\" at index #{}\n", image_desc.name, handle.value());
+
     // Bindless (bind everything)
     if (is_sampled)
     {

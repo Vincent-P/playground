@@ -19,7 +19,11 @@
 
 /// --- Portable compiler attribute/builtins
 
-#define PACKED(struct_decl) __pragma(pack(push, 1)) struct_decl __pragma(pack(pop))
+#if defined(CXX_MSVC)
+#define PACKED(struct_decl) __pragma(pack(push, 1)) struct_decl ; __pragma(pack(pop))
+#else
+#define PACKED(struct_decl) struct_decl __attribute__((packed)) ;
+#endif
 
 namespace exo
 {
@@ -78,8 +82,8 @@ constexpr double to_radians(double degres)
 
 // --- User-defined literals
 
-constexpr inline u64 operator"" _K(u64 value) { return value * 1000u; }
-constexpr inline u64 operator"" _KiB(u64 value) { return value << 10; }
-constexpr inline u64 operator"" _MiB(u64 value) { return value << 20; }
-constexpr inline u64 operator"" _GiB(u64 value) { return value << 30; }
-constexpr inline usize operator"" _uz(usize value) { return value; }
+constexpr inline u64 operator"" _K(unsigned long long value) { return value * 1000u; }
+constexpr inline u64 operator"" _KiB(unsigned long long value) { return value << 10; }
+constexpr inline u64 operator"" _MiB(unsigned long long value) { return value << 20; }
+constexpr inline u64 operator"" _GiB(unsigned long long value) { return value << 30; }
+constexpr inline usize operator"" _uz(unsigned long long value) { return static_cast<usize>(value); }

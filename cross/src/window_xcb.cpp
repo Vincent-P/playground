@@ -1,7 +1,7 @@
 #include "cross/window.h"
 
-#include <exo/types.h>
-#include <exo/algorithms.h>
+#include <exo/prelude.h>
+#include <exo/collections/enum_array.h>
 
 #include <cstdio>
 #include <fmt/core.h>
@@ -10,7 +10,7 @@
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon.h>
 
-std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
+EnumArray<uint, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
 #include "cross/window_keys.def"
 #undef X
@@ -18,7 +18,7 @@ std::array<uint, to_underlying(VirtualKey::Count) + 1> native_to_virtual{
 
 namespace platform
 {
-void Window::create(Window &window, usize width, usize height, std::string_view title)
+void Window::create(Window &window, u32 width, u32 height, std::string_view title)
 {
     window.title  = std::string(title);
     window.width  = width;
@@ -128,6 +128,13 @@ void Window::create(Window &window, usize width, usize height, std::string_view 
     xcb_flush(window.xcb.connection);
 }
 
+void Window::set_title(std::string &&  new_title)
+{
+    this->title = std::move(new_title);
+    xcb_change_property(xcb.connection, XCB_PROP_MODE_REPLACE, xcb.window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, title.size(), title.c_str());
+    xcb_flush(xcb.connection);
+}
+
 void Window::poll_events()
 {
     xcb_generic_event_t *ev = nullptr;
@@ -156,7 +163,6 @@ void Window::poll_events()
             case XCB_CONFIGURE_NOTIFY:
             {
                 auto *configure_message = reinterpret_cast<xcb_configure_notify_event_t*>(ev);
-                fmt::print("Configure({}, {})\n", configure_message->width, configure_message->height);
                 // push_event<event::Resize>({.width = configure_message->width, .height = configure_message->height});
                 break;
             }
@@ -199,7 +205,7 @@ void Window::poll_events()
                 if (pressed != MouseButton::Count)
                 {
                     push_event<event::MouseClick>({.button = pressed, .state = ButtonState::Pressed});
-                    mouse_buttons_pressed[to_underlying(pressed)] = true;
+                    mouse_buttons_pressed[pressed] = true;
                 }
 
                 break;
@@ -234,7 +240,7 @@ void Window::poll_events()
                 if (released != MouseButton::Count)
                 {
                     push_event<event::MouseClick>({.button = released, .state = ButtonState::Released});
-                    mouse_buttons_pressed[to_underlying(released)] = false;
+                    mouse_buttons_pressed[released] = false;
                 }
                 break;
             }
@@ -258,9 +264,10 @@ void Window::poll_events()
                 auto keysym     = xkb_state_key_get_one_sym(xcb.kb_state, keycode);
 
                 auto key = VirtualKey::Count;
-                for (uint i = 0; i < to_underlying(VirtualKey::Count); i++)
+                for (uint i = 0; i < static_cast<usize>(VirtualKey::Count); i++)
                 {
-                    uint xcb_virtual_key = native_to_virtual[i];
+                    auto virtual_key = static_cast<VirtualKey>(i);
+                    uint xcb_virtual_key = native_to_virtual[virtual_key];
                     if (keysym == xcb_virtual_key)
                     {
                         key = static_cast<VirtualKey>(i);
@@ -268,11 +275,12 @@ void Window::poll_events()
                     }
                 }
 
-                auto state = ev->response_type == XCB_KEY_PRESS ? ButtonState::Pressed : ButtonState::Released;
-
-                push_event<event::Key>({.key = key, .state = state});
-                keys_pressed[to_underlying(key)] = state == ButtonState::Pressed;
-
+                if (key != VirtualKey::Count)
+                {
+                    auto state = ev->response_type == XCB_KEY_PRESS ? ButtonState::Pressed : ButtonState::Released;
+                    push_event<event::Key>({.key = key, .state = state});
+                    keys_pressed[key] = state == ButtonState::Pressed;
+                }
                 break;
             }
 

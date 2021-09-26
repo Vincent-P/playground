@@ -42,6 +42,7 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
     if (!is_handle_valid(file.fd)) {
         return {};
     }
+    DEFER { CloseHandle(file.fd); };
 
     DWORD hi = 0;
     DWORD lo = GetFileSize(file.fd, &hi);
@@ -49,14 +50,12 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 
     file.mapping = CreateFileMapping(file.fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
     if (!is_handle_valid(file.mapping)) {
-        CloseHandle(file.fd);
         return {};
     }
+    DEFER { CloseHandle(file.mapping); };
 
     file.base_addr = MapViewOfFile(file.mapping, FILE_MAP_READ, 0, 0, 0);
     if (!file.base_addr) {
-        CloseHandle(file.fd);
-        CloseHandle(file.mapping);
         return {};
     }
 

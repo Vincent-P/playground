@@ -4,6 +4,7 @@
 
 template <typename T> struct Pool;
 template <typename T> struct PoolIterator;
+template <typename T> struct ConstPoolIterator;
 
 /// --- Handle type (Typed index that can be invalid)
 template <typename T>
@@ -50,6 +51,7 @@ struct Handle
     friend struct ::std::hash<Handle<T>>;
     friend Pool<T>;
     friend PoolIterator<T>;
+    friend ConstPoolIterator<T>;
 };
 
 namespace std

@@ -17,7 +17,7 @@ struct Context;
 struct Device;
 struct Image;
 
-inline constexpr usize MAX_SWAPCHAIN_IMAGES = 4;
+inline constexpr usize MAX_SWAPCHAIN_IMAGES = 6;
 
 struct Surface
 {

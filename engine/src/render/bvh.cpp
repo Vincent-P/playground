@@ -3,11 +3,12 @@
 #include "render/mesh.h"
 
 #include <cmath>
+#include <cfloat> // FLT_MAX
 #include <exo/maths/aabb.h>
 #include <exo/algorithms.h>
 #include <exo/logger.h>
 
-#include <intrin.h>
+#include <xmmintrin.h>
 #include <limits>
 
 inline float3 extract_float3(__m128 v)
@@ -340,7 +341,9 @@ static void create_nodes(BVHScratchMemory &scratch, Vec<BVHNode> &nodes)
 
         if (output_graph)
         {
-            logger::info("{} [label=\"{}\"];\n", temp_node.depth_first_index, fmt::format("depth id: {} \\n next: {}\\n face id: {}", temp_node.depth_first_index, node.next_node, node.prim_index));
+            auto next_node = node.next_node; // cannot bind packed field ‘node.BVHNode::next_node’ to ‘unsigned int&’
+            auto prim_index = node.prim_index; // cannot bind packed field ‘node.BVHNode::prim_index’ to ‘unsigned int&’
+            logger::info("{} [label=\"{}\"];\n", temp_node.depth_first_index, fmt::format("depth id: {} \\n next: {}\\n face id: {}", temp_node.depth_first_index, next_node, prim_index));
             if (temp_node.left_child != u64_invalid)
             {
                 logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.left_child].depth_first_index);

@@ -78,13 +78,13 @@ PACKED (struct GlobalUniform
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};)
+})
 
 PACKED (struct PushConstants
 {
     u32 draw_id        = u32_invalid;
     u32 gui_texture_id = u32_invalid;
-};)
+})
 
 // Descriptors for a mesh
 PACKED (struct RenderMeshGPU
@@ -97,7 +97,7 @@ PACKED (struct RenderMeshGPU
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};)
+})
 
 // A 3D model
 struct RenderMesh
@@ -127,7 +127,7 @@ PACKED (struct RenderInstance
     u32 pad00;
     u32 pad01;
     u32 pad10;
-};)
+})
 
 
 struct RenderMaterial

@@ -11,10 +11,11 @@ using u16   = std::uint16_t;
 using u32   = std::uint32_t;
 using u64   = std::uint64_t;
 using usize = std::size_t;
+using isize = std::ptrdiff_t;
 using uchar = unsigned char;
 using uint  = unsigned int;
 using f32   = float;
 using f64   = double;
 
-static constexpr u32 u32_invalid = ~0lu;
-static constexpr u64 u64_invalid = ~0llu;
+static constexpr u32 u32_invalid = ~u32(0);
+static constexpr u64 u64_invalid = ~u64(0);

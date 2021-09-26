@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-#if defined(_WIN64)
+#if defined(CROSS_WINDOW)
 #    include <array>
 #    include <basetsd.h> // win32 types
 #    include <wtypes.h>  // HANDLE type
@@ -18,7 +18,7 @@ struct Watch
 
 #ifdef __linux__
 
-#elif defined(_WIN64)
+#elif defined(CROSS_WINDOW)
     HANDLE directory_handle;
     OVERLAPPED overlapped;
 
@@ -35,7 +35,7 @@ struct Event
 #ifdef __linux__
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
-#elif defined(_WIN64)
+#elif defined(CROSS_WINDOW)
 
 #endif
 
@@ -50,7 +50,7 @@ struct FileWatcher
 {
 #if defined(__linux__)
     int inotify_fd;
-#elif defined(_WIN64)
+#elif defined(CROSS_WINDOW)
 
 #endif
 

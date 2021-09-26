@@ -25,4 +25,4 @@ PACKED(struct ImDrawVert                  \
     unsigned pad00; \
     unsigned pad01; \
     unsigned pad10; \
-};)
+})

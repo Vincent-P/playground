@@ -136,6 +136,8 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
     renderer.settings.resolution_dirty  = true;
     renderer.settings.render_resolution = int2(surface.width, surface.height);
 
+    gfx::DescriptorType one_dynamic_buffer_descriptor = {{{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}}};
+
     // Create ImGui pass
     auto &imgui_pass = renderer.imgui_pass;
     {
@@ -143,9 +145,7 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
         gui_state.vertex_shader   =  device.create_shader("shaders/gui.vert.spv");
         gui_state.fragment_shader =  device.create_shader("shaders/gui.frag.spv");
         gui_state.attachments_format = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
-        gui_state.descriptors =  {
-            {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}},
-        };
+        gui_state.descriptors.push_back(one_dynamic_buffer_descriptor);
         imgui_pass.program = device.create_program("imgui", gui_state);
 
         gfx::RenderState state = {.rasterization = {.culling = false}, .alpha_blending = true};
@@ -173,9 +173,7 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
         state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
         state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
         state.attachments_format = {.attachments_format = {VK_FORMAT_R32G32_UINT}, .depth_format = VK_FORMAT_D32_SFLOAT};
-        state.descriptors        = {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer}, // options
-        };
+        state.descriptors.push_back(one_dynamic_buffer_descriptor);
         renderer.opaque_program = device.create_program("gltf opaque", state);
 
         gfx::RenderState render_state      = {};
@@ -188,72 +186,52 @@ Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager
     // Create tonemap program
     renderer.taa_program = device.create_program("taa", {
         .shader = device.create_shader("shaders/taa.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.tonemap_program = device.create_program("tonemap", {
         .shader = device.create_shader("shaders/tonemap.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.path_tracer_program = device.create_program("path tracer", {
         .shader = device.create_shader("shaders/path_tracer.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.instances_culling_program = device.create_program("instances culling", {
         .shader = device.create_shader("shaders/instances_culling.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.parallel_prefix_sum_program = device.create_program("parallel prefix sum", {
         .shader = device.create_shader("shaders/parallel_prefix_sum.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.copy_culled_instances_index_program = device.create_program("copy instances", {
         .shader = device.create_shader("shaders/copy_instances_index.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.init_draw_calls_program = device.create_program("init draw calls", {
         .shader = device.create_shader("shaders/init_draw_calls.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.drawcalls_fill_predicate_program = device.create_program("draw calls fill predicate", {
         .shader = device.create_shader("shaders/drawcalls_fill_predicate.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.copy_draw_calls_program = device.create_program("copy culled draw calls", {
         .shader = device.create_shader("shaders/copy_draw_calls.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     renderer.visibility_shading_program = device.create_program("visibility shading", {
         .shader = device.create_shader("shaders/visibility_shading.comp.spv"),
-        .descriptors =  {
-            {.count = 1, .type = gfx::DescriptorType::DynamicBuffer},
-        },
+        .descriptors =  {one_dynamic_buffer_descriptor},
     });
 
     auto compute_halton = [](u32 index, u32 radix)
@@ -911,7 +889,7 @@ void Renderer::update(Scene &scene)
             u64 vertices_pointer;
             u32 first_vertex;
             u32 vertices_descriptor_index;
-        };)
+        })
 
         auto *options = base_renderer.bind_shader_options<ImguiOptions>(cmd, imgui_pass.program);
         std::memset(options, 0, sizeof(ImguiOptions));

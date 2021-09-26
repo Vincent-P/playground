@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -12,8 +12,8 @@ find_package(Threads)
 # Global C++ flags
 add_compile_options(
   # colored output when using ninja generator
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fcolor-diagnostics>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fansi-escape-codes>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fcolor-diagnostics>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fansi-escape-codes>
 
 
   # Disable warnings for external headers
@@ -35,6 +35,7 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
 
+
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<CXX_COMPILER_ID:MSVC>:/permissive->
   $<$<CXX_COMPILER_ID:MSVC>:/w14640> # Enable warning on thread un-safe static member initialization
@@ -47,6 +48,8 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/wd4201>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-nested-anon-types>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-gnu-anonymous-struct>
+
+  $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-field-initializers>
 
 
   # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>

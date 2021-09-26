@@ -153,3 +153,4 @@ target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 #tracy profiler
 add_library(tracy tracy/TracyClient.cpp)
 target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+target_link_libraries(tracy ${CMAKE_DL_LIBS})

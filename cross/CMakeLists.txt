@@ -1,6 +1,5 @@
 set(SOURCE_FILES
   src/file_watcher.cpp
-  src/mapped_file.cpp
   )
 
 if (WIN32)
@@ -9,7 +8,8 @@ if (WIN32)
     ${SOURCE_FILES}
     src/file_dialog_win32.cpp
     src/utils_win32.cpp
-    src/window_win32.cpp)
+    src/window_win32.cpp
+    src/mapped_file_win32.cpp)
 
   set(CROSS_LIBS
     ${CROSS_LIBS}
@@ -17,9 +17,17 @@ if (WIN32)
 
 elseif (UNIX)
 
-  set(CROSS_FILES
-    ${CROSS_FILES}
-    src/window_xcb.cpp)
+  set(SOURCE_FILES
+    ${SOURCE_FILES}
+    src/file_dialog_linux.cpp
+    src/window_xcb.cpp
+    src/mapped_file_unix.cpp)
+
+  set(CROSS_LIBS
+          ${CROSS_LIBS}
+          xcb
+          xkbcommon
+          xkbcommon-x11)
 
 endif()
 
@@ -43,4 +51,6 @@ target_compile_definitions(cross PUBLIC
   $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
   $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
   $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
+
+  $<$<BOOL:${UNIX}>:VK_USE_PLATFORM_XCB_KHR>
   )
