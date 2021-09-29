@@ -3,12 +3,13 @@
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
+#include <cross/prelude.h>
 
 #include <string>
 #include <string_view>
 #include <variant>
 
-#if defined(CROSS_WINDOW)
+#if defined(CROSS_WINDOWS)
 typedef struct HWND__ *HWND;
 typedef struct HGLRC__ *HGLRC;
 #else
@@ -62,7 +63,7 @@ enum class ButtonState
 
 inline constexpr const char *to_string(ButtonState state) { return state == ButtonState::Pressed ? "Pressed" : "Released"; }
 
-namespace platform
+namespace cross
 {
 
 enum struct Cursor
@@ -144,7 +145,7 @@ struct Caret
 
 struct Window;
 
-#if defined(CROSS_WINDOW)
+#if defined(CROSS_WINDOWS)
 struct Window_Win32
 {
     HWND window;
@@ -213,11 +214,11 @@ struct Window
     EnumArray<bool, VirtualKey> keys_pressed           = {};
     EnumArray<bool, MouseButton> mouse_buttons_pressed = {};
 
-#if defined(CROSS_WINDOW)
+#if defined(CROSS_WINDOWS)
     Window_Win32 win32;
 #else
     Window_Xcb xcb;
 #endif
 };
 
-} // namespace platform
+} // namespace cross

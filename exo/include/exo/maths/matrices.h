@@ -1,6 +1,8 @@
 #pragma once
 #include "exo/maths/vectors.h"
 
+namespace exo
+{
 struct float4x4;
 
 float4x4 transpose(const float4x4 &m);
@@ -33,3 +35,4 @@ float4x4 operator*(float a, const float4x4 &m);
 
 float4x4 operator*(const float4x4 &a, const float4x4 &b);
 float4   operator*(const float4x4 &m, const float4 &v);
+}

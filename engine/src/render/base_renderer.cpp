@@ -4,7 +4,7 @@
 #include <cross/window.h>
 #include <tracy/Tracy.hpp>
 
-BaseRenderer BaseRenderer::create(platform::Window &window, gfx::DeviceDescription desc)
+BaseRenderer BaseRenderer::create(cross::Window &window, gfx::DeviceDescription desc)
 {
     BaseRenderer renderer = {};
 

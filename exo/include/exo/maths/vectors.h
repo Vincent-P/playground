@@ -1,6 +1,8 @@
 #pragma once
 #include "exo/maths/numerics.h"
 
+namespace exo
+{
 struct uint2;
 struct uint3;
 struct int2;
@@ -346,14 +348,16 @@ inline constexpr auto float3_RIGHT   = float3{1, 0, 0};
 inline constexpr auto float3_UP      = float3{0, 1, 0};
 inline constexpr auto float3_FORWARD = float3{0, 0, -1};
 
+}
+
 #if 1
 #include <type_traits>
 #define CHECK(x) static_assert(std::is_trivial<x>::value && std::is_standard_layout<x>::value);
-CHECK(uint2)
-CHECK(int2)
-CHECK(float3)
-CHECK(uint3)
-CHECK(int3)
-CHECK(float4)
+CHECK(exo::uint2)
+CHECK(exo::int2)
+CHECK(exo::float3)
+CHECK(exo::uint3)
+CHECK(exo::int3)
+CHECK(exo::float4)
 #undef CHECK
 #endif

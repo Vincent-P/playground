@@ -19,7 +19,7 @@ namespace glb
 
     struct Scene
     {
-        platform::MappedFile file;
+        cross::MappedFile file;
         Vec<Mesh> meshes;
         Vec<MeshInstance> instances;
         Vec<Material> materials;

@@ -6,6 +6,8 @@
 #include <doctest.h>
 #endif
 
+namespace exo
+{
 template<typename V>
 auto max_impl(V a)
 {
@@ -296,3 +298,4 @@ TEST_SUITE("Matrices")
 }
 }
 #endif
+}

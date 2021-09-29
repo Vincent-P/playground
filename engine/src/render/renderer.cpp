@@ -11,7 +11,9 @@
 #include "render/unified_buffer_storage.h"
 #include "ui.h"
 #include "scene.h"
-#include "components/camera_component.h"
+
+#include "gameplay/entity.h"
+#include "gameplay/components/camera_component.h"
 #include "components/transform_component.h"
 #include "components/mesh_component.h"
 
@@ -45,7 +47,7 @@ static VkFormat to_vk(PixelFormat pformat)
     exo::unreachable();
 }
 
-Renderer Renderer::create(platform::Window &window, AssetManager *_asset_manager)
+Renderer Renderer::create(cross::Window &window, AssetManager *_asset_manager)
 {
     Renderer renderer = {};
     renderer.asset_manager = _asset_manager;
@@ -474,7 +476,7 @@ void Renderer::update(Scene &scene)
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
-        auto bn_file = platform::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/256_256/LDR_RGBA_0.png");
+        auto bn_file = cross::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/256_256/LDR_RGBA_0.png");
         if (bn_file)
         {
 
@@ -496,23 +498,13 @@ void Renderer::update(Scene &scene)
     streamer.update(work_pool);
 
     // -- Get the main camera
-    CameraComponent *main_camera              = nullptr;
-    TransformComponent *main_camera_transform = nullptr;
+    auto *main_camera = scene.main_camera_entity->get_first_component<CameraComponent>();
+    ASSERT(main_camera != nullptr);
     {
     ZoneNamedN(camera_update, "Camera update", true);
-    scene.world.for_each<TransformComponent, CameraComponent>(
-        [&](auto &transform, auto &camera)
-        {
-            if (!main_camera)
-            {
-                main_camera           = &camera;
-                main_camera_transform = &transform;
-            }
-        });
-    ASSERT(main_camera != nullptr);
     float2 float_resolution = float2(settings.render_resolution);
     float aspect_ratio = float_resolution.x / float_resolution.y;
-    main_camera->projection = camera::infinite_perspective(main_camera->fov, aspect_ratio, main_camera->near_plane, &main_camera->projection_inverse);
+    main_camera->set_perspective(aspect_ratio);
     }
 
     // -- Get geometry from the scene and prepare the draw commands
@@ -521,14 +513,14 @@ void Renderer::update(Scene &scene)
     // -- Update global data
     float2 current_sample = halton_sequence[base_renderer.frame_count%16] - float2(0.5);
 
-    static float4x4 last_view = main_camera->view;
-    static float4x4 last_proj = main_camera->projection;
+    static float4x4 last_view = main_camera->get_view();
+    static float4x4 last_proj = main_camera->get_projection();
 
     auto *global_data                                = base_renderer.bind_global_options<GlobalUniform>();
-    global_data->camera_view                         = main_camera->view;
-    global_data->camera_projection                   = main_camera->projection;
-    global_data->camera_view_inverse                 = main_camera->view_inverse;
-    global_data->camera_projection_inverse           = main_camera->projection_inverse;
+    global_data->camera_view                         = main_camera->get_view();
+    global_data->camera_projection                   = main_camera->get_projection();
+    global_data->camera_view_inverse                 = main_camera->get_view_inverse();
+    global_data->camera_projection_inverse           = main_camera->get_projection_inverse();
     global_data->camera_previous_view                = last_view;
     global_data->camera_previous_projection          = last_proj;
     global_data->render_resolution                   = floor(settings.resolution_scale * float2(settings.render_resolution)),
@@ -551,8 +543,8 @@ void Renderer::update(Scene &scene)
     global_data->materials_descriptor                = device.get_buffer_storage_index(this->materials_buffer);
     global_data->vertex_uvs_descriptor               = device.get_buffer_storage_index(this->vertex_uvs_buffer.buffer);
 
-    last_view = main_camera->view;
-    last_proj = main_camera->projection;
+    last_view = main_camera->get_view();
+    last_proj = main_camera->get_projection();
 
     device.update_globals();
 
@@ -620,10 +612,10 @@ void Renderer::update(Scene &scene)
             cmd.dispatch(dispatch_size({static_cast<i32>(this->draw_count), 1, 1}, 32));
 
             // Frustum culling
-            static float4x4 culling_view = main_camera->view;
+            static float4x4 culling_view = main_camera->get_view();
             if (settings.freeze_camera_culling == false)
             {
-                culling_view = main_camera->view;
+                culling_view = main_camera->get_view();
             }
             cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
             cmd.fill_buffer(predicate_buffer, 0);

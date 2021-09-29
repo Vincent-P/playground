@@ -28,12 +28,12 @@ void operator delete(void *ptr) noexcept
 
 App::App()
 {
-    platform::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    cross::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     ui = UI::Context::create();
 
     renderer = Renderer::create(window, &asset_manager);
 
-    watcher       = platform::FileWatcher::create();
+    watcher       = cross::FileWatcher::create();
     shaders_watch = watcher.add_watch("shaders");
     watcher.on_file_change([&](const auto &watch, const auto &event) {
         if (watch.wd != shaders_watch.wd)
@@ -52,7 +52,7 @@ App::App()
     inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
     inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
 
-    scene.init(&asset_manager);
+    scene.init(&asset_manager, &inputs);
 }
 
 App::~App()
@@ -81,17 +81,17 @@ void App::run()
     {
         window.poll_events();
 
-        Option<platform::event::Resize> last_resize;
+        Option<cross::event::Resize> last_resize;
         for (auto &event : window.events)
         {
-            if (std::holds_alternative<platform::event::Resize>(event))
+            if (std::holds_alternative<cross::event::Resize>(event))
             {
-                auto resize = std::get<platform::event::Resize>(event);
+                auto resize = std::get<cross::event::Resize>(event);
                 last_resize = resize;
             }
-            else if (std::holds_alternative<platform::event::MouseMove>(event))
+            else if (std::holds_alternative<cross::event::MouseMove>(event))
             {
-                auto move = std::get<platform::event::MouseMove>(event);
+                auto move = std::get<cross::event::MouseMove>(event);
                 this->ui.on_mouse_movement(window, double(move.x), double(move.y));
 
                 this->is_minimized = false;

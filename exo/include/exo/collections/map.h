@@ -1,5 +1,5 @@
 #pragma once
-#include <unordered_map>
+#include <parallel_hashmap/phmap.h>
 
 template<typename K, typename V>
-using Map = std::unordered_map<K, V>;
+using Map = phmap::flat_hash_map<K, V>;

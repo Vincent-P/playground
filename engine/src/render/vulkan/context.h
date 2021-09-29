@@ -4,7 +4,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace platform { struct Window; }
+namespace cross { struct Window; }
 
 namespace vulkan
 {
@@ -18,7 +18,7 @@ struct Context
 
     /// --
 
-    static Context create(bool enable_validation = true, const platform::Window *window = nullptr);
+    static Context create(bool enable_validation = true, const cross::Window *window = nullptr);
     void destroy();
 
     // Instance functions

@@ -47,7 +47,7 @@ class Inputs
     inline Option<int2> get_scroll_this_frame() const { return scroll_this_frame; }
     inline Option<int2> get_mouse_delta() const { return mouse_delta; }
 
-    void process(const Vec<platform::event::Event> &events);
+    void process(const Vec<cross::event::Event> &events);
 
     void display_ui(UI::Context &ui);
 

@@ -25,51 +25,51 @@ Context Context::create()
     return ctx;
 }
 
-static platform::Cursor cursor_from_imgui()
+static cross::Cursor cursor_from_imgui()
 {
     ImGuiIO &io                   = ImGui::GetIO();
     ImGuiMouseCursor imgui_cursor = io.MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
-    platform::Cursor cursor       = platform::Cursor::None;
+    cross::Cursor cursor       = cross::Cursor::None;
     switch (imgui_cursor)
     {
         case ImGuiMouseCursor_Arrow:
-            cursor = platform::Cursor::Arrow;
+            cursor = cross::Cursor::Arrow;
             break;
         case ImGuiMouseCursor_TextInput:
-            cursor = platform::Cursor::TextInput;
+            cursor = cross::Cursor::TextInput;
             break;
         case ImGuiMouseCursor_ResizeAll:
-            cursor = platform::Cursor::ResizeAll;
+            cursor = cross::Cursor::ResizeAll;
             break;
         case ImGuiMouseCursor_ResizeEW:
-            cursor = platform::Cursor::ResizeEW;
+            cursor = cross::Cursor::ResizeEW;
             break;
         case ImGuiMouseCursor_ResizeNS:
-            cursor = platform::Cursor::ResizeNS;
+            cursor = cross::Cursor::ResizeNS;
             break;
         case ImGuiMouseCursor_ResizeNESW:
-            cursor = platform::Cursor::ResizeNESW;
+            cursor = cross::Cursor::ResizeNESW;
             break;
         case ImGuiMouseCursor_ResizeNWSE:
-            cursor = platform::Cursor::ResizeNWSE;
+            cursor = cross::Cursor::ResizeNWSE;
             break;
         case ImGuiMouseCursor_Hand:
-            cursor = platform::Cursor::Hand;
+            cursor = cross::Cursor::Hand;
             break;
         case ImGuiMouseCursor_NotAllowed:
-            cursor = platform::Cursor::NotAllowed;
+            cursor = cross::Cursor::NotAllowed;
             break;
     }
     return cursor;
 }
 
-void Context::on_mouse_movement(platform::Window &window, double /*xpos*/, double /*ypos*/)
+void Context::on_mouse_movement(cross::Window &window, double /*xpos*/, double /*ypos*/)
 {
     auto cursor = cursor_from_imgui();
     window.set_cursor(cursor);
 }
 
-void Context::start_frame(platform::Window &window, Inputs &inputs)
+void Context::start_frame(cross::Window &window, Inputs &inputs)
 {
     ImGuiIO &io                  = ImGui::GetIO();
     io.DisplaySize.x             = float(window.width);

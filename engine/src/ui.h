@@ -5,7 +5,7 @@
 #include <unordered_map>
 
 using ImGuiWindowFlags = int;
-namespace platform { struct Window; }
+namespace cross { struct Window; }
 
 class Inputs;
 namespace UI
@@ -22,9 +22,9 @@ struct Context
     static Context create();
     void destroy();
 
-    void start_frame(platform::Window &window, Inputs &inputs);
+    void start_frame(cross::Window &window, Inputs &inputs);
     void display_ui();
-    void on_mouse_movement(platform::Window &window, double xpos, double ypos);
+    void on_mouse_movement(cross::Window &window, double xpos, double ypos);
 
     bool begin_window(std::string_view name, bool is_visible = true, ImGuiWindowFlags flags = 0);
     void end_window();

@@ -4,12 +4,12 @@
 #include "cross/prelude.h"
 #include <string_view>
 
-namespace platform
+namespace cross
 {
 
 struct MappedFile
 {
-#if defined (CROSS_WINDOW)
+#if defined (CROSS_WINDOWS)
     void* fd = nullptr;
     void* mapping = nullptr;
 #else
@@ -30,4 +30,4 @@ struct MappedFile
     void close();
 };
 
-}; // namespace platform
+}; // namespace cross

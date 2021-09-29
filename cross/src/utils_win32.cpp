@@ -3,7 +3,7 @@
 #include <exo/prelude.h>
 #include <windows.h>
 
-namespace platform
+namespace cross
 {
 std::wstring utf8_to_utf16(const std::string_view &str)
 {

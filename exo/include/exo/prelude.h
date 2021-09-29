@@ -87,3 +87,5 @@ constexpr inline u64 operator"" _KiB(unsigned long long value) { return value <<
 constexpr inline u64 operator"" _MiB(unsigned long long value) { return value << 20; }
 constexpr inline u64 operator"" _GiB(unsigned long long value) { return value << 30; }
 constexpr inline usize operator"" _uz(unsigned long long value) { return static_cast<usize>(value); }
+
+using namespace exo;

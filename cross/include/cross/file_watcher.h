@@ -1,24 +1,25 @@
 #pragma once
 #include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
+#include <cross/prelude.h>
 
 #include <functional>
 #include <string>
 
-#if defined(CROSS_WINDOW)
+#if defined(CROSS_WINDOWS)
 #    include <array>
 #    include <basetsd.h> // win32 types
 #    include <wtypes.h>  // HANDLE type
 #endif
 
-namespace platform
+namespace cross
 {
 struct Watch
 {
 
 #ifdef __linux__
 
-#elif defined(CROSS_WINDOW)
+#elif defined(CROSS_WINDOWS)
     HANDLE directory_handle;
     OVERLAPPED overlapped;
 
@@ -35,7 +36,7 @@ struct Event
 #ifdef __linux__
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
-#elif defined(CROSS_WINDOW)
+#elif defined(CROSS_WINDOWS)
 
 #endif
 
@@ -50,7 +51,7 @@ struct FileWatcher
 {
 #if defined(__linux__)
     int inotify_fd;
-#elif defined(CROSS_WINDOW)
+#elif defined(CROSS_WINDOWS)
 
 #endif
 

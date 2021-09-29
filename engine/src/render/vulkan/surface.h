@@ -9,7 +9,7 @@
 #include <array>
 #include <vulkan/vulkan.h>
 
-namespace platform { struct Window; }
+namespace cross { struct Window; }
 
 namespace vulkan
 {
@@ -35,7 +35,7 @@ struct Surface
     DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   image_acquired_semaphores;
     DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   can_present_semaphores;
 
-    static Surface create(Context &context, Device &device, const platform::Window &window);
+    static Surface create(Context &context, Device &device, const cross::Window &window);
     void destroy(Context &context, Device &device);
     void create_swapchain(Device &device);
     void destroy_swapchain(Device &device);

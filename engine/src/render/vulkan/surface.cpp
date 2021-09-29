@@ -9,7 +9,7 @@
 namespace vulkan
 {
 
-Surface Surface::create(Context &context, Device &device, const platform::Window &window)
+Surface Surface::create(Context &context, Device &device, const cross::Window &window)
 {
     Surface surface = {};
 

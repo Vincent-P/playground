@@ -2,7 +2,7 @@
 
 #include <exo/prelude.h>
 
-namespace platform
+namespace cross
 {
 Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string>>)
 {

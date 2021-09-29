@@ -3,34 +3,48 @@
 #include <exo/maths/matrices.h>
 #include <exo/maths/aabb.h>
 #include <exo/collections/vector.h>
+#include <cross/uuid.h>
 #include <string>
+
+struct LoadingContext;
 
 enum struct ComponentState
 {
-    Unloaded,
-    Loading,
-    Loaded,
-    LoadingFailed,
-    Initialized
+    Unloaded,      // Constructed, all properties are set, resources arent loaded yet
+    Loading,       //  Resources are still loading
+    Loaded,        // All resources are loaded
+    LoadingFailed, // One or more resources failed to load
+    Initialized    // Allows to allocate (dealocate at shutdown) transient data
 };
 
 struct BaseComponent
 {
-    u64         uid;
+    cross::UUID uuid;
     std::string name;
 
-    virtual void load()   = 0;
-    virtual void unload() = 0;
-    virtual void initialize() = 0;
-    virtual void shutdown()   = 0;
+    virtual ~BaseComponent() {}
+
+    virtual void load(LoadingContext &)       { state = ComponentState::Loaded; }
+    virtual void unload(LoadingContext &)     { state = ComponentState::Unloaded; }
+    virtual void initialize(LoadingContext &) { state = ComponentState::Initialized; }
+    virtual void shutdown(LoadingContext &)   { state = ComponentState::Loaded; }
+
+    // clang-format off
+    constexpr bool is_unloaded() const        { return state == ComponentState::Unloaded; }
+    constexpr bool is_loading() const         { return state == ComponentState::Loading; }
+    constexpr bool is_loaded() const          { return state == ComponentState::Loaded; }
+    constexpr bool has_loading_failed() const { return state == ComponentState::LoadingFailed; }
+    constexpr bool is_initialized() const     { return state == ComponentState::Initialized; }
+    // clang-format on
 
   protected:
     ComponentState state;
 };
+
 struct SpatialComponent : BaseComponent
 {
     void set_local_transform(const float4x4 &new_transform);
-    void set_local_bounds(const float4x4 &new_bounds);
+    void set_local_bounds(const AABB &new_bounds);
 
     // clang-format off
     inline const float4x4 &get_local_transform() const { return local_transform; }

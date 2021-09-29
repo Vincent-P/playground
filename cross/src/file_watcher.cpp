@@ -4,13 +4,13 @@
 
 #ifdef __linux__
 
-#    include <fcntl.h>
-#    include <sys/inotify.h>
-#    include <unistd.h>
+#include <fcntl.h>
+#include <sys/inotify.h>
+#include <unistd.h>
 
-#elif defined(_WIN64)
+#elif defined(CROSS_WINDOWS)
 
-#    include <Windows.h>
+#include <Windows.h>
 #include "utils_win32.h"
 
 #endif
@@ -20,7 +20,7 @@
 
 #include <array>
 
-namespace platform
+namespace cross
 {
 /// --- Linux
 #if defined(__linux__)

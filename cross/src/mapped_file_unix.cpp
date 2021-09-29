@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-namespace platform
+namespace cross
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -72,4 +72,4 @@ void MappedFile::close()
     ::close(fd);
 }
 
-}; // namespace platform
+}; // namespace cross

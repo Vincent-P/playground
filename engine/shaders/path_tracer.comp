@@ -69,6 +69,7 @@ void main()
             break;
         }
 
+
         RenderInstance instance = get_render_instance(hit_info.instance_id);
         RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
 

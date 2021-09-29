@@ -3,6 +3,8 @@
 #include "exo/prelude.h"
 #include <cstring> // for std::memcmp
 
+namespace exo
+{
 float4x4::float4x4(float value)
 {
     for (auto &uninit : values)
@@ -142,4 +144,5 @@ float4 operator*(const float4x4 &m, const float4 &v)
     result[2] = m.at(2, 0) * v[0] + m.at(2, 1) * v[1] + m.at(2, 2) * v[2] + m.at(2, 3) * v[3];
     result[3] = m.at(3, 0) * v[0] + m.at(3, 1) * v[1] + m.at(3, 2) * v[2] + m.at(3, 3) * v[3];
     return result;
+}
 }

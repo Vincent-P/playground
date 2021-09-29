@@ -568,7 +568,7 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
 Scene load_file(const std::string_view &path)
 {
-    auto file = platform::MappedFile::open(path);
+    auto file = cross::MappedFile::open(path);
     if (!file)
     {
         return {};

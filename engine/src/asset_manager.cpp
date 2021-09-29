@@ -113,7 +113,7 @@ void AssetManager::display_ui(UI::Context &ui)
         ImGui::Text("Textures (%u):", textures.size());
         if (ImGui::Button("Load texture"))
         {
-            auto file_path = platform::file_dialog({{"PNG", "*.png"}, {"JPG", "*.jpg"}});
+            auto file_path = cross::file_dialog({{"PNG", "*.png"}, {"JPG", "*.jpg"}});
             if (file_path)
             {
                 load_texture(*file_path);

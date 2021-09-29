@@ -23,7 +23,7 @@ EnumArray<i32, VirtualKey> native_to_virtual{
 #undef X
 };
 
-namespace platform
+namespace cross
 {
 
 inline Window *get_window_from_handle(HWND hwnd)
@@ -509,4 +509,4 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-} // namespace platform
+} // namespace cross

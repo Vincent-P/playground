@@ -21,14 +21,14 @@ class App
     void display_ui();
 
     UI::Context ui;
-    platform::Window window;
+    cross::Window window;
     Inputs inputs;
     AssetManager asset_manager;
     Renderer renderer;
     Scene scene;
 
-    platform::FileWatcher watcher;
-    platform::Watch shaders_watch;
+    cross::FileWatcher watcher;
+    cross::Watch shaders_watch;
 
     bool is_minimized;
 };

@@ -1,10 +1,12 @@
 #include "cross/mapped_file.h"
 
+#include "utils_win32.h"
+#include <exo/defer.h>
+
 #include <windows.h>
 
-#include "utils_win32.h"
 
-namespace platform
+namespace cross
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -71,4 +73,4 @@ void MappedFile::close()
     mapping = nullptr;
 }
 
-}; // namespace platform
+}; // namespace cross

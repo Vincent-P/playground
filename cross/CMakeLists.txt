@@ -1,5 +1,6 @@
 set(SOURCE_FILES
   src/file_watcher.cpp
+  src/uuid.cpp
   )
 
 if (WIN32)

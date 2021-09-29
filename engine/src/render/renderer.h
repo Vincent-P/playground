@@ -33,7 +33,7 @@ struct Settings
     bool  clear_history         = {false};
     bool  enable_path_tracing   = {false};
     bool  freeze_camera_culling = {false};
-    bool  use_blue_noise        = {false};
+    bool  use_blue_noise        = {true};
 };
 
 struct ImGuiPass
@@ -214,7 +214,7 @@ struct Renderer
 
     /// ---
 
-    static Renderer create(platform::Window &window, AssetManager *_asset_manager);
+    static Renderer create(cross::Window &window, AssetManager *_asset_manager);
     void destroy();
 
     void display_ui(UI::Context &ui);

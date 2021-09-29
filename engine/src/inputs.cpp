@@ -29,21 +29,21 @@ bool Inputs::is_pressed(VirtualKey key) const { return keys_pressed[key]; }
 
 bool Inputs::is_pressed(MouseButton button) const { return mouse_buttons_pressed[button]; }
 
-void Inputs::process(const Vec<platform::event::Event> &events)
+void Inputs::process(const Vec<cross::event::Event> &events)
 {
     scroll_this_frame        = std::nullopt;
     auto last_mouse_position = mouse_position;
 
     for (const auto &event : events)
     {
-        if (std::holds_alternative<platform::event::Key>(event))
+        if (std::holds_alternative<cross::event::Key>(event))
         {
-            const auto &key       = std::get<platform::event::Key>(event);
+            const auto &key       = std::get<cross::event::Key>(event);
             keys_pressed[key.key] = key.state == ButtonState::Pressed;
         }
-        else if (std::holds_alternative<platform::event::MouseClick>(event))
+        else if (std::holds_alternative<cross::event::MouseClick>(event))
         {
-            const auto &mouse_click                   = std::get<platform::event::MouseClick>(event);
+            const auto &mouse_click                   = std::get<cross::event::MouseClick>(event);
             mouse_buttons_pressed[mouse_click.button] = mouse_click.state == ButtonState::Pressed;
 
             if (mouse_click.button == MouseButton::Left)
@@ -62,9 +62,9 @@ void Inputs::process(const Vec<platform::event::Event> &events)
                 }
             }
         }
-        else if (std::holds_alternative<platform::event::Scroll>(event))
+        else if (std::holds_alternative<cross::event::Scroll>(event))
         {
-            auto scroll = std::get<platform::event::Scroll>(event);
+            auto scroll = std::get<cross::event::Scroll>(event);
 
             if (scroll_this_frame)
             {
@@ -76,9 +76,9 @@ void Inputs::process(const Vec<platform::event::Event> &events)
                 scroll_this_frame = {scroll.dx, scroll.dy};
             }
         }
-        else if (std::holds_alternative<platform::event::MouseMove>(event))
+        else if (std::holds_alternative<cross::event::MouseMove>(event))
         {
-            auto move           = std::get<platform::event::MouseMove>(event);
+            auto move           = std::get<cross::event::MouseMove>(event);
             last_mouse_position = {move.x, move.y};
         }
     }

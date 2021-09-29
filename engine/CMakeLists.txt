@@ -1,4 +1,5 @@
 set(SOURCE_FILES
+  # random
   src/asset_manager.cpp
   src/main.cpp
   src/app.cpp
@@ -9,6 +10,18 @@ set(SOURCE_FILES
   src/inputs.cpp
   src/tools.cpp
   src/ui.cpp
+
+  # gameplay framework
+  src/gameplay/component.cpp
+  src/gameplay/entity.cpp
+  src/gameplay/entity_world.cpp
+  src/gameplay/loading_context.cpp
+
+  # gameplay
+  src/gameplay/components/camera_component.cpp
+  src/gameplay/systems/editor_camera_systems.cpp
+
+  # rendering api
   src/render/renderer.cpp
   src/render/render_timings.cpp
   src/render/base_renderer.cpp
@@ -17,6 +30,8 @@ set(SOURCE_FILES
   src/render/ring_buffer.cpp
   src/render/streamer.cpp
   src/render/unified_buffer_storage.cpp
+
+  # rendering framework
   src/render/vulkan/context.cpp
   src/render/vulkan/commands.cpp
   src/render/vulkan/descriptor_set.cpp
