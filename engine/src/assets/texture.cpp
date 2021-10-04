@@ -1,4 +1,4 @@
-#include "render/texture.h"
+#include "assets/texture.h"
 
 #include <exo/prelude.h>
 #include <exo/defer.h>

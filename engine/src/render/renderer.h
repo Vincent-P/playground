@@ -2,8 +2,9 @@
 
 #include <exo/handle.h>
 
+#include "assets/mesh.h"
+
 #include "render/base_renderer.h"
-#include "render/mesh.h"
 #include "render/ring_buffer.h"
 #include "render/streamer.h"
 #include "render/bvh.h"

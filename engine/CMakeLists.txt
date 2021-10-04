@@ -1,6 +1,5 @@
 set(SOURCE_FILES
   # random
-  src/asset_manager.cpp
   src/main.cpp
   src/app.cpp
   src/camera.cpp
@@ -10,6 +9,10 @@ set(SOURCE_FILES
   src/inputs.cpp
   src/tools.cpp
   src/ui.cpp
+
+  # assets
+  src/assets/asset_manager.cpp
+  src/assets/texture.cpp
 
   # gameplay framework
   src/gameplay/component.cpp
@@ -26,7 +29,6 @@ set(SOURCE_FILES
   src/render/render_timings.cpp
   src/render/base_renderer.cpp
   src/render/bvh.cpp
-  src/render/texture.cpp
   src/render/ring_buffer.cpp
   src/render/streamer.cpp
   src/render/unified_buffer_storage.cpp

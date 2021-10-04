@@ -28,6 +28,7 @@ struct BaseComponent
     virtual void unload(LoadingContext &)     { state = ComponentState::Unloaded; }
     virtual void initialize(LoadingContext &) { state = ComponentState::Initialized; }
     virtual void shutdown(LoadingContext &)   { state = ComponentState::Loaded; }
+    virtual void update_loading(LoadingContext &) {}
 
     // clang-format off
     constexpr bool is_unloaded() const        { return state == ComponentState::Unloaded; }

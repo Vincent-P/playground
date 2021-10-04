@@ -2,11 +2,13 @@
 #include <cross/file_watcher.h>
 #include <cross/window.h>
 
-#include "asset_manager.h"
 #include "inputs.h"
-#include "render/renderer.h"
 #include "ui.h"
 #include "scene.h"
+
+#include "assets/asset_manager.h"
+
+#include "render/renderer.h"
 
 class App
 {

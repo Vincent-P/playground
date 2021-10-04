@@ -4,9 +4,9 @@
 
 #include <cross/mapped_file.h>
 #include <exo/collections/vector.h>
-#include "render/mesh.h"
-#include "render/material.h"
-#include "render/texture.h"
+#include "assets/mesh.h"
+#include "assets/material.h"
+#include "assets/texture.h"
 
 namespace glb
 {

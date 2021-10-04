@@ -1,7 +1,8 @@
 #include "render/streamer.h"
 
+#include "assets/texture.h"
+
 #include "render/vulkan/device.h"
-#include "render/texture.h"
 
 #include <algorithm> // for std::max
 

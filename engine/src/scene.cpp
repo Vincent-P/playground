@@ -6,8 +6,9 @@
 
 #include "inputs.h"
 #include "camera.h"
-#include "asset_manager.h"
 #include "glb.h"
+
+#include "assets/asset_manager.h"
 
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"

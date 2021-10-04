@@ -3,8 +3,6 @@
 #include "gameplay/entity_world.h"
 #include <exo/collections/pool.h>
 
-#include "render/material.h"
-
 class Inputs;
 class AssetManager;
 

@@ -165,12 +165,11 @@ static BufferView get_bufferview(const rapidjson::Value &object)
     return res;
 }
 
-static void process_json(Scene &new_scene, rapidjson::Document &j_document, const Chunk *binary_chunk)
+static void process_meshes(Scene &new_scene, rapidjson::Document &j_document, const Chunk *binary_chunk, Vec<usize> &mesh_remap)
 {
     const auto &j_accessors   = j_document["accessors"].GetArray();
     const auto &j_bufferviews = j_document["bufferViews"].GetArray();
 
-    Vec<usize> mesh_remap;
     if (j_document.HasMember("meshes"))
     {
         mesh_remap.resize(j_document["meshes"].GetArray().Size());
@@ -334,6 +333,11 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
 
         logger::info("Loaded {} unique meshes from {} meshes in file.\n", new_scene.meshes.size(), mesh_remap.size());
     }
+}
+
+static void process_images(Scene &new_scene, rapidjson::Document &j_document, const Chunk *binary_chunk)
+{
+    const auto &j_bufferviews = j_document["bufferViews"].GetArray();
 
     if (j_document.HasMember("images"))
     {
@@ -362,6 +366,11 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
         }
     }
 
+}
+
+static void process_materials(Scene &new_scene, rapidjson::Document &j_document, const Chunk *)
+{
+    // add a fallback material at index 0
     new_scene.materials.emplace_back();
     if (j_document.HasMember("materials"))
     {
@@ -436,17 +445,14 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
             new_scene.materials.push_back(std::move(new_material));
         }
     }
+}
 
-    u32 i_scene = 0;
-    if (j_document.HasMember("scene"))
-    {
-        i_scene = j_document["scene"].GetUint();
-    }
-
+static void process_nodes(Scene &new_scene, rapidjson::Document &j_document, const Chunk *, u32 i_scene, const Vec<usize> &mesh_remap)
+{
     auto j_scenes = j_document["scenes"].GetArray();
-    auto j_nodes  = j_document["nodes"].GetArray();
-
     auto j_scene = j_scenes[i_scene].GetObj();
+
+    auto j_nodes  = j_document["nodes"].GetArray();
     auto j_roots = j_scene["nodes"].GetArray();
 
     Vec<u32>      i_node_stack;
@@ -564,6 +570,22 @@ static void process_json(Scene &new_scene, rapidjson::Document &j_document, cons
             }
         }
     }
+}
+
+static void process_json(Scene &new_scene, rapidjson::Document &j_document, const Chunk *binary_chunk)
+{
+    Vec<usize> mesh_remap;
+    process_meshes(new_scene, j_document, binary_chunk, mesh_remap);
+    process_images(new_scene, j_document, binary_chunk);
+    process_materials(new_scene, j_document, binary_chunk);
+
+    u32 i_scene = 0;
+    if (j_document.HasMember("scene"))
+    {
+        i_scene = j_document["scene"].GetUint();
+    }
+
+    process_nodes(new_scene, j_document, binary_chunk, i_scene, mesh_remap);
 }
 
 Scene load_file(const std::string_view &path)

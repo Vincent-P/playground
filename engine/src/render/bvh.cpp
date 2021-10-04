@@ -1,6 +1,6 @@
 #include "render/bvh.h"
 
-#include "render/mesh.h"
+#include "assets/mesh.h"
 
 #include <cmath>
 #include <cfloat> // FLT_MAX

@@ -5,7 +5,7 @@
 #include <exo/defer.h>
 
 #include "glb.h"
-#include "asset_manager.h"
+#include "assets/asset_manager.h"
 
 #include <filesystem>
 

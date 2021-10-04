@@ -4,13 +4,15 @@
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 
-#include "asset_manager.h"
+#include "assets/asset_manager.h"
+#include "assets/mesh.h"
+
 #include "camera.h"
-#include "render/bvh.h"
-#include "render/mesh.h"
-#include "render/unified_buffer_storage.h"
 #include "ui.h"
 #include "scene.h"
+
+#include "render/bvh.h"
+#include "render/unified_buffer_storage.h"
 
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"

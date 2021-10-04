@@ -1,9 +1,9 @@
 #pragma once
 #include <exo/collections/pool.h>
 
-#include "render/material.h"
-#include "render/mesh.h"
-#include "render/texture.h"
+#include "assets/material.h"
+#include "assets/mesh.h"
+#include "assets/texture.h"
 
 #include <filesystem>
 
