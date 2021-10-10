@@ -10,6 +10,7 @@ struct DynamicArray
     using Self                  = DynamicArray<T, CAPACITY>;
 
     constexpr DynamicArray() = default;
+
     constexpr DynamicArray(std::span<const T> values)
     {
         ASSERT(values.size() < CAPACITY);
@@ -19,13 +20,25 @@ struct DynamicArray
             array[i] = values[i];
         }
     }
+
     constexpr DynamicArray(std::initializer_list<T> list)
         : DynamicArray(std::span{list})
         {}
 
+    constexpr DynamicArray(const DynamicArray &other) = default;
+
+    constexpr ~DynamicArray()
+    {
+        if constexpr (std::is_trivially_destructible<T>() == false)
+        {
+            for (usize i = 0; i < array_size; i += 1)
+            {
+                array[i].~T();
+            }
+        }
+    }
+
     static_assert(std::is_standard_layout<T>());
-    // we dont call destructors here, and we dont memcpy or init to 0 so only trivial destructor is needed
-    static_assert(std::is_trivially_destructible<T>());
 
     constexpr const T &operator[](usize i) const;
     constexpr T &      operator[](usize i);
@@ -49,8 +62,8 @@ struct DynamicArray
     constexpr T& back() noexcept;
     constexpr const T& back() const noexcept;
 
-    usize array_size;
-    T  array[CAPACITY];
+    usize array_size = {0};
+    T  array[CAPACITY] = {};
 };
 
 template <typename T, usize C>
@@ -87,6 +100,14 @@ template <typename T, usize C>
 constexpr void DynamicArray<T, C>::clear() noexcept
 {
     array_size = 0;
+
+    if constexpr (std::is_trivially_destructible<T>() == false)
+    {
+        for (usize i = 0; i < array_size; i += 1)
+        {
+            array[i].~T();
+        }
+    }
 }
 
 template <typename T, usize C>
