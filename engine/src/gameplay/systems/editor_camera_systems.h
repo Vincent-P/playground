@@ -12,10 +12,10 @@ struct EditorCameraInputSystem : LocalSystem
 {
     EditorCameraInputSystem(const Inputs *_inputs);
 
-    virtual void update(const UpdateContext &ctx) override;
+    void update(const UpdateContext &ctx) final;
 
-    virtual void register_component(BaseComponent *component) override;
-    virtual void unregister_component(BaseComponent *component) override;
+    void register_component(BaseComponent *component) final;
+    void unregister_component(BaseComponent *component) final;
 
 private:
     CameraInputComponent *camera_input_component = {};
@@ -26,10 +26,10 @@ private:
 struct EditorCameraTransformSystem : LocalSystem
 {
     EditorCameraTransformSystem();
-    virtual void update(const UpdateContext &ctx) override;
+    void update(const UpdateContext &ctx) final;
 
-    virtual void register_component(BaseComponent *component) override;
-    virtual void unregister_component(BaseComponent *component) override;
+    void register_component(BaseComponent *component) final;
+    void unregister_component(BaseComponent *component) final;
 
 private:
     CameraInputComponent *camera_input_component = {};
