@@ -27,6 +27,9 @@ add_compile_options(
 # C++ flags for the project's code
 # https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#compilers
 set(APP_CXX_FLAGS
+  # zstd in ktx doesnt compile with this flag
+  $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
+
   # Warning level
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>

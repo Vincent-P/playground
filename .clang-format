@@ -1,6 +1,6 @@
 ﻿---
 IndentWidth: 4
-ColumnLimit: 220
+ColumnLimit: 120
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: true

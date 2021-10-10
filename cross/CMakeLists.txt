@@ -14,7 +14,9 @@ if (WIN32)
 
   set(CROSS_LIBS
     ${CROSS_LIBS}
-    imm32)
+    imm32
+    rpcrt4 # for uuid
+    )
 
 elseif (UNIX)
 
