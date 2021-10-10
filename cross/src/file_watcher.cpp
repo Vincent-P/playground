@@ -124,11 +124,15 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
     watch.overlapped = {};
     watch.buffer     = {};
 
+    DWORD notify_flags = 0;
+    notify_flags |= FILE_NOTIFY_CHANGE_LAST_WRITE; // timestamp changed
+    notify_flags |= FILE_NOTIFY_CHANGE_FILE_NAME; // renaming, creating or deleting a file
+
     BOOL res = ReadDirectoryChangesW(watch.directory_handle,
                                  watch.buffer.data(),
                                  static_cast<DWORD>(watch.buffer.size()),
                                  true,
-                                 FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 notify_flags,
                                  nullptr,
                                  &watch.overlapped,
                                  nullptr);
@@ -148,8 +152,8 @@ static void fetch_events_internal(FileWatcher &fw)
         if (!res)
         {
             auto error = GetLastError();
-            (void)(error); // TODO: custom assert, unused variable on release
             ASSERT(error == ERROR_IO_INCOMPLETE);
+            UNUSED(error);
         }
 
         u8 *p_buffer = watch.buffer.data();
@@ -158,6 +162,7 @@ static void fetch_events_internal(FileWatcher &fw)
         while (offset + sizeof(FILE_NOTIFY_INFORMATION) < bread)
         {
             auto *p_event = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(ptr_offset(p_buffer, offset));
+            offset += p_event->NextEntryOffset;
 
             Event event;
             event.wd = watch.wd;
@@ -165,20 +170,45 @@ static void fetch_events_internal(FileWatcher &fw)
             std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
             event.name = utf16_to_utf8(wname);
             event.len = p_event->FileNameLength / sizeof(wchar_t);
+
+            if (p_event->Action == FILE_ACTION_ADDED)
+            {
+                event.action = WatchEvent::FileAdded;
+            }
+            else if (p_event->Action == FILE_ACTION_REMOVED)
+            {
+                event.action = WatchEvent::FileRemoved;
+            }
+            else if (p_event->Action == FILE_ACTION_MODIFIED)
+            {
+                event.action = WatchEvent::FileChanged;
+            }
+            else if (p_event->Action == FILE_ACTION_RENAMED_NEW_NAME)
+            {
+                event.action = WatchEvent::FileRenamed;
+            }
+            else
+            {
+                break;
+            }
+
             fw.current_events.push_back(std::move(event));
 
             if (p_event->NextEntryOffset == 0)
             {
                 break;
             }
-            offset += p_event->NextEntryOffset;
         }
+
+        DWORD notify_flags = 0;
+        notify_flags |= FILE_NOTIFY_CHANGE_LAST_WRITE; // timestamp changed
+        notify_flags |= FILE_NOTIFY_CHANGE_FILE_NAME; // renaming, creating or deleting a file
 
         res = ReadDirectoryChangesW(watch.directory_handle,
                                  watch.buffer.data(),
                                  static_cast<DWORD>(watch.buffer.size()),
                                  true,
-                                 FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 notify_flags,
                                  nullptr,
                                  &watch.overlapped,
                                  nullptr);

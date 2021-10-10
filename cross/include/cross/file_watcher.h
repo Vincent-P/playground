@@ -17,7 +17,7 @@ namespace cross
 struct Watch
 {
 
-#ifdef __linux__
+#ifdef defined(CROSS_LINUX)
 
 #elif defined(CROSS_WINDOWS)
     HANDLE directory_handle;
@@ -30,10 +30,18 @@ struct Watch
     std::string path;
 };
 
+enum struct WatchEvent
+{
+    FileRenamed,
+    FileChanged,
+    FileRemoved,
+    FileAdded
+};
+
 struct Event
 {
 
-#ifdef __linux__
+#ifdef defined(CROSS_LINUX)
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
 #elif defined(CROSS_WINDOWS)
@@ -43,13 +51,14 @@ struct Event
     int wd;     /* Watch descriptor.  */
     std::string name; /* filename. */
     usize len;
+    WatchEvent action;
 };
 
 using FileEventF = std::function<void(const Watch &, const Event &)>;
 
 struct FileWatcher
 {
-#if defined(__linux__)
+#if defined(CROSS_LINUX)
     int inotify_fd;
 #elif defined(CROSS_WINDOWS)
 
