@@ -93,7 +93,7 @@ void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
 
 VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set)
 {
-    auto hash = hash_value(set.descriptors);
+    auto hash = exo::hash::hash_value(set.descriptors);
 
     for (usize i = 0; i < set.hashes.size(); i++)
     {

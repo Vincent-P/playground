@@ -61,8 +61,8 @@ namespace std
     {
         std::size_t operator()(Handle<T> const& handle) const noexcept
         {
-            usize hash = hash_value(handle.index);
-            hash_combine(hash, handle.gen);
+            usize hash = exo::hash::hash_value(handle.index);
+            exo::hash::hash_combine(hash, handle.gen);
             return hash;
         }
     };

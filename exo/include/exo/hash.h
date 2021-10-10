@@ -1,17 +1,21 @@
 #pragma once
 #include <functional>
 
+namespace exo::hash
+{
+
 template <typename T>
-inline std::size_t hash_value(const T& v)
+inline std::size_t hash_value(const T &v)
 {
     return std::hash<T>{}(v);
 }
 
 template <typename T>
-inline void hash_combine(std::size_t& seed, const T& v)
+inline void hash_combine(std::size_t &seed, const T &v)
 {
-    seed ^= hash_value(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+    seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
+} // namespace exo
 
 namespace std
 {
@@ -23,7 +27,7 @@ namespace std
             std::size_t hash = vec.size();
             for (auto &i : vec)
             {
-                hash_combine(hash, i);
+                exo::hash::hash_combine(hash, i);
             }
             return hash;
         }
