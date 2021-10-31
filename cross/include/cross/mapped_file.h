@@ -10,8 +10,6 @@ namespace cross
 struct MappedFile
 {
 #if defined (CROSS_WINDOWS)
-    void* fd = nullptr;
-    void* mapping = nullptr;
 #else
     int fd = -1;
 #endif
@@ -24,6 +22,7 @@ struct MappedFile
     MappedFile(MappedFile && moved);
     ~MappedFile();
 
+    MappedFile &operator=(const MappedFile &copied) = delete;
     MappedFile &operator=(MappedFile && moved);
 
     static Option<MappedFile> open(const std::string_view &path);

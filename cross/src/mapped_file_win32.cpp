@@ -16,18 +16,13 @@ MappedFile::MappedFile(MappedFile &&moved)
 
 MappedFile::~MappedFile()
 {
-    if (is_handle_valid(this->fd))
-    {
-        this->close();
-    }
+    this->close();
 }
 
 MappedFile &MappedFile::operator=(MappedFile &&moved)
 {
     if (this != &moved)
     {
-        fd        = std::exchange(moved.fd, nullptr);
-        mapping   = std::exchange(moved.mapping, nullptr);
         base_addr = std::exchange(moved.base_addr, nullptr);
         size      = std::exchange(moved.size, 0);
     }
@@ -40,23 +35,27 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 
     auto utf16_path = utf8_to_utf16(path);
 
-    file.fd = CreateFile(utf16_path.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (!is_handle_valid(file.fd)) {
+    auto fd = CreateFile(utf16_path.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (!is_handle_valid(fd)) {
         return {};
     }
-    DEFER { CloseHandle(file.fd); };
+    DEFER { CloseHandle(fd); };
 
     DWORD hi = 0;
-    DWORD lo = GetFileSize(file.fd, &hi);
+    DWORD lo = GetFileSize(fd, &hi);
     file.size = ((u64)hi << 32) | (u64)lo;
 
-    file.mapping = CreateFileMapping(file.fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
-    if (!is_handle_valid(file.mapping)) {
+    auto mapping = CreateFileMapping(fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    if (!is_handle_valid(mapping))
+    {
         return {};
     }
-    DEFER { CloseHandle(file.mapping); };
+    DEFER
+    {
+        CloseHandle(mapping);
+    };
 
-    file.base_addr = MapViewOfFile(file.mapping, FILE_MAP_READ, 0, 0, 0);
+    file.base_addr = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
     if (!file.base_addr) {
         return {};
     }
@@ -66,11 +65,11 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 
 void MappedFile::close()
 {
-    CloseHandle(fd);
-    CloseHandle(mapping);
-
-    fd = nullptr;
-    mapping = nullptr;
+    if (base_addr)
+    {
+        UnmapViewOfFile(base_addr);
+        base_addr = nullptr;
+    }
 }
 
 }; // namespace cross
