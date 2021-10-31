@@ -26,6 +26,10 @@ struct DynamicArray
         {}
 
     constexpr DynamicArray(const DynamicArray &other) = default;
+    constexpr DynamicArray &operator=(const DynamicArray &other) = default;
+
+    constexpr DynamicArray(DynamicArray &&other) = default;
+    constexpr DynamicArray &operator=(DynamicArray &&other) = default;
 
     constexpr ~DynamicArray()
     {
