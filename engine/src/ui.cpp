@@ -81,7 +81,7 @@ void Context::start_frame(cross::Window &window, Inputs &inputs)
 
     if (auto scroll = inputs.get_scroll_this_frame())
     {
-        io.MouseWheel += -scroll->y;
+        io.MouseWheel += static_cast<float>(-scroll->y);
     }
 
     if (io.WantCaptureMouse)
