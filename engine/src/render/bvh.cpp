@@ -43,34 +43,6 @@ AABB calculate_bounds(Vec<TempBVHNode> &temp_nodes, usize prim_start, usize prim
     return bounds;
 }
 
-static usize temp_bvh_split_median(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node, usize prim_start, usize prim_end)
-{
-    // get the largest axis
-    usize i_max_comp = max_comp(extent(node.bbox));
-    // sort triangles nodes, NOTE: iterator+ needs a "difference_type" aka 'long long' for std::vector
-    i64 offset_start = static_cast<i64>(prim_start);
-    i64 offset_end   = static_cast<i64>(prim_end);
-    std::sort(/*std::execution::par_unseq,*/
-              temp_nodes.begin() + offset_start,
-              temp_nodes.begin() + offset_end,
-              [&](const TempBVHNode &a, const TempBVHNode &b) { return a.bbox_center[i_max_comp] < b.bbox_center[i_max_comp]; });
-    // split at middle
-    float3 split_center = node.bbox_center;
-    usize  prim_split   = prim_start;
-    for (; prim_split < prim_end; prim_split += 1)
-    {
-        if (temp_nodes[prim_split].bbox_center[i_max_comp] > split_center[i_max_comp])
-        {
-            break;
-        }
-    }
-    if (prim_split == prim_end)
-    {
-        prim_split = prim_end - 1;
-    }
-    return prim_split;
-}
-
 static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node, usize prim_start, usize prim_end)
 {
     // get the largest axis
@@ -104,6 +76,9 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
         float bbox_extent      = extent(node.bbox)[i_max_comp];
         float point_normalized = point_in_bbox / bbox_extent;
         usize i_bucket         = static_cast<usize>(BUCKET_COUNT * point_normalized);
+        if (bbox_extent == 0.0f) {
+            i_bucket = 0;
+        }
 
         // A prim center may be coplanar to the node.bbox.max i_max_comp plane
         ASSERT(i_bucket <= BUCKET_COUNT);
