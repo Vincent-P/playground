@@ -70,4 +70,7 @@ target_link_libraries(engine
   tracy)
 
 add_subdirectory(shaders/)
-add_dependencies(engine shaders)
+add_subdirectory(schemas/)
+add_dependencies(engine shaders schemas)
+
+target_include_directories(engine PRIVATE schemas/generated)
