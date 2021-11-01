@@ -14,6 +14,8 @@
 #include "render/bvh.h"
 #include "render/unified_buffer_storage.h"
 
+#include "assets/texture.h"
+
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"
 #include "components/transform_component.h"
@@ -941,8 +943,9 @@ void Renderer::update(Scene &scene)
     }
 }
 
-void Renderer::prepare_geometry(Scene &scene)
+void Renderer::prepare_geometry(Scene &)
 {
+    #if 0
     ZoneScoped;
     auto &device = base_renderer.device;
 
@@ -1178,6 +1181,7 @@ void Renderer::prepare_geometry(Scene &scene)
     ASSERT(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
     std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
     }
+    #endif
 }
 
 

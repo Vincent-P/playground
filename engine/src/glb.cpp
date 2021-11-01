@@ -1,4 +1,5 @@
 #include "glb.h"
+#if 0
 
 #include <exo/prelude.h>
 #include <exo/algorithms.h>
@@ -640,3 +641,4 @@ Scene load_file(const std::string_view &path)
     return scene;
 }
 } // namespace glb
+#endif

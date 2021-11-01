@@ -9,6 +9,8 @@
 #include <variant>
 #include <tracy/Tracy.hpp>
 #include <cstdlib>
+#include <chrono>
+#include <thread>
 
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
@@ -28,6 +30,10 @@ void operator delete(void *ptr) noexcept
 
 App::App()
 {
+    asset_manager = AssetManager::create();
+    asset_manager.init();
+
+
     cross::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     ui = UI::Context::create();
 
@@ -44,6 +50,7 @@ App::App()
         std::string shader_name = fmt::format("shaders/{}", event.name);
         this->renderer.reload_shader(shader_name);
     });
+    asset_manager.setup_file_watcher(watcher);
 
     is_minimized = false;
 
@@ -61,6 +68,7 @@ App::~App()
     ui.destroy();
     renderer.destroy();
     window.destroy();
+    asset_manager.destroy();
 }
 
 
@@ -72,7 +80,7 @@ void App::display_ui()
     renderer.display_ui(ui);
     inputs.display_ui(ui);
     scene.display_ui(ui);
-    // asset_manager.display_ui(ui);
+    asset_manager.display_ui(ui);
 }
 
 void App::run()
@@ -128,6 +136,7 @@ void App::run()
         }
 
         watcher.update();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         FrameMark
     }
 }

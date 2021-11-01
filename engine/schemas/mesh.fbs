@@ -1,0 +1,22 @@
+include "exo.fbs";
+include "asset.fbs";
+
+namespace engine.schemas;
+
+table SubMesh {
+  first_index:uint32;
+  first_vertex:uint32;
+  index_count:uint32;
+  material:exo.UUID;
+}
+
+table Mesh {
+  asset:Asset;
+  indices:[uint32];
+  positions:[exo.float4];
+  uvs:[exo.float2];
+  submeshes:[SubMesh];
+}
+
+file_identifier "MESH";
+root_type Mesh;

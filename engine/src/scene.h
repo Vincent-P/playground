@@ -4,7 +4,7 @@
 #include <exo/collections/pool.h>
 
 class Inputs;
-class AssetManager;
+struct AssetManager;
 
 namespace UI {struct Context;}
 

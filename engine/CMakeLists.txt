@@ -7,12 +7,14 @@ set(SOURCE_FILES
   src/scene.cpp
   src/glb.cpp
   src/inputs.cpp
-  src/tools.cpp
   src/ui.cpp
 
   # assets
   src/assets/asset_manager.cpp
   src/assets/texture.cpp
+  src/assets/importers/gltf_importer.cpp
+  src/assets/mesh.cpp
+  src/assets/subscene.cpp
 
   # gameplay framework
   src/gameplay/component.cpp
@@ -74,3 +76,8 @@ add_subdirectory(schemas/)
 add_dependencies(engine shaders schemas)
 
 target_include_directories(engine PRIVATE schemas/generated)
+
+target_compile_definitions(engine PRIVATE
+  ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
+  COMPILED_ASSET_PATH="${CMAKE_SOURCE_DIR}/compiled_assets"
+  )

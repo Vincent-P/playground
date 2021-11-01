@@ -27,8 +27,8 @@ set(GLSL_FILES
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)
-  get_filename_component(FILE_NAME ${GLSL_FILE} NAME)
-  set(SPIRV_FILE "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
+  cmake_path(GET GLSL_FILE FILENAME SHADER_NAME)
+  set(SPIRV_FILE "${PROJECT_BINARY_DIR}/shaders/${SHADER_NAME}.spv")
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}

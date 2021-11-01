@@ -19,6 +19,7 @@
 #include <fmt/format.h>
 #include <imgui/imgui.h>
 
+#if 0
 static void draw_gizmo(float3 camera_world_position, float3 camera_target, float3 camera_up)
 {
     constexpr float fov   = 100.f;
@@ -111,6 +112,7 @@ static void draw_gizmo(float3 camera_world_position, float3 camera_target, float
 
     ImGui::End();
 }
+#endif
 
 void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {
@@ -130,7 +132,7 @@ void Scene::destroy()
 {
 }
 
-void Scene::update(const Inputs &inputs)
+void Scene::update(const Inputs &)
 {
     double delta_t       = 0.016;
     entity_world.update(delta_t);
@@ -165,6 +167,7 @@ void Scene::display_ui(UI::Context &ui)
             auto file_path = cross::file_dialog({{"GLB", "*.glb"}});
             if (file_path)
             {
+                #if 0
                 auto scene     = glb::load_file(file_path->string());
                 auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
 
@@ -220,6 +223,7 @@ void Scene::display_ui(UI::Context &ui)
 
                     world.create_entity(std::string_view{"MeshInstance"}, std::move(transform), RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
                 }
+                #endif
             }
         }
 

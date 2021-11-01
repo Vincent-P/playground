@@ -1,0 +1,7 @@
+include "exo.fbs";
+
+namespace engine.schemas;
+
+table Asset {
+  uuid:exo.UUID;
+}

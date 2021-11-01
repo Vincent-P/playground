@@ -24,7 +24,7 @@ namespace UI {struct Context;}
 struct Mesh;
 struct Material;
 class Scene;
-class AssetManager;
+struct AssetManager;
 
 struct Settings
 {

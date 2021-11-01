@@ -13,10 +13,10 @@
 
 // third party
 #include <fmt/core.h>
-
 #include <tracy/Tracy.hpp>
 
 // exo
 #include <exo/prelude.h>
 #include <exo/handle.h>
+#include <exo/result.h>
 #include <exo/collections/vector.h>

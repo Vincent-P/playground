@@ -9,6 +9,8 @@ find_package(Threads)
 
 # add_compile_definitions(ENABLE_DOCTEST)
 
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+
 # Global C++ flags
 add_compile_options(
   # colored output when using ninja generator

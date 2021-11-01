@@ -108,8 +108,8 @@ Texture Texture::from_png(const void *data, usize len)
     usize decoded_size = 0;
     spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &decoded_size);
 
-    texture.png_pixels.resize(decoded_size);
-    spng_decode_image(ctx, texture.png_pixels.data(), decoded_size, SPNG_FMT_RGBA8, 0);
+    texture.png_pixels = reinterpret_cast<u8*>(malloc(decoded_size));
+    spng_decode_image(ctx, texture.png_pixels, decoded_size, SPNG_FMT_RGBA8, 0);
 
     texture.extension = ImageExtension::PNG;
     texture.width     = static_cast<int>(ihdr.width);
@@ -120,7 +120,7 @@ Texture Texture::from_png(const void *data, usize len)
 
     texture.mip_offsets.push_back(0);
 
-    texture.raw_data  = texture.png_pixels.data();
+    texture.raw_data  = texture.png_pixels;
     texture.data_size = decoded_size;
 
     return texture;

@@ -1,10 +1,8 @@
-finish basic texture struct
-rewrite Pool container without <variant>
-write an Arena (slab?linear?) container, which is a Pool without free, for the ECS archetype graph
-remove the tools header and make proper abstractions @project
-make a custom vector class with fixed capacity on stack @exo
-profile CPU usage on bistro exterior @renderer
-profile build time @project
+create asset metadata to be able to reference/see assets that are compiled without actually loading them @asset_manager
+Replace dynamic cast with virtual function returning a static typeId and compare that @gameplay @components
+Use win32 utf8 support that is bultin since windows 10 @cross
+Think about how to serialize metadata asset files, and how to do polymorphism based on import types @asset_manager
+remove the tools header and make proper abstractions to read file (replace with MappedFile?) @project
 use PBR materials from glTF @renderer
 Use a LRU cache for staging buffers and free not used buffers @renderer
 Scene serialization
@@ -17,3 +15,10 @@ x Basic rendering, using a visibility buffer and raytraced AO @renderer @visibil
 x Parse materials/images from glTF and upload them to GPU @renderer @gltf
 x fix all warnings on msvc /W4 + clang -Wall -Wextra @project
 x remove as much static/reinterpret_cast as possible
+x finish basic texture struct
+x rewrite Pool container without <variant>
+x make a custom vector class with fixed capacity on stack @exo
+x profile CPU usage on bistro exterior @renderer
+x profile build time @project
+x Forward declare json object in GenericImporter
+x Think deeply about how ONE resource file generates MULTIPLE assets (multiple uuids) @asset_manager
