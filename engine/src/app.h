@@ -8,6 +8,7 @@
 
 #include "assets/asset_manager.h"
 
+#include "render/render_world.h"
 #include "render/renderer.h"
 
 class App
@@ -26,7 +27,10 @@ class App
     cross::Window window;
     Inputs inputs;
     AssetManager asset_manager;
+
+    RenderWorld render_world;
     Renderer renderer;
+
     Scene scene;
 
     cross::FileWatcher watcher;

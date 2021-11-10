@@ -6,19 +6,6 @@
 #include "gameplay/update_stages.h"
 #include "gameplay/system.h"
 
-Entity* EntityWorld::create_entity()
-{
-    Entity *new_entity = new Entity();
-    entities.insert(new_entity);
-    return new_entity;
-}
-
-void EntityWorld::destroy_entity(Entity *entity)
-{
-    entities.erase(entity);
-    delete entity;
-}
-
 void EntityWorld::update(double delta_t)
 {
     LoadingContext loading_context = {&system_registry};
@@ -29,7 +16,7 @@ void EntityWorld::update(double delta_t)
         {
             entity->load(loading_context);
         }
-        else if (entity->is_loaded())
+        if (entity->is_loaded())
         {
             // all components should be initialized
             entity->activate(loading_context);
@@ -53,7 +40,49 @@ void EntityWorld::update(double delta_t)
 
         for (auto *system : system_registry.global_systems)
         {
-            system->upate(update_context);
+            system->update(update_context);
         }
+    }
+}
+
+
+Entity* EntityWorld::create_entity()
+{
+    Entity *new_entity = new Entity();
+    entities.insert(new_entity);
+    return new_entity;
+}
+
+void EntityWorld::destroy_entity(Entity *entity)
+{
+    entities.erase(entity);
+    delete entity;
+}
+
+void EntityWorld::create_system_internal(GlobalSystem *system)
+{
+    system_registry.global_systems.push_back(system);
+}
+
+void EntityWorld::destroy_system_internal(GlobalSystem *system)
+{
+    usize i = 0;
+    usize size = system_registry.global_systems.size();
+    for (; i < size; i += 1)
+    {
+        if (system_registry.global_systems[i] == system)
+        {
+            break;
+        }
+    }
+
+    if (i < size - 1)
+    {
+        std::swap(system_registry.global_systems[i], system_registry.global_systems.back());
+    }
+
+    if (i < size)
+    {
+        system_registry.global_systems.pop_back();
     }
 }

@@ -2,6 +2,7 @@
 
 #include <exo/logger.h>
 #include "camera.h"
+#include "render/render_world_system.h"
 #include <cross/file_watcher.h>
 
 #include <algorithm>
@@ -132,7 +133,8 @@ void App::run()
         {
             display_ui();
             scene.update(inputs);
-            renderer.update(scene);
+            render_world = scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world;
+            renderer.update(render_world);
         }
 
         watcher.update();

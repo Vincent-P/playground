@@ -8,8 +8,8 @@
 #include "assets/mesh.h"
 
 #include "camera.h"
+#include "render/render_world.h"
 #include "ui.h"
-#include "scene.h"
 
 #include "render/bvh.h"
 #include "render/unified_buffer_storage.h"
@@ -438,7 +438,7 @@ void Renderer::display_ui(UI::Context &ui)
     }
 }
 
-void Renderer::update(Scene &scene)
+void Renderer::update(RenderWorld &render_world)
 {
     ZoneScoped;
 
@@ -501,30 +501,20 @@ void Renderer::update(Scene &scene)
     }
     streamer.update(work_pool);
 
-    // -- Get the main camera
-    auto *main_camera = scene.main_camera_entity->get_first_component<CameraComponent>();
-    ASSERT(main_camera != nullptr);
-    {
-    ZoneNamedN(camera_update, "Camera update", true);
-    float2 float_resolution = float2(settings.render_resolution);
-    float aspect_ratio = float_resolution.x / float_resolution.y;
-    main_camera->set_perspective(aspect_ratio);
-    }
-
     // -- Get geometry from the scene and prepare the draw commands
-    this->prepare_geometry(scene);
+    this->prepare_geometry(render_world);
 
     // -- Update global data
     float2 current_sample = halton_sequence[base_renderer.frame_count%16] - float2(0.5);
 
-    static float4x4 last_view = main_camera->get_view();
-    static float4x4 last_proj = main_camera->get_projection();
+    static float4x4 last_view = render_world.main_camera_view;
+    static float4x4 last_proj = render_world.main_camera_projection;
 
     auto *global_data                                = base_renderer.bind_global_options<GlobalUniform>();
-    global_data->camera_view                         = main_camera->get_view();
-    global_data->camera_projection                   = main_camera->get_projection();
-    global_data->camera_view_inverse                 = main_camera->get_view_inverse();
-    global_data->camera_projection_inverse           = main_camera->get_projection_inverse();
+    global_data->camera_view                         = render_world.main_camera_view;
+    global_data->camera_projection                   = render_world.main_camera_projection;
+    global_data->camera_view_inverse                 = render_world.main_camera_view_inverse;
+    global_data->camera_projection_inverse           = render_world.main_camera_projection_inverse;
     global_data->camera_previous_view                = last_view;
     global_data->camera_previous_projection          = last_proj;
     global_data->render_resolution                   = floor(settings.resolution_scale * float2(settings.render_resolution)),
@@ -547,8 +537,8 @@ void Renderer::update(Scene &scene)
     global_data->materials_descriptor                = device.get_buffer_storage_index(this->materials_buffer);
     global_data->vertex_uvs_descriptor               = device.get_buffer_storage_index(this->vertex_uvs_buffer.buffer);
 
-    last_view = main_camera->get_view();
-    last_proj = main_camera->get_projection();
+    last_view = render_world.main_camera_view;
+    last_proj = render_world.main_camera_projection;
 
     device.update_globals();
 
@@ -616,10 +606,10 @@ void Renderer::update(Scene &scene)
             cmd.dispatch(dispatch_size({static_cast<i32>(this->draw_count), 1, 1}, 32));
 
             // Frustum culling
-            static float4x4 culling_view = main_camera->get_view();
+            static float4x4 culling_view = render_world.main_camera_view;
             if (settings.freeze_camera_culling == false)
             {
-                culling_view = main_camera->get_view();
+                culling_view = render_world.main_camera_view;
             }
             cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
             cmd.fill_buffer(predicate_buffer, 0);
@@ -943,7 +933,7 @@ void Renderer::update(Scene &scene)
     }
 }
 
-void Renderer::prepare_geometry(Scene &)
+void Renderer::prepare_geometry(RenderWorld &)
 {
     #if 0
     ZoneScoped;

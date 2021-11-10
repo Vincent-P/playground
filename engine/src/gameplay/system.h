@@ -47,7 +47,7 @@ struct GlobalSystem
 protected:
     virtual void initialize(const SystemRegistry &) {}
     virtual void shutdown() {}
-    virtual void upate(const UpdateContext&) {}
+    virtual void update(const UpdateContext&) {}
 
     // Called when a new component is activated (added to world)
     virtual void register_component(const Entity *entity, BaseComponent *component) = 0;
@@ -62,4 +62,6 @@ protected:
        };
        map<EntityId, Record*> XXX_components;
     **/
+    UpdateStages update_stage = UpdateStages::FrameStart;
+    EnumArray<float, UpdateStages> priority_per_stage = {};
 };

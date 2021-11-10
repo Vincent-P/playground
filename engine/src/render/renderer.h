@@ -25,6 +25,7 @@ struct Mesh;
 struct Material;
 class Scene;
 struct AssetManager;
+struct RenderWorld;
 
 struct Settings
 {
@@ -219,9 +220,8 @@ struct Renderer
     void destroy();
 
     void display_ui(UI::Context &ui);
-    void update(Scene &scene);
-
-    void prepare_geometry(Scene &scene);
+    void update(RenderWorld &render_world);
+    void prepare_geometry(RenderWorld &render_world);
     void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
 
     // base_renderer
