@@ -5,19 +5,23 @@
 #include <cross/file_dialog.h>
 
 #include "inputs.h"
-#include "camera.h"
-#include "glb.h"
+#include "ui.h"
 
 #include "assets/asset_manager.h"
+#include "assets/subscene.h"
+#include "assets/mesh.h"
 
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"
-#include "gameplay/systems/editor_camera_systems.h"
-#include "components/transform_component.h"
-#include "components/mesh_component.h"
+#include "gameplay/components/mesh_component.h"
 
-#include <fmt/format.h>
+#include "gameplay/systems/editor_camera_systems.h"
+#include "render/render_world_system.h"
+
+
+
 #include <imgui/imgui.h>
+#include <leaf.hpp>
 
 #if 0
 static void draw_gizmo(float3 camera_world_position, float3 camera_target, float3 camera_up)
@@ -118,12 +122,15 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {
     asset_manager = _asset_manager;
 
+    entity_world.create_system<PrepareRenderWorld>();
+
     Entity *camera_entity = entity_world.create_entity();
     camera_entity->create_component<CameraComponent>();
     camera_entity->create_component<EditorCameraComponent>();
     camera_entity->create_component<CameraInputComponent>();
     camera_entity->create_system<EditorCameraInputSystem>(inputs);
     camera_entity->create_system<EditorCameraTransformSystem>();
+
 
     this->main_camera_entity = camera_entity;
 }
@@ -143,157 +150,174 @@ void Scene::display_ui(UI::Context &ui)
     #if 0
     draw_gizmo(world, main_camera);
     world.display_ui(ui);
-
-    static Option<ECS::EntityId> selected_entity;
-    const auto                   display_component = []<ECS::Componentable Component>(ECS::World &_world, ECS::EntityId _entity)
-    {
-        auto *component = _world.get_component<Component>(_entity);
-        if (component)
-        {
-            ImGui::Separator();
-            ImGui::TextUnformatted(Component::type_name());
-            ImGui::Separator();
-            component->display_ui();
-            ImGui::Spacing();
-        }
-    };
     #endif
+
+    auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
+    const auto &assets = asset_manager->get_available_assets();
 
     if (ui.begin_window("Scene"))
     {
+        static cross::UUID selected = {};
 
-        if (ImGui::Button("Load scene"))
+        if (ImGui::Button("Import subscene"))
         {
-            auto file_path = cross::file_dialog({{"GLB", "*.glb"}});
-            if (file_path)
+            ImGui::OpenPopup("Choose a subscene");
+        }
+
+        if (ImGui::BeginPopupModal("Choose a subscene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::BeginTable("AssetMetadataTable", 4, table_flags))
             {
-                #if 0
-                auto scene     = glb::load_file(file_path->string());
-                auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
+                ImGui::TableSetupColumn("");
+                ImGui::TableSetupColumn("UUID");
+                ImGui::TableSetupColumn("Name");
+                ImGui::TableHeadersRow();
 
-                auto old_textures_count  = static_cast<u32>(asset_manager->textures.size());
-                auto old_materials_count = static_cast<u32>(asset_manager->materials.size());
-
-                for (auto mesh : scene.meshes)
+                for (const auto &[uuid, asset_meta] : assets)
                 {
-                    for (auto &submesh : mesh.submeshes)
+                    auto uuid_copy = uuid;
+                    ImGui::TableNextRow();
+
+                    ImGui::PushID(&asset_meta);
+
+                    ImGui::TableSetColumnIndex(0);
+                    if (ImGui::Button("Choose"))
                     {
-                        submesh.i_material += old_materials_count;
+                        selected = uuid;
+                        ImGui::CloseCurrentPopup();
                     }
-                    asset_manager->meshes.push_back(std::move(mesh));
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.*s", cross::UUID::STR_LEN, uuid.str);
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%s", asset_meta.display_name.c_str());
+
+                    ImGui::PopID();
                 }
 
-                for (auto material : scene.materials)
+                ImGui::EndTable();
+            }
+            ImGui::EndPopup();
+        }
+
+        if (selected.is_valid())
+        {
+            logger::info("Selected {}\n", selected);
+
+            leaf::try_handle_all(
+                [&]() -> Result<void>
                 {
-                    if (material.base_color_texture != u32_invalid)
+                    BOOST_LEAF_AUTO(selected_asset, asset_manager->load_asset(selected));
+                    if (auto *p_subscene = dynamic_cast<SubScene*>(selected_asset))
                     {
-                        material.base_color_texture += old_textures_count;
+                        this->import_subscene(p_subscene);
                     }
-                    asset_manager->materials.push_back(std::move(material));
-                }
-
-                for (auto texture : scene.textures)
-                {
-                    asset_manager->textures.push_back(std::move(texture));
-                }
-
-                for (const auto &instance : scene.instances)
-                {
-                    LocalToWorldComponent transform;
-                    transform.translation = instance.transform.col(3).xyz();
-                    transform.scale[0]    = length(instance.transform.col(0));
-                    transform.scale[1]    = length(instance.transform.col(1));
-                    transform.scale[2]    = length(instance.transform.col(2));
-                    float4x4 m            = instance.transform;
-                    // Set translation to zero
-                    m.at(0, 3) = 0.0;
-                    m.at(1, 3) = 0.0;
-                    m.at(2, 3) = 0.0;
-                    // Divide by scale
-                    m.at(0, 0) /= transform.scale.x;
-                    m.at(1, 0) /= transform.scale.x;
-                    m.at(2, 0) /= transform.scale.x;
-                    m.at(0, 1) /= transform.scale.y;
-                    m.at(1, 1) /= transform.scale.y;
-                    m.at(2, 1) /= transform.scale.y;
-                    m.at(0, 2) /= transform.scale.z;
-                    m.at(1, 2) /= transform.scale.z;
-                    m.at(2, 2) /= transform.scale.z;
-                    transform.quaternion = quaternion_from_float4x4(m);
-
-                    world.create_entity(std::string_view{"MeshInstance"}, std::move(transform), RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
-                }
-                #endif
-            }
+                    else if (auto *p_mesh = dynamic_cast<Mesh*>(selected_asset))
+                    {
+                        this->import_mesh(p_mesh);
+                    }
+                    return Ok<void>();
+                },
+                asset_manager->get_error_handlers());
         }
-
-        usize mesh_instances_count = 0;
-        for (auto &[entity, _] : world.entity_index)
-        {
-            if (world.has_component<RenderMeshComponent>(entity))
-            {
-                mesh_instances_count += 1;
-            }
-        }
-        ImGui::Text("Render mesh instances: %zu", mesh_instances_count);
-
-        #if 0
-        for (auto &[entity, _] : world.entity_index)
-        {
-            if (world.is_component(entity))
-            {
-                continue;
-            }
-
-            const char *tag = "";
-            if (const auto *internal_id = world.get_component<ECS::InternalId>(entity))
-            {
-                tag = internal_id->tag;
-            }
-
-            bool is_selected    = selected_entity && *selected_entity == entity;
-            if (ImGui::Selectable(tag, &is_selected))
-            {
-                selected_entity = entity;
-            }
-        }
-        #endif
+        selected = {};
 
         ui.end_window();
     }
+}
 
-    #if 0
-    if (ui.begin_window("Inspector"))
+
+void Scene::import_mesh(Mesh *mesh)
+{
+    // import a mesh with identity transform
+}
+
+void Scene::import_subscene(SubScene *subscene)
+{
+    // import a subscene
+
+
+    usize i_mesh = 0;
+    for (; i_mesh < subscene->meshes.size(); i_mesh += 1)
     {
-        if (selected_entity)
+        if (subscene->meshes[i_mesh].is_valid())
         {
-            const char *tag = "<No name>";
-            if (const auto *internal_id = world.get_component<ECS::InternalId>(*selected_entity))
-            {
-                tag = internal_id->tag;
-            }
-            ImGui::Text("Selected: %s", tag);
-
-            display_component.template operator()<TransformComponent>(world, *selected_entity);
-            display_component.template operator()<CameraComponent>(world, *selected_entity);
-            display_component.template operator()<InputCameraComponent>(world, *selected_entity);
-            display_component.template operator()<SkyAtmosphereComponent>(world, *selected_entity);
-            display_component.template operator()<RenderMeshComponent>(world, *selected_entity);
-
-            {
-                auto *component = world.get_component<LocalToWorldComponent>(*selected_entity);
-                if (component)
-                {
-                    ImGui::Separator();
-                    ImGui::TextUnformatted(LocalToWorldComponent::type_name());
-                    ImGui::Separator();
-                    ImGui::SliderFloat3("Translation", component->translation.data(), -100.0f, 100.0f);
-                    ImGui::SliderFloat3("Scale", component->scale.data(), 1.0f, 10.0f);
-                    ImGui::Spacing();
-                }
-            }
+            break;
         }
-        ui.end_window();
     }
-    #endif
+
+    // Subscene without meshes??
+    ASSERT(i_mesh < subscene->meshes.size());
+
+    float4x4 transform = subscene->transforms[i_mesh];
+    auto mesh_asset = subscene->meshes[i_mesh];
+
+    Entity *new_entity = entity_world.create_entity();
+    new_entity->create_component<MeshComponent>();
+    auto *mesh_component = new_entity->get_first_component<MeshComponent>();
+    mesh_component->mesh_asset = mesh_asset;
+    mesh_component->set_local_transform(transform);
+
+#if 0
+    auto file_path = cross::file_dialog({{"GLB", "*.glb"}});
+    if (file_path)
+    {
+        auto scene     = glb::load_file(file_path->string());
+        auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
+
+        auto old_textures_count  = static_cast<u32>(asset_manager->textures.size());
+        auto old_materials_count = static_cast<u32>(asset_manager->materials.size());
+
+        for (auto mesh : scene.meshes)
+        {
+            for (auto &submesh : mesh.submeshes)
+            {
+                submesh.i_material += old_materials_count;
+            }
+            asset_manager->meshes.push_back(std::move(mesh));
+        }
+
+        for (auto material : scene.materials)
+        {
+            if (material.base_color_texture != u32_invalid)
+            {
+                material.base_color_texture += old_textures_count;
+            }
+            asset_manager->materials.push_back(std::move(material));
+        }
+
+        for (auto texture : scene.textures)
+        {
+            asset_manager->textures.push_back(std::move(texture));
+        }
+
+        for (const auto &instance : scene.instances)
+        {
+            LocalToWorldComponent transform;
+            transform.translation = instance.transform.col(3).xyz();
+            transform.scale[0]    = length(instance.transform.col(0));
+            transform.scale[1]    = length(instance.transform.col(1));
+            transform.scale[2]    = length(instance.transform.col(2));
+            float4x4 m            = instance.transform;
+            // Set translation to zero
+            m.at(0, 3) = 0.0;
+            m.at(1, 3) = 0.0;
+            m.at(2, 3) = 0.0;
+            // Divide by scale
+            m.at(0, 0) /= transform.scale.x;
+            m.at(1, 0) /= transform.scale.x;
+            m.at(2, 0) /= transform.scale.x;
+            m.at(0, 1) /= transform.scale.y;
+            m.at(1, 1) /= transform.scale.y;
+            m.at(2, 1) /= transform.scale.y;
+            m.at(0, 2) /= transform.scale.z;
+            m.at(1, 2) /= transform.scale.z;
+            m.at(2, 2) /= transform.scale.z;
+            transform.quaternion = quaternion_from_float4x4(m);
+
+            world.create_entity(std::string_view{"MeshInstance"}, std::move(transform), RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
+        }
+    }
+#endif
 }
