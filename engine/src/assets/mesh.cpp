@@ -11,10 +11,33 @@ void Mesh::from_flatbuffer(const void *data, usize /*len*/)
 {
     ASSERT(engine::schemas::MeshBufferHasIdentifier(data));
     auto mesh_buffer = engine::schemas::GetMesh(data);
-    logger::info("[Mesh] read {} positions from file.\n", mesh_buffer->positions()->size());
+
+    const auto *mesh_indices = mesh_buffer->indices();
+    const auto *indices_data = reinterpret_cast<const u32*>(mesh_indices->data());
+    this->indices = Vec<u32>(indices_data, indices_data + mesh_indices->size());
+
+    const auto *mesh_positions = mesh_buffer->positions();
+    const auto *positions_data = reinterpret_cast<const float4*>(mesh_positions->data());
+    this->positions = Vec<float4>(positions_data, positions_data + mesh_positions->size());
+
+    const auto *mesh_uvs = mesh_buffer->uvs();
+    const auto *uvs_data = reinterpret_cast<const float2*>(mesh_uvs->data());
+    this->uvs = Vec<float2>(uvs_data, uvs_data + mesh_uvs->size());
+
+    const auto *mesh_submeshes = mesh_buffer->submeshes();
+    this->submeshes.reserve(mesh_submeshes->size());
+    for (const auto *mesh_submesh : *mesh_submeshes)
+    {
+        this->submeshes.push_back({
+            .first_index  = mesh_submesh->first_index(),
+            .first_vertex = mesh_submesh->first_vertex(),
+            .index_count  = mesh_submesh->index_count(),
+            .material     = {},
+        });
+    }
 }
 
-template<typename T>
+template <typename T>
 static auto create_vector_of_struct(auto &builder, const auto &vector)
 {
     return builder.CreateVectorOfStructs(reinterpret_cast<const T*>(vector.data()), vector.size());
