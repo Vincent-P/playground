@@ -75,6 +75,8 @@ App::~App()
 
 void App::display_ui()
 {
+    ZoneScoped;
+
     ui.start_frame(window, inputs);
 
     ui.display_ui();
@@ -138,7 +140,6 @@ void App::run()
         }
 
         watcher.update();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         FrameMark
     }
 }

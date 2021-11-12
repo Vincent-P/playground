@@ -12,3 +12,13 @@ void CameraComponent::set_perspective(float aspect_ratio)
 {
     projection = camera::infinite_perspective(fov, aspect_ratio, near_plane, &projection_inverse);
 }
+
+void EditorCameraComponent::show_inspector_ui()
+{
+
+}
+
+void CameraInputComponent::show_inspector_ui()
+{
+
+}

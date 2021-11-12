@@ -169,6 +169,7 @@ void Entity::set_parent(Entity *new_parent)
 {
     this->parent = new_parent;
     this->parent->attached_entities.push_back(this);
+    this->attach_to_parent();
     this->parent->refresh_attachments();
 }
 

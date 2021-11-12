@@ -142,6 +142,7 @@ void Scene::destroy()
 
 void Scene::update(const Inputs &)
 {
+    ZoneScoped;
     double delta_t       = 0.016;
     entity_world.update(delta_t);
 }
@@ -241,13 +242,6 @@ Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
     const auto &children   = subscene->children[i_node];
     const auto &name       = subscene->names[i_node];
 
-    Vec<Entity *> entity_children;
-    entity_children.reserve(children.size());
-    for (auto i_child : children)
-    {
-        entity_children.push_back(import_subscene_rec(subscene, i_child));
-    }
-
     Entity *new_entity = entity_world.create_entity(name);
 
     SpatialComponent *entity_root = nullptr;
@@ -265,8 +259,9 @@ Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
     }
 
     entity_root->set_local_transform(transform);
-    for (auto *child : entity_children)
+    for (auto i_child : children)
     {
+        auto *child = import_subscene_rec(subscene, i_child);
         child->set_parent(new_entity);
     }
 

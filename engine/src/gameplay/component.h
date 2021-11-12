@@ -31,6 +31,8 @@ struct BaseComponent
     virtual void shutdown(LoadingContext &)   { state = ComponentState::Loaded; }
     virtual void update_loading(LoadingContext &) {}
 
+    virtual void show_inspector_ui() = 0;
+
     // clang-format off
     constexpr bool is_unloaded() const        { return state == ComponentState::Unloaded; }
     constexpr bool is_loading() const         { return state == ComponentState::Loading; }
@@ -54,6 +56,8 @@ struct SpatialComponent : BaseComponent
     inline const float4x4 &get_world_transform() const { return world_transform; }
     inline const AABB     &get_world_bounds() const    { return world_bounds; }
     // clang-format on
+
+    void show_inspector_ui() override;
 
   private:
     void update_world_transform();

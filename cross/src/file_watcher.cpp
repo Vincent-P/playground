@@ -19,6 +19,7 @@
 #include <exo/algorithms.h>
 
 #include <array>
+#include <tracy/Tracy.hpp>
 
 namespace cross
 {
@@ -230,6 +231,8 @@ Watch FileWatcher::add_watch(const char *path) { return add_watch_internal(*this
 
 void FileWatcher::update()
 {
+    ZoneScoped;
+
     fetch_events_internal(*this);
 
     for (const auto &event : current_events)

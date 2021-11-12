@@ -1,6 +1,7 @@
 #include "gameplay/entity_world.h"
 
 #include "gameplay/entity.h"
+#include "gameplay/component.h"
 #include "gameplay/loading_context.h"
 #include "gameplay/update_context.h"
 #include "gameplay/update_stages.h"
@@ -94,13 +95,18 @@ void EntityWorld::destroy_system_internal(GlobalSystem *system)
     }
 }
 
-void EntityWorld::display_entity_tree_rec(Entity *entity)
+void EntityWorld::display_entity_tree_rec(Entity *entity, Entity* &selected)
 {
     if (ImGui::TreeNode(entity, "%s", entity->name.c_str()))
     {
+        if (ImGui::IsItemClicked())
+        {
+            selected = entity;
+        }
+
         for (auto *child : entity->attached_entities)
         {
-            display_entity_tree_rec(child);
+            display_entity_tree_rec(child, selected);
         }
 
         ImGui::TreePop();
@@ -109,17 +115,29 @@ void EntityWorld::display_entity_tree_rec(Entity *entity)
 
 void EntityWorld::display_ui()
 {
+    static Entity* s_selected = nullptr;
     if (ImGui::Begin("World"))
     {
-        if (ImGui::TreeNode("Entities"))
+        if (ImGui::CollapsingHeader("Entities"))
         {
             for (auto *entity : entities)
             {
-                display_entity_tree_rec(entity);
+                display_entity_tree_rec(entity, s_selected);
             }
-
-            ImGui::TreePop();
         }
+
+        if (ImGui::CollapsingHeader("Inspector"))
+        {
+            if (s_selected)
+            {
+                ImGui::Text("Selected: %s", s_selected->name.c_str());
+                for (auto *component : s_selected->components)
+                {
+                    component->show_inspector_ui();
+                }
+            }
+        }
+
         ImGui::End();
     }
 }

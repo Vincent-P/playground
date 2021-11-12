@@ -29,7 +29,7 @@ private:
     void create_system_internal(GlobalSystem *system);
     void destroy_system_internal(GlobalSystem *system);
 
-    void display_entity_tree_rec(Entity *entity);
+    void display_entity_tree_rec(Entity *entity, Entity* &selected);
     void display_ui();
 
     Set<Entity*> entities;

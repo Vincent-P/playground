@@ -52,6 +52,14 @@ struct Entity
     {
         Component *new_component = new Component(std::forward<Args>(args)...);
         create_component_internal(reinterpret_cast<BaseComponent*>(new_component));
+
+        if (auto *spatial_component = dynamic_cast<SpatialComponent*>(new_component))
+        {
+            if (root_component == nullptr)
+            {
+                root_component = spatial_component;
+            }
+        }
     }
 
     bool is_active() const { return state == EntityState::Activated; }

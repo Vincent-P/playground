@@ -37,6 +37,8 @@ enum struct EditorCameraState : uint
 
 struct EditorCameraComponent : BaseComponent
 {
+    void show_inspector_ui() override;
+
     EditorCameraState state = EditorCameraState::Idle;
 
     // spherical coordinates: radius r, azymuthal angle theta, polar angle phi
@@ -48,6 +50,8 @@ struct EditorCameraComponent : BaseComponent
 
 struct CameraInputComponent : BaseComponent
 {
+    void show_inspector_ui() override;
+
     bool camera_active = false;
     bool camera_move   = false;
     bool camera_orbit  = false;
