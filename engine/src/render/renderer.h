@@ -12,7 +12,6 @@
 
 #include "render/vulkan/commands.h"
 #include "render/vulkan/context.h"
-#include "render/vulkan/device.h"
 #include "render/vulkan/surface.h"
 
 #include <chrono>
@@ -111,6 +110,14 @@ struct RenderMesh
     RenderMeshGPU gpu;
 };
 
+struct RenderSubMesh
+{
+    u32 first_index  = 0;
+    u32 first_vertex = 0;
+    u32 index_count  = 0;
+    u32 i_material   = 0;
+};
+
 // One drawcall, one material instance
 struct SubMeshInstance
 {
@@ -137,6 +144,20 @@ struct RenderMaterial
     Handle<gfx::Image> base_color_texture;
 };
 
+PACKED(struct RenderMaterialGPU
+{
+   float4 base_color_factor          = float4(1.0);
+   float4 emissive_factor            = float4(0.0);
+   float  metallic_factor            = 0.0f;
+   float  roughness_factor           = 0.0f;
+   u32    base_color_texture         = u32_invalid;
+   u32    normal_texture             = u32_invalid;
+   u32    metallic_roughness_texture = u32_invalid;
+   float  rotation                   = 0.0f;
+   float2 offset                     = float2(0.0f);
+   float2 scale                      = float2(1.0f);
+   float2 pad00                      = 42.0f;
+})
 
 struct Renderer
 {
@@ -157,11 +178,12 @@ struct Renderer
     Handle<gfx::Framebuffer> ldr_depth_fb;
 
     // Geometry
-    Vec<RenderMesh> render_meshes;
-    Vec<RenderInstance> render_instances;
-    Handle<gfx::Buffer> render_meshes_buffer;
-    Handle<gfx::Buffer> tlas_buffer;
 
+    Map<cross::UUID, Handle<RenderMesh>> uploaded_meshes; // Contains all uploaded meshes in the Pool
+    Pool<RenderMesh>    render_meshes; // Used to free/allocate mesh and get a free slot to upload it to GPU buffer
+    Handle<gfx::Buffer> meshes_buffer;
+
+    Handle<gfx::Buffer> tlas_buffer;
     UnifiedBufferStorage index_buffer;
     UnifiedBufferStorage vertex_positions_buffer;
     UnifiedBufferStorage vertex_uvs_buffer;
@@ -179,8 +201,10 @@ struct Renderer
     Handle<gfx::Buffer> group_sum_reduction;     // count of element that match predicate for each work group
     Handle<gfx::Buffer> scanned_indices;         // scan of culled indices in predicate buffer (0112233 for example if predicate is true every other 2 elements)
 
-    // Draw data
-    Vec<SubMeshInstance> submesh_instances_to_draw;           // instance x submeshes from mesh from the scene
+    // Draw list data
+    Map<cross::UUID, Vec<u32>> mesh_instances;                // all mesh instances
+    Vec<RenderInstance> render_instances;                     // all drawable instances from the scene
+    Vec<SubMeshInstance> submesh_instances;                   // instance x submeshes
     RingBuffer submesh_instances_data;                        // for every instance x submesh, corresponding SubMeshInstance
     RingBuffer instances_data;                                // for every instance, corresponding RenderInstance
     Handle<gfx::Buffer> culled_instances_compact_indices;     // above indices but compacted and ready to draw (0123 for above example)
@@ -220,8 +244,8 @@ struct Renderer
     void destroy();
 
     void display_ui(UI::Context &ui);
-    void update(RenderWorld &render_world);
-    void prepare_geometry(RenderWorld &render_world);
+    void update(const RenderWorld &render_world);
+    void prepare_geometry(const RenderWorld &render_world);
     void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
 
     // base_renderer

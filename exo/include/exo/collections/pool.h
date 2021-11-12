@@ -38,6 +38,8 @@ struct Pool
     static_assert(std::forward_iterator<ConstPoolIterator<T>>);
     PoolIterator<T> begin();
     PoolIterator<T> end();
+    const T *data() const;
+    T *data();
 
     ConstPoolIterator<T> begin() const;
     ConstPoolIterator<T> end() const;
@@ -313,4 +315,16 @@ template <typename T>
 ConstPoolIterator<T> Pool<T>::end() const
 {
     return ConstPoolIterator<T>(this, capacity);
+}
+
+template <typename T>
+const T *Pool<T>::data() const
+{
+    return reinterpret_cast<const T*>(buffer);
+}
+
+template <typename T>
+T *Pool<T>::data()
+{
+    return reinterpret_cast<T*>(buffer);
 }
