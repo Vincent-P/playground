@@ -72,6 +72,7 @@ struct Entity
         return nullptr;
     }
 
+    void set_parent(Entity *new_parent);
 private:
 
     // create_system
@@ -81,6 +82,10 @@ private:
     void create_component_internal(BaseComponent *component);
     void destroy_component_internal(BaseComponent *component);
 
+    void attach_to_parent();
+    void dettach_to_parent();
+    void refresh_attachments();
+
     cross::UUID uuid;
     std::string name;
     EntityState state = EntityState::Unloaded;
@@ -89,5 +94,8 @@ private:
     Vec<BaseComponent *> components;
     EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list;
 
-    SpatialComponent *   root_component = nullptr;
+    SpatialComponent *root_component = nullptr;
+    Vec<Entity *>     attached_entities;
+    Entity *          parent                = nullptr;
+    bool              is_attached_to_parent = false;
 };

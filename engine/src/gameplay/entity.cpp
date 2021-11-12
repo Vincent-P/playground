@@ -164,3 +164,67 @@ void Entity::destroy_component_internal(BaseComponent *component)
 
     components.pop_back();
 }
+
+void Entity::set_parent(Entity *new_parent)
+{
+    this->parent = new_parent;
+    this->parent->attached_entities.push_back(this);
+    this->parent->refresh_attachments();
+}
+
+void Entity::attach_to_parent()
+{
+    ASSERT(is_attached_to_parent == false);
+    ASSERT(this->parent != nullptr && this->parent->root_component != nullptr);
+
+    SpatialComponent *parent_root = parent->root_component;
+
+    root_component->parent = parent_root;
+    root_component->update_world_transform();
+    parent_root->children.push_back(this->root_component);
+
+    is_attached_to_parent = true;
+}
+
+void Entity::dettach_to_parent()
+{
+    ASSERT(is_attached_to_parent == true);
+    ASSERT(this->parent != nullptr && this->parent->root_component != nullptr);
+
+    SpatialComponent *parent_root = parent->root_component;
+
+    root_component->parent = nullptr;
+    root_component->update_world_transform();
+
+    u32 i_parent_child = 0;
+    for (; i_parent_child < parent_root->children.size(); i_parent_child += 1)
+    {
+        if (parent_root->children[i_parent_child] == this->root_component)
+        {
+            break;
+        }
+    }
+
+    // Assert hit: The parent doesn't contain this entity in its children
+    ASSERT(i_parent_child < parent_root->children.size());
+
+    if (i_parent_child < parent_root->children.size() - 1)
+    {
+        std::swap(parent_root->children[i_parent_child], parent_root->children.back());
+    }
+    parent_root->children.pop_back();
+
+    is_attached_to_parent = false;
+}
+
+void Entity::refresh_attachments()
+{
+    for (auto *attached_entity : attached_entities)
+    {
+        if (attached_entity->is_attached_to_parent)
+        {
+            attached_entity->dettach_to_parent();
+            attached_entity->attach_to_parent();
+        }
+    }
+}

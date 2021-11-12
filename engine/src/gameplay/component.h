@@ -7,6 +7,7 @@
 #include <string>
 
 struct LoadingContext;
+struct Entity;
 
 enum struct ComponentState
 {
@@ -55,6 +56,8 @@ struct SpatialComponent : BaseComponent
     // clang-format on
 
   private:
+    void update_world_transform();
+
     float4x4 local_transform;
     AABB     local_bounds;
     float4x4 world_transform;
@@ -62,6 +65,8 @@ struct SpatialComponent : BaseComponent
 
     SpatialComponent *      parent;
     Vec<SpatialComponent *> children;
+
+    friend Entity;
 };
 
 /**
