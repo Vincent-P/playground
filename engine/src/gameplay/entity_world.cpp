@@ -6,6 +6,8 @@
 #include "gameplay/update_stages.h"
 #include "gameplay/system.h"
 
+#include <imgui/imgui.h>
+
 void EntityWorld::update(double delta_t)
 {
     LoadingContext loading_context = {&system_registry};
@@ -43,12 +45,17 @@ void EntityWorld::update(double delta_t)
             system->update(update_context);
         }
     }
+
+    // -- UI
+
+    display_ui();
 }
 
 
-Entity* EntityWorld::create_entity()
+Entity* EntityWorld::create_entity(std::string_view name)
 {
     Entity *new_entity = new Entity();
+    new_entity->name = name;
     entities.insert(new_entity);
     return new_entity;
 }
@@ -84,5 +91,35 @@ void EntityWorld::destroy_system_internal(GlobalSystem *system)
     if (i < size)
     {
         system_registry.global_systems.pop_back();
+    }
+}
+
+void EntityWorld::display_entity_tree_rec(Entity *entity)
+{
+    if (ImGui::TreeNode(entity, "%s", entity->name.c_str()))
+    {
+        for (auto *child : entity->attached_entities)
+        {
+            display_entity_tree_rec(child);
+        }
+
+        ImGui::TreePop();
+    }
+}
+
+void EntityWorld::display_ui()
+{
+    if (ImGui::Begin("World"))
+    {
+        if (ImGui::TreeNode("Entities"))
+        {
+            for (auto *entity : entities)
+            {
+                display_entity_tree_rec(entity);
+            }
+
+            ImGui::TreePop();
+        }
+        ImGui::End();
     }
 }

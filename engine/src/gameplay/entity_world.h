@@ -4,6 +4,8 @@
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"
 
+#include <string_view>
+
 struct Entity;
 
 struct EntityWorld
@@ -11,7 +13,7 @@ struct EntityWorld
 public:
     void update(double delta_t);
 
-    Entity* create_entity();
+    Entity* create_entity(std::string_view name = "Unnamed");
     void destroy_entity(Entity *entity);
 
     template<std::derived_from<GlobalSystem> System, typename ...Args>
@@ -26,6 +28,9 @@ public:
 private:
     void create_system_internal(GlobalSystem *system);
     void destroy_system_internal(GlobalSystem *system);
+
+    void display_entity_tree_rec(Entity *entity);
+    void display_ui();
 
     Set<Entity*> entities;
     SystemRegistry system_registry;

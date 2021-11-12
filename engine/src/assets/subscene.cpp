@@ -42,12 +42,19 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
         this->roots.push_back(subscene_root);
     }
 
+    const auto *subscene_names = subscene_buffer->names();
+    this->names.resize(this->transforms.size());
+    for (u32 i_name = 0; i_name < subscene_names->size(); i_name += 1)
+    {
+        this->names[i_name] = std::string{subscene_names->Get(i_name)->c_str()};
+    }
+
+    // --
+
     for (const auto &mesh_uuid : this->meshes)
     {
         this->dependencies.push_back(mesh_uuid);
     }
-
-    logger::info("[SubScene] read {} transforms from file.\n", subscene_buffer->transforms()->size());
 }
 
 void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
@@ -75,6 +82,8 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
     }
     auto children_offset = builder.CreateVector(entity_children_offsets.data(), entity_children_offsets.size());
 
+    auto names_offset = builder.CreateVectorOfStrings(names);
+
     auto roots_offset = builder.CreateVectorScalarCast<u32>(roots.data(), roots.size());
 
     engine::schemas::SubSceneBuilder subscene_builder{builder};
@@ -82,12 +91,11 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
     subscene_builder.add_meshes(meshes_offset);
     subscene_builder.add_children(children_offset);
     subscene_builder.add_roots(roots_offset);
+    subscene_builder.add_names(names_offset);
     auto subscene_offset = subscene_builder.Finish();
 
     // builder.Finish() doesn't add a file identifier
     engine::schemas::FinishSubSceneBuffer(builder, subscene_offset);
-
-    logger::info("[SubScene] written {} transforms to file.\n", this->transforms.size());
 
     o_offset = subscene_offset.o;
     o_size   = builder.GetSize();

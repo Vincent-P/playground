@@ -96,7 +96,8 @@ struct Mesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_INDICES = 6,
     VT_POSITIONS = 8,
     VT_UVS = 10,
-    VT_SUBMESHES = 12
+    VT_SUBMESHES = 12,
+    VT_NAME = 14
   };
   const engine::schemas::Asset *asset() const {
     return GetPointer<const engine::schemas::Asset *>(VT_ASSET);
@@ -113,6 +114,9 @@ struct Mesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<engine::schemas::SubMesh>> *submeshes() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<engine::schemas::SubMesh>> *>(VT_SUBMESHES);
   }
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_ASSET) &&
@@ -126,6 +130,8 @@ struct Mesh FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_SUBMESHES) &&
            verifier.VerifyVector(submeshes()) &&
            verifier.VerifyVectorOfTables(submeshes()) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
            verifier.EndTable();
   }
 };
@@ -149,6 +155,9 @@ struct MeshBuilder {
   void add_submeshes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::SubMesh>>> submeshes) {
     fbb_.AddOffset(Mesh::VT_SUBMESHES, submeshes);
   }
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(Mesh::VT_NAME, name);
+  }
   explicit MeshBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -166,8 +175,10 @@ inline flatbuffers::Offset<Mesh> CreateMesh(
     flatbuffers::Offset<flatbuffers::Vector<uint32_t>> indices = 0,
     flatbuffers::Offset<flatbuffers::Vector<const engine::schemas::exo::float4 *>> positions = 0,
     flatbuffers::Offset<flatbuffers::Vector<const engine::schemas::exo::float2 *>> uvs = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::SubMesh>>> submeshes = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::SubMesh>>> submeshes = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0) {
   MeshBuilder builder_(_fbb);
+  builder_.add_name(name);
   builder_.add_submeshes(submeshes);
   builder_.add_uvs(uvs);
   builder_.add_positions(positions);
@@ -182,18 +193,21 @@ inline flatbuffers::Offset<Mesh> CreateMeshDirect(
     const std::vector<uint32_t> *indices = nullptr,
     const std::vector<engine::schemas::exo::float4> *positions = nullptr,
     const std::vector<engine::schemas::exo::float2> *uvs = nullptr,
-    const std::vector<flatbuffers::Offset<engine::schemas::SubMesh>> *submeshes = nullptr) {
+    const std::vector<flatbuffers::Offset<engine::schemas::SubMesh>> *submeshes = nullptr,
+    const char *name = nullptr) {
   auto indices__ = indices ? _fbb.CreateVector<uint32_t>(*indices) : 0;
   auto positions__ = positions ? _fbb.CreateVectorOfStructs<engine::schemas::exo::float4>(*positions) : 0;
   auto uvs__ = uvs ? _fbb.CreateVectorOfStructs<engine::schemas::exo::float2>(*uvs) : 0;
   auto submeshes__ = submeshes ? _fbb.CreateVector<flatbuffers::Offset<engine::schemas::SubMesh>>(*submeshes) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
   return engine::schemas::CreateMesh(
       _fbb,
       asset,
       indices__,
       positions__,
       uvs__,
-      submeshes__);
+      submeshes__,
+      name__);
 }
 
 inline const engine::schemas::Mesh *GetMesh(const void *buf) {

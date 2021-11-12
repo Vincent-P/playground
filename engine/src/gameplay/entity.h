@@ -98,4 +98,6 @@ private:
     Vec<Entity *>     attached_entities;
     Entity *          parent                = nullptr;
     bool              is_attached_to_parent = false;
+
+    friend struct EntityWorld;
 };

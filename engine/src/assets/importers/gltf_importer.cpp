@@ -269,6 +269,11 @@ static void import_meshes(ImportContext &ctx)
         const auto &j_mesh   = j_meshes[i_mesh];
         auto *      new_mesh = ctx.asset_manager->create_asset<Mesh>(mesh_uuids[i_mesh]);
 
+        if (j_mesh.HasMember("name"))
+        {
+            new_mesh->name = std::string{j_mesh["name"].GetString()};
+        }
+
         for (auto &j_primitive : j_mesh["primitives"].GetArray())
         {
             ASSERT(j_primitive.HasMember("attributes"));
@@ -487,6 +492,7 @@ static void import_nodes(ImportContext &ctx)
     ctx.new_scene->transforms.reserve(j_nodes.Size());
     ctx.new_scene->meshes.reserve(j_nodes.Size());
     ctx.new_scene->children.reserve(j_nodes.Size());
+    ctx.new_scene->names.reserve(j_nodes.Size());
 
     for (const auto &j_node : j_nodes)
     {
@@ -502,6 +508,12 @@ static void import_nodes(ImportContext &ctx)
         else
         {
             ctx.new_scene->meshes.emplace_back();
+        }
+
+        ctx.new_scene->names.emplace_back();
+        if (j_node.HasMember("name"))
+        {
+            ctx.new_scene->names.back() = std::string{j_node["name"].GetString()};
         }
 
         ctx.new_scene->children.emplace_back();

@@ -125,7 +125,7 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 
     entity_world.create_system<PrepareRenderWorld>();
 
-    Entity *camera_entity = entity_world.create_entity();
+    Entity *camera_entity = entity_world.create_entity("Main Camera");
     camera_entity->create_component<CameraComponent>();
     camera_entity->create_component<EditorCameraComponent>();
     camera_entity->create_component<CameraInputComponent>();
@@ -234,20 +234,21 @@ void Scene::import_mesh(Mesh *mesh)
     // import a mesh with identity transform
 }
 
-Entity* Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
+Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
 {
     const auto &transform  = subscene->transforms[i_node];
     const auto &mesh_asset = subscene->meshes[i_node];
     const auto &children   = subscene->children[i_node];
+    const auto &name       = subscene->names[i_node];
 
-    Vec<Entity*> entity_children;
+    Vec<Entity *> entity_children;
     entity_children.reserve(children.size());
     for (auto i_child : children)
     {
         entity_children.push_back(import_subscene_rec(subscene, i_child));
     }
 
-    Entity *new_entity = entity_world.create_entity();
+    Entity *new_entity = entity_world.create_entity(name);
 
     SpatialComponent *entity_root = nullptr;
     if (mesh_asset.is_valid())

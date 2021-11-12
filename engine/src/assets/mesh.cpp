@@ -35,6 +35,8 @@ void Mesh::from_flatbuffer(const void *data, usize /*len*/)
             .material     = {},
         });
     }
+
+    this->name = mesh_buffer->name()->str();
 }
 
 template <typename T>
@@ -67,12 +69,15 @@ void Mesh::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset,
     }
     auto submeshes_offset = builder.CreateVector(submeshes_offsets);
 
+    auto name_offset = builder.CreateString(this->name);
+
 
     engine::schemas::MeshBuilder mesh_builder{builder};
     mesh_builder.add_indices(indices_offset);
     mesh_builder.add_positions(positions_offset);
     mesh_builder.add_uvs(uvs_offset);
     mesh_builder.add_submeshes(submeshes_offset);
+    mesh_builder.add_name(name_offset);
     auto mesh_offset = mesh_builder.Finish();
 
     // builder.Finish() doesn't add a file identifier

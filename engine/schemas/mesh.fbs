@@ -16,6 +16,7 @@ table Mesh {
   positions:[exo.float4];
   uvs:[exo.float2];
   submeshes:[SubMesh];
+  name:string;
 }
 
 file_identifier "MESH";

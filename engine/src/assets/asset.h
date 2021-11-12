@@ -28,6 +28,7 @@ struct Asset
 {
     cross::UUID uuid;
     AssetState state;
+    std::string name;
 
     Vec<cross::UUID> dependencies;
 

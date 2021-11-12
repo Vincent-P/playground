@@ -12,6 +12,7 @@ table SubScene {
   meshes:[exo.UUID];
   children: [EntityChildren];
   roots: [uint32];
+  names:[string];
 }
 
 file_identifier "SBSC";
