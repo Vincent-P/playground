@@ -10,6 +10,7 @@ struct SubScene : Asset
     Vec<float4x4> transforms;
     Vec<cross::UUID> meshes;
     Vec<Vec<u32>> children;
+    Vec<u32> roots;
 
     const char *type_name() final { return "SubScene"; }
     void from_flatbuffer(const void *data, usize len) final;

@@ -11,6 +11,7 @@ table SubScene {
   transforms:[exo.float4x4];
   meshes:[exo.UUID];
   children: [EntityChildren];
+  roots: [uint32];
 }
 
 file_identifier "SBSC";

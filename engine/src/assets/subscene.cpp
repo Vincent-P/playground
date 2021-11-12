@@ -36,6 +36,12 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
         this->children.emplace_back(children->data(), children->data() + children->size());
     }
 
+    const auto *subscene_roots = subscene_buffer->roots();
+    for (auto subscene_root : *subscene_roots)
+    {
+        this->roots.push_back(subscene_root);
+    }
+
     for (const auto &mesh_uuid : this->meshes)
     {
         this->dependencies.push_back(mesh_uuid);
@@ -69,10 +75,13 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
     }
     auto children_offset = builder.CreateVector(entity_children_offsets.data(), entity_children_offsets.size());
 
+    auto roots_offset = builder.CreateVectorScalarCast<u32>(roots.data(), roots.size());
+
     engine::schemas::SubSceneBuilder subscene_builder{builder};
     subscene_builder.add_transforms(transforms_offset);
     subscene_builder.add_meshes(meshes_offset);
     subscene_builder.add_children(children_offset);
+    subscene_builder.add_roots(roots_offset);
     auto subscene_offset = subscene_builder.Finish();
 
     // builder.Finish() doesn't add a file identifier

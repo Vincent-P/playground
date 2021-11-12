@@ -4,6 +4,7 @@
 #include <exo/maths/quaternion.h>
 #include <cross/file_dialog.h>
 
+#include "gameplay/component.h"
 #include "inputs.h"
 #include "ui.h"
 
@@ -233,91 +234,49 @@ void Scene::import_mesh(Mesh *mesh)
     // import a mesh with identity transform
 }
 
-void Scene::import_subscene(SubScene *subscene)
+Entity* Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
 {
-    // import a subscene
+    const auto &transform  = subscene->transforms[i_node];
+    const auto &mesh_asset = subscene->meshes[i_node];
+    const auto &children   = subscene->children[i_node];
 
-
-    usize i_mesh = 0;
-    for (; i_mesh < subscene->meshes.size(); i_mesh += 1)
+    Vec<Entity*> entity_children;
+    entity_children.reserve(children.size());
+    for (auto i_child : children)
     {
-        if (subscene->meshes[i_mesh].is_valid())
-        {
-            break;
-        }
+        entity_children.push_back(import_subscene_rec(subscene, i_child));
     }
-
-    // Subscene without meshes??
-    ASSERT(i_mesh < subscene->meshes.size());
-
-    float4x4 transform = subscene->transforms[i_mesh];
-    auto mesh_asset = subscene->meshes[i_mesh];
 
     Entity *new_entity = entity_world.create_entity();
-    new_entity->create_component<MeshComponent>();
-    auto *mesh_component = new_entity->get_first_component<MeshComponent>();
-    mesh_component->mesh_asset = mesh_asset;
-    mesh_component->set_local_transform(transform);
 
-#if 0
-    auto file_path = cross::file_dialog({{"GLB", "*.glb"}});
-    if (file_path)
+    SpatialComponent *entity_root = nullptr;
+    if (mesh_asset.is_valid())
     {
-        auto scene     = glb::load_file(file_path->string());
-        auto base_mesh = static_cast<u32>(asset_manager->meshes.size());
-
-        auto old_textures_count  = static_cast<u32>(asset_manager->textures.size());
-        auto old_materials_count = static_cast<u32>(asset_manager->materials.size());
-
-        for (auto mesh : scene.meshes)
-        {
-            for (auto &submesh : mesh.submeshes)
-            {
-                submesh.i_material += old_materials_count;
-            }
-            asset_manager->meshes.push_back(std::move(mesh));
-        }
-
-        for (auto material : scene.materials)
-        {
-            if (material.base_color_texture != u32_invalid)
-            {
-                material.base_color_texture += old_textures_count;
-            }
-            asset_manager->materials.push_back(std::move(material));
-        }
-
-        for (auto texture : scene.textures)
-        {
-            asset_manager->textures.push_back(std::move(texture));
-        }
-
-        for (const auto &instance : scene.instances)
-        {
-            LocalToWorldComponent transform;
-            transform.translation = instance.transform.col(3).xyz();
-            transform.scale[0]    = length(instance.transform.col(0));
-            transform.scale[1]    = length(instance.transform.col(1));
-            transform.scale[2]    = length(instance.transform.col(2));
-            float4x4 m            = instance.transform;
-            // Set translation to zero
-            m.at(0, 3) = 0.0;
-            m.at(1, 3) = 0.0;
-            m.at(2, 3) = 0.0;
-            // Divide by scale
-            m.at(0, 0) /= transform.scale.x;
-            m.at(1, 0) /= transform.scale.x;
-            m.at(2, 0) /= transform.scale.x;
-            m.at(0, 1) /= transform.scale.y;
-            m.at(1, 1) /= transform.scale.y;
-            m.at(2, 1) /= transform.scale.y;
-            m.at(0, 2) /= transform.scale.z;
-            m.at(1, 2) /= transform.scale.z;
-            m.at(2, 2) /= transform.scale.z;
-            transform.quaternion = quaternion_from_float4x4(m);
-
-            world.create_entity(std::string_view{"MeshInstance"}, std::move(transform), RenderMeshComponent{base_mesh + instance.i_mesh, u32_invalid});
-        }
+        new_entity->create_component<MeshComponent>();
+        auto *mesh_component       = new_entity->get_first_component<MeshComponent>();
+        mesh_component->mesh_asset = mesh_asset;
+        entity_root = static_cast<SpatialComponent*>(mesh_component);
     }
-#endif
+    else
+    {
+        new_entity->create_component<SpatialComponent>();
+        entity_root       = new_entity->get_first_component<SpatialComponent>();
+    }
+
+    entity_root->set_local_transform(transform);
+    for (auto *child : entity_children)
+    {
+        child->set_parent(new_entity);
+    }
+
+    return new_entity;
+}
+
+void Scene::import_subscene(SubScene *subscene)
+{
+    for (auto i_root : subscene->roots)
+    {
+        auto *new_root = import_subscene_rec(subscene, i_root);
+        UNUSED(new_root);
+    }
 }

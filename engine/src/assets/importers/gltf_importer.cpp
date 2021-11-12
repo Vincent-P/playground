@@ -471,6 +471,17 @@ static void import_nodes(ImportContext &ctx)
         return transform;
     };
 
+
+    u32 i_scene = ctx.j_document.HasMember("scene") ? ctx.j_document["scene"].GetUint() : ctx.importer_data.settings.i_scene;
+    const auto &j_scenes = ctx.j_document["scenes"].GetArray();
+    const auto &j_scene = j_scenes[i_scene].GetObj();
+    const auto &j_roots = j_scene["nodes"].GetArray();
+
+    for (const auto &j_root : j_roots)
+    {
+        ctx.new_scene->roots.push_back(j_root.GetUint());
+    }
+
     const auto &j_nodes  = ctx.j_document["nodes"].GetArray();
 
     ctx.new_scene->transforms.reserve(j_nodes.Size());
@@ -517,8 +528,21 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
     auto *data = reinterpret_cast<GLTFImporter::Data*>(new_data);
 
     const auto &j_settings = j_data["settings"].GetObj();
-    data->settings.apply_transform = j_settings["apply_transform"].GetBool();
-    data->settings.remove_degenerate_triangles = j_settings["remove_degenerate_triangles"].GetBool();
+
+    data->settings = {};
+
+    if (j_settings.HasMember("i_scene"))
+    {
+        data->settings.i_scene =  j_settings["i_scene"].GetUint();
+    }
+    if (j_settings.HasMember("apply_transform"))
+    {
+        data->settings.apply_transform = j_settings["apply_transform"].GetBool();
+    }
+    if (j_settings.HasMember("remove_degenerate_triangles"))
+    {
+        data->settings.remove_degenerate_triangles = j_settings["remove_degenerate_triangles"].GetBool();
+    }
 
     if (j_data.HasMember("mesh_uuids"))
     {
@@ -543,6 +567,8 @@ void GLTFImporter::write_data_json(rapidjson::GenericPrettyWriter<rapidjson::Fil
 
     writer.Key("settings");
     writer.StartObject();
+    writer.Key("i_scene");
+    writer.Uint(import_data->settings.i_scene);
     writer.Key("apply_transform");
     writer.Bool(import_data->settings.apply_transform);
     writer.Key("remove_degenerate_triangles");

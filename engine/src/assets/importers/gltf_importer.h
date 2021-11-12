@@ -18,6 +18,7 @@ struct GLTFImporter
 {
     struct Settings
     {
+        u32 i_scene = 0;
         bool apply_transform = false;
         bool remove_degenerate_triangles = false;
         bool operator==(const Settings &other) const = default;

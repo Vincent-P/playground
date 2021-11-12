@@ -74,7 +74,8 @@ struct SubScene FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TRANSFORMS = 4,
     VT_MESHES = 6,
-    VT_CHILDREN = 8
+    VT_CHILDREN = 8,
+    VT_ROOTS = 10
   };
   const flatbuffers::Vector<const engine::schemas::exo::float4x4 *> *transforms() const {
     return GetPointer<const flatbuffers::Vector<const engine::schemas::exo::float4x4 *> *>(VT_TRANSFORMS);
@@ -85,6 +86,9 @@ struct SubScene FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<engine::schemas::EntityChildren>> *children() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<engine::schemas::EntityChildren>> *>(VT_CHILDREN);
   }
+  const flatbuffers::Vector<uint32_t> *roots() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_ROOTS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_TRANSFORMS) &&
@@ -94,6 +98,8 @@ struct SubScene FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_CHILDREN) &&
            verifier.VerifyVector(children()) &&
            verifier.VerifyVectorOfTables(children()) &&
+           VerifyOffset(verifier, VT_ROOTS) &&
+           verifier.VerifyVector(roots()) &&
            verifier.EndTable();
   }
 };
@@ -111,6 +117,9 @@ struct SubSceneBuilder {
   void add_children(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::EntityChildren>>> children) {
     fbb_.AddOffset(SubScene::VT_CHILDREN, children);
   }
+  void add_roots(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> roots) {
+    fbb_.AddOffset(SubScene::VT_ROOTS, roots);
+  }
   explicit SubSceneBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -126,8 +135,10 @@ inline flatbuffers::Offset<SubScene> CreateSubScene(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<const engine::schemas::exo::float4x4 *>> transforms = 0,
     flatbuffers::Offset<flatbuffers::Vector<const engine::schemas::exo::UUID *>> meshes = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::EntityChildren>>> children = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<engine::schemas::EntityChildren>>> children = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> roots = 0) {
   SubSceneBuilder builder_(_fbb);
+  builder_.add_roots(roots);
   builder_.add_children(children);
   builder_.add_meshes(meshes);
   builder_.add_transforms(transforms);
@@ -138,15 +149,18 @@ inline flatbuffers::Offset<SubScene> CreateSubSceneDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<engine::schemas::exo::float4x4> *transforms = nullptr,
     const std::vector<engine::schemas::exo::UUID> *meshes = nullptr,
-    const std::vector<flatbuffers::Offset<engine::schemas::EntityChildren>> *children = nullptr) {
+    const std::vector<flatbuffers::Offset<engine::schemas::EntityChildren>> *children = nullptr,
+    const std::vector<uint32_t> *roots = nullptr) {
   auto transforms__ = transforms ? _fbb.CreateVectorOfStructs<engine::schemas::exo::float4x4>(*transforms) : 0;
   auto meshes__ = meshes ? _fbb.CreateVectorOfStructs<engine::schemas::exo::UUID>(*meshes) : 0;
   auto children__ = children ? _fbb.CreateVector<flatbuffers::Offset<engine::schemas::EntityChildren>>(*children) : 0;
+  auto roots__ = roots ? _fbb.CreateVector<uint32_t>(*roots) : 0;
   return engine::schemas::CreateSubScene(
       _fbb,
       transforms__,
       meshes__,
-      children__);
+      children__,
+      roots__);
 }
 
 inline const engine::schemas::SubScene *GetSubScene(const void *buf) {
