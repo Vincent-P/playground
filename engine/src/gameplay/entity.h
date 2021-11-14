@@ -80,7 +80,6 @@ struct Entity
         return nullptr;
     }
 
-    void set_parent(Entity *new_parent);
 private:
 
     // create_system

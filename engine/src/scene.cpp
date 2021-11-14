@@ -176,7 +176,7 @@ Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
     for (auto i_child : children)
     {
         auto *child = import_subscene_rec(subscene, i_child);
-        child->set_parent(new_entity);
+        entity_world.set_parent_entity(child, new_entity);
     }
 
     return new_entity;

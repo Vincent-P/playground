@@ -15,6 +15,7 @@ public:
 
     Entity* create_entity(std::string_view name = "Unnamed");
     void destroy_entity(Entity *entity);
+    void set_parent_entity(Entity *entity, Entity *parent);
 
     template<std::derived_from<GlobalSystem> System, typename ...Args>
     void create_system(Args &&...args)
@@ -33,5 +34,8 @@ private:
     void display_ui();
 
     Set<Entity*> entities;
+    Set<Entity*> root_entities;
     SystemRegistry system_registry;
+
+    EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list;
 };
