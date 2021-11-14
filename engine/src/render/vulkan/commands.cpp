@@ -194,6 +194,23 @@ void Work::timestamp_query(QueryPool &query_pool, u32 index)
     vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, query_pool.vkhandle, index);
 }
 
+void Work::begin_debug_label(std::string_view label, float4 color)
+{
+    VkDebugUtilsLabelEXT label_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
+    label_info.pLabelName = label.data();
+    label_info.color[0] = color[0];
+    label_info.color[1] = color[1];
+    label_info.color[2] = color[2];
+    label_info.color[3] = color[3];
+
+    device->vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label_info);
+}
+
+void Work::end_debug_label()
+{
+    device->vkCmdEndDebugUtilsLabelEXT(command_buffer);
+}
+
 /// --- TransferWork
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {

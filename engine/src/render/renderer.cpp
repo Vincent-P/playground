@@ -1,6 +1,7 @@
 #include "render/renderer.h"
 
 #include <exo/logger.h>
+#include <exo/maths/matrices.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 
@@ -566,6 +567,7 @@ void Renderer::update(const RenderWorld &render_world)
     timings.begin_label(cmd, "Frame");
 
     // -- Transfer stuff
+    cmd.begin_debug_label("Uploads");
     if (base_renderer.frame_count == 0)
     {
         auto & io           = ImGui::GetIO();
@@ -600,6 +602,7 @@ void Renderer::update(const RenderWorld &render_world)
         }
     }
     streamer.update(work_pool);
+    cmd.end_debug_label();
 
     // -- Get geometry from the scene and prepare the draw commands
     this->prepare_geometry(render_world);
@@ -670,6 +673,7 @@ void Renderer::update(const RenderWorld &render_world)
     if (settings.enable_path_tracing)
     {
         ZoneNamedN(path_tracing, "Pathtracing", true);
+        cmd.begin_debug_label("Path tracing");
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
         struct PathTracerOptions
@@ -684,12 +688,14 @@ void Renderer::update(const RenderWorld &render_world)
 
         cmd.bind_pipeline(path_tracer_program);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
+        cmd.end_debug_label();
     }
     else
     {
         ZoneNamedN(render_opaque, "Render Opaque", true);
         // Instances culling
         {
+            cmd.begin_debug_label("GPU Culling");
             i32 submesh_instances_to_cull = static_cast<i32>(submesh_instances.size());
 
             // Prepare draw calls with instance count = 0
@@ -747,10 +753,12 @@ void Renderer::update(const RenderWorld &render_world)
                                  copy_culled_instances_index_program,
                                  &copy_options,
                                  sizeof(CopyInstancesOptions));
+            cmd.end_debug_label();
         }
 
         // Compact draw calls
         {
+            cmd.begin_debug_label("Compact draw calls");
             // Fill draw calls predicate buffer
             cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
             cmd.fill_buffer(predicate_buffer, 0);
@@ -790,9 +798,11 @@ void Renderer::update(const RenderWorld &render_world)
                                  copy_draw_calls_program,
                                  &copy_options,
                                  sizeof(CopyDrawcallsOptions));
+            cmd.end_debug_label();
         }
 
         // Fill visibility
+        cmd.begin_debug_label("Fill visibility buffer");
         cmd.clear_barrier(visibility_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
         cmd.begin_pass(visibility_depth_fb,
@@ -813,9 +823,10 @@ void Renderer::update(const RenderWorld &render_world)
                                              .max_draw_count   = this->draw_count});
         }
         cmd.end_pass();
+        cmd.end_debug_label();
 
         // Deferred shading
-
+        cmd.begin_debug_label("Visibility buffer shading");
         struct ShadingOptions
         {
             u32 sampled_visibility_buffer;
@@ -837,21 +848,24 @@ void Renderer::update(const RenderWorld &render_world)
             cmd.bind_pipeline(visibility_shading_program);
             cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
         }
+        cmd.end_debug_label();
     }
 
     auto &current_history  = history_buffers[current_frame % 2];
     auto &previous_history = history_buffers[(current_frame + 1) % 2];
 
-    if (settings.clear_history)
-    {
-        cmd.clear_barrier(previous_history, gfx::ImageUsage::TransferDst);
-        cmd.clear_image(previous_history, {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
-        this->first_accumulation_frame = base_renderer.frame_count;
-    }
-
     // TAA
     {
         ZoneNamedN(taa, "TAA", true);
+        cmd.begin_debug_label("TAA");
+
+        if (settings.clear_history)
+        {
+            cmd.clear_barrier(previous_history, gfx::ImageUsage::TransferDst);
+            cmd.clear_image(previous_history, {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
+            this->first_accumulation_frame = base_renderer.frame_count;
+        }
+
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(previous_history, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(current_history, gfx::ImageUsage::ComputeShaderReadWrite);
@@ -873,12 +887,14 @@ void Renderer::update(const RenderWorld &render_world)
         options->storage_current_history  = device.get_image_storage_index(current_history);
         cmd.bind_pipeline(taa_program);
         cmd.dispatch(dispatch_size(history_size, 16));
+        cmd.end_debug_label();
     }
 
     // Tonemap
     auto tonemap_input = current_history;
     {
         ZoneNamedN(tonemap, "Tonemap", true);
+        cmd.begin_debug_label("Tonemap");
         cmd.barrier(tonemap_input, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(ldr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
 
@@ -895,6 +911,7 @@ void Renderer::update(const RenderWorld &render_world)
         options->storage_output_frame = device.get_image_storage_index(ldr_buffer);
         cmd.bind_pipeline(tonemap_program);
         cmd.dispatch(dispatch_size(input_size, 16));
+        cmd.end_debug_label();
     }
 
     // ImGui pass
@@ -902,6 +919,7 @@ void Renderer::update(const RenderWorld &render_world)
     if (streamer.is_uploaded(imgui_pass.font_atlas))
     {
         ZoneNamedN(render_imgui, "ImGui render", true);
+        cmd.begin_debug_label("ImGui drawing");
         ImDrawData *data = ImGui::GetDrawData();
 
         // -- Prepare Imgui draw commands
@@ -1039,6 +1057,7 @@ void Renderer::update(const RenderWorld &render_world)
         }
 
         cmd.end_pass();
+        cmd.end_debug_label();
     }
 
     cmd.barrier(ldr_buffer, gfx::ImageUsage::TransferSrc);
@@ -1063,17 +1082,21 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
     auto &device = base_renderer.device;
 
     // -- Clear state from previous frame
-    draw_count = 0;
-    for (auto &[mesh_uuid, mesh_instance] : mesh_instances)
     {
-        mesh_instance.clear();
+        ZoneScopedN("Clear render state");
+        draw_count = 0;
+        for (auto &[mesh_uuid, mesh_instance] : mesh_instances)
+        {
+            mesh_instance.clear();
+        }
+        render_instances.clear();
+        submesh_instances.clear();
     }
-    render_instances.clear();
-    submesh_instances.clear();
 
     // -- Gather all instances per uploaded mesh
     for (u32 i_drawable = 0; i_drawable < render_world.drawable_instances.size(); i_drawable += 1)
     {
+        ZoneScopedN("Gather drawables");
         const auto &drawable = render_world.drawable_instances[i_drawable];
         if (is_mesh_uploaded(*this, drawable.mesh_asset))
         {
@@ -1087,6 +1110,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
     // -- Generate a list of render instances and instances submesh from the uploaded meshes' instances
     for (auto &[mesh_uuid, mesh_instance] : mesh_instances)
     {
+        ZoneScopedN("Generate render instances lists");
         if (mesh_instance.empty())
         {
             continue;
@@ -1180,6 +1204,8 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
     ZoneScoped;
     auto &device = base_renderer.device;
 
+    cmd.begin_debug_label("Buffer reduction");
+
     ASSERT(count < 128 * 128);
 
     // clear buffers
@@ -1246,4 +1272,5 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
         cmd.bind_pipeline(copy_program);
         cmd.dispatch(dispatch_size({count, 1, 1}, 128));
     }
+    cmd.end_debug_label();
 }

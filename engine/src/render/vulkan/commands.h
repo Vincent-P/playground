@@ -79,6 +79,10 @@ struct Work
     void begin_query(QueryPool &query_pool, u32 index);
     void end_query(QueryPool &query_pool, u32 index);
     void timestamp_query(QueryPool &query_pool, u32 index);
+
+    // debug utils
+    void begin_debug_label(std::string_view label, float4 color = float4(0.0f));
+    void end_debug_label();
 };
 
 struct TransferWork : Work
