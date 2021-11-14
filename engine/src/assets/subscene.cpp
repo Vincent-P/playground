@@ -53,7 +53,19 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
 
     for (const auto &mesh_uuid : this->meshes)
     {
-        this->dependencies.push_back(mesh_uuid);
+        if (mesh_uuid.is_valid())
+        {
+            usize i_found = 0;
+            for (; i_found < this->dependencies.size(); i_found += 1) {
+                if (this->dependencies[i_found] == mesh_uuid) {
+                    break;
+                }
+            }
+            if (i_found >= this->dependencies.size())
+            {
+                this->dependencies.push_back(mesh_uuid);
+            }
+        }
     }
 }
 

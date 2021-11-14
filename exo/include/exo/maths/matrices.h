@@ -35,4 +35,6 @@ float4x4 operator*(float a, const float4x4 &m);
 
 float4x4 operator*(const float4x4 &a, const float4x4 &b);
 float4   operator*(const float4x4 &m, const float4 &v);
+
+float4x4 inverse_transform(const float4x4 &transform);
 }

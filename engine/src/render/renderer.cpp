@@ -1107,7 +1107,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
             u32 i_instance = static_cast<u32>(render_instances.size());
             render_instances.push_back({
                 .object_to_world = drawable.world_transform,
-                .world_to_object = {},
+                .world_to_object = inverse_transform(drawable.world_transform),
                 .i_render_mesh   = render_mesh_handle.value(),
             });
 

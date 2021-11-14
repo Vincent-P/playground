@@ -145,4 +145,57 @@ float4 operator*(const float4x4 &m, const float4 &v)
     result[3] = m.at(3, 0) * v[0] + m.at(3, 1) * v[1] + m.at(3, 2) * v[2] + m.at(3, 3) * v[3];
     return result;
 }
+
+float4x4 inverse_transform(const float4x4 &transform)
+{
+    float4x4 reversed_transform = transform;
+
+    // -- Extract the translation, and scale from the matrix
+    float3 translation = transform.col(3).xyz();
+    reversed_transform.col(3) = float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    float3 scale;
+    scale.x = length(reversed_transform.col(0));
+    scale.y = length(reversed_transform.col(1));
+    scale.z = length(reversed_transform.col(2));
+
+    reversed_transform.at(0, 0) /= scale.x;
+    reversed_transform.at(1, 0) /= scale.x;
+    reversed_transform.at(2, 0) /= scale.x;
+
+    reversed_transform.at(0, 1) /= scale.y;
+    reversed_transform.at(1, 1) /= scale.y;
+    reversed_transform.at(2, 1) /= scale.y;
+
+    reversed_transform.at(0, 2) /= scale.z;
+    reversed_transform.at(1, 2) /= scale.z;
+    reversed_transform.at(2, 2) /= scale.z;
+
+    // -- The matrix is now only a rotation transform
+
+    // Invert it with a transpose
+    reversed_transform = transpose(reversed_transform);
+
+    // Rotate the inverse translation
+    translation = -1.0f * (reversed_transform * float4(translation, 1.0f)).xyz();
+    reversed_transform.col(3) = float4(translation, 1.0f);
+
+    // Divide by the scale
+    reversed_transform.at(0, 0) /= scale.x;
+    reversed_transform.at(0, 1) /= scale.x;
+    reversed_transform.at(0, 2) /= scale.x;
+    reversed_transform.at(0, 3) /= scale.x;
+
+    reversed_transform.at(1, 0) /= scale.y;
+    reversed_transform.at(1, 1) /= scale.y;
+    reversed_transform.at(1, 2) /= scale.y;
+    reversed_transform.at(1, 3) /= scale.y;
+
+    reversed_transform.at(2, 0) /= scale.z;
+    reversed_transform.at(2, 1) /= scale.z;
+    reversed_transform.at(2, 2) /= scale.z;
+    reversed_transform.at(2, 3) /= scale.z;
+
+    return reversed_transform;
 }
+} // namespace exo

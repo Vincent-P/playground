@@ -281,5 +281,4 @@ void main()
     #endif
 
     imageStore(HDR_BUFFER, pixel_pos, float4(radiance, 1.0));
-    imageStore(HDR_BUFFER, pixel_pos, float4(float3(depth), 1.0));
 }
