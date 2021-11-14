@@ -19,105 +19,9 @@
 #include "gameplay/systems/editor_camera_systems.h"
 #include "render/render_world_system.h"
 
-
-
 #include <imgui/imgui.h>
 #include <leaf.hpp>
 
-#if 0
-static void draw_gizmo(float3 camera_world_position, float3 camera_target, float3 camera_up)
-{
-    constexpr float fov   = 100.f;
-    constexpr float size  = 50.f;
-    const ImU32     red   = ImGui::GetColorU32(float4(255.f / 256.f, 56.f / 256.f, 86.f / 256.f, 1.0f));
-    const ImU32     green = ImGui::GetColorU32(float4(143.f / 256.f, 226.f / 256.f, 10.f / 256.f, 1.0f));
-    const ImU32     blue  = ImGui::GetColorU32(float4(52.f / 256.f, 146.f / 256.f, 246.f / 256.f, 1.0f));
-    const ImU32     black = ImGui::GetColorU32(float4(0.0f, 0.0f, 0.0f, 1.0f));
-
-    float3 camera_forward  = normalize(camera_target - camera_world_position);
-    auto   origin          = float3(0.f);
-    float3 camera_position = origin - 2.0f * camera_forward;
-    auto   view            = camera::look_at(camera_position, origin, camera_up);
-    auto   proj            = camera::perspective(fov, 1.f, 0.01f, 10.0f);
-
-    struct GizmoAxis
-    {
-        const char *label;
-        float3      axis            = {0.0f};
-        float2      projected_point = {0.0f};
-        ImU32       color;
-        bool        draw_line;
-    };
-
-    static Vec<GizmoAxis> axes{
-        {.label = "X", .axis = float3(1.0f, 0.0f, 0.0f), .color = red, .draw_line = true},
-        {.label = "Y", .axis = float3(0.0f, 1.0f, 0.0f), .color = green, .draw_line = true},
-        {.label = "Z", .axis = float3(0.0f, 0.0f, 1.0f), .color = blue, .draw_line = true},
-        {.label = "-X", .axis = float3(-1.0f, 0.0f, 0.0f), .color = red, .draw_line = false},
-        {.label = "-Y", .axis = float3(0.0f, -1.0f, 0.0f), .color = green, .draw_line = false},
-        {.label = "-Z", .axis = float3(0.0f, 0.0f, -1.0f), .color = blue, .draw_line = false},
-    };
-
-    for (auto &axis : axes)
-    {
-        // project 3d point to 2d
-        float4 projected_p = proj * view * float4(axis.axis, 1.0f);
-        projected_p        = (1.0f / projected_p.w) * projected_p;
-
-        // remap [-1, 1] to [-0.9 * size, 0.9 * size] to fit the canvas
-        axis.projected_point = 0.9f * size * projected_p.xy();
-    }
-
-    // sort by distance to the camera
-    auto squared_norm = [](auto v) { return dot(v, v); };
-    std::sort(std::begin(axes), std::end(axes), [&](const GizmoAxis &a, const GizmoAxis &b) { return squared_norm(camera_position - a.axis) > squared_norm(camera_position - b.axis); });
-
-    // Set the window position to match the framebuffer right corner
-    ImGui::Begin("Framebuffer");
-    float2 max     = ImGui::GetWindowContentRegionMax();
-    float2 min     = ImGui::GetWindowContentRegionMin();
-    float2 fb_size = float2(min.x < max.x ? max.x - min.x : min.x, min.y < max.y ? max.y - min.y : min.y);
-    float2 fb_pos  = ImGui::GetWindowPos();
-    fb_pos.x += fb_size.x - 2 * size - 10;
-    fb_pos.y += 10;
-    ImGui::End();
-
-    ImGui::SetNextWindowPos(fb_pos);
-
-    auto flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar;
-    ImGui::Begin("Gizmo", nullptr, flags);
-
-    ImDrawList *draw_list = ImGui::GetWindowDrawList();
-    float2      p         = ImGui::GetCursorScreenPos();
-
-    // ceenter p
-    p = p + float2(size);
-
-    auto font_size = ImGui::GetFontSize();
-    auto half_size = float2(font_size / 2.f);
-    half_size.x /= 2;
-
-    // draw each axis
-    for (const auto &axis : axes)
-    {
-        if (axis.draw_line)
-        {
-            draw_list->AddLine(p, p + axis.projected_point, axis.color, 3.0f);
-        }
-
-        draw_list->AddCircleFilled(p + axis.projected_point, 7.f, axis.color);
-
-        if (axis.draw_line && axis.label)
-        {
-            draw_list->AddText(p + axis.projected_point - half_size, black, axis.label);
-        }
-    }
-
-    ImGui::Dummy(float2(2 * size));
-
-    ImGui::End();
-}
-#endif
 
 void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {
@@ -157,6 +61,17 @@ void Scene::display_ui(UI::Context &ui)
     auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
     const auto &assets = asset_manager->get_available_assets();
 
+    static Vec<cross::UUID> sorted_assets;
+    sorted_assets.clear();
+    for (const auto &[uuid, asset_meta] : assets)
+    {
+        sorted_assets.push_back(uuid);
+    }
+
+    std::sort(sorted_assets.begin(), sorted_assets.end(), [&](auto lhs, auto rhs) {
+        return std::strncmp(assets.at(lhs).uuid.str, assets.at(rhs).uuid.str, cross::UUID::STR_LEN) > 0;
+    });
+
     if (ui.begin_window("Scene"))
     {
         static cross::UUID selected = {};
@@ -175,9 +90,9 @@ void Scene::display_ui(UI::Context &ui)
                 ImGui::TableSetupColumn("Name");
                 ImGui::TableHeadersRow();
 
-                for (const auto &[uuid, asset_meta] : assets)
+                for (auto &uuid : sorted_assets)
                 {
-                    auto uuid_copy = uuid;
+                    const auto &asset_meta = assets.at(uuid);
                     ImGui::TableNextRow();
 
                     ImGui::PushID(&asset_meta);
@@ -228,7 +143,6 @@ void Scene::display_ui(UI::Context &ui)
         ui.end_window();
     }
 }
-
 
 void Scene::import_mesh(Mesh *mesh)
 {

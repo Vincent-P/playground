@@ -4,9 +4,6 @@
 #include <exo/logger.h>
 #include <exo/defer.h>
 
-#include "glb.h"
-#include "assets/asset_manager.h"
-
 #include <filesystem>
 
 #if defined (ENABLE_DOCTEST)
@@ -28,7 +25,6 @@ int main(int argc, char **argv)
     #else
     UNUSED(argc);
     UNUSED(argv);
-    logger::info("Current path: {}\n", std::filesystem::current_path());
     #endif
 
     App app;

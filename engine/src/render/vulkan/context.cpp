@@ -155,8 +155,8 @@ void Context::destroy()
 
 bool operator==(const VkPipelineShaderStageCreateInfo &a, const VkPipelineShaderStageCreateInfo &b)
 {
-    return a.flags == b.flags && a.stage == b.stage && a.module == b.module && a.pName == b.pName // TODO: strcmp?
-           && a.pSpecializationInfo == b.pSpecializationInfo;                                     // TODO: deep cmp?
+    return a.flags == b.flags && a.stage == b.stage && a.module == b.module && a.pName == b.pName
+           && a.pSpecializationInfo == b.pSpecializationInfo;
 }
 
 bool operator==(const VkDescriptorBufferInfo &a, const VkDescriptorBufferInfo &b)

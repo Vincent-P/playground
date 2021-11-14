@@ -3,9 +3,7 @@ set(SOURCE_FILES
   src/main.cpp
   src/app.cpp
   src/camera.cpp
-  src/ecs.cpp
   src/scene.cpp
-  src/glb.cpp
   src/inputs.cpp
   src/ui.cpp
 

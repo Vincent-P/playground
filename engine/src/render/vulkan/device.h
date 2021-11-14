@@ -5,10 +5,10 @@
 #include <exo/collections/pool.h>
 
 #include "render/vulkan/bindless_set.h"
-#include "render/vulkan/buffer.h" // needed for Pool<Image> TODO: investigate why we cant fwd declare
+#include "render/vulkan/buffer.h"
 #include "render/vulkan/commands.h"
 #include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/image.h" // needed for Pool<Image> TODO: investigate why we cant fwd declare
+#include "render/vulkan/image.h"
 #include "render/vulkan/physical_device.h"
 #include "render/vulkan/pipelines.h"
 #include "render/vulkan/synchronization.h"

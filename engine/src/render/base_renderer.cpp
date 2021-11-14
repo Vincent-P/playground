@@ -68,13 +68,13 @@ BaseRenderer BaseRenderer::create(cross::Window &window, gfx::DeviceDescription 
 
     renderer.dynamic_vertex_buffer = RingBuffer::create(device, {
             .name = "Dynamic vertices",
-            .size = 1_MiB,
+            .size = 16_MiB,
             .gpu_usage = gfx::storage_buffer_usage,
         });
 
     renderer.dynamic_index_buffer = RingBuffer::create(device, {
             .name = "Dynamic indices",
-            .size = 64_KiB,
+            .size = 16_MiB,
             .gpu_usage = gfx::index_buffer_usage,
         });
 
@@ -151,8 +151,12 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
     {
         if (program->state.shader.is_valid())
         {
-            auto &compute_shader = *device.shaders.get(program->state.shader);
-            if (compute_shader.filename == shader.filename)
+            auto *compute_shader = device.shaders.get(program->state.shader);
+            if (!compute_shader)
+            {
+                to_remove.push_back(program->state.shader);
+            }
+            else if (compute_shader->filename == shader.filename)
             {
                 Handle<gfx::Shader> new_shader = device.create_shader(shader_name);
                 logger::info("Found a program using the shader, creating the new shader module #{}\n", new_shader.value());
@@ -198,9 +202,9 @@ bool BaseRenderer::start_frame()
     timing.get_results(device);
     if (!timing.labels.empty() && window)
     {
-        //TODO: Remove allocation
-        auto s = fmt::format("CPU {:.4f} ms | GPU {:.4f} ms\n", timing.cpu[0], timing.gpu[0]);
-        window->set_title(std::move(s));
+        char tmp[128] = {};
+        fmt::format_to(tmp, "CPU {:.4f} ms | GPU {:.4f} ms\n", timing.cpu[0], timing.gpu[0]);
+        window->set_title(tmp);
     }
 
     timing.reset(device);
