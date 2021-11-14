@@ -1141,7 +1141,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
         for (u32 i_instance = 0; i_instance < render_instances.size(); i_instance += 1)
         {
             const auto &render_instance = render_instances[i_instance];
-            const auto &render_mesh     = render_meshes.data()[render_instance.i_render_mesh];
+            const auto &render_mesh     = render_meshes.get_unchecked(render_instance.i_render_mesh);
 
             roots[i_instance]      = render_mesh.bvh_root;
             transforms[i_instance] = render_instance.object_to_world;

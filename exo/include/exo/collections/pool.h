@@ -31,6 +31,7 @@ struct Pool
     Handle<T> add(T &&value);
     const T *get(Handle<T> handle) const;
     T *get(Handle<T> handle);
+    const T &get_unchecked(u32 index) const;
     void remove(Handle<T> handle);
 
 
@@ -38,8 +39,6 @@ struct Pool
     static_assert(std::forward_iterator<ConstPoolIterator<T>>);
     PoolIterator<T> begin();
     PoolIterator<T> end();
-    const T *data() const;
-    T *data();
 
     ConstPoolIterator<T> begin() const;
     ConstPoolIterator<T> end() const;
@@ -236,7 +235,7 @@ Handle<T> Pool<T>::add(T &&value)
         capacity = new_capacity;
     }
 
-    ASSERT(size + 1 < capacity);
+    ASSERT(size + 1 <= capacity);
 
     // Pop the free list head to find an empty place for the new element
     u32 i_element = freelist_head;
@@ -261,6 +260,12 @@ const T *Pool<T>::get(Handle<T> handle) const
     auto *element   = element_ptr(*this, i_element);
 
     return handle.index < size && metadata->generation == handle.gen ? element : nullptr;
+}
+
+template <typename T>
+const T &Pool<T>::get_unchecked(u32 index) const
+{
+    return *element_ptr(*this, index);
 }
 
 template <typename T>
@@ -315,16 +320,4 @@ template <typename T>
 ConstPoolIterator<T> Pool<T>::end() const
 {
     return ConstPoolIterator<T>(this, capacity);
-}
-
-template <typename T>
-const T *Pool<T>::data() const
-{
-    return reinterpret_cast<const T*>(buffer);
-}
-
-template <typename T>
-T *Pool<T>::data()
-{
-    return reinterpret_cast<T*>(buffer);
 }
