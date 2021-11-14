@@ -7,13 +7,12 @@ set(SCHEMA_FILES
 
 foreach(FBS_FILE IN LISTS SCHEMA_FILES)
   cmake_path(GET FBS_FILE STEM FILE_NAME)
-  set(GENERATED_FILE "${CMAKE_CURRENT_SOURCE_DIR}/generated/${FILE_NAME}_generated.h")
+  set(GENERATED_FILE "${CMAKE_CURRENT_BINARY_DIR}/generated/schemas/${FILE_NAME}_generated.h")
 
   add_custom_command(
     OUTPUT ${GENERATED_FILE}
-    COMMAND flatc --cpp -o generated/schemas --include-prefix "schemas/" ${FBS_FILE}
+    COMMAND flatc --cpp -o generated/schemas --include-prefix "schemas/" "${CMAKE_CURRENT_SOURCE_DIR}/${FBS_FILE}"
     DEPENDS ${FBS_FILE}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
   list(APPEND GENERATED_FILES ${GENERATED_FILE})

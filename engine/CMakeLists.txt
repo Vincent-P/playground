@@ -76,7 +76,7 @@ add_subdirectory(shaders/)
 add_subdirectory(schemas/)
 add_dependencies(engine shaders schemas)
 
-target_include_directories(engine PRIVATE schemas/generated)
+target_include_directories(engine PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/schemas/generated)
 
 target_compile_definitions(engine PRIVATE
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
