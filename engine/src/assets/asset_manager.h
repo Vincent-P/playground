@@ -104,6 +104,7 @@ struct AssetManager
     void load_resource(cross::UUID resource_uuid);
 
      // -- Asset files
+    Result<Asset*> get_asset(cross::UUID asset_uuid);
 
     inline const Map<cross::UUID, AssetMeta> &get_available_assets() const { return asset_metadatas; }
 
@@ -234,6 +235,7 @@ AssetType *AssetManager::create_asset(cross::UUID uuid)
         uuid = cross::UUID::create();
     }
     ASSERT(assets.contains(uuid) == false);
+    ASSERT(uuid.is_valid());
 
     AssetType *new_asset = new AssetType();
     assets[uuid]         = reinterpret_cast<Asset *>(new_asset);

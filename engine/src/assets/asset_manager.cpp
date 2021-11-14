@@ -368,6 +368,14 @@ Result<Asset *> AssetManager::import_resource(cross::UUID resource_uuid)
 }
 
 // -- Asset files
+Result<Asset*> AssetManager::get_asset(cross::UUID asset_uuid)
+{
+    if (assets.contains(asset_uuid))
+    {
+        return Ok(assets.at(asset_uuid));
+    }
+    return Err(AssetErrors::InvalidUUID, asset_uuid);
+}
 
 Result<void> AssetManager::save_asset(Asset *asset)
 {

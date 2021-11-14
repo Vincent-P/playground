@@ -157,7 +157,7 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
     auto &device = renderer.base_renderer.device;
     auto &render_meshes = renderer.render_meshes;
 
-    const auto &mesh_asset = *dynamic_cast<Mesh*>(asset_manager.load_asset(mesh_uuid).value());
+    const auto &mesh_asset = *dynamic_cast<Mesh*>(asset_manager.get_asset(mesh_uuid).value());
 
     logger::info("[Renderer] Uploading mesh asset {}\n", mesh_uuid);
     static BVHScratchMemory scratch_bvh = {};
@@ -1092,7 +1092,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
             continue;
         }
 
-        const auto &mesh_asset = *dynamic_cast<Mesh *>(asset_manager->load_asset(mesh_uuid).value());
+        const auto &mesh_asset = *dynamic_cast<Mesh *>(asset_manager->get_asset(mesh_uuid).value());
         ASSERT(uploaded_meshes.contains(mesh_asset.uuid) && uploaded_meshes[mesh_asset.uuid].is_valid());
 
         auto render_mesh_handle = uploaded_meshes[mesh_asset.uuid];
