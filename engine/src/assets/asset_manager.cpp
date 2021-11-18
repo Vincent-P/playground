@@ -206,7 +206,7 @@ void AssetManager::display_ui(UI::Context &ui)
                 ImGui::Text("%s", asset == nullptr ? "null" : asset->type_name());
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.*s", cross::UUID::STR_LEN, uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                 if (asset_metadatas.contains(uuid))
                 {
@@ -256,7 +256,7 @@ void AssetManager::display_ui(UI::Context &ui)
                 ImGui::PushID(&resource_meta);
 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%.*s", cross::UUID::STR_LEN, uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", resource_meta.display_name.c_str());
@@ -298,7 +298,7 @@ void AssetManager::display_ui(UI::Context &ui)
                 ImGui::PushID(&asset_meta);
 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%.*s", cross::UUID::STR_LEN, uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", asset_meta.display_name.c_str());

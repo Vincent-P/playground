@@ -105,7 +105,7 @@ void Scene::display_ui(UI::Context &ui)
                     }
 
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.*s", cross::UUID::STR_LEN, uuid.str);
+                    ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                     ImGui::TableSetColumnIndex(2);
                     ImGui::Text("%s", asset_meta.display_name.c_str());
@@ -144,7 +144,7 @@ void Scene::display_ui(UI::Context &ui)
     }
 }
 
-void Scene::import_mesh(Mesh *mesh)
+void Scene::import_mesh(Mesh */*mesh*/)
 {
     // import a mesh with identity transform
 }

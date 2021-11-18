@@ -32,8 +32,8 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
     this->children.reserve(subscene_childrens->size());
     for (const auto *subscene_children : *subscene_childrens)
     {
-        const auto *children = subscene_children->children();
-        this->children.emplace_back(children->data(), children->data() + children->size());
+        const auto *children_children = subscene_children->children();
+        this->children.emplace_back(children_children->data(), children_children->data() + children_children->size());
     }
 
     const auto *subscene_roots = subscene_buffer->roots();
