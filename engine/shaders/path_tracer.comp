@@ -6,6 +6,7 @@
 #include "raytracing.h"
 #include "pbr.h"
 #include "bvh.h"
+#include "color_map.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 storage_output;
@@ -26,9 +27,6 @@ void main()
     {
         return;
     }
-
-    imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(1.0, 0.0, 0.0, 1.0));
-    return;
 
     float2 screen_uv  = (float2(pixel_pos) + float2(0.5)) / float2(output_size);
     float3 clip_space = float3(screen_uv * 2.0 - 1.0, 1.0);
@@ -53,16 +51,18 @@ void main()
 
     uint3 rng_seed = uint3(pixel_pos, globals.frame_count);
 
-    const uint MAX_BOUNCE = 2;
-    const float3 BACKGROUND_COLOR = float3(1.0);
+    const uint MAX_BOUNCE = 0;
+    const float3 BACKGROUND_COLOR = float3(0.0);
     uint hit_count = 0;
     HitInfo hit_info;
     float3 radiance = float3(0.0);
     float3 throughput = float3(1.0);
 
+    bool hit = tlas_closest_hit(ray, hit_info);
+    radiance = TurboColormap(float(hit_info.box_inter_count) / 500.0);
+
     for (u32 i_bounce = 0; i_bounce < MAX_BOUNCE; i_bounce += 1)
     {
-
         if (tlas_closest_hit(ray, hit_info) == false)
         {
             radiance = BACKGROUND_COLOR * throughput;
@@ -117,6 +117,8 @@ void main()
         radiance = fract(ray.origin.xyz);
         break;
         #endif
+
+        break;
     }
 
     imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(radiance, 1.0));
