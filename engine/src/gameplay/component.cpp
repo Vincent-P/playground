@@ -34,6 +34,22 @@ void SpatialComponent::show_inspector_ui()
     bool transform_changed = false;
     transform_changed = transform_changed || ImGui::SliderFloat3("LocalTranslation", local_transform.col(3).data(), -100.0f, 100.0f);
 
+    ImGui::Separator();
+
+    ImGui::Text("Local transform");
+    if (ImGui::BeginTable("Local transform", 4, ImGuiTableFlags_Borders))
+    {
+        for (usize i_row = 0; i_row < 4; i_row += 1)
+        {
+            for (usize i_col = 0; i_col < 4; i_col += 1)
+            {
+                ImGui::TableNextColumn();
+                ImGui::Text("%f", local_transform.at(i_row, i_col));
+            }
+        }
+        ImGui::EndTable();
+    }
+
     if (transform_changed)
     {
         this->update_world_transform();
