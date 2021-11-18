@@ -15,30 +15,10 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}"
+          "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+          "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
       },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "intelliSenseMode": "windows-clang-x64"
-        },
-        "jetbrains.com/clion": {
-          "toolchain": "Clang12"
-        }
-      },
-      "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
-    },
-    {
-      "name": "unity",
-      "displayName": "Unity build",
-      "description": "Fast build by concatenating source files",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-        "cacheVariables": {
-            "CMAKE_EXPORT_COMPILE_COMMANDS": "OFF",
-            "CMAKE_BUILD_TYPE": "Debug",
-            "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
-            "CMAKE_UNITY_BUILD": "ON"
-        },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "intelliSenseMode": "windows-clang-x64"
@@ -60,26 +40,8 @@
         "strategy": "external"
       },
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
         "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /Oi /RTC1"
-      },
-      "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
-    },
-    {
-      "name": "msvc-rel",
-      "displayName": "MSVC",
-      "description": "MSVC solution",
-      "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
-          "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "/Zi /O2 /Ob2 /Oi /DNDEBUG /QPar" // 0b2 instead of 0b1 to enable inlining, QPar to enable auto loop unrolling, Oi enabel intrinsics
       },
       "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
     }
@@ -90,19 +52,8 @@
       "configurePreset": "default"
     },
     {
-      "name": "unity",
-      "configurePreset": "unity"
-    },
-    {
       "name": "msvc",
       "configurePreset": "msvc",
-      "environment": {
-        "UseMultiToolTask":  "true"
-      }
-    },
-    {
-      "name": "msvc-rel",
-      "configurePreset": "msvc-rel",
       "environment": {
         "UseMultiToolTask":  "true"
       }

@@ -4,11 +4,13 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(test-vulkan LANGUAGES C CXX)
 
+# Dependencies
 find_package(Vulkan REQUIRED)
 find_package(Threads)
+find_program(IWYU_PATH NAMES include-what-you-use iwyu)
+message(${IWYU_PATH})
 
 # add_compile_definitions(ENABLE_DOCTEST)
-
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 # Global C++ flags
@@ -56,10 +58,10 @@ set(APP_CXX_FLAGS
 
   $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-field-initializers>
 
-
+  # utils
   # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
   # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-
+  # $<$<CXX_COMPILER_ID:Clang>:-ftime-trace>
   )
 
 # C++ flags for third party libraries
@@ -74,6 +76,10 @@ function(SETUP_APP_TARGET TARGET)
   message(STATUS "Setting up target ${TARGET}")
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
   set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+  if (IWYU_PATH)
+    set_target_properties(${TARGET} PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+  endif()
 endfunction()
 
 add_subdirectory(third_party)
