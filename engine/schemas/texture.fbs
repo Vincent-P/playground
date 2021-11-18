@@ -1,0 +1,35 @@
+include "exo.fbs"
+include "asset.fbs"
+
+enum ImageExtension
+{
+  KTX2,
+  PNG
+}
+
+enum PixelFormat
+{
+    R8G8B8A8_UNORM,
+    R8G8B8A8_SRGB,
+    BC4_UNORM, // one channel
+    BC5_UNORM, // two channels
+    BC7_UNORM, // 4 channels
+    BC7_SRGB,  // 4 channels
+}
+
+
+table Texture {
+  asset:Asset;
+  format:PixelFormat;
+  extension:ImageExtension;
+  width:int;
+  height:int;
+  depth:int;
+  levels:int;
+  mip_offset:[ulong];
+  data:[byte];
+  data_size:ulong;
+}
+
+file_identifier "TXTR";
+root_type Texture;

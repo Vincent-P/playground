@@ -19,14 +19,13 @@
 
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"
-#include "components/transform_component.h"
-#include "components/mesh_component.h"
 
 #include <cross/mapped_file.h>
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>
 #include <tracy/Tracy.hpp>
+#include <imgui/imgui.h>
 
 namespace
 {
@@ -581,24 +580,22 @@ void Renderer::update(const RenderWorld &render_world)
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
-        auto bn_file
-            = cross::MappedFile::open("C:/Users/vince/Downloads/FreeBlueNoiseTextures/Data/256_256/LDR_RGBA_0.png");
-        if (bn_file)
+        const auto *blue_noise_uuid = "";
+        auto bn_texture = asset_manager->load_or_import_resource(cross::UUID::from_string(blue_noise_uuid, strlen(blue_noise_uuid)));
+        if (!bn_texture)
         {
-
-            auto bn_texture = Texture::from_png(bn_file->base_addr, bn_file->size);
-
-            blue_noise = device.create_image({
-                .name       = "Blue noise",
-                .size       = int3(bn_texture.width, bn_texture.height, bn_texture.depth),
-                .mip_levels = static_cast<u32>(bn_texture.levels),
-                .format     = to_vk(bn_texture.format),
-            });
-            streamer.upload(blue_noise, bn_texture);
         }
         else
         {
-            logger::error("Cannot open blue noise image.\n");
+            Texture *texture = dynamic_cast<Texture*>(bn_texture.value());
+            ASSERT(texture);
+            blue_noise = device.create_image({
+                .name       = "Blue noise",
+                .size       = int3(texture->width, texture->height, texture->depth),
+                .mip_levels = static_cast<u32>(texture->levels),
+                .format     = to_vk(texture->format),
+            });
+            streamer.upload(blue_noise, *texture);
         }
     }
     streamer.update(work_pool);
@@ -1194,8 +1191,8 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
     }
 
     ImGui::Text("Renderer draw count: %u", draw_count);
-    ImGui::Text("Renderer instances: %u", render_instances.size());
-    ImGui::Text("Renderer submesh instances: %u", submesh_instances.size());
+    ImGui::Text("Renderer instances: %zu", render_instances.size());
+    ImGui::Text("Renderer submesh instances: %zu", submesh_instances.size());
 }
 
 void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program,
