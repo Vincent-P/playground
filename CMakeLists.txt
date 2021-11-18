@@ -17,6 +17,7 @@ add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 add_compile_options(
   # colored output when using ninja generator
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fcolor-diagnostics>
+  $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fansi-escape-codes>
 
 

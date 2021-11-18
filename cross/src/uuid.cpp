@@ -1,6 +1,7 @@
 #include "cross/uuid.h"
 
 #include <exo/prelude.h>
+
 #if defined(CROSS_WINDOWS)
 #include <windows.h>
 #include <rpc.h>
@@ -25,6 +26,7 @@ UUID UUID::create()
 {
     UUID new_uuid = {};
 
+#if defined(CROSS_WINDOWS)
     while (!new_uuid.is_valid())
     {
         auto *win32_uuid = reinterpret_cast<::UUID*>(&new_uuid.data);
@@ -32,6 +34,7 @@ UUID UUID::create()
         auto res = ::UuidCreate(win32_uuid);
         ASSERT(res == RPC_S_OK);
     }
+#endif
 
     write_uuid_string(new_uuid.data, new_uuid.str);
     return new_uuid;

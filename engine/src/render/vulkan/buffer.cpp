@@ -64,7 +64,9 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
     if (buffer_info.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
     {
         auto &buffer = *buffers.get(handle);
-        buffer.descriptor_idx = bind_descriptor(global_sets.storage_buffers, {.buffer = {handle}});
+        Descriptor buffer_descriptor = {};
+        buffer_descriptor.buffer.buffer_handle = handle;
+        buffer.descriptor_idx = bind_descriptor(global_sets.storage_buffers, buffer_descriptor);
     }
 
     return handle;
