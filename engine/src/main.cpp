@@ -7,7 +7,6 @@
 #include <filesystem>
 
 #if defined (ENABLE_DOCTEST)
-#define DOCTEST_CONFIG_COLORS_NONE
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 #endif
