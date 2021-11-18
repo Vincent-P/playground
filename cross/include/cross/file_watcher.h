@@ -17,7 +17,7 @@ namespace cross
 struct Watch
 {
 
-#ifdef defined(CROSS_LINUX)
+#if defined(CROSS_LINUX)
 
 #elif defined(CROSS_WINDOWS)
     HANDLE directory_handle;
@@ -41,7 +41,7 @@ enum struct WatchEvent
 struct Event
 {
 
-#ifdef defined(CROSS_LINUX)
+#if defined(CROSS_LINUX)
     u32 mask;   /* Watch mask.  */
     u32 cookie; /* Cookie to synchronize two events.  */
 #elif defined(CROSS_WINDOWS)

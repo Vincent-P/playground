@@ -7,6 +7,8 @@
 template <typename T, usize CAPACITY>
 struct DynamicArray
 {
+    static_assert(std::is_default_constructible<T>());
+
     using Self                  = DynamicArray<T, CAPACITY>;
 
     constexpr DynamicArray() = default;
@@ -41,8 +43,6 @@ struct DynamicArray
             }
         }
     }
-
-    static_assert(std::is_standard_layout<T>());
 
     constexpr const T &operator[](usize i) const;
     constexpr T &      operator[](usize i);
