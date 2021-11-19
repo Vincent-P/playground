@@ -580,7 +580,7 @@ void Renderer::update(const RenderWorld &render_world)
         streamer.init(&device);
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
-        const auto *blue_noise_uuid = "";
+        const auto *blue_noise_uuid = "c50c2272-49cf54e5-4ee5e9b2-53a00883";
         auto bn_texture = asset_manager->load_or_import_resource(cross::UUID::from_string(blue_noise_uuid, strlen(blue_noise_uuid)));
         if (!bn_texture)
         {

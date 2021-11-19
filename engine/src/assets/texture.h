@@ -2,23 +2,8 @@
 #include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
 
+#include "schemas/texture_header_generated.h"
 #include "assets/asset.h"
-
-enum struct ImageExtension
-{
-    KTX2,
-    PNG
-};
-
-enum struct PixelFormat
-{
-    R8G8B8A8_UNORM,
-    R8G8B8A8_SRGB,
-    BC4_UNORM, // one channel
-    BC5_UNORM, // two channels
-    BC7_UNORM, // 4 channels
-    BC7_SRGB,  // 4 channels
-};
 
 struct Texture : Asset
 {

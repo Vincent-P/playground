@@ -1,11 +1,14 @@
 #include "assets/asset_manager.h"
 
 #include "ui.h"
+
 #include "assets/importers/gltf_importer.h"
+#include "assets/importers/png_importer.h"
+#include "assets/importers/ktx2_importer.h"
+
 #include "assets/mesh.h"
 #include "assets/subscene.h"
-
-#include "schemas/mesh_generated.h"
+#include "assets/texture.h"
 
 #include <cross/mapped_file.h>
 #include <cross/file_watcher.h>
@@ -52,9 +55,12 @@ AssetManager AssetManager::create()
 void AssetManager::init()
 {
     importers.push_back(GLTFImporter{});
+    importers.push_back(PNGImporter{});
+    importers.push_back(KTX2Importer{});
 
     this->add_asset_loader<Mesh>("MESH");
     this->add_asset_loader<SubScene>("SBSC");
+    this->add_asset_loader<Texture>("TXTR");
 
     // Load or create all resources meta
     for (const auto &file_entry : std::filesystem::recursive_directory_iterator{resources_directory})

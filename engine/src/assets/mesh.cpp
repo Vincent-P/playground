@@ -71,7 +71,6 @@ void Mesh::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset,
 
     auto name_offset = builder.CreateString(this->name);
 
-
     engine::schemas::MeshBuilder mesh_builder{builder};
     mesh_builder.add_indices(indices_offset);
     mesh_builder.add_positions(positions_offset);

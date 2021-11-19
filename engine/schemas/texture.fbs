@@ -1,22 +1,8 @@
-include "exo.fbs"
-include "asset.fbs"
+include "exo.fbs";
+include "asset.fbs";
+include "texture_header.fbs";
 
-enum ImageExtension
-{
-  KTX2,
-  PNG
-}
-
-enum PixelFormat
-{
-    R8G8B8A8_UNORM,
-    R8G8B8A8_SRGB,
-    BC4_UNORM, // one channel
-    BC5_UNORM, // two channels
-    BC7_UNORM, // 4 channels
-    BC7_SRGB,  // 4 channels
-}
-
+namespace engine.schemas;
 
 table Texture {
   asset:Asset;

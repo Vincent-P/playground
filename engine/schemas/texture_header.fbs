@@ -1,0 +1,15 @@
+enum ImageExtension : short
+{
+  KTX2,
+  PNG
+}
+
+enum PixelFormat : short
+{
+    R8G8B8A8_UNORM,
+    R8G8B8A8_SRGB,
+    BC4_UNORM, // one channel
+    BC5_UNORM, // two channels
+    BC7_UNORM, // 4 channels
+    BC7_SRGB,  // 4 channels
+}

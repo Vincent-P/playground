@@ -1,6 +1,6 @@
-doing: assets add texture asset
 --
 Use a LRU cache for staging buffers and free not used buffers @renderer
 editor tooling: gizmo
 implement materials assets in the renderer
 asset browser ui, drag-n-drop
+assets: free textures

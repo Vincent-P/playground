@@ -3,6 +3,8 @@ set(SCHEMA_FILES
   asset.fbs
   mesh.fbs
   subscene.fbs
+  texture.fbs
+  texture_header.fbs
   )
 
 foreach(FBS_FILE IN LISTS SCHEMA_FILES)
@@ -11,7 +13,7 @@ foreach(FBS_FILE IN LISTS SCHEMA_FILES)
 
   add_custom_command(
     OUTPUT ${GENERATED_FILE}
-    COMMAND flatc --cpp -o generated/schemas --include-prefix "schemas/" "${CMAKE_CURRENT_SOURCE_DIR}/${FBS_FILE}"
+    COMMAND flatc --cpp -o generated/schemas --include-prefix "schemas/" "${CMAKE_CURRENT_SOURCE_DIR}/${FBS_FILE}" --scoped-enums
     DEPENDS ${FBS_FILE}
     )
 
