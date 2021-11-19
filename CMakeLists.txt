@@ -4,14 +4,16 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(test-vulkan LANGUAGES C CXX)
 
+option(ENABLE_IWYU "Enable include-what-you-use to detect useless includes" OFF)
+
 # Dependencies
 find_package(Vulkan REQUIRED)
 find_package(Threads)
 find_program(IWYU_PATH NAMES include-what-you-use iwyu)
-message(${IWYU_PATH})
 
 # add_compile_definitions(ENABLE_DOCTEST)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(RAPIDJSON_ASSERT=)
 
 # Global C++ flags
 add_compile_options(
@@ -19,7 +21,6 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fcolor-diagnostics>
   $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fansi-escape-codes>
-
 
   # Disable warnings for external headers
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
@@ -76,9 +77,14 @@ set(THIRD_PARTY_CXX_FLAGS
 function(SETUP_APP_TARGET TARGET)
   message(STATUS "Setting up target ${TARGET}")
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
-  set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 
-  if (IWYU_PATH)
+  if (CMAKE_BUILD_TYPE MATCHES "Release")
+    message(STATUS "Enabling LTO")
+    set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif ()
+
+  if (IWYU_PATH AND ENABLE_IWYU)
+    message(STATUS "Enabling Include-what-you-use")
     set_target_properties(${TARGET} PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
   endif()
 endfunction()
