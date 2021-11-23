@@ -208,6 +208,6 @@ SubMesh get_submesh(u32 first_submesh, u32 i_submesh)
 
 Material get_material(u32 i_material)
 {
-    return global_buffers_materials[globals.materials_descriptor].materials[0];
+    return global_buffers_materials[globals.materials_descriptor].materials[i_material];
 }
 #endif

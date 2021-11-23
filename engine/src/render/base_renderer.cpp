@@ -3,6 +3,7 @@
 #include <exo/logger.h>
 #include <cross/window.h>
 #include <tracy/Tracy.hpp>
+#include <imgui/imgui.h>
 
 BaseRenderer BaseRenderer::create(cross::Window &window, gfx::DeviceDescription desc)
 {
@@ -200,11 +201,41 @@ bool BaseRenderer::start_frame()
     device.reset_work_pool(work_pool);
 
     timing.get_results(device);
-    if (!timing.labels.empty() && window)
+    if (!timing.labels.empty())
     {
-        char tmp[128] = {};
-        fmt::format_to(tmp, "CPU {:.4f} ms | GPU {:.4f} ms\n", timing.cpu[0], timing.gpu[0]);
-        window->set_title(tmp);
+        if (ImGui::Begin("Timings"))
+        {
+            char tmp[128] = {};
+
+            if (ImGui::BeginTable("AssetMetadataTable", 3, 0))
+            {
+                ImGui::TableSetupColumn("Label");
+                ImGui::TableSetupColumn("CPU");
+                ImGui::TableSetupColumn("GPU");
+                ImGui::TableHeadersRow();
+
+                for (usize i_timing = 0; i_timing <  timing.labels.size(); i_timing += 1)
+                {
+                    ImGui::PushID(reinterpret_cast<const void*>(i_timing));
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", timing.labels[i_timing].c_str());
+
+                    ImGui::TableNextColumn();
+                    fmt::format_to(tmp, "{:.4f} ms", timing.cpu[i_timing]);
+                    ImGui::Text("%s", tmp);
+
+                    ImGui::TableNextColumn();
+                    fmt::format_to(tmp, "{:.4f} ms", timing.gpu[i_timing]);
+                    ImGui::Text("%s", tmp);
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+            ImGui::End();
+        }
     }
 
     timing.reset(device);

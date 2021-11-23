@@ -49,6 +49,17 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
         this->names[i_name] = std::string{subscene_names->Get(i_name)->c_str()};
     }
 
+    const auto *subscene_materials = subscene_buffer->materials();
+    this->materials.reserve(subscene_materials->size());
+    for (const auto *subscene_material : *subscene_materials)
+    {
+        ASSERT(subscene_material->v()->size() == 4);
+        u32         values[4] = {};
+        for (u32 i_value = 0; i_value < subscene_material->v()->size(); i_value += 1) {
+            values[i_value] = subscene_material->v()->Get(i_value);
+        }
+        this->materials.push_back(cross::UUID::from_values(values));
+    }
     // --
 
     for (const auto &mesh_uuid : this->meshes)
@@ -66,6 +77,11 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
                 this->dependencies.push_back(mesh_uuid);
             }
         }
+    }
+
+    for (auto material_uuid : this->materials)
+    {
+        this->dependencies.push_back(std::move(material_uuid));
     }
 }
 
@@ -98,12 +114,22 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
 
     auto roots_offset = builder.CreateVectorScalarCast<u32>(roots.data(), roots.size());
 
+    Vec<engine::schemas::exo::UUID> materials_uuid;
+    materials_uuid.reserve(this->materials.size());
+    for (const auto &material_uuid : this->materials)
+    {
+        const auto *casted_uuid = reinterpret_cast<const engine::schemas::exo::UUID*>(&material_uuid);
+        materials_uuid.push_back(*casted_uuid);
+    }
+    auto materials_offset = builder.CreateVectorOfStructs(materials_uuid);
+
     engine::schemas::SubSceneBuilder subscene_builder{builder};
     subscene_builder.add_transforms(transforms_offset);
     subscene_builder.add_meshes(meshes_offset);
     subscene_builder.add_children(children_offset);
     subscene_builder.add_roots(roots_offset);
     subscene_builder.add_names(names_offset);
+    subscene_builder.add_materials(materials_offset);
     auto subscene_offset = subscene_builder.Finish();
 
     // builder.Finish() doesn't add a file identifier

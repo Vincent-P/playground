@@ -1,6 +1,7 @@
 #pragma once
 #include <exo/prelude.h>
 #include <exo/handle.h>
+#include <cross/uuid.h>
 
 #include "assets/asset.h"
 
@@ -33,12 +34,12 @@ struct Material : Asset
     float4           emissive_factor            = float4(0.0f);
     float            metallic_factor            = 1.0f;
     float            roughness_factor           = 1.0f;
-    Handle<Texture>  base_color_texture         = {};
-    Handle<Texture>  normal_texture             = {};
-    Handle<Texture>  metallic_roughness_texture = {};
+    cross::UUID  base_color_texture         = {};
+    cross::UUID  normal_texture             = {};
+    cross::UUID  metallic_roughness_texture = {};
     TextureTransform uv_transform               = {};
 
-    const char *type_name() final { return "Material"; }
+    const char *type_name() const final { return "Material"; }
     void from_flatbuffer(const void */*data*/, usize /*len*/) final {}
     void to_flatbuffer(flatbuffers::FlatBufferBuilder &/*builder*/, u32 &/*o_offset*/, u32 &/*o_size*/) const final {}
 

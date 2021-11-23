@@ -159,6 +159,7 @@ void EntityWorld::display_entity_tree_rec(Entity *entity, Entity* &selected)
 
 void EntityWorld::display_ui()
 {
+    ZoneScoped;
     static Entity* s_selected = nullptr;
 
     if (ImGui::Begin("Entities"))

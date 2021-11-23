@@ -53,13 +53,14 @@ void Scene::update(const Inputs &)
 
 void Scene::display_ui(UI::Context &ui)
 {
+    ZoneScoped;
     #if 0
     draw_gizmo(world, main_camera);
     world.display_ui(ui);
     #endif
 
     auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
-    const auto &assets = asset_manager->get_available_assets();
+    const auto &assets = asset_manager->get_assets();
 
     static Vec<cross::UUID> sorted_assets;
     sorted_assets.clear();
@@ -69,7 +70,7 @@ void Scene::display_ui(UI::Context &ui)
     }
 
     std::sort(sorted_assets.begin(), sorted_assets.end(), [&](auto lhs, auto rhs) {
-        return std::strncmp(assets.at(lhs).uuid.str, assets.at(rhs).uuid.str, cross::UUID::STR_LEN) > 0;
+        return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, cross::UUID::STR_LEN) > 0;
     });
 
     if (ui.begin_window("Scene"))
@@ -83,19 +84,25 @@ void Scene::display_ui(UI::Context &ui)
 
         if (ImGui::BeginPopupModal("Choose a subscene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+
             if (ImGui::BeginTable("AssetMetadataTable", 4, table_flags))
             {
                 ImGui::TableSetupColumn("");
+                ImGui::TableSetupColumn("Type");
                 ImGui::TableSetupColumn("UUID");
                 ImGui::TableSetupColumn("Name");
                 ImGui::TableHeadersRow();
 
                 for (auto &uuid : sorted_assets)
                 {
-                    const auto &asset_meta = assets.at(uuid);
+                    const auto *asset = assets.at(uuid);
                     ImGui::TableNextRow();
 
-                    ImGui::PushID(&asset_meta);
+                    ImGui::PushID(asset);
 
                     ImGui::TableSetColumnIndex(0);
                     if (ImGui::Button("Choose"))
@@ -105,10 +112,13 @@ void Scene::display_ui(UI::Context &ui)
                     }
 
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+                    ImGui::Text("%s", asset->type_name());
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%s", asset_meta.display_name.c_str());
+                    ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%s", asset->name.c_str());
 
                     ImGui::PopID();
                 }

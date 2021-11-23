@@ -28,6 +28,8 @@ struct GLTFImporter
     {
         Settings settings;
         Vec<cross::UUID> mesh_uuids;
+        Vec<cross::UUID> texture_uuids;
+        Vec<cross::UUID> material_uuids;
     };
 
     bool can_import(const void *file_data, usize file_len);

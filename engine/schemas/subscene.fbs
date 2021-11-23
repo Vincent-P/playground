@@ -13,6 +13,7 @@ table SubScene {
   children: [EntityChildren];
   roots: [uint32];
   names:[string];
+  materials:[exo.UUID];
 }
 
 file_identifier "SBSC";

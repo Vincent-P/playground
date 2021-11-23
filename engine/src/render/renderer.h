@@ -1,8 +1,7 @@
 #pragma once
 
 #include <exo/handle.h>
-
-#include "assets/mesh.h"
+#include <cross/uuid.h>
 
 #include "render/base_renderer.h"
 #include "render/ring_buffer.h"
@@ -25,6 +24,60 @@ struct Material;
 class Scene;
 struct AssetManager;
 struct RenderWorld;
+
+// -- Assets begin
+
+// Descriptors for a mesh
+PACKED (struct RenderMeshGPU
+{
+    u32 first_position;
+    u32 first_index;
+    u32 first_submesh;
+    u32 bvh_root;
+    u32 first_uv;
+    u32 pad00;
+    u32 pad01;
+    u32 pad10;
+})
+
+struct RenderMesh
+{
+    BVHNode bvh_root = {};
+    Vec<u32> instances;
+    Vec<u32> materials;
+    u32 first_instance = 0;
+    RenderMeshGPU gpu;
+};
+
+PACKED(struct RenderSubMesh
+{
+    u32 first_index  = 0;
+    u32 first_vertex = 0;
+    u32 index_count  = 0;
+    u32 i_material   = 0;
+})
+
+struct RenderMaterial
+{
+    Handle<gfx::Image> base_color_texture;
+};
+
+PACKED(struct RenderMaterialGPU
+{
+   float4 base_color_factor          = float4(1.0);
+   float4 emissive_factor            = float4(0.0);
+   float  metallic_factor            = 0.0f;
+   float  roughness_factor           = 0.0f;
+   u32    base_color_texture         = u32_invalid;
+   u32    normal_texture             = u32_invalid;
+   u32    metallic_roughness_texture = u32_invalid;
+   float  rotation                   = 0.0f;
+   float2 offset                     = float2(0.0f);
+   float2 scale                      = float2(1.0f);
+   float2 pad00                      = 42.0f;
+})
+
+// -- Assets end
 
 struct Settings
 {
@@ -87,46 +140,6 @@ PACKED (struct PushConstants
     u32 gui_texture_id = u32_invalid;
 })
 
-// Descriptors for a mesh
-PACKED (struct RenderMeshGPU
-{
-    u32 first_position;
-    u32 first_index;
-    u32 first_submesh;
-    u32 bvh_root;
-    u32 first_uv;
-    u32 pad00;
-    u32 pad01;
-    u32 pad10;
-})
-
-// A 3D model
-struct RenderMesh
-{
-    BVHNode bvh_root = {};
-    Vec<u32> instances;
-    Vec<u32> materials;
-    u32 first_instance = 0;
-    RenderMeshGPU gpu;
-};
-
-struct RenderSubMesh
-{
-    u32 first_index  = 0;
-    u32 first_vertex = 0;
-    u32 index_count  = 0;
-    u32 i_material   = 0;
-};
-
-// One drawcall, one material instance
-struct SubMeshInstance
-{
-    u32 i_mesh;
-    u32 i_submesh;
-    u32 i_instance;
-    u32 i_draw;
-};
-
 // One object in the world
 PACKED (struct RenderInstance
 {
@@ -138,29 +151,32 @@ PACKED (struct RenderInstance
     u32 pad10;
 })
 
-
-struct RenderMaterial
+// One drawcall, one material instance
+PACKED (struct SubMeshInstance
 {
-    Handle<gfx::Image> base_color_texture;
-};
-
-PACKED(struct RenderMaterialGPU
-{
-   float4 base_color_factor          = float4(1.0);
-   float4 emissive_factor            = float4(0.0);
-   float  metallic_factor            = 0.0f;
-   float  roughness_factor           = 0.0f;
-   u32    base_color_texture         = u32_invalid;
-   u32    normal_texture             = u32_invalid;
-   u32    metallic_roughness_texture = u32_invalid;
-   float  rotation                   = 0.0f;
-   float2 offset                     = float2(0.0f);
-   float2 scale                      = float2(1.0f);
-   float2 pad00                      = 42.0f;
+    u32 i_mesh;
+    u32 i_submesh;
+    u32 i_instance;
+    u32 i_draw;
 })
 
 struct Renderer
 {
+    static Renderer create(cross::Window &window, AssetManager *_asset_manager);
+    void destroy();
+
+    void display_ui(UI::Context &ui);
+    void update(const RenderWorld &render_world);
+    void prepare_geometry(const RenderWorld &render_world);
+    void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
+
+    // base_renderer
+    void reload_shader(std::string_view shader_name);
+    void on_resize();
+    bool start_frame();
+    bool end_frame(gfx::ComputeWork &cmd);
+
+    /// ---
     BaseRenderer base_renderer;
 
     AssetManager *asset_manager;
@@ -178,23 +194,25 @@ struct Renderer
     Handle<gfx::Framebuffer> ldr_depth_fb;
 
     // Geometry
-
     Map<cross::UUID, Handle<RenderMesh>> uploaded_meshes; // Contains all uploaded meshes in the Pool
-    Pool<RenderMesh>    render_meshes; // Used to free/allocate mesh and get a free slot to upload it to GPU buffer
-    Handle<gfx::Buffer> meshes_buffer;
+    Pool<RenderMesh> render_meshes; // Used to free/allocate mesh and get a free slot to upload it to GPU buffer
+    Map<cross::UUID, Vec<u32>> mesh_instances; // all mesh instances
+    Handle<gfx::Buffer>        meshes_buffer;
 
-    Handle<gfx::Buffer> tlas_buffer;
+    Handle<gfx::Buffer>  tlas_buffer;
     UnifiedBufferStorage index_buffer;
     UnifiedBufferStorage vertex_positions_buffer;
     UnifiedBufferStorage vertex_uvs_buffer;
     UnifiedBufferStorage bvh_nodes_buffer;
     UnifiedBufferStorage submeshes_buffer;
 
-
     // Materials
-    Vec<RenderMaterial> render_materials;
+    Map<cross::UUID, Handle<RenderMaterial>> uploaded_materials;
+    Pool<RenderMaterial>                     render_materials;
+    Handle<gfx::Buffer>                      materials_buffer;
+
+    // Textures
     Vec<Handle<gfx::Image>> textures;
-    Handle<gfx::Buffer> materials_buffer;
 
     // Scan
     Handle<gfx::Buffer> predicate_buffer;        // hold predicate for each element, (for example in instance culling, 0: not visible, 1: visible)
@@ -202,7 +220,6 @@ struct Renderer
     Handle<gfx::Buffer> scanned_indices;         // scan of culled indices in predicate buffer (0112233 for example if predicate is true every other 2 elements)
 
     // Draw list data
-    Map<cross::UUID, Vec<u32>> mesh_instances;                // all mesh instances
     Vec<RenderInstance> render_instances;                     // all drawable instances from the scene
     Vec<SubMeshInstance> submesh_instances;                   // instance x submeshes
     RingBuffer submesh_instances_data;                        // for every instance x submesh, corresponding SubMeshInstance
@@ -237,20 +254,4 @@ struct Renderer
 
     // Misc Textures
     Handle<gfx::Image> blue_noise;
-
-    /// ---
-
-    static Renderer create(cross::Window &window, AssetManager *_asset_manager);
-    void destroy();
-
-    void display_ui(UI::Context &ui);
-    void update(const RenderWorld &render_world);
-    void prepare_geometry(const RenderWorld &render_world);
-    void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
-
-    // base_renderer
-    void reload_shader(std::string_view shader_name);
-    void on_resize();
-    bool start_frame();
-    bool end_frame(gfx::ComputeWork &cmd);
 };

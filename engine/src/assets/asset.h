@@ -34,7 +34,7 @@ struct Asset
 
     virtual ~Asset() {}
 
-    virtual const char *type_name() { return "Asset"; }
+    virtual const char *type_name() const { return "Asset"; }
 
     virtual void from_flatbuffer(const void *data, usize len) = 0;
     virtual void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const = 0;

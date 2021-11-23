@@ -25,7 +25,7 @@ struct Mesh : Asset
     Vec<float2> uvs;
     Vec<SubMesh> submeshes;
 
-    const char *type_name() final { return "Mesh"; }
+    const char *type_name() const final { return "Mesh"; }
     void from_flatbuffer(const void *data, usize len) final;
     void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const final;
 

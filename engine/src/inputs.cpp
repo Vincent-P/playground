@@ -115,6 +115,7 @@ static void display_optional(const char *label, Option<int2> vector)
 
 void Inputs::display_ui(UI::Context &ui)
 {
+    ZoneScoped;
     if (ui.begin_window("Inputs"))
     {
         if (ImGui::CollapsingHeader("Keys"))

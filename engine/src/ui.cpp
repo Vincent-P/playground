@@ -111,6 +111,7 @@ void Context::destroy() { ImGui::DestroyContext(); }
 
 void Context::display_ui()
 {
+    ZoneScoped;
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("Windows"))

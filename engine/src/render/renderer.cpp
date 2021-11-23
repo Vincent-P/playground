@@ -6,7 +6,9 @@
 #include <exo/maths/quaternion.h>
 
 #include "assets/asset_manager.h"
+#include "assets/material.h"
 #include "assets/mesh.h"
+#include "assets/texture.h"
 
 #include "camera.h"
 #include "render/render_world.h"
@@ -150,6 +152,49 @@ void recreate_framebuffers(Renderer &r)
         std::array{r.ldr_buffer});
 }
 
+void upload_material(Renderer &renderer, cross::UUID material_uuid)
+{
+    auto &asset_manager    = *renderer.asset_manager;
+    auto &streamer         = renderer.streamer;
+    auto &device           = renderer.base_renderer.device;
+    auto &render_materials = renderer.render_materials;
+
+    const auto *material_asset = dynamic_cast<Material *>(asset_manager.get_asset(material_uuid).value());
+    ASSERT(material_asset);
+
+    RenderMaterial render_material = {};
+    // TODO: texture -> material dependency to update all materials when a texture changes
+
+    RenderMaterialGPU render_material_gpu          = {};
+    render_material_gpu.base_color_factor          = material_asset->base_color_factor;
+    render_material_gpu.emissive_factor            = material_asset->emissive_factor;
+    render_material_gpu.metallic_factor            = material_asset->metallic_factor;
+    render_material_gpu.roughness_factor           = material_asset->roughness_factor;
+
+    // TODO: on texture upload -> check all materials and update field + re-upload material
+    render_material_gpu.base_color_texture         = u32_invalid;
+    render_material_gpu.normal_texture             = u32_invalid;
+    render_material_gpu.metallic_roughness_texture = u32_invalid;
+
+    render_material_gpu.rotation = material_asset->uv_transform.rotation;
+    render_material_gpu.offset   = material_asset->uv_transform.offset;
+    render_material_gpu.scale    = material_asset->uv_transform.scale;
+
+    // find a free slot
+    auto material_handle = render_materials.add(std::move(render_material));
+    renderer.uploaded_materials[material_uuid] = material_handle;
+
+    // upload to GPU
+    ASSERT(material_handle.value() < device.get_buffer_size(renderer.materials_buffer) / sizeof(RenderMaterialGPU));
+    auto *materials_gpu = reinterpret_cast<RenderMaterialGPU *>(device.map_buffer(renderer.materials_buffer));
+    materials_gpu[material_handle.value()] = render_material_gpu;
+}
+
+bool is_material_uploaded(Renderer &renderer, cross::UUID material_uuid)
+{
+    return renderer.uploaded_materials.contains(material_uuid);
+}
+
 void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
 {
     auto &asset_manager = *renderer.asset_manager;
@@ -157,41 +202,58 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
     auto &device = renderer.base_renderer.device;
     auto &render_meshes = renderer.render_meshes;
 
-    const auto &mesh_asset = *dynamic_cast<Mesh*>(asset_manager.get_asset(mesh_uuid).value());
+    const auto *mesh_asset = dynamic_cast<Mesh*>(asset_manager.get_asset(mesh_uuid).value());
+    ASSERT(mesh_asset);
 
     logger::info("[Renderer] Uploading mesh asset {}\n", mesh_uuid);
     static BVHScratchMemory scratch_bvh = {};
     static BVH              bvh         = {};
-    create_blas(scratch_bvh, bvh, mesh_asset.indices, mesh_asset.positions);
+    create_blas(scratch_bvh, bvh, mesh_asset->indices, mesh_asset->positions);
 
-    Vec<RenderSubMesh> render_submeshes(mesh_asset.submeshes.size());
+    Vec<RenderSubMesh> render_submeshes(mesh_asset->submeshes.size());
     for (u32 i_submesh = 0; i_submesh < render_submeshes.size(); i_submesh += 1)
     {
-        render_submeshes[i_submesh].first_index  = mesh_asset.submeshes[i_submesh].first_index;
-        render_submeshes[i_submesh].first_vertex = mesh_asset.submeshes[i_submesh].first_vertex;
-        render_submeshes[i_submesh].index_count  = mesh_asset.submeshes[i_submesh].index_count;
-        // TODO: get i_material from material asset uuid
+        auto material_uuid = mesh_asset->submeshes[i_submesh].material;
+        if (!material_uuid.is_valid())
+        {
+            render_submeshes[i_submesh].i_material = 0;
+            continue;
+        }
+
+        if (!is_material_uploaded(renderer, material_uuid))
+        {
+            upload_material(renderer, material_uuid);
+        }
+
+        render_submeshes[i_submesh].i_material = renderer.uploaded_materials[material_uuid].value();
+    }
+
+    for (u32 i_submesh = 0; i_submesh < render_submeshes.size(); i_submesh += 1)
+    {
+        render_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
+        render_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
+        render_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
     }
 
     RenderMesh render_mesh         = {};
     render_mesh.bvh_root           = bvh.nodes[0];
-    render_mesh.gpu.first_position = renderer.vertex_positions_buffer.allocate(mesh_asset.positions.size());
-    render_mesh.gpu.first_index    = renderer.index_buffer.allocate(mesh_asset.indices.size());
+    render_mesh.gpu.first_position = renderer.vertex_positions_buffer.allocate(mesh_asset->positions.size());
+    render_mesh.gpu.first_index    = renderer.index_buffer.allocate(mesh_asset->indices.size());
     render_mesh.gpu.bvh_root       = renderer.bvh_nodes_buffer.allocate(bvh.nodes.size());
-    render_mesh.gpu.first_submesh  = renderer.submeshes_buffer.allocate(mesh_asset.submeshes.size());
-    render_mesh.gpu.first_uv       = renderer.vertex_uvs_buffer.allocate(mesh_asset.uvs.size());
+    render_mesh.gpu.first_submesh  = renderer.submeshes_buffer.allocate(mesh_asset->submeshes.size());
+    render_mesh.gpu.first_uv       = renderer.vertex_uvs_buffer.allocate(mesh_asset->uvs.size());
 
     streamer.upload(renderer.vertex_positions_buffer.buffer,
-                    mesh_asset.positions.data(),
-                    mesh_asset.positions.size() * sizeof(float4),
+                    mesh_asset->positions.data(),
+                    mesh_asset->positions.size() * sizeof(float4),
                     render_mesh.gpu.first_position * sizeof(float4));
     streamer.upload(renderer.vertex_uvs_buffer.buffer,
-                    mesh_asset.uvs.data(),
-                    mesh_asset.uvs.size() * sizeof(float2),
+                    mesh_asset->uvs.data(),
+                    mesh_asset->uvs.size() * sizeof(float2),
                     render_mesh.gpu.first_uv * sizeof(float2));
     streamer.upload(renderer.index_buffer.buffer,
-                    mesh_asset.indices.data(),
-                    mesh_asset.indices.size() * sizeof(u32),
+                    mesh_asset->indices.data(),
+                    mesh_asset->indices.size() * sizeof(u32),
                     render_mesh.gpu.first_index * sizeof(u32));
     streamer.upload(renderer.bvh_nodes_buffer.buffer,
                     bvh.nodes.data(),
@@ -205,11 +267,11 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
 
     auto mesh_handle = render_meshes.add(std::move(render_mesh));
 
-    ASSERT(mesh_handle.value() < 2_MiB / sizeof(RenderMeshGPU));
+    ASSERT(mesh_handle.value() < device.get_buffer_size(renderer.meshes_buffer) / sizeof(RenderMeshGPU));
     auto *meshes_gpu = reinterpret_cast<RenderMeshGPU *>(device.map_buffer(renderer.meshes_buffer));
     meshes_gpu[mesh_handle.value()] = render_mesh.gpu;
 
-    renderer.uploaded_meshes[mesh_asset.uuid] = mesh_handle;
+    renderer.uploaded_meshes[mesh_asset->uuid] = mesh_handle;
 }
 
 bool is_mesh_uploaded(Renderer &renderer, cross::UUID mesh_uuid)
@@ -501,6 +563,7 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
 
 void Renderer::display_ui(UI::Context &ui)
 {
+    ZoneScoped;
     if (ui.begin_window("Textures"))
     {
         for (uint i = 5; i <= 8; i += 1)
@@ -563,9 +626,9 @@ void Renderer::update(const RenderWorld &render_world)
 
     gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
     cmd.begin();
-    timings.begin_label(cmd, "Frame");
 
     // -- Transfer stuff
+    timings.begin_label(cmd, "Uploads");
     cmd.begin_debug_label("Uploads");
     if (base_renderer.frame_count == 0)
     {
@@ -600,9 +663,12 @@ void Renderer::update(const RenderWorld &render_world)
     }
     streamer.update(work_pool);
     cmd.end_debug_label();
+    timings.end_label(cmd);
 
     // -- Get geometry from the scene and prepare the draw commands
+    timings.begin_label(cmd, "prepare geometry");
     this->prepare_geometry(render_world);
+    timings.end_label(cmd);
 
     // -- Update global data
     float2 current_sample = halton_sequence[base_renderer.frame_count % 16] - float2(0.5);
@@ -669,6 +735,7 @@ void Renderer::update(const RenderWorld &render_world)
     // Opaque pass
     if (settings.enable_path_tracing)
     {
+        timings.begin_label(cmd, "Path tracing");
         ZoneNamedN(path_tracing, "Pathtracing", true);
         cmd.begin_debug_label("Path tracing");
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
@@ -686,12 +753,14 @@ void Renderer::update(const RenderWorld &render_world)
         cmd.bind_pipeline(path_tracer_program);
         cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
         cmd.end_debug_label();
+        timings.end_label(cmd);
     }
     else
     {
         ZoneNamedN(render_opaque, "Render Opaque", true);
         // Instances culling
         {
+            timings.begin_label(cmd, "GPU Culling");
             cmd.begin_debug_label("GPU Culling");
             i32 submesh_instances_to_cull = static_cast<i32>(submesh_instances.size());
 
@@ -751,10 +820,12 @@ void Renderer::update(const RenderWorld &render_world)
                                  &copy_options,
                                  sizeof(CopyInstancesOptions));
             cmd.end_debug_label();
+            timings.end_label(cmd);
         }
 
         // Compact draw calls
         {
+            timings.begin_label(cmd, "Compact draw calls");
             cmd.begin_debug_label("Compact draw calls");
             // Fill draw calls predicate buffer
             cmd.barrier(predicate_buffer, gfx::BufferUsage::TransferDst);
@@ -796,9 +867,11 @@ void Renderer::update(const RenderWorld &render_world)
                                  &copy_options,
                                  sizeof(CopyDrawcallsOptions));
             cmd.end_debug_label();
+            timings.end_label(cmd);
         }
 
         // Fill visibility
+        timings.begin_label(cmd, "Fill visibility buffer");
         cmd.begin_debug_label("Fill visibility buffer");
         cmd.clear_barrier(visibility_buffer, gfx::ImageUsage::ColorAttachment);
         cmd.clear_barrier(depth_buffer, gfx::ImageUsage::DepthAttachment);
@@ -821,8 +894,10 @@ void Renderer::update(const RenderWorld &render_world)
         }
         cmd.end_pass();
         cmd.end_debug_label();
+        timings.end_label(cmd);
 
         // Deferred shading
+        timings.begin_label(cmd, "Visibility buffer shading");
         cmd.begin_debug_label("Visibility buffer shading");
         struct ShadingOptions
         {
@@ -846,6 +921,7 @@ void Renderer::update(const RenderWorld &render_world)
             cmd.dispatch(dispatch_size(hdr_buffer_size, 16));
         }
         cmd.end_debug_label();
+        timings.end_label(cmd);
     }
 
     auto &current_history  = history_buffers[current_frame % 2];
@@ -854,6 +930,7 @@ void Renderer::update(const RenderWorld &render_world)
     // TAA
     {
         ZoneNamedN(taa, "TAA", true);
+        timings.begin_label(cmd, "TAA");
         cmd.begin_debug_label("TAA");
 
         if (settings.clear_history)
@@ -885,12 +962,14 @@ void Renderer::update(const RenderWorld &render_world)
         cmd.bind_pipeline(taa_program);
         cmd.dispatch(dispatch_size(history_size, 16));
         cmd.end_debug_label();
+        timings.end_label(cmd);
     }
 
     // Tonemap
     auto tonemap_input = current_history;
     {
         ZoneNamedN(tonemap, "Tonemap", true);
+        timings.begin_label(cmd, "Tonemap");
         cmd.begin_debug_label("Tonemap");
         cmd.barrier(tonemap_input, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(ldr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
@@ -909,13 +988,15 @@ void Renderer::update(const RenderWorld &render_world)
         cmd.bind_pipeline(tonemap_program);
         cmd.dispatch(dispatch_size(input_size, 16));
         cmd.end_debug_label();
+        timings.end_label(cmd);
     }
 
     // ImGui pass
     ImGui::Render();
     if (streamer.is_uploaded(imgui_pass.font_atlas))
     {
-        ZoneNamedN(render_imgui, "ImGui render", true);
+        ZoneNamedN(render_imgui, "ImGui drawing", true);
+        timings.begin_label(cmd, "ImGui drawing");
         cmd.begin_debug_label("ImGui drawing");
         ImDrawData *data = ImGui::GetDrawData();
 
@@ -1055,7 +1136,10 @@ void Renderer::update(const RenderWorld &render_world)
 
         cmd.end_pass();
         cmd.end_debug_label();
+        timings.end_label(cmd);
     }
+
+    timings.begin_label(cmd, "Present + final blit");
 
     cmd.barrier(ldr_buffer, gfx::ImageUsage::TransferSrc);
     cmd.clear_barrier(swapchain_image, gfx::ImageUsage::TransferDst);
@@ -1142,7 +1226,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
                 });
             }
 
-            draw_count += mesh_asset.submeshes.size();
+            draw_count += static_cast<u32>(mesh_asset.submeshes.size());
         }
     }
 
@@ -1191,6 +1275,7 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
     }
 
     ImGui::Text("Renderer draw count: %u", draw_count);
+    ImGui::Text("Uploaded meshes: %zu (%u)", uploaded_meshes.size(), render_meshes.size);
     ImGui::Text("Renderer instances: %zu", render_instances.size());
     ImGui::Text("Renderer submesh instances: %zu", submesh_instances.size());
 }

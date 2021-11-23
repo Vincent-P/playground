@@ -106,7 +106,8 @@ struct AssetManager
      // -- Asset files
     Result<Asset*> get_asset(cross::UUID asset_uuid);
 
-    inline const Map<cross::UUID, AssetMeta> &get_available_assets() const { return asset_metadatas; }
+    inline const Map<cross::UUID, AssetMeta> &get_assets_metadata() const { return asset_metadatas; }
+    inline const Map<cross::UUID, Asset*> &get_assets() const { return assets; }
 
     // Registers a new asset type identified by the file_identifier
     template <std::derived_from<Asset> AssetType>

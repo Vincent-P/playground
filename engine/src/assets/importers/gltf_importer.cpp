@@ -6,6 +6,8 @@
 #include "assets/asset_manager.h"
 #include "assets/subscene.h"
 #include "assets/mesh.h"
+#include "assets/texture.h"
+#include "assets/material.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
@@ -23,6 +25,7 @@ struct ImportContext
 
 static void import_meshes(ImportContext &ctx);
 static void import_nodes(ImportContext &ctx);
+static void import_materials(ImportContext &ctx);
 
 // -- glTF data utils
 
@@ -221,6 +224,7 @@ Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, cross::UUID res
         .importer_data = *reinterpret_cast<GLTFImporter::Data*>(importer_data),
     };
 
+    import_materials(ctx);
     import_meshes(ctx);
     import_nodes(ctx);
 
@@ -286,6 +290,7 @@ static void import_meshes(ImportContext &ctx)
             new_submesh.index_count  = 0;
             new_submesh.first_vertex = static_cast<u32>(new_mesh->positions.size());
             new_submesh.first_index  = static_cast<u32>(new_mesh->indices.size());
+            new_submesh.material     = {};
 
             // -- Attributes
             ASSERT(j_primitive.HasMember("indices"));
@@ -393,6 +398,12 @@ static void import_meshes(ImportContext &ctx)
                 {
                     new_mesh->uvs.push_back(float2(0.0f, 0.0f));
                 }
+            }
+
+            if (j_primitive.HasMember("material"))
+            {
+                u32 i_material       = j_primitive["material"].GetUint();
+                new_submesh.material = ctx.importer_data.material_uuids[i_material];
             }
         }
 
@@ -503,7 +514,7 @@ static void import_nodes(ImportContext &ctx)
         if (j_node.HasMember("mesh"))
         {
             auto i_mesh = j_node["mesh"].GetUint();
-            ctx.new_scene->meshes.push_back(ctx.new_scene->dependencies[i_mesh]);
+            ctx.new_scene->meshes.push_back(ctx.importer_data.mesh_uuids[i_mesh]);
         }
         else
         {
@@ -529,15 +540,99 @@ static void import_nodes(ImportContext &ctx)
     }
 }
 
+static void import_materials(ImportContext &ctx)
+{
+    const auto &j_document = ctx.j_document;
+
+    if (!ctx.j_document.HasMember("materials"))
+    {
+        return;
+    }
+
+    const auto &j_materials = ctx.j_document["materials"].GetArray();
+    // Generate new UUID for the materials if needed
+    auto &material_uuids = ctx.importer_data.material_uuids;
+    if (material_uuids.size() != j_materials.Size())
+    {
+        material_uuids.resize(j_materials.Size());
+
+        for (u32 i_mesh = 0; i_mesh < j_materials.Size(); i_mesh += 1)
+        {
+            if (!material_uuids[i_mesh].is_valid())
+            {
+                material_uuids[i_mesh] = cross::UUID::create();
+            }
+        }
+    }
+
+    ctx.new_scene->materials = material_uuids;
+
+    for (usize i_material = 0; i_material < j_materials.Size(); i_material += 1)
+    {
+        const auto &j_material = j_materials[i_material];
+
+        Material *new_material = ctx.asset_manager->create_asset<Material>(material_uuids[i_material]);
+
+        if (j_material.HasMember("name"))
+        {
+            new_material->name = std::string{j_material["name"].GetString()};
+        }
+
+        if (j_material.HasMember("pbrMetallicRoughness"))
+        {
+            const auto &j_pbr = j_material["pbrMetallicRoughness"].GetObj();
+
+            if (j_pbr.HasMember("baseColorTexture"))
+            {
+                const auto &j_base_color_texture = j_pbr["baseColorTexture"];
+                u32         texture_index        = j_base_color_texture["index"].GetUint();
+
+                new_material->base_color_texture = {};
+
+                // TODO: Assert that all textures of this material have the same texture transform
+                if (j_base_color_texture.HasMember("extensions") && j_base_color_texture["extensions"].HasMember("KHR_texture_transform"))
+                {
+                    const auto &extension = j_base_color_texture["extensions"]["KHR_texture_transform"];
+                    if (extension.HasMember("offset"))
+                    {
+                        new_material->uv_transform.offset[0] = extension["offset"].GetArray()[0].GetFloat();
+                        new_material->uv_transform.offset[1] = extension["offset"].GetArray()[1].GetFloat();
+                    }
+                    if (extension.HasMember("scale"))
+                    {
+                        new_material->uv_transform.scale[0] = extension["scale"].GetArray()[0].GetFloat();
+                        new_material->uv_transform.scale[1] = extension["scale"].GetArray()[1].GetFloat();
+                    }
+                    if (extension.HasMember("rotation"))
+                    {
+                        new_material->uv_transform.rotation = extension["rotation"].GetFloat();
+                    }
+                }
+            }
+
+            if (j_pbr.HasMember("baseColorFactor"))
+            {
+                new_material->base_color_factor = {1.0, 1.0, 1.0, 1.0};
+                for (u32 i = 0; i < 4; i += 1)
+                {
+                    new_material->base_color_factor[i] = j_pbr["baseColorFactor"].GetArray()[i].GetFloat();
+                }
+            }
+        }
+        ctx.asset_manager->save_asset(new_material);
+        ctx.new_scene->dependencies.push_back(new_material->uuid);
+    }
+}
+
 void *GLTFImporter::create_default_importer_data()
 {
-    return reinterpret_cast<void*>(new GLTFImporter::Data());
+    return reinterpret_cast<void *>(new GLTFImporter::Data());
 }
 
 void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
 {
     auto *new_data = create_default_importer_data();
-    auto *data = reinterpret_cast<GLTFImporter::Data*>(new_data);
+    auto *data     = reinterpret_cast<GLTFImporter::Data *>(new_data);
 
     const auto &j_settings = j_data["settings"].GetObj();
 
@@ -545,7 +640,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
 
     if (j_settings.HasMember("i_scene"))
     {
-        data->settings.i_scene =  j_settings["i_scene"].GetUint();
+        data->settings.i_scene = j_settings["i_scene"].GetUint();
     }
     if (j_settings.HasMember("apply_transform"))
     {
@@ -560,10 +655,33 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
     {
         const auto &j_mesh_uuids = j_data["mesh_uuids"].GetArray();
         data->mesh_uuids.reserve(j_mesh_uuids.Size());
-        for (const auto& j_mesh_uuid : j_mesh_uuids)
+        for (const auto &j_mesh_uuid : j_mesh_uuids)
         {
             auto mesh_uuid = cross::UUID::from_string(j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength());
             data->mesh_uuids.push_back(mesh_uuid);
+        }
+    }
+
+    if (j_data.HasMember("texture_uuids"))
+    {
+        const auto &j_texture_uuids = j_data["texture_uuids"].GetArray();
+        data->texture_uuids.reserve(j_texture_uuids.Size());
+        for (const auto &j_texture_uuid : j_texture_uuids)
+        {
+            auto texture_uuid = cross::UUID::from_string(j_texture_uuid.GetString(), j_texture_uuid.GetStringLength());
+            data->texture_uuids.push_back(texture_uuid);
+        }
+    }
+
+    if (j_data.HasMember("material_uuids"))
+    {
+        const auto &j_material_uuids = j_data["material_uuids"].GetArray();
+        data->material_uuids.reserve(j_material_uuids.Size());
+        for (const auto &j_material_uuid : j_material_uuids)
+        {
+            auto material_uuid
+                = cross::UUID::from_string(j_material_uuid.GetString(), j_material_uuid.GetStringLength());
+            data->material_uuids.push_back(material_uuid);
         }
     }
 
@@ -573,7 +691,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
 void GLTFImporter::write_data_json(rapidjson::GenericPrettyWriter<rapidjson::FileWriteStream> &writer, const void *data)
 {
     ASSERT(data);
-    const auto *import_data = reinterpret_cast<const GLTFImporter::Data*>(data);
+    const auto *import_data = reinterpret_cast<const GLTFImporter::Data *>(data);
 
     writer.StartObject();
 
@@ -592,6 +710,22 @@ void GLTFImporter::write_data_json(rapidjson::GenericPrettyWriter<rapidjson::Fil
     for (const auto &mesh_uuid : import_data->mesh_uuids)
     {
         writer.String(mesh_uuid.str, mesh_uuid.STR_LEN);
+    }
+    writer.EndArray();
+
+    writer.Key("texture_uuids");
+    writer.StartArray();
+    for (const auto &texture_uuid : import_data->texture_uuids)
+    {
+        writer.String(texture_uuid.str, texture_uuid.STR_LEN);
+    }
+    writer.EndArray();
+
+    writer.Key("material_uuids");
+    writer.StartArray();
+    for (const auto &material_uuid : import_data->material_uuids)
+    {
+        writer.String(material_uuid.str, material_uuid.STR_LEN);
     }
     writer.EndArray();
 

@@ -187,6 +187,7 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 
 void AssetManager::display_ui(UI::Context &ui)
 {
+    ZoneScoped;
     if (ui.begin_window("AssetManager"))
     {
         auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
@@ -274,11 +275,18 @@ void AssetManager::display_ui(UI::Context &ui)
                 ImGui::Text("%zX", resource_meta.last_imported_hash);
 
                 ImGui::TableSetColumnIndex(4);
-                if (ImGui::Button("Load/Import"))
+                if (ImGui::Button("Load"))
                 {
                     auto uuid_copy = uuid;
                     leaf::try_handle_all(
                         [&]() -> Result<void> { BOOST_LEAF_CHECK(load_or_import_resource(uuid_copy)); return Ok<void>(); },
+                        get_error_handlers());
+                }
+                if (ImGui::Button("Import"))
+                {
+                    auto uuid_copy = uuid;
+                    leaf::try_handle_all(
+                        [&]() -> Result<void> { BOOST_LEAF_CHECK(import_resource(uuid_copy)); return Ok<void>(); },
                         get_error_handlers());
                 }
                 ImGui::PopID();
@@ -362,7 +370,7 @@ Result<Asset *> AssetManager::import_resource(cross::UUID resource_uuid)
     u64  file_hash   = hash_file(resource_file.base_addr, resource_file.size);
 
     // TODO: only check if debug checks are enabled
-    ASSERT(resource_meta.last_imported_hash != file_hash);
+    // ASSERT(resource_meta.last_imported_hash != file_hash);
 
     BOOST_LEAF_AUTO(i_importer, find_importer(resource_file.base_addr, resource_file.size));
     BOOST_LEAF_AUTO(new_asset, this->import_resource(resource_file.base_addr, resource_file.size, resource_meta.importer_data, i_importer, resource_uuid));
@@ -393,11 +401,22 @@ Result<void> AssetManager::save_asset(Asset *asset)
 
     if (size > 0)
     {
+        // Save asset to disk
         auto asset_path = assets_directory / asset->uuid.as_string();
         FILE *fp = fopen(asset_path.string().c_str(), "wb"); // non-Windows use "w"
         auto  bwritten = fwrite(builder.GetBufferPointer(), 1, builder.GetSize(), fp);
         ASSERT(bwritten == builder.GetSize());
         fclose(fp);
+
+        // Load or create asset meta
+        if (has_meta_file(asset_path))
+        {
+            BOOST_LEAF_CHECK(load_asset_meta(asset->uuid));
+        }
+        else
+        {
+            BOOST_LEAF_CHECK(create_asset_meta(asset->uuid));
+        }
     }
     else
     {

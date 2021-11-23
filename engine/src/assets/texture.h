@@ -7,7 +7,7 @@
 
 struct Texture : Asset
 {
-    const char *type_name() final { return "Texture"; }
+    const char *type_name() const final { return "Texture"; }
     void from_flatbuffer(const void *data, usize len) final;
     void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const final;
 

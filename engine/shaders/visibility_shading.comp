@@ -273,10 +273,9 @@ void main()
 
 
     #if 0
-    imageStore(HDR_BUFFER, pixel_pos, float4(texCoord, 0.0, 1.0));
+    imageStore(HDR_BUFFER, pixel_pos, float4(TurboColormap(float(hit_info.box_inter_count) / 100.0), 1.0));
+    imageStore(HDR_BUFFER, pixel_pos, float4(material.base_color_factor.rgb, 1.0));
 
-    const float MAX_INTER = 100.0;
-    imageStore(HDR_BUFFER, pixel_pos, float4(TurboColormap(float(hit_info.box_inter_count) / MAX_INTER), 1.0));
     return;
     #endif
 
