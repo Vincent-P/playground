@@ -13,7 +13,7 @@ table Texture {
   depth:int;
   levels:int;
   mip_offset:[ulong];
-  data:[byte];
+  pixels_data:[byte];
   data_size:ulong;
 }
 

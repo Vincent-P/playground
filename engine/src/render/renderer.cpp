@@ -184,7 +184,6 @@ bool is_texture_uploaded(Renderer &renderer, cross::UUID texture_uuid)
 void upload_material(Renderer &renderer, cross::UUID material_uuid)
 {
     auto &asset_manager    = *renderer.asset_manager;
-    auto &streamer         = renderer.streamer;
     auto &device           = renderer.base_renderer.device;
     auto &render_materials = renderer.render_materials;
 

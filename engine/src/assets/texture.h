@@ -11,16 +11,15 @@ struct Texture : Asset
     void from_flatbuffer(const void *data, usize len) final;
     void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const final;
 
-    void *impl_data; // ktxTexture* for libktx, u8* containing raw pixels for png
-
     PixelFormat format;
     ImageExtension extension;
     i32 width;
     i32 height;
     i32 depth;
     i32 levels;
-
     Vec<usize> mip_offsets;
-    const void* raw_data;
+
+    void *impl_data; // ktxTexture* for libktx, u8* containing raw pixels for png
+    const void* pixels_data;
     usize data_size;
 };

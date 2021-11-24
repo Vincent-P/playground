@@ -53,8 +53,8 @@ Result<Asset*> PNGImporter::import(AssetManager *asset_manager, cross::UUID reso
     usize decoded_size = 0;
     spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &decoded_size);
 
-    auto *new_texture = asset_manager->create_asset<Texture>(resource_uuid);
-    new_texture->impl_data = reinterpret_cast<u8*>(malloc(decoded_size));
+    auto *new_texture      = asset_manager->create_asset<Texture>(resource_uuid);
+    new_texture->impl_data = reinterpret_cast<u8 *>(malloc(decoded_size));
     spng_decode_image(ctx, new_texture->impl_data, decoded_size, SPNG_FMT_RGBA8, 0);
 
     new_texture->extension = ImageExtension::PNG;
@@ -64,7 +64,8 @@ Result<Asset*> PNGImporter::import(AssetManager *asset_manager, cross::UUID reso
     new_texture->levels    = 1;
     new_texture->format    = PixelFormat::R8G8B8A8_UNORM;
     new_texture->mip_offsets.push_back(0);
-    new_texture->raw_data = new_texture->impl_data;
+
+    new_texture->pixels_data  = new_texture->impl_data;
     new_texture->data_size = decoded_size;
 
     asset_manager->save_asset(new_texture);

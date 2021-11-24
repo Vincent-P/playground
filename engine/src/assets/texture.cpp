@@ -23,17 +23,17 @@ void Texture::from_flatbuffer(const void *data, usize /*len*/)
 
     this->data_size = texture_buffer->data_size();
 
-    const auto *texture_data = texture_buffer->data();
+    const auto *texture_data = texture_buffer->pixels_data()->data();
     this->impl_data          = malloc(this->data_size);
     std::memcpy(this->impl_data, texture_data, this->data_size);
-    this->raw_data = this->impl_data;
+    this->pixels_data = this->impl_data;
 }
 
 void Texture::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
     auto asset_offset       = to_asset(this, builder);
     auto mip_offsets_offset = builder.CreateVectorScalarCast<usize>(this->mip_offsets.data(), this->mip_offsets.size());
-    auto data_offset = builder.CreateVectorScalarCast<i8>(reinterpret_cast<const i8 *>(this->raw_data), this->data_size);
+    auto pixels_data_offset        = builder.CreateVectorScalarCast<i8>(reinterpret_cast<const i8 *>(this->pixels_data), this->data_size);
 
     engine::schemas::TextureBuilder texture_builder{builder};
     texture_builder.add_asset(asset_offset);
@@ -44,7 +44,7 @@ void Texture::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offs
     texture_builder.add_depth(this->depth);
     texture_builder.add_levels(this->levels);
     texture_builder.add_mip_offset(mip_offsets_offset);
-    texture_builder.add_data(data_offset);
+    texture_builder.add_pixels_data(pixels_data_offset);
     texture_builder.add_data_size(this->data_size);
 
     auto texture_offset = texture_builder.Finish();

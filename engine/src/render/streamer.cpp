@@ -212,7 +212,7 @@ void Streamer::upload(Handle<gfx::Image> image, const Texture &texture)
 
     // Copy the source data into the staging
     void *dst = device->map_buffer(staging.buffer);
-    std::memcpy(dst, texture.raw_data, texture.data_size);
+    std::memcpy(dst, texture.pixels_data, texture.data_size);
 
     ImageUpload &upload  = image_uploads[image];
     upload.i_staging     = i_staging;

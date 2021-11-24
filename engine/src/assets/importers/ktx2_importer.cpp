@@ -99,7 +99,7 @@ Result<Asset*> KTX2Importer::import(AssetManager *asset_manager, cross::UUID res
         ASSERT(result == KTX_SUCCESS);
     }
 
-    new_texture->raw_data  = ktx_texture->pData;
+    new_texture->pixels_data  = ktx_texture->pData;
     new_texture->data_size = ktx_texture->dataSize;
 
     asset_manager->save_asset(new_texture);
