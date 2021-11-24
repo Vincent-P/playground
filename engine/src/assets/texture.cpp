@@ -11,12 +11,12 @@ void Texture::from_flatbuffer(const void *data, usize /*len*/)
 
     from_asset(texture_buffer->asset(), this);
 
-    this->format = texture_buffer->format();
+    this->format    = texture_buffer->format();
     this->extension = texture_buffer->extension();
-    this->width = texture_buffer->width();
-    this->height = texture_buffer->height();
-    this->depth = texture_buffer->depth();
-    this->levels = texture_buffer->levels();
+    this->width     = texture_buffer->width();
+    this->height    = texture_buffer->height();
+    this->depth     = texture_buffer->depth();
+    this->levels    = texture_buffer->levels();
 
     const auto *texture_mip_offsets = texture_buffer->mip_offset();
     this->mip_offsets = Vec<usize>(texture_mip_offsets->data(), texture_mip_offsets->data() + texture_mip_offsets->size());
@@ -31,9 +31,9 @@ void Texture::from_flatbuffer(const void *data, usize /*len*/)
 
 void Texture::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
-    auto asset_offset = to_asset(this, builder);
+    auto asset_offset       = to_asset(this, builder);
     auto mip_offsets_offset = builder.CreateVectorScalarCast<usize>(this->mip_offsets.data(), this->mip_offsets.size());
-    auto data_offset = builder.CreateVectorScalarCast<i8>(reinterpret_cast<const i8*>(this->raw_data), this->data_size);
+    auto data_offset = builder.CreateVectorScalarCast<i8>(reinterpret_cast<const i8 *>(this->raw_data), this->data_size);
 
     engine::schemas::TextureBuilder texture_builder{builder};
     texture_builder.add_asset(asset_offset);

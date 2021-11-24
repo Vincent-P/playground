@@ -10,10 +10,10 @@ struct Texture;
 
 struct TextureTransform
 {
-    float2 offset;   // The offset of the UV coordinate origin as a factor of the texture dimensions.
-    float2 scale;    // The scale factor applied to the components of the UV coordinates.
-    float  rotation; // Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a
-                     // similar rotation of the image clockwise.
+    float2 offset   = {0.0f, 0.0f}; // The offset of the UV coordinate origin as a factor of the texture dimensions.
+    float2 scale    = {1.0f, 1.0f}; // The scale factor applied to the components of the UV coordinates.
+    float  rotation = 0.0f;         // Rotate the UVs by this many radians counter-clockwise around the origin. This is
+                                    // equivalent to a similar rotation of the image clockwise.
 
     bool operator==(const TextureTransform &other) const = default;
 };

@@ -613,7 +613,7 @@ static void import_materials(ImportContext &ctx)
                 new_material->dependencies.push_back(new_material->base_color_texture);
 
                 // TODO: Assert that all textures of this material have the same texture transform
-                if (j_texture.HasMember("extensions") && j_texture["extensions"].HasMember("KHR_texture_transform"))
+                if (j_base_color_texture.HasMember("extensions") && j_base_color_texture["extensions"].HasMember("KHR_texture_transform"))
                 {
                     const auto &extension = j_base_color_texture["extensions"]["KHR_texture_transform"];
                     if (extension.HasMember("offset"))

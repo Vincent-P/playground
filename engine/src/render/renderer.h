@@ -40,15 +40,6 @@ PACKED (struct RenderMeshGPU
     u32 pad10;
 })
 
-struct RenderMesh
-{
-    BVHNode bvh_root = {};
-    Vec<u32> instances;
-    Vec<u32> materials;
-    u32 first_instance = 0;
-    RenderMeshGPU gpu;
-};
-
 PACKED(struct RenderSubMesh
 {
     u32 first_index  = 0;
@@ -56,11 +47,6 @@ PACKED(struct RenderSubMesh
     u32 index_count  = 0;
     u32 i_material   = 0;
 })
-
-struct RenderMaterial
-{
-    Handle<gfx::Image> base_color_texture;
-};
 
 PACKED(struct RenderMaterialGPU
 {
@@ -76,6 +62,25 @@ PACKED(struct RenderMaterialGPU
    float2 scale                      = float2(1.0f);
    float2 pad00                      = 42.0f;
 })
+
+struct RenderMesh
+{
+    BVHNode bvh_root = {};
+    Vec<u32> instances;
+    Vec<u32> materials;
+    u32 first_instance = 0;
+    Vec<RenderSubMesh> submeshes;
+};
+
+struct RenderTexture
+{
+    Handle<gfx::Image> gpu;
+};
+
+struct RenderMaterial
+{
+    Handle<RenderTexture> base_color_texture;
+};
 
 // -- Assets end
 
@@ -206,13 +211,14 @@ struct Renderer
     UnifiedBufferStorage bvh_nodes_buffer;
     UnifiedBufferStorage submeshes_buffer;
 
+    // Textures
+    Map<cross::UUID, Handle<RenderTexture>> uploaded_textures;
+    Pool<RenderTexture>                     render_textures;
+
     // Materials
     Map<cross::UUID, Handle<RenderMaterial>> uploaded_materials;
     Pool<RenderMaterial>                     render_materials;
     Handle<gfx::Buffer>                      materials_buffer;
-
-    // Textures
-    Vec<Handle<gfx::Image>> textures;
 
     // Scan
     Handle<gfx::Buffer> predicate_buffer;        // hold predicate for each element, (for example in instance culling, 0: not visible, 1: visible)

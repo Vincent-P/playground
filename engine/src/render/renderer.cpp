@@ -152,6 +152,35 @@ void recreate_framebuffers(Renderer &r)
         std::array{r.ldr_buffer});
 }
 
+void upload_texture(Renderer &renderer, cross::UUID texture_uuid)
+{
+    auto &asset_manager    = *renderer.asset_manager;
+    auto &streamer         = renderer.streamer;
+    auto &device           = renderer.base_renderer.device;
+    auto &render_textures = renderer.render_textures;
+
+    const auto *texture_asset = dynamic_cast<Texture *>(asset_manager.get_asset(texture_uuid).value());
+    ASSERT(texture_asset);
+
+    RenderTexture render_texture = {};
+    render_texture.gpu = device.create_image({
+        .name       = texture_asset->name,
+        .size       = int3(texture_asset->width, texture_asset->height, texture_asset->depth),
+        .mip_levels = static_cast<u32>(texture_asset->levels),
+        .format     = to_vk(texture_asset->format),
+    });
+
+    streamer.upload(render_texture.gpu, *texture_asset);
+
+    auto render_texture_handle = render_textures.add(std::move(render_texture));
+    renderer.uploaded_textures[texture_uuid] = render_texture_handle;
+}
+
+bool is_texture_uploaded(Renderer &renderer, cross::UUID texture_uuid)
+{
+    return renderer.uploaded_textures.contains(texture_uuid);
+}
+
 void upload_material(Renderer &renderer, cross::UUID material_uuid)
 {
     auto &asset_manager    = *renderer.asset_manager;
@@ -163,7 +192,6 @@ void upload_material(Renderer &renderer, cross::UUID material_uuid)
     ASSERT(material_asset);
 
     RenderMaterial render_material = {};
-    // TODO: texture -> material dependency to update all materials when a texture changes
 
     RenderMaterialGPU render_material_gpu          = {};
     render_material_gpu.base_color_factor          = material_asset->base_color_factor;
@@ -171,7 +199,6 @@ void upload_material(Renderer &renderer, cross::UUID material_uuid)
     render_material_gpu.metallic_factor            = material_asset->metallic_factor;
     render_material_gpu.roughness_factor           = material_asset->roughness_factor;
 
-    // TODO: on texture upload -> check all materials and update field + re-upload material
     render_material_gpu.base_color_texture         = u32_invalid;
     render_material_gpu.normal_texture             = u32_invalid;
     render_material_gpu.metallic_roughness_texture = u32_invalid;
@@ -179,6 +206,19 @@ void upload_material(Renderer &renderer, cross::UUID material_uuid)
     render_material_gpu.rotation = material_asset->uv_transform.rotation;
     render_material_gpu.offset   = material_asset->uv_transform.offset;
     render_material_gpu.scale    = material_asset->uv_transform.scale;
+
+    // Check textures
+    if (material_asset->base_color_texture.is_valid())
+    {
+        if (!is_texture_uploaded(renderer, material_asset->base_color_texture))
+        {
+            upload_texture(renderer, material_asset->base_color_texture);
+        }
+        ASSERT(is_texture_uploaded(renderer, material_asset->base_color_texture));
+        auto render_texture_handle = renderer.uploaded_textures.at(material_asset->base_color_texture);
+        const auto &render_texture = *renderer.render_textures.get(render_texture_handle);
+        render_material_gpu.base_color_texture = device.get_image_sampled_index(render_texture.gpu);
+    }
 
     // find a free slot
     auto material_handle = render_materials.add(std::move(render_material));
@@ -210,13 +250,16 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
     static BVH              bvh         = {};
     create_blas(scratch_bvh, bvh, mesh_asset->indices, mesh_asset->positions);
 
-    Vec<RenderSubMesh> render_submeshes(mesh_asset->submeshes.size());
-    for (u32 i_submesh = 0; i_submesh < render_submeshes.size(); i_submesh += 1)
+    RenderMesh render_mesh         = {};
+    render_mesh.bvh_root           = bvh.nodes[0];
+    render_mesh.submeshes.resize(mesh_asset->submeshes.size());
+
+    for (u32 i_submesh = 0; i_submesh < render_mesh.submeshes.size(); i_submesh += 1)
     {
         auto material_uuid = mesh_asset->submeshes[i_submesh].material;
         if (!material_uuid.is_valid())
         {
-            render_submeshes[i_submesh].i_material = 0;
+            render_mesh.submeshes[i_submesh].i_material = 0;
             continue;
         }
 
@@ -225,51 +268,51 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
             upload_material(renderer, material_uuid);
         }
 
-        render_submeshes[i_submesh].i_material = renderer.uploaded_materials[material_uuid].value();
+        render_mesh.submeshes[i_submesh].i_material = renderer.uploaded_materials[material_uuid].value();
     }
 
-    for (u32 i_submesh = 0; i_submesh < render_submeshes.size(); i_submesh += 1)
+    for (u32 i_submesh = 0; i_submesh < render_mesh.submeshes.size(); i_submesh += 1)
     {
-        render_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
-        render_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
-        render_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
+        render_mesh.submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
+        render_mesh.submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
+        render_mesh.submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
     }
 
-    RenderMesh render_mesh         = {};
-    render_mesh.bvh_root           = bvh.nodes[0];
-    render_mesh.gpu.first_position = renderer.vertex_positions_buffer.allocate(mesh_asset->positions.size());
-    render_mesh.gpu.first_index    = renderer.index_buffer.allocate(mesh_asset->indices.size());
-    render_mesh.gpu.bvh_root       = renderer.bvh_nodes_buffer.allocate(bvh.nodes.size());
-    render_mesh.gpu.first_submesh  = renderer.submeshes_buffer.allocate(mesh_asset->submeshes.size());
-    render_mesh.gpu.first_uv       = renderer.vertex_uvs_buffer.allocate(mesh_asset->uvs.size());
+
+    RenderMeshGPU render_mesh_gpu;
+    render_mesh_gpu.first_position = renderer.vertex_positions_buffer.allocate(mesh_asset->positions.size());
+    render_mesh_gpu.first_index    = renderer.index_buffer.allocate(mesh_asset->indices.size());
+    render_mesh_gpu.bvh_root       = renderer.bvh_nodes_buffer.allocate(bvh.nodes.size());
+    render_mesh_gpu.first_submesh  = renderer.submeshes_buffer.allocate(mesh_asset->submeshes.size());
+    render_mesh_gpu.first_uv       = renderer.vertex_uvs_buffer.allocate(mesh_asset->uvs.size());
 
     streamer.upload(renderer.vertex_positions_buffer.buffer,
                     mesh_asset->positions.data(),
                     mesh_asset->positions.size() * sizeof(float4),
-                    render_mesh.gpu.first_position * sizeof(float4));
+                    render_mesh_gpu.first_position * sizeof(float4));
     streamer.upload(renderer.vertex_uvs_buffer.buffer,
                     mesh_asset->uvs.data(),
                     mesh_asset->uvs.size() * sizeof(float2),
-                    render_mesh.gpu.first_uv * sizeof(float2));
+                    render_mesh_gpu.first_uv * sizeof(float2));
     streamer.upload(renderer.index_buffer.buffer,
                     mesh_asset->indices.data(),
                     mesh_asset->indices.size() * sizeof(u32),
-                    render_mesh.gpu.first_index * sizeof(u32));
+                    render_mesh_gpu.first_index * sizeof(u32));
     streamer.upload(renderer.bvh_nodes_buffer.buffer,
                     bvh.nodes.data(),
                     bvh.nodes.size() * sizeof(BVHNode),
-                    render_mesh.gpu.bvh_root * sizeof(BVHNode));
+                    render_mesh_gpu.bvh_root * sizeof(BVHNode));
     streamer.upload(renderer.submeshes_buffer.buffer,
-                    render_submeshes.data(),
-                    render_submeshes.size() * sizeof(RenderSubMesh),
-                    render_mesh.gpu.first_submesh * sizeof(RenderSubMesh));
+                    render_mesh.submeshes.data(),
+                    render_mesh.submeshes.size() * sizeof(RenderSubMesh),
+                    render_mesh_gpu.first_submesh * sizeof(RenderSubMesh));
 
 
     auto mesh_handle = render_meshes.add(std::move(render_mesh));
 
     ASSERT(mesh_handle.value() < device.get_buffer_size(renderer.meshes_buffer) / sizeof(RenderMeshGPU));
     auto *meshes_gpu = reinterpret_cast<RenderMeshGPU *>(device.map_buffer(renderer.meshes_buffer));
-    meshes_gpu[mesh_handle.value()] = render_mesh.gpu;
+    meshes_gpu[mesh_handle.value()] = render_mesh_gpu;
 
     renderer.uploaded_meshes[mesh_asset->uuid] = mesh_handle;
 }
