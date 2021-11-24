@@ -14,6 +14,8 @@ void Mesh::from_flatbuffer(const void *data, usize /*len*/)
     ASSERT(engine::schemas::MeshBufferHasIdentifier(data));
     auto mesh_buffer = engine::schemas::GetMesh(data);
 
+    from_asset(mesh_buffer->asset(), this);
+
     const auto *mesh_indices = mesh_buffer->indices();
     const auto *indices_data = reinterpret_cast<const u32*>(mesh_indices->data());
     this->indices = Vec<u32>(indices_data, indices_data + mesh_indices->size());
@@ -49,6 +51,7 @@ static auto create_vector_of_struct(auto &builder, const auto &vector)
 
 void Mesh::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
+    auto asset_offset = to_asset(this, builder);
     auto indices_offset = builder.CreateVectorScalarCast<u32>(indices.data(), indices.size());
     auto positions_offset = create_vector_of_struct<engine::schemas::exo::float4>(builder, this->positions);
     auto uvs_offset = create_vector_of_struct<engine::schemas::exo::float2>(builder, this->uvs);
@@ -71,6 +74,7 @@ void Mesh::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset,
     auto name_offset = builder.CreateString(this->name);
 
     engine::schemas::MeshBuilder mesh_builder{builder};
+    mesh_builder.add_asset(asset_offset);
     mesh_builder.add_indices(indices_offset);
     mesh_builder.add_positions(positions_offset);
     mesh_builder.add_uvs(uvs_offset);

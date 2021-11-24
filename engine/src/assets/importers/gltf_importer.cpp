@@ -26,6 +26,7 @@ struct ImportContext
 static void import_meshes(ImportContext &ctx);
 static void import_nodes(ImportContext &ctx);
 static void import_materials(ImportContext &ctx);
+static void import_textures(ImportContext &ctx);
 
 // -- glTF data utils
 
@@ -224,6 +225,7 @@ Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, cross::UUID res
         .importer_data = *reinterpret_cast<GLTFImporter::Data*>(importer_data),
     };
 
+    import_textures(ctx);
     import_materials(ctx);
     import_meshes(ctx);
     import_nodes(ctx);
@@ -404,11 +406,12 @@ static void import_meshes(ImportContext &ctx)
             {
                 u32 i_material       = j_primitive["material"].GetUint();
                 new_submesh.material = ctx.importer_data.material_uuids[i_material];
+                new_mesh->add_dependency_checked(new_submesh.material);
             }
         }
 
         ctx.asset_manager->save_asset(new_mesh);
-        ctx.new_scene->dependencies.push_back(new_mesh->uuid);
+        ctx.new_scene->add_dependency_checked(new_mesh->uuid);
         mesh_count += 1;
     }
 
@@ -565,9 +568,7 @@ static void import_materials(ImportContext &ctx)
         }
     }
 
-    ctx.new_scene->materials = material_uuids;
-
-    for (usize i_material = 0; i_material < j_materials.Size(); i_material += 1)
+    for (u32 i_material = 0; i_material < j_materials.Size(); i_material += 1)
     {
         const auto &j_material = j_materials[i_material];
 
@@ -586,11 +587,33 @@ static void import_materials(ImportContext &ctx)
             {
                 const auto &j_base_color_texture = j_pbr["baseColorTexture"];
                 u32         texture_index        = j_base_color_texture["index"].GetUint();
+                const auto &j_texture            = j_document["textures"][texture_index];
+                u32         texture_uuid_index   = u32_invalid;
 
-                new_material->base_color_texture = {};
+                if (j_texture.HasMember("extensions"))
+                {
+                    for (const auto &j_extension : j_texture["extensions"].GetObj())
+                    {
+                        if (std::string_view(j_extension.name.GetString()) == std::string_view("KHR_texture_basisu"))
+                        {
+                            texture_uuid_index = j_extension.value["source"].GetUint();
+                            break;
+                        }
+                    }
+                }
+
+                if (texture_uuid_index == u32_invalid)
+                {
+                    texture_uuid_index = j_texture["source"].GetUint();
+                }
+
+                ASSERT(texture_uuid_index != u32_invalid);
+
+                new_material->base_color_texture = ctx.importer_data.texture_uuids[texture_uuid_index];
+                new_material->dependencies.push_back(new_material->base_color_texture);
 
                 // TODO: Assert that all textures of this material have the same texture transform
-                if (j_base_color_texture.HasMember("extensions") && j_base_color_texture["extensions"].HasMember("KHR_texture_transform"))
+                if (j_texture.HasMember("extensions") && j_texture["extensions"].HasMember("KHR_texture_transform"))
                 {
                     const auto &extension = j_base_color_texture["extensions"]["KHR_texture_transform"];
                     if (extension.HasMember("offset"))
@@ -620,7 +643,58 @@ static void import_materials(ImportContext &ctx)
             }
         }
         ctx.asset_manager->save_asset(new_material);
-        ctx.new_scene->dependencies.push_back(new_material->uuid);
+    }
+}
+
+static void import_textures(ImportContext &ctx)
+{
+    const auto &j_document = ctx.j_document;
+
+    if (!ctx.j_document.HasMember("images"))
+    {
+        return;
+    }
+
+    const auto &j_images = ctx.j_document["images"].GetArray();
+    // Generate new UUID for the textures if needed
+    auto &texture_uuids = ctx.importer_data.texture_uuids;
+    if (texture_uuids.size() != j_images.Size())
+    {
+        texture_uuids.resize(j_images.Size());
+
+        for (u32 i_mesh = 0; i_mesh < j_images.Size(); i_mesh += 1)
+        {
+            if (!texture_uuids[i_mesh].is_valid())
+            {
+                texture_uuids[i_mesh] = cross::UUID::create();
+            }
+        }
+    }
+
+    const auto &j_bufferviews = j_document["bufferViews"].GetArray();
+
+    for (u32 i_image = 0; i_image < j_images.Size(); i_image += 1)
+    {
+        const auto &j_image = j_images[i_image];
+
+        ASSERT (j_image.HasMember("bufferView"));
+
+        auto             bufferview_index = j_image["bufferView"].GetUint();
+        auto             bufferview       = get_bufferview(j_bufferviews[bufferview_index]);
+
+        const u8 *image_data = reinterpret_cast<const u8 *>(ptr_offset(ctx.binary_chunk, bufferview.byte_offset));
+        usize     size       = bufferview.byte_length;
+
+        auto import = ctx.asset_manager->import_resource(image_data, size, nullptr, u32_invalid, texture_uuids[i_image]);
+        ASSERT(import && dynamic_cast<Texture*>(import.value()));
+        Texture *new_texture = dynamic_cast<Texture*>(import.value());
+
+        if (j_image.HasMember("name"))
+        {
+            new_texture->name = std::string{j_image["name"].GetString()};
+        }
+
+        ctx.asset_manager->save_asset(new_texture);
     }
 }
 

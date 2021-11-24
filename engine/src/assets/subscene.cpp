@@ -14,6 +14,8 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
 {
     const auto *subscene_buffer = engine::schemas::GetSubScene(data);
 
+    from_asset(subscene_buffer->asset(), this);
+
     const auto *subscene_transforms = subscene_buffer->transforms();
     const auto *transforms_data = reinterpret_cast<const float4x4*>(subscene_transforms->data());
     this->transforms = Vec<float4x4>(transforms_data, transforms_data + subscene_transforms->size());
@@ -40,35 +42,12 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
     {
         this->names[i_name] = std::string{subscene_names->Get(i_name)->c_str()};
     }
-
-    this->materials = from<cross::UUID>(subscene_buffer->materials());
-    // --
-
-    for (const auto &mesh_uuid : this->meshes)
-    {
-        if (mesh_uuid.is_valid())
-        {
-            usize i_found = 0;
-            for (; i_found < this->dependencies.size(); i_found += 1) {
-                if (this->dependencies[i_found] == mesh_uuid) {
-                    break;
-                }
-            }
-            if (i_found >= this->dependencies.size())
-            {
-                this->dependencies.push_back(mesh_uuid);
-            }
-        }
-    }
-
-    for (auto material_uuid : this->materials)
-    {
-        this->dependencies.push_back(std::move(material_uuid));
-    }
 }
 
 void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
+    auto asset_offset = to_asset(this, builder);
+
     auto transforms_offset = builder.CreateVectorOfStructs(reinterpret_cast<const engine::schemas::exo::float4x4*>(transforms.data()), transforms.size());
 
     Vec<engine::schemas::exo::UUID> meshes_uuid = to<engine::schemas::exo::UUID>(this->meshes);
@@ -90,16 +69,13 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
 
     auto roots_offset = builder.CreateVectorScalarCast<u32>(roots.data(), roots.size());
 
-    Vec<engine::schemas::exo::UUID> materials_uuid = to<engine::schemas::exo::UUID>(this->materials);
-    auto materials_offset = builder.CreateVectorOfStructs(materials_uuid);
-
     engine::schemas::SubSceneBuilder subscene_builder{builder};
+    subscene_builder.add_asset(asset_offset);
     subscene_builder.add_transforms(transforms_offset);
     subscene_builder.add_meshes(meshes_offset);
     subscene_builder.add_children(children_offset);
     subscene_builder.add_roots(roots_offset);
     subscene_builder.add_names(names_offset);
-    subscene_builder.add_materials(materials_offset);
     auto subscene_offset = subscene_builder.Finish();
 
     // builder.Finish() doesn't add a file identifier

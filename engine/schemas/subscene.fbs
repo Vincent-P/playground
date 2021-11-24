@@ -8,12 +8,12 @@ table EntityChildren {
 }
 
 table SubScene {
+  asset:Asset;
   transforms:[exo.float4x4];
   meshes:[exo.UUID];
   children: [EntityChildren];
   roots: [uint32];
   names:[string];
-  materials:[exo.UUID];
 }
 
 file_identifier "SBSC";

@@ -12,6 +12,8 @@ void Material::from_flatbuffer(const void *data, usize /*len*/)
     ASSERT(engine::schemas::MaterialBufferHasIdentifier(data));
     const auto *material_buffer = engine::schemas::GetMaterial(data);
 
+    from_asset(material_buffer->asset(), this);
+
     this->base_color_factor          = from(material_buffer->base_color_factor());
     this->emissive_factor            = from(material_buffer->emissive_factor());
     this->metallic_factor            = material_buffer->metallic_factor();
@@ -24,7 +26,10 @@ void Material::from_flatbuffer(const void *data, usize /*len*/)
 
 void Material::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
+    auto asset_offset = to_asset(this, builder);
+
     engine::schemas::MaterialBuilder material_builder{builder};
+    material_builder.add_asset(asset_offset);
     material_builder.add_base_color_factor(to(this->base_color_factor));
     material_builder.add_emissive_factor(to(this->emissive_factor));
     material_builder.add_metallic_factor(this->metallic_factor);

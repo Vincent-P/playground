@@ -32,6 +32,22 @@ struct Asset
 
     Vec<cross::UUID> dependencies;
 
+    inline void add_dependency_checked(cross::UUID dependency)
+    {
+        usize i = 0;
+        for (; i < dependencies.size(); i += 1)
+        {
+            if (dependencies[i] == dependency)
+            {
+                break;
+            }
+        }
+        if (i >= dependencies.size())
+        {
+            dependencies.push_back(dependency);
+        }
+    }
+
     virtual ~Asset() {}
 
     virtual const char *type_name() const { return "Asset"; }

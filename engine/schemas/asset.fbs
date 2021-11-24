@@ -4,4 +4,5 @@ namespace engine.schemas;
 
 table Asset {
   uuid:exo.UUID;
+  dependencies:[exo.UUID];
 }

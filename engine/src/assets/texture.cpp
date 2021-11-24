@@ -1,12 +1,15 @@
 #include "assets/texture.h"
 
 #include <exo/collections/vector.h>
+#include "assets/flatbuffer_utils.h"
 #include "schemas/texture_generated.h"
 
 void Texture::from_flatbuffer(const void *data, usize /*len*/)
 {
     ASSERT(engine::schemas::TextureBufferHasIdentifier(data));
     const auto *texture_buffer = engine::schemas::GetTexture(data);
+
+    from_asset(texture_buffer->asset(), this);
 
     this->format = texture_buffer->format();
     this->extension = texture_buffer->extension();
@@ -28,10 +31,12 @@ void Texture::from_flatbuffer(const void *data, usize /*len*/)
 
 void Texture::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const
 {
+    auto asset_offset = to_asset(this, builder);
     auto mip_offsets_offset = builder.CreateVectorScalarCast<usize>(this->mip_offsets.data(), this->mip_offsets.size());
     auto data_offset = builder.CreateVectorScalarCast<i8>(reinterpret_cast<const i8*>(this->raw_data), this->data_size);
 
     engine::schemas::TextureBuilder texture_builder{builder};
+    texture_builder.add_asset(asset_offset);
     texture_builder.add_format(this->format);
     texture_builder.add_extension(this->extension);
     texture_builder.add_width(this->width);
