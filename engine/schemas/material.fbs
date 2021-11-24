@@ -1,0 +1,27 @@
+include "exo.fbs";
+include "asset.fbs";
+include "material_header.fbs";
+
+namespace engine.schemas;
+
+struct TextureTransform
+{
+    offset:exo.float2;
+    scale:exo.float2;
+    rotation:float;
+}
+
+table Material {
+  asset:Asset;
+  base_color_factor:exo.float4;
+  emissive_factor:exo.float4;
+  metallic_factor:float;
+  roughness_factor:float;
+  base_color_texture:exo.UUID;
+  normal_texture:exo.UUID;
+  metallic_roughness_texture:exo.UUID;
+  uv_transform:TextureTransform;
+}
+
+file_identifier "MTRL";
+root_type Material;

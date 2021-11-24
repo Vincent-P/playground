@@ -6,7 +6,7 @@
 void Texture::from_flatbuffer(const void *data, usize /*len*/)
 {
     ASSERT(engine::schemas::TextureBufferHasIdentifier(data));
-    auto texture_buffer = engine::schemas::GetTexture(data);
+    const auto *texture_buffer = engine::schemas::GetTexture(data);
 
     this->format = texture_buffer->format();
     this->extension = texture_buffer->extension();

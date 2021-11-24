@@ -13,6 +13,7 @@ set(SOURCE_FILES
   src/assets/importers/gltf_importer.cpp
   src/assets/importers/png_importer.cpp
   src/assets/importers/ktx2_importer.cpp
+  src/assets/material.cpp
   src/assets/mesh.cpp
   src/assets/subscene.cpp
 

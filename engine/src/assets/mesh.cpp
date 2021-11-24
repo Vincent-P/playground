@@ -4,6 +4,8 @@
 #include "schemas/exo_generated.h"
 #include "schemas/mesh_generated.h"
 
+#include "assets/flatbuffer_utils.h"
+
 #include <exo/logger.h>
 
 
@@ -32,7 +34,7 @@ void Mesh::from_flatbuffer(const void *data, usize /*len*/)
             .first_index  = mesh_submesh->first_index(),
             .first_vertex = mesh_submesh->first_vertex(),
             .index_count  = mesh_submesh->index_count(),
-            .material     = {},
+            .material     = from(mesh_submesh->material()),
         });
     }
 
@@ -61,10 +63,7 @@ void Mesh::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset,
         submesh_builder.add_first_index(submesh.first_index);
         submesh_builder.add_first_vertex(submesh.first_vertex);
         submesh_builder.add_index_count(submesh.index_count);
-
-        const auto uuid = engine::schemas::exo::UUID{flatbuffers::span<const u32, 4>(submesh.material.data)};
-        submesh_builder.add_material(&uuid);
-
+        submesh_builder.add_material(to(submesh.material));
         submeshes_offsets[i_submesh] = submesh_builder.Finish();
     }
     auto submeshes_offset = builder.CreateVector(submeshes_offsets);

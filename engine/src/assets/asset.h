@@ -39,5 +39,7 @@ struct Asset
     virtual void from_flatbuffer(const void *data, usize len) = 0;
     virtual void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const = 0;
 
+    virtual void display_ui() {};
+
     bool operator==(const Asset &other) const = default;
 };

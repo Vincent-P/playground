@@ -1,0 +1,10 @@
+// unity-like pbr materials?
+enum MaterialType : short
+{
+    Default,
+    SubsurfaceScattering,
+    Anisotropy,
+    SpecularColor,
+    Iridescence,
+    Translucent
+}

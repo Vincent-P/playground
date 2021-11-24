@@ -9,6 +9,7 @@
 #include "assets/mesh.h"
 #include "assets/subscene.h"
 #include "assets/texture.h"
+#include "assets/material.h"
 
 #include <cross/mapped_file.h>
 #include <cross/file_watcher.h>
@@ -61,6 +62,7 @@ void AssetManager::init()
     this->add_asset_loader<Mesh>("MESH");
     this->add_asset_loader<SubScene>("SBSC");
     this->add_asset_loader<Texture>("TXTR");
+    this->add_asset_loader<Material>("MTRL");
 
     // Load or create all resources meta
     for (const auto &file_entry : std::filesystem::recursive_directory_iterator{resources_directory})
@@ -192,6 +194,8 @@ void AssetManager::display_ui(UI::Context &ui)
     {
         auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
 
+        static cross::UUID s_selected = {};
+
         ImGui::Text("Loaded assets");
         cross::UUID to_remove = {};
         if (ImGui::BeginTable("AssetsTable", 6, table_flags))
@@ -235,10 +239,24 @@ void AssetManager::display_ui(UI::Context &ui)
                 {
                     to_remove = uuid;
                 }
+
+                if (ImGui::Button("Select"))
+                {
+                    s_selected = uuid;
+                }
                 ImGui::PopID();
             }
 
             ImGui::EndTable();
+        }
+
+        if (s_selected.is_valid() && assets.contains(s_selected))
+        {
+            ImGui::Separator();
+            Asset *selected_asset = assets.at(s_selected);
+            ImGui::Text("Selected %s", selected_asset->name.c_str());
+            selected_asset->display_ui();
+            ImGui::Separator();
         }
 
         if (to_remove.is_valid())
@@ -399,28 +417,24 @@ Result<void> AssetManager::save_asset(Asset *asset)
     u32 size = 0;
     asset->to_flatbuffer(builder, offset, size);
 
-    if (size > 0)
-    {
-        // Save asset to disk
-        auto asset_path = assets_directory / asset->uuid.as_string();
-        FILE *fp = fopen(asset_path.string().c_str(), "wb"); // non-Windows use "w"
-        auto  bwritten = fwrite(builder.GetBufferPointer(), 1, builder.GetSize(), fp);
-        ASSERT(bwritten == builder.GetSize());
-        fclose(fp);
+    // to_flatbuffer not implemented?
+    ASSERT(size > 0);
 
-        // Load or create asset meta
-        if (has_meta_file(asset_path))
-        {
-            BOOST_LEAF_CHECK(load_asset_meta(asset->uuid));
-        }
-        else
-        {
-            BOOST_LEAF_CHECK(create_asset_meta(asset->uuid));
-        }
+    // Save asset to disk
+    auto  asset_path = assets_directory / asset->uuid.as_string();
+    FILE *fp         = fopen(asset_path.string().c_str(), "wb"); // non-Windows use "w"
+    auto  bwritten   = fwrite(builder.GetBufferPointer(), 1, builder.GetSize(), fp);
+    ASSERT(bwritten == builder.GetSize());
+    fclose(fp);
+
+    // Load or create asset meta
+    if (has_meta_file(asset_path))
+    {
+        BOOST_LEAF_CHECK(load_asset_meta(asset->uuid));
     }
     else
     {
-        logger::error("[AssetManager] Can't save resource.\n");
+        BOOST_LEAF_CHECK(create_asset_meta(asset->uuid));
     }
 
     return Ok<void>();

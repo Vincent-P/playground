@@ -5,6 +5,8 @@ set(SCHEMA_FILES
   subscene.fbs
   texture.fbs
   texture_header.fbs
+  material.fbs
+  material_header.fbs
   )
 
 foreach(FBS_FILE IN LISTS SCHEMA_FILES)

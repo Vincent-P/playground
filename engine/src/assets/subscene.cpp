@@ -1,11 +1,13 @@
 #include "assets/subscene.h"
 
 #include <exo/maths/numerics.h>
-#include <flatbuffers/flatbuffers.h>
+#include <exo/logger.h>
+
 #include "schemas/exo_generated.h"
 #include "schemas/subscene_generated.h"
+#include "assets/flatbuffer_utils.h"
 
-#include <exo/logger.h>
+#include <flatbuffers/flatbuffers.h>
 
 
 void SubScene::from_flatbuffer(const void *data, usize /*len*/)
@@ -16,17 +18,7 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
     const auto *transforms_data = reinterpret_cast<const float4x4*>(subscene_transforms->data());
     this->transforms = Vec<float4x4>(transforms_data, transforms_data + subscene_transforms->size());
 
-    const auto *subscene_meshes = subscene_buffer->meshes();
-    this->meshes.reserve(subscene_meshes->size());
-    for (const auto *subscene_mesh : *subscene_meshes)
-    {
-        ASSERT(subscene_mesh->v()->size() == 4);
-        u32         values[4] = {};
-        for (u32 i_value = 0; i_value < subscene_mesh->v()->size(); i_value += 1) {
-            values[i_value] = subscene_mesh->v()->Get(i_value);
-        }
-        this->meshes.push_back(cross::UUID::from_values(values));
-    }
+    this->meshes = from<cross::UUID>(subscene_buffer->meshes());
 
     const auto *subscene_childrens = subscene_buffer->children();
     this->children.reserve(subscene_childrens->size());
@@ -49,17 +41,7 @@ void SubScene::from_flatbuffer(const void *data, usize /*len*/)
         this->names[i_name] = std::string{subscene_names->Get(i_name)->c_str()};
     }
 
-    const auto *subscene_materials = subscene_buffer->materials();
-    this->materials.reserve(subscene_materials->size());
-    for (const auto *subscene_material : *subscene_materials)
-    {
-        ASSERT(subscene_material->v()->size() == 4);
-        u32         values[4] = {};
-        for (u32 i_value = 0; i_value < subscene_material->v()->size(); i_value += 1) {
-            values[i_value] = subscene_material->v()->Get(i_value);
-        }
-        this->materials.push_back(cross::UUID::from_values(values));
-    }
+    this->materials = from<cross::UUID>(subscene_buffer->materials());
     // --
 
     for (const auto &mesh_uuid : this->meshes)
@@ -89,13 +71,7 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
 {
     auto transforms_offset = builder.CreateVectorOfStructs(reinterpret_cast<const engine::schemas::exo::float4x4*>(transforms.data()), transforms.size());
 
-    Vec<engine::schemas::exo::UUID> meshes_uuid;
-    meshes_uuid.reserve(this->meshes.size());
-    for (const auto &mesh_uuid : this->meshes)
-    {
-        const auto *casted_uuid = reinterpret_cast<const engine::schemas::exo::UUID*>(&mesh_uuid);
-        meshes_uuid.push_back(*casted_uuid);
-    }
+    Vec<engine::schemas::exo::UUID> meshes_uuid = to<engine::schemas::exo::UUID>(this->meshes);
     auto meshes_offset = builder.CreateVectorOfStructs(meshes_uuid);
 
     Vec<flatbuffers::Offset<engine::schemas::EntityChildren>> entity_children_offsets;
@@ -114,13 +90,7 @@ void SubScene::to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_off
 
     auto roots_offset = builder.CreateVectorScalarCast<u32>(roots.data(), roots.size());
 
-    Vec<engine::schemas::exo::UUID> materials_uuid;
-    materials_uuid.reserve(this->materials.size());
-    for (const auto &material_uuid : this->materials)
-    {
-        const auto *casted_uuid = reinterpret_cast<const engine::schemas::exo::UUID*>(&material_uuid);
-        materials_uuid.push_back(*casted_uuid);
-    }
+    Vec<engine::schemas::exo::UUID> materials_uuid = to<engine::schemas::exo::UUID>(this->materials);
     auto materials_offset = builder.CreateVectorOfStructs(materials_uuid);
 
     engine::schemas::SubSceneBuilder subscene_builder{builder};
