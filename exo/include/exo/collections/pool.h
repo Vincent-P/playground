@@ -26,14 +26,20 @@ struct Pool
 {
     static constexpr u32 ELEMENT_SIZE = sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T);
 
-    Pool(u32 _capacity = 64);
+    Pool(u32 _capacity = 0);
+    ~Pool();
+
+    Pool(const Pool &other) = delete;
+    Pool &operator=(const Pool &other) = delete;
+
+    Pool(Pool &&other);
+    Pool &operator=(Pool &&other);
 
     Handle<T> add(T &&value);
     const T *get(Handle<T> handle) const;
     T *get(Handle<T> handle);
     const T &get_unchecked(u32 index) const;
     void remove(Handle<T> handle);
-
 
     static_assert(std::forward_iterator<PoolIterator<T>>);
     static_assert(std::forward_iterator<ConstPoolIterator<T>>);
@@ -189,6 +195,12 @@ template<typename T>
 Pool<T>::Pool(u32 _capacity)
 {
     capacity = _capacity;
+
+    if (capacity == 0)
+    {
+        return;
+    }
+
     buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
 
     // Init the free list
@@ -206,6 +218,28 @@ Pool<T>::Pool(u32 _capacity)
     *freelist_ptr(*this, capacity-1)= u32_invalid;
 }
 
+template<typename T>
+Pool<T>::~Pool()
+{
+    free(this->buffer);
+}
+
+template <typename T>
+Pool<T>::Pool(Pool &&other)
+{
+    *this = std::move(other);
+}
+
+template <typename T>
+Pool<T> &Pool<T>::operator=(Pool &&other)
+{
+    this->buffer        = std::exchange(other.buffer, nullptr);
+    this->freelist_head = std::exchange(other.freelist_head, u32_invalid);
+    this->size          = std::exchange(other.size, 0);
+    this->capacity      = std::exchange(other.capacity, 0);
+    return *this;
+}
+
 template <typename T>
 Handle<T> Pool<T>::add(T &&value)
 {
@@ -213,7 +247,13 @@ Handle<T> Pool<T>::add(T &&value)
     if (freelist_head == u32_invalid)
     {
         ASSERT(size + 1 >= capacity);
+
         auto new_capacity = capacity * 2;
+        if (new_capacity == 0)
+        {
+            new_capacity = 32;
+        }
+
         void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
         ASSERT(new_buffer != nullptr);
         buffer   = new_buffer;
