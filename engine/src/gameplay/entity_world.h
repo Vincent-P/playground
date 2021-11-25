@@ -1,5 +1,6 @@
 #pragma once
 #include <exo/collections/set.h>
+#include <exo/collections/string_repository.h>
 
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"
@@ -33,6 +34,7 @@ private:
     void display_entity_tree_rec(Entity *entity, Entity* &selected);
     void display_ui();
 
+    StringRepository str_repo;
     Set<Entity*> entities;
     Set<Entity*> root_entities;
     SystemRegistry system_registry;

@@ -94,7 +94,7 @@ private:
     void refresh_attachments();
 
     cross::UUID uuid;
-    std::string name;
+    u64 name;
     EntityState state = EntityState::Unloaded;
 
     Vec<LocalSystem *>   local_systems;

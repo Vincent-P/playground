@@ -77,7 +77,7 @@ void EntityWorld::update(double delta_t)
 Entity* EntityWorld::create_entity(std::string_view name)
 {
     Entity *new_entity = new Entity();
-    new_entity->name = name;
+    new_entity->name = str_repo.intern(name);
     entities.insert(new_entity);
     root_entities.insert(new_entity);
     return new_entity;
@@ -140,7 +140,7 @@ void EntityWorld::display_entity_tree_rec(Entity *entity, Entity* &selected)
     node_flags |= entity == selected ? ImGuiTreeNodeFlags_Selected : 0;
     node_flags |= entity->attached_entities.empty() ? ImGuiTreeNodeFlags_Leaf : 0;
 
-    bool node_open = ImGui::TreeNodeEx(entity, node_flags, "%s", entity->name.c_str());
+    bool node_open = ImGui::TreeNodeEx(entity, node_flags, "%s", str_repo.get_str(entity->name));
     if (ImGui::IsItemClicked())
     {
         selected = entity;
@@ -175,7 +175,7 @@ void EntityWorld::display_ui()
     {
         if (s_selected)
         {
-            ImGui::Text("Selected: %s", s_selected->name.c_str());
+            ImGui::Text("Selected: %s", str_repo.get_str(s_selected->name));
             for (auto *component : s_selected->components)
             {
                 component->show_inspector_ui();
