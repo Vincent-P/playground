@@ -15,7 +15,7 @@ sharing the same value will point to the same pointer.
 
 struct StringRepository
 {
-    StringRepository(usize _capacity = 1 << 20);
+    StringRepository();
     ~StringRepository();
 
     StringRepository(const StringRepository &other) = delete;
@@ -24,13 +24,11 @@ struct StringRepository
     StringRepository(StringRepository &&other) = delete;
     StringRepository &operator=(StringRepository &&other) = delete;
 
-    u64         intern(std::string_view s);
+    const char *intern(std::string_view s);
     bool        is_interned(std::string_view s);
-    const char *get_str(u64 offset);
 
   private:
     IndexMap offsets       = {};
     char    *string_buffer = nullptr;
     usize    buffer_size   = 0;
-    usize    capacity      = 0;
 };

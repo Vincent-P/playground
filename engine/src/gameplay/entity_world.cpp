@@ -140,7 +140,7 @@ void EntityWorld::display_entity_tree_rec(Entity *entity, Entity* &selected)
     node_flags |= entity == selected ? ImGuiTreeNodeFlags_Selected : 0;
     node_flags |= entity->attached_entities.empty() ? ImGuiTreeNodeFlags_Leaf : 0;
 
-    bool node_open = ImGui::TreeNodeEx(entity, node_flags, "%s", str_repo.get_str(entity->name));
+    bool node_open = ImGui::TreeNodeEx(entity, node_flags, "%s", entity->name);
     if (ImGui::IsItemClicked())
     {
         selected = entity;
@@ -175,7 +175,7 @@ void EntityWorld::display_ui()
     {
         if (s_selected)
         {
-            ImGui::Text("Selected: %s", str_repo.get_str(s_selected->name));
+            ImGui::Text("Selected: %s", s_selected->name);
             for (auto *component : s_selected->components)
             {
                 component->show_inspector_ui();

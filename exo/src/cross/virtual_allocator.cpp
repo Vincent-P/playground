@@ -1,6 +1,7 @@
 #include "exo/cross/memory/virtual_allocator.h"
 
 #include <exo/prelude.h>
+#include <exo/base/logger.h>
 #include <windows.h>
 
 namespace virtual_allocator
@@ -14,7 +15,12 @@ u32 get_page_size()
 
 void *reserve(usize size)
 {
-    return VirtualAlloc(nullptr, size, MEM_RESERVE, 0);
+    void *region = VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_NOACCESS);
+    if (region == nullptr) {
+        logger::error("win32 error: {}\n", GetLastError());
+        ASSERT(false);
+    }
+    return region;
 }
 
 void *commit(void *page, usize size, MemoryAccess access)

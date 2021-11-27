@@ -93,17 +93,17 @@ private:
     void dettach_to_parent();
     void refresh_attachments();
 
-    cross::UUID uuid;
-    u64 name;
+    cross::UUID uuid  = {};
+    const char *name  = {};
     EntityState state = EntityState::Unloaded;
 
-    Vec<LocalSystem *>   local_systems;
-    Vec<BaseComponent *> components;
-    EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list;
+    Vec<LocalSystem *>                          local_systems         = {};
+    Vec<BaseComponent *>                        components            = {};
+    EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list = {};
 
-    SpatialComponent *root_component = nullptr;
-    Vec<Entity *>     attached_entities;
-    Entity *          parent                = nullptr;
+    SpatialComponent *root_component        = nullptr;
+    Vec<Entity *>     attached_entities     = {};
+    Entity           *parent                = nullptr;
     bool              is_attached_to_parent = false;
 
     friend struct EntityWorld;
