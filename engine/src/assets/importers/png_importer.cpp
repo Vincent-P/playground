@@ -1,8 +1,8 @@
 #include "assets/importers/png_importer.h"
 
 #include <exo/prelude.h>
-#include <exo/logger.h>
-#include <exo/defer.h>
+#include <exo/base/logger.h>
+#include <exo/base/defer.h>
 
 #include "assets/asset_manager.h"
 #include "assets/texture.h"

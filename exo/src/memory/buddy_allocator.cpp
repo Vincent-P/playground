@@ -1,6 +1,6 @@
-#include "exo/buddy_allocator.h"
+#include "exo/memory/buddy_allocator.h"
 
-#include "exo/logger.h"
+#include "exo/base/logger.h"
 #include <bit>
 
 static u32 total_size(u32 levels_count)

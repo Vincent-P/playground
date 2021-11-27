@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/option.h>
-#include "cross/prelude.h"
+#include <exo/base/option.h>
+#include "exo/cross/prelude.h"
 #include <string_view>
 
 namespace cross

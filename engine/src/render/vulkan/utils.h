@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/prelude.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include <exo/collections/vector.h>
 
 #include "render/vulkan/image.h"

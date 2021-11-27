@@ -1,6 +1,6 @@
 #include "render/renderer.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include <exo/maths/matrices.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
@@ -22,7 +22,7 @@
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"
 
-#include <cross/mapped_file.h>
+#include <exo/cross/mapped_file.h>
 #include <variant>
 #include <vulkan/vulkan_core.h>
 #include <ktx.h>

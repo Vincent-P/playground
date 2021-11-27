@@ -1,10 +1,10 @@
 #pragma once
 
 #include <exo/maths/numerics.h>
-#include <exo/result.h>
+#include <exo/base/result.h>
 #include <type_traits>
 #include <memory>
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 
 #include <rapidjson/fwd.h>
 

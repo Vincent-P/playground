@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exo/option.h>
-#include <cross/uuid.h>
+#include <exo/base/option.h>
+#include <exo/cross/uuid.h>
 #include "assets/asset.h"
 
 // Hierarchy of entities made of meshes and transforms

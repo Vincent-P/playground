@@ -63,7 +63,6 @@ target_include_directories(engine SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party
 
 target_link_libraries(engine
   exo
-  cross
   imgui
   meshopt
   vma
@@ -82,4 +81,8 @@ target_include_directories(engine PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/schemas/ge
 target_compile_definitions(engine PRIVATE
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
   COMPILED_ASSET_PATH="${CMAKE_SOURCE_DIR}/compiled_assets"
+
+  # Vulkan platform
+  $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
+  $<$<BOOL:${UNIX}>:VK_USE_PLATFORM_XCB_KHR>
   )

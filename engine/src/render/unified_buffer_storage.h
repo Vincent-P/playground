@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exo/handle.h>
-#include <exo/buddy_allocator.h>
+#include <exo/collections/handle.h>
+#include <exo/memory/buddy_allocator.h>
 
 namespace vulkan {struct Buffer; struct Device;}
 namespace gfx = vulkan;

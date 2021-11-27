@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gameplay/component.h"
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 
 struct MeshComponent : SpatialComponent
 {

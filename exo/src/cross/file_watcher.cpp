@@ -1,6 +1,6 @@
 // WIN32: https://docs.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications
 // linux: inotify/select https://developer.ibm.com/tutorials/l-inotify/
-#include "cross/file_watcher.h"
+#include "exo/cross/file_watcher.h"
 
 #ifdef __linux__
 

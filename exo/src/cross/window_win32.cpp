@@ -1,4 +1,4 @@
-#include "cross/window.h"
+#include "exo/cross/window.h"
 
 #include "utils_win32.h"
 
@@ -19,7 +19,7 @@ inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
 EnumArray<i32, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
-#include "cross/window_keys.def"
+#include "exo/cross/window_keys.def"
 #undef X
 };
 

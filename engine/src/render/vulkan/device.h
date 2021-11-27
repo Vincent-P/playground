@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/option.h>
+#include <exo/base/option.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/pool.h>
 

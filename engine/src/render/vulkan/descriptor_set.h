@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/prelude.h>
-#include <exo/hash.h>
-#include <exo/handle.h>
+#include <exo/base/hash.h>
+#include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
 
 #include <vulkan/vulkan.h>

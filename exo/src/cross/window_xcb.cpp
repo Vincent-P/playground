@@ -1,4 +1,4 @@
-#include "cross/window.h"
+#include "exo/cross/window.h"
 
 #include <exo/prelude.h>
 #include <exo/collections/enum_array.h>
@@ -12,7 +12,7 @@
 
 EnumArray<uint, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
-#include "cross/window_keys.def"
+#include "exo/cross/window_keys.def"
 #undef X
 };
 

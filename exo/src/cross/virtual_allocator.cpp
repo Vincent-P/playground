@@ -1,0 +1,46 @@
+#include "exo/cross/memory/virtual_allocator.h"
+
+#include <exo/prelude.h>
+#include <windows.h>
+
+namespace virtual_allocator
+{
+u32 get_page_size()
+{
+    SYSTEM_INFO system_info;
+    GetSystemInfo(&system_info);
+    return system_info.dwPageSize;
+}
+
+void *reserve(usize size)
+{
+    return VirtualAlloc(nullptr, size, MEM_RESERVE, 0);
+}
+
+void *commit(void *page, usize size, MemoryAccess access)
+{
+    using enum MemoryAccess;
+
+    uint protect = 0;
+    if (access == ReadOnly)
+    {
+        protect = PAGE_READONLY;
+    }
+    else if (access == ReadWrite)
+    {
+        protect = PAGE_READWRITE;
+    }
+    else
+    {
+        ASSERT(false);
+    }
+
+    return VirtualAlloc(page, size, MEM_COMMIT, protect);
+}
+
+void free(void *region)
+{
+    auto res = VirtualFree(region, 0, MEM_RELEASE);
+    ASSERT(res != 0);
+}
+}; // namespace virtual_allocator

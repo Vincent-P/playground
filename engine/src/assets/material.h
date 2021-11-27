@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/prelude.h>
-#include <exo/handle.h>
-#include <cross/uuid.h>
+#include <exo/collections/handle.h>
+#include <exo/cross/uuid.h>
 
 #include "assets/asset.h"
 #include "schemas/texture_header_generated.h"

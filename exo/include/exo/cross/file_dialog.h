@@ -4,7 +4,7 @@
 #include <string>
 
 #include <exo/collections/vector.h>
-#include <exo/option.h>
+#include <exo/base/option.h>
 
 namespace cross
 {

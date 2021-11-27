@@ -1,7 +1,7 @@
 #pragma once
 
 #include <exo/maths/numerics.h>
-#include <exo/handle.h>
+#include <exo/collections/handle.h>
 
 #include <string_view>
 

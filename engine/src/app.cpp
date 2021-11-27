@@ -1,9 +1,9 @@
 #include "app.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include "camera.h"
 #include "render/render_world_system.h"
-#include <cross/file_watcher.h>
+#include <exo/cross/file_watcher.h>
 
 #include <algorithm>
 #include <imgui/imgui.h>

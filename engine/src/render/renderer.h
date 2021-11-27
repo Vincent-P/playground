@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exo/handle.h>
-#include <cross/uuid.h>
+#include <exo/collections/handle.h>
+#include <exo/cross/uuid.h>
 
 #include "render/base_renderer.h"
 #include "render/ring_buffer.h"

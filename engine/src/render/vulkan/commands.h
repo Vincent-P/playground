@@ -1,8 +1,8 @@
 #pragma once
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/enum_array.h>
-#include <exo/handle.h>
-#include <exo/option.h>
+#include <exo/collections/handle.h>
+#include <exo/base/option.h>
 
 #include "render/vulkan/queues.h"
 #include "render/vulkan/image.h"

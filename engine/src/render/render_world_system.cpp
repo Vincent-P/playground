@@ -4,7 +4,7 @@
 #include "gameplay/components/mesh_component.h"
 #include "gameplay/components/camera_component.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include <imgui/imgui.h>
 
 PrepareRenderWorld::PrepareRenderWorld()

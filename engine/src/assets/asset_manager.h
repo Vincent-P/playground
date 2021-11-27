@@ -2,9 +2,9 @@
 #include <exo/collections/map.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/dynamic_array.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 #include "assets/importers/generic_importer.h"
 #include "assets/asset.h"
 

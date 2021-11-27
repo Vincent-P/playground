@@ -1,7 +1,7 @@
 #include "assets/importers/gltf_importer.h"
 
 #include <exo/prelude.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 #include "assets/asset_manager.h"
 #include "assets/subscene.h"

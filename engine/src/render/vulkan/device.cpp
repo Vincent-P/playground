@@ -1,14 +1,14 @@
 #include "render/vulkan/device.h"
 
 #include <exo/prelude.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 #include "render/vulkan/bindless_set.h"
 #include "render/vulkan/context.h"
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/utils.h"
 #include "render/vulkan/surface.h"
-#include <cross/window.h>
+#include <exo/cross/window.h>
 #include "vulkan/vulkan_core.h"
 
 #include <array>

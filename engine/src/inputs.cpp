@@ -3,9 +3,9 @@
 #include "ui.h"
 
 #include <exo/prelude.h>
-#include <exo/option.h>
+#include <exo/base/option.h>
 #include <exo/algorithms.h>
-#include <cross/window.h>
+#include <exo/cross/window.h>
 
 #include <imgui/imgui.h>
 #include <ranges>

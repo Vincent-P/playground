@@ -4,8 +4,8 @@
 #include "render/vulkan/utils.h"
 #include "render/vulkan/physical_device.h"
 
-#include <cross/window.h>
-#include <exo/logger.h>
+#include <exo/cross/window.h>
+#include <exo/base/logger.h>
 #include "vulkan/vulkan_core.h"
 
 namespace vulkan

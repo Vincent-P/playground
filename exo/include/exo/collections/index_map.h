@@ -1,7 +1,7 @@
 #pragma once
 #include "exo/maths/numerics.h"
 #include "exo/collections/vector.h"
-#include "exo/option.h"
+#include "exo/base/option.h"
 
 /**
    A hash map using linear probing.

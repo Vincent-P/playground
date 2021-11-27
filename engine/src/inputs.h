@@ -1,9 +1,9 @@
 #pragma once
 
-#include <exo/option.h>
+#include <exo/base/option.h>
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
-#include <cross/window.h>
+#include <exo/cross/window.h>
 
 #include <optional>
 #include <string>

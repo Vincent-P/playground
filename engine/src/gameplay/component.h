@@ -3,7 +3,7 @@
 #include <exo/maths/matrices.h>
 #include <exo/maths/aabb.h>
 #include <exo/collections/vector.h>
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 #include <string>
 
 struct LoadingContext;

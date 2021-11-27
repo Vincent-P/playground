@@ -91,5 +91,4 @@ endfunction()
 
 add_subdirectory(third_party)
 add_subdirectory(exo)
-add_subdirectory(cross)
 add_subdirectory(engine)

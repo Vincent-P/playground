@@ -4,7 +4,7 @@
 #include <exo/maths/aabb.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/map.h>
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 
 struct DrawableInstance
 {

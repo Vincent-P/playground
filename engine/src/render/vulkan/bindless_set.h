@@ -1,7 +1,7 @@
 #pragma once
 #include "render/vulkan/descriptor_set.h"
-#include <exo/free_list.h>
-#include <exo/handle.h>
+#include <exo/memory/free_list.h>
+#include <exo/collections/handle.h>
 
 namespace vulkan
 {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <exo/maths/numerics.h>
-#include "cross/prelude.h"
+#include "exo/cross/prelude.h"
 
 #include <exo/collections/map.h>
 #include <fmt/format.h>

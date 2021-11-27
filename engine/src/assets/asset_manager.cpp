@@ -11,10 +11,10 @@
 #include "assets/texture.h"
 #include "assets/material.h"
 
-#include <cross/mapped_file.h>
-#include <cross/file_watcher.h>
-#include <cross/uuid.h>
-#include <exo/logger.h>
+#include <exo/cross/mapped_file.h>
+#include <exo/cross/file_watcher.h>
+#include <exo/cross/uuid.h>
+#include <exo/base/logger.h>
 
 #include <filesystem>
 #include <cstdio>

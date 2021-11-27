@@ -1,7 +1,7 @@
 #pragma once
 
 #include "exo/prelude.h"
-#include "exo/handle.h"
+#include "exo/collections/handle.h"
 #include "exo/collections/iterator_facade.h"
 #include <iterator>
 

@@ -1,7 +1,7 @@
 #include "render/base_renderer.h"
 
-#include <exo/logger.h>
-#include <cross/window.h>
+#include <exo/base/logger.h>
+#include <exo/cross/window.h>
 #include <tracy/Tracy.hpp>
 #include <imgui/imgui.h>
 

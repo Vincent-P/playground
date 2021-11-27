@@ -1,9 +1,9 @@
 #pragma once
-#include <exo/option.h>
+#include <exo/base/option.h>
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
-#include <cross/prelude.h>
+#include <exo/cross/prelude.h>
 
 #include <string>
 #include <string_view>
@@ -42,14 +42,14 @@ inline constexpr const char *to_string(MouseButton button) { return mouse_button
 enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
-#include "cross/window_keys.def"
+#include "exo/cross/window_keys.def"
 #undef X
     Count
 };
 
 inline constexpr EnumArray<const char *, VirtualKey> key_to_string{
 #define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
-#include "cross/window_keys.def"
+#include "exo/cross/window_keys.def"
 #undef X
 };
 

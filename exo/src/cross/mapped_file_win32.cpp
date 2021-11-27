@@ -1,7 +1,7 @@
-#include "cross/mapped_file.h"
+#include "exo/cross/mapped_file.h"
 
 #include "utils_win32.h"
-#include <exo/defer.h>
+#include <exo/base/defer.h>
 
 #include <windows.h>
 

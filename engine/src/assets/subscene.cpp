@@ -1,7 +1,7 @@
 #include "assets/subscene.h"
 
 #include <exo/maths/numerics.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 #include "schemas/exo_generated.h"
 #include "schemas/subscene_generated.h"

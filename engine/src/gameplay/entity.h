@@ -3,7 +3,7 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
 
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 
 #include "gameplay/update_stages.h"
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/handle.h>
+#include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
 #include <unordered_map>
 

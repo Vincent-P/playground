@@ -6,7 +6,7 @@
 #include <cfloat> // FLT_MAX
 #include <exo/maths/aabb.h>
 #include <exo/algorithms.h>
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 #include <xmmintrin.h>
 #include <limits>

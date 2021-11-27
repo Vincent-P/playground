@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/handle.h>
+#include <exo/collections/handle.h>
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/enum_array.h>
 

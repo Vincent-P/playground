@@ -5,7 +5,7 @@
 #include "gameplay/components/camera_component.h"
 #include "gameplay/update_context.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 #include <exo/maths/vectors.h>
 #include <imgui/imgui.h>

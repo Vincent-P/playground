@@ -1,6 +1,6 @@
 #pragma once
 #include "exo/prelude.h"
-#include "exo/hash.h"
+#include "exo/base/hash.h"
 
 template <typename T> struct Pool;
 template <typename T> struct PoolIterator;

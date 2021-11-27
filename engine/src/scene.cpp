@@ -1,8 +1,8 @@
 #include "scene.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include <exo/maths/quaternion.h>
-#include <cross/file_dialog.h>
+#include <exo/cross/file_dialog.h>
 
 #include "gameplay/component.h"
 #include "inputs.h"

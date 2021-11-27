@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cross/uuid.h>
+#include <exo/cross/uuid.h>
 #include <rapidjson/fwd.h>
 
 struct AssetManager;

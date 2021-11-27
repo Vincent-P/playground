@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
-#include <exo/handle.h>
+#include <exo/collections/handle.h>
 
 #include "assets/asset.h"
 

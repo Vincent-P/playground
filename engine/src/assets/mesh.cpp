@@ -6,7 +6,7 @@
 
 #include "assets/flatbuffer_utils.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 
 
 void Mesh::from_flatbuffer(const void *data, usize /*len*/)

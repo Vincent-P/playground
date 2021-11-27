@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/collections/set.h>
-#include <exo/collections/string_repository.h>
+#include <exo/memory/string_repository.h>
 
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"

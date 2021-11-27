@@ -2,7 +2,7 @@
 
 #include "render/vulkan/device.h"
 
-#include <exo/logger.h>
+#include <exo/base/logger.h>
 #include <exo/time.h>
 
 void RenderTimings::create(gfx::Device &device)
