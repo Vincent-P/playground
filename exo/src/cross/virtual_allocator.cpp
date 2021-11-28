@@ -46,6 +46,10 @@ void *commit(void *page, usize size, MemoryAccess access)
 
 void free(void *region)
 {
+    if (!region)
+    {
+        return;
+    }
     auto res = VirtualFree(region, 0, MEM_RELEASE);
     ASSERT(res != 0);
 }

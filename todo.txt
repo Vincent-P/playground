@@ -1,8 +1,12 @@
+doing
+--
+string interning (to remove all std::string allocations)
+frame linear allocator for tmp format strings
+--
+todo
 --
 Use a LRU cache for staging buffers and free not used buffers @renderer
 editor tooling: gizmo
 asset browser ui, drag-n-drop
 assets: free textures
 assets: dont scan meta files at startup when importing all assets files
-string interning (to remove all std::string allocations)
-frame linear allocator for tmp format strings

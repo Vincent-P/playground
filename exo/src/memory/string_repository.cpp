@@ -17,6 +17,19 @@ StringRepository::~StringRepository()
     virtual_allocator::free(this->string_buffer);
 }
 
+StringRepository::StringRepository(StringRepository &&other)
+{
+    *this = std::move(other);
+}
+
+StringRepository &StringRepository::operator=(StringRepository &&other)
+{
+    this->offsets       = std::exchange(other.offsets, {});
+    this->string_buffer = std::exchange(other.string_buffer, nullptr);
+    this->buffer_size   = std::exchange(other.buffer_size, 0);
+    return *this;
+}
+
 const char *StringRepository::intern(std::string_view s)
 {
     const u64 hash = XXH3_64bits(s.data(), s.size());

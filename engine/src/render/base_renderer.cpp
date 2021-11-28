@@ -220,7 +220,7 @@ bool BaseRenderer::start_frame()
 
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    ImGui::Text("%s", timing.labels[i_timing].c_str());
+                    ImGui::Text("%s", timing.labels[i_timing]);
 
                     ImGui::TableNextColumn();
                     fmt::format_to(tmp, "{:.4f} ms", timing.cpu[i_timing]);

@@ -21,8 +21,8 @@ struct StringRepository
     StringRepository(const StringRepository &other) = delete;
     StringRepository &operator=(const StringRepository &other) = delete;
 
-    StringRepository(StringRepository &&other) = delete;
-    StringRepository &operator=(StringRepository &&other) = delete;
+    StringRepository(StringRepository &&other);
+    StringRepository &operator=(StringRepository &&other);
 
     const char *intern(std::string_view s);
     bool        is_interned(std::string_view s);

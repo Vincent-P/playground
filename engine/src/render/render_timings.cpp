@@ -10,13 +10,12 @@ void RenderTimings::create(gfx::Device &device)
     device.create_query_pool(pool, TIMESTAMPS_PER_FRAME);
 }
 
-
 void RenderTimings::destroy(gfx::Device &device)
 {
     device.destroy_query_pool(pool);
 }
 
-void RenderTimings::begin_label(gfx::Work &cmd, std::string &&label)
+void RenderTimings::begin_label(gfx::Work &cmd, const char *label)
 {
     if (began)
     {
@@ -24,7 +23,7 @@ void RenderTimings::begin_label(gfx::Work &cmd, std::string &&label)
         return;
     }
 
-    labels.push_back(std::move(label));
+    labels.push_back(label);
     cmd.timestamp_query(pool, current_query);
     current_query += 1;
 

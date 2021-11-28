@@ -1,4 +1,6 @@
 #pragma once
+#include <exo/memory/string_repository.h>
+
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/surface.h"
@@ -14,26 +16,36 @@ inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
 
 struct BaseRenderer
 {
-    // Base renderer
+    StringRepository str_repo = {};
     cross::Window *window = nullptr;
-    gfx::Context context;
-    gfx::Device device;
-    gfx::Surface surface;
-    uint frame_count;
-    std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools;
-    std::array<RenderTimings, FRAME_QUEUE_LENGTH> timings;
-    gfx::Fence fence;
 
-    RingBuffer dynamic_uniform_buffer;
-    RingBuffer dynamic_vertex_buffer;
-    RingBuffer dynamic_index_buffer;
+    gfx::Context context = {};
+    gfx::Device device = {};
+    gfx::Surface surface = {};
 
-    Handle<gfx::Image> empty_image;
+    uint frame_count = {};
+    std::array<gfx::WorkPool, FRAME_QUEUE_LENGTH> work_pools = {};
+    std::array<RenderTimings, FRAME_QUEUE_LENGTH> timings = {};
+    gfx::Fence fence = {};
+
+    RingBuffer dynamic_uniform_buffer = {};
+    RingBuffer dynamic_vertex_buffer = {};
+    RingBuffer dynamic_index_buffer = {};
+
+    Handle<gfx::Image> empty_image = {};
 
     /// ---
 
     static BaseRenderer create(cross::Window &window, gfx::DeviceDescription desc);
     void destroy();
+
+    BaseRenderer() = default;
+
+    BaseRenderer(const BaseRenderer &other) = delete;
+    BaseRenderer& operator=(const BaseRenderer &other) = delete;
+
+    BaseRenderer(BaseRenderer && other) = default;
+    BaseRenderer& operator=(BaseRenderer && other) = default;
 
     // Ring buffer uniforms
     void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);

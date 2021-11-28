@@ -76,6 +76,20 @@ IndexMap::~IndexMap()
     free(this->values);
 }
 
+IndexMap::IndexMap(IndexMap &&other)
+{
+    *this = std::move(other);
+}
+
+IndexMap &IndexMap::operator=(IndexMap &&other)
+{
+    this->keys     = std::exchange(other.keys, nullptr);
+    this->values   = std::exchange(other.values, nullptr);
+    this->capacity = std::exchange(other.capacity, 0);
+    this->size     = std::exchange(other.size, 0);
+    return *this;
+}
+
 Option<u64> IndexMap::at(u64 hash)
 {
     u64 i = find_element(hash, this->keys, this->capacity);

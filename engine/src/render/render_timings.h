@@ -7,6 +7,7 @@
 #include "render/vulkan/queries.h"
 
 #include <string>
+
 namespace vulkan { struct Device;  struct Work;};
 namespace gfx = vulkan;
 
@@ -14,7 +15,7 @@ inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
 
 struct RenderTimings
 {
-    Vec<std::string> labels = {};
+    Vec<const char*> labels = {};
     Vec<double> cpu = {};
     Vec<double> gpu = {};
 
@@ -26,7 +27,7 @@ struct RenderTimings
 
     void create(gfx::Device &device);
     void destroy(gfx::Device &device);
-    void begin_label(gfx::Work &work, std::string &&label);
+    void begin_label(gfx::Work &work, const char *label);
     void end_label(gfx::Work &cmd);
     void get_results(gfx::Device &device);
     void reset(gfx::Device &device);
