@@ -11,14 +11,15 @@
 
 struct IndexMap
 {
-    IndexMap(u64 _capacity = 32);
+    static IndexMap with_capacity(u64 c);
     ~IndexMap();
 
+    // Move-only struct
+    IndexMap()                      = default;
     IndexMap(const IndexMap &other) = delete;
-    IndexMap& operator=(const IndexMap &other) = delete;
-
+    IndexMap &operator=(const IndexMap &other) = delete;
     IndexMap(IndexMap &&other);
-    IndexMap& operator=(IndexMap &&other);
+    IndexMap &operator=(IndexMap &&other);
 
     Option<u64> at(u64 hash);
     void        insert(u64 hash, u64 index);
@@ -27,8 +28,8 @@ struct IndexMap
   private:
     void check_growth();
 
-    u64  *keys;
-    u64  *values;
-    usize capacity;
-    usize size;
+    u64  *keys     = nullptr;
+    u64  *values   = nullptr;
+    usize capacity = 0;
+    usize size     = 0;
 };

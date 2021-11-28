@@ -7,9 +7,17 @@
 #define XXH_PRIVATE_API
 #include <xxhash/xxhash.h>
 
-StringRepository::StringRepository()
+StringRepository StringRepository::create()
 {
-    this->string_buffer = reinterpret_cast<char *>(virtual_allocator::reserve(1_GiB));
+    return StringRepository::with_capacity(1_GiB);
+}
+
+StringRepository StringRepository::with_capacity(usize capacity)
+{
+    StringRepository repository = {};
+    repository.offsets          = IndexMap::with_capacity(64);
+    repository.string_buffer    = reinterpret_cast<char *>(virtual_allocator::reserve(capacity));
+    return repository;
 }
 
 StringRepository::~StringRepository()

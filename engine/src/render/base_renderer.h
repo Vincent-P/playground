@@ -39,13 +39,12 @@ struct BaseRenderer
     static BaseRenderer create(cross::Window &window, gfx::DeviceDescription desc);
     void destroy();
 
-    BaseRenderer() = default;
-
+    // Move-only struct
+    BaseRenderer()                          = default;
     BaseRenderer(const BaseRenderer &other) = delete;
-    BaseRenderer& operator=(const BaseRenderer &other) = delete;
-
-    BaseRenderer(BaseRenderer && other) = default;
-    BaseRenderer& operator=(BaseRenderer && other) = default;
+    BaseRenderer &operator=(const BaseRenderer &other) = delete;
+    BaseRenderer(BaseRenderer &&other)                 = default;
+    BaseRenderer &operator=(BaseRenderer &&other) = default;
 
     // Ring buffer uniforms
     void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);

@@ -15,12 +15,14 @@ sharing the same value will point to the same pointer.
 
 struct StringRepository
 {
-    StringRepository();
+    static StringRepository create();
+    static StringRepository with_capacity(usize capacity);
     ~StringRepository();
 
+    // Move-only struct
+    StringRepository()                              = default;
     StringRepository(const StringRepository &other) = delete;
     StringRepository &operator=(const StringRepository &other) = delete;
-
     StringRepository(StringRepository &&other);
     StringRepository &operator=(StringRepository &&other);
 

@@ -10,6 +10,11 @@
 #include <imgui/imgui.h>
 #include <exo/base/logger.h>
 
+EntityWorld::EntityWorld()
+{
+    this->str_repo = StringRepository::create();
+}
+
 void EntityWorld::update(double delta_t)
 {
     LoadingContext loading_context = {&system_registry};

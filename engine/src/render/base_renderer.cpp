@@ -2,6 +2,7 @@
 
 #include <exo/base/logger.h>
 #include <exo/cross/window.h>
+#include <exo/memory/string_repository.h>
 #include <tracy/Tracy.hpp>
 #include <imgui/imgui.h>
 
@@ -13,6 +14,8 @@ BaseRenderer BaseRenderer::create(cross::Window &window, gfx::DeviceDescription 
     auto &physical_devices = context.physical_devices;
     auto &device = renderer.device;
     auto &surface = renderer.surface;
+
+    renderer.str_repo = StringRepository::create();
 
     // Initialize the API
     renderer.window = &window;

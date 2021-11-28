@@ -12,6 +12,7 @@ struct Entity;
 struct EntityWorld
 {
 public:
+    EntityWorld();
     void update(double delta_t);
 
     Entity* create_entity(std::string_view name = "Unnamed");
@@ -34,10 +35,10 @@ private:
     void display_entity_tree_rec(Entity *entity, Entity* &selected);
     void display_ui();
 
-    StringRepository str_repo;
-    Set<Entity*> entities;
-    Set<Entity*> root_entities;
-    SystemRegistry system_registry;
+    StringRepository str_repo        = {};
+    Set<Entity *>    entities        = {};
+    Set<Entity *>    root_entities   = {};
+    SystemRegistry   system_registry = {};
 
-    EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list;
+    EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list = {};
 };
