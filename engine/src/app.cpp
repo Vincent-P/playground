@@ -1,75 +1,55 @@
 #include "app.h"
 
-#include <exo/base/logger.h>
-#include "camera.h"
-#include "render/render_world_system.h"
 #include <exo/cross/file_watcher.h>
+#include <exo/memory/scope_stack.h>
 
-#include <algorithm>
-#include <imgui/imgui.h>
-#include <variant>
-#include <tracy/Tracy.hpp>
-#include <cstdlib>
-#include <chrono>
-#include <thread>
+#include "render/renderer.h"
+#include "render/render_world_system.h"
+#include "assets/asset_manager.h"
 
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-void *operator new(std::size_t count)
+App *App::create(ScopeStack &scope)
 {
-    auto ptr = malloc(count);
-    TracyAlloc(ptr, count);
-    return ptr;
-}
-void operator delete(void *ptr) noexcept
-{
-    TracyFree(ptr);
-    free(ptr);
-}
+    auto *app = scope.allocate<App>();
 
+    app->window        = cross::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    app->asset_manager = AssetManager::create(scope);
+    app->asset_manager->load_all_metas();
 
-App::App()
-{
-    asset_manager = AssetManager::create();
-    asset_manager.init();
+    app->ui = UI::Context::create();
+    app->inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
+    app->inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
+    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
+    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
 
+    app->renderer = Renderer::create(scope, app->window, app->asset_manager);
 
-    cross::Window::create(window, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
-    ui = UI::Context::create();
-
-    renderer = Renderer::create(window, &asset_manager);
-
-    watcher       = cross::FileWatcher::create();
-    shaders_watch = watcher.add_watch("shaders");
-    watcher.on_file_change([&](const auto &watch, const auto &event) {
-        if (watch.wd != shaders_watch.wd)
+    app->watcher       = cross::FileWatcher::create();
+    app->shaders_watch = app->watcher.add_watch("shaders");
+    app->watcher.on_file_change([&](const auto &watch, const auto &event) {
+        if (watch.wd != app->shaders_watch.wd)
         {
             return;
         }
 
         std::string shader_name = fmt::format("shaders/{}", event.name);
-        this->renderer.reload_shader(shader_name);
+        app->renderer->reload_shader(shader_name);
     });
-    asset_manager.setup_file_watcher(watcher);
+    app->asset_manager->setup_file_watcher(app->watcher);
 
-    is_minimized = false;
+    app->is_minimized = false;
 
-    inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
-    inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
-    inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
-    inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
+    app->scene.init(app->asset_manager, &app->inputs);
 
-    scene.init(&asset_manager, &inputs);
+    return app;
 }
 
 App::~App()
 {
     scene.destroy();
     ui.destroy();
-    renderer.destroy();
-    window.destroy();
-    asset_manager.destroy();
 }
 
 
@@ -77,23 +57,23 @@ void App::display_ui()
 {
     ZoneScoped;
 
-    ui.start_frame(window, inputs);
+    ui.start_frame(*window, inputs);
 
     ui.display_ui();
-    renderer.display_ui(ui);
+    renderer->display_ui(ui);
     inputs.display_ui(ui);
     scene.display_ui(ui);
-    asset_manager.display_ui(ui);
+    asset_manager->display_ui(ui);
 }
 
 void App::run()
 {
-    while (!window.should_close())
+    while (!window->should_close())
     {
-        window.poll_events();
+        window->poll_events();
 
         Option<cross::event::Resize> last_resize;
-        for (auto &event : window.events)
+        for (auto &event : window->events)
         {
             if (std::holds_alternative<cross::event::Resize>(event))
             {
@@ -103,17 +83,17 @@ void App::run()
             else if (std::holds_alternative<cross::event::MouseMove>(event))
             {
                 auto move = std::get<cross::event::MouseMove>(event);
-                this->ui.on_mouse_movement(window, double(move.x), double(move.y));
+                this->ui.on_mouse_movement(*window, double(move.x), double(move.y));
 
                 this->is_minimized = false;
             }
         }
 
-        inputs.process(window.events);
+        inputs.process(window->events);
 
         if (inputs.is_pressed(Action::QuitApp))
         {
-            window.stop = true;
+            window->stop = true;
         }
 
         if (last_resize)
@@ -121,22 +101,22 @@ void App::run()
             auto resize = *last_resize;
             if (resize.width > 0 && resize.height > 0)
             {
-                renderer.on_resize();
+                renderer->on_resize();
             }
-            if (window.minimized)
+            if (window->minimized)
             {
                 this->is_minimized = true;
             }
         }
 
-        window.events.clear();
+        window->events.clear();
 
         if (!is_minimized)
         {
             display_ui();
             scene.update(inputs);
             render_world = scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world;
-            renderer.update(render_world);
+            renderer->update(render_world);
         }
 
         watcher.update();

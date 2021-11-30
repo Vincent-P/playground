@@ -19,6 +19,8 @@ struct xkb_keymap;
 struct xkb_state;
 #endif
 
+struct ScopeStack;
+
 enum struct MouseButton : uint
 {
     Left,
@@ -166,10 +168,8 @@ struct Window_Xcb
 
 struct Window
 {
-    static void create(Window &window, u32 width, u32 height, const std::string_view title);
-    ~Window() = default;
-
-    void destroy();
+    static Window *create(ScopeStack &scope, u32 width, u32 height, const std::string_view title);
+    ~Window();
 
     void set_title(std::string && new_title);
     void poll_events();

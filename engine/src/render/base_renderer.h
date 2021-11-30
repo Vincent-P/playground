@@ -9,13 +9,34 @@
 #include "render/render_timings.h"
 
 namespace gfx = vulkan;
-
 namespace cross { struct Window; }
+struct ScopeStack;
 
 inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
 
 struct BaseRenderer
 {
+    static BaseRenderer *create(ScopeStack &scope, cross::Window *window, gfx::DeviceDescription desc);
+    ~BaseRenderer();
+
+    // Ring buffer uniforms
+    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);
+    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
+    void *bind_global_options(usize options_len);
+    template<typename T>
+    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
+    template<typename T>
+    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
+    template<typename T>
+    T *bind_global_options() { return (T*)bind_global_options(sizeof(T)); }
+
+    void reload_shader(std::string_view shader_name);
+    void on_resize();
+    bool start_frame();
+    bool end_frame(gfx::ComputeWork &cmd);
+
+    /// ---
+
     StringRepository str_repo = {};
     cross::Window *window = nullptr;
 
@@ -33,32 +54,4 @@ struct BaseRenderer
     RingBuffer dynamic_index_buffer = {};
 
     Handle<gfx::Image> empty_image = {};
-
-    /// ---
-
-    static BaseRenderer create(cross::Window &window, gfx::DeviceDescription desc);
-    void destroy();
-
-    // Move-only struct
-    BaseRenderer()                          = default;
-    BaseRenderer(const BaseRenderer &other) = delete;
-    BaseRenderer &operator=(const BaseRenderer &other) = delete;
-    BaseRenderer(BaseRenderer &&other)                 = default;
-    BaseRenderer &operator=(BaseRenderer &&other) = default;
-
-    // Ring buffer uniforms
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
-    void *bind_global_options(usize options_len);
-    template<typename T>
-    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
-    template<typename T>
-    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
-    template<typename T>
-    T *bind_global_options() { return (T*)bind_global_options(sizeof(T)); }
-
-    void reload_shader(std::string_view shader_name);
-    void on_resize();
-    bool start_frame();
-    bool end_frame(gfx::ComputeWork &cmd);
 };

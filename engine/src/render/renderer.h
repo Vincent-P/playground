@@ -1,9 +1,9 @@
 #pragma once
 
 #include <exo/collections/handle.h>
+#include <exo/collections/pool.h>
 #include <exo/cross/uuid.h>
 
-#include "render/base_renderer.h"
 #include "render/ring_buffer.h"
 #include "render/streamer.h"
 #include "render/bvh.h"
@@ -21,9 +21,11 @@ namespace gltf {struct Model;}
 namespace UI {struct Context;}
 struct Mesh;
 struct Material;
-class Scene;
+struct Scene;
 struct AssetManager;
 struct RenderWorld;
+struct ScopeStack;
+struct BaseRenderer;
 
 // -- Assets begin
 
@@ -167,8 +169,8 @@ PACKED (struct SubMeshInstance
 
 struct Renderer
 {
-    static Renderer create(cross::Window &window, AssetManager *_asset_manager);
-    void destroy();
+    static Renderer *create(ScopeStack &scope, cross::Window *window, AssetManager *_asset_manager);
+    ~Renderer();
 
     void display_ui(UI::Context &ui);
     void update(const RenderWorld &render_world);
@@ -182,7 +184,7 @@ struct Renderer
     bool end_frame(gfx::ComputeWork &cmd);
 
     /// ---
-    BaseRenderer base_renderer;
+    BaseRenderer *base_renderer;
 
     AssetManager *asset_manager;
     Settings settings;

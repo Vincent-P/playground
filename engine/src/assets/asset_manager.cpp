@@ -11,6 +11,7 @@
 #include "assets/texture.h"
 #include "assets/material.h"
 
+#include <exo/memory/scope_stack.h>
 #include <exo/cross/mapped_file.h>
 #include <exo/cross/file_watcher.h>
 #include <exo/cross/uuid.h>
@@ -30,7 +31,8 @@
 #include <imgui/imgui.h>
 
 // -- Utils
-
+namespace
+{
 static std::filesystem::path resource_path_to_meta_path(std::filesystem::path file_path)
 {
     auto meta_path = std::move(file_path);
@@ -44,28 +46,34 @@ static u64 hash_file(const void *data, usize len)
     auto meow_hash = MeowHash(MeowDefaultSeed, len, non_const_data);
     return static_cast<u64>(_mm_extract_epi64(meow_hash, 0));
 }
+}
 
 // -- Asset Manager
 
-AssetManager AssetManager::create()
+AssetManager *AssetManager::create(ScopeStack &scope)
 {
-    AssetManager asset_manager = {};
+    auto *asset_manager = scope.allocate<AssetManager>();
+
+    asset_manager->importers.push_back(GLTFImporter{});
+    asset_manager->importers.push_back(PNGImporter{});
+    asset_manager->importers.push_back(KTX2Importer{});
+
+    asset_manager->add_asset_loader<Mesh>("MESH");
+    asset_manager->add_asset_loader<SubScene>("SBSC");
+    asset_manager->add_asset_loader<Texture>("TXTR");
+    asset_manager->add_asset_loader<Material>("MTRL");
+
     return asset_manager;
 }
 
-void AssetManager::init()
+AssetManager::~AssetManager()
 {
-    importers.push_back(GLTFImporter{});
-    importers.push_back(PNGImporter{});
-    importers.push_back(KTX2Importer{});
+}
 
-    this->add_asset_loader<Mesh>("MESH");
-    this->add_asset_loader<SubScene>("SBSC");
-    this->add_asset_loader<Texture>("TXTR");
-    this->add_asset_loader<Material>("MTRL");
-
+void AssetManager::load_all_metas()
+{
     // Load or create all resources meta
-    for (const auto &file_entry : std::filesystem::recursive_directory_iterator{resources_directory})
+    for (const auto &file_entry : std::filesystem::recursive_directory_iterator{this->resources_directory})
     {
         if (file_entry.is_regular_file() == false)
         {
@@ -78,28 +86,28 @@ void AssetManager::init()
                 const auto &file_path = file_entry.path();
 
                 Result<cross::UUID> new_uuid;
-                if (has_meta_file(file_path))
+                if (this->has_meta_file(file_path))
                 {
                     auto resource_file = cross::MappedFile::open(file_path.string()).value();
-                    BOOST_LEAF_AUTO(i_importer, find_importer(resource_file.base_addr, resource_file.size));
-                    new_uuid = load_resource_meta(importers[i_importer], file_path);
+                    BOOST_LEAF_AUTO(i_importer, this->find_importer(resource_file.base_addr, resource_file.size));
+                    new_uuid = this->load_resource_meta(importers[i_importer], file_path);
                 }
                 else
                 {
-                    new_uuid = create_resource_meta(file_path);
+                    new_uuid = this->create_resource_meta(file_path);
                 }
 
                 BOOST_LEAF_CHECK(new_uuid);
 
                 return Ok<void>();
             },
-            get_error_handlers());
+            this->get_error_handlers());
     }
 
     logger::info("[AssetManager] Done checking in all resources.\n");
 
     // process all assets
-    for (const auto &file_entry : std::filesystem::recursive_directory_iterator{assets_directory})
+    for (const auto &file_entry : std::filesystem::recursive_directory_iterator{this->assets_directory})
     {
         if (file_entry.is_regular_file() == false)
         {
@@ -116,22 +124,18 @@ void AssetManager::init()
                 auto uuid     = cross::UUID::from_string(filename.c_str(), filename.size());
                 logger::info("[AssetManager] Found asset {}.\n", filename);
 
-                if (has_meta_file(file_entry.path()))
+                if (this->has_meta_file(file_entry.path()))
                 {
-                    BOOST_LEAF_CHECK(load_asset_meta(uuid));
+                    BOOST_LEAF_CHECK(this->load_asset_meta(uuid));
                 }
                 else
                 {
-                    BOOST_LEAF_CHECK(create_asset_meta(uuid));
+                    BOOST_LEAF_CHECK(this->create_asset_meta(uuid));
                 }
                 return Ok<void>();
             },
-            get_error_handlers());
+            this->get_error_handlers());
     }
-}
-
-void AssetManager::destroy()
-{
 }
 
 void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)

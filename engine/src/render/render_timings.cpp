@@ -4,10 +4,14 @@
 
 #include <exo/base/logger.h>
 #include <exo/time.h>
+#include <exo/memory/string_repository.h>
 
-void RenderTimings::create(gfx::Device &device)
+RenderTimings RenderTimings::create(gfx::Device &d, StringRepository *r)
 {
-    device.create_query_pool(pool, TIMESTAMPS_PER_FRAME);
+    RenderTimings result = {};
+    d.create_query_pool(result.pool, TIMESTAMPS_PER_FRAME);
+    result.str_repo = r;
+    return result;
 }
 
 void RenderTimings::destroy(gfx::Device &device)
@@ -23,7 +27,7 @@ void RenderTimings::begin_label(gfx::Work &cmd, const char *label)
         return;
     }
 
-    labels.push_back(label);
+    labels.push_back(str_repo->intern(label));
     cmd.timestamp_query(pool, current_query);
     current_query += 1;
 

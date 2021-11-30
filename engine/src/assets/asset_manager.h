@@ -35,6 +35,7 @@
 
 namespace cross { struct FileWatcher; }
 namespace UI {struct Context;}
+struct ScopeStack;
 
 enum struct AssetErrors : int
 {
@@ -81,15 +82,10 @@ struct AssetLoader
 
 struct AssetManager
 {
-    AssetManager() = default;
-    AssetManager(const AssetManager &other) = delete;
-    AssetManager &operator=(const AssetManager &other) = delete;
-    AssetManager(AssetManager &&other) = default;
-    AssetManager &operator=(AssetManager &&other) = default;
+    static AssetManager *create(ScopeStack &scope);
+    ~AssetManager();
 
-    static AssetManager create();
-    void init();
-    void destroy();
+    void load_all_metas();
     void setup_file_watcher(cross::FileWatcher &watcher);
 
     void display_ui(UI::Context &ui);

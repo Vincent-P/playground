@@ -1,5 +1,7 @@
 #include "exo/cross/window.h"
 
+#include <exo/memory/scope_stack.h>
+
 #include "utils_win32.h"
 
 #include <fmt/core.h>
@@ -35,13 +37,15 @@ inline Window *get_window_from_handle(HWND hwnd)
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-void Window::create(Window &window, u32 width, u32 height, std::string_view title)
+Window *Window::create(ScopeStack &scope, u32 width, u32 height, const std::string_view title)
 {
-    window.title  = std::string(title);
-    window.width  = width;
-    window.height = height;
-    window.stop   = false;
-    window.events.reserve(5); // should be good enough
+    auto *window  = scope.allocate<Window>();
+
+    window->title  = std::string(title);
+    window->width  = width;
+    window->height = height;
+    window->stop   = false;
+    window->events.reserve(5); // should be good enough
 
     auto utf16_title = utf8_to_utf16(title);
 
@@ -56,7 +60,7 @@ void Window::create(Window &window, u32 width, u32 height, std::string_view titl
     RegisterClass(&wc);
 
     // Create the window instance
-    HWND &hwnd = window.win32.window;
+    HWND &hwnd = window->win32.window;
     hwnd       = CreateWindowEx(WS_EX_TRANSPARENT,               // Optional window styles.
                           wc.lpszClassName,                // Window class
                           utf16_title.c_str(),             // Window text
@@ -65,12 +69,12 @@ void Window::create(Window &window, u32 width, u32 height, std::string_view titl
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
                           // Width height
-                          static_cast<int>(window.width),
-                          static_cast<int>(window.height),
+                          static_cast<int>(window->width),
+                          static_cast<int>(window->height),
                           nullptr,  // Parent window
                           nullptr,  // Menu
                           instance, // Instance handle
-                          &window   // Additional application data
+                          window    // Additional application data
     );
 
     if (!hwnd)
@@ -79,9 +83,13 @@ void Window::create(Window &window, u32 width, u32 height, std::string_view titl
     }
 
     ShowWindow(hwnd, SW_SHOW);
+
+    return window;
 }
 
-void Window::destroy() {}
+Window::~Window()
+{
+}
 
 float2 Window::get_dpi_scale() const
 {

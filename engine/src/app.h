@@ -6,15 +6,16 @@
 #include "ui.h"
 #include "scene.h"
 
-#include "assets/asset_manager.h"
-
 #include "render/render_world.h"
-#include "render/renderer.h"
+
+struct ScopeStack;
+struct AssetManager;
+struct Renderer;
 
 class App
 {
   public:
-    App();
+    static App *create(ScopeStack &scope);
     ~App();
 
     void run();
@@ -23,13 +24,14 @@ class App
     void camera_update();
     void display_ui();
 
+    cross::Window *window;
+    AssetManager  *asset_manager;
+    Renderer      *renderer;
+
     UI::Context ui;
-    cross::Window window;
     Inputs inputs;
-    AssetManager asset_manager;
 
     RenderWorld render_world;
-    Renderer renderer;
 
     Scene scene;
 

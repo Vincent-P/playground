@@ -9,7 +9,7 @@ struct SubScene;
 
 namespace UI {struct Context;}
 
-class Scene
+struct Scene
 {
 public:
     void init(AssetManager *_asset_manager, const Inputs *inputs);

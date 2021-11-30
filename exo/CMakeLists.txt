@@ -7,6 +7,8 @@ set(SOURCE_FILES
   src/memory/string_repository.cpp
   src/memory/free_list.cpp
   src/memory/buddy_allocator.cpp
+  src/memory/linear_allocator.cpp
+  src/memory/scope_stack.cpp
 
   src/maths/vectors.cpp
   src/maths/matrices.cpp

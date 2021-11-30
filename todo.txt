@@ -1,7 +1,7 @@
 doing
 --
-string interning (to remove all std::string allocations)
 frame linear allocator for tmp format strings
+allocator everything
 --
 todo
 --
@@ -10,3 +10,5 @@ editor tooling: gizmo
 asset browser ui, drag-n-drop
 assets: free textures
 assets: dont scan meta files at startup when importing all assets files
+figure out how to integrate imgui properly instead of the UI::Context shit
+window: use tagged union instead of std::variant

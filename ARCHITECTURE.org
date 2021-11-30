@@ -1,0 +1,35 @@
+* Project structure
+** Exo
+General purpose library that contains seveeral modules.
+
+*** Base
+The base module contains the fundamentals types and fuctions used everywhere else.
+
+Similar to Google's abseil, all files in Base can only depend on other Base file.
+It should be kept to the minimum of what is necessary.
+
+*** Maths
+Contains various math types and functions, mainly linear algebra for now.
+
+*** Cross
+Platform abstraction layer.
+
+*** Collections
+*** Memory
+- Allocators
+- String interner
+
+** Engine
+Engine contains the code of the game engine.
+
+*** Assets
+*** Render
+*** Gameplay
+
+* Detailled systems
+** Asset manager
+*** Adding an asset type
+- Create new flatbuffer for it
+- Create a new class derived from Asset and implement to/from_flatbuffer
+  - CALL to/from_asset in the corresponding functions to load the dependencies correctly
+- Add the new class to the asset manager by calling add_asset_loader with the file identifier
