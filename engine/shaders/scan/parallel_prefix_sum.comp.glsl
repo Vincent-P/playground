@@ -1,3 +1,5 @@
+#pragma shader_stage(compute)
+
 #include "types.h"
 #include "constants.h"
 #include "globals.h"

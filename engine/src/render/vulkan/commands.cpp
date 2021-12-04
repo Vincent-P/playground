@@ -513,7 +513,7 @@ void Device::reset_work_pool(WorkPool &work_pool)
         }
         command_pool.free_list.clear();
 
-        VK_CHECK(vkResetCommandPool(this->device, command_pool.vk_handle, 0));
+        VK_CHECK(vkResetCommandPool(this->device, command_pool.vk_handle, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
     }
 }
 
@@ -535,6 +535,8 @@ void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
     pool_info.queryCount            = query_capacity;
 
     VK_CHECK(vkCreateQueryPool(device, &pool_info, nullptr, &query_pool.vkhandle));
+
+    query_pool.capacity = query_capacity;
 }
 
 void Device::reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count)
@@ -555,6 +557,8 @@ void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count
     ZoneScoped;
     usize old_size = results.size();
     results.resize(old_size + count);
+
+    ASSERT(first_query + count < query_pool.capacity);
 
     vkGetQueryPoolResults(device, query_pool.vkhandle, first_query, count, count * sizeof(u64), results.data() + old_size, sizeof(u64), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }

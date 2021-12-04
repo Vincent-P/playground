@@ -16,18 +16,15 @@ BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, con
                                             .descriptorCount = type.count,
                                             .stageFlags      = VK_SHADER_STAGE_ALL};
 
-    VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
-                                     | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-                                     ;
+    VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info
-        = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO};
     flags_info.bindingCount  = 1;
     flags_info.pBindingFlags = &flags;
 
     VkDescriptorSetLayoutCreateInfo desc_layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
     desc_layout_info.pNext                           = &flags_info;
-    desc_layout_info.flags                           = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    desc_layout_info.flags                           = 0;
     desc_layout_info.bindingCount                    = 1;
     desc_layout_info.pBindings                       = &binding;
 

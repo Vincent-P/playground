@@ -235,8 +235,8 @@ bool BaseRenderer::start_frame()
                 }
                 ImGui::EndTable();
             }
-            ImGui::End();
         }
+        ImGui::End();
     }
 
     timing.reset(device);

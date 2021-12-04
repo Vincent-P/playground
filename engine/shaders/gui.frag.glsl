@@ -1,3 +1,5 @@
+#pragma shader_stage(fragment)
+
 #include "types.h"
 #include "globals.h"
 

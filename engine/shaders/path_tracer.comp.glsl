@@ -1,5 +1,4 @@
-#version 460
-#extension GL_GOOGLE_include_directive : require
+#pragma shader_stage(compute)
 
 #include "globals.h"
 #include "hash.h"

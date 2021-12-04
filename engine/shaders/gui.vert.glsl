@@ -1,3 +1,5 @@
+#pragma shader_stage(vertex)
+
 #include "types.h"
 #include "globals.h"
 

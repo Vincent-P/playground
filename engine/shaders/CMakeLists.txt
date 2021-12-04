@@ -10,20 +10,20 @@ set(GLSL_INCLUDES
   )
 
 set(GLSL_FILES
-  gui.frag
-  gui.vert
-  opaque.frag
-  opaque.vert
-  taa.comp
-  tonemap.comp
-  path_tracer.comp
-  init_draw_calls.comp
-  instances_culling.comp
-  drawcalls_fill_predicate.comp
-  scan/parallel_prefix_sum.comp
-  scan/copy_instances_index.comp
-  scan/copy_draw_calls.comp
-  visibility_shading.comp
+  gui.frag.glsl
+  gui.vert.glsl
+  opaque.frag.glsl
+  opaque.vert.glsl
+  taa.comp.glsl
+  tonemap.comp.glsl
+  path_tracer.comp.glsl
+  init_draw_calls.comp.glsl
+  instances_culling.comp.glsl
+  drawcalls_fill_predicate.comp.glsl
+  scan/parallel_prefix_sum.comp.glsl
+  scan/copy_instances_index.comp.glsl
+  scan/copy_draw_calls.comp.glsl
+  visibility_shading.comp.glsl
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)

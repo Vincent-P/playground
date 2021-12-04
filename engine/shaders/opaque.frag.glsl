@@ -1,3 +1,5 @@
+#pragma shader_stage(fragment)
+
 #include "globals.h"
 
 layout(location = 0) flat in uint i_instance_index;

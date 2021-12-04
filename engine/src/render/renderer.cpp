@@ -5,30 +5,25 @@
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/cross/mapped_file.h>
 
 #include "assets/asset_manager.h"
 #include "assets/material.h"
 #include "assets/mesh.h"
 #include "assets/texture.h"
 
-#include "camera.h"
-#include "render/render_world.h"
-#include "ui.h"
-
 #include "render/base_renderer.h"
 #include "render/bvh.h"
 #include "render/unified_buffer_storage.h"
-
-#include "assets/texture.h"
+#include "render/render_world.h"
 
 #include "gameplay/entity.h"
 #include "gameplay/components/camera_component.h"
 
-#include <exo/cross/mapped_file.h>
-#include <variant>
-#include <vulkan/vulkan_core.h>
-#include <ktx.h>
-#include <tracy/Tracy.hpp>
+
+#include "ui.h"
+#include "camera.h"
+
 #include <imgui/imgui.h>
 
 namespace
@@ -431,8 +426,8 @@ Renderer *Renderer::create(ScopeStack &scope, cross::Window *window, AssetManage
     auto &imgui_pass = renderer->imgui_pass;
     {
         gfx::GraphicsState gui_state = {};
-        gui_state.vertex_shader      = device.create_shader("shaders/gui.vert.spv");
-        gui_state.fragment_shader    = device.create_shader("shaders/gui.frag.spv");
+        gui_state.vertex_shader      = device.create_shader("shaders/gui.vert.glsl.spv");
+        gui_state.fragment_shader    = device.create_shader("shaders/gui.frag.glsl.spv");
         gui_state.attachments_format = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
         gui_state.descriptors.push_back(one_dynamic_buffer_descriptor);
         imgui_pass.program = device.create_program("imgui", gui_state);
@@ -459,8 +454,8 @@ Renderer *Renderer::create(ScopeStack &scope, cross::Window *window, AssetManage
     // Create opaque program
     {
         gfx::GraphicsState state = {};
-        state.vertex_shader      = device.create_shader("shaders/opaque.vert.spv");
-        state.fragment_shader    = device.create_shader("shaders/opaque.frag.spv");
+        state.vertex_shader      = device.create_shader("shaders/opaque.vert.glsl.spv");
+        state.fragment_shader    = device.create_shader("shaders/opaque.frag.glsl.spv");
         state.attachments_format
             = {.attachments_format = {VK_FORMAT_R32G32_UINT}, .depth_format = VK_FORMAT_D32_SFLOAT};
         state.descriptors.push_back(one_dynamic_buffer_descriptor);
@@ -476,69 +471,69 @@ Renderer *Renderer::create(ScopeStack &scope, cross::Window *window, AssetManage
     // Create tonemap program
     renderer->taa_program = device.create_program("taa",
                                                  {
-                                                     .shader      = device.create_shader("shaders/taa.comp.spv"),
+                                                     .shader      = device.create_shader("shaders/taa.comp.glsl.spv"),
                                                      .descriptors = {one_dynamic_buffer_descriptor},
                                                  });
 
     renderer->tonemap_program = device.create_program("tonemap",
                                                      {
-                                                         .shader = device.create_shader("shaders/tonemap.comp.spv"),
+                                                         .shader = device.create_shader("shaders/tonemap.comp.glsl.spv"),
                                                          .descriptors = {one_dynamic_buffer_descriptor},
                                                      });
 
     renderer->path_tracer_program
         = device.create_program("path tracer",
                                 {
-                                    .shader      = device.create_shader("shaders/path_tracer.comp.spv"),
+                                    .shader      = device.create_shader("shaders/path_tracer.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->instances_culling_program
         = device.create_program("instances culling",
                                 {
-                                    .shader      = device.create_shader("shaders/instances_culling.comp.spv"),
+                                    .shader      = device.create_shader("shaders/instances_culling.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->parallel_prefix_sum_program
         = device.create_program("parallel prefix sum",
                                 {
-                                    .shader      = device.create_shader("shaders/parallel_prefix_sum.comp.spv"),
+                                    .shader      = device.create_shader("shaders/parallel_prefix_sum.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->copy_culled_instances_index_program
         = device.create_program("copy instances",
                                 {
-                                    .shader      = device.create_shader("shaders/copy_instances_index.comp.spv"),
+                                    .shader      = device.create_shader("shaders/copy_instances_index.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->init_draw_calls_program
         = device.create_program("init draw calls",
                                 {
-                                    .shader      = device.create_shader("shaders/init_draw_calls.comp.spv"),
+                                    .shader      = device.create_shader("shaders/init_draw_calls.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->drawcalls_fill_predicate_program
         = device.create_program("draw calls fill predicate",
                                 {
-                                    .shader      = device.create_shader("shaders/drawcalls_fill_predicate.comp.spv"),
+                                    .shader      = device.create_shader("shaders/drawcalls_fill_predicate.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->copy_draw_calls_program
         = device.create_program("copy culled draw calls",
                                 {
-                                    .shader      = device.create_shader("shaders/copy_draw_calls.comp.spv"),
+                                    .shader      = device.create_shader("shaders/copy_draw_calls.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->visibility_shading_program
         = device.create_program("visibility shading",
                                 {
-                                    .shader      = device.create_shader("shaders/visibility_shading.comp.spv"),
+                                    .shader      = device.create_shader("shaders/visibility_shading.comp.glsl.spv"),
                                     .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
@@ -605,26 +600,25 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
     return false;
 }
 
-void Renderer::display_ui(UI::Context &ui)
+void Renderer::display_ui()
 {
     ZoneScoped;
-    if (ui.begin_window("Textures"))
+    if (UI::begin_window("Textures"))
     {
         for (uint i = 5; i <= 8; i += 1)
         {
             ImGui::Text("[%u]", i);
             ImGui::Image((void *)((u64)i), float2(256.0f, 256.0f));
         }
-
-        ui.end_window();
     }
+    UI::end_window();
 
-    if (ui.begin_window("Shaders"))
+    if (UI::begin_window("Shaders"))
     {
-        ui.end_window();
     }
+    UI::end_window();
 
-    if (ui.begin_window("Settings"))
+    if (UI::begin_window("Settings"))
     {
         if (ImGui::CollapsingHeader("Renderer"))
         {
@@ -640,8 +634,8 @@ void Renderer::display_ui(UI::Context &ui)
             ImGui::Checkbox("Freeze camera culling", &settings.freeze_camera_culling);
             ImGui::Checkbox("Use blue noise", &settings.use_blue_noise);
         }
-        ui.end_window();
     }
+    UI::end_window();
 }
 
 void Renderer::update(const RenderWorld &render_world)

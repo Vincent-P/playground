@@ -12,7 +12,7 @@ namespace vulkan { struct Device;  struct Work;};
 namespace gfx = vulkan;
 struct StringRepository;
 
-inline constexpr u32 TIMESTAMPS_PER_FRAME = 16;
+inline constexpr u32 TIMESTAMPS_PER_FRAME = 32;
 
 struct RenderTimings
 {

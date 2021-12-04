@@ -172,7 +172,7 @@ struct Renderer
     static Renderer *create(ScopeStack &scope, cross::Window *window, AssetManager *_asset_manager);
     ~Renderer();
 
-    void display_ui(UI::Context &ui);
+    void display_ui();
     void update(const RenderWorld &render_world);
     void prepare_geometry(const RenderWorld &render_world);
     void compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::ComputeProgram> copy_program, const void *options_data, usize options_len);
