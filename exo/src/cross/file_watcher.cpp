@@ -77,7 +77,7 @@ static void fetch_events_internal(FileWatcher &fw)
         auto *p_event    = reinterpret_cast<inotify_event *>(ptr_offset(p_buffer, offset));
         usize event_size = offsetof(inotify_event, name) + p_event->len;
 
-        Event event;
+        Event event = {};
         event.wd     = p_event->wd;
         event.mask   = p_event->mask;
         event.cookie = p_event->cookie;
