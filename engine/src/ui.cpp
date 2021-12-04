@@ -145,10 +145,10 @@ void new_frame()
         inputs->consume_scroll();
     }
 
-    static_assert(static_cast<usize>(MouseButton::Count) == 5u);
+    static_assert(static_cast<usize>(cross::MouseButton::Count) == 5u);
     for (uint i = 0; i < 5; i++)
     {
-        io.MouseDown[i] = inputs->is_pressed(static_cast<MouseButton>(i));
+        io.MouseDown[i] = inputs->is_pressed(static_cast<cross::MouseButton>(i));
     }
 
     auto cursor        = cursor_from_imgui();

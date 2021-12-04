@@ -30,7 +30,7 @@ struct Watch
     std::string path;
 };
 
-enum struct WatchEvent
+enum struct WatchEventAction
 {
     FileRenamed,
     FileChanged,
@@ -38,7 +38,7 @@ enum struct WatchEvent
     FileAdded
 };
 
-struct Event
+struct WatchEvent
 {
 
 #if defined(CROSS_LINUX)
@@ -51,10 +51,10 @@ struct Event
     int wd;     /* Watch descriptor.  */
     std::string name; /* filename. */
     usize len;
-    WatchEvent action;
+    WatchEventAction action;
 };
 
-using FileEventF = std::function<void(const Watch &, const Event &)>;
+using FileEventF = std::function<void(const Watch &, const WatchEvent &)>;
 
 struct FileWatcher
 {
@@ -65,7 +65,7 @@ struct FileWatcher
 #endif
 
     Vec<Watch> watches;
-    Vec<Event> current_events;
+    Vec<WatchEvent> current_events;
     Vec<FileEventF> callbacks;
 
     static FileWatcher create();

@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <exo/cross/file_watcher.h>
+#include <exo/cross/window.h>
 #include <exo/memory/scope_stack.h>
 
 #include "render/renderer.h"
@@ -19,10 +20,10 @@ App *App::create(ScopeStack &scope)
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
-    app->inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
-    app->inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
-    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
-    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
+    app->inputs.bind(Action::QuitApp, {.keys = {cross::VirtualKey::Escape}});
+    app->inputs.bind(Action::CameraModifier, {.keys = {cross::VirtualKey::LAlt}});
+    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {cross::MouseButton::Left}});
+    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {cross::MouseButton::Right}});
 
     UI::create_context(app->window, &app->inputs);
 
@@ -75,17 +76,16 @@ void App::run()
     {
         window->poll_events();
 
-        Option<cross::event::Resize> last_resize;
+        Option<cross::events::Resize> last_resize;
         for (auto &event : window->events)
         {
-            if (std::holds_alternative<cross::event::Resize>(event))
+            if (event.type == cross::Event::ResizeType)
             {
-                auto resize = std::get<cross::event::Resize>(event);
-                last_resize = resize;
+                last_resize = event.resize;
             }
-            else if (std::holds_alternative<cross::event::MouseMove>(event))
+            else if (event.type == cross::Event::MouseMoveType)
             {
-                auto move = std::get<cross::event::MouseMove>(event);
+                const auto &move = event.mouse_move;
                 // this->ui.on_mouse_movement(*window, double(move.x), double(move.y));
 
                 this->is_minimized = false;

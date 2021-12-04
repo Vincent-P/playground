@@ -77,7 +77,7 @@ static void fetch_events_internal(FileWatcher &fw)
         auto *p_event    = reinterpret_cast<inotify_event *>(ptr_offset(p_buffer, offset));
         usize event_size = offsetof(inotify_event, name) + p_event->len;
 
-        Event event = {};
+        WatchEvent event = {};
         event.wd     = p_event->wd;
         event.mask   = p_event->mask;
         event.cookie = p_event->cookie;
@@ -165,7 +165,7 @@ static void fetch_events_internal(FileWatcher &fw)
             auto *p_event = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(ptr_offset(p_buffer, offset));
             offset += p_event->NextEntryOffset;
 
-            Event event;
+            WatchEvent event;
             event.wd = watch.wd;
 
             std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
@@ -174,19 +174,19 @@ static void fetch_events_internal(FileWatcher &fw)
 
             if (p_event->Action == FILE_ACTION_ADDED)
             {
-                event.action = WatchEvent::FileAdded;
+                event.action = WatchEventAction::FileAdded;
             }
             else if (p_event->Action == FILE_ACTION_REMOVED)
             {
-                event.action = WatchEvent::FileRemoved;
+                event.action = WatchEventAction::FileRemoved;
             }
             else if (p_event->Action == FILE_ACTION_MODIFIED)
             {
-                event.action = WatchEvent::FileChanged;
+                event.action = WatchEventAction::FileChanged;
             }
             else if (p_event->Action == FILE_ACTION_RENAMED_NEW_NAME)
             {
-                event.action = WatchEvent::FileRenamed;
+                event.action = WatchEventAction::FileRenamed;
             }
             else
             {
@@ -218,7 +218,7 @@ static void fetch_events_internal(FileWatcher &fw)
 }
 #endif
 
-static const Watch &watch_from_event_internal(const FileWatcher &fw, const Event &event)
+static const Watch &watch_from_event_internal(const FileWatcher &fw, const WatchEvent &event)
 {
     return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) {
         return watch.wd == event.wd;

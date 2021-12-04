@@ -14,10 +14,14 @@
 #include <imm.h>
 // clang-format on
 
-/// --- Text utils functions
+namespace
+{
+static bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
+static bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
+}
 
-inline bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
-inline bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
+namespace cross
+{
 
 EnumArray<i32, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
@@ -25,8 +29,6 @@ EnumArray<i32, VirtualKey> native_to_virtual{
 #undef X
 };
 
-namespace cross
-{
 
 inline Window *get_window_from_handle(HWND hwnd)
 {
@@ -118,13 +120,13 @@ static void update_key(Window &window, VirtualKey key)
         {
             state = ButtonState::Released;
         }
-        window.push_event<event::Key>({.key = key, .state = state});
+        window.events.push_back({Event::KeyType, events::Key{.key = key, .state = state}});
     }
 }
 
-void Window::set_title(std::string &&  new_title)
+void Window::set_title(std::string_view new_title)
 {
-    this->title = std::move(new_title);
+    this->title = std::string{new_title};
     auto utf16_title = utf8_to_utf16(title);
     auto res =  SetWindowTextW(win32.window, utf16_title.c_str());
     ASSERT(res != 0);
@@ -317,7 +319,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 }
                 fmt::print("{} {}\n", to_string(state), to_string(key));
 
-                window.push_event<event::Key>({.key = key, .state = state});
+                window.events.push_back({Event::KeyType, events::Key{.key = key, .state = state}});
                 window.keys_pressed[key] = state == ButtonState::Pressed;
             }
             return 0;
@@ -358,7 +360,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 case 0x0D:
                 {
                     // Process a carriage return.
-                    window.push_event<event::Char>({"\n"});
+                    window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\n"}});
                     break;
                 }
                 default:
@@ -386,7 +388,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
                     if (clear)
                     {
-                        window.push_event<event::Char>({utf16_to_utf8(buffer)});
+                        auto utf8_buffer = utf16_to_utf8(buffer);
+                        ASSERT(utf8_buffer.size() < sizeof(events::Character));
+                        window.events.push_back({.type = Event::CharacterType, .character = {.sequence = {utf8_buffer[0]}}});
                         buffer[0] = 0;
                         buffer[1] = 0;
                         buffer[2] = 0;
@@ -412,7 +416,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     std::wstring result;
                     result.resize(size);
                     ImmGetCompositionStringW(himc, GCS_COMPSTR, reinterpret_cast<void *>(result.data()), size);
-                    window.push_event<event::IMEComposition>({utf16_to_utf8(result)});
+                    auto utf8_result = utf16_to_utf8(result);
+                    window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {nullptr}});
                 }
             }
             else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
@@ -425,7 +430,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                     std::wstring result;
                     result.resize(size);
                     ImmGetCompositionStringW(himc, GCS_RESULTSTR, reinterpret_cast<void *>(result.data()), size);
-                    window.push_event<event::IMECompositionResult>({utf16_to_utf8(result)});
+                    auto utf8_result = utf16_to_utf8(result);
+                    window.events.push_back({.type = Event::IMECompositionResultType, .ime_composition_result = {nullptr}});
                 }
             }
 
@@ -434,7 +440,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         case WM_IME_ENDCOMPOSITION:
         {
-            window.push_event<event::IMEComposition>({""});
+            window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {.composition = nullptr}});
         }
 
             /// --- Mouse inputs
@@ -443,7 +449,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             // fwKeys = GET_KEYSTATE_WPARAM(wParam);
             int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
-            window.push_event<event::Scroll>({.dx = 0, .dy = -delta});
+            window.events.push_back({.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -delta}});
             return 0;
         }
 
@@ -451,7 +457,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
-            window.push_event<event::MouseMove>({x, y});
+            window.events.push_back({.type = Event::MouseMoveType, .mouse_move = {x, y}});
             window.mouse_position = float2(float(x), float(y));
             return 0;
         }
@@ -480,7 +486,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 {
                     button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
-                window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Pressed});
+                window.events.push_back({.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Pressed}});
                 window.mouse_buttons_pressed[button] = true;
                 return 0;
             }
@@ -507,7 +513,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 {
                     button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
                 }
-                window.push_event<event::MouseClick>({.button = button, .state = ButtonState::Released});
+                window.events.push_back({.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Released}});
                 window.mouse_buttons_pressed[button] = true;
                 return 0;
             }

@@ -1,6 +1,5 @@
 #pragma once
 #include <exo/cross/file_watcher.h>
-#include <exo/cross/window.h>
 
 #include "inputs.h"
 #include "scene.h"
@@ -10,6 +9,7 @@
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
+namespace cross {struct Window;}
 
 class App
 {

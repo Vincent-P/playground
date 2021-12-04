@@ -8,8 +8,8 @@
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/utils.h"
 #include "render/vulkan/surface.h"
-#include <exo/cross/window.h>
-#include "vulkan/vulkan_core.h"
+
+#include "vulkan/vulkan.h"
 
 #include <array>
 

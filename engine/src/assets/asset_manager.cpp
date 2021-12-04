@@ -144,7 +144,7 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 
     // TODO: Properly watch file system changes and respond accordingly
     watcher.on_file_change(
-        [&, assets_wd](const cross::Watch &watch, const cross::Event &event)
+        [&, assets_wd](const cross::Watch &watch, const cross::WatchEvent &event)
         {
             if (watch.wd != assets_wd)
             {
@@ -154,16 +154,16 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
             const char *p = "";
             switch (event.action)
             {
-            case cross::WatchEvent::FileChanged:
+            case cross::WatchEventAction::FileChanged:
                 p = "file changed: ";
                 break;
-            case cross::WatchEvent::FileRemoved:
+            case cross::WatchEventAction::FileRemoved:
                 p = "file removed: ";
                 break;
-            case cross::WatchEvent::FileAdded:
+            case cross::WatchEventAction::FileAdded:
                 p = "file added: ";
                 break;
-            case cross::WatchEvent::FileRenamed:
+            case cross::WatchEventAction::FileRenamed:
                 p = "file renamed: ";
                 break;
             }
@@ -172,7 +172,7 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 
             logger::info("[AssetManager] {} {}\n", p, file_path);
 
-            if (event.action == cross::WatchEvent::FileChanged || event.action == cross::WatchEvent::FileAdded)
+            if (event.action == cross::WatchEventAction::FileChanged || event.action == cross::WatchEventAction::FileAdded)
             {
                 if (!this->has_meta_file(file_path))
                 {
@@ -180,12 +180,12 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
                 }
             }
 
-            if (event.action == cross::WatchEvent::FileRemoved)
+            if (event.action == cross::WatchEventAction::FileRemoved)
             {
                 // unload asset, remove meta from memory and filesystem
             }
 
-            if (event.action == cross::WatchEvent::FileRenamed)
+            if (event.action == cross::WatchEventAction::FileRenamed)
             {
             }
         });
