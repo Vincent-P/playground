@@ -88,7 +88,7 @@ struct AssetManager
     void load_all_metas();
     void setup_file_watcher(cross::FileWatcher &watcher);
 
-    void display_ui(UI::Context &ui);
+    void display_ui();
 
     // -- Resource files
 

@@ -113,10 +113,10 @@ static void display_optional(const char *label, Option<int2> vector)
     }
 }
 
-void Inputs::display_ui(UI::Context &ui)
+void Inputs::display_ui()
 {
     ZoneScoped;
-    if (ui.begin_window("Inputs"))
+    if (auto w = UI::begin_window("Inputs"))
     {
         if (ImGui::CollapsingHeader("Keys"))
         {
@@ -162,7 +162,5 @@ void Inputs::display_ui(UI::Context &ui)
                 }
             }
         }
-
-        ui.end_window();
     }
 }

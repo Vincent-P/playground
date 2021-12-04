@@ -3,7 +3,6 @@
 #include <exo/cross/window.h>
 
 #include "inputs.h"
-#include "ui.h"
 #include "scene.h"
 
 #include "render/render_world.h"
@@ -28,7 +27,6 @@ class App
     AssetManager  *asset_manager;
     Renderer      *renderer;
 
-    UI::Context ui;
     Inputs inputs;
 
     RenderWorld render_world;

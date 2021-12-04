@@ -191,10 +191,10 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
         });
 }
 
-void AssetManager::display_ui(UI::Context &ui)
+void AssetManager::display_ui()
 {
     ZoneScoped;
-    if (ui.begin_window("AssetManager"))
+    if (auto w = UI::begin_window("AssetManager"))
     {
         auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
 
@@ -362,7 +362,6 @@ void AssetManager::display_ui(UI::Context &ui)
 
             ImGui::EndTable();
         }
-        ui.end_window();
     }
 }
 

@@ -51,12 +51,12 @@ void Scene::update(const Inputs &)
     entity_world.update(delta_t);
 }
 
-void Scene::display_ui(UI::Context &ui)
+void Scene::display_ui()
 {
     ZoneScoped;
     #if 0
     draw_gizmo(world, main_camera);
-    world.display_ui(ui);
+    world.display_ui();
     #endif
 
     auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
@@ -73,7 +73,7 @@ void Scene::display_ui(UI::Context &ui)
         return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, cross::UUID::STR_LEN) > 0;
     });
 
-    if (ui.begin_window("Scene"))
+    if (auto w = UI::begin_window("Scene"))
     {
         static cross::UUID selected = {};
 
@@ -100,6 +100,11 @@ void Scene::display_ui(UI::Context &ui)
                 for (auto &uuid : sorted_assets)
                 {
                     const auto *asset = assets.at(uuid);
+                    if (dynamic_cast<const SubScene*>(asset) == nullptr)
+                    {
+                        continue;
+                    }
+
                     ImGui::TableNextRow();
 
                     ImGui::PushID(asset);
@@ -149,8 +154,6 @@ void Scene::display_ui(UI::Context &ui)
                 asset_manager->get_error_handlers());
         }
         selected = {};
-
-        ui.end_window();
     }
 }
 

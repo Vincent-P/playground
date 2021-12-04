@@ -48,8 +48,9 @@ class Inputs
     inline Option<int2> get_mouse_delta() const { return mouse_delta; }
 
     void process(const Vec<cross::event::Event> &events);
+    inline void consume_scroll() { scroll_this_frame = {}; }
 
-    void display_ui(UI::Context &ui);
+    void display_ui();
 
   private:
     std::unordered_map<Action, KeyBinding> bindings;

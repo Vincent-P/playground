@@ -7,15 +7,13 @@ struct AssetManager;
 struct Mesh;
 struct SubScene;
 
-namespace UI {struct Context;}
-
 struct Scene
 {
 public:
     void init(AssetManager *_asset_manager, const Inputs *inputs);
     void destroy();
     void update(const Inputs &inputs);
-    void display_ui(UI::Context &ui);
+    void display_ui();
 
     void import_mesh(Mesh *mesh);
     Entity* import_subscene_rec(const SubScene *subscene, u32 i_node);

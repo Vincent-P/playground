@@ -603,7 +603,7 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
 void Renderer::display_ui()
 {
     ZoneScoped;
-    if (UI::begin_window("Textures"))
+    if (auto w = UI::begin_window("Textures"))
     {
         for (uint i = 5; i <= 8; i += 1)
         {
@@ -611,14 +611,12 @@ void Renderer::display_ui()
             ImGui::Image((void *)((u64)i), float2(256.0f, 256.0f));
         }
     }
-    UI::end_window();
 
-    if (UI::begin_window("Shaders"))
+    if (auto w = UI::begin_window("Shaders"))
     {
     }
-    UI::end_window();
 
-    if (UI::begin_window("Settings"))
+    if (auto w = UI::begin_window("Settings"))
     {
         if (ImGui::CollapsingHeader("Renderer"))
         {
@@ -635,7 +633,6 @@ void Renderer::display_ui()
             ImGui::Checkbox("Use blue noise", &settings.use_blue_noise);
         }
     }
-    UI::end_window();
 }
 
 void Renderer::update(const RenderWorld &render_world)
@@ -647,6 +644,7 @@ void Renderer::update(const RenderWorld &render_world)
     {
         on_resize();
         ImGui::EndFrame();
+        UI::new_frame();
         return;
     }
 
@@ -1176,6 +1174,7 @@ void Renderer::update(const RenderWorld &render_world)
         cmd.end_debug_label();
         timings.end_label(cmd);
     }
+    UI::new_frame();
 
     timings.begin_label(cmd, "Present + final blit");
 

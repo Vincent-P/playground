@@ -7,6 +7,8 @@
 #include "gameplay/update_stages.h"
 #include "gameplay/system.h"
 
+#include "ui.h"
+
 #include <imgui/imgui.h>
 #include <exo/base/logger.h>
 
@@ -167,16 +169,15 @@ void EntityWorld::display_ui()
     ZoneScoped;
     static Entity* s_selected = nullptr;
 
-    if (ImGui::Begin("Entities"))
+    if (auto w = UI::begin_window("Entities"))
     {
         for (auto *entity : root_entities)
         {
             display_entity_tree_rec(entity, s_selected);
         }
-        ImGui::End();
     }
 
-    if (ImGui::Begin("Inspector"))
+    if (auto w = UI::begin_window("Inspector"))
     {
         if (s_selected)
         {
@@ -186,7 +187,5 @@ void EntityWorld::display_ui()
                 component->show_inspector_ui();
             }
         }
-
-        ImGui::End();
     }
 }

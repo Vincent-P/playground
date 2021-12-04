@@ -6,6 +6,7 @@
 #include "render/renderer.h"
 #include "render/render_world_system.h"
 #include "assets/asset_manager.h"
+#include "ui.h"
 
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
@@ -18,17 +19,20 @@ App *App::create(ScopeStack &scope)
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
-    app->ui = UI::Context::create();
     app->inputs.bind(Action::QuitApp, {.keys = {VirtualKey::Escape}});
     app->inputs.bind(Action::CameraModifier, {.keys = {VirtualKey::LAlt}});
     app->inputs.bind(Action::CameraMove, {.mouse_buttons = {MouseButton::Left}});
     app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {MouseButton::Right}});
 
+    UI::create_context(app->window, &app->inputs);
+
     app->renderer = Renderer::create(scope, app->window, app->asset_manager);
+
+    UI::new_frame();
 
     app->watcher       = cross::FileWatcher::create();
     app->shaders_watch = app->watcher.add_watch("shaders");
-    app->watcher.on_file_change([&](const auto &watch, const auto &event) {
+    app->watcher.on_file_change([=](const auto &watch, const auto &event) {
         if (watch.wd != app->shaders_watch.wd)
         {
             return;
@@ -49,7 +53,7 @@ App *App::create(ScopeStack &scope)
 App::~App()
 {
     scene.destroy();
-    ui.destroy();
+    UI::destroy_context();
 }
 
 
@@ -57,13 +61,12 @@ void App::display_ui()
 {
     ZoneScoped;
 
-    ui.start_frame(*window, inputs);
+    UI::display_ui();
 
-    ui.display_ui();
-    renderer->display_ui(ui);
-    inputs.display_ui(ui);
-    scene.display_ui(ui);
-    asset_manager->display_ui(ui);
+    renderer->display_ui();
+    inputs.display_ui();
+    scene.display_ui();
+    asset_manager->display_ui();
 }
 
 void App::run()
@@ -83,7 +86,7 @@ void App::run()
             else if (std::holds_alternative<cross::event::MouseMove>(event))
             {
                 auto move = std::get<cross::event::MouseMove>(event);
-                this->ui.on_mouse_movement(*window, double(move.x), double(move.y));
+                // this->ui.on_mouse_movement(*window, double(move.x), double(move.y));
 
                 this->is_minimized = false;
             }

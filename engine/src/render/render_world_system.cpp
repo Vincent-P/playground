@@ -34,8 +34,8 @@ void PrepareRenderWorld::update(const UpdateContext&)
 
     ASSERT(main_camera != nullptr);
     {
-    // TODO: depend on ui to get the correct aspect ratio
-    float aspect_ratio = 1.0f;
+    ImGuiIO &io                  = ImGui::GetIO();
+    float aspect_ratio = io.DisplaySize.x / io.DisplaySize.y;
     main_camera->set_perspective(aspect_ratio);
     }
 
