@@ -14,7 +14,7 @@ inline constexpr u64 UNUSED    = 0xffffffffffffffff;
 
 constexpr bool is_empty(u64 key)
 {
-    return key != TOMBSTONE || key != UNUSED;
+    return key == TOMBSTONE || key == UNUSED;
 }
 
 u64 find_element(u64 hash, u64 *keys, usize capacity)
