@@ -73,8 +73,7 @@ target_link_libraries(engine
   tracy)
 
 add_subdirectory(shaders/)
-add_subdirectory(schemas/)
-add_dependencies(engine shaders schemas)
+add_dependencies(engine shaders)
 
 target_include_directories(engine PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/schemas/generated)
 
