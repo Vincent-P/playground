@@ -2,6 +2,7 @@
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/handle.h>
+#include <exo/serializer.h>
 
 #include "assets/asset.h"
 
@@ -17,6 +18,15 @@ struct SubMesh
     bool operator==(const SubMesh &other) const = default;
 };
 
+template<>
+inline void Serializer::serialize<SubMesh>(SubMesh &data)
+{
+    serialize(data.first_index);
+    serialize(data.first_vertex);
+    serialize(data.index_count);
+    serialize(data.material);
+}
+
 // Dependencies: Material
 struct Mesh : Asset
 {
@@ -26,10 +36,12 @@ struct Mesh : Asset
     Vec<SubMesh> submeshes;
 
     const char *type_name() const final { return "Mesh"; }
-    void from_flatbuffer(const void *data, usize len) final;
-    void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const final;
+    void serialize(Serializer& serializer) final;
 
     // doesn't check the name
     bool is_similar(const Mesh &other) const { return indices == other.indices && positions == other.positions && submeshes == other.submeshes; }
     bool operator==(const Mesh &other) const = default;
 };
+
+template<>
+void Serializer::serialize<Mesh>(Mesh &data);

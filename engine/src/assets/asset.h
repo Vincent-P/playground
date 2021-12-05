@@ -3,10 +3,8 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
 #include <exo/cross/uuid.h>
+#include <exo/serializer.h>
 #include <string>
-
-
-namespace flatbuffers {class FlatBufferBuilder; }
 
 enum struct AssetState
 {
@@ -28,7 +26,7 @@ struct Asset
 {
     cross::UUID uuid;
     AssetState state;
-    std::string name;
+    const char *name;
 
     Vec<cross::UUID> dependencies;
 
@@ -51,11 +49,17 @@ struct Asset
     virtual ~Asset() {}
 
     virtual const char *type_name() const { return "Asset"; }
-
-    virtual void from_flatbuffer(const void *data, usize len) = 0;
-    virtual void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const = 0;
+    virtual void serialize(Serializer& serializer) = 0;
 
     virtual void display_ui() {};
 
     bool operator==(const Asset &other) const = default;
 };
+
+template<>
+inline void Serializer::serialize<Asset>(Asset &data)
+{
+    serialize(data.uuid);
+    serialize(data.name);
+    serialize(data.dependencies);
+}

@@ -1,27 +1,27 @@
 #include "exo/cross/uuid.h"
 
-#include <exo/prelude.h>
+#include "exo/prelude.h"
+#include "exo/collections/map.h"
 
 #if defined(CROSS_WINDOWS)
-#include <windows.h>
-#include <rpc.h>
+#    include <windows.h>
+#    include <rpc.h>
 #endif
-#include <exo/collections/map.h>
-
 #include <fmt/core.h>
 
-namespace cross
-{
+#include <span>
 
 namespace
 {
-    void write_uuid_string(u32 (&data)[4], char (&str)[UUID::STR_LEN])
-    {
-        std::memset(str, 0, UUID::STR_LEN);
-        fmt::format_to(str, "{:08x}-{:08x}-{:08x}-{:08x}", data[0], data[1], data[2], data[3]);
-    }
+void write_uuid_string(u32 (&data)[4], char (&str)[cross::UUID::STR_LEN])
+{
+    std::memset(str, 0, cross::UUID::STR_LEN);
+    fmt::format_to(str, "{:08x}-{:08x}-{:08x}-{:08x}", data[0], data[1], data[2], data[3]);
 }
+} // namespace
 
+namespace cross
+{
 UUID UUID::create()
 {
     UUID new_uuid = {};
@@ -29,7 +29,7 @@ UUID UUID::create()
 #if defined(CROSS_WINDOWS)
     while (!new_uuid.is_valid())
     {
-        auto *win32_uuid = reinterpret_cast<::UUID*>(&new_uuid.data);
+        auto *win32_uuid = reinterpret_cast<::UUID *>(&new_uuid.data);
         static_assert(sizeof(::UUID) == sizeof(u32) * 4);
         auto res = ::UuidCreate(win32_uuid);
         ASSERT(res == RPC_S_OK);
@@ -40,8 +40,7 @@ UUID UUID::create()
     return new_uuid;
 }
 
-
-UUID UUID::from_string(const char* s, usize len)
+UUID UUID::from_string(const char *s, usize len)
 {
     UUID new_uuid;
 
@@ -65,9 +64,9 @@ UUID UUID::from_string(const char* s, usize len)
     for (usize i_data = 0; i_data < 4; i_data += 1)
     {
         // 0..8, 1..17, 18..26, 27..35
-        for (usize i = (i_data * 9); i < (i_data+1) * 8 + i_data; i += 1)
+        for (usize i = (i_data * 9); i < (i_data + 1) * 8 + i_data; i += 1)
         {
-            uint n = static_cast<uint>(s[i] >= 'a' ? s[i] - 'a' + 10 : s[i] - '0');
+            uint n                = static_cast<uint>(s[i] >= 'a' ? s[i] - 'a' + 10 : s[i] - '0');
             new_uuid.data[i_data] = new_uuid.data[i_data] * 16 + n;
         }
     }
@@ -92,3 +91,13 @@ usize hash_value(const cross::UUID &uuid)
 }
 
 } // namespace cross
+
+template<>
+void Serializer::serialize<cross::UUID>(cross::UUID &data)
+{
+    serialize(data.data);
+    if (this->is_writing == false)
+    {
+        write_uuid_string(data.data, data.str);
+    }
+}

@@ -4,9 +4,6 @@
 #include <exo/cross/uuid.h>
 
 #include "assets/asset.h"
-#include "schemas/texture_header_generated.h"
-
-struct Texture;
 
 struct TextureTransform
 {
@@ -30,14 +27,13 @@ struct Material : Asset
     cross::UUID      metallic_roughness_texture = {};
     TextureTransform uv_transform               = {};
 
-    const char *type_name() const final
-    {
-        return "Material";
-    }
-    void from_flatbuffer(const void *data, usize len) final;
-    void to_flatbuffer(flatbuffers::FlatBufferBuilder &builder, u32 &o_offset, u32 &o_size) const final;
+    const char *type_name() const final { return "Material"; }
+    void serialize(Serializer& serializer) final;
 
     void display_ui() final;
 
     bool operator==(const Material &other) const = default;
 };
+
+template<>
+void Serializer::serialize<Material>(Material &data);

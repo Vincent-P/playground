@@ -1,5 +1,6 @@
 set(SOURCE_FILES
   src/lib.cpp
+  src/serializer.cpp
 
   src/collections/pool.cpp
   src/collections/index_map.cpp

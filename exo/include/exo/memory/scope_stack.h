@@ -19,6 +19,8 @@ public:
     template<typename T>
     T *allocate();
 
+    inline void *allocate(usize size);
+
     ScopeStack() = default;
     ScopeStack(const ScopeStack &other) = delete;
     ScopeStack &operator=(const ScopeStack &other) = delete;
@@ -65,4 +67,9 @@ T *ScopeStack::allocate()
         // Allocate memory for T, call its constructor
         return new (allocator->allocate(sizeof(T))) T;
     }
+}
+
+inline void *ScopeStack::allocate(usize size)
+{
+    return allocator->allocate(size);
 }

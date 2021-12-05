@@ -1,15 +1,15 @@
 #pragma once
+#include <exo/base/logger.h>
 #include <exo/collections/map.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/dynamic_array.h>
-#include <exo/base/logger.h>
-
 #include <exo/cross/uuid.h>
+#include <exo/memory/linear_allocator.h>
+#include <exo/serializer.h>
+
 #include "assets/importers/generic_importer.h"
 #include "assets/asset.h"
 
-#include <concepts>
-#include <string_view>
 #include <filesystem>
 
 
@@ -55,7 +55,7 @@ struct JsonError
 struct ResourceMeta
 {
     cross::UUID uuid;
-    std::string display_name;
+    const char *display_name;
     std::filesystem::path resource_path;
     std::filesystem::path meta_path;
     void *importer_data; // importer specific data (import settings, internal UUIDs, etc)
@@ -66,7 +66,7 @@ struct ResourceMeta
 struct AssetMeta
 {
     cross::UUID uuid;
-    std::string display_name;
+    const char *display_name;
     u64 asset_hash;
 };
 
@@ -215,7 +215,15 @@ void AssetManager::add_asset_loader(const char (&file_identifier)[5])
         {
             auto *self    = reinterpret_cast<AssetManager *>(user_data);
             auto *derived = self->create_asset<AssetType>(asset_uuid);
-            derived->from_flatbuffer(file_data, file_size);
+
+            ScopeStack scope       = ScopeStack::with_allocator(&tls_allocator);
+            Serializer serializer  = Serializer::create(&scope);
+            serializer.buffer      = const_cast<void *>(file_data);
+            serializer.buffer_size = file_size;
+            serializer.is_writing  = false;
+
+            serializer.serialize(*derived);
+
             derived->state = AssetState::Loaded;
             return derived;
         },

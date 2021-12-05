@@ -17,10 +17,10 @@
 #include <exo/cross/uuid.h>
 #include <exo/base/logger.h>
 
+#include <exo/memory/string_repository.h>
 #include <filesystem>
 #include <cstdio>
 
-#include <flatbuffers/flatbuffers.h>
 #include <leaf.hpp>
 #include <meow_hash_x64_aesni.h>
 #include <rapidjson/document.h>
@@ -228,7 +228,7 @@ void AssetManager::display_ui()
                     const auto &metadata = asset_metadatas[uuid];
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%s", metadata.display_name.c_str());
+                    ImGui::Text("%s", metadata.display_name);
 
                     ImGui::TableSetColumnIndex(4);
                     ImGui::Text("%zX", metadata.asset_hash);
@@ -258,7 +258,7 @@ void AssetManager::display_ui()
         {
             ImGui::Separator();
             Asset *selected_asset = assets.at(s_selected);
-            ImGui::Text("Selected %s", selected_asset->name.c_str());
+            ImGui::Text("Selected %s", selected_asset->name);
             selected_asset->display_ui();
             ImGui::Separator();
         }
@@ -288,7 +288,7 @@ void AssetManager::display_ui()
                 ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", resource_meta.display_name.c_str());
+                ImGui::Text("%s", resource_meta.display_name);
 
                 ImGui::TableSetColumnIndex(2);
                 ImGui::Text("%s", resource_meta.resource_path.string().c_str());
@@ -337,7 +337,7 @@ void AssetManager::display_ui()
                 ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", asset_meta.display_name.c_str());
+                ImGui::Text("%s", asset_meta.display_name);
 
                 ImGui::TableSetColumnIndex(2);
                 ImGui::Text("%zX", asset_meta.asset_hash);
@@ -414,20 +414,19 @@ Result<Asset*> AssetManager::get_asset(cross::UUID asset_uuid)
 
 Result<void> AssetManager::save_asset(Asset *asset)
 {
-    flatbuffers::FlatBufferBuilder builder(2 << 12);
-
-    u32 offset = 0;
-    u32 size = 0;
-    asset->to_flatbuffer(builder, offset, size);
-
-    // to_flatbuffer not implemented?
-    ASSERT(size > 0);
+    ScopeStack scope = ScopeStack::with_allocator(&tls_allocator);
+    Serializer serializer  = Serializer::create(&scope);
+    serializer.buffer_size = 10_MiB;
+    serializer.buffer      = scope.allocate(serializer.buffer_size);
+    serializer.is_writing = true;
+    asset->serialize(serializer);
 
     // Save asset to disk
     auto  asset_path = assets_directory / asset->uuid.as_string();
     FILE *fp         = fopen(asset_path.string().c_str(), "wb"); // non-Windows use "w"
-    auto  bwritten   = fwrite(builder.GetBufferPointer(), 1, builder.GetSize(), fp);
-    ASSERT(bwritten == builder.GetSize());
+    auto  bwritten   = fwrite(serializer.buffer, 1, serializer.offset, fp);
+    ASSERT(bwritten == serializer.offset);
+
     fclose(fp);
 
     // Load or create asset meta
@@ -455,7 +454,7 @@ Result<Asset*> AssetManager::load_asset(cross::UUID asset_uuid)
     auto asset_path = assets_directory / asset_uuid.as_string();
     auto asset_file = cross::MappedFile::open(asset_path.string()).value();
 
-    const char *file_identifier = flatbuffers::GetBufferIdentifier(asset_file.base_addr);
+    const char *file_identifier = reinterpret_cast<const char*>(ptr_offset(asset_file.base_addr, sizeof(u64)));
     u32 i_loader = 0;
     for (; i_loader < loaders.size(); i_loader += 1)
     {
@@ -498,7 +497,9 @@ Result<Asset*> AssetManager::load_or_import_resource(cross::UUID resource_uuid)
     auto  resource_file = cross::MappedFile::open(resource_meta.resource_path.string()).value();
     u64   file_hash     = hash_file(resource_file.base_addr, resource_file.size);
 
-    if (resource_meta.last_imported_hash == file_hash)
+    auto asset_path = assets_directory / resource_uuid.as_string();
+
+    if (resource_meta.last_imported_hash == file_hash && std::filesystem::exists(asset_path))
     {
         return load_asset(resource_uuid);
     }
@@ -578,7 +579,7 @@ Result<void> AssetManager::save_resource_meta(GenericImporter &importer, Resourc
     writer.Key("uuid");
     writer.String(meta.uuid.str, cross::UUID::STR_LEN);
     writer.Key("display_name");
-    writer.String(meta.display_name.c_str(), static_cast<u32>(meta.display_name.size()));
+    writer.String(meta.display_name, strlen(meta.display_name));
     writer.Key("resource_path");
     writer.String(meta.resource_path.string().c_str(), static_cast<u32>(meta.resource_path.string().size()));
     writer.Key("meta_path");
@@ -617,7 +618,7 @@ Result<cross::UUID> AssetManager::load_resource_meta(GenericImporter &importer, 
     u64         last_imported_hash = document["last_imported_hash"].GetUint64();
 
     ResourceMeta &new_meta      = resource_metadatas[uuid];
-    new_meta.display_name       = std::string(display_name_str);
+    new_meta.display_name       = tls_string_repository.intern(display_name_str);
     new_meta.uuid               = uuid;
     new_meta.resource_path      = std::string(resource_path_str);
     new_meta.meta_path          = std::string(meta_path_str);
@@ -660,7 +661,7 @@ Result<void> AssetManager::save_asset_meta(AssetMeta &meta)
     writer.Key("uuid");
     writer.String(meta.uuid.str, cross::UUID::STR_LEN);
     writer.Key("display_name");
-    writer.String(meta.display_name.c_str(), static_cast<u32>(meta.display_name.size()));
+    writer.String(meta.display_name, strlen(meta.display_name));
     writer.Key("asset_hash");
     writer.Uint64(meta.asset_hash);
     writer.EndObject();
@@ -693,7 +694,7 @@ Result<AssetMeta&> AssetManager::load_asset_meta(cross::UUID uuid)
     auto        asset_hash       = document["asset_hash"].GetUint64();
 
     AssetMeta &new_meta   = asset_metadatas[uuid];
-    new_meta.display_name = std::string(display_name_str);
+    new_meta.display_name = tls_string_repository.intern(display_name_str);
     new_meta.uuid         = uuid;
     new_meta.asset_hash   = asset_hash;
 

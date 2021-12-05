@@ -1,9 +1,9 @@
 #pragma once
-
-#include <exo/maths/numerics.h>
+#include "exo/maths/numerics.h"
+#include "exo/collections/map.h"
 #include "exo/cross/prelude.h"
+#include "exo/serializer.h"
 
-#include <exo/collections/map.h>
 #include <fmt/format.h>
 
 #include <string_view>
@@ -47,3 +47,6 @@ struct fmt::formatter<cross::UUID>
         return format_to(ctx.out(), "{:.{}}", uuid.str, cross::UUID::STR_LEN);
     }
 };
+
+template<>
+void Serializer::serialize<cross::UUID>(cross::UUID &data);

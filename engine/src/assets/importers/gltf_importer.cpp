@@ -1,5 +1,6 @@
 #include "assets/importers/gltf_importer.h"
 
+#include <exo/memory/string_repository.h>
 #include <exo/prelude.h>
 #include <exo/base/logger.h>
 
@@ -277,7 +278,7 @@ static void import_meshes(ImportContext &ctx)
 
         if (j_mesh.HasMember("name"))
         {
-            new_mesh->name = std::string{j_mesh["name"].GetString()};
+            new_mesh->name = tls_string_repository.intern(j_mesh["name"].GetString());
         }
 
         for (auto &j_primitive : j_mesh["primitives"].GetArray())
@@ -527,7 +528,7 @@ static void import_nodes(ImportContext &ctx)
         ctx.new_scene->names.emplace_back();
         if (j_node.HasMember("name"))
         {
-            ctx.new_scene->names.back() = std::string{j_node["name"].GetString()};
+            ctx.new_scene->names.back() = tls_string_repository.intern(j_node["name"].GetString());
         }
 
         ctx.new_scene->children.emplace_back();
@@ -576,7 +577,7 @@ static void import_materials(ImportContext &ctx)
 
         if (j_material.HasMember("name"))
         {
-            new_material->name = std::string{j_material["name"].GetString()};
+            new_material->name = tls_string_repository.intern(j_material["name"].GetString());
         }
 
         if (j_material.HasMember("pbrMetallicRoughness"))
@@ -691,7 +692,7 @@ static void import_textures(ImportContext &ctx)
 
         if (j_image.HasMember("name"))
         {
-            new_texture->name = std::string{j_image["name"].GetString()};
+            new_texture->name = tls_string_repository.intern(j_image["name"].GetString());
         }
 
         ctx.asset_manager->save_asset(new_texture);

@@ -101,7 +101,6 @@ static void destroy_internal(FileWatcher &fw)
 {
     for (auto &watch : fw.watches)
     {
-        (void)(watch); // TODO: custom assert, unused variable on release
         BOOL res = CloseHandle(watch.directory_handle);
         ASSERT(res);
     }

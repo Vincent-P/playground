@@ -34,3 +34,5 @@ struct StringRepository
     char    *string_buffer = nullptr;
     usize    buffer_size   = 0;
 };
+
+inline thread_local auto tls_string_repository = StringRepository::create();

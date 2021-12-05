@@ -123,7 +123,7 @@ void Scene::display_ui()
                     ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
 
                     ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("%s", asset->name.c_str());
+                    ImGui::Text("%s", asset->name);
 
                     ImGui::PopID();
                 }
