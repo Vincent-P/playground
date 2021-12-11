@@ -8,7 +8,7 @@
 #include <exo/base/logger.h>
 
 #include <exo/maths/vectors.h>
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 
 EditorCameraInputSystem::EditorCameraInputSystem(const Inputs *_inputs)

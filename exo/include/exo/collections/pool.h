@@ -299,7 +299,7 @@ const T *Pool<T>::get(Handle<T> handle) const
     auto *metadata  = metadata_ptr(*this, i_element);
     auto *element   = element_ptr(*this, i_element);
 
-    return handle.index < size && metadata->generation == handle.gen ? element : nullptr;
+    return handle.is_valid() && metadata->generation == handle.gen ? element : nullptr;
 }
 
 template <typename T>
@@ -321,7 +321,6 @@ void Pool<T>::remove(Handle<T> handle)
     auto *element    = element_ptr(*this, handle.index);
     auto *freelist   = freelist_ptr(*this, handle.index);
 
-    ASSERT(handle.index < size);
     ASSERT(metadata->generation == handle.gen);
     ASSERT(metadata->is_occupied == 1);
 

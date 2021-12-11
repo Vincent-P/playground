@@ -5,7 +5,7 @@
 
 #include "inputs.h"
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <fmt/format.h>
 #include <string>
 

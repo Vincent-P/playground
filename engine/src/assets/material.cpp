@@ -1,6 +1,6 @@
 #include "assets/material.h"
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 void Material::display_ui()
 {

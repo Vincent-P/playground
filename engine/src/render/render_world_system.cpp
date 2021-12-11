@@ -5,7 +5,7 @@
 #include "gameplay/components/camera_component.h"
 
 #include <exo/base/logger.h>
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 PrepareRenderWorld::PrepareRenderWorld()
 {

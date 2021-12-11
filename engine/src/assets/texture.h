@@ -25,6 +25,7 @@ struct Texture : Asset
 {
     const char *type_name() const final { return "Texture"; }
     void serialize(Serializer& serializer) final;
+    void display_ui() final {}
 
     PixelFormat format;
     ImageExtension extension;

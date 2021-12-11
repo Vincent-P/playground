@@ -53,6 +53,11 @@ float3 hash_to_float3(uvec3 hash)
     return float3(hash) * (1.0/float(0xffffffffu));
 }
 
+float2 hash_to_float2(uvec2 hash)
+{
+    return float2(hash) * (1.0/float(0xffffffffu));
+}
+
 float hash_to_float(uint hash)
 {
     return hash * (1.0/float(0xffffffffu));

@@ -13,7 +13,7 @@
 
 // third party
 #include <fmt/core.h>
-#include <tracy/Tracy.hpp>
+#include <Tracy.hpp>
 
 // exo
 #include <exo/prelude.h>

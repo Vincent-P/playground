@@ -7,13 +7,14 @@ add_library(imgui
   imgui/imgui_widgets.cpp)
 
 target_compile_definitions(imgui PUBLIC IMGUI_USER_CONFIG="imgui_config.h")
+target_include_directories(imgui SYSTEM PUBLIC imgui/)
 target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/exo/include/ ${CMAKE_SOURCE_DIR}/engine/src/)
 set_target_properties(imgui PROPERTIES CXX_STANDARD 20)
 target_compile_options(imgui PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
 # {fmt}
 add_library(fmt fmt/src/format.cc fmt/src/os.cc)
-target_include_directories(fmt PUBLIC fmt/include)
+target_include_directories(fmt SYSTEM PUBLIC fmt/include)
 target_compile_options(fmt PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
 # meshoptimizer
@@ -33,7 +34,6 @@ add_library(meshopt
   meshoptimizer/vertexfilter.cpp
   meshoptimizer/vfetchanalyzer.cpp
   meshoptimizer/vfetchoptimizer.cpp)
-
 target_include_directories(meshopt SYSTEM PUBLIC meshoptimizer/)
 target_compile_options(meshopt PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
@@ -93,8 +93,6 @@ add_library(libktx
     libktx/src/vkformat_enum.h
     libktx/src/vkformat_str.c
   )
-
-
 target_compile_definitions(libktx PUBLIC
   KHRONOS_STATIC
   KTX_FEATURE_WRITE=0
@@ -102,8 +100,6 @@ target_compile_definitions(libktx PUBLIC
   BASISD_SUPPORT_KTX2=0
   BASISD_SUPPORT_FXT1=0
   BASISU_NO_ITERATOR_DEBUG_LEVEL)
-
-
 target_include_directories(libktx SYSTEM PUBLIC libktx/include/)
 target_include_directories(libktx PRIVATE
     libktx/src
@@ -111,7 +107,6 @@ target_include_directories(libktx PRIVATE
     libktx/src/basisu/transcoder
     libktx/other_include
     libktx/utils)
-
 target_compile_options(libktx PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_link_libraries(libktx
   Vulkan::Vulkan
@@ -150,7 +145,29 @@ target_link_libraries(libspng zlib_ng)
 target_include_directories(libspng SYSTEM PUBLIC libspng/)
 target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 
-#tracy profiler
+#Tracy profiler
 add_library(tracy tracy/TracyClient.cpp)
+target_include_directories(tracy SYSTEM PUBLIC tracy/)
 target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
+
+#parallel hashmap
+add_library(parallel_hashmap INTERFACE)
+target_include_directories(parallel_hashmap INTERFACE SYSTEM parallel_hashmap/)
+
+#xxhash
+add_library(xxhash INTERFACE)
+target_compile_definitions(xxhash INTERFACE XXH_INLINE_ALL XXH_PRIVATE_API)
+target_include_directories(xxhash INTERFACE SYSTEM xxhash/)
+
+#leaf
+add_library(leaf INTERFACE)
+target_include_directories(leaf INTERFACE SYSTEM leaf/)
+
+#rapidjson
+add_library(rapidjson INTERFACE)
+target_include_directories(rapidjson INTERFACE SYSTEM rapidjson/)
+
+#meow hash
+add_library(meow_hash INTERFACE)
+target_include_directories(meow_hash INTERFACE SYSTEM meow_hash/)

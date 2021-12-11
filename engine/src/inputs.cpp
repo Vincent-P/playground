@@ -7,7 +7,7 @@
 #include <exo/algorithms.h>
 #include <exo/cross/events.h>
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <ranges>
 
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }

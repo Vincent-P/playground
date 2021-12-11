@@ -36,8 +36,16 @@ $ cmake --build --preset default --target install
 - The executable will be in `install/bin/engine.exe` and needs to be started in `install/bin`.
 
 # Dependencies
-- STB Image (https://github.com/nothings/stb)
-- simdjson (https://github.com/simdjson/simdjson)
-- Vulkan Memory Allocator (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
-- ImGui (https://github.com/ocornut/imgui)
-- doctest (https://github.com/onqtam/doctest)
+- Dear ImGui, Bloat-free Graphical User interface for C++ with minimal dependencies (https://github.com/ocornut/imgui)
+- meshoptimizer, Mesh optimization library that makes meshes smaller and faster to render (https://github.com/zeux/meshoptimizer)
+- Vulkan Memory Allocator, Easy to integrate Vulkan memory allocation library (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- Tracy Profiler, A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications (https://github.com/wolfpld/tracy)
+- {fmt}, A modern formatting library (https://github.com/fmtlib/fmt)
+- LEAF, A lightweight error handling library for C++11 (https://github.com/boostorg/leaf)
+- parallel-hashmap, A family of header-only, very fast and memory-friendly hashmap and btree containers (https://github.com/greg7mdp/parallel-hashmap)
+- zlib-ng, zlib replacement with optimizations for "next generation" systems (https://github.com/zlib-ng/zlib-ng)
+- libktx, a small library of functions for writing and reading KTX files (https://github.com/KhronosGroup/KTX-Software)
+- libspng, Simple, modern libpng alternative (https://github.com/randy408/libspng)
+- RapidJSON, A fast JSON parser/generator for C++ with both SAX/DOM style API (https://github.com/Tencent/rapidjson)
+- xxhash, Extremely fast non-cryptographic hash algorithm (https://github.com/Cyan4973/xxHash)
+- Meow hash, an extremely fast level 1 hash (https://github.com/cmuratori/meow_hash)

@@ -5,8 +5,8 @@
 #include <exo/memory/string_repository.h>
 #include <exo/memory/scope_stack.h>
 
-#include <tracy/Tracy.hpp>
-#include <imgui/imgui.h>
+#include <Tracy.hpp>
+#include <imgui.h>
 
 BaseRenderer *BaseRenderer::create(ScopeStack &scope, cross::Window *window, gfx::DeviceDescription desc)
 {

@@ -44,7 +44,6 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
 
-
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
   $<$<CXX_COMPILER_ID:MSVC>:/permissive->
   $<$<CXX_COMPILER_ID:MSVC>:/w14640> # Enable warning on thread un-safe static member initialization

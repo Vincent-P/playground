@@ -19,7 +19,7 @@
 #include <exo/algorithms.h>
 
 #include <array>
-#include <tracy/Tracy.hpp>
+#include <Tracy.hpp>
 
 namespace cross
 {

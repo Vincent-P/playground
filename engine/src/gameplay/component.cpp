@@ -1,5 +1,5 @@
 #include "gameplay/component.h"
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 void SpatialComponent::set_local_transform(const float4x4 &new_transform)
 {

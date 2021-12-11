@@ -28,7 +28,7 @@
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/filewritestream.h>
 #include <string.h>
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 // -- Utils
 namespace

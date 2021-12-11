@@ -59,23 +59,22 @@ target_precompile_headers(engine PRIVATE src/pch.h)
 target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(engine PRIVATE src)
-target_include_directories(engine SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 
 target_link_libraries(engine
   exo
+  Vulkan::Vulkan
+  Threads::Threads
   imgui
   meshopt
   vma
   libktx
   libspng
-  Vulkan::Vulkan
-  Threads::Threads
-  tracy)
+  tracy
+  rapidjson
+  meow_hash)
 
 add_subdirectory(shaders/)
 add_dependencies(engine shaders)
-
-target_include_directories(engine PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/schemas/generated)
 
 target_compile_definitions(engine PRIVATE
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"

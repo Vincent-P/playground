@@ -3,9 +3,7 @@
 #include "exo/prelude.h"
 #include "exo/cross/memory/virtual_allocator.h"
 
-#define XXH_INLINE_ALL
-#define XXH_PRIVATE_API
-#include <xxhash/xxhash.h>
+#include <xxhash.h>
 
 StringRepository StringRepository::create()
 {

@@ -19,7 +19,7 @@
 #include "gameplay/systems/editor_camera_systems.h"
 #include "render/render_world_system.h"
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <leaf.hpp>
 
 

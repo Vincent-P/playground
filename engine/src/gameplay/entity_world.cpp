@@ -9,7 +9,7 @@
 
 #include "ui.h"
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 #include <exo/base/logger.h>
 
 EntityWorld::EntityWorld()

@@ -67,13 +67,12 @@ endif()
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo)
 
-target_link_libraries(exo PUBLIC ${CROSS_LIBS} fmt)
+target_link_libraries(exo PUBLIC ${CROSS_LIBS} fmt parallel_hashmap tracy xxhash leaf)
 
 target_compile_options(exo PRIVATE ${APP_CXX_FLAGS})
 
 target_include_directories(exo SYSTEM PUBLIC include)
 target_include_directories(exo PRIVATE src)
-target_include_directories(exo SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
 
 target_compile_definitions(exo PUBLIC
   $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros

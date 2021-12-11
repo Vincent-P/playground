@@ -24,11 +24,13 @@ inline constexpr const char *to_string(AssetState state) { return asset_state_to
 
 struct Asset
 {
-    cross::UUID uuid;
-    AssetState state;
-    const char *name;
+    virtual ~Asset() {}
 
-    Vec<cross::UUID> dependencies;
+    virtual const char *type_name() const = 0;
+    virtual void serialize(Serializer& serializer) = 0;
+    virtual void display_ui() = 0;
+
+    bool operator==(const Asset &other) const = default;
 
     inline void add_dependency_checked(cross::UUID dependency)
     {
@@ -46,14 +48,11 @@ struct Asset
         }
     }
 
-    virtual ~Asset() {}
-
-    virtual const char *type_name() const { return "Asset"; }
-    virtual void serialize(Serializer& serializer) = 0;
-
-    virtual void display_ui() {};
-
-    bool operator==(const Asset &other) const = default;
+    // --
+    cross::UUID uuid;
+    AssetState state;
+    const char *name;
+    Vec<cross::UUID> dependencies;
 };
 
 template<>
