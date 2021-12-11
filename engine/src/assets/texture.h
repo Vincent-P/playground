@@ -23,6 +23,7 @@ enum struct PixelFormat : u16
 
 struct Texture : Asset
 {
+    static Asset *create();
     const char *type_name() const final { return "Texture"; }
     void serialize(Serializer& serializer) final;
     void display_ui() final {}

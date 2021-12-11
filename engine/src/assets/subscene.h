@@ -7,6 +7,7 @@
 // Hierarchy of entities made of meshes and transforms
 struct SubScene : Asset
 {
+    static Asset *create();
     const char *type_name() const final { return "SubScene"; }
     void serialize(Serializer& serializer) final;
     void display_ui() final {}

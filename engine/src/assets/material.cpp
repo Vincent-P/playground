@@ -1,6 +1,14 @@
 #include "assets/material.h"
+#include "assets/asset_constructors.h"
 
 #include <imgui.h>
+
+static int material_ctor = global_asset_constructors().add_constructor("MTRL", &Material::create);
+
+Asset *Material::create()
+{
+    return new Material();
+}
 
 void Material::display_ui()
 {

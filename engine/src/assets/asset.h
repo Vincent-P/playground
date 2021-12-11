@@ -55,10 +55,8 @@ struct Asset
     Vec<cross::UUID> dependencies;
 };
 
+// https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
+struct AssetConstructors &global_asset_constructors();
+
 template<>
-inline void Serializer::serialize<Asset>(Asset &data)
-{
-    serialize(data.uuid);
-    serialize(data.name);
-    serialize(data.dependencies);
-}
+void Serializer::serialize<Asset>(Asset &data);

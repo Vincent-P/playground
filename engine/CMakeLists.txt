@@ -9,10 +9,11 @@ set(SOURCE_FILES
 
   # assets
   src/assets/asset_manager.cpp
-  src/assets/texture.cpp
   src/assets/importers/gltf_importer.cpp
   src/assets/importers/png_importer.cpp
   src/assets/importers/ktx2_importer.cpp
+  src/assets/asset.cpp
+  src/assets/texture.cpp
   src/assets/material.cpp
   src/assets/mesh.cpp
   src/assets/subscene.cpp

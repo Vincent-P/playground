@@ -1,4 +1,12 @@
 #include "assets/subscene.h"
+#include "assets/asset_constructors.h"
+
+static int subscene_ctor = global_asset_constructors().add_constructor("SBSC", &SubScene::create);
+
+Asset *SubScene::create()
+{
+    return new SubScene();
+}
 
 void SubScene::serialize(Serializer& serializer)
 {

@@ -1,7 +1,12 @@
 #include "assets/texture.h"
+#include "assets/asset_constructors.h"
 
-#include <exo/collections/vector.h>
-#include <utility>
+static int texture_ctor = global_asset_constructors().add_constructor("TXTR", &Texture::create);
+
+Asset *Texture::create()
+{
+    return new Texture();
+}
 
 void Texture::serialize(Serializer& serializer)
 {

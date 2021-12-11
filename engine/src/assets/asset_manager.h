@@ -70,15 +70,6 @@ struct AssetMeta
     u64 asset_hash;
 };
 
-using AssetLoaderFunc = Asset* (*)(cross::UUID asset_uuid, const void *file_data, usize file_size, void *user_data);
-struct AssetLoader
-{
-    char file_identifier[5] = {};
-    AssetLoaderFunc func = nullptr;
-    void *user_data = nullptr;
-};
-
-
 struct AssetManager
 {
     static AssetManager *create(ScopeStack &scope);
@@ -104,13 +95,11 @@ struct AssetManager
     inline const Map<cross::UUID, AssetMeta> &get_assets_metadata() const { return asset_metadatas; }
     inline const Map<cross::UUID, Asset*> &get_assets() const { return assets; }
 
-    // Registers a new asset type identified by the file_identifier
-    template <std::derived_from<Asset> AssetType>
-    void add_asset_loader(const char (&file_identifier)[5]);
-
     // Used by importers to create an asset manually
     template<std::derived_from<Asset> AssetType>
     AssetType* create_asset(cross::UUID uuid = {});
+
+    void create_asset_internal(Asset *asset, cross::UUID uuid = {});
 
     // Used by importers when the asset created manually has finished importing and needs to be saved to disk
     Result<void> save_asset(Asset *asset);
@@ -200,49 +189,15 @@ private:
     Map<cross::UUID, AssetMeta> asset_metadatas;
 
     DynamicArray<GenericImporter, 16> importers; // import resource into assets
-    DynamicArray<AssetLoader, 16> loaders; // load assets on memory
 };
 
 
 // -- Template Implementations
 
 template <std::derived_from<Asset> AssetType>
-void AssetManager::add_asset_loader(const char (&file_identifier)[5])
-{
-    loaders.push_back(AssetLoader{
-        .file_identifier = {file_identifier[0], file_identifier[1], file_identifier[2], file_identifier[3], file_identifier[4]},
-        .func = [](cross::UUID asset_uuid, const void *file_data, usize file_size, void *user_data) -> Asset *
-        {
-            auto *self    = reinterpret_cast<AssetManager *>(user_data);
-            auto *derived = self->create_asset<AssetType>(asset_uuid);
-
-            ScopeStack scope       = ScopeStack::with_allocator(&tls_allocator);
-            Serializer serializer  = Serializer::create(&scope);
-            serializer.buffer      = const_cast<void *>(file_data);
-            serializer.buffer_size = file_size;
-            serializer.is_writing  = false;
-
-            serializer.serialize(*derived);
-
-            derived->state = AssetState::Loaded;
-            return derived;
-        },
-        .user_data = this,
-    });
-}
-
-template <std::derived_from<Asset> AssetType>
 AssetType *AssetManager::create_asset(cross::UUID uuid)
 {
-    if (!uuid.is_valid())
-    {
-        uuid = cross::UUID::create();
-    }
-    ASSERT(assets.contains(uuid) == false);
-    ASSERT(uuid.is_valid());
-
     AssetType *new_asset = new AssetType();
-    assets[uuid]         = reinterpret_cast<Asset *>(new_asset);
-    new_asset->uuid      = uuid;
+    this->create_asset_internal(new_asset, uuid);
     return new_asset;
 }

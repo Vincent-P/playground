@@ -1,4 +1,12 @@
 #include "assets/mesh.h"
+#include "assets/asset_constructors.h"
+
+static int mesh_ctor = global_asset_constructors().add_constructor("MESH", &Mesh::create);
+
+Asset *Mesh::create()
+{
+    return new Mesh();
+}
 
 void Mesh::serialize(Serializer& serializer)
 {

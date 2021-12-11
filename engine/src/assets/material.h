@@ -27,6 +27,7 @@ struct Material : Asset
     cross::UUID      metallic_roughness_texture = {};
     TextureTransform uv_transform               = {};
 
+    static Asset *create();
     const char *type_name() const final { return "Material"; }
     void serialize(Serializer& serializer) final;
 

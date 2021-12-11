@@ -2,14 +2,11 @@
 
 #include "ui.h"
 
+#include "assets/asset.h"
+#include "assets/asset_constructors.h"
 #include "assets/importers/gltf_importer.h"
 #include "assets/importers/png_importer.h"
 #include "assets/importers/ktx2_importer.h"
-
-#include "assets/mesh.h"
-#include "assets/subscene.h"
-#include "assets/texture.h"
-#include "assets/material.h"
 
 #include <exo/memory/scope_stack.h>
 #include <exo/cross/mapped_file.h>
@@ -57,11 +54,6 @@ AssetManager *AssetManager::create(ScopeStack &scope)
     asset_manager->importers.push_back(GLTFImporter{});
     asset_manager->importers.push_back(PNGImporter{});
     asset_manager->importers.push_back(KTX2Importer{});
-
-    asset_manager->add_asset_loader<Mesh>("MESH");
-    asset_manager->add_asset_loader<SubScene>("SBSC");
-    asset_manager->add_asset_loader<Texture>("TXTR");
-    asset_manager->add_asset_loader<Material>("MTRL");
 
     return asset_manager;
 }
@@ -194,11 +186,13 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 void AssetManager::display_ui()
 {
     ZoneScoped;
+
+    static cross::UUID s_selected = {};
+
     if (auto w = UI::begin_window("AssetManager"))
     {
         auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
 
-        static cross::UUID s_selected = {};
 
         ImGui::Text("Loaded assets");
         cross::UUID to_remove = {};
@@ -252,15 +246,6 @@ void AssetManager::display_ui()
             }
 
             ImGui::EndTable();
-        }
-
-        if (s_selected.is_valid() && assets.contains(s_selected))
-        {
-            ImGui::Separator();
-            Asset *selected_asset = assets.at(s_selected);
-            ImGui::Text("Selected %s", selected_asset->name);
-            selected_asset->display_ui();
-            ImGui::Separator();
         }
 
         if (to_remove.is_valid())
@@ -363,6 +348,18 @@ void AssetManager::display_ui()
             ImGui::EndTable();
         }
     }
+
+    if (auto w = UI::begin_window("Asset"))
+    {
+        if (s_selected.is_valid() && assets.contains(s_selected))
+        {
+            ImGui::Separator();
+            Asset *selected_asset = assets.at(s_selected);
+            ImGui::Text("Selected %s", selected_asset->name);
+            selected_asset->display_ui();
+            ImGui::Separator();
+        }
+    }
 }
 
 
@@ -412,6 +409,20 @@ Result<Asset*> AssetManager::get_asset(cross::UUID asset_uuid)
     return Err(AssetErrors::InvalidUUID, asset_uuid);
 }
 
+
+void AssetManager::create_asset_internal(Asset *asset, cross::UUID uuid)
+{
+    if (!uuid.is_valid())
+    {
+        uuid = cross::UUID::create();
+    }
+    ASSERT(assets.contains(uuid) == false);
+    ASSERT(uuid.is_valid());
+
+    assets[uuid]         = asset;
+    asset->uuid      = uuid;
+}
+
 Result<void> AssetManager::save_asset(Asset *asset)
 {
     ScopeStack scope = ScopeStack::with_allocator(&tls_allocator);
@@ -455,20 +466,22 @@ Result<Asset*> AssetManager::load_asset(cross::UUID asset_uuid)
     auto asset_file = cross::MappedFile::open(asset_path.string()).value();
 
     const char *file_identifier = reinterpret_cast<const char*>(ptr_offset(asset_file.base_addr, sizeof(u64)));
-    u32 i_loader = 0;
-    for (; i_loader < loaders.size(); i_loader += 1)
-    {
-        if (strncmp(loaders[i_loader].file_identifier, file_identifier, 4) == 0)
-        {
-            break;
-        }
-    }
-    if (i_loader >= loaders.size())
+    auto &asset_ctors = global_asset_constructors();
+    auto *new_asset = asset_ctors.create({file_identifier, 4});
+    if (!new_asset)
     {
         return Err(AssetErrors::NoLoaderFound, asset_uuid);
     }
+    this->create_asset_internal(new_asset, asset_uuid);
 
-    auto *new_asset = loaders[i_loader].func(asset_uuid, asset_file.base_addr, asset_file.size, loaders[i_loader].user_data);
+    ScopeStack scope       = ScopeStack::with_allocator(&tls_allocator);
+    Serializer serializer  = Serializer::create(&scope);
+    serializer.buffer      = const_cast<void *>(asset_file.base_addr);
+    serializer.buffer_size = asset_file.size;
+    serializer.is_writing  = false;
+    new_asset->serialize(serializer);
+    new_asset->state = AssetState::Loaded;
+
     for (auto dependency_uuid : new_asset->dependencies)
     {
         this->load_asset(dependency_uuid);

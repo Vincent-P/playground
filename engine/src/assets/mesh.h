@@ -30,6 +30,7 @@ inline void Serializer::serialize<SubMesh>(SubMesh &data)
 // Dependencies: Material
 struct Mesh : Asset
 {
+    static Asset *create();
     const char *type_name() const final { return "Mesh"; }
     void serialize(Serializer& serializer) final;
     void display_ui() final {}
