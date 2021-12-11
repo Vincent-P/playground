@@ -91,3 +91,5 @@ endfunction()
 add_subdirectory(third_party)
 add_subdirectory(exo)
 add_subdirectory(engine)
+
+install(TARGETS engine RUNTIME)

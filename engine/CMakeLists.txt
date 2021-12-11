@@ -52,7 +52,6 @@ set(SOURCE_FILES
 
 add_executable(engine ${SOURCE_FILES})
 setup_app_target(engine)
-install(TARGETS engine RUNTIME)
 
 target_precompile_headers(engine PRIVATE src/pch.h)
 
