@@ -11,9 +11,7 @@ find_package(Vulkan REQUIRED)
 find_package(Threads)
 find_program(IWYU_PATH NAMES include-what-you-use iwyu)
 
-# add_compile_definitions(ENABLE_DOCTEST)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-add_compile_definitions(RAPIDJSON_ASSERT=)
 
 # Global C++ flags
 add_compile_options(
@@ -91,5 +89,7 @@ endfunction()
 add_subdirectory(third_party)
 add_subdirectory(exo)
 add_subdirectory(engine)
+add_subdirectory(editor)
+add_subdirectory(render_sample)
 
 install(TARGETS engine RUNTIME)

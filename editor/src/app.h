@@ -1,10 +1,9 @@
 #pragma once
 #include <exo/cross/file_watcher.h>
 
-#include "inputs.h"
-#include "scene.h"
-
-#include "render/render_world.h"
+#include <engine/inputs.h>
+#include <engine/scene.h>
+#include <engine/render/render_world.h>
 
 struct ScopeStack;
 struct AssetManager;

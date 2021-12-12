@@ -148,7 +148,7 @@ target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 #Tracy profiler
 add_library(tracy tracy/TracyClient.cpp)
 target_include_directories(tracy SYSTEM PUBLIC tracy/)
-target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+#target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
 
 #parallel hashmap
@@ -166,6 +166,7 @@ target_include_directories(leaf INTERFACE SYSTEM leaf/)
 
 #rapidjson
 add_library(rapidjson INTERFACE)
+target_compile_definitions(rapidjson INTERFACE RAPIDJSON_ASSERT=)
 target_include_directories(rapidjson INTERFACE SYSTEM rapidjson/)
 
 #meow hash

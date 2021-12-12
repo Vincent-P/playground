@@ -4,10 +4,12 @@
 #include <exo/cross/window.h>
 #include <exo/memory/scope_stack.h>
 
-#include "render/renderer.h"
-#include "render/render_world_system.h"
-#include "assets/asset_manager.h"
-#include "ui.h"
+#include <engine/render/renderer.h>
+#include <engine/render/render_world_system.h>
+#include <engine/assets/asset_manager.h>
+#include <engine/ui.h>
+
+#include <Tracy.hpp>
 
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
@@ -56,7 +58,6 @@ App::~App()
     scene.destroy();
     UI::destroy_context();
 }
-
 
 void App::display_ui()
 {
@@ -113,6 +114,9 @@ void App::run()
         }
 
         window->events.clear();
+        if (window->should_close()) {
+            break;
+        }
 
         if (!is_minimized)
         {

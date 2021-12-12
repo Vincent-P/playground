@@ -11,7 +11,6 @@ layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 storage_output;
 };
 
-
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main()
 {
@@ -50,28 +49,28 @@ void main()
 
     uint3 rng_seed = uint3(pixel_pos, globals.frame_count);
 
-    const uint MAX_BOUNCE = 0;
-    const float3 BACKGROUND_COLOR = float3(0.0);
+    const uint MAX_BOUNCE = 2;
+    const float3 BACKGROUND_COLOR = float3(1.0);
     uint hit_count = 0;
     HitInfo hit_info;
     float3 radiance = float3(0.0);
     float3 throughput = float3(1.0);
 
     bool hit = tlas_closest_hit(ray, hit_info);
-    radiance = TurboColormap(float(hit_info.box_inter_count) / 500.0);
 
     for (u32 i_bounce = 0; i_bounce < MAX_BOUNCE; i_bounce += 1)
     {
         if (tlas_closest_hit(ray, hit_info) == false)
         {
             radiance = BACKGROUND_COLOR * throughput;
+            if (i_bounce == 0) {
+                radiance = float3(0.0);
+            }
             break;
         }
 
-
         RenderInstance instance = get_render_instance(hit_info.instance_id);
         RenderMesh mesh = get_render_mesh(instance.i_render_mesh);
-
 
         // -- Fetch geometry information
         u32    i_v0 = get_index(mesh.first_index + hit_info.triangle_id + 0);
@@ -80,8 +79,8 @@ void main()
         float3 p0   = get_position(mesh.first_position, i_v0).xyz;
         float3 p1   = get_position(mesh.first_position, i_v1).xyz;
         float3 p2   = get_position(mesh.first_position, i_v2).xyz;
-        float3 e1 = p1 - p0;
-        float3 e2 = p2 - p0;
+        float3 e1   = p1 - p0;
+        float3 e2   = p2 - p0;
 
         float3 surface_normal = normalize(cross(e1, e2));
 
@@ -96,10 +95,10 @@ void main()
         const float3 emissive = float3(0.0);
 
         // -- BRDF
-        float2 rng = hash3(rng_seed).xy;
+        float3 rng = hash_to_float3(hash3(rng_seed));
 
         float3 wo = world_to_tangent * -ray.direction;
-        float3 wi = lambert_sample(rng);
+        float3 wi = lambert_sample(rng.xy);
         float3 brdf = lambert_brdf(wo, wi, albedo);
         float pdf = lambert_pdf(wo, wi) ;
 
@@ -110,14 +109,7 @@ void main()
         ray.origin    = (ray.origin + hit_info.d * ray.direction) + surface_normal * 0.001;
         ray.direction = tangent_to_world * wi;
         ray.t_min = 0.0;
-        ray.t_max = 5.0;
-
-        #if 0
-        radiance = fract(ray.origin.xyz);
-        break;
-        #endif
-
-        break;
+        ray.t_max = 1.0 / 0.0;
     }
 
     imageStore(global_images_2d_rgba32f[storage_output], pixel_pos, float4(radiance, 1.0));

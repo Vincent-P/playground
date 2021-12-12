@@ -7,8 +7,8 @@
 #include <exo/memory/linear_allocator.h>
 #include <exo/serializer.h>
 
-#include "assets/importers/generic_importer.h"
-#include "assets/asset.h"
+#include "engine/assets/importers/generic_importer.h"
+#include "engine/assets/asset.h"
 
 #include <filesystem>
 

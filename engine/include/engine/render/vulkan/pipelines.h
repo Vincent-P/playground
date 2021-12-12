@@ -1,12 +1,11 @@
 #pragma once
-
 #include <exo/maths/numerics.h>
 #include <exo/base/option.h>
 #include <exo/collections/handle.h>
 #include <exo/collections/dynamic_array.h>
 
-#include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/operators.h"
+#include "engine/render/vulkan/descriptor_set.h"
+#include "engine/render/vulkan/operators.h"
 
 #include <string>
 #include <vulkan/vulkan.h>

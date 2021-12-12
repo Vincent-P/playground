@@ -1,9 +1,9 @@
 #pragma once
 #include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
-#include <unordered_map>
+#include <exo/collections/map.h>
 
-#include "render/vulkan/synchronization.h"
+#include "engine/render/vulkan/synchronization.h"
 
 namespace vulkan { struct WorkPool; struct Buffer; struct Image; struct Device;}
 namespace gfx = vulkan;
@@ -26,7 +26,7 @@ struct BufferUpload
 
 struct BufferUploads
 {
-    std::unordered_map<usize, BufferUpload> offsets;
+    Map<usize, BufferUpload> offsets;
 };
 
 struct ImageRegion
@@ -80,6 +80,6 @@ public:
     Vec<StagingArea> staging_areas;
     usize cpu_memory_usage;
 
-    std::unordered_map<Handle<gfx::Buffer>, BufferUploads> buffer_uploads;
-    std::unordered_map<Handle<gfx::Image>, ImageUpload> image_uploads;
+    Map<Handle<gfx::Buffer>, BufferUploads> buffer_uploads;
+    Map<Handle<gfx::Image>, ImageUpload> image_uploads;
 };

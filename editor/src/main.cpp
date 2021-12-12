@@ -2,6 +2,7 @@
 
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
+#include <Tracy.hpp>
 
 #if defined (ENABLE_DOCTEST)
 #define DOCTEST_CONFIG_IMPLEMENT

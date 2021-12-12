@@ -4,14 +4,14 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/pool.h>
 
-#include "render/vulkan/bindless_set.h"
-#include "render/vulkan/buffer.h"
-#include "render/vulkan/commands.h"
-#include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/image.h"
-#include "render/vulkan/physical_device.h"
-#include "render/vulkan/pipelines.h"
-#include "render/vulkan/synchronization.h"
+#include "engine/render/vulkan/bindless_set.h"
+#include "engine/render/vulkan/buffer.h"
+#include "engine/render/vulkan/commands.h"
+#include "engine/render/vulkan/descriptor_set.h"
+#include "engine/render/vulkan/image.h"
+#include "engine/render/vulkan/physical_device.h"
+#include "engine/render/vulkan/pipelines.h"
+#include "engine/render/vulkan/synchronization.h"
 
 #include <vk_mem_alloc.h>
 

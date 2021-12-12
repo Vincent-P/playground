@@ -299,7 +299,10 @@ const T *Pool<T>::get(Handle<T> handle) const
     auto *metadata  = metadata_ptr(*this, i_element);
     auto *element   = element_ptr(*this, i_element);
 
-    return handle.is_valid() && metadata->generation == handle.gen ? element : nullptr;
+    return handle.is_valid()
+        && i_element < capacity
+        && metadata->is_occupied
+        && metadata->generation == handle.gen ? element : nullptr;
 }
 
 template <typename T>
@@ -339,7 +342,15 @@ void Pool<T>::remove(Handle<T> handle)
 template <typename T>
 PoolIterator<T> Pool<T>::begin()
 {
-    return PoolIterator<T>(this, 0);
+    u32 i_element = 0;
+    for (; i_element < capacity; i_element += 1)
+    {
+        auto *metadata  = metadata_ptr(*this, i_element);
+        if (metadata->is_occupied) {
+            break;
+        }
+    }
+    return PoolIterator<T>(this, i_element);
 }
 
 template <typename T>
@@ -352,7 +363,15 @@ PoolIterator<T> Pool<T>::end()
 template <typename T>
 ConstPoolIterator<T> Pool<T>::begin() const
 {
-    return ConstPoolIterator<T>(this, 0);
+    u32 i_element = 0;
+    for (; i_element < capacity; i_element += 1)
+    {
+        auto *metadata = metadata_ptr(*this, i_element);
+        if (metadata->is_occupied) {
+            break;
+        }
+    }
+    return ConstPoolIterator<T>(this, i_element);
 }
 
 template <typename T>

@@ -1,7 +1,5 @@
 set(SOURCE_FILES
   # random
-  src/main.cpp
-  src/app.cpp
   src/camera.cpp
   src/scene.cpp
   src/inputs.cpp
@@ -25,6 +23,7 @@ set(SOURCE_FILES
   src/gameplay/loading_context.cpp
 
   # gameplay
+  src/gameplay/components/mesh_component.cpp
   src/gameplay/components/camera_component.cpp
   src/gameplay/systems/editor_camera_systems.cpp
 
@@ -51,16 +50,14 @@ set(SOURCE_FILES
   src/render/vulkan/graphics_pipeline.cpp
   src/render/vulkan/compute_pipeline.cpp)
 
-add_executable(engine ${SOURCE_FILES})
+add_library(engine STATIC ${SOURCE_FILES})
 setup_app_target(engine)
-
 target_precompile_headers(engine PRIVATE src/pch.h)
-
 target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
+target_include_directories(exo SYSTEM PUBLIC include)
+target_include_directories(engine PRIVATE src include/engine)
 
-target_include_directories(engine PRIVATE src)
-
-target_link_libraries(engine
+target_link_libraries(engine PUBLIC
   exo
   Vulkan::Vulkan
   Threads::Threads
@@ -76,7 +73,7 @@ target_link_libraries(engine
 add_subdirectory(shaders/)
 add_dependencies(engine shaders)
 
-target_compile_definitions(engine PRIVATE
+target_compile_definitions(engine PUBLIC
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
   COMPILED_ASSET_PATH="${CMAKE_SOURCE_DIR}/compiled_assets"
 

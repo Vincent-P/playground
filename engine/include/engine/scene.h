@@ -1,11 +1,12 @@
 #pragma once
-#include "gameplay/entity_world.h"
+#include <engine/gameplay/entity_world.h>
 #include <exo/collections/pool.h>
 
 class Inputs;
 struct AssetManager;
 struct Mesh;
 struct SubScene;
+struct EntityWorld;
 
 struct Scene
 {

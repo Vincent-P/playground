@@ -1,9 +1,8 @@
 #pragma once
-
 #include <exo/collections/map.h>
 
-#include "gameplay/system.h"
-#include "render/render_world.h"
+#include "engine/gameplay/system.h"
+#include "engine/render/render_world.h"
 
 struct RenderWorld;
 struct MeshComponent;
