@@ -1,13 +1,13 @@
-#include "exo/cross/file_dialog.h"
+#include "exo/os/file_dialog.h"
 
-#include <exo/prelude.h>
-#include <exo/base/defer.h>
+#include <exo/macros/defer.h>
+#include <exo/maths/numerics.h>
 #include "utils_win32.h"
 
 #include <windows.h>
 #include <shobjidl.h>
 
-namespace cross
+namespace exo::os
 {
 Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string>> extensions)
 {

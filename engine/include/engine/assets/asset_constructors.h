@@ -12,7 +12,7 @@ struct AssetConstructors
 public:
     AssetConstructors()
     {
-        indices_map = IndexMap::with_capacity(64);
+        indices_map = exo::IndexMap::with_capacity(64);
     }
 
     inline int add_constructor(const char *id, ConstructorFunc ctor)
@@ -35,6 +35,6 @@ public:
     }
 
 private:
-    IndexMap indices_map;
+    exo::IndexMap indices_map;
     Vec<ConstructorFunc> constructors;
 };

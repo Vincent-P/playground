@@ -1,6 +1,6 @@
 #pragma once
 
-#include <exo/base/option.h>
+#include <exo/option.h>
 #include "gameplay/component.h"
 
 struct CameraComponent : SpatialComponent

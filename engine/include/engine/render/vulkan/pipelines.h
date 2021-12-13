@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/base/option.h>
+#include <exo/option.h>
 #include <exo/collections/handle.h>
 #include <exo/collections/dynamic_array.h>
 
@@ -111,7 +111,7 @@ struct LoadOp
 struct RenderPass
 {
     VkRenderPass vkhandle;
-    DynamicArray<LoadOp, MAX_ATTACHMENTS> load_ops;
+    exo::DynamicArray<LoadOp, MAX_ATTACHMENTS> load_ops;
 };
 
 struct FramebufferFormat
@@ -119,7 +119,7 @@ struct FramebufferFormat
     i32 width = 0;
     i32 height = 0;
     u32 layer_count = 1;
-    DynamicArray<VkFormat, MAX_ATTACHMENTS> attachments_format;
+    exo::DynamicArray<VkFormat, MAX_ATTACHMENTS> attachments_format;
     Option<VkFormat> depth_format;
     bool operator==(const FramebufferFormat &) const = default;
 };
@@ -128,10 +128,10 @@ struct  Framebuffer
 {
     VkFramebuffer vkhandle = VK_NULL_HANDLE;
     FramebufferFormat format;
-    DynamicArray<Handle<Image>, MAX_ATTACHMENTS> color_attachments;
+    exo::DynamicArray<Handle<Image>, MAX_ATTACHMENTS> color_attachments;
     Handle<Image> depth_attachment;
 
-    DynamicArray<RenderPass, MAX_RENDERPASS> renderpasses;
+    exo::DynamicArray<RenderPass, MAX_RENDERPASS> renderpasses;
 
     bool operator==(const Framebuffer &) const = default;
 };
@@ -142,7 +142,7 @@ struct GraphicsState
     Handle<Shader> vertex_shader;
     Handle<Shader> fragment_shader;
     FramebufferFormat attachments_format;
-    DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
+    exo::DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct GraphicsProgram
@@ -150,11 +150,11 @@ struct GraphicsProgram
     std::string name;
     // state to compile the pipeline
     GraphicsState graphics_state;
-    DynamicArray<RenderState, MAX_RENDER_STATES> render_states;
+    exo::DynamicArray<RenderState, MAX_RENDER_STATES> render_states;
 
     // pipeline
     VkPipelineLayout pipeline_layout;
-    DynamicArray<VkPipeline, MAX_RENDER_STATES> pipelines;
+    exo::DynamicArray<VkPipeline, MAX_RENDER_STATES> pipelines;
     VkPipelineCache cache;
     VkRenderPass renderpass;
 
@@ -165,7 +165,7 @@ struct GraphicsProgram
 struct ComputeState
 {
     Handle<Shader> shader;
-    DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
+    exo::DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct ComputeProgram

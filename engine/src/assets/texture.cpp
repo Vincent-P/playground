@@ -8,13 +8,13 @@ Asset *Texture::create()
     return new Texture();
 }
 
-void Texture::serialize(Serializer& serializer)
+void Texture::serialize(exo::Serializer& serializer)
 {
     serializer.serialize(*this);
 }
 
 template <>
-void Serializer::serialize<Texture>(Texture &data)
+void exo::Serializer::serialize<Texture>(Texture &data)
 {
     const char *id = "TXTR";
     serialize(id);
@@ -41,7 +41,7 @@ void Serializer::serialize<Texture>(Texture &data)
 }
 
 template<>
-void Serializer::serialize<PixelFormat>(PixelFormat &data)
+void exo::Serializer::serialize<PixelFormat>(PixelFormat &data)
 {
     auto value = static_cast<std::underlying_type_t<PixelFormat>>(data);
     serialize(value);
@@ -52,7 +52,7 @@ void Serializer::serialize<PixelFormat>(PixelFormat &data)
 }
 
 template<>
-void Serializer::serialize<ImageExtension>(ImageExtension &data)
+void exo::Serializer::serialize<ImageExtension>(ImageExtension &data)
 {
     auto value = static_cast<std::underlying_type_t<ImageExtension>>(data);
     serialize(value);

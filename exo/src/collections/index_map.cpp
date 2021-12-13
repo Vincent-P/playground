@@ -1,7 +1,9 @@
 #include "exo/collections/index_map.h"
 
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
 
+namespace exo
+{
 namespace
 {
 inline constexpr uint GROWTH_FACTOR = 2;
@@ -168,4 +170,5 @@ void IndexMap::check_growth()
         this->keys     = new_keys;
         this->values   = new_values;
     }
+}
 }

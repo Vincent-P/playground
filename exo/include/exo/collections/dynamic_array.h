@@ -1,9 +1,12 @@
 #pragma once
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
 #include <type_traits>
 #include <span>
 #include <initializer_list>
 
+namespace exo
+{
 template <typename T, usize CAPACITY>
 struct DynamicArray
 {
@@ -157,4 +160,5 @@ constexpr bool operator==(const DynamicArray<T, C1> &lhs, const DynamicArray<T, 
     }
 
     return true;
+}
 }

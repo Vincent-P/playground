@@ -1,16 +1,15 @@
 #pragma once
-#include <exo/prelude.h>
 #include <exo/maths/matrices.h>
 #include <exo/maths/aabb.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/map.h>
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 
 struct DrawableInstance
 {
-    cross::UUID mesh_asset;
+    os::UUID mesh_asset;
     float4x4 world_transform;
-    AABB world_bounds;
+    exo::AABB world_bounds;
 };
 
 struct MeshInstance
@@ -33,7 +32,7 @@ struct RenderWorld
     Vec<DrawableInstance> drawable_instances;
 
     // intermediate result
-    Map<cross::UUID, MeshInstance> mesh_instances;
+    exo::Map<os::UUID, MeshInstance> mesh_instances;
 };
 
 

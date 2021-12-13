@@ -1,8 +1,8 @@
 #include "assets/importers/gltf_importer.h"
 
 #include <exo/memory/string_repository.h>
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
+#include <exo/maths/pointer.h>
+#include <exo/logger.h>
 
 #include "assets/asset_manager.h"
 #include "assets/subscene.h"
@@ -190,7 +190,7 @@ bool GLTFImporter::can_import(const void *file_data, usize file_len)
     return as_char[0] == 'g' && as_char[1] == 'l' && as_char[2] == 'T' && as_char[3] == 'F';
 }
 
-Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, cross::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
 {
     UNUSED(file_len);
 
@@ -209,7 +209,7 @@ Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, cross::UUID res
     }
 
     ASSERT(sizeof(Header) + header.first_chunk.length < header.length);
-    const auto *binary_chunk = reinterpret_cast<const Chunk *>(ptr_offset(header.first_chunk.data, header.first_chunk.length));
+    const auto *binary_chunk = reinterpret_cast<const Chunk *>(exo::ptr_offset(header.first_chunk.data, header.first_chunk.length));
     if (binary_chunk->type != ChunkType::Binary)
     {
         return Err(GLTFError::SecondChunkNotBIN);
@@ -260,7 +260,7 @@ static void import_meshes(ImportContext &ctx)
         {
             if (!mesh_uuids[i_mesh].is_valid())
             {
-                mesh_uuids[i_mesh] = cross::UUID::create();
+                mesh_uuids[i_mesh] = os::UUID::create();
             }
         }
     }
@@ -278,7 +278,7 @@ static void import_meshes(ImportContext &ctx)
 
         if (j_mesh.HasMember("name"))
         {
-            new_mesh->name = tls_string_repository.intern(j_mesh["name"].GetString());
+            new_mesh->name = exo::tls_string_repository.intern(j_mesh["name"].GetString());
         }
 
         for (auto &j_primitive : j_mesh["primitives"].GetArray())
@@ -311,11 +311,11 @@ static void import_meshes(ImportContext &ctx)
                     usize offset = bufferview.byte_offset + accessor.byte_offset + i_index * byte_stride;
                     if (accessor.component_type == gltf::ComponentType::UnsignedShort)
                     {
-                        index = new_submesh.first_vertex + *reinterpret_cast<const u16 *>(ptr_offset(ctx.binary_chunk, offset));
+                        index = new_submesh.first_vertex + *reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
                     }
                     else if (accessor.component_type == gltf::ComponentType::UnsignedInt)
                     {
-                        index = new_submesh.first_vertex + *reinterpret_cast<const u32 *>(ptr_offset(ctx.binary_chunk, offset));
+                        index = new_submesh.first_vertex + *reinterpret_cast<const u32 *>(exo::ptr_offset(ctx.binary_chunk, offset));
                     }
                     else
                     {
@@ -344,12 +344,12 @@ static void import_meshes(ImportContext &ctx)
 
                     if (accessor.component_type == gltf::ComponentType::UnsignedShort)
                     {
-                        const auto *components = reinterpret_cast<const u16 *>(ptr_offset(ctx.binary_chunk, offset));
+                        const auto *components = reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
                         new_position           = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
                     }
                     else if (accessor.component_type == gltf::ComponentType::Float)
                     {
-                        const auto *components = reinterpret_cast<const float *>(ptr_offset(ctx.binary_chunk, offset));
+                        const auto *components = reinterpret_cast<const float *>(exo::ptr_offset(ctx.binary_chunk, offset));
                         new_position           = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
                     }
                     else
@@ -378,12 +378,12 @@ static void import_meshes(ImportContext &ctx)
 
                     if (accessor.component_type == gltf::ComponentType::UnsignedShort)
                     {
-                        const auto *components = reinterpret_cast<const u16 *>(ptr_offset(ctx.binary_chunk, offset));
+                        const auto *components = reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
                         new_uv                 = {float(components[0]), float(components[1])};
                     }
                     else if (accessor.component_type == gltf::ComponentType::Float)
                     {
-                        const auto *components = reinterpret_cast<const float *>(ptr_offset(ctx.binary_chunk, offset));
+                        const auto *components = reinterpret_cast<const float *>(exo::ptr_offset(ctx.binary_chunk, offset));
                         new_uv                 = {float(components[0]), float(components[1])};
                     }
                     else
@@ -416,7 +416,7 @@ static void import_meshes(ImportContext &ctx)
         mesh_count += 1;
     }
 
-    logger::info("[GLTF Importer] Imported {} meshes.\n", mesh_count);
+    exo::logger::info("[GLTF Importer] Imported {} meshes.\n", mesh_count);
 }
 
 static void import_nodes(ImportContext &ctx)
@@ -528,7 +528,7 @@ static void import_nodes(ImportContext &ctx)
         ctx.new_scene->names.emplace_back();
         if (j_node.HasMember("name"))
         {
-            ctx.new_scene->names.back() = tls_string_repository.intern(j_node["name"].GetString());
+            ctx.new_scene->names.back() = exo::tls_string_repository.intern(j_node["name"].GetString());
         }
 
         ctx.new_scene->children.emplace_back();
@@ -564,7 +564,7 @@ static void import_materials(ImportContext &ctx)
         {
             if (!material_uuids[i_mesh].is_valid())
             {
-                material_uuids[i_mesh] = cross::UUID::create();
+                material_uuids[i_mesh] = os::UUID::create();
             }
         }
     }
@@ -577,7 +577,7 @@ static void import_materials(ImportContext &ctx)
 
         if (j_material.HasMember("name"))
         {
-            new_material->name = tls_string_repository.intern(j_material["name"].GetString());
+            new_material->name = exo::tls_string_repository.intern(j_material["name"].GetString());
         }
 
         if (j_material.HasMember("pbrMetallicRoughness"))
@@ -667,7 +667,7 @@ static void import_textures(ImportContext &ctx)
         {
             if (!texture_uuids[i_mesh].is_valid())
             {
-                texture_uuids[i_mesh] = cross::UUID::create();
+                texture_uuids[i_mesh] = os::UUID::create();
             }
         }
     }
@@ -683,7 +683,7 @@ static void import_textures(ImportContext &ctx)
         auto             bufferview_index = j_image["bufferView"].GetUint();
         auto             bufferview       = get_bufferview(j_bufferviews[bufferview_index]);
 
-        const u8 *image_data = reinterpret_cast<const u8 *>(ptr_offset(ctx.binary_chunk, bufferview.byte_offset));
+        const u8 *image_data = reinterpret_cast<const u8 *>(exo::ptr_offset(ctx.binary_chunk, bufferview.byte_offset));
         usize     size       = bufferview.byte_length;
 
         auto import = ctx.asset_manager->import_resource(image_data, size, nullptr, u32_invalid, texture_uuids[i_image]);
@@ -692,7 +692,7 @@ static void import_textures(ImportContext &ctx)
 
         if (j_image.HasMember("name"))
         {
-            new_texture->name = tls_string_repository.intern(j_image["name"].GetString());
+            new_texture->name = exo::tls_string_repository.intern(j_image["name"].GetString());
         }
 
         ctx.asset_manager->save_asset(new_texture);
@@ -732,7 +732,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         data->mesh_uuids.reserve(j_mesh_uuids.Size());
         for (const auto &j_mesh_uuid : j_mesh_uuids)
         {
-            auto mesh_uuid = cross::UUID::from_string(j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength());
+            auto mesh_uuid = os::UUID::from_string(j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength());
             data->mesh_uuids.push_back(mesh_uuid);
         }
     }
@@ -743,7 +743,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         data->texture_uuids.reserve(j_texture_uuids.Size());
         for (const auto &j_texture_uuid : j_texture_uuids)
         {
-            auto texture_uuid = cross::UUID::from_string(j_texture_uuid.GetString(), j_texture_uuid.GetStringLength());
+            auto texture_uuid = os::UUID::from_string(j_texture_uuid.GetString(), j_texture_uuid.GetStringLength());
             data->texture_uuids.push_back(texture_uuid);
         }
     }
@@ -755,7 +755,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         for (const auto &j_material_uuid : j_material_uuids)
         {
             auto material_uuid
-                = cross::UUID::from_string(j_material_uuid.GetString(), j_material_uuid.GetStringLength());
+                = os::UUID::from_string(j_material_uuid.GetString(), j_material_uuid.GetStringLength());
             data->material_uuids.push_back(material_uuid);
         }
     }

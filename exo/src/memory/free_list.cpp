@@ -1,7 +1,10 @@
 #include "exo/memory/free_list.h"
 
+#include "exo/macros/assert.h"
 #include <cstdlib>
 
+namespace exo
+{
 FreeList FreeList::create(u32 capacity)
 {
     FreeList list;
@@ -40,4 +43,5 @@ void FreeList::free(u32 index)
 void FreeList::destroy()
 {
     std::free(this->array);
+}
 }

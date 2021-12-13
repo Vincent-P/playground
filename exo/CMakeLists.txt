@@ -10,26 +10,26 @@ set(SOURCE_FILES
   src/memory/buddy_allocator.cpp
   src/memory/linear_allocator.cpp
   src/memory/scope_stack.cpp
+  src/memory/virtual_allocator.cpp
 
   src/maths/vectors.cpp
   src/maths/matrices.cpp
 
-  src/cross/file_watcher.cpp
-  src/cross/virtual_allocator.cpp
-  src/cross/uuid.cpp
+  src/os/file_watcher.cpp
+  src/os/uuid.cpp
   )
 
 if (WIN32)
 
   set(SOURCE_FILES
     ${SOURCE_FILES}
-    src/cross/file_dialog_win32.cpp
-    src/cross/utils_win32.cpp
-    src/cross/window_win32.cpp
-    src/cross/mapped_file_win32.cpp)
+    src/os/file_dialog_win32.cpp
+    src/os/utils_win32.cpp
+    src/os/window_win32.cpp
+    src/os/mapped_file_win32.cpp)
 
-  set(CROSS_LIBS
-    ${CROSS_LIBS}
+  set(OS_LIBS
+    ${OS_LIBS}
     imm32
     rpcrt4 # for uuid
     )
@@ -47,18 +47,18 @@ elseif (UNIX)
 
   set(SOURCE_FILES
     ${SOURCE_FILES}
-    src/cross/file_dialog_linux.cpp
-    src/cross/window_xcb.cpp
-    src/cross/mapped_file_unix.cpp)
+    src/os/file_dialog_linux.cpp
+    src/os/window_xcb.cpp
+    src/os/mapped_file_unix.cpp)
 
-  set(CROSS_LIBS
-          ${CROSS_LIBS}
+  set(OS_LIBS
+          ${OS_LIBS}
           ${X11_xcb_LIB}
           ${X11_xkbcommon_LIB}
           ${X11_xkbcommon_X11_LIB})
 
-  set(CROSS_INCLUDES
-          ${CROSS_INCLUDES}
+  set(OS_INCLUDES
+          ${OS_INCLUDES}
           ${X11_xcb_INCLUDE_PATH}
           ${X11_xkbcommon_INCLUDE_PATH}
           ${X11_xkbcommon_X11_INCLUDE_PATH})
@@ -67,7 +67,7 @@ endif()
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo)
 
-target_link_libraries(exo PUBLIC ${CROSS_LIBS} fmt parallel_hashmap tracy xxhash leaf)
+target_link_libraries(exo PUBLIC ${OS_LIBS} fmt parallel_hashmap tracy xxhash leaf)
 
 target_compile_options(exo PRIVATE ${APP_CXX_FLAGS})
 

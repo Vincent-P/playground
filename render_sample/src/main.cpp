@@ -1,8 +1,12 @@
-#include <exo/base/logger.h>
+#include <exo/prelude.h>
+namespace exo::os {}
+namespace os = exo::os;
+
+#include <exo/logger.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
 #include <exo/collections/dynamic_array.h>
-#include <exo/cross/window.h>
+#include <exo/os/window.h>
 
 #include <engine/render/vulkan/context.h>
 #include <engine/render/vulkan/device.h>
@@ -26,7 +30,7 @@ void operator delete(void *ptr) noexcept
 }
 
 static void resize(gfx::Device &device, gfx::Surface &surface,
-                   DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> &framebuffers)
+                   exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> &framebuffers)
 {
     device.wait_idle();
     surface.destroy_swapchain(device);
@@ -44,13 +48,13 @@ static void resize(gfx::Device &device, gfx::Surface &surface,
     }
 }
 
-u8 global_stack_mem[64 << 10];
+u8  global_stack_mem[64 << 10];
 int main(int /*argc*/, char ** /*argv*/)
 {
-    LinearAllocator global_allocator = LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
-    ScopeStack global_scope = ScopeStack::with_allocator(&global_allocator);
+    exo::LinearAllocator global_allocator = exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
+    exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
-    auto *window = cross::Window::create(global_scope, 1280, 720, "Render sample");
+    auto *window = os::Window::create(global_scope, 1280, 720, "Render sample");
 
     auto context = gfx::Context::create(false, window);
 
@@ -59,11 +63,11 @@ int main(int /*argc*/, char ** /*argv*/)
     u32   i_device         = 0;
     for (auto &physical_device : physical_devices)
     {
-        logger::info("Found device: {}\n", physical_device.properties.deviceName);
+        exo::logger::info("Found device: {}\n", physical_device.properties.deviceName);
         if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
-            logger::info("Prioritizing device {} because it is a discrete GPU.\n",
-                         physical_device.properties.deviceName);
+            exo::logger::info("Prioritizing device {} because it is a discrete GPU.\n",
+                              physical_device.properties.deviceName);
             i_selected = i_device;
         }
         i_device += 1;
@@ -71,8 +75,8 @@ int main(int /*argc*/, char ** /*argv*/)
     if (i_selected == u32_invalid)
     {
         i_selected = 0;
-        logger::info("No discrete GPU found, defaulting to device #0: {}.\n",
-                     physical_devices[0].properties.deviceName);
+        exo::logger::info("No discrete GPU found, defaulting to device #0: {}.\n",
+                          physical_devices[0].properties.deviceName);
     }
 
     auto device = gfx::Device::create(context,
@@ -86,7 +90,7 @@ int main(int /*argc*/, char ** /*argv*/)
     gfx::WorkPool work_pool = {};
     device.create_work_pool(work_pool);
 
-    DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_fb = {};
+    exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_fb = {};
     swapchain_fb.resize(surface.images.size());
     resize(device, surface, swapchain_fb);
 
@@ -94,25 +98,25 @@ int main(int /*argc*/, char ** /*argv*/)
     {
         window->poll_events();
 
-        Option<cross::events::Resize> last_resize  = {};
-        bool                          is_minimized = false;
+        Option<os::events::Resize> last_resize  = {};
+        bool                       is_minimized = window->minimized;
         for (const auto &event : window->events)
         {
             switch (event.type)
             {
-            case cross::Event::ResizeType:
+            case os::Event::ResizeType:
             {
                 last_resize = event.resize;
                 break;
             }
-            case cross::Event::MouseMoveType:
+            case os::Event::MouseMoveType:
             {
-                is_minimized = true;
+                is_minimized = false;
                 break;
             }
-            case cross::Event::KeyType:
+            case os::Event::KeyType:
             {
-                if (event.key.key == cross::VirtualKey::Escape)
+                if (event.key.key == os::VirtualKey::Escape)
                 {
                     window->stop = true;
                 }
@@ -148,7 +152,8 @@ int main(int /*argc*/, char ** /*argv*/)
         cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
         cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-        cmd.begin_pass(swapchain_fb[surface.current_image], std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 0.0f}}})});
+        cmd.begin_pass(swapchain_fb[surface.current_image],
+                       std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 0.0f}}})});
         cmd.end_pass();
         cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
 

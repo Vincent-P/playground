@@ -1,6 +1,6 @@
 #include "exo/maths/matrices.h"
 
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
 #include <cstring> // for std::memcmp
 
 namespace exo

@@ -1,14 +1,16 @@
 #pragma once
 #include "exo/maths/numerics.h"
 #include "exo/collections/map.h"
-#include "exo/cross/prelude.h"
+#include "exo/os/prelude.h"
 #include "exo/serializer.h"
 
 #include <fmt/format.h>
 
 #include <string_view>
 
-namespace cross
+namespace exo
+{
+namespace os
 {
 struct UUID
 {
@@ -27,14 +29,19 @@ struct UUID
     std::string_view as_string() const { return std::string_view{this->str, STR_LEN}; }
     // clang-format on
 
-    friend size_t hash_value(const UUID &uuid);
+    friend usize hash_value(const UUID &uuid);
 };
-} // namespace cross
-
-static_assert(phmap::has_hash_value<cross::UUID>::value);
 
 template <>
-struct fmt::formatter<cross::UUID>
+void Serializer::serialize<os::UUID>(os::UUID &data);
+
+} // namespace os
+} // namespace exo
+
+static_assert(phmap::has_hash_value<exo::os::UUID>::value);
+
+template <>
+struct fmt::formatter<exo::os::UUID>
 {
     constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin())
     {
@@ -42,11 +49,8 @@ struct fmt::formatter<cross::UUID>
     }
 
     template <typename FormatContext>
-    auto format(const cross::UUID &uuid, FormatContext &ctx) -> decltype(ctx.out())
+    auto format(const exo::os::UUID &uuid, FormatContext &ctx) -> decltype(ctx.out())
     {
-        return format_to(ctx.out(), "{:.{}}", uuid.str, cross::UUID::STR_LEN);
+        return format_to(ctx.out(), "{:.{}}", uuid.str, exo::os::UUID::STR_LEN);
     }
 };
-
-template<>
-void Serializer::serialize<cross::UUID>(cross::UUID &data);

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "exo/cross/buttons.h"
+#include "exo/os/buttons.h"
 #include <string>
 
-namespace cross::events
+namespace exo::os::events
 {
 struct Key
 {
@@ -54,9 +54,9 @@ struct Resize
     uint width;
     uint height;
 };
-} // namespace cross::events
+} // namespace exo::os::events
 
-namespace cross
+namespace exo::os
 {
 struct Event
 {
@@ -87,4 +87,4 @@ struct Event
     };
 };
 
-} // namespace cross
+} // namespace exo::os

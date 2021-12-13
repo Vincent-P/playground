@@ -2,7 +2,7 @@
 
 #include "assets/subscene.h"
 #include <exo/collections/vector.h>
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 
 #include <rapidjson/fwd.h>
 
@@ -27,13 +27,13 @@ struct GLTFImporter
     struct Data
     {
         Settings settings;
-        Vec<cross::UUID> mesh_uuids;
-        Vec<cross::UUID> texture_uuids;
-        Vec<cross::UUID> material_uuids;
+        Vec<os::UUID> mesh_uuids;
+        Vec<os::UUID> texture_uuids;
+        Vec<os::UUID> material_uuids;
     };
 
     bool can_import(const void *file_data, usize file_len);
-    Result<Asset*> import(AssetManager *asset_manager, cross::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
+    Result<Asset*> import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
 
     // Importer data
     void *create_default_importer_data();

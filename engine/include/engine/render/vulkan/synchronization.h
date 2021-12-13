@@ -1,6 +1,5 @@
 #pragma once
 
-#include <exo/prelude.h>
 #include <vulkan/vulkan.h>
 
 namespace vulkan

@@ -25,7 +25,7 @@ struct Texture : Asset
 {
     static Asset *create();
     const char *type_name() const final { return "Texture"; }
-    void serialize(Serializer& serializer) final;
+    void serialize(exo::Serializer& serializer) final;
     void display_ui() final {}
 
     PixelFormat format;
@@ -42,10 +42,10 @@ struct Texture : Asset
 };
 
 template<>
-void Serializer::serialize<Texture>(Texture &data);
+void exo::Serializer::serialize<Texture>(Texture &data);
 
 template<>
-void Serializer::serialize<PixelFormat>(PixelFormat &data);
+void exo::Serializer::serialize<PixelFormat>(PixelFormat &data);
 
 template<>
-void Serializer::serialize<ImageExtension>(ImageExtension &data);
+void exo::Serializer::serialize<ImageExtension>(ImageExtension &data);

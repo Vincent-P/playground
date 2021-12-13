@@ -1,18 +1,16 @@
 #pragma once
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
 #include "exo/collections/vector.h"
-#include "exo/memory/scope_stack.h"
-
-struct StringRepository;
 
 namespace exo
 {
+struct StringRepository;
+struct ScopeStack;
 struct float4x4;
 struct float4;
 struct float2;
 struct int2;
-}
 
 struct Serializer
 {
@@ -21,13 +19,13 @@ struct Serializer
     void read_bytes(void *dst, usize len);
     void write_bytes(const void *src, usize len);
 
-    template<typename T>
+    template <typename T>
     void serialize(T &data);
 
-    template<typename T, usize n>
+    template <typename T, usize n>
     void serialize(T (&data)[n]);
 
-    template<typename T>
+    template <typename T>
     void serialize(Vec<T> &data);
 
     // builtin types
@@ -56,15 +54,15 @@ struct Serializer
     void serialize(exo::int2 &data);
 
     StringRepository *str_repo;
-    ScopeStack *scope;
-    i32 version;
-    bool is_writing;
-    void *buffer;
-    usize offset;
-    usize buffer_size;
+    ScopeStack       *scope;
+    i32               version;
+    bool              is_writing;
+    void             *buffer;
+    usize             offset;
+    usize             buffer_size;
 };
 
-template<typename T, usize n>
+template <typename T, usize n>
 void Serializer::serialize(T (&data)[n])
 {
     usize size = n;
@@ -77,7 +75,7 @@ void Serializer::serialize(T (&data)[n])
     }
 }
 
-template<typename T>
+template <typename T>
 void Serializer::serialize(Vec<T> &data)
 {
     usize size = data.size();
@@ -94,3 +92,5 @@ void Serializer::serialize(Vec<T> &data)
         serialize(data[i]);
     }
 }
+
+} // namespace exo

@@ -1,9 +1,10 @@
 #include "utils_win32.h"
 
-#include <exo/prelude.h>
+#include "exo/maths/numerics.h"
+#include "exo/macros/assert.h"
 #include <windows.h>
 
-namespace cross
+namespace exo::os
 {
 std::wstring utf8_to_utf16(const std::string_view &str)
 {

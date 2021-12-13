@@ -1,6 +1,6 @@
 #pragma once
 
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 #include <rapidjson/fwd.h>
 
 struct AssetManager;
@@ -31,7 +31,7 @@ struct KTX2Importer
     };
 
     bool can_import(const void *file_data, usize file_len);
-    Result<Asset*> import(AssetManager *asset_manager, cross::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
+    Result<Asset*> import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
 
     // Importer data
     void *create_default_importer_data();

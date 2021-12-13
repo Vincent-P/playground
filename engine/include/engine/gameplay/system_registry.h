@@ -33,6 +33,6 @@ struct SystemRegistry
         return nullptr;
     }
 
-    Set<Entity*> entities_to_update;
+    exo::Set<Entity*> entities_to_update;
     Vec<GlobalSystem*> global_systems;
 };

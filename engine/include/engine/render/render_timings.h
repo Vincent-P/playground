@@ -10,24 +10,24 @@
 
 namespace vulkan { struct Device;  struct Work;};
 namespace gfx = vulkan;
-struct StringRepository;
+namespace exo {struct StringRepository; }
 
 inline constexpr u32 TIMESTAMPS_PER_FRAME = 32;
 
 struct RenderTimings
 {
-    StringRepository *str_repo = nullptr;
+    exo::StringRepository *str_repo = nullptr;
     Vec<const char*> labels = {};
     Vec<double> cpu = {};
     Vec<double> gpu = {};
 
     Vec<u64> gpu_ticks = {};
-    Vec<Timepoint> cpu_ticks = {};
+    Vec<exo::Timepoint> cpu_ticks = {};
     u32 current_query = 0;
     bool began = false;
     gfx::QueryPool pool;
 
-    static RenderTimings create(gfx::Device &d, StringRepository *r);
+    static RenderTimings create(gfx::Device &d, exo::StringRepository *r);
     void destroy(gfx::Device &device);
     void begin_label(gfx::Work &work, const char *label);
     void end_label(gfx::Work &cmd);

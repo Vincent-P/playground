@@ -7,7 +7,7 @@ void SpatialComponent::set_local_transform(const float4x4 &new_transform)
     this->update_world_transform();
 }
 
-void SpatialComponent::set_local_bounds(const AABB &new_bounds)
+void SpatialComponent::set_local_bounds(const exo::AABB &new_bounds)
 {
     local_bounds = new_bounds;
     // TODO: compute world_bounds

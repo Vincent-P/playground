@@ -1,6 +1,5 @@
 #pragma once
 
-#include <exo/prelude.h>
 #include <exo/collections/enum_array.h>
 
 #include "gameplay/update_stages.h"
@@ -34,7 +33,7 @@ struct LocalSystem
 
 protected:
     UpdateStages update_stage = UpdateStages::FrameStart;
-    EnumArray<float, UpdateStages> priority_per_stage = {};
+    exo::EnumArray<float, UpdateStages> priority_per_stage = {};
 };
 
 struct GlobalSystem
@@ -63,5 +62,5 @@ protected:
        map<EntityId, Record*> XXX_components;
     **/
     UpdateStages update_stage = UpdateStages::FrameStart;
-    EnumArray<float, UpdateStages> priority_per_stage = {};
+    exo::EnumArray<float, UpdateStages> priority_per_stage = {};
 };

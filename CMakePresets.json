@@ -15,7 +15,6 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-          "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
           "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       },
@@ -40,7 +39,6 @@
         "strategy": "external"
       },
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
         "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /Oi /RTC1"
       },
       "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"

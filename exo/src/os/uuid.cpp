@@ -1,6 +1,5 @@
-#include "exo/cross/uuid.h"
+#include "exo/os/uuid.h"
 
-#include "exo/prelude.h"
 #include "exo/collections/map.h"
 
 #if defined(CROSS_WINDOWS)
@@ -13,14 +12,14 @@
 
 namespace
 {
-void write_uuid_string(u32 (&data)[4], char (&str)[cross::UUID::STR_LEN])
+void write_uuid_string(u32 (&data)[4], char (&str)[exo::os::UUID::STR_LEN])
 {
-    std::memset(str, 0, cross::UUID::STR_LEN);
+    std::memset(str, 0, exo::os::UUID::STR_LEN);
     fmt::format_to(str, "{:08x}-{:08x}-{:08x}-{:08x}", data[0], data[1], data[2], data[3]);
 }
 } // namespace
 
-namespace cross
+namespace exo::os
 {
 UUID UUID::create()
 {
@@ -84,16 +83,17 @@ UUID UUID::from_values(const u32 *values)
     write_uuid_string(new_uuid.data, new_uuid.str);
     return new_uuid;
 }
+} // namespace exo::os
 
-usize hash_value(const cross::UUID &uuid)
+namespace exo
+{
+usize hash_value(const os::UUID &uuid)
 {
     return phmap::HashState().combine(uuid.data[0], uuid.data[1], uuid.data[2], uuid.data[3]);
 }
 
-} // namespace cross
-
-template<>
-void Serializer::serialize<cross::UUID>(cross::UUID &data)
+template <>
+void Serializer::serialize<exo::os::UUID>(os::UUID &data)
 {
     serialize(data.data);
     if (this->is_writing == false)
@@ -101,3 +101,4 @@ void Serializer::serialize<cross::UUID>(cross::UUID &data)
         write_uuid_string(data.data, data.str);
     }
 }
+} // namespace exo

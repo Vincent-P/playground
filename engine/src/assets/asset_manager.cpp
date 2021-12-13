@@ -9,10 +9,10 @@
 #include "assets/importers/ktx2_importer.h"
 
 #include <exo/memory/scope_stack.h>
-#include <exo/cross/mapped_file.h>
-#include <exo/cross/file_watcher.h>
-#include <exo/cross/uuid.h>
-#include <exo/base/logger.h>
+#include <exo/os/mapped_file.h>
+#include <exo/os/file_watcher.h>
+#include <exo/os/uuid.h>
+#include <exo/logger.h>
 
 #include <exo/memory/string_repository.h>
 #include <filesystem>
@@ -47,7 +47,7 @@ static u64 hash_file(const void *data, usize len)
 
 // -- Asset Manager
 
-AssetManager *AssetManager::create(ScopeStack &scope)
+AssetManager *AssetManager::create(exo::ScopeStack &scope)
 {
     auto *asset_manager = scope.allocate<AssetManager>();
 
@@ -64,6 +64,7 @@ AssetManager::~AssetManager()
 
 void AssetManager::load_all_metas()
 {
+    namespace leaf = exo::leaf;
     // Load or create all resources meta
     for (const auto &file_entry : std::filesystem::recursive_directory_iterator{this->resources_directory})
     {
@@ -77,10 +78,10 @@ void AssetManager::load_all_metas()
             {
                 const auto &file_path = file_entry.path();
 
-                Result<cross::UUID> new_uuid;
+                Result<os::UUID> new_uuid;
                 if (this->has_meta_file(file_path))
                 {
-                    auto resource_file = cross::MappedFile::open(file_path.string()).value();
+                    auto resource_file = os::MappedFile::open(file_path.string()).value();
                     BOOST_LEAF_AUTO(i_importer, this->find_importer(resource_file.base_addr, resource_file.size));
                     new_uuid = this->load_resource_meta(importers[i_importer], file_path);
                 }
@@ -96,7 +97,7 @@ void AssetManager::load_all_metas()
             this->get_error_handlers());
     }
 
-    logger::info("[AssetManager] Done checking in all resources.\n");
+    exo::logger::info("[AssetManager] Done checking in all resources.\n");
 
     // process all assets
     for (const auto &file_entry : std::filesystem::recursive_directory_iterator{this->assets_directory})
@@ -106,15 +107,15 @@ void AssetManager::load_all_metas()
             continue;
         }
         auto filename = file_entry.path().filename().string();
-        if (filename.size() != cross::UUID::STR_LEN) {
+        if (filename.size() != os::UUID::STR_LEN) {
             continue;
         }
 
         leaf::try_handle_all(
             [&]() -> Result<void>
             {
-                auto uuid     = cross::UUID::from_string(filename.c_str(), filename.size());
-                logger::info("[AssetManager] Found asset {}.\n", filename);
+                auto uuid     = os::UUID::from_string(filename.c_str(), filename.size());
+                exo::logger::info("[AssetManager] Found asset {}.\n", filename);
 
                 if (this->has_meta_file(file_entry.path()))
                 {
@@ -130,13 +131,13 @@ void AssetManager::load_all_metas()
     }
 }
 
-void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
+void AssetManager::setup_file_watcher(os::FileWatcher &watcher)
 {
     int assets_wd = watcher.add_watch(ASSET_PATH).wd;
 
     // TODO: Properly watch file system changes and respond accordingly
     watcher.on_file_change(
-        [&, assets_wd](const cross::Watch &watch, const cross::WatchEvent &event)
+        [&, assets_wd](const os::Watch &watch, const os::WatchEvent &event)
         {
             if (watch.wd != assets_wd)
             {
@@ -146,25 +147,25 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
             const char *p = "";
             switch (event.action)
             {
-            case cross::WatchEventAction::FileChanged:
+            case os::WatchEventAction::FileChanged:
                 p = "file changed: ";
                 break;
-            case cross::WatchEventAction::FileRemoved:
+            case os::WatchEventAction::FileRemoved:
                 p = "file removed: ";
                 break;
-            case cross::WatchEventAction::FileAdded:
+            case os::WatchEventAction::FileAdded:
                 p = "file added: ";
                 break;
-            case cross::WatchEventAction::FileRenamed:
+            case os::WatchEventAction::FileRenamed:
                 p = "file renamed: ";
                 break;
             }
 
             auto file_path = this->resources_directory / event.name;
 
-            logger::info("[AssetManager] {} {}\n", p, file_path);
+            exo::logger::info("[AssetManager] {} {}\n", p, file_path);
 
-            if (event.action == cross::WatchEventAction::FileChanged || event.action == cross::WatchEventAction::FileAdded)
+            if (event.action == os::WatchEventAction::FileChanged || event.action == os::WatchEventAction::FileAdded)
             {
                 if (!this->has_meta_file(file_path))
                 {
@@ -172,12 +173,12 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
                 }
             }
 
-            if (event.action == cross::WatchEventAction::FileRemoved)
+            if (event.action == os::WatchEventAction::FileRemoved)
             {
                 // unload asset, remove meta from memory and filesystem
             }
 
-            if (event.action == cross::WatchEventAction::FileRenamed)
+            if (event.action == os::WatchEventAction::FileRenamed)
             {
             }
         });
@@ -185,9 +186,10 @@ void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 
 void AssetManager::display_ui()
 {
+    namespace leaf = exo::leaf;
     ZoneScoped;
 
-    static cross::UUID s_selected = {};
+    static os::UUID s_selected = {};
 
     if (auto w = UI::begin_window("AssetManager"))
     {
@@ -195,7 +197,7 @@ void AssetManager::display_ui()
 
 
         ImGui::Text("Loaded assets");
-        cross::UUID to_remove = {};
+        os::UUID to_remove = {};
         if (ImGui::BeginTable("AssetsTable", 6, table_flags))
         {
             ImGui::TableSetupColumn("Type");
@@ -215,7 +217,7 @@ void AssetManager::display_ui()
                 ImGui::Text("%s", asset == nullptr ? "null" : asset->type_name());
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(os::UUID::STR_LEN), uuid.str);
 
                 if (asset_metadatas.contains(uuid))
                 {
@@ -270,7 +272,7 @@ void AssetManager::display_ui()
                 ImGui::PushID(&resource_meta);
 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(os::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", resource_meta.display_name);
@@ -319,7 +321,7 @@ void AssetManager::display_ui()
                 ImGui::PushID(&asset_meta);
 
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+                ImGui::Text("%.*s", static_cast<int>(os::UUID::STR_LEN), uuid.str);
 
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", asset_meta.display_name);
@@ -365,7 +367,7 @@ void AssetManager::display_ui()
 
 // -- Resource files
 
-Result<Asset *> AssetManager::import_resource(const void *data, usize len, void *importer_data, u32 i_importer, cross::UUID resource_uuid)
+Result<Asset *> AssetManager::import_resource(const void *data, usize len, void *importer_data, u32 i_importer, os::UUID resource_uuid)
 {
     if (i_importer == u32_invalid)
     {
@@ -374,16 +376,16 @@ Result<Asset *> AssetManager::import_resource(const void *data, usize len, void 
     return importers[i_importer].import(this, resource_uuid, data, len, importer_data);
 }
 
-Result<Asset *> AssetManager::import_resource(cross::UUID resource_uuid)
+Result<Asset *> AssetManager::import_resource(os::UUID resource_uuid)
 {
     // Invalid UUID?
     ASSERT(resource_metadatas.contains(resource_uuid));
-    logger::info("[AssetManager] importing resource {} from disk\n", resource_uuid);
+    exo::logger::info("[AssetManager] importing resource {} from disk\n", resource_uuid);
 
     auto &resource_meta = resource_metadatas.at(resource_uuid);
-    auto load = leaf::on_error(leaf::e_file_name{resource_meta.resource_path.string()});
+    auto load = exo::leaf::on_error(exo::leaf::e_file_name{resource_meta.resource_path.string()});
 
-    auto resource_file = cross::MappedFile::open(resource_meta.resource_path.string()).value();
+    auto resource_file = os::MappedFile::open(resource_meta.resource_path.string()).value();
 
     u64  file_hash   = hash_file(resource_file.base_addr, resource_file.size);
 
@@ -400,7 +402,7 @@ Result<Asset *> AssetManager::import_resource(cross::UUID resource_uuid)
 }
 
 // -- Asset files
-Result<Asset*> AssetManager::get_asset(cross::UUID asset_uuid)
+Result<Asset*> AssetManager::get_asset(os::UUID asset_uuid)
 {
     if (assets.contains(asset_uuid))
     {
@@ -410,11 +412,11 @@ Result<Asset*> AssetManager::get_asset(cross::UUID asset_uuid)
 }
 
 
-void AssetManager::create_asset_internal(Asset *asset, cross::UUID uuid)
+void AssetManager::create_asset_internal(Asset *asset, os::UUID uuid)
 {
     if (!uuid.is_valid())
     {
-        uuid = cross::UUID::create();
+        uuid = os::UUID::create();
     }
     ASSERT(assets.contains(uuid) == false);
     ASSERT(uuid.is_valid());
@@ -425,8 +427,8 @@ void AssetManager::create_asset_internal(Asset *asset, cross::UUID uuid)
 
 Result<void> AssetManager::save_asset(Asset *asset)
 {
-    ScopeStack scope = ScopeStack::with_allocator(&tls_allocator);
-    Serializer serializer  = Serializer::create(&scope);
+    exo::ScopeStack scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+    exo::Serializer serializer  = exo::Serializer::create(&scope);
     serializer.buffer_size = 10_MiB;
     serializer.buffer      = scope.allocate(serializer.buffer_size);
     serializer.is_writing = true;
@@ -453,19 +455,19 @@ Result<void> AssetManager::save_asset(Asset *asset)
     return Ok<void>();
 }
 
-Result<Asset*> AssetManager::load_asset(cross::UUID asset_uuid)
+Result<Asset*> AssetManager::load_asset(os::UUID asset_uuid)
 {
     if (assets.contains(asset_uuid))
     {
-        logger::info("[AssetManager] loading asset {} from memory\n", asset_uuid);
+        exo::logger::info("[AssetManager] loading asset {} from memory\n", asset_uuid);
         return assets.at(asset_uuid);
     }
-    logger::info("[AssetManager] loading asset {} from disk\n", asset_uuid);
+    exo::logger::info("[AssetManager] loading asset {} from disk\n", asset_uuid);
 
     auto asset_path = assets_directory / asset_uuid.as_string();
-    auto asset_file = cross::MappedFile::open(asset_path.string()).value();
+    auto asset_file = os::MappedFile::open(asset_path.string()).value();
 
-    const char *file_identifier = reinterpret_cast<const char*>(ptr_offset(asset_file.base_addr, sizeof(u64)));
+    const char *file_identifier = reinterpret_cast<const char*>(exo::ptr_offset(asset_file.base_addr, sizeof(u64)));
     auto &asset_ctors = global_asset_constructors();
     auto *new_asset = asset_ctors.create({file_identifier, 4});
     if (!new_asset)
@@ -474,8 +476,8 @@ Result<Asset*> AssetManager::load_asset(cross::UUID asset_uuid)
     }
     this->create_asset_internal(new_asset, asset_uuid);
 
-    ScopeStack scope       = ScopeStack::with_allocator(&tls_allocator);
-    Serializer serializer  = Serializer::create(&scope);
+    exo::ScopeStack scope       = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+    exo::Serializer serializer  = exo::Serializer::create(&scope);
     serializer.buffer      = const_cast<void *>(asset_file.base_addr);
     serializer.buffer_size = asset_file.size;
     serializer.is_writing  = false;
@@ -490,13 +492,13 @@ Result<Asset*> AssetManager::load_asset(cross::UUID asset_uuid)
     return Ok(new_asset);
 }
 
-void AssetManager::unload_asset(cross::UUID asset_uuid)
+void AssetManager::unload_asset(os::UUID asset_uuid)
 {
     ASSERT(assets.contains(asset_uuid));
     assets.erase(asset_uuid);
 }
 
-Result<Asset*> AssetManager::load_or_import_resource(cross::UUID resource_uuid)
+Result<Asset*> AssetManager::load_or_import_resource(os::UUID resource_uuid)
 {
     // TODO: should import if the the asset has been corrupted?
 
@@ -506,8 +508,8 @@ Result<Asset*> AssetManager::load_or_import_resource(cross::UUID resource_uuid)
     }
 
     auto &resource_meta = resource_metadatas.at(resource_uuid);
-    auto  load          = leaf::on_error(leaf::e_file_name{resource_meta.resource_path.string()});
-    auto  resource_file = cross::MappedFile::open(resource_meta.resource_path.string()).value();
+    auto  load          = exo::leaf::on_error(exo::leaf::e_file_name{resource_meta.resource_path.string()});
+    auto  resource_file = os::MappedFile::open(resource_meta.resource_path.string()).value();
     u64   file_hash     = hash_file(resource_file.base_addr, resource_file.size);
 
     auto asset_path = assets_directory / resource_uuid.as_string();
@@ -554,18 +556,18 @@ bool AssetManager::has_meta_file(const std::filesystem::path &file_path)
     return has_meta_file == true && OVERWRITE_META == false;
 }
 
-Result<cross::UUID> AssetManager::create_resource_meta(const std::filesystem::path &file_path)
+Result<os::UUID> AssetManager::create_resource_meta(const std::filesystem::path &file_path)
 {
     // open file to hash its content
-    auto mapped_file = cross::MappedFile::open(file_path.string()).value();
+    auto mapped_file = os::MappedFile::open(file_path.string()).value();
 
     // find an importer that can import this file
-    auto load = leaf::on_error(leaf::e_file_name{file_path.string()});
+    auto load = exo::leaf::on_error(exo::leaf::e_file_name{file_path.string()});
     BOOST_LEAF_AUTO(i_found_importer, find_importer(mapped_file.base_addr, mapped_file.size));
     auto &importer = importers[i_found_importer];
 
     // create new meta in the map
-    auto          uuid     = cross::UUID::create();
+    auto          uuid     = os::UUID::create();
     ResourceMeta &new_meta = resource_metadatas[uuid];
     new_meta.uuid          = uuid;
     new_meta.resource_path = std::move(file_path);
@@ -575,7 +577,7 @@ Result<cross::UUID> AssetManager::create_resource_meta(const std::filesystem::pa
 
     save_resource_meta(importer, new_meta);
 
-    logger::info("[AssetManager] Created metadata for resource {}\n", file_path);
+    exo::logger::info("[AssetManager] Created metadata for resource {}\n", file_path);
     return Ok(uuid);
 }
 
@@ -583,14 +585,14 @@ Result<cross::UUID> AssetManager::create_resource_meta(const std::filesystem::pa
 Result<void> AssetManager::save_resource_meta(GenericImporter &importer, ResourceMeta &meta)
 {
     // write it to filesystem
-    logger::info("[AssetManager] Writing meta file {}\n", meta.meta_path);
+    exo::logger::info("[AssetManager] Writing meta file {}\n", meta.meta_path);
     FILE *                     fp = fopen(meta.meta_path.string().c_str(), "wb"); // non-Windows use "w"
     char                       buffer[65536];
     rapidjson::FileWriteStream os(fp, buffer, sizeof(buffer));
     rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
     writer.StartObject();
     writer.Key("uuid");
-    writer.String(meta.uuid.str, cross::UUID::STR_LEN);
+    writer.String(meta.uuid.str, os::UUID::STR_LEN);
     writer.Key("display_name");
     writer.String(meta.display_name, strlen(meta.display_name));
     writer.Key("resource_path");
@@ -607,10 +609,10 @@ Result<void> AssetManager::save_resource_meta(GenericImporter &importer, Resourc
     return Ok<void>();
 }
 
-Result<cross::UUID> AssetManager::load_resource_meta(GenericImporter &importer, const std::filesystem::path &file_path)
+Result<os::UUID> AssetManager::load_resource_meta(GenericImporter &importer, const std::filesystem::path &file_path)
 {
     auto meta_path   = resource_path_to_meta_path(file_path);
-    auto mapped_file = cross::MappedFile::open(meta_path.string()).value();
+    auto mapped_file = os::MappedFile::open(meta_path.string()).value();
 
     std::string_view    file_content{reinterpret_cast<const char *>(mapped_file.base_addr), mapped_file.size};
     rapidjson::Document document;
@@ -623,7 +625,7 @@ Result<cross::UUID> AssetManager::load_resource_meta(GenericImporter &importer, 
 
     // Deserialize it
     const char *uuid_str = document["uuid"].GetString();
-    cross::UUID uuid     = cross::UUID::from_string(uuid_str, strlen(uuid_str));
+    os::UUID uuid     = os::UUID::from_string(uuid_str, strlen(uuid_str));
 
     const char *display_name_str   = document["display_name"].GetString();
     const char *resource_path_str  = document["resource_path"].GetString();
@@ -631,21 +633,21 @@ Result<cross::UUID> AssetManager::load_resource_meta(GenericImporter &importer, 
     u64         last_imported_hash = document["last_imported_hash"].GetUint64();
 
     ResourceMeta &new_meta      = resource_metadatas[uuid];
-    new_meta.display_name       = tls_string_repository.intern(display_name_str);
+    new_meta.display_name       = exo::tls_string_repository.intern(display_name_str);
     new_meta.uuid               = uuid;
     new_meta.resource_path      = std::string(resource_path_str);
     new_meta.meta_path          = std::string(meta_path_str);
     new_meta.last_imported_hash = last_imported_hash;
     new_meta.importer_data      = importer.read_data_json(document["importer_data"]);
 
-    logger::info("[AssetManager] Loaded metadata for resource {}.\n", uuid_str);
+    exo::logger::info("[AssetManager] Loaded metadata for resource {}.\n", uuid_str);
 
     return Ok(uuid);
 }
 
-Result<AssetMeta&> AssetManager::create_asset_meta(cross::UUID uuid)
+Result<AssetMeta&> AssetManager::create_asset_meta(os::UUID uuid)
 {
-    auto load = leaf::on_error(uuid);
+    auto load = exo::leaf::on_error(uuid);
 
     // create new meta in the map
     AssetMeta &new_meta   = asset_metadatas[uuid];
@@ -655,13 +657,13 @@ Result<AssetMeta&> AssetManager::create_asset_meta(cross::UUID uuid)
 
     save_asset_meta(new_meta);
 
-    logger::info("[AssetManager] Created metadata for asset {:.{}}\n", uuid.str, cross::UUID::STR_LEN);
+    exo::logger::info("[AssetManager] Created metadata for asset {:.{}}\n", uuid.str, os::UUID::STR_LEN);
     return Ok(new_meta);
 }
 
 Result<void> AssetManager::save_asset_meta(AssetMeta &meta)
 {
-    logger::info("[AssetManager] Writing asset meta file {}\n", meta.uuid);
+    exo::logger::info("[AssetManager] Writing asset meta file {}\n", meta.uuid);
 
     auto meta_path = assets_directory / meta.uuid.as_string();
     meta_path += ".meta";
@@ -672,7 +674,7 @@ Result<void> AssetManager::save_asset_meta(AssetMeta &meta)
     rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
     writer.StartObject();
     writer.Key("uuid");
-    writer.String(meta.uuid.str, cross::UUID::STR_LEN);
+    writer.String(meta.uuid.str, os::UUID::STR_LEN);
     writer.Key("display_name");
     writer.String(meta.display_name, strlen(meta.display_name));
     writer.Key("asset_hash");
@@ -683,12 +685,12 @@ Result<void> AssetManager::save_asset_meta(AssetMeta &meta)
     return Ok<void>();
 }
 
-Result<AssetMeta&> AssetManager::load_asset_meta(cross::UUID uuid)
+Result<AssetMeta&> AssetManager::load_asset_meta(os::UUID uuid)
 {
     auto meta_path   = assets_directory / uuid.as_string();
     meta_path += ".meta";
 
-    auto mapped_file = cross::MappedFile::open(meta_path.string()).value();
+    auto mapped_file = os::MappedFile::open(meta_path.string()).value();
 
     std::string_view    file_content{reinterpret_cast<const char *>(mapped_file.base_addr), mapped_file.size};
     rapidjson::Document document;
@@ -701,17 +703,17 @@ Result<AssetMeta&> AssetManager::load_asset_meta(cross::UUID uuid)
 
     // Deserialize it
     const char *uuid_str = document["uuid"].GetString();
-    ASSERT(cross::UUID::from_string(uuid_str, strlen(uuid_str)) == uuid);
+    ASSERT(os::UUID::from_string(uuid_str, strlen(uuid_str)) == uuid);
 
     const char *display_name_str = document["display_name"].GetString();
     auto        asset_hash       = document["asset_hash"].GetUint64();
 
     AssetMeta &new_meta   = asset_metadatas[uuid];
-    new_meta.display_name = tls_string_repository.intern(display_name_str);
+    new_meta.display_name = exo::tls_string_repository.intern(display_name_str);
     new_meta.uuid         = uuid;
     new_meta.asset_hash   = asset_hash;
 
-    logger::info("[AssetManager] Loaded metadata for resource {}.\n", uuid_str);
+    exo::logger::info("[AssetManager] Loaded metadata for resource {}.\n", uuid_str);
 
     return Ok(new_meta);
 }

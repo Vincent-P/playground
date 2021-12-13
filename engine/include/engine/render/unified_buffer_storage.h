@@ -10,7 +10,7 @@ namespace vulkan {struct Device;}
 
 struct UnifiedBufferStorage
 {
-    BuddyAllocator allocator;
+    exo::BuddyAllocator allocator;
     Handle<gfx::Buffer> buffer;
     u32 element_size = 0;
 

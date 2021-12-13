@@ -4,8 +4,8 @@
 #include "render/vulkan/utils.h"
 #include "render/vulkan/physical_device.h"
 
-#include <exo/cross/window.h>
-#include <exo/base/logger.h>
+#include <exo/os/window.h>
+#include <exo/logger.h>
 #include "vulkan/vulkan_core.h"
 
 namespace vulkan
@@ -21,15 +21,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
         return VK_FALSE;
     }
 
-    logger::error("{}\n", pCallbackData->pMessage);
+    exo::logger::error("{}\n", pCallbackData->pMessage);
 
     if (pCallbackData->objectCount)
     {
-        logger::error("Objects:\n");
+        exo::logger::error("Objects:\n");
         for (size_t i = 0; i < pCallbackData->objectCount; i++)
         {
             const auto &object = pCallbackData->pObjects[i];
-            logger::error("\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
+            exo::logger::error("\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
         }
     }
 
@@ -40,7 +40,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
-Context Context::create(bool enable_validation, const cross::Window *window)
+Context Context::create(bool enable_validation, const os::Window *window)
 {
     Context ctx = {};
 

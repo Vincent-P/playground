@@ -1,6 +1,6 @@
 #include "render/vulkan/surface.h"
 
-#include <exo/cross/window.h>
+#include <exo/os/window.h>
 #include <exo/collections/dynamic_array.h>
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
@@ -9,7 +9,7 @@
 namespace vulkan
 {
 
-Surface Surface::create(Context &context, Device &device, const cross::Window &window)
+Surface Surface::create(Context &context, Device &device, const os::Window &window)
 {
     Surface surface = {};
 
@@ -50,13 +50,13 @@ void Surface::create_swapchain(Device &device)
     this->width  = static_cast<i32>(capabilities.currentExtent.width);
     this->height = static_cast<i32>(capabilities.currentExtent.height);
 
-    logger::info("Creating swapchain {}x{}\n", width, height);
+    exo::logger::info("Creating swapchain {}x{}\n", width, height);
 
     // Find a good present mode (by priority Mailbox then Immediate then FIFO)
     u32 present_modes_count = 0;
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, nullptr));
 
-    DynamicArray<VkPresentModeKHR, 8> present_modes = {};
+    exo::DynamicArray<VkPresentModeKHR, 8> present_modes = {};
     present_modes.resize(present_modes_count);
     VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, present_modes.data()));
     this->present_mode = VK_PRESENT_MODE_FIFO_KHR;

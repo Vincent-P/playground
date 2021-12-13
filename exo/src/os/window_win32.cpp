@@ -1,4 +1,4 @@
-#include "exo/cross/window.h"
+#include "exo/os/window.h"
 
 #include <exo/memory/scope_stack.h>
 
@@ -20,12 +20,12 @@ static bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 static bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 }
 
-namespace cross
+namespace exo::os
 {
 
 EnumArray<i32, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
-#include "exo/cross/window_keys.def"
+#include "exo/os/window_keys.def"
 #undef X
 };
 
@@ -523,4 +523,4 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-} // namespace cross
+} // namespace exo::os

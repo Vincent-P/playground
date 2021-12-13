@@ -1,6 +1,5 @@
 #include "camera.h"
 
-#include <exo/prelude.h>
 #include <cmath> // std::tan
 
 namespace camera
@@ -40,7 +39,7 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
     auto n = near_plane;
     auto f = far_plane;
 
-    float focal_length = 1.0f / std::tan(to_radians(fov) / 2.0f); // = 2n / (height)
+    float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
     // aspect_ratio = width/height
     float x  =  focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
     float y  = -focal_length; // -2n/height
@@ -84,7 +83,7 @@ float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, f
 {
     auto n = near_plane;
 
-    float focal_length = 1.0f / std::tan(to_radians(fov) / 2.0f); // = 2n / (height)
+    float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
     // aspect_ratio = width/height
     float x  =  focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
     float y  = -focal_length; // -2n/height

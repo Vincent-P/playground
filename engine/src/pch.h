@@ -17,6 +17,7 @@
 
 // exo
 #include <exo/prelude.h>
-#include <exo/base/result.h>
 #include <exo/collections/handle.h>
-#include <exo/collections/vector.h>
+
+namespace exo::os {}
+namespace os = exo::os;

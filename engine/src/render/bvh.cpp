@@ -5,8 +5,7 @@
 #include <cmath>
 #include <cfloat> // FLT_MAX
 #include <exo/maths/aabb.h>
-#include <exo/algorithms.h>
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 
 #include <xmmintrin.h>
 #include <limits>
@@ -18,9 +17,9 @@ inline float3 extract_float3(__m128 v)
     return float3(temp[0], temp[1], temp[2]);
 }
 
-AABB calculate_bounds(Vec<TempBVHNode> &temp_nodes, usize prim_start, usize prim_end)
+exo::AABB calculate_bounds(Vec<TempBVHNode> &temp_nodes, usize prim_start, usize prim_end)
 {
-    AABB bounds;
+    exo::AABB bounds;
     if (prim_start == prim_end)
     {
         bounds.min = float3(0.0f);
@@ -59,7 +58,7 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     struct BucketInfo
     {
         int   count  = 0;
-        AABB  bounds = {};
+        exo::AABB  bounds = {};
         float cost   = std::numeric_limits<float>::infinity();
     };
     constexpr usize BUCKET_COUNT = 12;
@@ -108,9 +107,9 @@ static usize temp_bvh_split_sah(Vec<TempBVHNode> &temp_nodes, TempBVHNode &node,
     // Compute the cost of splitting after each bucket
     for (usize i_split_bucket = 0; i_split_bucket < BUCKET_COUNT - 1; i_split_bucket += 1)
     {
-        AABB left        = {};
+        exo::AABB left        = {};
         int  left_count  = 0;
-        AABB right       = {};
+        exo::AABB right       = {};
         int  right_count = 0;
 
         for (usize i_bucket = 0; i_bucket <= i_split_bucket; i_bucket += 1)
@@ -204,7 +203,7 @@ static void create_temp_bvh(BVHScratchMemory &scratch)
 
         if (prim_start >= prim_end)
         {
-            logger::error("BVH: create_temp_bvh should be called with at least one primitive.\n");
+            exo::logger::error("BVH: create_temp_bvh should be called with at least one primitive.\n");
             return;
         }
 
@@ -300,8 +299,8 @@ static void create_nodes(BVHScratchMemory &scratch, Vec<BVHNode> &nodes)
     constexpr bool output_graph = false;
     if (output_graph)
     {
-        logger::info("graph bvh {{\n");
-        logger::info("graph [ordering=\"out\"];\n");
+        exo::logger::info("graph bvh {{\n");
+        exo::logger::info("graph [ordering=\"out\"];\n");
     }
 
     for (usize i_temp_node = 0; i_temp_node < temp_nodes.size(); i_temp_node += 1)
@@ -318,21 +317,21 @@ static void create_nodes(BVHScratchMemory &scratch, Vec<BVHNode> &nodes)
         {
             auto next_node = node.next_node; // cannot bind packed field ‘node.BVHNode::next_node’ to ‘unsigned int&’
             auto prim_index = node.prim_index; // cannot bind packed field ‘node.BVHNode::prim_index’ to ‘unsigned int&’
-            logger::info("{} [label=\"{}\"];\n", temp_node.depth_first_index, fmt::format("depth id: {} \\n next: {}\\n face id: {}", temp_node.depth_first_index, next_node, prim_index));
+            exo::logger::info("{} [label=\"{}\"];\n", temp_node.depth_first_index, fmt::format("depth id: {} \\n next: {}\\n face id: {}", temp_node.depth_first_index, next_node, prim_index));
             if (temp_node.left_child != u64_invalid)
             {
-                logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.left_child].depth_first_index);
+                exo::logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.left_child].depth_first_index);
             }
             if (temp_node.right_child != u64_invalid)
             {
-                logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.right_child].depth_first_index);
+                exo::logger::info("{} -- {};\n", temp_node.depth_first_index, temp_nodes[temp_node.right_child].depth_first_index);
             }
         }
     }
 
     if (output_graph)
     {
-        logger::info("}}\n");
+        exo::logger::info("}}\n");
     }
 }
 

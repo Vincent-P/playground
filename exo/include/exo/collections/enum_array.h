@@ -1,6 +1,9 @@
 #pragma once
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
 
+namespace exo
+{
 template <typename Enum>
 concept EnumCount = requires(Enum e)
 {
@@ -14,13 +17,13 @@ struct EnumArray
     static constexpr usize SIZE = static_cast<usize>(E::Count);
 
     constexpr const T &operator[](E e) const;
-    constexpr T &      operator[](E e);
+    constexpr T       &operator[](E e);
 
     constexpr const T *begin() const;
-    constexpr T *      begin();
+    constexpr T       *begin();
 
     constexpr const T *end() const;
-    constexpr T *      end();
+    constexpr T       *end();
 
     // Note that the member data is intentionally public.
     // This allows for aggregate initialization of the
@@ -64,3 +67,4 @@ constexpr T *EnumArray<T, E>::end()
 {
     return const_cast<T *>(static_cast<const Self &>(*this).end());
 }
+} // namespace exo

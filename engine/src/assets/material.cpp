@@ -18,13 +18,13 @@ void Material::display_ui()
     ImGui::SliderFloat("roughness factor", &this->roughness_factor, 0.0f, 1.0f, "%.2f");
 }
 
-void Material::serialize(Serializer& serializer)
+void Material::serialize(exo::Serializer& serializer)
 {
     serializer.serialize(*this);
 }
 
 template <>
-void Serializer::serialize<Material>(Material &data)
+void exo::Serializer::serialize<Material>(Material &data)
 {
     const char *id = "MTRL";
     serialize(id);

@@ -1,10 +1,10 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/base/option.h>
-#include "exo/cross/prelude.h"
+#include <exo/option.h>
+#include "exo/os/prelude.h"
 #include <string_view>
 
-namespace cross
+namespace exo::os
 {
 
 struct MappedFile
@@ -29,4 +29,4 @@ struct MappedFile
     void close();
 };
 
-}; // namespace cross
+}; // namespace exo::os

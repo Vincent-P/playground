@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/base/option.h>
+#include <exo/option.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/pool.h>
 
@@ -65,12 +65,12 @@ struct Device
     PushConstantLayout push_constant_layout;
     GlobalDescriptorSets global_sets;
 
-    Pool<Shader> shaders;
-    Pool<GraphicsProgram> graphics_programs;
-    Pool<ComputeProgram> compute_programs;
-    Pool<Framebuffer> framebuffers;
-    Pool<Image> images;
-    Pool<Buffer> buffers;
+    exo::Pool<Shader> shaders;
+    exo::Pool<GraphicsProgram> graphics_programs;
+    exo::Pool<ComputeProgram> compute_programs;
+    exo::Pool<Framebuffer> framebuffers;
+    exo::Pool<Image> images;
+    exo::Pool<Buffer> buffers;
     Vec<VkSampler> samplers;
 
     /// ---

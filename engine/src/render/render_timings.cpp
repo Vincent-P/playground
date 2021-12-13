@@ -2,11 +2,11 @@
 
 #include "render/vulkan/device.h"
 
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 #include <exo/time.h>
 #include <exo/memory/string_repository.h>
 
-RenderTimings RenderTimings::create(gfx::Device &d, StringRepository *r)
+RenderTimings RenderTimings::create(gfx::Device &d, exo::StringRepository *r)
 {
     RenderTimings result = {};
     d.create_query_pool(result.pool, TIMESTAMPS_PER_FRAME);
@@ -23,7 +23,7 @@ void RenderTimings::begin_label(gfx::Work &cmd, const char *label)
 {
     if (began)
     {
-        logger::error("labels can't be nested.\n");
+        exo::logger::error("labels can't be nested.\n");
         return;
     }
 
@@ -31,7 +31,7 @@ void RenderTimings::begin_label(gfx::Work &cmd, const char *label)
     cmd.timestamp_query(pool, current_query);
     current_query += 1;
 
-    cpu_ticks.push_back(Clock::now());
+    cpu_ticks.push_back(exo::Clock::now());
 
     began = true;
 }
@@ -40,14 +40,14 @@ void RenderTimings::end_label(gfx::Work &cmd)
 {
     if (!began)
     {
-        logger::error("begin_label should be called before end_label.\n");
+        exo::logger::error("begin_label should be called before end_label.\n");
         return;
     }
 
     cmd.timestamp_query(pool, current_query);
     current_query += 1;
 
-    cpu_ticks.push_back(Clock::now());
+    cpu_ticks.push_back(exo::Clock::now());
 
     began = false;
 }
@@ -56,7 +56,7 @@ void RenderTimings::get_results(gfx::Device &device)
 {
     if (began)
     {
-        logger::error("label not ended.\n");
+        exo::logger::error("label not ended.\n");
         return;
     }
 
@@ -73,7 +73,7 @@ void RenderTimings::get_results(gfx::Device &device)
             );
 
         cpu.push_back(
-            elapsed_ms<double>(cpu_ticks[2*i], cpu_ticks[2*i+1])
+            exo::elapsed_ms<double>(cpu_ticks[2*i], cpu_ticks[2*i+1])
             );
     }
 

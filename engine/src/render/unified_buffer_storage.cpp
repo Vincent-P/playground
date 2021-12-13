@@ -6,7 +6,7 @@
 UnifiedBufferStorage UnifiedBufferStorage::create(gfx::Device &device, std::string name, usize size_in_bytes, u32 element_size, u32 gpu_usage)
 {
     UnifiedBufferStorage storage = {};
-    storage.allocator = BuddyAllocator::create(size_in_bytes);
+    storage.allocator = exo::BuddyAllocator::create(size_in_bytes);
     storage.buffer = device.create_buffer({
             .name = name,
             .size = size_in_bytes,

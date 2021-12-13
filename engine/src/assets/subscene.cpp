@@ -8,13 +8,13 @@ Asset *SubScene::create()
     return new SubScene();
 }
 
-void SubScene::serialize(Serializer& serializer)
+void SubScene::serialize(exo::Serializer& serializer)
 {
     serializer.serialize(*this);
 }
 
 template <>
-void Serializer::serialize<SubScene>(SubScene &data)
+void exo::Serializer::serialize<SubScene>(SubScene &data)
 {
     const char *id = "SBSC";
     serialize(id);

@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/maths/numerics.h>
 
-namespace virtual_allocator
+namespace exo::virtual_allocator
 {
 enum struct MemoryAccess
 {

@@ -1,11 +1,11 @@
 #pragma once
-#include "exo/base/option.h"
+#include "exo/option.h"
 #include "exo/maths/vectors.h"
 #include "exo/collections/vector.h"
 #include "exo/collections/enum_array.h"
-#include "exo/cross/prelude.h"
-#include "exo/cross/buttons.h"
-#include "exo/cross/events.h"
+#include "exo/os/prelude.h"
+#include "exo/os/buttons.h"
+#include "exo/os/events.h"
 
 #include <string>
 #include <string_view>
@@ -20,9 +20,12 @@ struct xkb_keymap;
 struct xkb_state;
 #endif
 
+namespace exo
+{
 struct ScopeStack;
+}
 
-namespace cross
+namespace exo::os
 {
 enum struct Cursor
 {
@@ -118,4 +121,4 @@ struct Window
 #endif
 };
 
-} // namespace cross
+} // namespace exo::os

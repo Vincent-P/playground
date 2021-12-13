@@ -35,10 +35,10 @@ private:
     void display_entity_tree_rec(Entity *entity, Entity* &selected);
     void display_ui();
 
-    StringRepository str_repo        = {};
-    Set<Entity *>    entities        = {};
-    Set<Entity *>    root_entities   = {};
+    exo::StringRepository str_repo        = {};
+    exo::Set<Entity *>    entities        = {};
+    exo::Set<Entity *>    root_entities   = {};
     SystemRegistry   system_registry = {};
 
-    EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list = {};
+    exo::EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list = {};
 };

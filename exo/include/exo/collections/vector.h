@@ -1,5 +1,8 @@
 #pragma once
 #include <vector>
 
-template<typename T>
+namespace exo
+{
+template <typename T>
 using Vec = std::vector<T>;
+}

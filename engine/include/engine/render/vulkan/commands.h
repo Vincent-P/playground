@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/base/option.h>
+#include <exo/option.h>
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/enum_array.h>
 #include <exo/collections/handle.h>
@@ -33,7 +33,7 @@ struct CommandPool
 
 struct WorkPool
 {
-    EnumArray<CommandPool, QueueType> command_pools;
+    exo::EnumArray<CommandPool, QueueType> command_pools;
 
     inline CommandPool &graphics() { return command_pools[QueueType::Graphics]; }
     inline CommandPool &compute()  { return command_pools[QueueType::Compute];  }
@@ -46,9 +46,9 @@ struct Work
     Device *device;
 
     VkCommandBuffer                                    command_buffer;
-    DynamicArray<Fence, MAX_SEMAPHORES>                wait_fence_list;
-    DynamicArray<u64, MAX_SEMAPHORES>                  wait_value_list;
-    DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES> wait_stage_list;
+    exo::DynamicArray<Fence, MAX_SEMAPHORES>                wait_fence_list;
+    exo::DynamicArray<u64, MAX_SEMAPHORES>                  wait_value_list;
+    exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES> wait_stage_list;
     VkQueue                                            queue;
     QueueType queue_type;
 

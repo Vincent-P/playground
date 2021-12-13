@@ -46,7 +46,7 @@ BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, con
         VK_CHECK(device.vkSetDebugUtilsObjectNameEXT(device.device, &ni));
     }
 
-    set.free_list = FreeList::create(type.count);
+    set.free_list = exo::FreeList::create(type.count);
     set.descriptors.resize(type.count, {.dynamic = {}});
 
     return set;

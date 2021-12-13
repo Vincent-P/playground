@@ -1,10 +1,12 @@
 #include "exo/memory/string_repository.h"
 
-#include "exo/prelude.h"
-#include "exo/cross/memory/virtual_allocator.h"
+#include "exo/memory/virtual_allocator.h"
+#include "exo/maths/pointer.h"
 
 #include <xxhash.h>
 
+namespace exo
+{
 StringRepository StringRepository::create()
 {
     return StringRepository::with_capacity(1_GiB);
@@ -69,4 +71,5 @@ bool StringRepository::is_interned(std::string_view s)
 {
     const u64 hash = XXH3_64bits(s.data(), s.size());
     return offsets.at(hash).has_value();
+}
 }

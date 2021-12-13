@@ -26,7 +26,7 @@ struct BufferUpload
 
 struct BufferUploads
 {
-    Map<usize, BufferUpload> offsets;
+    exo::Map<usize, BufferUpload> offsets;
 };
 
 struct ImageRegion
@@ -80,6 +80,6 @@ public:
     Vec<StagingArea> staging_areas;
     usize cpu_memory_usage;
 
-    Map<Handle<gfx::Buffer>, BufferUploads> buffer_uploads;
-    Map<Handle<gfx::Image>, ImageUpload> image_uploads;
+    exo::Map<Handle<gfx::Buffer>, BufferUploads> buffer_uploads;
+    exo::Map<Handle<gfx::Image>, ImageUpload> image_uploads;
 };

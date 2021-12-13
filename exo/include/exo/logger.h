@@ -1,10 +1,9 @@
 #pragma once
-
 #include <fmt/core.h>
 #include <fmt/color.h>
 #include <fmt/ostream.h>
 
-namespace logger
+namespace exo::logger
 {
     template <typename S, typename... Args>
     inline void info(const S& format_str, Args&&... args)

@@ -9,7 +9,7 @@ AssetConstructors &global_asset_constructors()
 }
 
 template <>
-void Serializer::serialize<Asset>(Asset &data)
+void exo::Serializer::serialize<Asset>(Asset &data)
 {
     serialize(data.uuid);
     serialize(data.name);

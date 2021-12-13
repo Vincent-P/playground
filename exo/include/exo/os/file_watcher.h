@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
-#include <exo/cross/prelude.h>
+#include <exo/os/prelude.h>
 
 #include <functional>
 #include <string>
@@ -12,7 +12,7 @@
 #    include <wtypes.h>  // HANDLE type
 #endif
 
-namespace cross
+namespace exo::os
 {
 struct Watch
 {

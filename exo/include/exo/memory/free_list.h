@@ -1,18 +1,22 @@
 #pragma once
-#include "exo/prelude.h"
+#include "exo/maths/numerics.h"
 
+namespace exo
+{
 class FreeList
 {
-public:
+  public:
     static FreeList create(u32 capacity);
 
-    u32 allocate();
+    u32  allocate();
     void free(u32 index);
 
     void destroy();
-private:
+
+  private:
     u32 *array = nullptr;
-    u32 head = 0;
-    u32 capacity;
-    u32 size;
+    u32  head  = 0;
+    u32  capacity;
+    u32  size;
 };
+} // namespace exo

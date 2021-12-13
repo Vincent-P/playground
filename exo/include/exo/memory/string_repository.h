@@ -13,6 +13,8 @@ sharing the same value will point to the same pointer.
    Reference: https://ourmachinery.com/post/data-structures-part-3-arrays-of-arrays/
 **/
 
+namespace exo
+{
 struct StringRepository
 {
     static StringRepository create();
@@ -36,3 +38,4 @@ struct StringRepository
 };
 
 inline thread_local auto tls_string_repository = StringRepository::create();
+}

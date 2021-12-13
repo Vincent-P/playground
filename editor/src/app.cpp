@@ -1,7 +1,7 @@
 #include "app.h"
 
-#include <exo/cross/file_watcher.h>
-#include <exo/cross/window.h>
+#include <exo/os/file_watcher.h>
+#include <exo/os/window.h>
 #include <exo/memory/scope_stack.h>
 
 #include <engine/render/renderer.h>
@@ -18,14 +18,14 @@ App *App::create(ScopeStack &scope)
 {
     auto *app = scope.allocate<App>();
 
-    app->window        = cross::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    app->window        = os::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
-    app->inputs.bind(Action::QuitApp, {.keys = {cross::VirtualKey::Escape}});
-    app->inputs.bind(Action::CameraModifier, {.keys = {cross::VirtualKey::LAlt}});
-    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {cross::MouseButton::Left}});
-    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {cross::MouseButton::Right}});
+    app->inputs.bind(Action::QuitApp, {.keys = {os::VirtualKey::Escape}});
+    app->inputs.bind(Action::CameraModifier, {.keys = {os::VirtualKey::LAlt}});
+    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {os::MouseButton::Left}});
+    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {os::MouseButton::Right}});
 
     UI::create_context(app->window, &app->inputs);
 
@@ -33,7 +33,7 @@ App *App::create(ScopeStack &scope)
 
     UI::new_frame();
 
-    app->watcher       = cross::FileWatcher::create();
+    app->watcher       = os::FileWatcher::create();
     app->shaders_watch = app->watcher.add_watch("shaders");
     app->watcher.on_file_change([=](const auto &watch, const auto &event) {
         if (watch.wd != app->shaders_watch.wd)
@@ -77,14 +77,14 @@ void App::run()
     {
         window->poll_events();
 
-        Option<cross::events::Resize> last_resize;
+        Option<os::events::Resize> last_resize;
         for (auto &event : window->events)
         {
-            if (event.type == cross::Event::ResizeType)
+            if (event.type == os::Event::ResizeType)
             {
                 last_resize = event.resize;
             }
-            else if (event.type == cross::Event::MouseMoveType)
+            else if (event.type == os::Event::MouseMoveType)
             {
                 const auto &move = event.mouse_move;
                 // this->ui.on_mouse_movement(*window, double(move.x), double(move.y));

@@ -82,7 +82,7 @@ void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
         }
     }
 
-    logger::error("Descriptor #{} is not a dynamic buffer.\n", slot);
+    exo::logger::error("Descriptor #{} is not a dynamic buffer.\n", slot);
 }
 
 void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle)
@@ -93,7 +93,7 @@ void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
 
 VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set)
 {
-    auto hash = exo::hash::hash_value(set.descriptors);
+    auto hash = exo::hash_value(set.descriptors);
 
     for (usize i = 0; i < set.hashes.size(); i++)
     {
@@ -132,7 +132,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         if (set.descriptor_desc[slot].type == DescriptorType::SampledImage)
         {
             if (!set.descriptors[slot].image.image_handle.is_valid())
-                logger::error("Binding #{} has an invalid image handle.\n", slot);
+                exo::logger::error("Binding #{} has an invalid image handle.\n", slot);
 
             auto &image = *device.images.get(set.descriptors[slot].image.image_handle);
             images_info.push_back({
@@ -145,7 +145,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         else if (set.descriptor_desc[slot].type == DescriptorType::StorageImage)
         {
             if (!set.descriptors[slot].image.image_handle.is_valid())
-                logger::error("Binding #{} has an invalid image handle.\n", slot);
+                exo::logger::error("Binding #{} has an invalid image handle.\n", slot);
 
             auto &image = *device.images.get(set.descriptors[slot].image.image_handle);
             images_info.push_back({
@@ -159,7 +159,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         {
             DynamicDescriptor &dynamic_descriptor = set.descriptors[slot].dynamic;
             if (!dynamic_descriptor.buffer_handle.is_valid())
-                logger::error("Binding #{} has an invalid buffer handle.\n", slot);
+                exo::logger::error("Binding #{} has an invalid buffer handle.\n", slot);
 
             auto &buffer = *device.buffers.get(dynamic_descriptor.buffer_handle);
             buffers_info.push_back({
@@ -173,7 +173,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         {
             BufferDescriptor &buffer_descriptor = set.descriptors[slot].buffer;
             if (!buffer_descriptor.buffer_handle.is_valid())
-                logger::error("Binding #{} has an invalid buffer handle.\n", slot);
+                exo::logger::error("Binding #{} has an invalid buffer handle.\n", slot);
 
             auto &buffer = *device.buffers.get(buffer_descriptor.buffer_handle);
             buffers_info.push_back({
@@ -185,7 +185,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         }
         else
         {
-            logger::error("Binding #{} has an invalid descriptor type.\n", slot);
+            exo::logger::error("Binding #{} has an invalid descriptor type.\n", slot);
         }
     }
 

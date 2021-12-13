@@ -1,7 +1,6 @@
 #pragma once
-#include <exo/prelude.h>
 #include <exo/collections/handle.h>
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 
 #include "assets/asset.h"
 
@@ -22,14 +21,14 @@ struct Material : Asset
     float4           emissive_factor            = float4(0.0f);
     float            metallic_factor            = 1.0f;
     float            roughness_factor           = 1.0f;
-    cross::UUID      base_color_texture         = {};
-    cross::UUID      normal_texture             = {};
-    cross::UUID      metallic_roughness_texture = {};
+    os::UUID      base_color_texture         = {};
+    os::UUID      normal_texture             = {};
+    os::UUID      metallic_roughness_texture = {};
     TextureTransform uv_transform               = {};
 
     static Asset *create();
     const char *type_name() const final { return "Material"; }
-    void serialize(Serializer& serializer) final;
+    void serialize(exo::Serializer& serializer) final;
 
     void display_ui() final;
 
@@ -37,4 +36,4 @@ struct Material : Asset
 };
 
 template<>
-void Serializer::serialize<Material>(Material &data);
+void exo::Serializer::serialize<Material>(Material &data);

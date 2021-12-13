@@ -8,13 +8,13 @@ Asset *Mesh::create()
     return new Mesh();
 }
 
-void Mesh::serialize(Serializer& serializer)
+void Mesh::serialize(exo::Serializer& serializer)
 {
     serializer.serialize(*this);
 }
 
 template<>
-void Serializer::serialize<Mesh>(Mesh &data)
+void exo::Serializer::serialize<Mesh>(Mesh &data)
 {
     const char *id = "MESH";
     serialize(id);

@@ -1,6 +1,5 @@
-#include "exo/cross/window.h"
+#include "exo/os/window.h"
 
-#include <exo/prelude.h>
 #include <exo/collections/enum_array.h>
 
 #include <cstdio>
@@ -12,11 +11,11 @@
 
 EnumArray<uint, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
-#include "exo/cross/window_keys.def"
+#include "exo/os/window_keys.def"
 #undef X
 };
 
-namespace cross
+namespace exo::os
 {
 void Window::create(Window &window, u32 width, u32 height, std::string_view title)
 {
@@ -306,4 +305,4 @@ void Window::set_cursor(Cursor) {}
 [[nodiscard]] float2 Window::get_dpi_scale() const { return float2(1.0f); }
 
 void Window::destroy() { xcb_disconnect(xcb.connection); }
-} // namespace cross
+} // namespace exo::os

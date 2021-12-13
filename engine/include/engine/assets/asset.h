@@ -2,7 +2,7 @@
 
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 #include <exo/serializer.h>
 #include <string>
 
@@ -14,7 +14,7 @@ enum struct AssetState
     Count
 };
 
-inline constexpr EnumArray<const char *, AssetState> asset_state_to_string{
+inline constexpr exo::EnumArray<const char *, AssetState> asset_state_to_string{
     "Unloaded",
     "Loading",
     "Loaded",
@@ -27,12 +27,12 @@ struct Asset
     virtual ~Asset() {}
 
     virtual const char *type_name() const = 0;
-    virtual void serialize(Serializer& serializer) = 0;
+    virtual void serialize(exo::Serializer& serializer) = 0;
     virtual void display_ui() = 0;
 
     bool operator==(const Asset &other) const = default;
 
-    inline void add_dependency_checked(cross::UUID dependency)
+    inline void add_dependency_checked(os::UUID dependency)
     {
         usize i = 0;
         for (; i < dependencies.size(); i += 1)
@@ -49,14 +49,14 @@ struct Asset
     }
 
     // --
-    cross::UUID uuid;
+    os::UUID uuid;
     AssetState state;
     const char *name;
-    Vec<cross::UUID> dependencies;
+    Vec<os::UUID> dependencies;
 };
 
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
 struct AssetConstructors &global_asset_constructors();
 
 template<>
-void Serializer::serialize<Asset>(Asset &data);
+void exo::Serializer::serialize<Asset>(Asset &data);

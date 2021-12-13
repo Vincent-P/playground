@@ -1,7 +1,7 @@
 #pragma once
 #include <functional>
 
-namespace exo::hash
+namespace exo
 {
 
 template <typename T>
@@ -19,17 +19,17 @@ inline void hash_combine(std::size_t &seed, const T &v)
 
 namespace std
 {
-    template<typename T>
-    struct hash<std::vector<T>>
+template <typename T>
+struct hash<std::vector<T>>
+{
+    std::size_t operator()(std::vector<T> const &vec) const noexcept
     {
-        std::size_t operator()(std::vector<T> const& vec) const noexcept
+        std::size_t hash = vec.size();
+        for (auto &i : vec)
         {
-            std::size_t hash = vec.size();
-            for (auto &i : vec)
-            {
-                exo::hash::hash_combine(hash, i);
-            }
-            return hash;
+            exo::hash_combine(hash, i);
         }
-    };
-}
+        return hash;
+    }
+};
+} // namespace std

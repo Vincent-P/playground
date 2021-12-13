@@ -1,8 +1,11 @@
 #include "exo/memory/buddy_allocator.h"
 
-#include "exo/base/logger.h"
+#include "exo/macros/assert.h"
+#include "exo/logger.h"
 #include <bit>
 
+namespace exo
+{
 static u32 total_size(u32 levels_count)
 {
     return (1 << (levels_count - 1)) * LEAF_SIZE;
@@ -168,4 +171,5 @@ void BuddyAllocator::free(u32 offset)
     u32 level = find_block_level(offset);
     allocated -= block_size_of_level(levels_count, level);
     free_block(offset, level);
+}
 }

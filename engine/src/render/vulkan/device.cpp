@@ -1,7 +1,6 @@
 #include "render/vulkan/device.h"
 
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 
 #include "render/vulkan/bindless_set.h"
 #include "render/vulkan/context.h"
@@ -26,12 +25,12 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     // Features warnings!
     if (!device.physical_device.vulkan12_features.timelineSemaphore)
     {
-        logger::error("This device does not support timeline semaphores from Vulkan 1.2");
+        exo::logger::error("This device does not support timeline semaphores from Vulkan 1.2");
     }
 
     if (!device.physical_device.vulkan12_features.bufferDeviceAddress)
     {
-        logger::error("This device does not support buffer device address from Vulkan 1.2");
+        exo::logger::error("This device does not support buffer device address from Vulkan 1.2");
     }
 
     if (desc.buffer_device_address == false && device.physical_device.vulkan12_features.bufferDeviceAddress == VK_TRUE)
@@ -115,15 +114,15 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
     if (device.graphics_family_idx == u32_invalid)
     {
-        logger::error("Failed to find a graphics queue.\n");
+        exo::logger::error("Failed to find a graphics queue.\n");
     }
     if (device.compute_family_idx == u32_invalid)
     {
-        logger::error("Failed to find a compute queue.\n");
+        exo::logger::error("Failed to find a compute queue.\n");
     }
     if (device.transfer_family_idx == u32_invalid)
     {
-        logger::error("Failed to find a transfer queue.\n");
+        exo::logger::error("Failed to find a transfer queue.\n");
         device.transfer_family_idx = device.compute_family_idx;
     }
 

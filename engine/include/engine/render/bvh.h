@@ -1,12 +1,12 @@
 #pragma once
-#include <exo/prelude.h>
+#include <exo/macros/packed.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/aabb.h>
 
 struct TempBVHNode
 {
     // internal nodes
-    AABB   bbox        = {};
+    exo::AABB   bbox        = {};
     float3 bbox_center = {0.0f};
     usize  left_child  = u64_invalid;
     usize  right_child = u64_invalid;

@@ -24,5 +24,5 @@ struct PrepareRenderWorld : GlobalSystem
 
 private:
     CameraComponent* main_camera;
-    Map<const Entity*, MeshComponent*> entities;
+    exo::Map<const Entity*, MeshComponent*> entities;
 };

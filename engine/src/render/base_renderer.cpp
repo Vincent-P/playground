@@ -1,18 +1,18 @@
 #include "render/base_renderer.h"
 
-#include <exo/base/logger.h>
-#include <exo/cross/window.h>
+#include <exo/logger.h>
+#include <exo/os/window.h>
 #include <exo/memory/string_repository.h>
 #include <exo/memory/scope_stack.h>
 
 #include <Tracy.hpp>
 #include <imgui.h>
 
-BaseRenderer *BaseRenderer::create(ScopeStack &scope, cross::Window *window, gfx::DeviceDescription desc)
+BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, os::Window *window, gfx::DeviceDescription desc)
 {
     BaseRenderer *renderer = scope.allocate<BaseRenderer>();
 
-    renderer->str_repo = StringRepository::create();
+    renderer->str_repo = exo::StringRepository::create();
 
     // Initialize the API
     renderer->window = window;
@@ -24,10 +24,10 @@ BaseRenderer *BaseRenderer::create(ScopeStack &scope, cross::Window *window, gfx
     u32 i_device = 0;
     for (auto& physical_device : physical_devices)
     {
-        logger::info("Found device: {}\n", physical_device.properties.deviceName);
+        exo::logger::info("Found device: {}\n", physical_device.properties.deviceName);
         if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
-            logger::info("Prioritizing device {} because it is a discrete GPU.\n", physical_device.properties.deviceName);
+            exo::logger::info("Prioritizing device {} because it is a discrete GPU.\n", physical_device.properties.deviceName);
             i_selected = i_device;
         }
         i_device += 1;
@@ -35,7 +35,7 @@ BaseRenderer *BaseRenderer::create(ScopeStack &scope, cross::Window *window, gfx
     if (i_selected == u32_invalid)
     {
         i_selected = 0;
-        logger::info("No discrete GPU found, defaulting to device #0: {}.\n", physical_devices[0].properties.deviceName);
+        exo::logger::info("No discrete GPU found, defaulting to device #0: {}.\n", physical_devices[0].properties.deviceName);
     }
     desc.physical_device = &physical_devices[i_selected];
 
@@ -128,7 +128,7 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
 {
     device.wait_idle();
 
-    logger::info("{} changed!\n", shader_name);
+    exo::logger::info("{} changed!\n", shader_name);
 
     // Find the shader that needs to be updated
     gfx::Shader *found = nullptr;
@@ -161,7 +161,7 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
             else if (compute_shader->filename == shader.filename)
             {
                 Handle<gfx::Shader> new_shader = device.create_shader(shader_name);
-                logger::info("Found a program using the shader, creating the new shader module #{}\n", new_shader.value());
+                exo::logger::info("Found a program using the shader, creating the new shader module #{}\n", new_shader.value());
 
                 to_remove.push_back(program->state.shader);
                 program->state.shader = new_shader;
@@ -172,10 +172,10 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
 
     // Destroy the old shaders
     for (Handle<gfx::Shader> shader_h : to_remove) {
-        logger::info("Removing old shader #{}\n", shader_h.value());
+        exo::logger::info("Removing old shader #{}\n", shader_h.value());
         device.destroy_shader(shader_h);
     }
-    logger::info("\n");
+    exo::logger::info("\n");
 }
 
 void BaseRenderer::on_resize()

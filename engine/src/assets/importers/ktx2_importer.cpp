@@ -1,8 +1,7 @@
 #include "assets/importers/ktx2_importer.h"
 
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
-#include <exo/base/defer.h>
+#include <exo/logger.h>
+#include <exo/macros/defer.h>
 
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
@@ -43,7 +42,7 @@ bool KTX2Importer::can_import(const void *file_data, usize file_len)
     return std::memcmp(file_data, signature, sizeof(signature)) == 0;
 }
 
-Result<Asset*> KTX2Importer::import(AssetManager *asset_manager, cross::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+Result<Asset*> KTX2Importer::import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
 {
     auto &ktx2_importer_data = *reinterpret_cast<KTX2Importer::Data*>(importer_data);
     UNUSED(ktx2_importer_data);

@@ -1,10 +1,10 @@
 #pragma once
-#include <exo/base/option.h>
+#include <exo/option.h>
 #include <exo/collections/vector.h>
 
 #include <vulkan/vulkan.h>
 
-namespace cross { struct Window; }
+namespace exo::os { struct Window; }
 
 namespace vulkan
 {
@@ -18,7 +18,7 @@ struct Context
 
     /// --
 
-    static Context create(bool enable_validation = true, const cross::Window *window = nullptr);
+    static Context create(bool enable_validation = true, const os::Window *window = nullptr);
     void destroy();
 
     // Instance functions

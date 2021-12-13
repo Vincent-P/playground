@@ -1,10 +1,10 @@
-#include "exo/cross/memory/virtual_allocator.h"
+#include "exo/memory/virtual_allocator.h"
 
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
+#include "exo/logger.h"
+#include "exo/macros/assert.h"
 #include <windows.h>
 
-namespace virtual_allocator
+namespace exo::virtual_allocator
 {
 u32 get_page_size()
 {

@@ -1,8 +1,10 @@
 #include "exo/memory/scope_stack.h"
-#include "exo/base/logger.h"
+#include "exo/logger.h"
 
 #include <utility>
 
+namespace exo
+{
 ScopeStack ScopeStack::with_allocator(LinearAllocator *a)
 {
     ScopeStack result     = {};
@@ -37,4 +39,5 @@ ScopeStack &ScopeStack::operator=(ScopeStack &&other)
     this->rewind_ptr     = std::exchange(other.rewind_ptr, nullptr);
     this->finalizer_head = std::exchange(finalizer_head, nullptr);
     return *this;
+}
 }

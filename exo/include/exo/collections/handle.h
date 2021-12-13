@@ -1,10 +1,15 @@
 #pragma once
-#include "exo/prelude.h"
-#include "exo/base/hash.h"
+#include "exo/maths/numerics.h"
+#include "exo/hash.h"
 
-template <typename T> struct Pool;
-template <typename T> struct PoolIterator;
-template <typename T> struct ConstPoolIterator;
+namespace exo
+{
+template <typename T>
+struct Pool;
+template <typename T>
+struct PoolIterator;
+template <typename T>
+struct ConstPoolIterator;
 
 /// --- Handle type (Typed index that can be invalid)
 template <typename T>
@@ -48,22 +53,14 @@ struct Handle
     u32 index;
     u32 gen;
 
-    friend struct ::std::hash<Handle<T>>;
     friend Pool<T>;
     friend PoolIterator<T>;
     friend ConstPoolIterator<T>;
-};
-
-namespace std
-{
-    template<typename T>
-    struct hash<Handle<T>>
+    friend inline usize hash_value(const Handle<T> &h)
     {
-        std::size_t operator()(Handle<T> const& handle) const noexcept
-        {
-            usize hash = exo::hash::hash_value(handle.index);
-            exo::hash::hash_combine(hash, handle.gen);
-            return hash;
-        }
-    };
-}
+        usize seed = hash_value(h.index);
+        hash_combine(seed, h.gen);
+        return seed;
+    }
+};
+} // namespace exo

@@ -1,4 +1,4 @@
-#include "exo/cross/mapped_file.h"
+#include "exo/os/mapped_file.h"
 
 
 #include <sys/types.h>
@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-namespace cross
+namespace exo::os
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -72,4 +72,4 @@ void MappedFile::close()
     ::close(fd);
 }
 
-}; // namespace cross
+}; // namespace exo::os

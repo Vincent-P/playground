@@ -2,7 +2,7 @@
 #include "exo/maths/numerics.h"
 #include "exo/collections/enum_array.h"
 
-namespace cross
+namespace exo::os
 {
 enum struct MouseButton : uint
 {
@@ -27,14 +27,14 @@ inline constexpr const char *to_string(MouseButton button) { return mouse_button
 enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
-#include "exo/cross/window_keys.def"
+#include "exo/os/window_keys.def"
 #undef X
     Count
 };
 
 inline constexpr EnumArray<const char *, VirtualKey> key_to_string{
 #define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
-#include "exo/cross/window_keys.def"
+#include "exo/os/window_keys.def"
 #undef X
 };
 

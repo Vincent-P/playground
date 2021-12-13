@@ -1,9 +1,8 @@
 #pragma once
-#include <exo/prelude.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
 
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 
 #include "gameplay/update_stages.h"
 
@@ -93,13 +92,13 @@ private:
     void dettach_to_parent();
     void refresh_attachments();
 
-    cross::UUID uuid  = {};
+    os::UUID uuid  = {};
     const char *name  = {};
     EntityState state = EntityState::Unloaded;
 
     Vec<LocalSystem *>                          local_systems         = {};
     Vec<BaseComponent *>                        components            = {};
-    EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list = {};
+    exo::EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list = {};
 
     SpatialComponent *root_component        = nullptr;
     Vec<Entity *>     attached_entities     = {};

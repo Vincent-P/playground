@@ -1,8 +1,7 @@
 #include "assets/importers/png_importer.h"
 
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
-#include <exo/base/defer.h>
+#include <exo/logger.h>
+#include <exo/macros/defer.h>
 
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
@@ -31,7 +30,7 @@ bool PNGImporter::can_import(const void *file_data, usize file_len)
     return std::memcmp(file_data, signature, sizeof(signature)) == 0;
 }
 
-Result<Asset*> PNGImporter::import(AssetManager *asset_manager, cross::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+Result<Asset*> PNGImporter::import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
 {
     auto &png_importer_data = *reinterpret_cast<PNGImporter::Data*>(importer_data);
     UNUSED(png_importer_data);

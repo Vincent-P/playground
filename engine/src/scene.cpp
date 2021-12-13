@@ -1,8 +1,8 @@
 #include "scene.h"
 
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 #include <exo/maths/quaternion.h>
-#include <exo/cross/file_dialog.h>
+#include <exo/os/file_dialog.h>
 
 #include "gameplay/component.h"
 #include "inputs.h"
@@ -62,7 +62,7 @@ void Scene::display_ui()
     auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
     const auto &assets = asset_manager->get_assets();
 
-    static Vec<cross::UUID> sorted_assets;
+    static Vec<os::UUID> sorted_assets;
     sorted_assets.clear();
     for (const auto &[uuid, asset_meta] : assets)
     {
@@ -70,12 +70,12 @@ void Scene::display_ui()
     }
 
     std::sort(sorted_assets.begin(), sorted_assets.end(), [&](auto lhs, auto rhs) {
-        return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, cross::UUID::STR_LEN) > 0;
+        return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, os::UUID::STR_LEN) > 0;
     });
 
     if (auto w = UI::begin_window("Scene"))
     {
-        static cross::UUID selected = {};
+        static os::UUID selected = {};
 
         if (ImGui::Button("Import subscene"))
         {
@@ -120,7 +120,7 @@ void Scene::display_ui()
                     ImGui::Text("%s", asset->type_name());
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%.*s", static_cast<int>(cross::UUID::STR_LEN), uuid.str);
+                    ImGui::Text("%.*s", static_cast<int>(os::UUID::STR_LEN), uuid.str);
 
                     ImGui::TableSetColumnIndex(3);
                     ImGui::Text("%s", asset->name);
@@ -135,9 +135,9 @@ void Scene::display_ui()
 
         if (selected.is_valid())
         {
-            logger::info("Selected {}\n", selected);
+            exo::logger::info("Selected {}\n", selected);
 
-            leaf::try_handle_all(
+            exo::leaf::try_handle_all(
                 [&]() -> Result<void>
                 {
                     BOOST_LEAF_AUTO(selected_asset, asset_manager->load_asset(selected));

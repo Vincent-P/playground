@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/cross/file_watcher.h>
+#include <exo/os/file_watcher.h>
 
 #include <engine/inputs.h>
 #include <engine/scene.h>
@@ -8,7 +8,7 @@
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
-namespace cross {struct Window;}
+namespace exo::os {struct Window;}
 
 class App
 {
@@ -22,7 +22,7 @@ class App
     void camera_update();
     void display_ui();
 
-    cross::Window *window;
+    os::Window *window;
     AssetManager  *asset_manager;
     Renderer      *renderer;
 
@@ -32,8 +32,8 @@ class App
 
     Scene scene;
 
-    cross::FileWatcher watcher;
-    cross::Watch shaders_watch;
+    os::FileWatcher watcher;
+    os::Watch shaders_watch;
 
     bool is_minimized;
 };

@@ -1,12 +1,12 @@
-#include "exo/cross/mapped_file.h"
+#include "exo/os/mapped_file.h"
 
 #include "utils_win32.h"
-#include <exo/base/defer.h>
+#include <exo/macros/defer.h>
 
 #include <windows.h>
 
 
-namespace cross
+namespace exo::os
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -72,4 +72,4 @@ void MappedFile::close()
     }
 }
 
-}; // namespace cross
+}; // namespace exo::os

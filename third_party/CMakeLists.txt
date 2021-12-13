@@ -148,27 +148,27 @@ target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 #Tracy profiler
 add_library(tracy tracy/TracyClient.cpp)
 target_include_directories(tracy SYSTEM PUBLIC tracy/)
-#target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
 
 #parallel hashmap
 add_library(parallel_hashmap INTERFACE)
-target_include_directories(parallel_hashmap INTERFACE SYSTEM parallel_hashmap/)
+target_include_directories(parallel_hashmap SYSTEM INTERFACE parallel_hashmap/)
 
 #xxhash
 add_library(xxhash INTERFACE)
 target_compile_definitions(xxhash INTERFACE XXH_INLINE_ALL XXH_PRIVATE_API)
-target_include_directories(xxhash INTERFACE SYSTEM xxhash/)
+target_include_directories(xxhash SYSTEM INTERFACE xxhash/)
 
 #leaf
 add_library(leaf INTERFACE)
-target_include_directories(leaf INTERFACE SYSTEM leaf/)
+target_include_directories(leaf SYSTEM INTERFACE leaf/)
 
 #rapidjson
 add_library(rapidjson INTERFACE)
-target_compile_definitions(rapidjson INTERFACE RAPIDJSON_ASSERT=)
-target_include_directories(rapidjson INTERFACE SYSTEM rapidjson/)
+target_compile_definitions(rapidjson INTERFACE RAPIDJSON_ASSERT=ASSERT)
+target_include_directories(rapidjson SYSTEM INTERFACE rapidjson/)
 
 #meow hash
 add_library(meow_hash INTERFACE)
-target_include_directories(meow_hash INTERFACE SYSTEM meow_hash/)
+target_include_directories(meow_hash SYSTEM INTERFACE meow_hash/)

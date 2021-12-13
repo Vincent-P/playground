@@ -1,7 +1,8 @@
 #include "render/ring_buffer.h"
 
+#include "exo/maths/pointer.h"
+
 #include "render/vulkan/device.h"
-#include <exo/algorithms.h>
 
 RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc, bool align)
 {
@@ -21,7 +22,7 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 
 std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
 {
-    auto aligned_len = round_up_to_alignment(256, len);
+    auto aligned_len = exo::round_up_to_alignment(256, len);
     if (!should_align)
     {
         aligned_len = len;

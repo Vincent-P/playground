@@ -14,7 +14,7 @@ struct BindlessSet
     VkDescriptorSet set = VK_NULL_HANDLE;
     DescriptorType descriptor_type = {};
     Vec<Descriptor> descriptors = {};
-    FreeList free_list = {};
+    exo::FreeList free_list = {};
 
     Vec<u32> pending_bind = {};
     Vec<u32> pending_unbind = {};

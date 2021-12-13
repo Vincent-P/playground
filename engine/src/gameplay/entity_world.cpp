@@ -10,11 +10,11 @@
 #include "ui.h"
 
 #include <imgui.h>
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 
 EntityWorld::EntityWorld()
 {
-    this->str_repo = StringRepository::create();
+    this->str_repo = exo::StringRepository::create();
 }
 
 void EntityWorld::update(double delta_t)

@@ -13,13 +13,13 @@ struct SubMesh
     u32         first_index  = 0;
     u32         first_vertex = 0;
     u32         index_count  = 0;
-    cross::UUID material     = {};
+    os::UUID material     = {};
 
     bool operator==(const SubMesh &other) const = default;
 };
 
 template<>
-inline void Serializer::serialize<SubMesh>(SubMesh &data)
+inline void exo::Serializer::serialize<SubMesh>(SubMesh &data)
 {
     serialize(data.first_index);
     serialize(data.first_vertex);
@@ -32,7 +32,7 @@ struct Mesh : Asset
 {
     static Asset *create();
     const char *type_name() const final { return "Mesh"; }
-    void serialize(Serializer& serializer) final;
+    void serialize(exo::Serializer& serializer) final;
     void display_ui() final {}
 
     // doesn't check the name
@@ -47,4 +47,4 @@ struct Mesh : Asset
 };
 
 template<>
-void Serializer::serialize<Mesh>(Mesh &data);
+void exo::Serializer::serialize<Mesh>(Mesh &data);

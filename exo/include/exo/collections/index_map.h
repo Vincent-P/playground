@@ -1,7 +1,7 @@
 #pragma once
 #include "exo/maths/numerics.h"
 #include "exo/collections/vector.h"
-#include "exo/base/option.h"
+#include "exo/option.h"
 
 /**
    A hash map using linear probing.
@@ -9,6 +9,8 @@
    This allows to make a non-templated hashmap that works with any type.
  **/
 
+namespace exo
+{
 struct IndexMap
 {
     static IndexMap with_capacity(u64 c);
@@ -33,3 +35,4 @@ struct IndexMap
     usize capacity = 0;
     usize size     = 0;
 };
+} // namespace exo

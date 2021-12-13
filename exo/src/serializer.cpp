@@ -1,8 +1,12 @@
 #include "exo/serializer.h"
-#include "exo/prelude.h"
-#include "exo/maths/vectors.h"
-#include <exo/memory/string_repository.h>
 
+#include "exo/maths/vectors.h"
+#include "exo/maths/matrices.h"
+#include "exo/memory/string_repository.h"
+#include "exo/memory/scope_stack.h"
+
+namespace exo
+{
 Serializer Serializer::create(ScopeStack *s, StringRepository *r)
 {
     Serializer result  = {};
@@ -95,3 +99,4 @@ void Serializer::serialize(exo::float4x4 &data) { return serialize_impl(this, da
 void Serializer::serialize(exo::float4 &data)   { return serialize_impl(this, data); }
 void Serializer::serialize(exo::float2 &data)   { return serialize_impl(this, data); }
 void Serializer::serialize(exo::int2 &data)     { return serialize_impl(this, data); }
+}

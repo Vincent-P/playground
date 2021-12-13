@@ -37,7 +37,7 @@ void Work::bind_global_set()
         };
 
         u32      offsets_count = static_cast<u32>(device->global_sets.uniform.dynamic_offsets.size());
-        DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
+        exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
         for (usize i_offset = 0; i_offset < offsets_count; i_offset += 1)
         {
             offsets.push_back(static_cast<u32>(device->global_sets.uniform.dynamic_offsets[i_offset]));
@@ -136,8 +136,8 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images, std::span<std::pair<Handle<Buffer>, BufferUsage>> buffers)
 {
     ZoneScoped;
-    DynamicArray<VkImageMemoryBarrier, 8>  image_barriers = {};
-    DynamicArray<VkBufferMemoryBarrier, 8> buffer_barriers = {};
+    exo::DynamicArray<VkImageMemoryBarrier, 8>  image_barriers = {};
+    exo::DynamicArray<VkBufferMemoryBarrier, 8> buffer_barriers = {};
 
     VkPipelineStageFlags src_stage = 0;
     VkPipelineStageFlags dst_stage = 0;
@@ -218,7 +218,7 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst, std::span
     auto &src_buffer = *device->buffers.get(src);
     auto &dst_buffer = *device->buffers.get(dst);
 
-    DynamicArray<VkBufferCopy, 16> buffer_copies = {};
+    exo::DynamicArray<VkBufferCopy, 16> buffer_copies = {};
 
     for (usize i_copy = 0; i_copy < offsets_src_dst_size.size(); i_copy += 1)
     {
@@ -318,7 +318,7 @@ void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
     auto &          program = *device->compute_programs.get(program_handle);
     VkDescriptorSet set     = find_or_create_descriptor_set(*device, program.descriptor_set);
 
-    DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
+    exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
     for (usize offset : program.descriptor_set.dynamic_offsets)
     {
         offsets.push_back(static_cast<u32>(offset));
@@ -434,7 +434,7 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<
     auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
     auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
 
-    DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
+    exo::DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
     for (auto &load_op : load_ops)
     {
         clear_colors.push_back(load_op.color);
@@ -464,7 +464,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
 
     VkDescriptorSet set = find_or_create_descriptor_set(*device, program.descriptor_set);
 
-    DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
+    exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
     for (usize offset : program.descriptor_set.dynamic_offsets)
     {
         offsets.push_back(static_cast<u32>(offset));
@@ -654,8 +654,8 @@ void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<
 {
     ZoneScoped;
     // Creathe list of semaphores to wait
-    DynamicArray<VkSemaphore, 4> signal_list = {};
-    DynamicArray<u64, 4> local_signal_values = {signal_values};
+    exo::DynamicArray<VkSemaphore, 4> signal_list = {};
+    exo::DynamicArray<u64, 4> local_signal_values = {signal_values};
     for (const auto &fence : signal_fences)
     {
         signal_list.push_back(fence.timeline_semaphore);
@@ -667,9 +667,9 @@ void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<
         local_signal_values.push_back(0);
     }
 
-    DynamicArray<VkSemaphore, MAX_SEMAPHORES+1>          semaphore_list = {};
-    DynamicArray<u64, MAX_SEMAPHORES+1>                  value_list = {};
-    DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES+1> stage_list = {};
+    exo::DynamicArray<VkSemaphore, MAX_SEMAPHORES+1>          semaphore_list = {};
+    exo::DynamicArray<u64, MAX_SEMAPHORES+1>                  value_list = {};
+    exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES+1> stage_list = {};
 
     for (usize i = 0; i < work.wait_fence_list.size(); i++)
     {
@@ -746,7 +746,7 @@ void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64>
     ZoneScoped;
     ASSERT(wait_values.size() == fences.size());
 
-    DynamicArray<VkSemaphore, 4> semaphores = {};
+    exo::DynamicArray<VkSemaphore, 4> semaphores = {};
     for (usize i_fence = 0; i_fence < fences.size(); i_fence += 1)
     {
         semaphores.push_back(fences[i_fence].timeline_semaphore);

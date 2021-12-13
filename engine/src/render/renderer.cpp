@@ -1,11 +1,11 @@
 #include "render/renderer.h"
 
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 #include <exo/maths/matrices.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 #include <exo/memory/scope_stack.h>
-#include <exo/cross/mapped_file.h>
+#include <exo/os/mapped_file.h>
 
 #include "assets/asset_manager.h"
 #include "assets/material.h"
@@ -149,7 +149,7 @@ void recreate_framebuffers(Renderer &r)
         std::array{r.ldr_buffer});
 }
 
-void upload_texture(Renderer &renderer, cross::UUID texture_uuid)
+void upload_texture(Renderer &renderer, os::UUID texture_uuid)
 {
     auto &asset_manager    = *renderer.asset_manager;
     auto &streamer         = renderer.streamer;
@@ -173,12 +173,12 @@ void upload_texture(Renderer &renderer, cross::UUID texture_uuid)
     renderer.uploaded_textures[texture_uuid] = render_texture_handle;
 }
 
-bool is_texture_uploaded(Renderer &renderer, cross::UUID texture_uuid)
+bool is_texture_uploaded(Renderer &renderer, os::UUID texture_uuid)
 {
     return renderer.uploaded_textures.contains(texture_uuid);
 }
 
-void upload_material(Renderer &renderer, cross::UUID material_uuid)
+void upload_material(Renderer &renderer, os::UUID material_uuid)
 {
     auto &asset_manager    = *renderer.asset_manager;
     auto &device           = renderer.base_renderer->device;
@@ -226,12 +226,12 @@ void upload_material(Renderer &renderer, cross::UUID material_uuid)
     materials_gpu[material_handle.value()] = render_material_gpu;
 }
 
-bool is_material_uploaded(Renderer &renderer, cross::UUID material_uuid)
+bool is_material_uploaded(Renderer &renderer, os::UUID material_uuid)
 {
     return renderer.uploaded_materials.contains(material_uuid);
 }
 
-void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
+void upload_mesh(Renderer &renderer, os::UUID mesh_uuid)
 {
     auto &asset_manager = *renderer.asset_manager;
     auto &streamer = renderer.streamer;
@@ -241,7 +241,7 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
     const auto *mesh_asset = dynamic_cast<Mesh*>(asset_manager.get_asset(mesh_uuid).value());
     ASSERT(mesh_asset);
 
-    logger::info("[Renderer] Uploading mesh asset {}\n", mesh_uuid);
+    exo::logger::info("[Renderer] Uploading mesh asset {}\n", mesh_uuid);
     static BVHScratchMemory scratch_bvh = {};
     static BVH              bvh         = {};
     create_blas(scratch_bvh, bvh, mesh_asset->indices, mesh_asset->positions);
@@ -313,14 +313,14 @@ void upload_mesh(Renderer &renderer, cross::UUID mesh_uuid)
     renderer.uploaded_meshes[mesh_asset->uuid] = mesh_handle;
 }
 
-bool is_mesh_uploaded(Renderer &renderer, cross::UUID mesh_uuid)
+bool is_mesh_uploaded(Renderer &renderer, os::UUID mesh_uuid)
 {
     return renderer.uploaded_meshes.contains(mesh_uuid);
 }
 
 } // namespace
 
-Renderer *Renderer::create(ScopeStack &scope, cross::Window *window, AssetManager *_asset_manager)
+Renderer *Renderer::create(exo::ScopeStack &scope, os::Window *window, AssetManager *_asset_manager)
 {
     auto *renderer          = scope.allocate<Renderer>();
     renderer->asset_manager = _asset_manager;
@@ -680,7 +680,7 @@ void Renderer::update(const RenderWorld &render_world)
         streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
         const auto *blue_noise_uuid = "c50c2272-49cf54e5-4ee5e9b2-53a00883";
-        auto bn_texture = asset_manager->load_or_import_resource(cross::UUID::from_string(blue_noise_uuid, strlen(blue_noise_uuid)));
+        auto bn_texture = asset_manager->load_or_import_resource(os::UUID::from_string(blue_noise_uuid, strlen(blue_noise_uuid)));
         if (!bn_texture)
         {
         }

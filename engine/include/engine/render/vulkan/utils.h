@@ -1,6 +1,5 @@
 #pragma once
-#include <exo/prelude.h>
-#include <exo/base/logger.h>
+#include <exo/logger.h>
 #include <exo/collections/vector.h>
 
 #include "render/vulkan/image.h"
@@ -66,7 +65,7 @@ inline const char *vkres_to_str(VkResult code)
         if (err)                                                                                                       \
         {                                                                                                              \
             const char *err_msg = vkres_to_str(err);                                                                   \
-            logger::error("Vulkan function returned {}\n", err_msg);    \
+            exo::logger::error("Vulkan function returned {}\n", err_msg);    \
             throw std::runtime_error(err_msg);                                                                         \
         }                                                                                                              \
     } while (0)

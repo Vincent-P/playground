@@ -13,7 +13,7 @@ enum struct UpdateStages
 };
 
 
-inline constexpr EnumArray<const char *, UpdateStages> update_stages_to_string_array{
+inline constexpr exo::EnumArray<const char *, UpdateStages> update_stages_to_string_array{
     "FrameStart",
     "Input",
     "PrePhysics",

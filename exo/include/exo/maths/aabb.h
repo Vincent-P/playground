@@ -1,7 +1,9 @@
 #pragma once
-#include "exo/prelude.h"
+#include "exo/maths/vectors.h"
 #include <limits>
 
+namespace exo
+{
 struct AABB
 {
     float3 min = {std::numeric_limits<float>::infinity()};
@@ -22,10 +24,12 @@ inline void extend(AABB &aabb, float3 new_point)
 {
     for (uint i_comp = 0; i_comp < 3; i_comp += 1)
     {
-        if (new_point[i_comp] < aabb.min[i_comp]) {
+        if (new_point[i_comp] < aabb.min[i_comp])
+        {
             aabb.min[i_comp] = new_point[i_comp];
         }
-        if (new_point[i_comp] > aabb.max[i_comp]) {
+        if (new_point[i_comp] > aabb.max[i_comp])
+        {
             aabb.max[i_comp] = new_point[i_comp];
         }
     }
@@ -40,6 +44,7 @@ inline void extend(AABB &aabb, const AABB &other)
 inline float surface(AABB aabb)
 {
     float3 diagonal = aabb.max - aabb.min;
-    float surface = 2.0f * (diagonal.x  * diagonal.y + diagonal.x * diagonal.z + diagonal.y * diagonal.z);
+    float  surface  = 2.0f * (diagonal.x * diagonal.y + diagonal.x * diagonal.z + diagonal.y * diagonal.z);
     return surface;
 }
+} // namespace exo

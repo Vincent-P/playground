@@ -1,27 +1,22 @@
 // WIN32: https://docs.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications
 // linux: inotify/select https://developer.ibm.com/tutorials/l-inotify/
-#include "exo/cross/file_watcher.h"
+#include "exo/os/file_watcher.h"
+
+#include "exo/maths/pointer.h"
+#include "exo/macros/assert.h"
 
 #ifdef __linux__
-
 #include <fcntl.h>
 #include <sys/inotify.h>
 #include <unistd.h>
-
 #elif defined(CROSS_WINDOWS)
-
 #include <Windows.h>
 #include "utils_win32.h"
-
 #endif
-
-#include <exo/prelude.h>
-#include <exo/algorithms.h>
-
-#include <array>
 #include <Tracy.hpp>
+#include <array>
 
-namespace cross
+namespace exo::os
 {
 /// --- Linux
 #if defined(__linux__)
@@ -153,7 +148,6 @@ static void fetch_events_internal(FileWatcher &fw)
         {
             auto error = GetLastError();
             ASSERT(error == ERROR_IO_INCOMPLETE);
-            UNUSED(error);
         }
 
         u8 *p_buffer = watch.buffer.data();

@@ -1,9 +1,8 @@
 #pragma once
-#include <exo/prelude.h>
 #include <exo/maths/matrices.h>
 #include <exo/maths/aabb.h>
 #include <exo/collections/vector.h>
-#include <exo/cross/uuid.h>
+#include <exo/os/uuid.h>
 #include <string>
 
 struct LoadingContext;
@@ -20,7 +19,7 @@ enum struct ComponentState
 
 struct BaseComponent
 {
-    cross::UUID uuid;
+    os::UUID uuid;
     std::string name;
 
     virtual ~BaseComponent() {}
@@ -48,13 +47,13 @@ struct BaseComponent
 struct SpatialComponent : BaseComponent
 {
     void set_local_transform(const float4x4 &new_transform);
-    void set_local_bounds(const AABB &new_bounds);
+    void set_local_bounds(const exo::AABB &new_bounds);
 
     // clang-format off
     inline const float4x4 &get_local_transform() const { return local_transform; }
-    inline const AABB     &get_local_bounds() const    { return local_bounds; }
+    inline const exo::AABB     &get_local_bounds() const    { return local_bounds; }
     inline const float4x4 &get_world_transform() const { return world_transform; }
-    inline const AABB     &get_world_bounds() const    { return world_bounds; }
+    inline const exo::AABB     &get_world_bounds() const    { return world_bounds; }
     // clang-format on
 
     void show_inspector_ui() override;
@@ -63,9 +62,9 @@ struct SpatialComponent : BaseComponent
     void update_world_transform();
 
     float4x4 local_transform;
-    AABB     local_bounds;
+    exo::AABB     local_bounds;
     float4x4 world_transform;
-    AABB     world_bounds;
+    exo::AABB     world_bounds;
 
     SpatialComponent *      parent;
     Vec<SpatialComponent *> children;

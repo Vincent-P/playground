@@ -1,4 +1,4 @@
-#include "exo/prelude.h"
+#include "exo/macros/assert.h"
 
 #include <cstdio>
 #include <cstdlib>
