@@ -10,7 +10,6 @@
 #include <string>
 
 // clang-format off
-namespace UI { struct Context; }
 namespace exo { struct Event; }
 // clang-format on
 
@@ -64,6 +63,4 @@ class Inputs
     Option<int2> mouse_drag_delta  = {};
     Option<int2> mouse_delta       = {};
     int2         mouse_position    = {0};
-
-    friend UI::Context;
 };

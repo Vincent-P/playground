@@ -15,8 +15,6 @@
 
 namespace exo { struct ScopeStack; }
 namespace gfx = vulkan;
-namespace gltf {struct Model;}
-namespace UI {struct Context;}
 struct Mesh;
 struct Material;
 struct Scene;

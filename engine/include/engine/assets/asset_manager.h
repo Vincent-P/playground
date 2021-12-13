@@ -33,7 +33,6 @@
  **/
 
 namespace exo { struct FileWatcher; }
-namespace UI {struct Context;}
 namespace exo {struct ScopeStack; }
 
 enum struct AssetErrors : int
