@@ -2,7 +2,7 @@
 #include "exo/maths/numerics.h"
 #include "exo/collections/enum_array.h"
 
-namespace exo::os
+namespace exo
 {
 enum struct MouseButton : uint
 {

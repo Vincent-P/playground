@@ -32,7 +32,7 @@ struct Asset
 
     bool operator==(const Asset &other) const = default;
 
-    inline void add_dependency_checked(os::UUID dependency)
+    inline void add_dependency_checked(exo::UUID dependency)
     {
         usize i = 0;
         for (; i < dependencies.size(); i += 1)
@@ -49,10 +49,10 @@ struct Asset
     }
 
     // --
-    os::UUID uuid;
+    exo::UUID uuid;
     AssetState state;
     const char *name;
-    Vec<os::UUID> dependencies;
+    Vec<exo::UUID> dependencies;
 };
 
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use

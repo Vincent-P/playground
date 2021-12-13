@@ -32,7 +32,7 @@
 
  **/
 
-namespace exo::os { struct FileWatcher; }
+namespace exo { struct FileWatcher; }
 namespace UI {struct Context;}
 namespace exo {struct ScopeStack; }
 
@@ -54,7 +54,7 @@ struct JsonError
 // Meta files that identifies resources
 struct ResourceMeta
 {
-    os::UUID uuid;
+    exo::UUID uuid;
     const char *display_name;
     std::filesystem::path resource_path;
     std::filesystem::path meta_path;
@@ -65,7 +65,7 @@ struct ResourceMeta
 // Meta files that identifies assets
 struct AssetMeta
 {
-    os::UUID uuid;
+    exo::UUID uuid;
     const char *display_name;
     u64 asset_hash;
 };
@@ -76,42 +76,42 @@ struct AssetManager
     ~AssetManager();
 
     void load_all_metas();
-    void setup_file_watcher(os::FileWatcher &watcher);
+    void setup_file_watcher(exo::FileWatcher &watcher);
 
     void display_ui();
 
     // -- Resource files
 
     // Used by importers to import resources that needs a different importer
-    Result<Asset*> import_resource(const void *data, usize len, void *import_settings = nullptr, u32 i_importer = u32_invalid, os::UUID resource_uuid = {});
-    Result<Asset*> import_resource(os::UUID resource_uuid);
+    Result<Asset*> import_resource(const void *data, usize len, void *import_settings = nullptr, u32 i_importer = u32_invalid, exo::UUID resource_uuid = {});
+    Result<Asset*> import_resource(exo::UUID resource_uuid);
 
     // import the resource if needed and load its associated asset and its dependencies
-    void load_resource(os::UUID resource_uuid);
+    void load_resource(exo::UUID resource_uuid);
 
      // -- Asset files
-    Result<Asset*> get_asset(os::UUID asset_uuid);
+    Result<Asset*> get_asset(exo::UUID asset_uuid);
 
-    inline const exo::Map<os::UUID, AssetMeta> &get_assets_metadata() const { return asset_metadatas; }
-    inline const exo::Map<os::UUID, Asset*> &get_assets() const { return assets; }
+    inline const exo::Map<exo::UUID, AssetMeta> &get_assets_metadata() const { return asset_metadatas; }
+    inline const exo::Map<exo::UUID, Asset*> &get_assets() const { return assets; }
 
     // Used by importers to create an asset manually
     template<std::derived_from<Asset> AssetType>
-    AssetType* create_asset(os::UUID uuid = {});
+    AssetType* create_asset(exo::UUID uuid = {});
 
-    void create_asset_internal(Asset *asset, os::UUID uuid = {});
+    void create_asset_internal(Asset *asset, exo::UUID uuid = {});
 
     // Used by importers when the asset created manually has finished importing and needs to be saved to disk
     Result<void> save_asset(Asset *asset);
 
     // Load an imported asset and its dependencies from disk
-    Result<Asset*> load_asset(os::UUID asset_uuid);
+    Result<Asset*> load_asset(exo::UUID asset_uuid);
 
-    void unload_asset(os::UUID asset_uuid);
+    void unload_asset(exo::UUID asset_uuid);
 
     // Load or import a resource if it hasnt been imported yet
     // TODO: support asset_uuid and import corresponding resource?
-    Result<Asset*> load_or_import_resource(os::UUID resource_uuid);
+    Result<Asset*> load_or_import_resource(exo::UUID resource_uuid);
 
     // Utility
 
@@ -127,7 +127,7 @@ struct AssetManager
             {
                 exo::logger::error("[AssetManager] No importer found for in-memory resource\n");
             },
-            [](leaf::match<AssetErrors, AssetErrors::NoLoaderFound>, os::UUID asset_uuid)
+            [](leaf::match<AssetErrors, AssetErrors::NoLoaderFound>, exo::UUID asset_uuid)
             {
                 exo::logger::error("[AssetManager] No loader found for asset {}\n", asset_uuid);
             },
@@ -135,7 +135,7 @@ struct AssetManager
             {
                 exo::logger::error("[AssetManager] JSON Parsing error: {}\n", json_error.error_message);
             },
-            [](leaf::match<AssetErrors, AssetErrors::InvalidUUID>, os::UUID invalid_uuid)
+            [](leaf::match<AssetErrors, AssetErrors::InvalidUUID>, exo::UUID invalid_uuid)
             {
                 exo::logger::info("[AssetManager] Invalid UUID: {}\n", invalid_uuid);
             },
@@ -157,22 +157,22 @@ private:
     bool has_meta_file(const std::filesystem::path &file_path);
 
     // Create a new meta for a resource
-    Result<os::UUID> create_resource_meta(const std::filesystem::path &file_path);
+    Result<exo::UUID> create_resource_meta(const std::filesystem::path &file_path);
 
     // Save a meta from memory to disk
     Result<void> save_resource_meta(GenericImporter &importer, ResourceMeta &meta);
 
     // Load a meta from disk to memory
-    Result<os::UUID> load_resource_meta(GenericImporter &importer, const std::filesystem::path &file_path);
+    Result<exo::UUID> load_resource_meta(GenericImporter &importer, const std::filesystem::path &file_path);
 
     // Create a new meta for a asset
-    Result<AssetMeta&> create_asset_meta(os::UUID uuid);
+    Result<AssetMeta&> create_asset_meta(exo::UUID uuid);
 
     // Save a meta from memory to disk
     Result<void> save_asset_meta(AssetMeta &meta);
 
     // Load a meta from disk to memory
-    Result<AssetMeta&> load_asset_meta(os::UUID uuid);
+    Result<AssetMeta&> load_asset_meta(exo::UUID uuid);
 
 
 
@@ -183,11 +183,11 @@ private:
     std::filesystem::path assets_directory = COMPILED_ASSET_PATH;
 
     // Assets in memory
-    exo::Map<os::UUID, Asset*> assets;
+    exo::Map<exo::UUID, Asset*> assets;
 
     // All assets metadata
-    exo::Map<os::UUID, ResourceMeta> resource_metadatas;
-    exo::Map<os::UUID, AssetMeta> asset_metadatas;
+    exo::Map<exo::UUID, ResourceMeta> resource_metadatas;
+    exo::Map<exo::UUID, AssetMeta> asset_metadatas;
 
     exo::DynamicArray<GenericImporter, 16> importers; // import resource into assets
 };
@@ -196,7 +196,7 @@ private:
 // -- Template Implementations
 
 template <std::derived_from<Asset> AssetType>
-AssetType *AssetManager::create_asset(os::UUID uuid)
+AssetType *AssetManager::create_asset(exo::UUID uuid)
 {
     AssetType *new_asset = new AssetType();
     this->create_asset_internal(new_asset, uuid);

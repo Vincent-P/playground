@@ -27,13 +27,13 @@ struct GLTFImporter
     struct Data
     {
         Settings settings;
-        Vec<os::UUID> mesh_uuids;
-        Vec<os::UUID> texture_uuids;
-        Vec<os::UUID> material_uuids;
+        Vec<exo::UUID> mesh_uuids;
+        Vec<exo::UUID> texture_uuids;
+        Vec<exo::UUID> material_uuids;
     };
 
     bool can_import(const void *file_data, usize file_len);
-    Result<Asset*> import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
+    Result<Asset*> import(AssetManager *asset_manager, exo::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
 
     // Importer data
     void *create_default_importer_data();

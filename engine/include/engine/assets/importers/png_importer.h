@@ -25,7 +25,7 @@ struct PNGImporter
     };
 
     bool can_import(const void *file_data, usize file_len);
-    Result<Asset*> import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
+    Result<Asset*> import(AssetManager *asset_manager, exo::UUID resource_uuid, const void *file_data, usize file_len, void *import_settings = nullptr);
 
     // Importer data
     void *create_default_importer_data();

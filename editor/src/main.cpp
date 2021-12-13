@@ -39,8 +39,8 @@ int main(int argc, char **argv)
     UNUSED(argv);
     #endif
 
-    LinearAllocator global_allocator = LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
-    ScopeStack global_scope = ScopeStack::with_allocator(&global_allocator);
+    exo::LinearAllocator global_allocator = exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
+    exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
     auto *app = App::create(global_scope);
     app->run();

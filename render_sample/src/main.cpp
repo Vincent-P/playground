@@ -1,6 +1,4 @@
 #include <exo/prelude.h>
-namespace exo::os {}
-namespace os = exo::os;
 
 #include <exo/logger.h>
 #include <exo/memory/linear_allocator.h>
@@ -54,7 +52,7 @@ int main(int /*argc*/, char ** /*argv*/)
     exo::LinearAllocator global_allocator = exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
     exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
-    auto *window = os::Window::create(global_scope, 1280, 720, "Render sample");
+    auto *window = exo::Window::create(global_scope, 1280, 720, "Render sample");
 
     auto context = gfx::Context::create(false, window);
 
@@ -98,25 +96,25 @@ int main(int /*argc*/, char ** /*argv*/)
     {
         window->poll_events();
 
-        Option<os::events::Resize> last_resize  = {};
+        Option<exo::events::Resize> last_resize  = {};
         bool                       is_minimized = window->minimized;
         for (const auto &event : window->events)
         {
             switch (event.type)
             {
-            case os::Event::ResizeType:
+            case exo::Event::ResizeType:
             {
                 last_resize = event.resize;
                 break;
             }
-            case os::Event::MouseMoveType:
+            case exo::Event::MouseMoveType:
             {
                 is_minimized = false;
                 break;
             }
-            case os::Event::KeyType:
+            case exo::Event::KeyType:
             {
-                if (event.key.key == os::VirtualKey::Escape)
+                if (event.key.key == exo::VirtualKey::Escape)
                 {
                     window->stop = true;
                 }

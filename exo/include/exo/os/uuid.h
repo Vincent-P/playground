@@ -10,8 +10,6 @@
 
 namespace exo
 {
-namespace os
-{
 struct UUID
 {
     static constexpr usize STR_LEN      = 35;
@@ -33,15 +31,14 @@ struct UUID
 };
 
 template <>
-void Serializer::serialize<os::UUID>(os::UUID &data);
+void Serializer::serialize<exo::UUID>(exo::UUID &data);
 
-} // namespace os
 } // namespace exo
 
-static_assert(phmap::has_hash_value<exo::os::UUID>::value);
+static_assert(phmap::has_hash_value<exo::UUID>::value);
 
 template <>
-struct fmt::formatter<exo::os::UUID>
+struct fmt::formatter<exo::UUID>
 {
     constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin())
     {
@@ -49,8 +46,8 @@ struct fmt::formatter<exo::os::UUID>
     }
 
     template <typename FormatContext>
-    auto format(const exo::os::UUID &uuid, FormatContext &ctx) -> decltype(ctx.out())
+    auto format(const exo::UUID &uuid, FormatContext &ctx) -> decltype(ctx.out())
     {
-        return format_to(ctx.out(), "{:.{}}", uuid.str, exo::os::UUID::STR_LEN);
+        return format_to(ctx.out(), "{:.{}}", uuid.str, exo::UUID::STR_LEN);
     }
 };

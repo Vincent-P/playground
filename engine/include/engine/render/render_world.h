@@ -7,7 +7,7 @@
 
 struct DrawableInstance
 {
-    os::UUID mesh_asset;
+    exo::UUID mesh_asset;
     float4x4 world_transform;
     exo::AABB world_bounds;
 };
@@ -32,7 +32,7 @@ struct RenderWorld
     Vec<DrawableInstance> drawable_instances;
 
     // intermediate result
-    exo::Map<os::UUID, MeshInstance> mesh_instances;
+    exo::Map<exo::UUID, MeshInstance> mesh_instances;
 };
 
 

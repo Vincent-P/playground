@@ -3,7 +3,7 @@
 #include "exo/os/buttons.h"
 #include <string>
 
-namespace exo::os::events
+namespace exo::events
 {
 struct Key
 {
@@ -54,9 +54,9 @@ struct Resize
     uint width;
     uint height;
 };
-} // namespace exo::os::events
+} // namespace exo::events
 
-namespace exo::os
+namespace exo
 {
 struct Event
 {
@@ -87,4 +87,4 @@ struct Event
     };
 };
 
-} // namespace exo::os
+} // namespace exo

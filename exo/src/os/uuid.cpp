@@ -12,14 +12,14 @@
 
 namespace
 {
-void write_uuid_string(u32 (&data)[4], char (&str)[exo::os::UUID::STR_LEN])
+void write_uuid_string(u32 (&data)[4], char (&str)[exo::UUID::STR_LEN])
 {
-    std::memset(str, 0, exo::os::UUID::STR_LEN);
+    std::memset(str, 0, exo::UUID::STR_LEN);
     fmt::format_to(str, "{:08x}-{:08x}-{:08x}-{:08x}", data[0], data[1], data[2], data[3]);
 }
 } // namespace
 
-namespace exo::os
+namespace exo
 {
 UUID UUID::create()
 {
@@ -83,17 +83,17 @@ UUID UUID::from_values(const u32 *values)
     write_uuid_string(new_uuid.data, new_uuid.str);
     return new_uuid;
 }
-} // namespace exo::os
+} // namespace exo
 
 namespace exo
 {
-usize hash_value(const os::UUID &uuid)
+usize hash_value(const exo::UUID &uuid)
 {
     return phmap::HashState().combine(uuid.data[0], uuid.data[1], uuid.data[2], uuid.data[3]);
 }
 
 template <>
-void Serializer::serialize<exo::os::UUID>(os::UUID &data)
+void Serializer::serialize<exo::UUID>(exo::UUID &data)
 {
     serialize(data.data);
     if (this->is_writing == false)

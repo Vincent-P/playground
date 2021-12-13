@@ -4,7 +4,7 @@
 #include "exo/os/prelude.h"
 #include <string_view>
 
-namespace exo::os
+namespace exo
 {
 
 struct MappedFile
@@ -29,4 +29,4 @@ struct MappedFile
     void close();
 };
 
-}; // namespace exo::os
+}; // namespace exo

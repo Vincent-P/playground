@@ -6,7 +6,7 @@
 #include <windows.h>
 
 
-namespace exo::os
+namespace exo
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -72,4 +72,4 @@ void MappedFile::close()
     }
 }
 
-}; // namespace exo::os
+}; // namespace exo

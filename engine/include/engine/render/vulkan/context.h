@@ -4,7 +4,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace exo::os { struct Window; }
+namespace exo { struct Window; }
 
 namespace vulkan
 {
@@ -18,7 +18,7 @@ struct Context
 
     /// --
 
-    static Context create(bool enable_validation = true, const os::Window *window = nullptr);
+    static Context create(bool enable_validation = true, const exo::Window *window = nullptr);
     void destroy();
 
     // Instance functions
@@ -30,6 +30,4 @@ struct Context
     X(vkSetDebugUtilsObjectNameEXT);
 #undef X
 };
-
-
 }

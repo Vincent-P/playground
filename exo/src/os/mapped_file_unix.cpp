@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-namespace exo::os
+namespace exo
 {
 
 MappedFile::MappedFile(MappedFile &&moved)
@@ -72,4 +72,4 @@ void MappedFile::close()
     ::close(fd);
 }
 
-}; // namespace exo::os
+}; // namespace exo

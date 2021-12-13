@@ -190,7 +190,7 @@ bool GLTFImporter::can_import(const void *file_data, usize file_len)
     return as_char[0] == 'g' && as_char[1] == 'l' && as_char[2] == 'T' && as_char[3] == 'F';
 }
 
-Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, os::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+Result<Asset*> GLTFImporter::import(AssetManager *asset_manager, exo::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
 {
     UNUSED(file_len);
 
@@ -260,7 +260,7 @@ static void import_meshes(ImportContext &ctx)
         {
             if (!mesh_uuids[i_mesh].is_valid())
             {
-                mesh_uuids[i_mesh] = os::UUID::create();
+                mesh_uuids[i_mesh] = exo::UUID::create();
             }
         }
     }
@@ -564,7 +564,7 @@ static void import_materials(ImportContext &ctx)
         {
             if (!material_uuids[i_mesh].is_valid())
             {
-                material_uuids[i_mesh] = os::UUID::create();
+                material_uuids[i_mesh] = exo::UUID::create();
             }
         }
     }
@@ -667,7 +667,7 @@ static void import_textures(ImportContext &ctx)
         {
             if (!texture_uuids[i_mesh].is_valid())
             {
-                texture_uuids[i_mesh] = os::UUID::create();
+                texture_uuids[i_mesh] = exo::UUID::create();
             }
         }
     }
@@ -732,7 +732,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         data->mesh_uuids.reserve(j_mesh_uuids.Size());
         for (const auto &j_mesh_uuid : j_mesh_uuids)
         {
-            auto mesh_uuid = os::UUID::from_string(j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength());
+            auto mesh_uuid = exo::UUID::from_string(j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength());
             data->mesh_uuids.push_back(mesh_uuid);
         }
     }
@@ -743,7 +743,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         data->texture_uuids.reserve(j_texture_uuids.Size());
         for (const auto &j_texture_uuid : j_texture_uuids)
         {
-            auto texture_uuid = os::UUID::from_string(j_texture_uuid.GetString(), j_texture_uuid.GetStringLength());
+            auto texture_uuid = exo::UUID::from_string(j_texture_uuid.GetString(), j_texture_uuid.GetStringLength());
             data->texture_uuids.push_back(texture_uuid);
         }
     }
@@ -755,7 +755,7 @@ void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
         for (const auto &j_material_uuid : j_material_uuids)
         {
             auto material_uuid
-                = os::UUID::from_string(j_material_uuid.GetString(), j_material_uuid.GetStringLength());
+                = exo::UUID::from_string(j_material_uuid.GetString(), j_material_uuid.GetStringLength());
             data->material_uuids.push_back(material_uuid);
         }
     }

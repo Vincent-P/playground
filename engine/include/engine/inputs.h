@@ -11,7 +11,7 @@
 
 // clang-format off
 namespace UI { struct Context; }
-namespace exo::os { struct Event; }
+namespace exo { struct Event; }
 // clang-format on
 
 enum struct Action : uint
@@ -33,8 +33,8 @@ inline constexpr const char *to_string(Action action) { return action_to_string_
 struct KeyBinding
 {
     // all keys need to be pressed
-    Vec<os::VirtualKey> keys;
-    Vec<os::MouseButton> mouse_buttons;
+    Vec<exo::VirtualKey> keys;
+    Vec<exo::MouseButton> mouse_buttons;
 };
 
 class Inputs
@@ -43,12 +43,12 @@ class Inputs
     void bind(Action action, const KeyBinding &binding);
 
     bool is_pressed(Action action) const;
-    bool is_pressed(os::VirtualKey Key) const;
-    bool is_pressed(os::MouseButton mouse_button) const;
+    bool is_pressed(exo::VirtualKey Key) const;
+    bool is_pressed(exo::MouseButton mouse_button) const;
     inline Option<int2> get_scroll_this_frame() const { return scroll_this_frame; }
     inline Option<int2> get_mouse_delta() const { return mouse_delta; }
 
-    void process(const Vec<os::Event> &events);
+    void process(const Vec<exo::Event> &events);
     inline void consume_scroll() { scroll_this_frame = {}; }
 
     void display_ui();
@@ -56,8 +56,8 @@ class Inputs
   private:
     exo::Map<Action, KeyBinding> bindings;
 
-    exo::EnumArray<bool, os::VirtualKey> keys_pressed           = {};
-    exo::EnumArray<bool, os::MouseButton> mouse_buttons_pressed = {};
+    exo::EnumArray<bool, exo::VirtualKey> keys_pressed           = {};
+    exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
 
     Option<int2> scroll_this_frame = {};
     Option<int2> mouse_drag_start  = {};

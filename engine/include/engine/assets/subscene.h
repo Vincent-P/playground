@@ -17,7 +17,7 @@ struct SubScene : Asset
 
     // SoA nodes layout
     Vec<float4x4> transforms;
-    Vec<os::UUID> meshes;
+    Vec<exo::UUID> meshes;
     Vec<const char*> names;
     Vec<Vec<u32>> children;
 };

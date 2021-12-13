@@ -16,7 +16,7 @@
 #include <Tracy.hpp>
 #include <array>
 
-namespace exo::os
+namespace exo
 {
 /// --- Linux
 #if defined(__linux__)

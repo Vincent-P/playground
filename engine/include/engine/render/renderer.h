@@ -166,7 +166,7 @@ PACKED (struct SubMeshInstance
 
 struct Renderer
 {
-    static Renderer *create(exo::ScopeStack &scope, os::Window *window, AssetManager *_asset_manager);
+    static Renderer *create(exo::ScopeStack &scope, exo::Window *window, AssetManager *_asset_manager);
     ~Renderer();
 
     void display_ui();
@@ -198,9 +198,9 @@ struct Renderer
     Handle<gfx::Framebuffer> ldr_depth_fb;
 
     // Geometry
-    exo::Map<os::UUID, Handle<RenderMesh>> uploaded_meshes; // Contains all uploaded meshes in the Pool
+    exo::Map<exo::UUID, Handle<RenderMesh>> uploaded_meshes; // Contains all uploaded meshes in the Pool
     exo::Pool<RenderMesh> render_meshes; // Used to free/allocate mesh and get a free slot to upload it to GPU buffer
-    exo::Map<os::UUID, Vec<u32>> mesh_instances; // all mesh instances
+    exo::Map<exo::UUID, Vec<u32>> mesh_instances; // all mesh instances
     Handle<gfx::Buffer>        meshes_buffer;
 
     Handle<gfx::Buffer>  tlas_buffer;
@@ -211,11 +211,11 @@ struct Renderer
     UnifiedBufferStorage submeshes_buffer;
 
     // Textures
-    exo::Map<os::UUID, Handle<RenderTexture>> uploaded_textures;
+    exo::Map<exo::UUID, Handle<RenderTexture>> uploaded_textures;
     exo::Pool<RenderTexture>                     render_textures;
 
     // Materials
-    exo::Map<os::UUID, Handle<RenderMaterial>> uploaded_materials;
+    exo::Map<exo::UUID, Handle<RenderMaterial>> uploaded_materials;
     exo::Pool<RenderMaterial>                     render_materials;
     Handle<gfx::Buffer>                      materials_buffer;
 

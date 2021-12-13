@@ -7,7 +7,7 @@
 #include <windows.h>
 #include <shobjidl.h>
 
-namespace exo::os
+namespace exo
 {
 Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string>> extensions)
 {

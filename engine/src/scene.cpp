@@ -62,7 +62,7 @@ void Scene::display_ui()
     auto table_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInner;
     const auto &assets = asset_manager->get_assets();
 
-    static Vec<os::UUID> sorted_assets;
+    static Vec<exo::UUID> sorted_assets;
     sorted_assets.clear();
     for (const auto &[uuid, asset_meta] : assets)
     {
@@ -70,12 +70,12 @@ void Scene::display_ui()
     }
 
     std::sort(sorted_assets.begin(), sorted_assets.end(), [&](auto lhs, auto rhs) {
-        return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, os::UUID::STR_LEN) > 0;
+        return std::strncmp(assets.at(lhs)->uuid.str, assets.at(rhs)->uuid.str, exo::UUID::STR_LEN) > 0;
     });
 
     if (auto w = UI::begin_window("Scene"))
     {
-        static os::UUID selected = {};
+        static exo::UUID selected = {};
 
         if (ImGui::Button("Import subscene"))
         {
@@ -120,7 +120,7 @@ void Scene::display_ui()
                     ImGui::Text("%s", asset->type_name());
 
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::Text("%.*s", static_cast<int>(os::UUID::STR_LEN), uuid.str);
+                    ImGui::Text("%.*s", static_cast<int>(exo::UUID::STR_LEN), uuid.str);
 
                     ImGui::TableSetColumnIndex(3);
                     ImGui::Text("%s", asset->name);

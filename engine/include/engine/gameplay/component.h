@@ -19,7 +19,7 @@ enum struct ComponentState
 
 struct BaseComponent
 {
-    os::UUID uuid;
+    exo::UUID uuid;
     std::string name;
 
     virtual ~BaseComponent() {}

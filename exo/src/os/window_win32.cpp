@@ -20,7 +20,7 @@ static bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 static bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 }
 
-namespace exo::os
+namespace exo
 {
 
 EnumArray<i32, VirtualKey> native_to_virtual{
@@ -523,4 +523,4 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-} // namespace exo::os
+} // namespace exo

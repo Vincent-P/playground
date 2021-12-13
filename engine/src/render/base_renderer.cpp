@@ -8,7 +8,7 @@
 #include <Tracy.hpp>
 #include <imgui.h>
 
-BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, os::Window *window, gfx::DeviceDescription desc)
+BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, gfx::DeviceDescription desc)
 {
     BaseRenderer *renderer = scope.allocate<BaseRenderer>();
 

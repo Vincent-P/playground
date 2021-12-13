@@ -13,7 +13,7 @@ struct SubMesh
     u32         first_index  = 0;
     u32         first_vertex = 0;
     u32         index_count  = 0;
-    os::UUID material     = {};
+    exo::UUID material     = {};
 
     bool operator==(const SubMesh &other) const = default;
 };

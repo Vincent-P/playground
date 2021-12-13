@@ -25,7 +25,7 @@ namespace exo
 struct ScopeStack;
 }
 
-namespace exo::os
+namespace exo
 {
 enum struct Cursor
 {
@@ -121,4 +121,4 @@ struct Window
 #endif
 };
 
-} // namespace exo::os
+} // namespace exo

@@ -11,39 +11,39 @@
 
 namespace
 {
-static os::Cursor cursor_from_imgui()
+static exo::Cursor cursor_from_imgui()
 {
     ImGuiIO         &io           = ImGui::GetIO();
     ImGuiMouseCursor imgui_cursor = io.MouseDrawCursor ? ImGuiMouseCursor_None : ImGui::GetMouseCursor();
-    os::Cursor    cursor       = os::Cursor::None;
+    exo::Cursor    cursor       = exo::Cursor::None;
     switch (imgui_cursor)
     {
     case ImGuiMouseCursor_Arrow:
-        cursor = os::Cursor::Arrow;
+        cursor = exo::Cursor::Arrow;
         break;
     case ImGuiMouseCursor_TextInput:
-        cursor = os::Cursor::TextInput;
+        cursor = exo::Cursor::TextInput;
         break;
     case ImGuiMouseCursor_ResizeAll:
-        cursor = os::Cursor::ResizeAll;
+        cursor = exo::Cursor::ResizeAll;
         break;
     case ImGuiMouseCursor_ResizeEW:
-        cursor = os::Cursor::ResizeEW;
+        cursor = exo::Cursor::ResizeEW;
         break;
     case ImGuiMouseCursor_ResizeNS:
-        cursor = os::Cursor::ResizeNS;
+        cursor = exo::Cursor::ResizeNS;
         break;
     case ImGuiMouseCursor_ResizeNESW:
-        cursor = os::Cursor::ResizeNESW;
+        cursor = exo::Cursor::ResizeNESW;
         break;
     case ImGuiMouseCursor_ResizeNWSE:
-        cursor = os::Cursor::ResizeNWSE;
+        cursor = exo::Cursor::ResizeNWSE;
         break;
     case ImGuiMouseCursor_Hand:
-        cursor = os::Cursor::Hand;
+        cursor = exo::Cursor::Hand;
         break;
     case ImGuiMouseCursor_NotAllowed:
-        cursor = os::Cursor::NotAllowed;
+        cursor = exo::Cursor::NotAllowed;
         break;
     }
     return cursor;
@@ -62,13 +62,13 @@ struct Context
 {
     std::string ini_path = {};
     exo::Map<std::string_view, Window> windows = {};
-    os::Window *window;
+    exo::Window *window;
     Inputs *inputs;
 };
 
 Context* g_ui_context = nullptr;
 
-void create_context(os::Window *window, Inputs *inputs)
+void create_context(exo::Window *window, Inputs *inputs)
 {
     ASSERT(g_ui_context == nullptr);
     g_ui_context = new Context();
@@ -145,10 +145,10 @@ void new_frame()
         inputs->consume_scroll();
     }
 
-    static_assert(static_cast<usize>(os::MouseButton::Count) == 5u);
+    static_assert(static_cast<usize>(exo::MouseButton::Count) == 5u);
     for (uint i = 0; i < 5; i++)
     {
-        io.MouseDown[i] = inputs->is_pressed(static_cast<os::MouseButton>(i));
+        io.MouseDown[i] = inputs->is_pressed(static_cast<exo::MouseButton>(i));
     }
 
     auto cursor        = cursor_from_imgui();

@@ -18,6 +18,3 @@
 // exo
 #include <exo/prelude.h>
 #include <exo/collections/handle.h>
-
-namespace exo::os {}
-namespace os = exo::os;

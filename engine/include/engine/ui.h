@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/option.h>
 
-namespace exo::os {struct Window;}
+namespace exo {struct Window;}
 class Inputs;
 
 namespace UI
@@ -21,7 +21,7 @@ private:
     bool is_visible;
 };
 
-void create_context(os::Window *window, Inputs *inputs);
+void create_context(exo::Window *window, Inputs *inputs);
 void destroy_context(Context *context = nullptr);
 
 void display_ui();

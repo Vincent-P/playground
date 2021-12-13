@@ -5,6 +5,6 @@
 
 struct MeshComponent : SpatialComponent
 {
-    os::UUID mesh_asset;
+    exo::UUID mesh_asset;
     void show_inspector_ui() override;
 };

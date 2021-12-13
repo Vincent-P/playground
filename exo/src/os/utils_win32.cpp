@@ -4,7 +4,7 @@
 #include "exo/macros/assert.h"
 #include <windows.h>
 
-namespace exo::os
+namespace exo
 {
 std::wstring utf8_to_utf16(const std::string_view &str)
 {

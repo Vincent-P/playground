@@ -1,6 +1,7 @@
 #pragma once
-#include <exo/os/file_watcher.h>
+#include <exo/prelude.h>
 
+#include <exo/os/file_watcher.h>
 #include <engine/inputs.h>
 #include <engine/scene.h>
 #include <engine/render/render_world.h>
@@ -8,12 +9,13 @@
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
-namespace exo::os {struct Window;}
+namespace exo {struct Window;}
+namespace exo {struct ScopeStack;}
 
 class App
 {
   public:
-    static App *create(ScopeStack &scope);
+    static App *create(exo::ScopeStack &scope);
     ~App();
 
     void run();
@@ -22,7 +24,7 @@ class App
     void camera_update();
     void display_ui();
 
-    os::Window *window;
+    exo::Window *window;
     AssetManager  *asset_manager;
     Renderer      *renderer;
 
@@ -32,8 +34,8 @@ class App
 
     Scene scene;
 
-    os::FileWatcher watcher;
-    os::Watch shaders_watch;
+    exo::FileWatcher watcher;
+    exo::Watch shaders_watch;
 
     bool is_minimized;
 };

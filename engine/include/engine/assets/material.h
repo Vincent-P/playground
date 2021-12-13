@@ -21,9 +21,9 @@ struct Material : Asset
     float4           emissive_factor            = float4(0.0f);
     float            metallic_factor            = 1.0f;
     float            roughness_factor           = 1.0f;
-    os::UUID      base_color_texture         = {};
-    os::UUID      normal_texture             = {};
-    os::UUID      metallic_roughness_texture = {};
+    exo::UUID      base_color_texture         = {};
+    exo::UUID      normal_texture             = {};
+    exo::UUID      metallic_roughness_texture = {};
     TextureTransform uv_transform               = {};
 
     static Asset *create();

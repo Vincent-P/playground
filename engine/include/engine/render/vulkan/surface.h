@@ -8,7 +8,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace exo::os { struct Window; }
+namespace exo { struct Window; }
 
 namespace vulkan
 {
@@ -34,7 +34,7 @@ struct Surface
     exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   image_acquired_semaphores;
     exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   can_present_semaphores;
 
-    static Surface create(Context &context, Device &device, const os::Window &window);
+    static Surface create(Context &context, Device &device, const exo::Window &window);
     void destroy(Context &context, Device &device);
     void create_swapchain(Device &device);
     void destroy_swapchain(Device &device);

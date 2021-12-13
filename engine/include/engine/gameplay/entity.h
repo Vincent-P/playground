@@ -92,7 +92,7 @@ private:
     void dettach_to_parent();
     void refresh_attachments();
 
-    os::UUID uuid  = {};
+    exo::UUID uuid  = {};
     const char *name  = {};
     EntityState state = EntityState::Unloaded;
 

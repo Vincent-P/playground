@@ -14,18 +14,18 @@
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-App *App::create(ScopeStack &scope)
+App *App::create(exo::ScopeStack &scope)
 {
     auto *app = scope.allocate<App>();
 
-    app->window        = os::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Test vulkan");
+    app->window        = exo::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Editor");
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
-    app->inputs.bind(Action::QuitApp, {.keys = {os::VirtualKey::Escape}});
-    app->inputs.bind(Action::CameraModifier, {.keys = {os::VirtualKey::LAlt}});
-    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {os::MouseButton::Left}});
-    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {os::MouseButton::Right}});
+    app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
+    app->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
+    app->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
+    app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
 
     UI::create_context(app->window, &app->inputs);
 
@@ -33,7 +33,7 @@ App *App::create(ScopeStack &scope)
 
     UI::new_frame();
 
-    app->watcher       = os::FileWatcher::create();
+    app->watcher       = exo::FileWatcher::create();
     app->shaders_watch = app->watcher.add_watch("shaders");
     app->watcher.on_file_change([=](const auto &watch, const auto &event) {
         if (watch.wd != app->shaders_watch.wd)
@@ -77,14 +77,14 @@ void App::run()
     {
         window->poll_events();
 
-        Option<os::events::Resize> last_resize;
+        Option<exo::events::Resize> last_resize;
         for (auto &event : window->events)
         {
-            if (event.type == os::Event::ResizeType)
+            if (event.type == exo::Event::ResizeType)
             {
                 last_resize = event.resize;
             }
-            else if (event.type == os::Event::MouseMoveType)
+            else if (event.type == exo::Event::MouseMoveType)
             {
                 const auto &move = event.mouse_move;
                 // this->ui.on_mouse_movement(*window, double(move.x), double(move.y));

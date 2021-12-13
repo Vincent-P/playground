@@ -40,7 +40,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
-Context Context::create(bool enable_validation, const os::Window *window)
+Context Context::create(bool enable_validation, const exo::Window *window)
 {
     Context ctx = {};
 

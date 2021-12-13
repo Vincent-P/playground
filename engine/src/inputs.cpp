@@ -16,37 +16,37 @@ bool Inputs::is_pressed(Action action) const
     if (binding_it != bindings.end())
     {
         const auto &binding = binding_it->second;
-        return std::ranges::all_of(binding.keys, [&](os::VirtualKey key) { return is_pressed(key); })
-            && std::ranges::all_of(binding.mouse_buttons, [&](os::MouseButton button) { return is_pressed(button); });
+        return std::ranges::all_of(binding.keys, [&](exo::VirtualKey key) { return is_pressed(key); })
+            && std::ranges::all_of(binding.mouse_buttons, [&](exo::MouseButton button) { return is_pressed(button); });
     }
 
     return false;
 }
 
-bool Inputs::is_pressed(os::VirtualKey key) const { return keys_pressed[key]; }
+bool Inputs::is_pressed(exo::VirtualKey key) const { return keys_pressed[key]; }
 
-bool Inputs::is_pressed(os::MouseButton button) const { return mouse_buttons_pressed[button]; }
+bool Inputs::is_pressed(exo::MouseButton button) const { return mouse_buttons_pressed[button]; }
 
-void Inputs::process(const Vec<os::Event> &events)
+void Inputs::process(const Vec<exo::Event> &events)
 {
     scroll_this_frame        = std::nullopt;
     auto last_mouse_position = mouse_position;
 
     for (const auto &event : events)
     {
-        if (event.type == os::Event::KeyType)
+        if (event.type == exo::Event::KeyType)
         {
             const auto &key       = event.key;
-            keys_pressed[key.key] = key.state == os::ButtonState::Pressed;
+            keys_pressed[key.key] = key.state == exo::ButtonState::Pressed;
         }
-        else if (event.type == os::Event::MouseClickType)
+        else if (event.type == exo::Event::MouseClickType)
         {
             const auto &mouse_click                   = event.mouse_click;
-            mouse_buttons_pressed[mouse_click.button] = mouse_click.state == os::ButtonState::Pressed;
+            mouse_buttons_pressed[mouse_click.button] = mouse_click.state == exo::ButtonState::Pressed;
 
-            if (mouse_click.button == os::MouseButton::Left)
+            if (mouse_click.button == exo::MouseButton::Left)
             {
-                if (mouse_click.state == os::ButtonState::Pressed)
+                if (mouse_click.state == exo::ButtonState::Pressed)
                 {
                     if (!mouse_drag_start)
                     {
@@ -60,7 +60,7 @@ void Inputs::process(const Vec<os::Event> &events)
                 }
             }
         }
-        else if (event.type == os::Event::ScrollType)
+        else if (event.type == exo::Event::ScrollType)
         {
             const auto &scroll = event.scroll;
 
@@ -74,7 +74,7 @@ void Inputs::process(const Vec<os::Event> &events)
                 scroll_this_frame = {scroll.dx, scroll.dy};
             }
         }
-        else if (event.type == os::Event::MouseMoveType)
+        else if (event.type == exo::Event::MouseMoveType)
         {
             const auto &move    = event.mouse_move;
             last_mouse_position = {move.x, move.y};
@@ -118,18 +118,18 @@ void Inputs::display_ui()
     {
         if (ImGui::CollapsingHeader("Keys"))
         {
-            for (usize i = 0; i < static_cast<usize>(os::VirtualKey::Count); i++)
+            for (usize i = 0; i < static_cast<usize>(exo::VirtualKey::Count); i++)
             {
-                auto key = static_cast<os::VirtualKey>(i);
+                auto key = static_cast<exo::VirtualKey>(i);
                 ImGui::Text("%s: %s", to_string(key), is_pressed(key) ? "Pressed" : "Released");
             }
         }
 
         if (ImGui::CollapsingHeader("Mouse buttons"))
         {
-            for (usize i = 0; i < static_cast<usize>(os::MouseButton::Count); i++)
+            for (usize i = 0; i < static_cast<usize>(exo::MouseButton::Count); i++)
             {
-                auto button = static_cast<os::MouseButton>(i);
+                auto button = static_cast<exo::MouseButton>(i);
                 ImGui::Text("%s: %s", to_string(button), is_pressed(button) ? "Pressed" : "Released");
             }
         }

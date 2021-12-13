@@ -12,7 +12,7 @@
 #    include <wtypes.h>  // HANDLE type
 #endif
 
-namespace exo::os
+namespace exo
 {
 struct Watch
 {

@@ -15,7 +15,7 @@ EnumArray<uint, VirtualKey> native_to_virtual{
 #undef X
 };
 
-namespace exo::os
+namespace exo
 {
 void Window::create(Window &window, u32 width, u32 height, std::string_view title)
 {
@@ -305,4 +305,4 @@ void Window::set_cursor(Cursor) {}
 [[nodiscard]] float2 Window::get_dpi_scale() const { return float2(1.0f); }
 
 void Window::destroy() { xcb_disconnect(xcb.connection); }
-} // namespace exo::os
+} // namespace exo

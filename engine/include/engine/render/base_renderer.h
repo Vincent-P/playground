@@ -9,14 +9,14 @@
 #include "render/render_timings.h"
 
 namespace gfx = vulkan;
-namespace exo::os { struct Window; }
+namespace exo { struct Window; }
 namespace exo { struct ScopeStack; }
 
 inline constexpr uint FRAME_QUEUE_LENGTH  = 2;
 
 struct BaseRenderer
 {
-    static BaseRenderer *create(exo::ScopeStack &scope, os::Window *window, gfx::DeviceDescription desc);
+    static BaseRenderer *create(exo::ScopeStack &scope, exo::Window *window, gfx::DeviceDescription desc);
     ~BaseRenderer();
 
     // Ring buffer uniforms
@@ -38,7 +38,7 @@ struct BaseRenderer
     /// ---
 
     exo::StringRepository str_repo = {};
-    os::Window *window = nullptr;
+    exo::Window *window = nullptr;
 
     gfx::Context context = {};
     gfx::Device device = {};
