@@ -3,6 +3,7 @@
 #include <exo/os/uuid.h>
 
 #include "assets/asset.h"
+namespace exo {struct Serializer;}
 
 struct TextureTransform
 {
@@ -34,6 +35,3 @@ struct Material : Asset
 
     bool operator==(const Material &other) const = default;
 };
-
-template<>
-void exo::Serializer::serialize<Material>(Material &data);

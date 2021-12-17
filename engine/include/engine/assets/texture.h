@@ -42,9 +42,6 @@ struct Texture : Asset
 };
 
 template<>
-void exo::Serializer::serialize<Texture>(Texture &data);
-
-template<>
 void exo::Serializer::serialize<PixelFormat>(PixelFormat &data);
 
 template<>

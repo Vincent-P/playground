@@ -7,6 +7,7 @@
 #include "exo/option.h"
 #include "exo/result.h"
 #include "exo/macros/assert.h"
+#include "exo/macros/compiler.h"
 
 
 /// --- Portable compiler attribute/builtins

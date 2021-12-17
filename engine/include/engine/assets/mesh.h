@@ -2,7 +2,6 @@
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/handle.h>
-#include <exo/serializer.h>
 
 #include "assets/asset.h"
 
@@ -17,15 +16,6 @@ struct SubMesh
 
     bool operator==(const SubMesh &other) const = default;
 };
-
-template<>
-inline void exo::Serializer::serialize<SubMesh>(SubMesh &data)
-{
-    serialize(data.first_index);
-    serialize(data.first_vertex);
-    serialize(data.index_count);
-    serialize(data.material);
-}
 
 // Dependencies: Material
 struct Mesh : Asset
@@ -45,6 +35,3 @@ struct Mesh : Asset
     Vec<float2> uvs;
     Vec<SubMesh> submeshes;
 };
-
-template<>
-void exo::Serializer::serialize<Mesh>(Mesh &data);

@@ -1,6 +1,8 @@
 #include "assets/asset.h"
 #include "assets/asset_constructors.h"
 
+#include <exo/serializer.h>
+
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
 AssetConstructors &global_asset_constructors()
 {
@@ -8,10 +10,9 @@ AssetConstructors &global_asset_constructors()
     return *ac;
 }
 
-template <>
-void exo::Serializer::serialize<Asset>(Asset &data)
+void Asset::serialize(exo::Serializer &serializer)
 {
-    serialize(data.uuid);
-    serialize(data.name);
-    serialize(data.dependencies);
+    serializer.serialize(this->uuid);
+    serializer.serialize(this->name);
+    serializer.serialize(this->dependencies);
 }

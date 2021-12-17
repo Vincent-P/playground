@@ -8,38 +8,6 @@ Asset *Texture::create()
     return new Texture();
 }
 
-void Texture::serialize(exo::Serializer& serializer)
-{
-    serializer.serialize(*this);
-}
-
-template <>
-void exo::Serializer::serialize<Texture>(Texture &data)
-{
-    const char *id = "TXTR";
-    serialize(id);
-    serialize(static_cast<Asset &>(data));
-    serialize(data.format);
-    serialize(data.extension);
-    serialize(data.width);
-    serialize(data.height);
-    serialize(data.depth);
-    serialize(data.levels);
-    serialize(data.mip_offsets);
-
-    serialize(data.data_size);
-    if (this->is_writing)
-    {
-        this->write_bytes(data.pixels_data, data.data_size);
-    }
-    else
-    {
-        data.impl_data = malloc(data.data_size);
-        this->read_bytes(data.impl_data, data.data_size);
-        data.pixels_data = data.impl_data;
-    }
-}
-
 template<>
 void exo::Serializer::serialize<PixelFormat>(PixelFormat &data)
 {
@@ -59,5 +27,31 @@ void exo::Serializer::serialize<ImageExtension>(ImageExtension &data)
     if (this->is_writing == false)
     {
         data = static_cast<ImageExtension>(value);
+    }
+}
+
+void Texture::serialize(exo::Serializer& serializer)
+{
+    const char *id = "TXTR";
+    serializer.serialize(id);
+    serializer.serialize(*static_cast<Asset*>(this));
+    serializer.serialize(this->format);
+    serializer.serialize(this->extension);
+    serializer.serialize(this->width);
+    serializer.serialize(this->height);
+    serializer.serialize(this->depth);
+    serializer.serialize(this->levels);
+    serializer.serialize(this->mip_offsets);
+
+    serializer.serialize(this->data_size);
+    if (serializer.is_writing)
+    {
+        serializer.write_bytes(this->pixels_data, this->data_size);
+    }
+    else
+    {
+        this->impl_data = malloc(this->data_size);
+        serializer.read_bytes(this->impl_data, this->data_size);
+        this->pixels_data = this->impl_data;
     }
 }

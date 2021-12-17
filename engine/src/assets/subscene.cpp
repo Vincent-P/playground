@@ -10,18 +10,12 @@ Asset *SubScene::create()
 
 void SubScene::serialize(exo::Serializer& serializer)
 {
-    serializer.serialize(*this);
-}
-
-template <>
-void exo::Serializer::serialize<SubScene>(SubScene &data)
-{
     const char *id = "SBSC";
-    serialize(id);
-    serialize(static_cast<Asset &>(data));
-    serialize(data.roots);
-    serialize(data.transforms);
-    serialize(data.meshes);
-    serialize(data.names);
-    serialize(data.children);
+    serializer.serialize(id);
+    serializer.serialize(*static_cast<Asset*>(this));
+    serializer.serialize(this->roots);
+    serializer.serialize(this->transforms);
+    serializer.serialize(this->meshes);
+    serializer.serialize(this->names);
+    serializer.serialize(this->children);
 }

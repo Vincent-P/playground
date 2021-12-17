@@ -21,6 +21,3 @@ struct SubScene : Asset
     Vec<const char*> names;
     Vec<Vec<u32>> children;
 };
-
-template<>
-void exo::Serializer::serialize<SubScene>(SubScene &data);

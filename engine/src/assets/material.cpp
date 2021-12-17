@@ -20,23 +20,17 @@ void Material::display_ui()
 
 void Material::serialize(exo::Serializer& serializer)
 {
-    serializer.serialize(*this);
-}
-
-template <>
-void exo::Serializer::serialize<Material>(Material &data)
-{
     const char *id = "MTRL";
-    serialize(id);
-    serialize(static_cast<Asset &>(data));
-    serialize(data.base_color_factor);
-    serialize(data.emissive_factor);
-    serialize(data.metallic_factor);
-    serialize(data.roughness_factor);
-    serialize(data.base_color_texture);
-    serialize(data.normal_texture);
-    serialize(data.metallic_roughness_texture);
-    serialize(data.uv_transform.offset);
-    serialize(data.uv_transform.scale);
-    serialize(data.uv_transform.rotation);
+    serializer.serialize(id);
+    serializer.serialize(*static_cast<Asset*>(this));
+    serializer.serialize(this->base_color_factor);
+    serializer.serialize(this->emissive_factor);
+    serializer.serialize(this->metallic_factor);
+    serializer.serialize(this->roughness_factor);
+    serializer.serialize(this->base_color_texture);
+    serializer.serialize(this->normal_texture);
+    serializer.serialize(this->metallic_roughness_texture);
+    serializer.serialize(this->uv_transform.offset);
+    serializer.serialize(this->uv_transform.scale);
+    serializer.serialize(this->uv_transform.rotation);
 }

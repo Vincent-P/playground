@@ -62,6 +62,12 @@ struct Serializer
     usize             buffer_size;
 };
 
+template <typename T>
+void Serializer::serialize(T &data)
+{
+    data.serialize(*this);
+}
+
 template <typename T, usize n>
 void Serializer::serialize(T (&data)[n])
 {

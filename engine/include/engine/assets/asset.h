@@ -3,8 +3,8 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/enum_array.h>
 #include <exo/os/uuid.h>
-#include <exo/serializer.h>
 #include <string>
+namespace exo {struct Serializer;}
 
 enum struct AssetState
 {
@@ -57,6 +57,3 @@ struct Asset
 
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
 struct AssetConstructors &global_asset_constructors();
-
-template<>
-void exo::Serializer::serialize<Asset>(Asset &data);
