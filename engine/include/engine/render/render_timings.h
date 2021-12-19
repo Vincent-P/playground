@@ -4,7 +4,7 @@
 #include <exo/maths/numerics.h>
 #include <exo/collections/vector.h>
 
-#include "render/vulkan/queries.h"
+#include "engine/render/vulkan/queries.h"
 
 #include <string>
 

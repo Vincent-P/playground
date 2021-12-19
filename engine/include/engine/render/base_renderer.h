@@ -1,12 +1,14 @@
 #pragma once
 #include <exo/memory/string_repository.h>
 
-#include "render/vulkan/context.h"
-#include "render/vulkan/device.h"
-#include "render/vulkan/surface.h"
+#include "engine/render/vulkan/context.h"
+#include "engine/render/vulkan/device.h"
+#include "engine/render/vulkan/surface.h"
 
-#include "render/ring_buffer.h"
-#include "render/render_timings.h"
+#include "engine/render/ring_buffer.h"
+#include "engine/render/render_timings.h"
+
+#include <array>
 
 namespace gfx = vulkan;
 namespace exo { struct Window; }

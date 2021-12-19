@@ -10,6 +10,7 @@
 #include <engine/render/vulkan/device.h>
 #include <engine/render/vulkan/surface.h>
 namespace gfx = vulkan;
+#include <engine/render/base_renderer.h>
 
 #include <Tracy.hpp>
 #include <array>
@@ -46,6 +47,42 @@ static void resize(gfx::Device &device, gfx::Surface &surface,
     }
 }
 
+static void render(BaseRenderer &renderer, exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> &framebuffers)
+{
+    auto &device = renderer.device;
+    auto &surface = renderer.surface;
+    auto &work_pool       = renderer.work_pools[renderer.frame_count & FRAME_QUEUE_LENGTH];
+
+    device.wait_idle();
+    device.reset_work_pool(work_pool);
+
+    bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
+    if (out_of_date_swapchain)
+    {
+        resize(device, surface, framebuffers);
+        return;
+    }
+
+    gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
+    cmd.begin();
+    cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+    cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
+    cmd.begin_pass(framebuffers[surface.current_image],
+                   std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 0.0f}}})});
+    cmd.end_pass();
+    cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
+
+    cmd.prepare_present(surface);
+    cmd.end();
+    device.submit(cmd, {}, {});
+    out_of_date_swapchain = device.present(surface, cmd);
+    if (out_of_date_swapchain)
+    {
+        resize(device, surface, framebuffers);
+    }
+}
+
 u8  global_stack_mem[64 << 10];
 int main(int /*argc*/, char ** /*argv*/)
 {
@@ -54,43 +91,17 @@ int main(int /*argc*/, char ** /*argv*/)
 
     auto *window = exo::Window::create(global_scope, 1280, 720, "Render sample");
 
-    auto context = gfx::Context::create(false, window);
 
-    auto &physical_devices = context.physical_devices;
-    u32   i_selected       = u32_invalid;
-    u32   i_device         = 0;
-    for (auto &physical_device : physical_devices)
-    {
-        exo::logger::info("Found device: {}\n", physical_device.properties.deviceName);
-        if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-        {
-            exo::logger::info("Prioritizing device {} because it is a discrete GPU.\n",
-                              physical_device.properties.deviceName);
-            i_selected = i_device;
-        }
-        i_device += 1;
-    }
-    if (i_selected == u32_invalid)
-    {
-        i_selected = 0;
-        exo::logger::info("No discrete GPU found, defaulting to device #0: {}.\n",
-                          physical_devices[0].properties.deviceName);
-    }
-
-    auto device = gfx::Device::create(context,
-                                      {
-                                          .physical_device       = &physical_devices[i_selected],
-                                          .push_constant_layout  = {.size = sizeof(u32) * 2},
-                                          .buffer_device_address = false,
-                                      });
-
-    auto          surface   = gfx::Surface::create(context, device, *window);
-    gfx::WorkPool work_pool = {};
-    device.create_work_pool(work_pool);
+    auto *renderer = BaseRenderer::create(global_scope,
+                                                   window,
+                                                   {
+                                                       .push_constant_layout  = {.size = 2 * sizeof(u32)},
+                                                       .buffer_device_address = false,
+                                                   });
 
     exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_fb = {};
-    swapchain_fb.resize(surface.images.size());
-    resize(device, surface, swapchain_fb);
+    swapchain_fb.resize(renderer->surface.images.size());
+    resize(renderer->device, renderer->surface, swapchain_fb);
 
     while (!window->should_close())
     {
@@ -135,47 +146,10 @@ int main(int /*argc*/, char ** /*argv*/)
             continue;
         }
 
-        device.wait_idle();
-        device.reset_work_pool(work_pool);
-
-        bool out_of_date_swapchain = device.acquire_next_swapchain(surface);
-        if (out_of_date_swapchain || (last_resize && last_resize->width > 0 && last_resize->height > 0))
-        {
-            resize(device, surface, swapchain_fb);
-            continue;
-        }
-
-        gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
-        cmd.begin();
-        cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-        cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-        cmd.begin_pass(swapchain_fb[surface.current_image],
-                       std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 0.0f}}})});
-        cmd.end_pass();
-        cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
-
-        cmd.prepare_present(surface);
-        cmd.end();
-        device.submit(cmd, {}, {});
-        out_of_date_swapchain = device.present(surface, cmd);
-        if (out_of_date_swapchain)
-        {
-            resize(device, surface, swapchain_fb);
-        }
+        render(*renderer, swapchain_fb);
 
         FrameMark
     }
-
-    device.wait_idle();
-    for (usize i_image = 0; i_image < surface.images.size(); i_image += 1)
-    {
-        device.destroy_framebuffer(swapchain_fb[i_image]);
-    }
-    device.destroy_work_pool(work_pool);
-    surface.destroy(context, device);
-    device.destroy(context);
-    context.destroy();
 
     return 0;
 }
