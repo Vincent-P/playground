@@ -7,6 +7,7 @@
 
 #include "engine/render/ring_buffer.h"
 #include "engine/render/render_timings.h"
+#include "engine/render/streamer.h"
 
 #include <array>
 
@@ -56,4 +57,6 @@ struct BaseRenderer
     RingBuffer dynamic_index_buffer = {};
 
     Handle<gfx::Image> empty_image = {};
+
+    Streamer streamer = {};
 };

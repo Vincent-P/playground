@@ -4,8 +4,8 @@
 #include <exo/collections/pool.h>
 #include <exo/os/uuid.h>
 
+#include "engine/render/imgui_pass.h"
 #include "engine/render/ring_buffer.h"
-#include "engine/render/streamer.h"
 #include "engine/render/bvh.h"
 #include "engine/render/unified_buffer_storage.h"
 
@@ -90,12 +90,6 @@ struct Settings
     bool  enable_path_tracing   = {false};
     bool  freeze_camera_culling = {false};
     bool  use_blue_noise        = {true};
-};
-
-struct ImGuiPass
-{
-    Handle<gfx::GraphicsProgram> program;
-    Handle<gfx::Image>  font_atlas;
 };
 
 PACKED (struct GlobalUniform
@@ -183,7 +177,6 @@ struct Renderer
 
     AssetManager *asset_manager;
     Settings settings;
-    Streamer streamer;
 
     Handle<gfx::Image> visibility_buffer;
     Handle<gfx::Image> depth_buffer;

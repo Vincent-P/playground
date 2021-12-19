@@ -30,6 +30,7 @@ set(SOURCE_FILES
   # rendering api
   src/render/render_world_system.cpp
   src/render/renderer.cpp
+  src/render/imgui_pass.cpp
   src/render/render_timings.cpp
   src/render/base_renderer.cpp
   src/render/bvh.cpp

@@ -80,11 +80,15 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
             .gpu_usage = gfx::index_buffer_usage,
         });
 
+    renderer->streamer.init(&renderer->device);
+
     return renderer;
 }
 
 BaseRenderer::~BaseRenderer()
 {
+    streamer.destroy();
+
     device.wait_idle();
 
     device.destroy_fence(fence);
@@ -190,6 +194,8 @@ bool BaseRenderer::start_frame()
     ZoneScoped;
 
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
+
+    streamer.wait();
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
     u64 wait_value = frame_count < FRAME_QUEUE_LENGTH ? 0 : frame_count-FRAME_QUEUE_LENGTH+1;
