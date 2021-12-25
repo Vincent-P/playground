@@ -2,237 +2,189 @@
 
 #include "assets/texture.h"
 
+#include "render/vulkan/utils.h"
 #include "render/vulkan/device.h"
+#include "render/vulkan/commands.h"
 
 #include <algorithm> // for std::max
+#include <exo/collections/dynamic_array.h>
 
-void Streamer::init(gfx::Device *_device)
+namespace
 {
-    device = _device;
-    transfer_done = device->create_fence();
-}
-
-void Streamer::wait() const
+static bool copy_to_staging(Streamer &streamer, const void *data, usize len)
 {
-    // The first batch doesn't need to wait
-    if (transfer_batch > 0)
+    // wrap cursor at the end the buffer
+    if (streamer.cursor + len > streamer.buffer_end)
     {
-        device->wait_for_fence(transfer_done, transfer_batch);
-    }
-}
-
-void Streamer::destroy()
-{
-    device->destroy_fence(transfer_done);
-}
-
-void Streamer::update(gfx::WorkPool &work_pool)
-{
-    for (auto &[dst_buffer, uploads] : buffer_uploads)
-    {
-        for (auto &[dst_offset, upload] : uploads.offsets)
-        {
-            if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
-            {
-                auto &staging = staging_areas[upload.i_staging];
-                upload.state = UploadState::Done;
-                staging.in_use = false;
-            }
-        }
+        streamer.cursor = streamer.buffer_start;
     }
 
-    for (auto &[dst_image, upload] : image_uploads)
-    {
-        if (upload.state == UploadState::Uploading && upload.transfer_id < transfer_batch)
-        {
-            auto &staging = staging_areas[upload.i_staging];
-            upload.state = UploadState::Done;
-            staging.in_use = false;
-        }
-    }
-
-    // Don't start an empty command buffer
-    if (current_transfer == transfer_batch) { return; }
-
-
-    gfx::TransferWork transfer_cmd = device->get_transfer_work(work_pool);
-    transfer_cmd.begin();
-
-    for (auto &[dst_buffer, uploads] : buffer_uploads)
-    {
-        for (auto &[dst_offset, upload] : uploads.offsets)
-        {
-            if (upload.state == UploadState::Requested)
-            {
-                auto &staging = staging_areas[upload.i_staging];
-                transfer_cmd.copy_buffer(staging.buffer, dst_buffer, std::array{std::make_tuple(0_uz, dst_offset, upload.len)});
-                upload.state = UploadState::Uploading;
-            }
-        }
-    }
-
-    for (auto &[dst_image, upload] : image_uploads)
-    {
-        if (upload.state == UploadState::Requested)
-        {
-            auto &staging = staging_areas[upload.i_staging];
-            gfx::Image &image = *device->images.get(dst_image);
-
-            Vec<VkBufferImageCopy> buffer_copy_regions;
-            buffer_copy_regions.resize(upload.regions.size());
-            for (u32 i_region = 0; i_region < buffer_copy_regions.size(); i_region++)
-            {
-                VkBufferImageCopy &buffer_copy_region              = buffer_copy_regions[i_region];
-
-                i32 width  = std::max(image.desc.size.x >> upload.regions[i_region].mip_level, 1);
-                i32 height = std::max(image.desc.size.y >> upload.regions[i_region].mip_level, 1);
-
-                buffer_copy_region                                 = {};
-                buffer_copy_region.imageSubresource.aspectMask     = image.full_view.range.aspectMask;
-                buffer_copy_region.imageSubresource.mipLevel       = upload.regions[i_region].mip_level;
-                buffer_copy_region.imageSubresource.baseArrayLayer = upload.regions[i_region].layer;
-                buffer_copy_region.imageSubresource.layerCount     = 1;
-                buffer_copy_region.imageExtent.width               = static_cast<u32>(width);
-                buffer_copy_region.imageExtent.height              = static_cast<u32>(height);
-                buffer_copy_region.imageExtent.depth               = 1;
-                buffer_copy_region.bufferOffset                    = upload.regions[i_region].offset;
-            }
-
-            transfer_cmd.clear_barrier(dst_image, gfx::ImageUsage::TransferDst);
-            transfer_cmd.copy_buffer_to_image(staging.buffer, dst_image, buffer_copy_regions);
-            upload.state = UploadState::Uploading;
-        }
-    }
-
-    transfer_batch = current_transfer;
-
-    transfer_cmd.end();
-    device->submit(transfer_cmd, std::array{transfer_done}, std::array{transfer_batch});
-}
-
-static u32 find_or_create_staging(Streamer &streamer, usize len)
-{
-    for (u32 i = 0; i < streamer.staging_areas.size(); i += 1)
-    {
-        auto &staging = streamer.staging_areas[i];
-        if (!staging.in_use && len <= staging.size)
-        {
-            staging.in_use = true;
-            return i;
-        }
-    }
-
-    auto &device = *streamer.device;
-
-    StagingArea staging;
-
-    staging.buffer = device.create_buffer({
-            .name = "Staging buffer",
-            .size = len,
-            .usage = gfx::source_buffer_usage,
-            .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
-        });
-    staging.in_use = true;
-    staging.size = len;
-
-    streamer.staging_areas.push_back(staging);
-    return static_cast<u32>(streamer.staging_areas.size()) - 1;
-}
-
-void Streamer::upload(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset)
-{
-    u32 i_staging = find_or_create_staging(*this, len);
-    auto &staging = staging_areas[i_staging];
-
-    // Copy the source data into the staging
-    void *dst = device->map_buffer(staging.buffer);
-    std::memcpy(dst, data, len);
-
-    BufferUpload &upload = buffer_uploads[buffer].offsets[dst_offset];
-    upload.i_staging     = i_staging;
-    upload.transfer_id   = current_transfer;
-    upload.state         = UploadState::Requested;
-    upload.len           = len;
-
-    current_transfer += 1;
-}
-
-bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer)
-{
-    if (!buffer_uploads.contains(buffer))
+    // check if there is enough space
+    const auto update_size = streamer.update_start.size();
+    const u8 *previous_update_start = streamer.update_start[(streamer.i_update+update_size-1)%update_size];
+    if (previous_update_start && streamer.cursor + len > previous_update_start)
     {
         return false;
     }
 
-    const auto &uploads = buffer_uploads[buffer].offsets;
-    for (const auto &[offset, upload] : uploads)
+    std::memcpy(streamer.cursor, data, len);
+    streamer.cursor += len;
+    return true;
+}
+}
+
+Streamer Streamer::create(gfx::Device *_device, u32 update_queue_length)
+{
+    Streamer result = {};
+    result.device = _device;
+
+    const usize buffer_capacity = 1_GiB;
+    result.cpu_buffer = _device->create_buffer({
+            .name         = "Streamer CPU buffer",
+            .size         = buffer_capacity,
+            .usage        = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .memory_usage = VMA_MEMORY_USAGE_CPU_ONLY,
+        });
+
+    result.update_start.resize(update_queue_length+1);
+
+    result.buffer_start = reinterpret_cast<u8*>(_device->map_buffer(result.cpu_buffer));
+    result.buffer_end = result.buffer_start + buffer_capacity;
+    result.cursor = result.buffer_start;
+
+    return result;
+}
+
+void Streamer::destroy()
+{
+    device->destroy_buffer(cpu_buffer);
+}
+
+void Streamer::update(gfx::GraphicsWork &cmd)
+{
+    i_update += 1;
+
+    u8 *&start = update_start[i_update % update_start.size()];
+    start = cursor;
+
+    cmd.begin_debug_label("Streamer::update");
+
+    for (const auto &upload : image_region_uploads)
     {
-        if (upload.state != UploadState::Done)
+        const auto *image = device->images.get(upload.image);
+
+        Vec<VkBufferImageCopy> buffer_copy_regions;
+        buffer_copy_regions.resize(upload.regions.size());
+        for (u32 i_region = 0; i_region < buffer_copy_regions.size(); i_region++)
         {
-            return false;
+            VkBufferImageCopy &buffer_copy_region              = buffer_copy_regions[i_region];
+
+            buffer_copy_region                                 = {};
+            buffer_copy_region.imageSubresource.aspectMask     = image->full_view.range.aspectMask;
+            buffer_copy_region.imageSubresource.mipLevel       = upload.regions[i_region].mip_level;
+            buffer_copy_region.imageSubresource.baseArrayLayer = upload.regions[i_region].layer;
+            buffer_copy_region.imageSubresource.layerCount     = 1;
+            buffer_copy_region.imageExtent.width               = upload.regions[i_region].image_size.x;
+            buffer_copy_region.imageExtent.height              = upload.regions[i_region].image_size.y;
+            buffer_copy_region.imageExtent.depth               = 1;
+            buffer_copy_region.imageOffset.x                   = upload.regions[i_region].image_offset.x;
+            buffer_copy_region.imageOffset.y                   = upload.regions[i_region].image_offset.y;
+            buffer_copy_region.bufferOffset                    = upload.buffer_offset + upload.regions[i_region].buffer_offset;
+            buffer_copy_region.bufferRowLength                 = upload.regions[i_region].buffer_size.x;
+            buffer_copy_region.bufferImageHeight               = upload.regions[i_region].buffer_size.y;
         }
+
+        cmd.barrier(upload.image, gfx::ImageUsage::TransferDst);
+        cmd.copy_buffer_to_image(cpu_buffer, upload.image, buffer_copy_regions);
     }
+
+    for (const auto &upload : buffer_region_uploads)
+    {
+        exo::DynamicArray<std::tuple<usize, usize, usize>, 8> regions;
+        regions.resize(upload.regions.size());
+
+        for (usize i_region = 0; i_region < regions.size(); i_region += 1)
+        {
+            std::get<0>(regions[i_region]) = upload.regions[i_region].src_offset;
+            std::get<1>(regions[i_region]) = upload.regions[i_region].dst_offset;
+            std::get<2>(regions[i_region]) = upload.regions[i_region].size;
+        }
+
+        cmd.copy_buffer(cpu_buffer, upload.buffer, regions);
+    }
+
+    image_region_uploads.clear();
+    buffer_region_uploads.clear();
+
+    cmd.end_debug_label();
+}
+
+bool Streamer::upload_image_full(Handle<gfx::Image> image, const void *data, usize len)
+{
+    const auto *gpu_image = device->images.get(image);
+    const ImageRegion regions[] = {{.image_size = gpu_image->desc.size.xy()}};
+    return upload_image_regions(image, data, len, regions);
+}
+
+bool Streamer::upload_image_regions(Handle<gfx::Image> image, const void *data, usize len, std::span<const ImageRegion> image_regions)
+{
+    const u8 *old_cursor = cursor;
+    if (!copy_to_staging(*this, data, len))
+    {
+        return false;
+    }
+
+    auto &upload = exo::emplace_back(image_region_uploads);
+    upload.image = image;
+    upload.buffer_offset = old_cursor - buffer_start;
+    for (const auto &region : image_regions)
+    {
+        upload.regions.push_back(region);
+    }
+
     return true;
 }
 
-bool Streamer::is_uploaded(Handle<gfx::Buffer> buffer, usize dst_offset)
+bool Streamer::upload_texture(Handle<gfx::Image> image, const Texture &texture)
 {
-    return buffer_uploads.contains(buffer) && buffer_uploads[buffer].offsets.contains(dst_offset) && buffer_uploads[buffer].offsets[dst_offset].state == UploadState::Done;
-}
-
-
-void Streamer::upload(Handle<gfx::Image> image, const void *data, usize len)
-{
-    u32 i_staging = find_or_create_staging(*this, len);
-    auto &staging = staging_areas[i_staging];
-
-    // Copy the source data into the staging
-    void *dst = device->map_buffer(staging.buffer);
-    std::memcpy(dst, data, len);
-
-    ImageUpload &upload  = image_uploads[image];
-    upload.i_staging     = i_staging;
-    upload.transfer_id   = current_transfer;
-    upload.state         = UploadState::Requested;
-    upload.len           = len;
-
-    ImageRegion region = {};
-    region.offset = 0;
-    region.layer = 0;
-    region.mip_level = 0;
-    upload.regions.push_back(region);
-
-    current_transfer += 1;
-}
-
-void Streamer::upload(Handle<gfx::Image> image, const Texture &texture)
-{
-    u32 i_staging = find_or_create_staging(*this, texture.data_size);
-    auto &staging = staging_areas[i_staging];
-
-    // Copy the source data into the staging
-    void *dst = device->map_buffer(staging.buffer);
-    std::memcpy(dst, texture.pixels_data, texture.data_size);
-
-    ImageUpload &upload  = image_uploads[image];
-    upload.i_staging     = i_staging;
-    upload.transfer_id   = current_transfer;
-    upload.state         = UploadState::Requested;
-    upload.len           = texture.data_size;
-
-    auto &regions = upload.regions;
+    exo::DynamicArray<ImageRegion, 12> regions;
     regions.resize(texture.mip_offsets.size());
     for (u32 i_level = 0; i_level < texture.mip_offsets.size(); i_level += 1)
     {
-        regions[i_level].mip_level = i_level;
-        regions[i_level].layer     = 0;
-        regions[i_level].offset = texture.mip_offsets[i_level];
+        const i32 mip_width  = std::max(texture.width >> i_level, 1);
+        const i32 mip_height = std::max(texture.height >> i_level, 1);
+
+        regions[i_level].mip_level     = i_level;
+        regions[i_level].layer         = 0;
+        regions[i_level].buffer_offset = texture.mip_offsets[i_level];
+        regions[i_level].image_size    = {mip_width, mip_height};
     }
 
-    current_transfer += 1;
+    return upload_image_regions(image, texture.pixels_data, texture.data_size, regions);
 }
 
-bool Streamer::is_uploaded(Handle<gfx::Image> image)
+
+bool Streamer::upload_buffer_regions(Handle<gfx::Buffer> buffer, const void *data, usize len, std::span<const BufferRegion> buffer_regions)
 {
-    return image_uploads.contains(image) && image_uploads.at(image).state == UploadState::Done;
+    const u8 *old_cursor = cursor;
+    if (!copy_to_staging(*this, data, len))
+    {
+        return false;
+    }
+
+    auto &upload = exo::emplace_back(buffer_region_uploads);
+    upload.buffer = buffer;
+    upload.src_offset = old_cursor - buffer_start;
+    for (const auto &region : buffer_regions)
+    {
+        upload.regions.push_back(region);
+    }
+
+    return true;
+}
+
+bool Streamer::upload_buffer_region(Handle<gfx::Buffer> buffer, const void *data, usize len, usize dst_offset)
+{
+    const BufferRegion regions[] = {{.dst_offset = dst_offset, .size = len}};
+    return upload_buffer_regions(buffer, data, len, regions);
 }

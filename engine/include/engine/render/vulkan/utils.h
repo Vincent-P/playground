@@ -64,7 +64,7 @@ inline const char *vkres_to_str(VkResult code)
         VkResult err = x;                                                                                              \
         if (err)                                                                                                       \
         {                                                                                                              \
-            const char *err_msg = vkres_to_str(err);                                                                   \
+            const char *err_msg = vulkan::vkres_to_str(err);            \
             exo::logger::error("Vulkan function returned {}\n", err_msg);    \
             throw std::runtime_error(err_msg);                                                                         \
         }                                                                                                              \

@@ -167,7 +167,7 @@ void upload_texture(Renderer &renderer, exo::UUID texture_uuid)
         .format     = to_vk(texture_asset->format),
     });
 
-    streamer.upload(render_texture.gpu, *texture_asset);
+    streamer.upload_texture(render_texture.gpu, *texture_asset);
 
     auto render_texture_handle = render_textures.add(std::move(render_texture));
     renderer.uploaded_textures[texture_uuid] = render_texture_handle;
@@ -282,23 +282,23 @@ void upload_mesh(Renderer &renderer, exo::UUID mesh_uuid)
     render_mesh_gpu.first_submesh  = renderer.submeshes_buffer.allocate(mesh_asset->submeshes.size());
     render_mesh_gpu.first_uv       = renderer.vertex_uvs_buffer.allocate(mesh_asset->uvs.size());
 
-    streamer.upload(renderer.vertex_positions_buffer.buffer,
+    streamer.upload_buffer_region(renderer.vertex_positions_buffer.buffer,
                     mesh_asset->positions.data(),
                     mesh_asset->positions.size() * sizeof(float4),
                     render_mesh_gpu.first_position * sizeof(float4));
-    streamer.upload(renderer.vertex_uvs_buffer.buffer,
+    streamer.upload_buffer_region(renderer.vertex_uvs_buffer.buffer,
                     mesh_asset->uvs.data(),
                     mesh_asset->uvs.size() * sizeof(float2),
                     render_mesh_gpu.first_uv * sizeof(float2));
-    streamer.upload(renderer.index_buffer.buffer,
+    streamer.upload_buffer_region(renderer.index_buffer.buffer,
                     mesh_asset->indices.data(),
                     mesh_asset->indices.size() * sizeof(u32),
                     render_mesh_gpu.first_index * sizeof(u32));
-    streamer.upload(renderer.bvh_nodes_buffer.buffer,
+    streamer.upload_buffer_region(renderer.bvh_nodes_buffer.buffer,
                     bvh.nodes.data(),
                     bvh.nodes.size() * sizeof(BVHNode),
                     render_mesh_gpu.bvh_root * sizeof(BVHNode));
-    streamer.upload(renderer.submeshes_buffer.buffer,
+    streamer.upload_buffer_region(renderer.submeshes_buffer.buffer,
                     render_mesh.submeshes.data(),
                     render_mesh.submeshes.size() * sizeof(RenderSubMesh),
                     render_mesh_gpu.first_submesh * sizeof(RenderSubMesh));
@@ -649,7 +649,7 @@ void Renderer::update(const RenderWorld &render_world)
         ASSERT(imgui_width > 0 && imgui_height > 0);
         u32 width  = static_cast<u32>(imgui_width);
         u32 height = static_cast<u32>(imgui_height);
-        streamer.upload(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
+        streamer.upload_image_full(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
 
         const auto *blue_noise_uuid = "c50c2272-49cf54e5-4ee5e9b2-53a00883";
         auto bn_texture = asset_manager->load_or_import_resource(exo::UUID::from_string(blue_noise_uuid, strlen(blue_noise_uuid)));
@@ -666,10 +666,10 @@ void Renderer::update(const RenderWorld &render_world)
                 .mip_levels = static_cast<u32>(texture->levels),
                 .format     = to_vk(texture->format),
             });
-            streamer.upload(blue_noise, *texture);
+            streamer.upload_texture(blue_noise, *texture);
         }
     }
-    streamer.update(work_pool);
+    streamer.update(cmd);
     cmd.end_debug_label();
     timings.end_label(cmd);
 
@@ -1001,10 +1001,7 @@ void Renderer::update(const RenderWorld &render_world)
 
     // ImGui pass
     ImGui::Render();
-    if (streamer.is_uploaded(imgui_pass.font_atlas))
-    {
-        imgui_pass_draw(*base_renderer, imgui_pass, cmd, ldr_fb);
-    }
+    imgui_pass_draw(*base_renderer, imgui_pass, cmd, ldr_fb);
     UI::new_frame();
 
     timings.begin_label(cmd, "Present + final blit");

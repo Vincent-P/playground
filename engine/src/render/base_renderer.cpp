@@ -16,7 +16,7 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
 
     // Initialize the API
     renderer->window = window;
-    renderer->context = gfx::Context::create(false, window);
+    renderer->context = gfx::Context::create(true, window);
 
     // Pick a GPU
     auto &physical_devices = renderer->context.physical_devices;
@@ -80,7 +80,7 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
             .gpu_usage = gfx::index_buffer_usage,
         });
 
-    renderer->streamer.init(&renderer->device);
+    renderer->streamer = Streamer::create(&renderer->device, FRAME_QUEUE_LENGTH);
 
     return renderer;
 }
@@ -194,8 +194,6 @@ bool BaseRenderer::start_frame()
     ZoneScoped;
 
     auto current_frame = frame_count % FRAME_QUEUE_LENGTH;
-
-    streamer.wait();
 
     // wait for fence, blocking: dont wait for the first QUEUE_LENGTH frames
     u64 wait_value = frame_count < FRAME_QUEUE_LENGTH ? 0 : frame_count-FRAME_QUEUE_LENGTH+1;
