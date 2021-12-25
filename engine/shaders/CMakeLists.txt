@@ -32,7 +32,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}
-    COMMAND glslc -O --target-env=vulkan1.2 -std=460 ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL_FILE} -o ${SPIRV_FILE} -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${CMAKE_CURRENT_SOURCE_DIR}/${GLSL_FILE} -o ${SPIRV_FILE} -I ${CMAKE_CURRENT_SOURCE_DIR}/include
     DEPENDS ${GLSL_FILE} ${GLSL_INCLUDES}
     )
 
@@ -40,5 +40,5 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
   list(APPEND SPIRV_FILES ${SPIRV_FILE})
 endforeach()
 
-add_custom_target(shaders DEPENDS ${SPIRV_FILES})
+add_custom_target(engine.shaders DEPENDS ${SPIRV_FILES})
 install(FILES ${SPIRV_FILES} DESTINATION bin/shaders)

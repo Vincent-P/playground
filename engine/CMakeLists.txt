@@ -72,7 +72,7 @@ target_link_libraries(engine PUBLIC
   meow_hash)
 
 add_subdirectory(shaders/)
-add_dependencies(engine shaders)
+add_dependencies(engine engine.shaders)
 
 target_compile_definitions(engine PUBLIC
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
