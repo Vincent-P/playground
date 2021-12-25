@@ -85,6 +85,23 @@ void create_context(exo::Window *window, Inputs *inputs)
     io.BackendPlatformName = "custom";
     io.IniFilename         = g_ui_context->ini_path.c_str();
     io.Fonts->AddFontDefault();
+
+    io.KeyMap[ImGuiKey_Tab] = static_cast<uint>(exo::VirtualKey::Tab);
+    io.KeyMap[ImGuiKey_LeftArrow] = static_cast<uint>(exo::VirtualKey::Left);
+    io.KeyMap[ImGuiKey_RightArrow] = static_cast<uint>(exo::VirtualKey::Right);
+    io.KeyMap[ImGuiKey_UpArrow] = static_cast<uint>(exo::VirtualKey::Up);
+    io.KeyMap[ImGuiKey_DownArrow] = static_cast<uint>(exo::VirtualKey::Down);
+    // io.KeyMap[ImGuiKey_PageUp] = static_cast<uint>(exo::VirtualKey::Enter);
+    // io.KeyMap[ImGuiKey_PageDown] = static_cast<uint>(exo::VirtualKey::Enter);
+    io.KeyMap[ImGuiKey_Home] = static_cast<uint>(exo::VirtualKey::Home);
+    io.KeyMap[ImGuiKey_End] = static_cast<uint>(exo::VirtualKey::End);
+    // io.KeyMap[ImGuiKey_Insert] = static_cast<uint>(exo::VirtualKey::Enter);
+    io.KeyMap[ImGuiKey_Delete] = static_cast<uint>(exo::VirtualKey::Delete);
+    io.KeyMap[ImGuiKey_Backspace] = static_cast<uint>(exo::VirtualKey::Backspace);
+    // io.KeyMap[ImGuiKey_Space] = static_cast<uint>(exo::VirtualKey::Enter);
+    io.KeyMap[ImGuiKey_Enter] = static_cast<uint>(exo::VirtualKey::Enter);
+    io.KeyMap[ImGuiKey_Escape] = static_cast<uint>(exo::VirtualKey::Escape);
+    // io.KeyMap[ImGuiKey_KeyPadEnter] = static_cast<uint>(exo::VirtualKey::Enter);
 }
 
 void destroy_context(Context *context)
@@ -128,8 +145,8 @@ void new_frame()
     auto *inputs = g_ui_context->inputs;
 
     ImGuiIO &io                  = ImGui::GetIO();
-    io.DisplaySize.x             = float(window->width);
-    io.DisplaySize.y             = float(window->height);
+    io.DisplaySize.x             = float(window->size.x);
+    io.DisplaySize.y             = float(window->size.y);
     io.DisplayFramebufferScale.x = window->get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window->get_dpi_scale().y;
 
