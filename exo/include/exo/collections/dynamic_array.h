@@ -120,7 +120,7 @@ constexpr void DynamicArray<T, C>::clear() noexcept
 template <typename T, usize C>
 constexpr void DynamicArray<T, C>::resize(usize new_size) noexcept
 {
-    ASSERT(new_size < C);
+    ASSERT(new_size <= C);
 
     // Default-initialize new elements if new_size > old_size
     for (usize i = array_size; i < new_size; i += 1)

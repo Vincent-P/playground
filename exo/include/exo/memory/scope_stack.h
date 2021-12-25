@@ -3,6 +3,7 @@
 #include "exo/memory/linear_allocator.h"
 #include "exo/maths/pointer.h"
 #include <type_traits>
+#include <new>
 
 namespace exo
 {
@@ -49,7 +50,7 @@ void call_dtor(void *ptr)
 template <typename T>
 T *ScopeStack::allocate()
 {
-    if constexpr (std::is_trivially_destructible_v<T>)
+    if constexpr (!std::is_trivially_destructible_v<T>)
     {
         // Allocate enough space for the finalizer + the object itself
         const usize total_size = sizeof(T) + round_up_to_alignment(sizeof(u32), sizeof(Finalizer));
