@@ -16,7 +16,7 @@ Surface Surface::create(Context &context, Device &device, const exo::Window &win
     /// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-    sci.hwnd                        = window.win32.window;
+    sci.hwnd                        = reinterpret_cast<HWND>(window.get_win32_hwnd());
     sci.hinstance                   = GetModuleHandle(nullptr);
     VK_CHECK(vkCreateWin32SurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #elif defined(VK_USE_PLATFORM_XCB_KHR)

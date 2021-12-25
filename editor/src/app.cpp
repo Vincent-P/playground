@@ -18,7 +18,7 @@ App *App::create(exo::ScopeStack &scope)
 {
     auto *app = scope.allocate<App>();
 
-    app->window        = exo::Window::create(scope, DEFAULT_WIDTH, DEFAULT_HEIGHT, "Editor");
+    app->window        = exo::Window::create(scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
