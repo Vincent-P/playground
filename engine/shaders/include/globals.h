@@ -59,6 +59,12 @@ struct ImGuiVertex
     uint pad10;
 };
 
+struct FontVertex
+{
+    ivec2 position;
+    vec2 uv;
+};
+
 struct BVHNode
 {
     float3 bbox_min;
@@ -145,6 +151,7 @@ layout(set = 2, binding = 0, rgba32f) uniform image2D global_images_2d_rgba32f[]
 layout(set = 2, binding = 0, r32f) uniform image2D global_images_2d_r32f[];
 
 layout(set = 3, binding = 0) buffer UiVerticesBuffer            { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
+layout(set = 3, binding = 0) buffer FontVerticesBuffer            { FontVertex vertices[];  } global_buffers_font_vert[];
 layout(set = 3, binding = 0) buffer InstancesBuffer             { RenderInstance render_instances[]; } global_buffers_instances[];
 layout(set = 3, binding = 0) buffer MeshesBuffer                { RenderMesh render_meshes[]; } global_buffers_meshes[];
 layout(set = 3, binding = 0) buffer SubMeshInstancesBuffer      { SubMeshInstance submesh_instances[]; } global_buffers_submesh_instances[];

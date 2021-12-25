@@ -12,8 +12,8 @@ void imgui_pass_init(gfx::Device &device, ImGuiPass &pass, VkFormat color_attach
     gfx::DescriptorType one_dynamic_buffer_descriptor = {{{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}}};
 
     gfx::GraphicsState gui_state = {};
-    gui_state.vertex_shader      = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/default/shaders/gui.vert.glsl.spv");
-    gui_state.fragment_shader    = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/default/shaders/gui.frag.glsl.spv");
+    gui_state.vertex_shader      = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/gui.vert.glsl.spv");
+    gui_state.fragment_shader    = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/gui.frag.glsl.spv");
     gui_state.attachments_format = {.attachments_format = {color_attachment_format}};
     gui_state.descriptors.push_back(one_dynamic_buffer_descriptor);
     pass.program = device.create_program("imgui", gui_state);

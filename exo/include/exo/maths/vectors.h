@@ -5,6 +5,7 @@ namespace exo
 {
 struct uint2;
 struct uint3;
+struct uint4;
 struct int2;
 struct int3;
 struct float2;
