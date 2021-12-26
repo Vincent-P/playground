@@ -20,6 +20,13 @@ float4 textured_rect(u32 i_primitive, u32 corner, float2 uv)
     return float4(0, 0, 0, alpha);
 }
 
+float4 color_rect(u32 i_primitive, u32 corner, float2 uv)
+{
+    u32 primitive_offset = primitive_bytes_offset / sizeof_color_rect;
+    ColorRect rect = global_buffers_color_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
+    return unpackUnorm4x8(rect.color);
+}
+
 layout(location = 0) in float2 i_uv;
 layout(location = 1) in flat u32 i_primitive_index;
 layout(location = 0) out float4 o_color;
@@ -32,6 +39,10 @@ void main()
     if (primitive_type == RectType_Textured)
     {
         o_color = textured_rect(i_primitive, corner, i_uv);
+    }
+    else if (primitive_type == RectType_Color)
+    {
+        o_color = color_rect(i_primitive, corner, i_uv);
     }
     else
     {

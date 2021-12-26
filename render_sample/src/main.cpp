@@ -160,6 +160,12 @@ static Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_siz
 
 static void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &uv, u32 texture)
 {
+    auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
+    if (misalignment != 0)
+    {
+        painter.vertex_bytes_offset += sizeof(TexturedRect) - misalignment;
+    }
+
     ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
     u32 i_rect = painter.vertex_bytes_offset / sizeof(TexturedRect);
     auto *vertices = reinterpret_cast<TexturedRect*>(painter.vertices);
@@ -180,6 +186,33 @@ static void painter_draw_textured_rect(Painter &painter, const Rect &rect, const
     ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }
 
+static void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 color)
+{
+    auto misalignment = painter.vertex_bytes_offset % sizeof(ColorRect);
+    if (misalignment != 0)
+    {
+        painter.vertex_bytes_offset += sizeof(ColorRect) - misalignment;
+    }
+
+    ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
+    u32 i_rect = painter.vertex_bytes_offset / sizeof(ColorRect);
+    auto *vertices = reinterpret_cast<ColorRect*>(painter.vertices);
+    vertices[i_rect] = {.rect = rect, .color = color};
+    painter.vertex_bytes_offset += sizeof(ColorRect);
+
+    // 0 - 3
+    // |   |
+    // 1 - 2
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Color}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Color}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
+
+    ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
+    ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+}
 
 // --- App
 
@@ -330,8 +363,9 @@ static void display_ui(RenderSample *app)
     ImGui::Text("Current file size: %zu", app->current_file_data.size());
 
     // -- Painter
-    app->painter->index_offset = 0;
-    app->painter->vertex_bytes_offset = 0;
+    auto &painter = *app->painter;
+    painter.index_offset = 0;
+    painter.vertex_bytes_offset = 0;
 
     const u8 *text = app->current_file_data.data();
     unsigned int         glyph_count;
@@ -376,7 +410,7 @@ static void display_ui(RenderSample *app)
             .position = {(cache_entry.x * 16) / 4096.0f, (cache_entry.y * 20) / 4096.0f},
             .size = {cache_entry.glyph_size.x / 4096.0f, cache_entry.glyph_size.y / 4096.0f}
         };
-        painter_draw_textured_rect(*app->painter, rect, uv, app->renderer->device.get_image_sampled_index(app->font_atlas));
+        painter_draw_textured_rect(painter, rect, uv, app->renderer->device.get_image_sampled_index(app->font_atlas));
 
         cursor_x += x_advance >> 6;
         cursor_y += y_advance >> 6;
@@ -387,6 +421,11 @@ static void display_ui(RenderSample *app)
             cursor_y += line_height;
         }
     }
+
+    //                                                                               AABBGGRR
+    painter_draw_color_rect(painter, {.position = {250, 250}, .size = {100, 100}}, 0xaa0000ff);
+    painter_draw_color_rect(painter, {.position = {260, 260}, .size = {100, 100}}, 0xaaff0000);
+
 }
 
 static void render(RenderSample *app)
@@ -460,8 +499,7 @@ static void render(RenderSample *app)
     {
     auto *painter = app->painter;
     ZoneScopedN("Painter");
-    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(renderer.device, painter->vertex_bytes_offset, sizeof(TexturedRect));
-    ASSERT(vert_offset % sizeof(TexturedRect) == 0);
+    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(renderer.device, painter->vertex_bytes_offset, sizeof(TexturedRect) * sizeof(ColorRect));
     std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
 
     auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));

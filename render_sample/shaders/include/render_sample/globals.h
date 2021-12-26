@@ -29,7 +29,7 @@ struct ColorRect
     u32 color;
     u32 padding[3];
 };
-const u32 sizeof_color_rect = 3 * sizeof_float4;
+const u32 sizeof_color_rect = 2 * sizeof_float4;
 
 struct TexturedRect
 {

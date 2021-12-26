@@ -39,11 +39,36 @@ void textured_rect(out float2 o_position, out float2 o_uv, u32 i_primitive, u32 
     }
 }
 
+void color_rect(out float2 o_position, out float2 o_uv, u32 i_primitive, u32 corner)
+{
+    u32 primitive_offset = primitive_bytes_offset / sizeof_color_rect;
+    ColorRect rect = global_buffers_color_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
+
+    o_position = rect.rect.position;
+    o_uv = float2(0.0);
+
+    // 0 - 3
+    // |   |
+    // 1 - 2
+    if (corner == 1)
+    {
+        o_position.y += rect.rect.size.y;
+        o_uv.y = 1.0f;
+    }
+    else if (corner == 2)
+    {
+        o_position += rect.rect.size;
+        o_uv = float2(1.0f);
+    }
+    else if (corner == 3)
+    {
+        o_position.x += rect.rect.size.x;
+        o_uv.x = 1.0f;
+    }
+}
+
 layout(location = 0) out float2 o_uv;
-layout(location = 1) out flat u32 o_primitive;
-layout(location = 2) out flat u32 o_primitive_type;
-layout(location = 3) out flat u32 o_corner;
-layout(location = 4) out flat u32 o_index;
+layout(location = 1) out flat u32 o_primitive_index;
 void main()
 {
     u32 i_primitive    = gl_VertexIndex & 0x00ffffff;
@@ -57,12 +82,12 @@ void main()
     {
         textured_rect(position, uv, i_primitive, corner);
     }
+    else if (primitive_type == RectType_Color)
+    {
+        color_rect(position, uv, i_primitive, corner);
+    }
 
     gl_Position = float4(position * scale + translation, 0.0, 1.0);
     o_uv = uv;
-    o_primitive = gl_VertexIndex;
-
-    o_primitive_type = primitive_type;
-    o_corner = corner;
-    o_index = i_primitive;
+    o_primitive_index = gl_VertexIndex;
 }
