@@ -1,7 +1,7 @@
 #pragma shader_stage(fragment)
 
-#include "types.h"
-#include "globals.h"
+#include "base/types.h"
+#include "engine/globals.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
     float2 scale;

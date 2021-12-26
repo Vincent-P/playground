@@ -1,7 +1,7 @@
 #pragma shader_stage(vertex)
 
-#include "types.h"
-#include "globals.h"
+#include "base/types.h"
+#include "engine/globals.h"
 
 layout(location = 0) flat out uint o_instance_index;
 layout(location = 1) flat out uint o_triangle_index;

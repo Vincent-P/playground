@@ -3,8 +3,8 @@
 #ifndef MATHS_H
 #define MATHS_H
 
-#include "types.h"
-#include "constants.h"
+#include "base/types.h"
+#include "base/constants.h"
 
 float max2(vec2 values) {
     return max(values.x, values.y);

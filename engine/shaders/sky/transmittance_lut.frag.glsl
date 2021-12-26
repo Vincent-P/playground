@@ -1,5 +1,5 @@
-#include "types.h"
-#include "globals.h"
+#include "base/types.h"
+#include "engine/globals.h"
 #include "atmosphere.h"
 
 layout (set = 1, binding = 0) uniform AtmosphereUniform {

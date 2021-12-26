@@ -1,12 +1,12 @@
 set(GLSL_INCLUDES
-  include/atmosphere.h
-  include/bvh.h
-  include/constants.h
-  include/globals.h
-  include/maths.h
-  include/pbr.h
-  include/raytracing.h
-  include/types.h
+  include/engine/atmosphere.h
+  include/engine/bvh.h
+  include/base/constants.h
+  include/engine/globals.h
+  include/base/maths.h
+  include/engine/pbr.h
+  include/engine/raytracing.h
+  include/base/types.h
   )
 
 set(GLSL_FILES

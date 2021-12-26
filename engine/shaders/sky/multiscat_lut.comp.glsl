@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "engine/globals.h"
 #include "atmosphere.h"
 
 layout (set = 1, binding = 0) uniform AtmosphereUniform {

@@ -1,11 +1,11 @@
 #pragma shader_stage(compute)
 
-#include "globals.h"
-#include "hash.h"
-#include "raytracing.h"
-#include "pbr.h"
-#include "bvh.h"
-#include "color_map.h"
+#include "base/hash.h"
+#include "base/color_map.h"
+#include "engine/globals.h"
+#include "engine/raytracing.h"
+#include "engine/pbr.h"
+#include "engine/bvh.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 storage_output;

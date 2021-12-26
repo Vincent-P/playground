@@ -3,9 +3,9 @@
 #ifndef RAYTRACING_H
 #define RAYTRACING_H
 
-#include "types.h"
-#include "maths.h"
-#include "constants.h"
+#include "base/types.h"
+#include "base/maths.h"
+#include "base/constants.h"
 
 // -- Structs
 

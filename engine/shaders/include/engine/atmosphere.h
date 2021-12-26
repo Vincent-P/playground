@@ -2,8 +2,8 @@
 #define ATMOSPHERE_H
 
 #ifndef __cplusplus
-#include "types.h"
-#include "constants.h"
+#include "base/types.h"
+#include "base/constants.h"
 #endif
 
 // An atmosphere layer of width 'width', and whose density is defined as

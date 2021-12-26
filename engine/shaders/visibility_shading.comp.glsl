@@ -1,13 +1,13 @@
 #pragma shader_stage(compute)
 
-#include "globals.h"
-#include "constants.h"
-#include "hash.h"
-#include "maths.h"
-#include "raytracing.h"
-#include "bvh.h"
-#include "sequences.h"
-#include "color_map.h"
+#include "engine/globals.h"
+#include "base/constants.h"
+#include "base/hash.h"
+#include "base/maths.h"
+#include "engine/raytracing.h"
+#include "engine/bvh.h"
+#include "base/sequences.h"
+#include "base/color_map.h"
 
 ///
 struct DerivativesOutput

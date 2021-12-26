@@ -1,8 +1,8 @@
 #pragma shader_stage(compute)
 
-#include "types.h"
-#include "constants.h"
-#include "globals.h"
+#include "base/types.h"
+#include "base/constants.h"
+#include "engine/globals.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 predicate_descriptor;

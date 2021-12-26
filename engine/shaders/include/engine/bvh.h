@@ -3,7 +3,7 @@
 #ifndef BVH_HEADER
 #define BVH_HEADER
 
-#include "globals.h"
+#include "engine/globals.h"
 
 struct HitInfo
 {

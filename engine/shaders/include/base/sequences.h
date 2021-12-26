@@ -3,7 +3,7 @@
 #ifndef SEQUENCES_H
 #define SEQUENCES_H
 
-#include "types.h"
+#include "base/types.h"
 
 float r1_sequence(uint n)
 {

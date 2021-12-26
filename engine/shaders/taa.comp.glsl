@@ -1,8 +1,8 @@
 #pragma shader_stage(compute)
 
-#include "types.h"
-#include "constants.h"
-#include "globals.h"
+#include "base/types.h"
+#include "base/constants.h"
+#include "engine/globals.h"
 
 float3 clip_aabb(float3 aabb_min, float3 aabb_max, float3 color)
 {

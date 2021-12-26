@@ -3,8 +3,8 @@
 #ifndef PBR_H
 #define PBR_H
 
-#include "types.h"
-#include "maths.h"
+#include "base/types.h"
+#include "base/maths.h"
 
 // -- Lambertian
 

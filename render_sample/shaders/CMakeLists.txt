@@ -1,12 +1,9 @@
 set(GLSL_INCLUDES
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/atmosphere.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/bvh.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/constants.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/globals.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/maths.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/pbr.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/raytracing.h
-  ${PROJECT_SOURCE_DIR}/engine/shaders/include/types.h
+  ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/constants.h
+  ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/maths.h
+  ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/types.h
+  ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/bindless.h
+  ${PROJECT_SOURCE_DIR}/render_sample/shaders/include/render_sample/globals.h
   )
 
 set(GLSL_FILES

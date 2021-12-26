@@ -3,7 +3,7 @@
 #ifndef HASH_H
 #define HASH_H
 
-#include "types.h"
+#include "base/types.h"
 
 // https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
 uint pcg(uint v)
