@@ -335,12 +335,12 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
     auto &surface = renderer->base_renderer->surface;
 
     renderer->instances_data = RingBuffer::create(device,
-                                                 {
-                                                     .name      = "Instances data",
-                                                     .size      = 64_MiB,
-                                                     .gpu_usage = gfx::storage_buffer_usage,
-                                                 },
-                                                 false);
+                                                  {
+                                                      .name               = "Instances data",
+                                                      .size               = 64_MiB,
+                                                      .gpu_usage          = gfx::storage_buffer_usage,
+                                                      .frame_queue_length = FRAME_QUEUE_LENGTH,
+                                                  });
 
     renderer->predicate_buffer = device.create_buffer({
         .name  = "Instance visibility",
@@ -367,12 +367,12 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
     });
 
     renderer->submesh_instances_data = RingBuffer::create(device,
-                                                         {
-                                                             .name      = "Submesh Instances data",
-                                                             .size      = 8_MiB,
-                                                             .gpu_usage = gfx::storage_buffer_usage,
-                                                         },
-                                                         false);
+                                                          {
+                                                              .name               = "Submesh Instances data",
+                                                              .size               = 8_MiB,
+                                                              .gpu_usage          = gfx::storage_buffer_usage,
+                                                              .frame_queue_length = FRAME_QUEUE_LENGTH,
+                                                          });
 
     renderer->meshes_buffer = device.create_buffer({
         .name         = "Meshes description buffer",
@@ -567,8 +567,6 @@ bool Renderer::end_frame(gfx::ComputeWork &cmd)
         return true;
     }
 
-    instances_data.end_frame();
-    submesh_instances_data.end_frame();
     return false;
 }
 
@@ -1129,12 +1127,12 @@ void Renderer::prepare_geometry(const RenderWorld &render_world)
         ASSERT(tlas.nodes.size() * sizeof(BVHNode) < 32_MiB);
         std::memcpy(tlas_gpu, tlas.nodes.data(), tlas.nodes.size() * sizeof(BVHNode));
 
-        auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance));
+        auto [p_instances, instance_offset] = instances_data.allocate(device, render_instances.size() * sizeof(RenderInstance), sizeof(RenderInstance));
         std::memcpy(p_instances, render_instances.data(), render_instances.size() * sizeof(RenderInstance));
         this->instances_offset = static_cast<u32>(instance_offset / sizeof(RenderInstance));
 
         usize submesh_instances_size = submesh_instances.size() * sizeof(SubMeshInstance);
-        auto [p_submesh_instances, submesh_instance_offset] = submesh_instances_data.allocate(device, submesh_instances_size);
+        auto [p_submesh_instances, submesh_instance_offset] = submesh_instances_data.allocate(device, submesh_instances_size, sizeof(SubMeshInstance));
         std::memcpy(p_submesh_instances, submesh_instances.data(), submesh_instances_size);
         this->submesh_instances_offset = static_cast<u32>(submesh_instance_offset / sizeof(SubMeshInstance));
     }

@@ -66,18 +66,21 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
             .name = "Dynamic Uniform",
             .size = 128_KiB,
             .gpu_usage = gfx::uniform_buffer_usage,
+            .frame_queue_length = FRAME_QUEUE_LENGTH,
         });
 
     renderer->dynamic_vertex_buffer = RingBuffer::create(device, {
             .name = "Dynamic vertices",
             .size = 16_MiB,
             .gpu_usage = gfx::storage_buffer_usage,
+            .frame_queue_length = FRAME_QUEUE_LENGTH,
         });
 
     renderer->dynamic_index_buffer = RingBuffer::create(device, {
             .name = "Dynamic indices",
             .size = 16_MiB,
             .gpu_usage = gfx::index_buffer_usage,
+            .frame_queue_length = FRAME_QUEUE_LENGTH,
         });
 
     renderer->streamer = Streamer::create(&renderer->device, FRAME_QUEUE_LENGTH);
@@ -270,8 +273,5 @@ bool BaseRenderer::end_frame(gfx::ComputeWork &cmd)
     }
 
     frame_count += 1;
-    dynamic_uniform_buffer.end_frame();
-    dynamic_vertex_buffer.end_frame();
-    dynamic_index_buffer.end_frame();
     return false;
 }

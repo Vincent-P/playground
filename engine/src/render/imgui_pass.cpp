@@ -55,10 +55,10 @@ void imgui_pass_draw(BaseRenderer &renderer, ImGuiPass &pass, gfx::GraphicsWork 
     u32 vertices_size = static_cast<u32>(data->TotalVtxCount) * sizeof(ImDrawVert);
     u32 indices_size  = static_cast<u32>(data->TotalIdxCount) * sizeof(ImDrawIdx);
 
-    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(device, vertices_size);
+    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(device, vertices_size, sizeof(ImDrawVert));
     auto *vertices                 = reinterpret_cast<ImDrawVert *>(p_vertices);
 
-    auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(device, indices_size);
+    auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(device, indices_size, sizeof(ImDrawIdx));
     auto *indices                = reinterpret_cast<ImDrawIdx *>(p_indices);
 
     struct ImguiDrawCommand

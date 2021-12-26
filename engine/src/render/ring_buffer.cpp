@@ -4,11 +4,10 @@
 
 #include "render/vulkan/device.h"
 
-RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc, bool align)
+RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc)
 {
     RingBuffer buf;
     buf.name = desc.name;
-    buf.size = desc.size;
     buf.usage = desc.gpu_usage;
     buf.buffer = device.create_buffer({
             .name         = buf.name,
@@ -16,47 +15,46 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
             .usage        = buf.usage,
             .memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
         });
-    buf.should_align = align;
+
+
+    buf.frame_start.resize(desc.frame_queue_length+1);
+    buf.buffer_start = reinterpret_cast<u8*>(device.map_buffer(buf.buffer));
+    buf.buffer_end = buf.buffer_start + desc.size;
+    buf.cursor = buf.buffer_start;
     return buf;
 }
 
-std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len)
+std::pair<void*, usize> RingBuffer::allocate(gfx::Device &device, usize len, usize alignment)
 {
-    auto aligned_len = exo::round_up_to_alignment(256, len);
-    if (!should_align)
+    u64 dist = static_cast<u64>(cursor - buffer_start) % alignment;
+    if (dist != 0)
     {
-        aligned_len = len;
+        cursor += alignment - dist;
     }
 
-    // TODO: handle the correct number of frame instead of ALWAYS the last one
-    // check that we dont overwrite previous frame's content
-    auto last_frame_start = last_frame_end - last_frame_size;
-    ASSERT(offset + aligned_len < last_frame_start + size);
-
-    // if offset + aligned_len is outside the buffer go back to the beginning (ring buffer)
-    if ((offset % size) + aligned_len >= size)
+    // wrap cursor at the end the buffer
+    if (cursor + len > buffer_end)
     {
-        offset = ((offset / size) + 1u) * size;
+        cursor = buffer_start;
     }
 
-    auto allocation_offset = offset % size;
+    // check if there is enough space
+    const auto frame_size = frame_start.size();
+    const u8 *previous_frame_start = frame_start[(i_frame+frame_size-1)%frame_size];
+    if (previous_frame_start && cursor < previous_frame_start && cursor + len > previous_frame_start)
+    {
+        ASSERT(!"Not enough space");
+    }
 
-    void *dst = device.map_buffer<u8>(buffer) + allocation_offset;
+    auto *offset = cursor;
+    cursor += len;
 
-    offset += aligned_len;
-    this_frame_size += aligned_len;
-
-    return std::make_pair(dst, allocation_offset);
+    ASSERT((offset - buffer_start) % alignment == 0);
+    return std::make_pair(offset, offset - buffer_start);
 }
 
 void RingBuffer::start_frame()
 {
-    // reset dynamic buffer frame size
-    this_frame_size = 0;
-}
-
-void RingBuffer::end_frame()
-{
-    last_frame_end  = offset;
-    last_frame_size = this_frame_size;
+    i_frame += 1;
+    frame_start[i_frame % frame_start.size()] = cursor;
 }

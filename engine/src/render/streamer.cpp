@@ -22,7 +22,7 @@ static bool copy_to_staging(Streamer &streamer, const void *data, usize len)
     // check if there is enough space
     const auto update_size = streamer.update_start.size();
     const u8 *previous_update_start = streamer.update_start[(streamer.i_update+update_size-1)%update_size];
-    if (previous_update_start && streamer.cursor + len > previous_update_start)
+    if (previous_update_start && streamer.cursor < previous_update_start && streamer.cursor + len > previous_update_start)
     {
         return false;
     }
@@ -63,9 +63,7 @@ void Streamer::destroy()
 void Streamer::update(gfx::GraphicsWork &cmd)
 {
     i_update += 1;
-
-    u8 *&start = update_start[i_update % update_start.size()];
-    start = cursor;
+    update_start[i_update % update_start.size()] = cursor;
 
     cmd.begin_debug_label("Streamer::update");
 
