@@ -45,14 +45,70 @@ void operator delete(void *ptr) noexcept
     free(ptr);
 }
 
-PACKED(struct FontVertex
+// --- Structs
+
+PACKED(struct Rect
 {
-    exo::int2 position;
-    exo::float2 uv;
+    exo::float2 position;
+    exo::float2 size;
 })
 
-PACKED (struct PushConstants
+PACKED(struct ColorRect
 {
+    Rect rect;
+    u32 color;
+    u32 padding[3];
+})
+
+PACKED(struct TexturedRect
+{
+    Rect rect;
+    Rect uv;
+    u32 texture_descriptor;
+    u32 padding[3];
+})
+
+enum RectType
+{
+    RectType_Color,
+    RectType_Textured,
+};
+
+union PrimitiveIndex
+{
+    struct
+    {
+        u32 index : 24;
+        u32 corner : 2;
+        u32 type : 6;
+    };
+    u32 raw;
+};
+static_assert(sizeof(PrimitiveIndex) == sizeof(u32));
+
+struct UiButton
+{
+    Rect rect;
+};
+
+struct Painter
+{
+    u8 *vertices;
+    PrimitiveIndex *indices;
+
+    usize vertices_size;
+    usize indices_size;
+    usize vertex_bytes_offset;
+    u32 index_offset;
+};
+
+struct UiState
+{
+    u64 focused;
+    u64 active;
+};
+
+PACKED(struct PushConstants {
     u32 draw_id        = u32_invalid;
     u32 gui_texture_id = u32_invalid;
 })
@@ -62,12 +118,14 @@ struct RenderSample
     exo::Window *window;
     Inputs inputs;
     BaseRenderer *renderer;
+    Painter *painter;
 
     FT_Library   library; /* handle to library     */
     FT_Face      face;    /* handle to face object */
     hb_font_t   *font = nullptr;
     hb_buffer_t *buf  = nullptr;
     Vec<u8>      current_file_data;
+    int cursor_offset = 0;
 
     GlyphCache *glyph_cache;
 
@@ -77,6 +135,53 @@ struct RenderSample
     Handle<gfx::Image> font_atlas;
     exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_framebuffers;
 };
+
+// --- fwd
+void open_file(RenderSample *app, const std::filesystem::path &path);
+
+// --- UI
+
+static Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size)
+{
+    auto *painter = scope.allocate<Painter>();
+    painter->vertices = reinterpret_cast<u8*>(scope.allocate(vertex_buffer_size));
+    painter->indices = reinterpret_cast<PrimitiveIndex*>(scope.allocate(index_buffer_size));
+
+    painter->vertices_size = vertex_buffer_size;
+    painter->indices_size = index_buffer_size;
+
+    std::memset(painter->vertices, 0, vertex_buffer_size);
+    std::memset(painter->indices, 0, index_buffer_size);
+
+    painter->vertex_bytes_offset = 0;
+    painter->index_offset = 0;
+    return painter;
+}
+
+static void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &uv, u32 texture)
+{
+    ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
+    u32 i_rect = painter.vertex_bytes_offset / sizeof(TexturedRect);
+    auto *vertices = reinterpret_cast<TexturedRect*>(painter.vertices);
+    vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture};
+    painter.vertex_bytes_offset += sizeof(TexturedRect);
+
+    // 0 - 3
+    // |   |
+    // 1 - 2
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Textured}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Textured}};
+    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
+
+    ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
+    ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+}
+
+
+// --- App
 
 static void resize(gfx::Device &device, gfx::Surface &surface, exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> &framebuffers)
 {
@@ -138,7 +243,6 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
     UI::create_context(window, &app->inputs);
     imgui_pass_init(renderer->device, app->imgui_pass, renderer->surface.format.format);
-    UI::new_frame();
 
     auto error = FT_Init_FreeType(&app->library);
     ASSERT (!error);
@@ -155,6 +259,8 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
     app->glyph_cache = GlyphCache::create(scope, {.hash_count = 64 << 10, .entry_count = (4096 / 16) * (4096 / 20), .glyph_per_row = 4096 / 16});
 
+    app->painter = painter_allocate(scope, 16_MiB, 16_MiB);
+
     return app;
 }
 
@@ -163,6 +269,124 @@ void render_sample_destroy(RenderSample *app)
     ZoneScoped;
 
     hb_buffer_destroy(app->buf);
+}
+
+static bool upload_glyph(RenderSample *app, u32 glyph_index, i32 x, i32 y)
+{
+    ZoneScopedN("Upload glyph");
+
+    // Render the glyph with FreeType
+    int error = 0;
+    {
+        ZoneScopedN("Load glyph");
+        error = FT_Load_Glyph(app->face, glyph_index, 0);
+        ASSERT(!error);
+    }
+
+    {
+        ZoneScopedN("Render glyph");
+        error = FT_Render_Glyph(app->face->glyph, FT_RENDER_MODE_NORMAL);
+        ASSERT(!error);
+    }
+
+    FT_GlyphSlot  slot = app->face->glyph;
+
+    // Copy the bitmap to a temporary upload buffer
+    auto scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+    int upload_width = 16;
+    int upload_height = ((slot->bitmap.rows / 16) + 1) * 16;
+    u8 *tmp_buffer = reinterpret_cast<u8*>(scope.allocate(upload_width * upload_height));
+    std::memset(tmp_buffer, 0, upload_width * upload_height);
+    for (usize i_row = 0; i_row < slot->bitmap.rows; i_row += 1)
+    {
+        for (usize i_col = 0; i_col < slot->bitmap.width; i_col += 1)
+        {
+            tmp_buffer[i_row * upload_width + i_col] = slot->bitmap.buffer[i_row * slot->bitmap.pitch + i_col];
+        }
+    }
+
+    // Upload it to GPU
+    const ImageRegion regions[] = {{.image_offset = exo::int2{x * 16, y * 20}, .image_size   = exo::int2{upload_width, upload_height}}};
+    return app->renderer->streamer.upload_image_regions(app->font_atlas, tmp_buffer, upload_width * upload_height, regions);
+}
+
+static void display_ui(RenderSample *app)
+{
+    static char input_command_buffer[128] = "Hello, world!";
+    if (ImGui::InputText("Command", input_command_buffer, sizeof(input_command_buffer), ImGuiInputTextFlags_EnterReturnsTrue))
+    {
+        exo::logger::info("Command: {}\n", input_command_buffer);
+        std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
+    }
+
+    if (ImGui::Button("Open file"))
+    {
+        if (auto fs_path = exo::file_dialog({{"file", "*"}}))
+        {
+            open_file(app, fs_path.value());
+        }
+    }
+
+    ImGui::Text("Current file size: %zu", app->current_file_data.size());
+
+    // -- Painter
+    app->painter->index_offset = 0;
+    app->painter->vertex_bytes_offset = 0;
+
+    const u8 *text = app->current_file_data.data();
+    unsigned int         glyph_count;
+    hb_glyph_info_t     *glyph_info = hb_buffer_get_glyph_infos(app->buf, &glyph_count);
+    hb_glyph_position_t *glyph_pos  = hb_buffer_get_glyph_positions(app->buf, &glyph_count);
+    int           line_height = app->face->size->metrics.height >> 6;
+
+    hb_position_t cursor_x = 50;
+    hb_position_t cursor_y    = app->cursor_offset + 50 + line_height;
+    for (unsigned int i = 0; i < glyph_count; i++)
+    {
+        hb_codepoint_t glyph_index   = glyph_info[i].codepoint;
+        hb_position_t  x_offset  = glyph_pos[i].x_offset;
+        hb_position_t  y_offset  = glyph_pos[i].y_offset;
+        hb_position_t  x_advance = glyph_pos[i].x_advance;
+        hb_position_t  y_advance = glyph_pos[i].y_advance;
+
+        auto &cache_entry = app->glyph_cache->get_or_create(glyph_index);
+
+        if (cache_entry.uploaded == false)
+        {
+            if (upload_glyph(app, glyph_index, cache_entry.x, cache_entry.y))
+            {
+                FT_GlyphSlot slot          = app->face->glyph;
+                cache_entry.uploaded       = true;
+                cache_entry.glyph_top_left = {slot->bitmap_left, slot->bitmap_top};
+                cache_entry.glyph_size = {static_cast<int>(slot->bitmap.width), static_cast<int>(slot->bitmap.rows)};
+            }
+        }
+
+        if (cursor_x + cache_entry.glyph_size.x > app->window->size.x)
+        {
+            cursor_x = 50;
+            cursor_y += line_height;
+        }
+
+        Rect rect = {
+            .position = exo::float2(exo::int2{cursor_x + cache_entry.glyph_top_left.x, cursor_y - cache_entry.glyph_top_left.y}),
+            .size = exo::float2(cache_entry.glyph_size),
+        };
+        Rect uv = {
+            .position = {(cache_entry.x * 16) / 4096.0f, (cache_entry.y * 20) / 4096.0f},
+            .size = {cache_entry.glyph_size.x / 4096.0f, cache_entry.glyph_size.y / 4096.0f}
+        };
+        painter_draw_textured_rect(*app->painter, rect, uv, app->renderer->device.get_image_sampled_index(app->font_atlas));
+
+        cursor_x += x_advance >> 6;
+        cursor_y += y_advance >> 6;
+
+        if (text[glyph_info[i].cluster] == '\n')
+        {
+            cursor_x = 50;
+            cursor_y += line_height;
+        }
+    }
 }
 
 static void render(RenderSample *app)
@@ -176,7 +400,6 @@ static void render(RenderSample *app)
     auto &face = app->face;
     auto font_program = app->font_program;
     auto *window = app->window;
-    const u8 *text = app->current_file_data.data();
 
     auto &device = renderer.device;
     auto &surface = renderer.surface;
@@ -190,7 +413,6 @@ static void render(RenderSample *app)
     {
         resize(device, surface, framebuffers);
         ImGui::EndFrame();
-        UI::new_frame();
         return;
     }
 
@@ -234,177 +456,40 @@ static void render(RenderSample *app)
 
     ImGui::Render();
     imgui_pass_draw(renderer, imgui_pass, cmd, swapchain_framebuffer);
-    UI::new_frame();
 
     {
-    ZoneScopedN("Text rendering");
-    unsigned int         glyph_count;
-    hb_glyph_info_t     *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
-    hb_glyph_position_t *glyph_pos  = hb_buffer_get_glyph_positions(buf, &glyph_count);
+    auto *painter = app->painter;
+    ZoneScopedN("Painter");
+    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(renderer.device, painter->vertex_bytes_offset, sizeof(TexturedRect));
+    ASSERT(vert_offset % sizeof(TexturedRect) == 0);
+    std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
 
-    auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(renderer.device, glyph_count * 4 * sizeof(FontVertex));
-    auto first_vertex              = static_cast<u32>(vert_offset / sizeof(FontVertex));
-    auto *vertices                 = reinterpret_cast<FontVertex *>(p_vertices);
+    auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));
+    std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
 
-    auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, glyph_count * 6 * sizeof(u32));
-    auto *indices                = reinterpret_cast<u32 *>(p_indices);
-
-    hb_position_t cursor_x = 50;
-    int           line_height = face->size->metrics.height >> 6;
-    hb_position_t cursor_y    = 50 + line_height;
-    for (unsigned int i = 0; i < glyph_count; i++)
-    {
-        hb_codepoint_t glyph_index   = glyph_info[i].codepoint;
-        hb_position_t  x_offset  = glyph_pos[i].x_offset;
-        hb_position_t  y_offset  = glyph_pos[i].y_offset;
-        hb_position_t  x_advance = glyph_pos[i].x_advance;
-        hb_position_t  y_advance = glyph_pos[i].y_advance;
-
-        auto &cache_entry = app->glyph_cache->get_or_create(glyph_index);
-
-        if (cache_entry.uploaded == false)
-        {
-            ZoneScopedN("Upload glyph");
-
-            int error = 0;
-            {
-                ZoneScopedN("Load glyph");
-                error = FT_Load_Glyph(face, glyph_index, 0);
-                ASSERT(!error);
-            }
-
-            {
-                ZoneScopedN("Render glyph");
-                error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-                ASSERT(!error);
-            }
-
-            FT_GlyphSlot  slot = face->glyph;
-
-            auto scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
-
-            ASSERT(slot->bitmap.width <= 16);
-            int upload_width = 16;
-            int upload_height = ((slot->bitmap.rows / 16) + 1) * 16;
-            u8 *tmp_buffer = reinterpret_cast<u8*>(scope.allocate(upload_width * upload_height));
-            std::memset(tmp_buffer, 0, upload_width * upload_height);
-
-            for (usize i_row = 0; i_row < slot->bitmap.rows; i_row += 1)
-            {
-                for (usize i_col = 0; i_col < slot->bitmap.width; i_col += 1)
-                {
-                    tmp_buffer[i_row * upload_width + i_col] = slot->bitmap.buffer[i_row * slot->bitmap.pitch + i_col];
-                }
-            }
-
-            const ImageRegion regions[] = {{.image_offset = exo::int2{(int)cache_entry.x * 16, (int)cache_entry.y * 20}, .image_size   = exo::int2{upload_width, upload_height}}};
-            bool uploaded = renderer.streamer.upload_image_regions(app->font_atlas, tmp_buffer, upload_width * upload_height, regions);
-
-            if (uploaded)
-            {
-                cache_entry.uploaded = true;
-                cache_entry.glyph_top_left = {slot->bitmap_left, slot->bitmap_top};
-                cache_entry.glyph_size     = {static_cast<int>(slot->bitmap.width), static_cast<int>(slot->bitmap.rows)};
-            }
-        }
-
-        auto glyph_top_left = cache_entry.glyph_top_left;
-        auto glyph_size = cache_entry.glyph_size;
-
-        if (cursor_x + glyph_size.x > window->size.x || text[glyph_info[i].cluster] == '\n')
-        {
-            cursor_x = 50;
-            cursor_y += line_height;
-        }
-
-        if (glyph_size.x == 0 || glyph_size.y == 0)
-        {
-            indices[6 * i + 0] = 0; // top left
-            indices[6 * i + 1] = 0; // bottom left
-            indices[6 * i + 2] = 0; // top right
-            indices[6 * i + 3] = 0; // top right
-            indices[6 * i + 4] = 0; // bottom left
-            indices[6 * i + 5] = 0; // bottom right
-            continue;
-        }
-
-        exo::int2 top_left;
-        top_left.x = +glyph_top_left.x;
-        top_left.y = -glyph_top_left.y;
-
-        exo::int2 top_right;
-        top_right.x = top_left.x + glyph_size.x;
-        top_right.y = top_left.y;
-
-        exo::int2 bottom_left;
-        bottom_left.x = top_left.x;
-        bottom_left.y = top_left.y + glyph_size.y;
-
-        exo::int2 bottom_right;
-        bottom_right.x = top_left.x + glyph_size.x;
-        bottom_right.y = top_left.y + glyph_size.y;
-
-        exo::int2 cursor = {cursor_x, cursor_y};
-
-        vertices[4 * i + 0].position = cursor + top_left;
-        vertices[4 * i + 0].uv       = {(cache_entry.x * 16) / 4096.0f, (cache_entry.y * 20) / 4096.0f};
-        vertices[4 * i + 1].position = cursor + bottom_left;
-        vertices[4 * i + 1].uv       = {(cache_entry.x * 16) / 4096.0f, (cache_entry.y * 20 + glyph_size.y) / 4096.0f};
-        vertices[4 * i + 2].position = cursor + top_right;
-        vertices[4 * i + 2].uv       = {(cache_entry.x * 16 + glyph_size.x) / 4096.0f, (cache_entry.y * 20) / 4096.0f};
-        vertices[4 * i + 3].position = cursor + bottom_right;
-        vertices[4 * i + 3].uv       = {(cache_entry.x * 16 + glyph_size.x) / 4096.0f, (cache_entry.y * 20 + glyph_size.y) / 4096.0f};
-
-        indices[6 * i + 0] = first_vertex + 4 * i + 0; // top left
-        indices[6 * i + 1] = first_vertex + 4 * i + 1; // bottom left
-        indices[6 * i + 2] = first_vertex + 4 * i + 2; // top right
-
-        indices[6 * i + 3] = first_vertex + 4 * i + 2; // top right
-        indices[6 * i + 4] = first_vertex + 4 * i + 1; // bottom left
-        indices[6 * i + 5] = first_vertex + 4 * i + 3; // bottom right
-
-        cursor_x += x_advance >> 6;
-        cursor_y += y_advance >> 6;
-    }
-
-    PACKED(struct FontOptions {
+    PACKED(struct PainterOptions {
         float2 scale;
         float2 translation;
         u32    vertices_descriptor_index;
-        u32    font_atlas_descriptor_index;
+        u32 primitive_byte_offset;
     })
 
-    auto *options = renderer.bind_shader_options<FontOptions>(cmd, font_program);
-    std::memset(options, 0, sizeof(FontOptions));
+    auto *options = renderer.bind_shader_options<PainterOptions>(cmd, font_program);
     options->scale = float2(2.0f / window->size.x, 2.0f / window->size.y);
     options->translation = float2(-1.0f, -1.0f);
     options->vertices_descriptor_index = device.get_buffer_storage_index(renderer.dynamic_vertex_buffer.buffer);
-    options->font_atlas_descriptor_index = device.get_image_sampled_index(app->font_atlas);
+    options->primitive_byte_offset = vert_offset;
 
     cmd.barrier(app->font_atlas, gfx::ImageUsage::GraphicsShaderRead);
     cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
-    VkViewport viewport{};
-    viewport.width    = window->size.x;
-    viewport.height   = window->size.y;
-    viewport.minDepth = 1.0f;
-    viewport.maxDepth = 1.0f;
-    cmd.set_viewport(viewport);
-
-    VkRect2D scissor;
-    scissor.offset.x      = 0;
-    scissor.offset.y      = 0;
-    scissor.extent.width  = window->size.x;
-    scissor.extent.height = window->size.y;
-    cmd.set_scissor(scissor);
-
+    cmd.set_viewport({.width = (float)window->size.x, .height = (float)window->size.y, .minDepth = 0.0f, .maxDepth = 1.0f});
+    cmd.set_scissor({.extent = {.width = (u32)window->size.x, .height = (u32)window->size.y}});
     cmd.bind_pipeline(font_program, 0);
     cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
-
     u32 constants[] = {0, 0};
     cmd.push_constant(constants, sizeof(constants));
-    cmd.draw_indexed({.vertex_count  = glyph_count * 6});
-
+    cmd.draw_indexed({.vertex_count  = painter->index_offset});
     cmd.end_pass();
     }
 
@@ -504,6 +589,12 @@ int main(int /*argc*/, char ** /*argv*/)
             }
         }
         inputs.process(window->events);
+        UI::new_frame();
+
+        if (auto scroll = inputs.get_scroll_this_frame())
+        {
+            app->cursor_offset -= scroll->y * 7;
+        }
         if (inputs.is_pressed(Action::QuitApp))
         {
             window->stop = true;
@@ -519,22 +610,7 @@ int main(int /*argc*/, char ** /*argv*/)
             continue;
         }
 
-        static char input_command_buffer[128] = "Hello, world!";
-        if (ImGui::InputText("Command", input_command_buffer, sizeof(input_command_buffer), ImGuiInputTextFlags_EnterReturnsTrue))
-        {
-            exo::logger::info("Command: {}\n", input_command_buffer);
-            std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
-        }
-
-        if (ImGui::Button("Open file"))
-        {
-            if (auto fs_path = exo::file_dialog({{"file", "*"}}))
-            {
-                open_file(app, fs_path.value());
-            }
-        }
-
-        ImGui::Text("Current file size: %zu", app->current_file_data.size());
+        display_ui(app);
 
         render(app);
 
