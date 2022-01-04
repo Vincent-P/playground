@@ -415,3 +415,6 @@ target_include_directories(
       ${CMAKE_CURRENT_BINARY_DIR}/freetype/include/freetype/config
 )
 target_link_libraries(freetype PRIVATE harfbuzz)
+
+#luau
+add_subdirectory(luau)
