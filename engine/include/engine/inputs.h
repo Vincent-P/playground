@@ -52,7 +52,6 @@ class Inputs
 
     void display_ui();
 
-  private:
     exo::Map<Action, KeyBinding> bindings;
 
     exo::EnumArray<bool, exo::VirtualKey> keys_pressed           = {};

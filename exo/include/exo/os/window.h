@@ -56,7 +56,7 @@ struct Window
     [[nodiscard]] inline bool should_close() const { return stop; }
     [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[key]; }
     [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const { return mouse_buttons_pressed[button]; }
-    [[nodiscard]] inline float2 get_mouse_position() const { return mouse_position; }
+    [[nodiscard]] inline int2 get_mouse_position() const { return mouse_position; }
     void *get_win32_hwnd() const;
 
     std::string title;
@@ -64,7 +64,7 @@ struct Window
     bool stop{false};
     Cursor current_cursor;
 
-    float2 mouse_position = {0.0f};
+    int2 mouse_position = {0.0f};
     Option<Caret> caret{};
 
     bool has_focus{false};

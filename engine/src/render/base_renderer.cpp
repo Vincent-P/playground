@@ -71,14 +71,14 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
 
     renderer->dynamic_vertex_buffer = RingBuffer::create(device, {
             .name = "Dynamic vertices",
-            .size = 16_MiB,
+            .size = 8_MiB,
             .gpu_usage = gfx::storage_buffer_usage,
             .frame_queue_length = FRAME_QUEUE_LENGTH,
         });
 
     renderer->dynamic_index_buffer = RingBuffer::create(device, {
             .name = "Dynamic indices",
-            .size = 16_MiB,
+            .size = 8_MiB,
             .gpu_usage = gfx::index_buffer_usage,
             .frame_queue_length = FRAME_QUEUE_LENGTH,
         });

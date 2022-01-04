@@ -257,7 +257,7 @@ Handle<T> Pool<T>::add(T &&value)
         auto new_capacity = capacity * 2;
         if (new_capacity == 0)
         {
-            new_capacity = 32;
+            new_capacity = 2;
         }
 
         void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));

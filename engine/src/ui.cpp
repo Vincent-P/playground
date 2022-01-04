@@ -150,7 +150,7 @@ void new_frame()
     io.DisplayFramebufferScale.x = window->get_dpi_scale().x;
     io.DisplayFramebufferScale.y = window->get_dpi_scale().y;
 
-    io.MousePos = window->mouse_position;
+    io.MousePos = float2(window->mouse_position);
 
     if (auto scroll = inputs->get_scroll_this_frame())
     {

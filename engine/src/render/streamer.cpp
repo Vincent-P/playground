@@ -13,6 +13,10 @@ namespace
 {
 static bool copy_to_staging(Streamer &streamer, const void *data, usize len)
 {
+    if (len % 4 != 0) {
+        len += 4 - (len % 4);
+    }
+
     // wrap cursor at the end the buffer
     if (streamer.cursor + len > streamer.buffer_end)
     {
@@ -38,7 +42,7 @@ Streamer Streamer::create(gfx::Device *_device, u32 update_queue_length)
     Streamer result = {};
     result.device = _device;
 
-    const usize buffer_capacity = 1_GiB;
+    const usize buffer_capacity = 128_MiB;
     result.cpu_buffer = _device->create_buffer({
             .name         = "Streamer CPU buffer",
             .size         = buffer_capacity,

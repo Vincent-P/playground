@@ -474,7 +474,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         int x = GET_X_LPARAM(lParam);
         int y = GET_Y_LPARAM(lParam);
         window.events.push_back({.type = Event::MouseMoveType, .mouse_move = {x, y}});
-        window.mouse_position = float2(float(x), float(y));
+        window.mouse_position = {x, y};
         return 0;
     }
 
