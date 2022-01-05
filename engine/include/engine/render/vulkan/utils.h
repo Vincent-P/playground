@@ -5,7 +5,7 @@
 #include "render/vulkan/image.h"
 #include "render/vulkan/buffer.h"
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <stdexcept>
 
 namespace vulkan

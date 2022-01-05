@@ -9,7 +9,7 @@
 #include "engine/render/vulkan/buffer.h"
 #include "engine/render/vulkan/synchronization.h"
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 
 
 namespace vulkan

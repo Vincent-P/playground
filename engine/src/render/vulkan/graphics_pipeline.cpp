@@ -383,13 +383,13 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
 
 
-    if (this->vkSetDebugUtilsObjectNameEXT)
+    if (vkSetDebugUtilsObjectNameEXT)
     {
         VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectHandle                  = reinterpret_cast<u64>(pipeline);
         ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
         ni.pObjectName                   = program.name.c_str();
-        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
     }
 
     program.pipelines.push_back(pipeline);

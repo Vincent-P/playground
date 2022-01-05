@@ -18,8 +18,10 @@ Features:
 
 # Installation
 
-- Install the Vulkan SDK (https://vulkan.lunarg.com/sdk/home)
-- You can now build the project!
+The only external dependency needed is the `glslc` shader compiler, you can download the latest binary build here: https://github.com/google/shaderc/blob/main/downloads.md
+`glslc` should be in the PATH.
+
+There are two presets: `default` which uses the Ninja build system with clang; and `msvc` which creates a VS2022 solution.
 
 ```
 $ git clone https://github.com/Vincent-P/test-vulkan.git
@@ -28,16 +30,11 @@ $ cmake --preset default
 $ cmake --build --preset default
 ```
 
-- To execute it, make sure to install it
-```
-$ cmake --build --preset default --target install
-```
-
-- The executable will be in `install/bin/engine.exe` and needs to be started in `install/bin`.
-
 # Dependencies
 - Dear ImGui, Bloat-free Graphical User interface for C++ with minimal dependencies (https://github.com/ocornut/imgui)
 - meshoptimizer, Mesh optimization library that makes meshes smaller and faster to render (https://github.com/zeux/meshoptimizer)
+- Vulkan Headers, Vulkan Header files and API registry (https://github.com/KhronosGroup/Vulkan-Headers)
+- volk, Meta loader for Vulkan API (https://github.com/zeux/volk)
 - Vulkan Memory Allocator, Easy to integrate Vulkan memory allocation library (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 - Tracy Profiler, A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications (https://github.com/wolfpld/tracy)
 - {fmt}, A modern formatting library (https://github.com/fmtlib/fmt)

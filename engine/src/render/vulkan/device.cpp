@@ -8,8 +8,7 @@
 #include "render/vulkan/utils.h"
 #include "render/vulkan/surface.h"
 
-#include "vulkan/vulkan.h"
-
+#include <volk.h>
 #include <array>
 
 namespace vulkan
@@ -41,14 +40,6 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     device.physical_device.vulkan12_features.bufferDeviceAddressCaptureReplay = VK_FALSE;
     device.physical_device.vulkan12_features.bufferDeviceAddressMultiDevice   = VK_FALSE;
 
-#define X(name) device.name = context.name
-    X(vkCreateDebugUtilsMessengerEXT);
-    X(vkDestroyDebugUtilsMessengerEXT);
-    X(vkCmdBeginDebugUtilsLabelEXT);
-    X(vkCmdEndDebugUtilsLabelEXT);
-    X(vkSetDebugUtilsObjectNameEXT);
-#undef X
-
     /// --- Create the logical device
     uint installed_device_extensions_count = 0;
     VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
@@ -64,7 +55,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     Vec<const char *> device_extensions;
     device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-    device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    //device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
     if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions))
     {
         device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
@@ -138,8 +129,13 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     dci.pEnabledFeatures        = nullptr;
 
     VK_CHECK(vkCreateDevice(device.physical_device.vkdevice, &dci, nullptr, &device.device));
+    volkLoadDevice(device.device);
 
     /// --- Init VMA allocator
+    VmaVulkanFunctions  vma_functions = {};
+    vma_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vma_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.vulkanApiVersion       = VK_API_VERSION_1_2;
     allocator_info.physicalDevice         = device.physical_device.vkdevice;
@@ -150,6 +146,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
     {
         allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     }
+    allocator_info.pVulkanFunctions = &vma_functions;
     VK_CHECK(vmaCreateAllocator(&allocator_info, &device.allocator));
 
     /// --- Descriptor sets pool

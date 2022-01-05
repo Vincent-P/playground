@@ -3,7 +3,7 @@
 #include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <span>
 
 namespace vulkan

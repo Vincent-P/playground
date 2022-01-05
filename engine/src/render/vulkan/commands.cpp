@@ -203,12 +203,12 @@ void Work::begin_debug_label(std::string_view label, float4 color)
     label_info.color[2] = color[2];
     label_info.color[3] = color[3];
 
-    device->vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label_info);
+    vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label_info);
 }
 
 void Work::end_debug_label()
 {
-    device->vkCmdEndDebugUtilsLabelEXT(command_buffer);
+    vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
 /// --- TransferWork

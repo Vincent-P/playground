@@ -4,7 +4,7 @@
 #include "engine/render/vulkan/queues.h"
 #include "engine/render/vulkan/operators.h"
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 #include <vk_mem_alloc.h>
 
 // TODO interned strings

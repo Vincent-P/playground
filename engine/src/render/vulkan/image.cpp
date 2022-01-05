@@ -28,13 +28,13 @@ static ImageView create_image_view(Device &device, VkImage vkhandle, std::string
 
     VK_CHECK(vkCreateImageView(device.device, &vci, nullptr, &view.vkhandle));
 
-    if (device.vkSetDebugUtilsObjectNameEXT)
+    if (vkSetDebugUtilsObjectNameEXT)
     {
         VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectHandle                  = reinterpret_cast<u64>(view.vkhandle);
         ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
         ni.pObjectName                   = view.name.c_str();
-        VK_CHECK(device.vkSetDebugUtilsObjectNameEXT(device.device, &ni));
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
     }
 
     view.sampled_idx = 0;
@@ -86,13 +86,13 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
                                 nullptr));
     }
 
-    if (this->vkSetDebugUtilsObjectNameEXT)
+    if (vkSetDebugUtilsObjectNameEXT)
     {
         VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectHandle                  = reinterpret_cast<u64>(vkhandle);
         ni.objectType                    = VK_OBJECT_TYPE_IMAGE;
         ni.pObjectName                   = image_desc.name.c_str();
-        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
     }
 
 

@@ -37,11 +37,27 @@ add_library(meshopt
 target_include_directories(meshopt SYSTEM PUBLIC meshoptimizer/)
 target_compile_options(meshopt PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
+# Vulkan Headers
+add_library(vulkan_headers INTERFACE)
+target_include_directories(vulkan_headers SYSTEM INTERFACE vulkan_headers/include)
+
 # Vulkan Memory Allocator
 add_library(vma vk_mem_alloc/vk_mem_alloc.cc)
-target_link_libraries(vma Vulkan::Vulkan)
 target_include_directories(vma SYSTEM PUBLIC vk_mem_alloc/)
 target_compile_options(vma PRIVATE ${THIRD_PARTY_CXX_FLAGS})
+target_compile_definitions(vma PRIVATE VMA_STATIC_VULKAN_FUNCTIONS=0)
+target_link_libraries(vma PRIVATE vulkan_headers)
+
+#volk
+add_library(volk volk/volk.c)
+target_include_directories(volk SYSTEM PUBLIC volk/)
+target_compile_options(volk PRIVATE ${THIRD_PARTY_CXX_FLAGS})
+target_link_libraries(volk PUBLIC vulkan_headers)
+target_compile_definitions(volk PUBLIC
+  $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
+  $<$<BOOL:${UNIX}>:VK_USE_PLATFORM_XCB_KHR>
+  VK_NO_PROTOTYPES
+)
 
 # KTX-Software vulkan
 add_library(libktx
@@ -109,7 +125,7 @@ target_include_directories(libktx PRIVATE
     libktx/utils)
 target_compile_options(libktx PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_link_libraries(libktx
-  Vulkan::Vulkan
+  volk
   Threads::Threads)
 
 
@@ -417,4 +433,4 @@ target_include_directories(
 target_link_libraries(freetype PRIVATE harfbuzz)
 
 #luau
-add_subdirectory(luau)
+#add_subdirectory(luau)

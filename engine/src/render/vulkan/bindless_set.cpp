@@ -37,13 +37,13 @@ BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, con
     VK_CHECK(vkAllocateDescriptorSets(device.device, &set_info, &set.set));
 
 
-    if (device.vkSetDebugUtilsObjectNameEXT)
+    if (vkSetDebugUtilsObjectNameEXT)
     {
         VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectHandle                  = reinterpret_cast<u64>(set.set);
         ni.objectType                    = VK_OBJECT_TYPE_DESCRIPTOR_SET;
         ni.pObjectName                   = name;
-        VK_CHECK(device.vkSetDebugUtilsObjectNameEXT(device.device, &ni));
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
     }
 
     set.free_list = exo::FreeList::create(type.count);

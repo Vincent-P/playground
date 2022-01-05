@@ -11,7 +11,7 @@
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/filewritestream.h>
-#include <vulkan/vulkan.h>
+#include <volk.h>
 
 namespace
 {

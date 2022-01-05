@@ -60,7 +60,7 @@ target_include_directories(engine PRIVATE src include/engine)
 
 target_link_libraries(engine PUBLIC
   exo
-  Vulkan::Vulkan
+  volk
   Threads::Threads
   imgui
   meshopt
@@ -77,8 +77,4 @@ add_dependencies(engine engine.shaders)
 target_compile_definitions(engine PUBLIC
   ASSET_PATH="${CMAKE_SOURCE_DIR}/assets"
   COMPILED_ASSET_PATH="${CMAKE_SOURCE_DIR}/compiled_assets"
-
-  # Vulkan platform
-  $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
-  $<$<BOOL:${UNIX}>:VK_USE_PLATFORM_XCB_KHR>
   )

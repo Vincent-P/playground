@@ -90,13 +90,13 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
 
-    if (this->vkSetDebugUtilsObjectNameEXT)
+    if (vkSetDebugUtilsObjectNameEXT)
     {
         VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectHandle                  = reinterpret_cast<u64>(pipeline);
         ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
         ni.pObjectName                   = name.c_str();
-        VK_CHECK(this->vkSetDebugUtilsObjectNameEXT(device, &ni));
+        VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
     }
 
     return compute_programs.add({

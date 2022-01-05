@@ -6,7 +6,7 @@
 
 #include "engine/render/vulkan/queues.h"
 
-#include <vulkan/vulkan.h>
+#include <volk.h>
 
 namespace exo { struct Window; }
 

@@ -78,14 +78,6 @@ struct Device
     static Device create(const Context &context, const DeviceDescription &desc);
     void destroy(const Context &context);
 
-#define X(name) PFN_##name name
-    X(vkCreateDebugUtilsMessengerEXT);
-    X(vkDestroyDebugUtilsMessengerEXT);
-    X(vkCmdBeginDebugUtilsLabelEXT);
-    X(vkCmdEndDebugUtilsLabelEXT);
-    X(vkSetDebugUtilsObjectNameEXT);
-#undef X
-
     /// --- Resources
     // Command submission
     void create_work_pool(WorkPool &work_pool);

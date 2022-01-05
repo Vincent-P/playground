@@ -45,6 +45,9 @@ Context Context::create(bool enable_validation, const exo::Window *window)
 {
     Context ctx = {};
 
+    /// --- Load the vulkan dynamic libs
+    VK_CHECK(volkInitialize());
+
     /// --- Create Instance
     Vec<const char *> instance_extensions;
 
@@ -67,6 +70,17 @@ Context Context::create(bool enable_validation, const exo::Window *window)
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
     Vec<VkLayerProperties> installed_instance_layers(layer_props_count);
     VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_instance_layers.data()));
+
+    u32 i_validation = u32_invalid;
+    for (u32 i_layer = 0; i_layer < layer_props_count; i_layer += 1)
+    {
+        if (std::strcmp(installed_instance_layers[i_layer].layerName, "VK_LAYER_KHRONOS_validation") == 0)
+        {
+            i_validation = i_layer;
+        }
+    }
+
+    enable_validation = enable_validation && i_validation != u32_invalid;
 
     Vec<const char *> instance_layers;
     if (enable_validation)
@@ -91,15 +105,7 @@ Context Context::create(bool enable_validation, const exo::Window *window)
     create_info.ppEnabledExtensionNames = instance_extensions.data();
 
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &ctx.instance));
-
-    /// --- Load instance functions
-#define X(name) ctx.name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(ctx.instance, #name))
-    X(vkCreateDebugUtilsMessengerEXT);
-    X(vkDestroyDebugUtilsMessengerEXT);
-    X(vkCmdBeginDebugUtilsLabelEXT);
-    X(vkCmdEndDebugUtilsLabelEXT);
-    X(vkSetDebugUtilsObjectNameEXT);
-#undef X
+    volkLoadInstance(ctx.instance);
 
     /// --- Init debug layers
     if (enable_validation)
@@ -113,7 +119,7 @@ Context Context::create(bool enable_validation, const exo::Window *window)
         ci.pfnUserCallback = debug_callback;
 
         VkDebugUtilsMessengerEXT messenger;
-        VK_CHECK(ctx.vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
+        VK_CHECK(vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
         ctx.debug_messenger = messenger;
     }
 

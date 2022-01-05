@@ -10,8 +10,8 @@ target_include_directories(render_sample PRIVATE src)
 target_link_libraries(render_sample
   PRIVATE
   engine
-  Luau.Compiler
-  Luau.VM
+  # Luau.Compiler
+  # Luau.VM
   harfbuzz
   freetype
   )

@@ -4,12 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(test-vulkan LANGUAGES C CXX)
 
-option(ENABLE_IWYU "Enable include-what-you-use to detect useless includes" OFF)
-
-# Dependencies
-find_package(Vulkan REQUIRED)
+# External dependencies
 find_package(Threads)
-find_program(IWYU_PATH NAMES include-what-you-use iwyu)
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
@@ -79,11 +75,6 @@ function(SETUP_APP_TARGET TARGET)
     message(STATUS "Enabling LTO")
     set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
   endif ()
-
-  if (IWYU_PATH AND ENABLE_IWYU)
-    message(STATUS "Enabling Include-what-you-use")
-    set_target_properties(${TARGET} PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
-  endif()
 endfunction()
 
 add_subdirectory(third_party)
