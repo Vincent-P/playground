@@ -107,7 +107,7 @@ void Streamer::update(gfx::GraphicsWork &cmd)
 
         for (usize i_region = 0; i_region < regions.size(); i_region += 1)
         {
-            std::get<0>(regions[i_region]) = upload.regions[i_region].src_offset;
+            std::get<0>(regions[i_region]) = upload.src_offset + upload.regions[i_region].src_offset;
             std::get<1>(regions[i_region]) = upload.regions[i_region].dst_offset;
             std::get<2>(regions[i_region]) = upload.regions[i_region].size;
         }

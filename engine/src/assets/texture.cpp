@@ -34,7 +34,7 @@ void Texture::serialize(exo::Serializer& serializer)
 {
     const char *id = "TXTR";
     serializer.serialize(id);
-    serializer.serialize(*static_cast<Asset*>(this));
+    Asset::serialize(serializer);
     serializer.serialize(this->format);
     serializer.serialize(this->extension);
     serializer.serialize(this->width);

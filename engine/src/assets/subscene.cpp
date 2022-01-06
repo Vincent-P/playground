@@ -12,7 +12,7 @@ void SubScene::serialize(exo::Serializer& serializer)
 {
     const char *id = "SBSC";
     serializer.serialize(id);
-    serializer.serialize(*static_cast<Asset*>(this));
+    Asset::serialize(serializer);
     serializer.serialize(this->roots);
     serializer.serialize(this->transforms);
     serializer.serialize(this->meshes);

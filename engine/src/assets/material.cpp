@@ -22,7 +22,7 @@ void Material::serialize(exo::Serializer& serializer)
 {
     const char *id = "MTRL";
     serializer.serialize(id);
-    serializer.serialize(*static_cast<Asset*>(this));
+    Asset::serialize(serializer);
     serializer.serialize(this->base_color_factor);
     serializer.serialize(this->emissive_factor);
     serializer.serialize(this->metallic_factor);

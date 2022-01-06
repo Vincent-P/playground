@@ -14,7 +14,7 @@ void Mesh::serialize(exo::Serializer& serializer)
 {
     const char *id = "MESH";
     serializer.serialize(id);
-    serializer.serialize(*static_cast<Asset*>(this));
+    Asset::serialize(serializer);
     serializer.serialize(this->indices);
     serializer.serialize(this->positions);
     serializer.serialize(this->uvs);

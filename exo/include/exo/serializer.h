@@ -11,6 +11,13 @@ struct float4x4;
 struct float4;
 struct float2;
 struct int2;
+struct Serializer;
+
+template <typename T>
+concept MemberSerializable = requires(T a)
+{
+    { a.serialize(*(Serializer*)nullptr) } -> std::same_as<void>;
+};
 
 struct Serializer
 {
@@ -20,6 +27,9 @@ struct Serializer
     void write_bytes(const void *src, usize len);
 
     template <typename T>
+    void serialize(T &data);
+
+    template <MemberSerializable T>
     void serialize(T &data);
 
     template <typename T, usize n>
@@ -62,7 +72,7 @@ struct Serializer
     usize             buffer_size;
 };
 
-template <typename T>
+template <MemberSerializable T>
 void Serializer::serialize(T &data)
 {
     data.serialize(*this);

@@ -594,7 +594,14 @@ Result<void> AssetManager::save_resource_meta(GenericImporter &importer, Resourc
     writer.Key("uuid");
     writer.String(meta.uuid.str, exo::UUID::STR_LEN);
     writer.Key("display_name");
-    writer.String(meta.display_name, strlen(meta.display_name));
+    if (meta.display_name) {
+
+        writer.String(meta.display_name, strlen(meta.display_name));
+    }
+    else
+    {
+        writer.String("", 1);    
+    }
     writer.Key("resource_path");
     writer.String(meta.resource_path.string().c_str(), static_cast<u32>(meta.resource_path.string().size()));
     writer.Key("meta_path");
