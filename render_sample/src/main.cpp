@@ -250,6 +250,32 @@ static void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 AABB
     ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }
 
+static exo::int2 measure_label(Font *font, const char *label)
+{
+    auto *buf = font->label_buf;
+    hb_buffer_clear_contents(buf);
+    hb_buffer_add_utf8(buf, label, -1, 0, -1);
+    hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
+    hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
+    hb_buffer_set_language(buf, hb_language_from_string("en", -1));
+
+    hb_shape(font->hb_font, buf, nullptr, 0);
+
+    u32                  glyph_count;
+    i32                  line_height = font->ft_face->size->metrics.height >> 6;
+    hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
+    hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
+
+    i32 width = 0;
+    for (u32 i = 0; i < glyph_count; i++)
+    {
+        auto &cache_entry = font->glyph_cache->get_or_create(glyph_info[i].codepoint);
+        width += (glyph_pos[i].x_advance >> 6) + cache_entry.glyph_size.x;
+    }
+
+    return {width, line_height};
+}
+
 static void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const char *label)
 {
     auto *buf = font->label_buf;
@@ -416,7 +442,13 @@ static bool ui_button(u64 id, UiState &ui_state, const UiTheme &ui_theme, const 
         painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_bg_color);
     }
 
-    painter_draw_label(*ui_state.painter, button.rect, ui_theme.main_font, button.label);
+    auto label_rect = button.rect;
+    label_rect.size = exo::float2(measure_label(ui_theme.main_font, button.label));
+    label_rect.position.x += (button.rect.size.x - label_rect.size.x) / 2.0f;
+    label_rect.position.y += (button.rect.size.y - label_rect.size.y) / 2.0f;
+
+    painter_draw_color_rect(*ui_state.painter, label_rect, 0xFF0000FF);
+    painter_draw_label(*ui_state.painter, label_rect, ui_theme.main_font, button.label);
 
     return result;
 }
