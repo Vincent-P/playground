@@ -737,14 +737,6 @@ static void display_ui(RenderSample *app)
         std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
     }
 
-    if (ImGui::Button("Open file"))
-    {
-        if (auto fs_path = exo::file_dialog({{"file", "*"}}))
-        {
-            open_file(app, fs_path.value());
-        }
-    }
-
     ImGui::Text("Current file size: %zu", app->current_file_data.size());
 
     // painter test
@@ -780,9 +772,12 @@ static void display_ui(RenderSample *app)
         exo::logger::info("Button 1 clicked!!\n");
     }
 
-    if (ui_button(0, app->ui_state, app->ui_theme, {.label = "Button 2", .rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {156, 45}}}))
+    if (ui_button(0, app->ui_state, app->ui_theme, {.label = "Open file", .rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {156, 45}}}))
     {
-        exo::logger::info("Button 2 clicked!!\n");
+        if (auto fs_path = exo::file_dialog({{"file", "*"}}))
+        {
+            open_file(app, fs_path.value());
+        }
     }
 
     ImGui::Text("UI focused: %zu", app->ui_state.focused);
@@ -942,33 +937,23 @@ int main(int /*argc*/, char ** /*argv*/)
     auto &inputs = app->inputs;
     open_file(app, "C:\\Users\\vince\\.emacs.d\\projects");
 
-    // window->user_data = app;
-    // window->paint_callback = +[](void *user_data) {
-    //     auto *app = reinterpret_cast<RenderSample*>(user_data);
-    //     render(app);
-    // };
+    window->user_data = app;
+    window->paint_callback = +[](void *user_data) {
+        auto *app = reinterpret_cast<RenderSample*>(user_data);
+        UI::new_frame();
+        display_ui(app);
+        render(app);
+    };
 
     while (!window->should_close())
     {
         window->poll_events();
 
-        Option<exo::events::Resize> last_resize  = {};
-        bool                       is_minimized = window->minimized;
         for (const auto &event : window->events)
         {
             auto &io = ImGui::GetIO();
             switch (event.type)
             {
-            case exo::Event::ResizeType:
-            {
-                last_resize = event.resize;
-                break;
-            }
-            case exo::Event::MouseMoveType:
-            {
-                is_minimized = false;
-                break;
-            }
             case exo::Event::KeyType:
             {
                 if (ImGui::IsKeyDown(static_cast<int>(event.key.key)) && event.key.state == exo::ButtonState::Released) {
@@ -989,7 +974,6 @@ int main(int /*argc*/, char ** /*argv*/)
             }
         }
         inputs.process(window->events);
-        UI::new_frame();
 
         if (auto scroll = inputs.get_scroll_this_frame())
         {
@@ -1001,18 +985,6 @@ int main(int /*argc*/, char ** /*argv*/)
         }
 
         window->events.clear();
-        if (window->should_close())
-        {
-            break;
-        }
-        if (is_minimized)
-        {
-            continue;
-        }
-
-        display_ui(app);
-
-        render(app);
 
         FrameMark
     }

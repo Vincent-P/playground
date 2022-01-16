@@ -31,6 +31,60 @@ Surface Surface::create(Context &context, Device &device, const exo::Window &win
     VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.compute_family_idx, surface.surface, &surface.present_queue_supported[QueueType::Compute]));
     VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice, device.transfer_family_idx, surface.surface, &surface.present_queue_supported[QueueType::Transfer]));
 
+    // Find a good present mode (by priority Mailbox then Immediate then FIFO)
+    u32 present_modes_count = 0;
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, surface.surface, &present_modes_count, nullptr));
+
+    exo::DynamicArray<VkPresentModeKHR, 8> present_modes = {};
+    present_modes.resize(present_modes_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, surface.surface, &present_modes_count, present_modes.data()));
+    surface.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+
+    for (auto &pm : present_modes)
+    {
+        if (pm == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
+            surface.present_mode = pm;
+            break;
+        }
+    }
+
+    if (surface.present_mode == VK_PRESENT_MODE_FIFO_KHR)
+    {
+        for (auto &pm : present_modes)
+        {
+            if (pm == VK_PRESENT_MODE_IMMEDIATE_KHR)
+            {
+                surface.present_mode = pm;
+                break;
+            }
+        }
+    }
+
+    // Find the best format
+    uint                    formats_count = 0;
+    Vec<VkSurfaceFormatKHR> formats;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, surface.surface, &formats_count, nullptr));
+    formats.resize(formats_count);
+    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, surface.surface, &formats_count, formats.data()));
+    surface.format = formats[0];
+    if (surface.format.format == VK_FORMAT_UNDEFINED)
+    {
+        surface.format.format     = VK_FORMAT_B8G8R8A8_UNORM;
+        surface.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    }
+    else
+    {
+        for (const auto &f : formats)
+        {
+            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            {
+                surface.format = f;
+                break;
+            }
+        }
+    }
+
     surface.create_swapchain(device);
 
     return surface;
@@ -51,60 +105,6 @@ void Surface::create_swapchain(Device &device)
     this->height = static_cast<i32>(capabilities.currentExtent.height);
 
     exo::logger::info("Creating swapchain {}x{}\n", width, height);
-
-    // Find a good present mode (by priority Mailbox then Immediate then FIFO)
-    u32 present_modes_count = 0;
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, nullptr));
-
-    exo::DynamicArray<VkPresentModeKHR, 8> present_modes = {};
-    present_modes.resize(present_modes_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice, this->surface, &present_modes_count, present_modes.data()));
-    this->present_mode = VK_PRESENT_MODE_FIFO_KHR;
-
-    for (auto &pm : present_modes)
-    {
-        if (pm == VK_PRESENT_MODE_MAILBOX_KHR)
-        {
-            this->present_mode = pm;
-            break;
-        }
-    }
-
-    if (this->present_mode == VK_PRESENT_MODE_FIFO_KHR)
-    {
-        for (auto &pm : present_modes)
-        {
-            if (pm == VK_PRESENT_MODE_IMMEDIATE_KHR)
-            {
-                this->present_mode = pm;
-                break;
-            }
-        }
-    }
-
-    // Find the best format
-    uint                    formats_count = 0;
-    Vec<VkSurfaceFormatKHR> formats;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, this->surface, &formats_count, nullptr));
-    formats.resize(formats_count);
-    VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice, this->surface, &formats_count, formats.data()));
-    this->format = formats[0];
-    if (this->format.format == VK_FORMAT_UNDEFINED)
-    {
-        this->format.format     = VK_FORMAT_B8G8R8A8_UNORM;
-        this->format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    }
-    else
-    {
-        for (const auto &f : formats)
-        {
-            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-            {
-                this->format = f;
-                break;
-            }
-        }
-    }
 
     auto image_count = capabilities.minImageCount;
     if (image_count < 3) {
