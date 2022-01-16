@@ -100,6 +100,7 @@ struct Font
 
     GlyphCache  *glyph_cache;
     Handle<gfx::Image> glyph_atlas;
+    u32 glyph_atlas_gpu_idx;
 };
 
 struct Painter
@@ -139,6 +140,12 @@ struct UiState
 struct UiButton
 {
     const char *label;
+    Rect rect;
+};
+
+struct UiLabel
+{
+    const char *text;
     Rect rect;
 };
 
@@ -266,14 +273,16 @@ static exo::int2 measure_label(Font *font, const char *label)
     hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
     hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
-    i32 width = 0;
+    i32 cursor_x = 0;
+    i32 last_glyph_width = 0;
     for (u32 i = 0; i < glyph_count; i++)
     {
         auto &cache_entry = font->glyph_cache->get_or_create(glyph_info[i].codepoint);
-        width += (glyph_pos[i].x_advance >> 6) + cache_entry.glyph_size.x;
+        cursor_x += (glyph_pos[i].x_advance >> 6);
+        last_glyph_width = cache_entry.glyph_size.x;
     }
 
-    return {width, line_height};
+    return {cursor_x + last_glyph_width, line_height};
 }
 
 static void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const char *label)
@@ -316,7 +325,7 @@ static void painter_draw_label(Painter &painter, const Rect &rect, Font *font, c
                    .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
                             cache_entry.glyph_size.y / float(font->cache_resolution)}
         };
-        painter_draw_textured_rect(painter, rect, uv, painter.renderer->device.get_image_sampled_index(font->glyph_atlas));
+        painter_draw_textured_rect(painter, rect, uv, font->glyph_atlas_gpu_idx);
 
         cursor_x += x_advance >> 6;
         cursor_y += y_advance >> 6;
@@ -367,6 +376,8 @@ static Font *font_create(exo::ScopeStack &scope,
         .format = cache_format,
     });
 
+    font->glyph_atlas_gpu_idx = renderer->device.get_image_sampled_index(font->glyph_atlas);
+
     return font;
 }
 static void ui_new_frame(UiState &ui_state)
@@ -402,13 +413,10 @@ static u64 ui_make_id(UiState &state)
     return ++state.gen;
 }
 
-static bool ui_button(u64 id, UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
+static bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
 {
     bool result = false;
-    if (id == 0)
-    {
-        id = ui_make_id(ui_state);
-    }
+    u64 id = ui_make_id(ui_state);
 
     // behavior
     if (ui_is_hovering(ui_state, button.rect))
@@ -447,18 +455,15 @@ static bool ui_button(u64 id, UiState &ui_state, const UiTheme &ui_theme, const 
     label_rect.position.x += (button.rect.size.x - label_rect.size.x) / 2.0f;
     label_rect.position.y += (button.rect.size.y - label_rect.size.y) / 2.0f;
 
-    painter_draw_color_rect(*ui_state.painter, label_rect, 0xFF0000FF);
+    // painter_draw_color_rect(*ui_state.painter, label_rect, 0xFF0000FF);
     painter_draw_label(*ui_state.painter, label_rect, ui_theme.main_font, button.label);
 
     return result;
 }
 
-static void ui_splitter_x(u64 id, UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
+static void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
 {
-    if (id == 0)
-    {
-        id = ui_make_id(ui_state);
-    }
+    u64 id = ui_make_id(ui_state);
 
     Rect splitter_input = Rect{.position = {view_rect.position.x + view_rect.size.x * value - 5.0f, view_rect.position.y}, .size = {10.0f, view_rect.size.y}};
 
@@ -494,12 +499,9 @@ static void ui_splitter_x(u64 id, UiState &ui_state, const UiTheme &ui_theme, co
     }
 }
 
-static void ui_splitter_y(u64 id, UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
+static void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
 {
-    if (id == 0)
-    {
-        id = ui_make_id(ui_state);
-    }
+    u64 id = ui_make_id(ui_state);
 
     Rect splitter_input = Rect{.position = {view_rect.position.x, view_rect.position.y + view_rect.size.y * value - 5.0f }, .size = {view_rect.size.x, 10.0f}};
 
@@ -535,6 +537,12 @@ static void ui_splitter_y(u64 id, UiState &ui_state, const UiTheme &ui_theme, co
     }
 
     // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
+}
+
+static void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
+{
+    // painter_draw_color_rect(*ui_state.painter, label.rect, 0xFF0000FF);
+    painter_draw_label(*ui_state.painter, label.rect, ui_theme.main_font, label.text);
 }
 
 // --- App
@@ -709,7 +717,7 @@ static void display_file(RenderSample *app, const Rect &view_rect)
                    .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
                             cache_entry.glyph_size.y / float(font->cache_resolution)}
         };
-        painter_draw_textured_rect(painter, rect, uv, app->renderer->device.get_image_sampled_index(font->glyph_atlas));
+        painter_draw_textured_rect(painter, rect, uv, font->glyph_atlas_gpu_idx);
 
         cursor_x += glyph_pos[i].x_advance >> 6;
         cursor_y += glyph_pos[i].y_advance >> 6;
@@ -737,8 +745,6 @@ static void display_ui(RenderSample *app)
         std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
     }
 
-    ImGui::Text("Current file size: %zu", app->current_file_data.size());
-
     // painter test
     #if 0
     painter_draw_color_rect(*app->painter, {.position = {250, 250}, .size = {100, 100}}, 0xaa0000ff);
@@ -749,14 +755,14 @@ static void display_ui(RenderSample *app)
     Rect left_pane = {};
     Rect right_pane = {};
     static float vsplit = 0.5f;
-    ui_splitter_x(0, app->ui_state, app->ui_theme, fullscreen_rect, vsplit, left_pane, right_pane);
+    ui_splitter_x(app->ui_state, app->ui_theme, fullscreen_rect, vsplit, left_pane, right_pane);
 
 
     Rect left_top_pane = {};
     Rect left_bottom_pane = {};
 
     static float left_hsplit = 0.5f;
-    ui_splitter_y(0, app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
+    ui_splitter_y(app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
 
     display_file(app, left_top_pane);
 
@@ -764,15 +770,16 @@ static void display_ui(RenderSample *app)
     Rect right_bottom_pane = {};
 
     static float right_hsplit = 0.5f;
-    ui_splitter_y(0, app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
+    ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
 
     // ui test
-    if (ui_button(0, app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = {156, 45}}}))
+    if (ui_button(app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 30}}}))
     {
         exo::logger::info("Button 1 clicked!!\n");
     }
 
-    if (ui_button(0, app->ui_state, app->ui_theme, {.label = "Open file", .rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {156, 45}}}))
+    Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 30}};
+    if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect}))
     {
         if (auto fs_path = exo::file_dialog({{"file", "*"}}))
         {
@@ -780,8 +787,32 @@ static void display_ui(RenderSample *app)
         }
     }
 
-    ImGui::Text("UI focused: %zu", app->ui_state.focused);
-    ImGui::Text("UI active: %zu", app->ui_state.active);
+    char tmp_label[128] = {};
+    Rect label_rect = open_file_rect;
+
+    std::memset(tmp_label, 0, sizeof(tmp_label));
+    fmt::format_to(tmp_label, "Current file size: {}", app->current_file_data.size());
+    label_rect.position.y += label_rect.size.y + 5;
+    label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+    ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+    std::memset(tmp_label, 0, sizeof(tmp_label));
+    fmt::format_to(tmp_label, "UI focused: {}", app->ui_state.focused);
+    label_rect.position.y += label_rect.size.y + 5;
+    label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+    ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+    std::memset(tmp_label, 0, sizeof(tmp_label));
+    fmt::format_to(tmp_label, "UI active: {}", app->ui_state.active);
+    label_rect.position.y += label_rect.size.y + 5;
+    label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+    ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+    std::memset(tmp_label, 0, sizeof(tmp_label));
+    fmt::format_to(tmp_label, "Frame: {}", app->renderer->frame_count);
+    label_rect.position.y += label_rect.size.y + 5;
+    label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+    ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
 
     ui_end_frame(app->ui_state);
 }
@@ -845,9 +876,6 @@ static void render(RenderSample *app)
     cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 1.0f, 1.0f}}})});
     cmd.end_pass();
-
-    ImGui::Text("Frame: %u", renderer.frame_count);
-    ImGui::Image((void*)(u64)renderer.device.get_image_sampled_index(app->main_font->glyph_atlas), exo::float2(256, 256));
 
     ImGui::Render();
     imgui_pass_draw(renderer, imgui_pass, cmd, swapchain_framebuffer);
