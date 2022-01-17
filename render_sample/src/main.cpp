@@ -21,6 +21,8 @@ namespace gfx = vulkan;
 #include <engine/ui.h>
 
 #include "glyph_cache.h"
+#include "font.h"
+#include "ui.h"
 
 #include <Tracy.hpp>
 #include <array>
@@ -47,107 +49,6 @@ void operator delete(void *ptr) noexcept
 }
 
 // --- Structs
-
-PACKED(struct Rect
-{
-    exo::float2 position;
-    exo::float2 size;
-})
-
-PACKED(struct ColorRect
-{
-    Rect rect;
-    u32 color;
-    u32 padding[3];
-})
-
-PACKED(struct TexturedRect
-{
-    Rect rect;
-    Rect uv;
-    u32 texture_descriptor;
-    u32 padding[3];
-})
-
-enum RectType
-{
-    RectType_Color,
-    RectType_Textured,
-};
-
-union PrimitiveIndex
-{
-    struct
-    {
-        u32 index : 24;
-        u32 corner : 2;
-        u32 type : 6;
-    };
-    u32 raw;
-};
-static_assert(sizeof(PrimitiveIndex) == sizeof(u32));
-
-struct Font
-{
-    i32          size_pt;
-    u32 glyph_width_px;
-    u32 glyph_height_px;
-    u32          cache_resolution;
-
-    FT_Face      ft_face;
-    hb_font_t   *hb_font   = nullptr;
-    hb_buffer_t *label_buf = nullptr;
-
-    GlyphCache  *glyph_cache;
-    Handle<gfx::Image> glyph_atlas;
-    u32 glyph_atlas_gpu_idx;
-};
-
-struct Painter
-{
-    u8 *vertices;
-    PrimitiveIndex *indices;
-    BaseRenderer *renderer;
-
-    usize vertices_size;
-    usize indices_size;
-    usize vertex_bytes_offset;
-    u32 index_offset;
-
-    // hold a list of texture referenced by TexturedRect to make barrier before rendering
-};
-
-struct UiTheme
-{
-    u32 button_bg_color = 0xFFDA901E;
-    u32 button_hover_bg_color = 0xFFD58100;
-    u32 button_pressed_bg_color = 0xFFBC7200;
-    u32 button_label_color = 0xFFFFFFFF;
-
-    Font *main_font;
-};
-
-struct UiState
-{
-    u64 focused = 0;
-    u64 active = 0;
-    u64 gen = 0;
-
-    Inputs *inputs = nullptr;
-    Painter *painter = nullptr;
-};
-
-struct UiButton
-{
-    const char *label;
-    Rect rect;
-};
-
-struct UiLabel
-{
-    const char *text;
-    Rect rect;
-};
 
 PACKED(struct PushConstants {
     u32 draw_id        = u32_invalid;
@@ -179,164 +80,8 @@ struct RenderSample
 
 // --- fwd
 static void open_file(RenderSample *app, const std::filesystem::path &path);
-static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index, GlyphEntry &cache_entry);
 
 // --- UI
-
-static Painter *painter_allocate(exo::ScopeStack &scope, BaseRenderer *renderer, usize vertex_buffer_size, usize index_buffer_size)
-{
-    auto *painter = scope.allocate<Painter>();
-    painter->renderer = renderer;
-    painter->vertices = reinterpret_cast<u8*>(scope.allocate(vertex_buffer_size));
-    painter->indices = reinterpret_cast<PrimitiveIndex*>(scope.allocate(index_buffer_size));
-
-    painter->vertices_size = vertex_buffer_size;
-    painter->indices_size = index_buffer_size;
-
-    std::memset(painter->vertices, 0, vertex_buffer_size);
-    std::memset(painter->indices, 0, index_buffer_size);
-
-    painter->vertex_bytes_offset = 0;
-    painter->index_offset = 0;
-    return painter;
-}
-
-static void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &uv, u32 texture)
-{
-    auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
-    if (misalignment != 0)
-    {
-        painter.vertex_bytes_offset += sizeof(TexturedRect) - misalignment;
-    }
-
-    ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
-    u32 i_rect = painter.vertex_bytes_offset / sizeof(TexturedRect);
-    auto *vertices = reinterpret_cast<TexturedRect*>(painter.vertices);
-    vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture};
-    painter.vertex_bytes_offset += sizeof(TexturedRect);
-
-    // 0 - 3
-    // |   |
-    // 1 - 2
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Textured}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Textured}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
-
-    ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-    ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-}
-
-static void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 AABBGGRR)
-{
-    auto misalignment = painter.vertex_bytes_offset % sizeof(ColorRect);
-    if (misalignment != 0)
-    {
-        painter.vertex_bytes_offset += sizeof(ColorRect) - misalignment;
-    }
-
-    ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
-    u32 i_rect = painter.vertex_bytes_offset / sizeof(ColorRect);
-    auto *vertices = reinterpret_cast<ColorRect*>(painter.vertices);
-    vertices[i_rect] = {.rect = rect, .color = AABBGGRR};
-    painter.vertex_bytes_offset += sizeof(ColorRect);
-
-    // 0 - 3
-    // |   |
-    // 1 - 2
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Color}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Color}};
-    painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
-
-    ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-    ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-}
-
-static exo::int2 measure_label(Font *font, const char *label)
-{
-    auto *buf = font->label_buf;
-    hb_buffer_clear_contents(buf);
-    hb_buffer_add_utf8(buf, label, -1, 0, -1);
-    hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-    hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
-    hb_buffer_set_language(buf, hb_language_from_string("en", -1));
-
-    hb_shape(font->hb_font, buf, nullptr, 0);
-
-    u32                  glyph_count;
-    i32                  line_height = font->ft_face->size->metrics.height >> 6;
-    hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
-    hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
-
-    i32 cursor_x = 0;
-    i32 last_glyph_width = 0;
-    for (u32 i = 0; i < glyph_count; i++)
-    {
-        auto &cache_entry = font->glyph_cache->get_or_create(glyph_info[i].codepoint);
-        cursor_x += (glyph_pos[i].x_advance >> 6);
-        last_glyph_width = cache_entry.glyph_size.x;
-    }
-
-    return {cursor_x + last_glyph_width, line_height};
-}
-
-static void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const char *label)
-{
-    auto *buf = font->label_buf;
-    hb_buffer_clear_contents(buf);
-    hb_buffer_add_utf8(buf, label, -1, 0, -1);
-    hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-    hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
-    hb_buffer_set_language(buf, hb_language_from_string("en", -1));
-
-    hb_shape(font->hb_font, buf, nullptr, 0);
-
-    u32                  glyph_count;
-    i32                  line_height = font->ft_face->size->metrics.height >> 6;
-    hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
-    hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
-
-    i32 cursor_x = rect.position.x;
-    i32 cursor_y = rect.position.y + line_height;
-    for (u32 i = 0; i < glyph_count; i++)
-    {
-        u32 glyph_index   = glyph_info[i].codepoint;
-        i32  x_advance = glyph_pos[i].x_advance;
-        i32  y_advance = glyph_pos[i].y_advance;
-
-        auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
-
-        if (cache_entry.uploaded == false)
-        {
-            upload_glyph(painter.renderer, font, glyph_index, cache_entry);
-        }
-
-        Rect rect = {
-            .position = exo::float2(exo::int2{cursor_x + cache_entry.glyph_top_left.x, cursor_y - cache_entry.glyph_top_left.y}),
-            .size = exo::float2(cache_entry.glyph_size),
-        };
-        Rect uv = {.position = {(cache_entry.x * font->glyph_width_px) / float(font->cache_resolution),
-                                (cache_entry.y * font->glyph_height_px) / float(font->cache_resolution)},
-                   .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
-                            cache_entry.glyph_size.y / float(font->cache_resolution)}
-        };
-        painter_draw_textured_rect(painter, rect, uv, font->glyph_atlas_gpu_idx);
-
-        cursor_x += x_advance >> 6;
-        cursor_y += y_advance >> 6;
-
-        if (label[glyph_info[i].cluster] == '\n')
-        {
-            cursor_x = rect.position.x;
-            cursor_y += line_height;
-        }
-    }
-}
 
 static Font *font_create(exo::ScopeStack &scope,
                          BaseRenderer *renderer,
@@ -379,170 +124,6 @@ static Font *font_create(exo::ScopeStack &scope,
     font->glyph_atlas_gpu_idx = renderer->device.get_image_sampled_index(font->glyph_atlas);
 
     return font;
-}
-static void ui_new_frame(UiState &ui_state)
-{
-    ui_state.gen = 0;
-    ui_state.focused = 0;
-}
-
-static void ui_end_frame(UiState &ui_state)
-{
-    if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left])
-    {
-        ui_state.active = 0;
-    }
-    else
-    {
-        // active = invalid means no widget are focused
-        if (ui_state.active == 0)
-        {
-            ui_state.active = u64_invalid;
-        }
-    }
-}
-
-static bool ui_is_hovering(const UiState &ui_state, const Rect &rect)
-{
-    return rect.position.x <= ui_state.inputs->mouse_position.x && ui_state.inputs->mouse_position.x <= rect.position.x + rect.size.x
-        && rect.position.y <= ui_state.inputs->mouse_position.y && ui_state.inputs->mouse_position.y <= rect.position.y + rect.size.y;
-}
-
-static u64 ui_make_id(UiState &state)
-{
-    return ++state.gen;
-}
-
-static bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
-{
-    bool result = false;
-    u64 id = ui_make_id(ui_state);
-
-    // behavior
-    if (ui_is_hovering(ui_state, button.rect))
-    {
-        ui_state.focused = id;
-        if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left])
-        {
-            ui_state.active = id;
-        }
-    }
-
-    if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id && ui_state.active == id)
-    {
-        result = true;
-    }
-
-    // rendering
-    if (ui_state.focused == id)
-    {
-        if (ui_state.active == id)
-        {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_pressed_bg_color);
-        }
-        else
-        {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_hover_bg_color);
-        }
-    }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_bg_color);
-    }
-
-    auto label_rect = button.rect;
-    label_rect.size = exo::float2(measure_label(ui_theme.main_font, button.label));
-    label_rect.position.x += (button.rect.size.x - label_rect.size.x) / 2.0f;
-    label_rect.position.y += (button.rect.size.y - label_rect.size.y) / 2.0f;
-
-    // painter_draw_color_rect(*ui_state.painter, label_rect, 0xFF0000FF);
-    painter_draw_label(*ui_state.painter, label_rect, ui_theme.main_font, button.label);
-
-    return result;
-}
-
-static void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
-{
-    u64 id = ui_make_id(ui_state);
-
-    Rect splitter_input = Rect{.position = {view_rect.position.x + view_rect.size.x * value - 5.0f, view_rect.position.y}, .size = {10.0f, view_rect.size.y}};
-
-    // behavior
-    if (ui_is_hovering(ui_state, splitter_input))
-    {
-        ui_state.focused = id;
-        if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left])
-        {
-            ui_state.active = id;
-        }
-    }
-
-    if (ui_state.active == id)
-    {
-        value = float(ui_state.inputs->mouse_position.x - view_rect.position.x) / float(view_rect.size.x);
-    }
-
-    left.position = view_rect.position;
-    left.size = {view_rect.size.x * value, view_rect.size.y};
-
-    right.position = {view_rect.position.x + left.size.x, view_rect.position.y};
-    right.size = {view_rect.size.x * (1.0f - value), view_rect.size.y};
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
-    if (ui_state.focused == id)
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 2, view_rect.position.y}, .size = {4, view_rect.size.y}}, 0xFF888888);
-    }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 1, view_rect.position.y}, .size = {2, view_rect.size.y}}, 0xFF666666);
-    }
-}
-
-static void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
-{
-    u64 id = ui_make_id(ui_state);
-
-    Rect splitter_input = Rect{.position = {view_rect.position.x, view_rect.position.y + view_rect.size.y * value - 5.0f }, .size = {view_rect.size.x, 10.0f}};
-
-    // behavior
-    if (ui_is_hovering(ui_state, splitter_input))
-    {
-        ui_state.focused = id;
-        if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left])
-        {
-            ui_state.active = id;
-        }
-    }
-
-    if (ui_state.active == id)
-    {
-        value = float(ui_state.inputs->mouse_position.y - view_rect.position.y) / float(view_rect.size.y);
-    }
-
-    top.position = view_rect.position;
-    top.size = {view_rect.size.x, view_rect.size.y * value};
-
-    bottom.position = {view_rect.position.x, view_rect.position.y + top.size.y};
-    bottom.size = {view_rect.size.x, view_rect.size.y * (1.0f - value)};
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
-    if (ui_state.focused == id)
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 2}, .size = {view_rect.size.x, 4}}, 0xFF888888);
-    }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 1}, .size = {view_rect.size.x, 2}}, 0xFF666666);
-    }
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
-}
-
-static void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
-{
-    // painter_draw_color_rect(*ui_state.painter, label.rect, 0xFF0000FF);
-    painter_draw_label(*ui_state.painter, label.rect, ui_theme.main_font, label.text);
 }
 
 // --- App
@@ -612,7 +193,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
     app->ui_font = font_create(scope, app->renderer, app->library, "C:\\Windows\\Fonts\\segoeui.ttf", 13, 1024, VK_FORMAT_R8_UNORM);
 
-    app->painter = painter_allocate(scope, app->renderer, 8_MiB, 8_MiB);
+    app->painter = painter_allocate(scope, 8_MiB, 8_MiB);
 
     app->ui_state.painter = app->painter;
     app->ui_state.inputs = &app->inputs;
@@ -628,9 +209,10 @@ void render_sample_destroy(RenderSample *app)
     hb_buffer_destroy(app->current_file_hb_buf);
 }
 
-static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index, GlyphEntry &cache_entry)
+static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
 {
     ZoneScopedN("Upload glyph");
+    auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
 
     // Render the glyph with FreeType
     int error = 0;
@@ -655,10 +237,13 @@ static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index, Gl
         .buffer_size  = exo::int2(slot->bitmap.pitch, 0),
     }};
 
-    bool uploaded = renderer->streamer.upload_image_regions(font->glyph_atlas,
-                                                            slot->bitmap.buffer,
-                                                            slot->bitmap.pitch * slot->bitmap.rows,
-                                                            regions);
+    // Don't upload 0x0 glyphs
+    int  bitmap_area = regions[0].image_size.x * regions[0].image_size.y;
+    bool uploaded    = bitmap_area <= 0 ? true
+                                        : renderer->streamer.upload_image_regions(font->glyph_atlas,
+                                                                               slot->bitmap.buffer,
+                                                                               slot->bitmap.pitch * slot->bitmap.rows,
+                                                                               regions);
 
     if (uploaded)
     {
@@ -693,7 +278,7 @@ static void display_file(RenderSample *app, const Rect &view_rect)
         auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
         if (cache_entry.uploaded == false)
         {
-            upload_glyph(app->renderer, font, glyph_index, cache_entry);
+            upload_glyph(app->renderer, font, glyph_index);
         }
 
         // line wrap each glyph
@@ -889,6 +474,17 @@ static void render(RenderSample *app)
     auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));
     std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
 
+
+    for (const auto &font_glyph : painter->glyphs_to_upload)
+    {
+        upload_glyph(app->renderer, font_glyph.font, font_glyph.glyph_index);
+    }
+
+    for (u32 image_sampled_idx : painter->used_textures)
+    {
+        cmd.barrier(device.get_global_sampled_image(image_sampled_idx), gfx::ImageUsage::GraphicsShaderRead);
+    }
+
     PACKED(struct PainterOptions {
         float2 scale;
         float2 translation;
@@ -902,7 +498,6 @@ static void render(RenderSample *app)
     options->vertices_descriptor_index = device.get_buffer_storage_index(renderer.dynamic_vertex_buffer.buffer);
     options->primitive_byte_offset = vert_offset;
 
-    cmd.barrier(app->main_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
     cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
     cmd.set_viewport({.width = (float)window->size.x, .height = (float)window->size.y, .minDepth = 0.0f, .maxDepth = 1.0f});

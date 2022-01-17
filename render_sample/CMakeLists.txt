@@ -1,6 +1,8 @@
 set(SOURCE_FILES
   src/main.cpp
   src/glyph_cache.cpp
+  src/painter.cpp
+  src/ui.cpp
 )
 
 add_executable(render_sample ${SOURCE_FILES})

@@ -32,8 +32,8 @@ inline constexpr const char *to_string(Action action) { return action_to_string_
 struct KeyBinding
 {
     // all keys need to be pressed
-    Vec<exo::VirtualKey> keys;
-    Vec<exo::MouseButton> mouse_buttons;
+    exo::Vec<exo::VirtualKey> keys;
+    exo::Vec<exo::MouseButton> mouse_buttons;
 };
 
 class Inputs
@@ -44,10 +44,10 @@ class Inputs
     bool is_pressed(Action action) const;
     bool is_pressed(exo::VirtualKey Key) const;
     bool is_pressed(exo::MouseButton mouse_button) const;
-    inline Option<int2> get_scroll_this_frame() const { return scroll_this_frame; }
-    inline Option<int2> get_mouse_delta() const { return mouse_delta; }
+    inline exo::Option<exo::int2> get_scroll_this_frame() const { return scroll_this_frame; }
+    inline exo::Option<exo::int2> get_mouse_delta() const { return mouse_delta; }
 
-    void process(const Vec<exo::Event> &events);
+    void process(const exo::Vec<exo::Event> &events);
     inline void consume_scroll() { scroll_this_frame = {}; }
 
     void display_ui();
@@ -57,9 +57,9 @@ class Inputs
     exo::EnumArray<bool, exo::VirtualKey> keys_pressed           = {};
     exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
 
-    Option<int2> scroll_this_frame = {};
-    Option<int2> mouse_drag_start  = {};
-    Option<int2> mouse_drag_delta  = {};
-    Option<int2> mouse_delta       = {};
-    int2         mouse_position    = {0};
+    exo::Option<exo::int2> scroll_this_frame = {};
+    exo::Option<exo::int2> mouse_drag_start  = {};
+    exo::Option<exo::int2> mouse_drag_delta  = {};
+    exo::Option<exo::int2> mouse_delta       = {};
+    exo::int2         mouse_position    = {0};
 };
