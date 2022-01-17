@@ -141,7 +141,6 @@ void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const ch
         i32  y_advance = glyph_pos[i].y_advance;
 
         auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
-
         if (cache_entry.uploaded == false)
         {
             exo::vector_insert_unique(painter.glyphs_to_upload, {.font = font, .glyph_index = glyph_index});

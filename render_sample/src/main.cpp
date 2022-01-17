@@ -211,8 +211,10 @@ void render_sample_destroy(RenderSample *app)
 
 static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
 {
-    ZoneScopedN("Upload glyph");
     auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
+    if (cache_entry.uploaded) { return; }
+
+    ZoneScopedN("Upload glyph");
 
     // Render the glyph with FreeType
     int error = 0;
@@ -473,7 +475,6 @@ static void render(RenderSample *app)
 
     auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));
     std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
-
 
     for (const auto &font_glyph : painter->glyphs_to_upload)
     {
