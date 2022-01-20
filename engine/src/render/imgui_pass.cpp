@@ -9,7 +9,7 @@ namespace gfx = vulkan;
 
 void imgui_pass_init(gfx::Device &device, ImGuiPass &pass, VkFormat color_attachment_format)
 {
-    gfx::DescriptorType one_dynamic_buffer_descriptor = {{{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}}};
+    gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
 
     gfx::GraphicsState gui_state = {};
     gui_state.vertex_shader      = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/gui.vert.glsl.spv");

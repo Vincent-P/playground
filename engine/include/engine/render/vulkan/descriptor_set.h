@@ -30,7 +30,7 @@ struct DynamicDescriptor
     usize          offset;
 };
 
-struct DescriptorType
+union DescriptorType
 {
     static const u32 Empty         = 0;
     static const u32 SampledImage  = 1;
@@ -38,33 +38,27 @@ struct DescriptorType
     static const u32 StorageBuffer = 3;
     static const u32 DynamicBuffer = 4;
 
-    union
+    struct
     {
-        struct
-        {
-            u32 count : 24;
-            u32 type : 8;
-        };
-        u32 raw;
-    };
+        u32 count : 24;
+        u32 type : 8;
+    } bits;
+    u32 raw;
 };
 
-struct Descriptor
+union Descriptor
 {
-    union
-    {
-        ImageDescriptor   image;
-        BufferDescriptor  buffer;
-        DynamicDescriptor dynamic;
+    ImageDescriptor   image;
+    BufferDescriptor  buffer;
+    DynamicDescriptor dynamic;
 
-        // for std::hash
-        struct
-        {
-            u64 one;
-            u64 two;
-            u64 three;
-        } raw;
-    };
+    // for std::hash
+    struct
+    {
+        u64 one;
+        u64 two;
+        u64 three;
+    } raw;
 };
 
 struct DescriptorSet
@@ -93,9 +87,9 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
 
 // -- Utils
 
-inline VkDescriptorType to_vk(DescriptorType type)
+inline VkDescriptorType to_vk(DescriptorType desc_type)
 {
-    switch (type.type)
+    switch (desc_type.bits.type)
     {
     case DescriptorType::SampledImage:
         return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

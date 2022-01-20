@@ -42,7 +42,7 @@ union PrimitiveIndex
         u32 index : 24;
         u32 corner : 2;
         u32 type : 6;
-    };
+    } bits;
     u32 raw;
 };
 static_assert(sizeof(PrimitiveIndex) == sizeof(u32));

@@ -46,11 +46,6 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/wd4200>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-zero-length-array>
 
-  # nameless union, struct
-  $<$<CXX_COMPILER_ID:MSVC>:/wd4201>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-nested-anon-types>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-gnu-anonymous-struct>
-
   $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-field-initializers>
 
   # utils

@@ -6,14 +6,14 @@
 
 namespace vulkan
 {
-BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, const char *name, DescriptorType type)
+BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, const char *name, DescriptorType desc_type)
 {
     BindlessSet set = {};
-    set.descriptor_type = type;
+    set.descriptor_type = desc_type;
 
     VkDescriptorSetLayoutBinding binding = {.binding         = 0,
                                             .descriptorType  = to_vk(set.descriptor_type),
-                                            .descriptorCount = type.count,
+                                            .descriptorCount = desc_type.bits.count,
                                             .stageFlags      = VK_SHADER_STAGE_ALL};
 
     VkDescriptorBindingFlags flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
@@ -46,8 +46,8 @@ BindlessSet create_bindless_set(const Device &device, VkDescriptorPool pool, con
         VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
     }
 
-    set.free_list = exo::FreeList::create(type.count);
-    set.descriptors.resize(type.count, {.dynamic = {}});
+    set.free_list = exo::FreeList::create(desc_type.bits.count);
+    set.descriptors.resize(desc_type.bits.count, {.dynamic = {}});
 
     return set;
 }
@@ -90,15 +90,15 @@ void update_bindless_set(Device &device, BindlessSet &set)
     // writes' elements contain pointers to these buffers, so they have to be allocated with the right size
     Vec<VkDescriptorImageInfo> images_info;
     Vec<VkDescriptorBufferInfo> buffers_info;
-    if (set.descriptor_type.type == DescriptorType::SampledImage || set.descriptor_type.type == DescriptorType::StorageImage) {
+    if (set.descriptor_type.bits.type == DescriptorType::SampledImage || set.descriptor_type.bits.type == DescriptorType::StorageImage) {
         images_info.reserve(writes.capacity());
     }
-    else if (set.descriptor_type.type == DescriptorType::StorageBuffer) {
+    else if (set.descriptor_type.bits.type == DescriptorType::StorageBuffer) {
         buffers_info.reserve(writes.capacity());
     }
 
-    VkDescriptorType desc_type = to_vk(set.descriptor_type);
-    VkImageLayout img_layout   = desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+    VkDescriptorType vk_desc_type = to_vk(set.descriptor_type);
+    VkImageLayout img_layout   = vk_desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
                                      ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                                      : VK_IMAGE_LAYOUT_GENERAL;
 
@@ -111,9 +111,9 @@ void update_bindless_set(Device &device, BindlessSet &set)
         write.dstBinding       = 0;
         write.dstArrayElement  = to_bind;
         write.descriptorCount  = 1;
-        write.descriptorType   = desc_type;
+        write.descriptorType   = vk_desc_type;
 
-        if (set.descriptor_type.type == DescriptorType::StorageImage || set.descriptor_type.type == DescriptorType::SampledImage)
+        if (set.descriptor_type.bits.type == DescriptorType::StorageImage || set.descriptor_type.bits.type == DescriptorType::SampledImage)
         {
             const auto &descriptor = set.descriptors[to_bind].image;
             const auto &image = *device.images.get(descriptor.image_handle);
@@ -124,7 +124,7 @@ void update_bindless_set(Device &device, BindlessSet &set)
             });
             write.pImageInfo = &images_info.back();
         }
-        else if (set.descriptor_type.type == DescriptorType::StorageBuffer)
+        else if (set.descriptor_type.bits.type == DescriptorType::StorageBuffer)
         {
             const auto &descriptor = set.descriptors[to_bind].buffer;
             const auto &buffer = *device.buffers.get(descriptor.buffer_handle);

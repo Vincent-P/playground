@@ -24,11 +24,11 @@ DescriptorSet create_descriptor_set(Device &device, std::span<const DescriptorTy
         auto &binding = bindings.back();
         binding.binding = binding_number;
         binding.descriptorType = to_vk(descriptor_type);
-        binding.descriptorCount = descriptor_type.count ? descriptor_type.count : 1;
+        binding.descriptorCount = descriptor_type.bits.count ? descriptor_type.bits.count : 1;
         binding.stageFlags = VK_SHADER_STAGE_ALL;
         binding_number += 1;
 
-        if (descriptor_type.type == DescriptorType::DynamicBuffer)
+        if (descriptor_type.bits.type == DescriptorType::DynamicBuffer)
         {
             descriptor_set.dynamic_descriptors.push_back(i_descriptor);
         }
@@ -36,7 +36,7 @@ DescriptorSet create_descriptor_set(Device &device, std::span<const DescriptorTy
 
     descriptor_set.dynamic_offsets.resize(descriptor_set.dynamic_descriptors.size());
 
-    Descriptor empty = {{{}}};
+    Descriptor empty = {{}};
     descriptor_set.descriptors.resize(descriptors.size(), empty);
 
     VkDescriptorSetLayoutCreateInfo desc_layout_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
@@ -61,15 +61,15 @@ void destroy_descriptor_set(Device &device, DescriptorSet &set)
 
 void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle)
 {
-    ASSERT(set.descriptor_desc[slot].type == DescriptorType::SampledImage
-           || set.descriptor_desc[slot].type == DescriptorType::StorageImage);
+    ASSERT(set.descriptor_desc[slot].bits.type == DescriptorType::SampledImage
+           || set.descriptor_desc[slot].bits.type == DescriptorType::StorageImage);
     set.descriptors[slot].image = {image_handle};
 }
 
 
 void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
 {
-    ASSERT(set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer);
+    ASSERT(set.descriptor_desc[slot].bits.type == DescriptorType::DynamicBuffer);
     set.descriptors[slot].dynamic = {buffer_handle, size, offset};
 
     for (usize i_dynamic = 0; i_dynamic < set.dynamic_descriptors.size(); i_dynamic++)
@@ -87,7 +87,7 @@ void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_han
 
 void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle)
 {
-    ASSERT(set.descriptor_desc[slot].type == DescriptorType::StorageBuffer);
+    ASSERT(set.descriptor_desc[slot].bits.type == DescriptorType::StorageBuffer);
     set.descriptors[slot].buffer = {buffer_handle};
 }
 
@@ -126,10 +126,10 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
         writes[slot]                  = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
         writes[slot].dstSet           = vkhandle;
         writes[slot].dstBinding       = slot;
-        writes[slot].descriptorCount  = set.descriptor_desc[slot].count;
+        writes[slot].descriptorCount  = set.descriptor_desc[slot].bits.count;
         writes[slot].descriptorType   = to_vk(set.descriptor_desc[slot]);
 
-        if (set.descriptor_desc[slot].type == DescriptorType::SampledImage)
+        if (set.descriptor_desc[slot].bits.type == DescriptorType::SampledImage)
         {
             if (!set.descriptors[slot].image.image_handle.is_valid())
                 exo::logger::error("Binding #{} has an invalid image handle.\n", slot);
@@ -142,7 +142,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
                 });
             writes[slot].pImageInfo = &images_info.back();
         }
-        else if (set.descriptor_desc[slot].type == DescriptorType::StorageImage)
+        else if (set.descriptor_desc[slot].bits.type == DescriptorType::StorageImage)
         {
             if (!set.descriptors[slot].image.image_handle.is_valid())
                 exo::logger::error("Binding #{} has an invalid image handle.\n", slot);
@@ -155,7 +155,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
                 });
             writes[slot].pImageInfo = &images_info.back();
         }
-        else if (set.descriptor_desc[slot].type == DescriptorType::DynamicBuffer)
+        else if (set.descriptor_desc[slot].bits.type == DescriptorType::DynamicBuffer)
         {
             DynamicDescriptor &dynamic_descriptor = set.descriptors[slot].dynamic;
             if (!dynamic_descriptor.buffer_handle.is_valid())
@@ -169,7 +169,7 @@ VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set
                 });
             writes[slot].pBufferInfo = &buffers_info.back();
         }
-        else if (set.descriptor_desc[slot].type == DescriptorType::StorageBuffer)
+        else if (set.descriptor_desc[slot].bits.type == DescriptorType::StorageBuffer)
         {
             BufferDescriptor &buffer_descriptor = set.descriptors[slot].buffer;
             if (!buffer_descriptor.buffer_handle.is_valid())

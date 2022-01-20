@@ -166,7 +166,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
     auto *window = app->window;
     auto *renderer = app->renderer;
 
-    gfx::DescriptorType one_dynamic_buffer_descriptor = {{{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}}};
+    gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
     gfx::GraphicsState gui_state = {};
     gui_state.vertex_shader      = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/font.vert.glsl.spv");
     gui_state.fragment_shader    = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/font.frag.glsl.spv");

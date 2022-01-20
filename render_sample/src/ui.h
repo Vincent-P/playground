@@ -3,7 +3,7 @@
 #include "painter.h" // for Rect
 
 struct Font;
-struct Inputs;
+class Inputs;
 
 inline constexpr u32 UI_MAX_DEPTH = 128;
 

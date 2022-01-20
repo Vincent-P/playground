@@ -420,7 +420,7 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
     renderer->settings.resolution_dirty  = true;
     renderer->settings.render_resolution = int2(surface.width, surface.height);
 
-    gfx::DescriptorType one_dynamic_buffer_descriptor = {{{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}}};
+    gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
 
     // Create ImGui pass
     imgui_pass_init(device, renderer->imgui_pass, VK_FORMAT_R8G8B8A8_UNORM);

@@ -70,7 +70,7 @@ union ElementMetadata
     {
         u32 is_occupied : 1;
         u32 generation : 31;
-    };
+    } bits;
     u32 raw;
 };
 
@@ -130,7 +130,7 @@ struct PoolIterator : IteratorFacade<PoolIterator<T>>
         auto *metadata = metadata_ptr(*pool, current_index);
         auto *element  = element_ptr(*pool, current_index);
 
-        Handle<T> handle = {current_index, metadata->generation};
+        Handle<T> handle = {current_index, metadata->bits.generation};
         return std::make_pair(handle, element);
     }
 
@@ -140,7 +140,7 @@ struct PoolIterator : IteratorFacade<PoolIterator<T>>
         {
             auto *metadata = metadata_ptr(*pool, current_index);
             auto *element  = element_ptr(*pool, current_index);
-            if (metadata->is_occupied == 1)
+            if (metadata->bits.is_occupied == 1)
             {
                 break;
             }
@@ -171,7 +171,7 @@ struct ConstPoolIterator : IteratorFacade<ConstPoolIterator<T>>
         const auto *metadata = metadata_ptr(*pool, current_index);
         const auto *element  = element_ptr(*pool, current_index);
 
-        Handle<T> handle = {current_index, metadata->generation};
+        Handle<T> handle = {current_index, metadata->bits.generation};
         return std::make_pair(handle, element);
     }
 
@@ -181,7 +181,7 @@ struct ConstPoolIterator : IteratorFacade<ConstPoolIterator<T>>
         {
             auto *metadata = metadata_ptr(*pool, current_index);
             auto *element  = element_ptr(*pool, current_index);
-            if (metadata->is_occupied == 1)
+            if (metadata->bits.is_occupied == 1)
             {
                 break;
             }
@@ -290,12 +290,12 @@ Handle<T> Pool<T>::add(T &&value)
     // Construct the new element
     T    *element  = new (element_ptr(*this, i_element)) T{std::forward<T>(value)};
     auto *metadata = metadata_ptr(*this, i_element);
-    ASSERT(metadata->is_occupied == 0);
-    metadata->is_occupied = 1;
+    ASSERT(metadata->bits.is_occupied == 0);
+    metadata->bits.is_occupied = 1;
 
     size += 1;
 
-    return {i_element, metadata->generation};
+    return {i_element, metadata->bits.generation};
 }
 
 template <typename T>
@@ -305,7 +305,7 @@ const T *Pool<T>::get(Handle<T> handle) const
     auto *metadata  = metadata_ptr(*this, i_element);
     auto *element   = element_ptr(*this, i_element);
 
-    return handle.is_valid() && i_element < capacity && metadata->is_occupied && metadata->generation == handle.gen
+    return handle.is_valid() && i_element < capacity && metadata->bits.is_occupied && metadata->bits.generation == handle.gen
                ? element
                : nullptr;
 }
@@ -329,13 +329,13 @@ void Pool<T>::remove(Handle<T> handle)
     auto *element  = element_ptr(*this, handle.index);
     auto *freelist = freelist_ptr(*this, handle.index);
 
-    ASSERT(metadata->generation == handle.gen);
-    ASSERT(metadata->is_occupied == 1);
+    ASSERT(metadata->bits.generation == handle.gen);
+    ASSERT(metadata->bits.is_occupied == 1);
 
     // Destruct the element
     element->~T();
-    metadata->generation  = metadata->generation + 1;
-    metadata->is_occupied = 0;
+    metadata->bits.generation  = metadata->bits.generation + 1;
+    metadata->bits.is_occupied = 0;
 
     // Push this slot to the head of the free list
     *freelist     = freelist_head;
@@ -351,7 +351,7 @@ PoolIterator<T> Pool<T>::begin()
     for (; i_element < capacity; i_element += 1)
     {
         auto *metadata = metadata_ptr(*this, i_element);
-        if (metadata->is_occupied)
+        if (metadata->bits.is_occupied)
         {
             break;
         }
@@ -372,7 +372,7 @@ ConstPoolIterator<T> Pool<T>::begin() const
     for (; i_element < capacity; i_element += 1)
     {
         auto *metadata = metadata_ptr(*this, i_element);
-        if (metadata->is_occupied)
+        if (metadata->bits.is_occupied)
         {
             break;
         }
