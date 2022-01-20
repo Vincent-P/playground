@@ -10,10 +10,31 @@ layout(set = SHADER_SET, binding = 0) uniform Options {
     u32 primitive_bytes_offset;
 };
 
+bool is_in_rect(float2 pos, Rect rect)
+{
+    return !(
+        pos.x < rect.position.x
+     || pos.x > rect.position.x + rect.size.x
+     || pos.y < rect.position.y
+     || pos.y > rect.position.y + rect.size.y
+        );
+}
+
+void clip_rect(u32 i_clip_rect)
+{
+    u32 primitive_offset = primitive_bytes_offset / sizeof_rect;
+    Rect clipping_rect = global_buffers_rects[vertices_descriptor_index].rects[primitive_offset + i_clip_rect];
+    if (i_clip_rect != u32_invalid && !is_in_rect(gl_FragCoord.xy, clipping_rect))
+    {
+        discard;
+    }
+}
+
 float4 textured_rect(u32 i_primitive, u32 corner, float2 uv)
 {
     u32 primitive_offset = primitive_bytes_offset / sizeof_textured_rect;
     TexturedRect rect = global_buffers_textured_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
+    clip_rect(rect.i_clip_rect);
 
     float alpha = texture(global_textures[nonuniformEXT(rect.texture_descriptor)], uv).r;
 
@@ -24,6 +45,7 @@ float4 color_rect(u32 i_primitive, u32 corner, float2 uv)
 {
     u32 primitive_offset = primitive_bytes_offset / sizeof_color_rect;
     ColorRect rect = global_buffers_color_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
+    clip_rect(rect.i_clip_rect);
     return unpackUnorm4x8(rect.color);
 }
 

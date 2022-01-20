@@ -30,7 +30,7 @@ Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_size, usiz
     return painter;
 }
 
-void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &uv, u32 texture)
+void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture)
 {
     auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
     if (misalignment != 0)
@@ -41,7 +41,7 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &
     ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
     u32 i_rect = painter.vertex_bytes_offset / sizeof(TexturedRect);
     auto *vertices = reinterpret_cast<TexturedRect*>(painter.vertices);
-    vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture};
+    vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture, .i_clip_rect = i_clip_rect};
     painter.vertex_bytes_offset += sizeof(TexturedRect);
 
     // 0 - 3
@@ -60,7 +60,7 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &
     exo::vector_insert_unique(painter.used_textures, texture);
 }
 
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 AABBGGRR)
+void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR)
 {
     auto misalignment = painter.vertex_bytes_offset % sizeof(ColorRect);
     if (misalignment != 0)
@@ -71,7 +71,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 AABBGGRR)
     ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
     u32 i_rect = painter.vertex_bytes_offset / sizeof(ColorRect);
     auto *vertices = reinterpret_cast<ColorRect*>(painter.vertices);
-    vertices[i_rect] = {.rect = rect, .color = AABBGGRR};
+    vertices[i_rect] = {.rect = rect, .color = AABBGGRR, .i_clip_rect = i_clip_rect};
     painter.vertex_bytes_offset += sizeof(ColorRect);
 
     // 0 - 3
@@ -116,7 +116,7 @@ exo::int2 measure_label(Font *font, const char *label)
     return {cursor_x + last_glyph_width, line_height};
 }
 
-void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const char *label)
+void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font *font, const char *label)
 {
     auto *buf = font->label_buf;
     hb_buffer_clear_contents(buf);
@@ -155,7 +155,7 @@ void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const ch
                    .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
                             cache_entry.glyph_size.y / float(font->cache_resolution)}
         };
-        painter_draw_textured_rect(painter, rect, uv, font->glyph_atlas_gpu_idx);
+        painter_draw_textured_rect(painter, rect, i_clip_rect, uv, font->glyph_atlas_gpu_idx);
 
         cursor_x += x_advance >> 6;
         cursor_y += y_advance >> 6;

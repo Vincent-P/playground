@@ -80,7 +80,11 @@ Context Context::create(bool enable_validation, const exo::Window *window)
         }
     }
 
-    enable_validation = enable_validation && i_validation != u32_invalid;
+    if (enable_validation && i_validation == u32_invalid)
+    {
+        exo::logger::info("Validation layers are enabled but the vulkan layer was not found.\n");
+        enable_validation = false;
+    }
 
     Vec<const char *> instance_layers;
     if (enable_validation)

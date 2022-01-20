@@ -9,5 +9,4 @@ assets: dont scan meta files at startup when importing all assets files
 
 render sample text
 ===
-use custom window first to implement nice resize + painting behavior then upstream to exo
-goal: simple immediate mode gui (with only one "file view" widget + button to open more files, two layers - bg + overlay), display all files in panes
+imgui: fix clipping on splitters

@@ -272,6 +272,9 @@ static void display_file(RenderSample *app, const Rect &view_rect)
     hb_glyph_info_t     *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
     hb_glyph_position_t *glyph_pos  = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
+    ui_push_clip_rect(ui_state, view_rect);
+    u32 i_clip_rect = ui_state.i_clip_rect;
+
     i32 cursor_x = static_cast<i32>(view_rect.position.x);
     i32 cursor_y = static_cast<i32>(view_rect.position.y) + line_height;
     for (u32 i = 0; i < glyph_count; i++)
@@ -304,7 +307,7 @@ static void display_file(RenderSample *app, const Rect &view_rect)
                    .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
                             cache_entry.glyph_size.y / float(font->cache_resolution)}
         };
-        painter_draw_textured_rect(painter, rect, uv, font->glyph_atlas_gpu_idx);
+        painter_draw_textured_rect(painter, rect, i_clip_rect, uv, font->glyph_atlas_gpu_idx);
 
         cursor_x += glyph_pos[i].x_advance >> 6;
         cursor_y += glyph_pos[i].y_advance >> 6;
@@ -315,6 +318,7 @@ static void display_file(RenderSample *app, const Rect &view_rect)
             cursor_y += line_height;
         }
     }
+    ui_pop_clip_rect(ui_state);
 }
 
 static void display_ui(RenderSample *app)
@@ -331,13 +335,6 @@ static void display_ui(RenderSample *app)
         exo::logger::info("Command: {}\n", input_command_buffer);
         std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
     }
-
-    // painter test
-    #if 0
-    painter_draw_color_rect(*app->painter, {.position = {250, 250}, .size = {100, 100}}, 0xaa0000ff);
-    painter_draw_color_rect(*app->painter, {.position = {260, 260}, .size = {100, 100}}, 0xaaff0000);
-    painter_draw_label(*app->painter, {.position = {250, 250}, .size = {100, 20}}, app->ui_font, "Test label");
-    #endif
 
     Rect left_pane = {};
     Rect right_pane = {};
@@ -365,7 +362,7 @@ static void display_ui(RenderSample *app)
         exo::logger::info("Button 1 clicked!!\n");
     }
 
-    Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 30}};
+    Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 20}};
     if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect}))
     {
         if (auto fs_path = exo::file_dialog({{"file", "*"}}))
@@ -472,6 +469,10 @@ static void render(RenderSample *app)
     ZoneScopedN("Painter");
     auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(renderer.device, painter->vertex_bytes_offset, sizeof(TexturedRect) * sizeof(ColorRect));
     std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
+
+    ASSERT(vert_offset % sizeof(TexturedRect) == 0);
+    ASSERT(vert_offset % sizeof(ColorRect) == 0);
+    ASSERT(vert_offset % sizeof(Rect) == 0);
 
     auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));
     std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));

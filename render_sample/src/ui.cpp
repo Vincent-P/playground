@@ -35,10 +35,29 @@ void ui_end_frame(UiState &ui_state)
     }
 }
 
+void ui_push_clip_rect(UiState &ui_state, const Rect &clip_rect)
+{
+    painter_draw_color_rect(*ui_state.painter, clip_rect, u32_invalid, 0xFFFFFFFF);
+
+    ASSERT((ui_state.painter->vertex_bytes_offset - sizeof(ColorRect)) % sizeof(Rect) == 0);
+    ui_state.i_clip_rect = (ui_state.painter->vertex_bytes_offset - sizeof(ColorRect)) / sizeof(Rect);
+
+    ASSERT(ui_state.i_clip_stack < UI_MAX_DEPTH);
+    ui_state.clip_stack[ui_state.i_clip_stack++] = ui_state.i_clip_rect;
+}
+
+void ui_pop_clip_rect(UiState &ui_state)
+{
+    ASSERT(ui_state.i_clip_stack > 0);
+    ui_state.i_clip_rect = ui_state.clip_stack[--ui_state.i_clip_stack];
+}
+
 bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
 {
     bool result = false;
     u64 id = ui_make_id(ui_state);
+
+    ui_push_clip_rect(ui_state, button.rect);
 
     // behavior
     if (ui_is_hovering(ui_state, button.rect))
@@ -60,16 +79,16 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
     {
         if (ui_state.active == id)
         {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_pressed_bg_color);
+            painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_pressed_bg_color);
         }
         else
         {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_hover_bg_color);
+            painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_hover_bg_color);
         }
     }
     else
     {
-        painter_draw_color_rect(*ui_state.painter, button.rect, ui_theme.button_bg_color);
+        painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_bg_color);
     }
 
     auto label_rect = button.rect;
@@ -77,8 +96,10 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
     label_rect.position.x += (button.rect.size.x - label_rect.size.x) / 2.0f;
     label_rect.position.y += (button.rect.size.y - label_rect.size.y) / 2.0f;
 
-    // painter_draw_color_rect(*ui_state.painter, label_rect, 0xFF0000FF);
-    painter_draw_label(*ui_state.painter, label_rect, ui_theme.main_font, button.label);
+    painter_draw_color_rect(*ui_state.painter, label_rect, ui_state.i_clip_rect, 0xFF0000FF);
+    painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, button.label);
+
+    ui_pop_clip_rect(ui_state);
 
     return result;
 }
@@ -113,11 +134,11 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
     // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
     if (ui_state.focused == id)
     {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 2, view_rect.position.y}, .size = {4, view_rect.size.y}}, 0xFF888888);
+        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 2, view_rect.position.y}, .size = {4, view_rect.size.y}}, u32_invalid, 0xFF888888);
     }
     else
     {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 1, view_rect.position.y}, .size = {2, view_rect.size.y}}, 0xFF666666);
+        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 1, view_rect.position.y}, .size = {2, view_rect.size.y}}, u32_invalid, 0xFF666666);
     }
 }
 
@@ -151,18 +172,18 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
     // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
     if (ui_state.focused == id)
     {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 2}, .size = {view_rect.size.x, 4}}, 0xFF888888);
+        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 2}, .size = {view_rect.size.x, 4}}, u32_invalid, 0xFF888888);
     }
     else
     {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 1}, .size = {view_rect.size.x, 2}}, 0xFF666666);
+        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 1}, .size = {view_rect.size.x, 2}}, u32_invalid, 0xFF666666);
     }
 
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
+    // painter_draw_color_rect(*ui_state.painter, splitter_input, ui_state.i_clip_rect, 0x440000FF);
 }
 
 void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
 {
-    // painter_draw_color_rect(*ui_state.painter, label.rect, 0xFF0000FF);
-    painter_draw_label(*ui_state.painter, label.rect, ui_theme.main_font, label.text);
+    // painter_draw_color_rect(*ui_state.painter, label.rect, ui_state.i_clip_rect, 0xFF0000FF);
+    painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, ui_theme.main_font, label.text);
 }

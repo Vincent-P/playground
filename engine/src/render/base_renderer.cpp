@@ -267,11 +267,11 @@ bool BaseRenderer::end_frame(gfx::ComputeWork &cmd)
 
     // present will wait for semaphore
     bool out_of_date_swapchain = device.present(surface, cmd);
+    frame_count += 1;
     if (out_of_date_swapchain)
     {
         return true;
     }
 
-    frame_count += 1;
     return false;
 }

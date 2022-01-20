@@ -16,7 +16,8 @@ PACKED(struct ColorRect
 {
     Rect rect;
     u32 color;
-    u32 padding[3];
+    u32 i_clip_rect;
+    u32 padding[2];
 })
 
 PACKED(struct TexturedRect
@@ -24,7 +25,8 @@ PACKED(struct TexturedRect
     Rect rect;
     Rect uv;
     u32 texture_descriptor;
-    u32 padding[3];
+    u32 i_clip_rect;
+    u32 padding[2];
 })
 
 enum RectType
@@ -68,7 +70,7 @@ struct Painter
 };
 
 Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size);
-void painter_draw_textured_rect(Painter &painter, const Rect &rect, const Rect &uv, u32 texture);
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 AABBGGRR);
+void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture);
+void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR);
 exo::int2 measure_label(Font *font, const char *label);
-void painter_draw_label(Painter &painter, const Rect &rect, Font *font, const char *label);
+void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font *font, const char *label);
