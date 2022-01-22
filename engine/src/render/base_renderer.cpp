@@ -16,7 +16,7 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
 
     // Initialize the API
     renderer->window = window;
-    renderer->context = gfx::Context::create(true, window);
+    renderer->context = gfx::Context::create(false, window);
 
     // Pick a GPU
     auto &physical_devices = renderer->context.physical_devices;

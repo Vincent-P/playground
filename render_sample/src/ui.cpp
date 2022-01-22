@@ -1,6 +1,7 @@
 #include "ui.h"
 
 #include <engine/inputs.h>
+#include <exo/maths/pointer.h>
 
 bool ui_is_hovering(const UiState &ui_state, const Rect &rect)
 {
@@ -35,15 +36,29 @@ void ui_end_frame(UiState &ui_state)
     }
 }
 
-void ui_push_clip_rect(UiState &ui_state, const Rect &clip_rect)
+u32 ui_register_clip_rect(UiState &ui_state, const Rect &clip_rect)
 {
-    painter_draw_color_rect(*ui_state.painter, clip_rect, u32_invalid, 0xFFFFFFFF);
+    painter_draw_color_rect(*ui_state.painter, clip_rect, u32_invalid, 0x88FF0000);
 
-    ASSERT((ui_state.painter->vertex_bytes_offset - sizeof(ColorRect)) % sizeof(Rect) == 0);
-    ui_state.i_clip_rect = (ui_state.painter->vertex_bytes_offset - sizeof(ColorRect)) / sizeof(Rect);
+    auto i_first_rect_index = ui_state.painter->index_offset - 6;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+    ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
 
+    usize last_color_rect_offset = ui_state.painter->vertex_bytes_offset - sizeof(ColorRect);
+
+    ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
+    return last_color_rect_offset / sizeof(Rect);
+}
+
+void ui_push_clip_rect(UiState &ui_state, u32 i_clip_rect)
+{
     ASSERT(ui_state.i_clip_stack < UI_MAX_DEPTH);
-    ui_state.clip_stack[ui_state.i_clip_stack++] = ui_state.i_clip_rect;
+    ui_state.clip_stack[ui_state.i_clip_stack++] = i_clip_rect;
+    ui_state.i_clip_rect = i_clip_rect;
 }
 
 void ui_pop_clip_rect(UiState &ui_state)
@@ -57,7 +72,7 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
     bool result = false;
     u64 id = ui_make_id(ui_state);
 
-    ui_push_clip_rect(ui_state, button.rect);
+    ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, button.rect));
 
     // behavior
     if (ui_is_hovering(ui_state, button.rect))

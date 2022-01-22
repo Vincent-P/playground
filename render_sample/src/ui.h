@@ -48,7 +48,8 @@ u64 ui_make_id(UiState &state);
 void ui_new_frame(UiState &ui_state);
 void ui_end_frame(UiState &ui_state);
 
-void ui_push_clip_rect(UiState &ui_state, const Rect &clip_rect);
+u32 ui_register_clip_rect(UiState &ui_state, const Rect &clip_rect);
+void ui_push_clip_rect(UiState &ui_state, u32 i_clip_rect);
 void ui_pop_clip_rect(UiState &ui_state);
 
 bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button);

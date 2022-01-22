@@ -104,7 +104,7 @@ void Surface::create_swapchain(Device &device)
     this->width  = static_cast<i32>(capabilities.currentExtent.width);
     this->height = static_cast<i32>(capabilities.currentExtent.height);
 
-    exo::logger::info("Creating swapchain {}x{}\n", width, height);
+    // exo::logger::info("Creating swapchain {}x{}\n", width, height);
 
     auto image_count = capabilities.minImageCount;
     if (image_count < 3) {

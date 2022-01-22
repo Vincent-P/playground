@@ -116,7 +116,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
         });
 
 
-    exo::logger::info("Creating image \"{}\" at index #{}\n", image_desc.name, handle.value());
+    // exo::logger::info("Creating image \"{}\" at index #{}\n", image_desc.name, handle.value());
 
     // Bindless (bind everything)
     if (is_sampled)

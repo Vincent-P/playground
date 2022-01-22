@@ -14,11 +14,9 @@
 #include <engine/render/vulkan/device.h>
 #include <engine/render/vulkan/surface.h>
 #include <engine/render/base_renderer.h>
-#include <engine/render/imgui_pass.h>
 namespace gfx = vulkan;
 
 #include <engine/inputs.h>
-#include <engine/ui.h>
 
 #include "glyph_cache.h"
 #include "font.h"
@@ -26,7 +24,6 @@ namespace gfx = vulkan;
 
 #include <Tracy.hpp>
 #include <array>
-#include <imgui.h>
 #include <fstream>
 #include <filesystem>
 #include <fmt/printf.h>
@@ -72,7 +69,6 @@ struct RenderSample
     Font *main_font;
     Font *ui_font;
 
-    ImGuiPass                    imgui_pass = {};
     Handle<gfx::GraphicsProgram> font_program;
 
     exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_framebuffers;
@@ -180,9 +176,6 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
     app->swapchain_framebuffers.resize(renderer->surface.images.size());
     resize(renderer->device, renderer->surface, app->swapchain_framebuffers);
 
-    UI::create_context(window, &app->inputs);
-    imgui_pass_init(renderer->device, app->imgui_pass, renderer->surface.format.format);
-
     auto error = FT_Init_FreeType(&app->library);
     ASSERT (!error);
 
@@ -272,9 +265,6 @@ static void display_file(RenderSample *app, const Rect &view_rect)
     hb_glyph_info_t     *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
     hb_glyph_position_t *glyph_pos  = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
-    ui_push_clip_rect(ui_state, view_rect);
-    u32 i_clip_rect = ui_state.i_clip_rect;
-
     i32 cursor_x = static_cast<i32>(view_rect.position.x);
     i32 cursor_y = static_cast<i32>(view_rect.position.y) + line_height;
     for (u32 i = 0; i < glyph_count; i++)
@@ -307,7 +297,7 @@ static void display_file(RenderSample *app, const Rect &view_rect)
                    .size     = {cache_entry.glyph_size.x / float(font->cache_resolution),
                             cache_entry.glyph_size.y / float(font->cache_resolution)}
         };
-        painter_draw_textured_rect(painter, rect, i_clip_rect, uv, font->glyph_atlas_gpu_idx);
+        painter_draw_textured_rect(painter, rect, ui_state.i_clip_rect, uv, font->glyph_atlas_gpu_idx);
 
         cursor_x += glyph_pos[i].x_advance >> 6;
         cursor_y += glyph_pos[i].y_advance >> 6;
@@ -318,7 +308,6 @@ static void display_file(RenderSample *app, const Rect &view_rect)
             cursor_y += line_height;
         }
     }
-    ui_pop_clip_rect(ui_state);
 }
 
 static void display_ui(RenderSample *app)
@@ -328,40 +317,43 @@ static void display_ui(RenderSample *app)
     ui_new_frame(app->ui_state);
 
     auto fullscreen_rect = Rect{.position = {0, 0}, .size = exo::float2(app->window->size.x, app->window->size.y)};
+    u32 i_fullscreen_rect = ui_register_clip_rect(app->ui_state, fullscreen_rect);
+    ui_push_clip_rect(app->ui_state, i_fullscreen_rect);
 
-    static char input_command_buffer[128] = "Hello, world!";
-    if (ImGui::InputText("Command", input_command_buffer, sizeof(input_command_buffer), ImGuiInputTextFlags_EnterReturnsTrue))
-    {
-        exo::logger::info("Command: {}\n", input_command_buffer);
-        std::memset(input_command_buffer, 0, sizeof(input_command_buffer));
-    }
-
+    static float vsplit = 0.5f;
     Rect left_pane = {};
     Rect right_pane = {};
-    static float vsplit = 0.5f;
     ui_splitter_x(app->ui_state, app->ui_theme, fullscreen_rect, vsplit, left_pane, right_pane);
 
-
+    /* Left pane */
+    static float left_hsplit = 0.5f;
     Rect left_top_pane = {};
     Rect left_bottom_pane = {};
-
-    static float left_hsplit = 0.5f;
     ui_splitter_y(app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
 
+    /* Left top pane */
+    u32 i_left_top_pane = ui_register_clip_rect(app->ui_state, left_top_pane);
+    ui_push_clip_rect(app->ui_state, i_left_top_pane);
     display_file(app, left_top_pane);
+    ui_pop_clip_rect(app->ui_state);
 
+    /* Left bottom pane */
+
+
+
+    /* Right pane */
+    static float right_hsplit = 0.5f;
     Rect right_top_pane = {};
     Rect right_bottom_pane = {};
-
-    static float right_hsplit = 0.5f;
     ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
 
-    // ui test
+    /* Right top pane */
     if (ui_button(app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 30}}}))
     {
         exo::logger::info("Button 1 clicked!!\n");
     }
 
+    /* Right Bottom pane */
     Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 20}};
     if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect}))
     {
@@ -398,6 +390,7 @@ static void display_ui(RenderSample *app)
     label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
     ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
 
+    ui_pop_clip_rect(app->ui_state);
     ui_end_frame(app->ui_state);
 }
 
@@ -407,7 +400,6 @@ static void render(RenderSample *app)
 
     auto &renderer = *app->renderer;
     auto & framebuffers = app->swapchain_framebuffers;
-    auto &imgui_pass = app->imgui_pass;
     auto font_program = app->font_program;
     auto *window = app->window;
 
@@ -422,7 +414,6 @@ static void render(RenderSample *app)
     if (out_of_date_swapchain)
     {
         resize(device, surface, framebuffers);
-        ImGui::EndFrame();
         return;
     }
 
@@ -438,17 +429,6 @@ static void render(RenderSample *app)
 
     if (renderer.frame_count == 0)
     {
-        auto & io           = ImGui::GetIO();
-        uchar *pixels       = nullptr;
-        int    imgui_width  = 0;
-        int    imgui_height = 0;
-        io.Fonts->GetTexDataAsRGBA32(&pixels, &imgui_width, &imgui_height);
-        ASSERT(imgui_width > 0 && imgui_height > 0);
-        u32 width  = static_cast<u32>(imgui_width);
-        u32 height = static_cast<u32>(imgui_height);
-        bool uploaded = renderer.streamer.upload_image_full(imgui_pass.font_atlas, pixels, width * height * sizeof(u32));
-        ASSERT(uploaded);
-
         cmd.clear_barrier(app->main_font->glyph_atlas, gfx::ImageUsage::TransferDst);
         cmd.clear_image(app->main_font->glyph_atlas, VkClearColorValue{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
         cmd.barrier(app->main_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
@@ -460,9 +440,6 @@ static void render(RenderSample *app)
     cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 1.0f, 1.0f}}})});
     cmd.end_pass();
-
-    ImGui::Render();
-    imgui_pass_draw(renderer, imgui_pass, cmd, swapchain_framebuffer);
 
     {
     auto *painter = app->painter;
@@ -565,7 +542,6 @@ int main(int /*argc*/, char ** /*argv*/)
     window->user_data = app;
     window->paint_callback = +[](void *user_data) {
         auto *app = reinterpret_cast<RenderSample*>(user_data);
-        UI::new_frame();
         display_ui(app);
         render(app);
     };
@@ -576,22 +552,14 @@ int main(int /*argc*/, char ** /*argv*/)
 
         for (const auto &event : window->events)
         {
-            auto &io = ImGui::GetIO();
             switch (event.type)
             {
             case exo::Event::KeyType:
             {
-                if (ImGui::IsKeyDown(static_cast<int>(event.key.key)) && event.key.state == exo::ButtonState::Released) {
-                    io.KeysDown[static_cast<uint>(event.key.key)] = false;
-                }
-                else if (!ImGui::IsKeyDown(static_cast<int>(event.key.key)) && event.key.state == exo::ButtonState::Pressed) {
-                    io.KeysDown[static_cast<uint>(event.key.key)] = true;
-                }
                 break;
             }
             case exo::Event::CharacterType:
             {
-                io.AddInputCharactersUTF8(event.character.sequence);
                 break;
             }
             default:

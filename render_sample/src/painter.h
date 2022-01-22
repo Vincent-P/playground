@@ -31,8 +31,9 @@ PACKED(struct TexturedRect
 
 enum RectType
 {
-    RectType_Color,
-    RectType_Textured,
+    RectType_Color = 0,
+    RectType_Textured = 1,
+    RectType_Clip = 2,
 };
 
 union PrimitiveIndex

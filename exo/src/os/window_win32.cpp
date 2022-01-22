@@ -296,7 +296,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         window.size = {LOWORD(lParam), HIWORD(lParam)};
         // window.push_event<event::Resize>({.width = window.width, .height = window.height});
-        logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
+        // logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
         return 0;
     }
 

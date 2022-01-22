@@ -45,6 +45,7 @@ const u32 sizeof_textured_rect = 3 * sizeof_float4;
 
 const u32 RectType_Color = 0;
 const u32 RectType_Textured = 1;
+const u32 RectType_Clip = 2;
 
 layout(push_constant) uniform PushConstants {
     u32 draw_id;
