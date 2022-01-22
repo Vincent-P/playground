@@ -1,18 +1,24 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include "painter.h" // for Rect
+#include "rect.h"
 
 struct Font;
+struct Painter;
 class Inputs;
 
 inline constexpr u32 UI_MAX_DEPTH = 128;
 
 struct UiTheme
 {
-    u32 button_bg_color = 0xFFDA901E;
-    u32 button_hover_bg_color = 0xFFD58100;
+    // colors are in 0xAABBGGRR
+    u32 button_bg_color         = 0xFFDA901E;
+    u32 button_hover_bg_color   = 0xFFD58100;
     u32 button_pressed_bg_color = 0xFFBC7200;
-    u32 button_label_color = 0xFFFFFFFF;
+    u32 button_label_color      = 0xFFFFFFFF;
+
+    float input_thickness          = 10.0f;
+    float splitter_thickness       = 2.0f;
+    float splitter_hover_thickness = 4.0f;
 
     Font *main_font;
 };

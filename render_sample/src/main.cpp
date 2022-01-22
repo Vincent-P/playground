@@ -21,6 +21,7 @@ namespace gfx = vulkan;
 #include "glyph_cache.h"
 #include "font.h"
 #include "ui.h"
+#include "painter.h"
 
 #include <Tracy.hpp>
 #include <array>
@@ -251,7 +252,6 @@ static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
 static void display_file(RenderSample *app, const Rect &view_rect)
 {
     auto &ui_state = app->ui_state;
-    const auto &ui_theme = app->ui_theme;
 
     auto &painter = *app->painter;
 
@@ -475,7 +475,7 @@ static void render(RenderSample *app)
     options->scale = float2(2.0f / window->size.x, 2.0f / window->size.y);
     options->translation = float2(-1.0f, -1.0f);
     options->vertices_descriptor_index = device.get_buffer_storage_index(renderer.dynamic_vertex_buffer.buffer);
-    options->primitive_byte_offset = vert_offset;
+    options->primitive_byte_offset = static_cast<u32>(vert_offset);
 
     cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
     cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
@@ -521,7 +521,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 
     auto *buf = app->current_file_hb_buf;
     hb_buffer_clear_contents(buf);
-    hb_buffer_add_utf8(buf, reinterpret_cast<const char *>(app->current_file_data.data()), app->current_file_data.size(), 0, -1);
+    hb_buffer_add_utf8(buf, reinterpret_cast<const char *>(app->current_file_data.data()), static_cast<int>(app->current_file_data.size()), 0, -1);
     hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
     hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
     hb_buffer_set_language(buf, hb_language_from_string("en", -1));

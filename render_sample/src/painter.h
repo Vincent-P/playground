@@ -3,14 +3,10 @@
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 
+#include "rect.h"
+
 namespace exo { struct ScopeStack; }
 struct Font;
-
-PACKED(struct Rect
-{
-    exo::float2 position;
-    exo::float2 size;
-})
 
 PACKED(struct ColorRect
 {

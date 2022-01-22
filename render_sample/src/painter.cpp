@@ -39,7 +39,7 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
     }
 
     ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
-    u32 i_rect = painter.vertex_bytes_offset / sizeof(TexturedRect);
+    u32 i_rect = static_cast<u32>(painter.vertex_bytes_offset / sizeof(TexturedRect));
     auto *vertices = reinterpret_cast<TexturedRect*>(painter.vertices);
     vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture, .i_clip_rect = i_clip_rect};
     painter.vertex_bytes_offset += sizeof(TexturedRect);
@@ -69,7 +69,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
     }
 
     ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
-    u32 i_rect = painter.vertex_bytes_offset / sizeof(ColorRect);
+    u32 i_rect = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
     auto *vertices = reinterpret_cast<ColorRect*>(painter.vertices);
     vertices[i_rect] = {.rect = rect, .color = AABBGGRR, .i_clip_rect = i_clip_rect};
     painter.vertex_bytes_offset += sizeof(ColorRect);
@@ -116,7 +116,7 @@ exo::int2 measure_label(Font *font, const char *label)
     return {cursor_x + last_glyph_width, line_height};
 }
 
-void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font *font, const char *label)
+void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font *font, const char *label)
 {
     auto *buf = font->label_buf;
     hb_buffer_clear_contents(buf);
@@ -132,8 +132,8 @@ void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Fon
     hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
     hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
-    i32 cursor_x = rect.position.x;
-    i32 cursor_y = rect.position.y + line_height;
+    i32 cursor_x = i32(view_rect.position.x);
+    i32 cursor_y = i32(view_rect.position.y) + line_height;
     for (u32 i = 0; i < glyph_count; i++)
     {
         u32 glyph_index   = glyph_info[i].codepoint;
@@ -162,7 +162,7 @@ void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Fon
 
         if (label[glyph_info[i].cluster] == '\n')
         {
-            cursor_x = rect.position.x;
+            cursor_x = i32(view_rect.position.x);
             cursor_y += line_height;
         }
     }

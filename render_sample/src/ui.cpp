@@ -3,10 +3,12 @@
 #include <engine/inputs.h>
 #include <exo/maths/pointer.h>
 
+#include "rect.h"
+#include "painter.h"
+
 bool ui_is_hovering(const UiState &ui_state, const Rect &rect)
 {
-    return rect.position.x <= ui_state.inputs->mouse_position.x && ui_state.inputs->mouse_position.x <= rect.position.x + rect.size.x
-        && rect.position.y <= ui_state.inputs->mouse_position.y && ui_state.inputs->mouse_position.y <= rect.position.y + rect.size.y;
+    return rect_is_point_inside(rect, exo::float2(ui_state.inputs->mouse_position));
 }
 
 u64 ui_make_id(UiState &state)
@@ -51,20 +53,30 @@ u32 ui_register_clip_rect(UiState &ui_state, const Rect &clip_rect)
     usize last_color_rect_offset = ui_state.painter->vertex_bytes_offset - sizeof(ColorRect);
 
     ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
-    return last_color_rect_offset / sizeof(Rect);
+    return static_cast<u32>(last_color_rect_offset / sizeof(Rect));
 }
 
 void ui_push_clip_rect(UiState &ui_state, u32 i_clip_rect)
 {
     ASSERT(ui_state.i_clip_stack < UI_MAX_DEPTH);
-    ui_state.clip_stack[ui_state.i_clip_stack++] = i_clip_rect;
+    ui_state.clip_stack[ui_state.i_clip_stack] = i_clip_rect;
+    ui_state.i_clip_stack += 1;
     ui_state.i_clip_rect = i_clip_rect;
 }
 
 void ui_pop_clip_rect(UiState &ui_state)
 {
-    ASSERT(ui_state.i_clip_stack > 0);
-    ui_state.i_clip_rect = ui_state.clip_stack[--ui_state.i_clip_stack];
+    ASSERT(0 < ui_state.i_clip_stack && ui_state.i_clip_stack < UI_MAX_DEPTH);
+    ui_state.i_clip_stack -= 1;
+
+    if (ui_state.i_clip_stack > 0)
+    {
+        ui_state.i_clip_rect = ui_state.clip_stack[ui_state.i_clip_stack - 1];
+    }
+    else
+    {
+        ui_state.i_clip_rect = u32_invalid;
+    }
 }
 
 bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
@@ -90,27 +102,21 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
     }
 
     // rendering
+    auto bg_color = ui_theme.button_bg_color;
     if (ui_state.focused == id)
     {
         if (ui_state.active == id)
         {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_pressed_bg_color);
+            bg_color = ui_theme.button_pressed_bg_color;
         }
         else
         {
-            painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_hover_bg_color);
+            bg_color = ui_theme.button_hover_bg_color;
         }
     }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, ui_theme.button_bg_color);
-    }
+    painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color);
 
-    auto label_rect = button.rect;
-    label_rect.size = exo::float2(measure_label(ui_theme.main_font, button.label));
-    label_rect.position.x += (button.rect.size.x - label_rect.size.x) / 2.0f;
-    label_rect.position.y += (button.rect.size.y - label_rect.size.y) / 2.0f;
-
+    auto label_rect = rect_center(button.rect, exo::float2(measure_label(ui_theme.main_font, button.label)));
     painter_draw_color_rect(*ui_state.painter, label_rect, ui_state.i_clip_rect, 0xFF0000FF);
     painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, button.label);
 
@@ -123,7 +129,13 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 {
     u64 id = ui_make_id(ui_state);
 
-    Rect splitter_input = Rect{.position = {view_rect.position.x + view_rect.size.x * value - 5.0f, view_rect.position.y}, .size = {10.0f, view_rect.size.y}};
+    left = rect_split_off_left(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness);
+    right = rect_split_off_right(view_rect, (1.0f - value) * view_rect.size.x, ui_theme.splitter_thickness);
+
+    auto splitter_input = Rect{
+        .position = view_rect.position + exo::float2{left.size.x - ui_theme.input_thickness / 2.0f, 0.0f},
+        .size     = {ui_theme.input_thickness, view_rect.size.y},
+    };
 
     // behavior
     if (ui_is_hovering(ui_state, splitter_input))
@@ -137,31 +149,24 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 
     if (ui_state.active == id)
     {
-        value = float(ui_state.inputs->mouse_position.x - view_rect.position.x) / float(view_rect.size.x);
+        value = (float(ui_state.inputs->mouse_position.x) - view_rect.position.x) / view_rect.size.x;
     }
 
-    left.position = view_rect.position;
-    left.size = {view_rect.size.x * value, view_rect.size.y};
-
-    right.position = {view_rect.position.x + left.size.x, view_rect.position.y};
-    right.size = {view_rect.size.x * (1.0f - value), view_rect.size.y};
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
-    if (ui_state.focused == id)
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 2, view_rect.position.y}, .size = {4, view_rect.size.y}}, u32_invalid, 0xFF888888);
-    }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - 1, view_rect.position.y}, .size = {2, view_rect.size.y}}, u32_invalid, 0xFF666666);
-    }
+    const auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
+    painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y}, .size = {rect_thickness, view_rect.size.y}}, ui_state.i_clip_rect, 0xFF888888);
 }
 
 void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
 {
     u64 id = ui_make_id(ui_state);
 
-    Rect splitter_input = Rect{.position = {view_rect.position.x, view_rect.position.y + view_rect.size.y * value - 5.0f }, .size = {view_rect.size.x, 10.0f}};
+    top = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness);
+    bottom = rect_split_off_bottom(view_rect, (1.0f - value) * view_rect.size.y, ui_theme.splitter_thickness);
+
+    auto splitter_input = Rect{
+        .position = view_rect.position + exo::float2{0.0f, top.size.y - ui_theme.input_thickness / 2.0f},
+        .size     = {view_rect.size.x, ui_theme.input_thickness},
+    };
 
     // behavior
     if (ui_is_hovering(ui_state, splitter_input))
@@ -175,30 +180,15 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 
     if (ui_state.active == id)
     {
-        value = float(ui_state.inputs->mouse_position.y - view_rect.position.y) / float(view_rect.size.y);
+        value = (float(ui_state.inputs->mouse_position.y) - view_rect.position.y) / view_rect.size.y;
     }
 
-    top.position = view_rect.position;
-    top.size = {view_rect.size.x, view_rect.size.y * value};
+    const auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
+    painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f}, .size = {view_rect.size.x, rect_thickness}}, ui_state.i_clip_rect, 0xFF888888);
 
-    bottom.position = {view_rect.position.x, view_rect.position.y + top.size.y};
-    bottom.size = {view_rect.size.x, view_rect.size.y * (1.0f - value)};
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, 0x440000FF);
-    if (ui_state.focused == id)
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 2}, .size = {view_rect.size.x, 4}}, u32_invalid, 0xFF888888);
-    }
-    else
-    {
-        painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - 1}, .size = {view_rect.size.x, 2}}, u32_invalid, 0xFF666666);
-    }
-
-    // painter_draw_color_rect(*ui_state.painter, splitter_input, ui_state.i_clip_rect, 0x440000FF);
 }
 
 void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
 {
-    // painter_draw_color_rect(*ui_state.painter, label.rect, ui_state.i_clip_rect, 0xFF0000FF);
     painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, ui_theme.main_font, label.text);
 }
