@@ -1,30 +1,31 @@
 ﻿---
-IndentWidth: 4
-ColumnLimit: 120
-AlignAfterOpenBracket: Align
-AlignConsecutiveMacros: true
-AlignConsecutiveAssignments: true
+Standard: Latest
+ColumnLimit: 220
+
+# Use tabs for indentation
+IndentWidth: 8
+TabWidth: 8
+ContinuationIndentWidth: 8
+UseTab: ForContinuationAndIndentation
+
+# Use brace on new line for function/namespace/class declarations only
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass:            true
+  AfterControlStatement: false
+  AfterEnum:             true
+  AfterFunction:         true
+  AfterNamespace:        true
+  AfterObjCDeclaration:  true
+  AfterStruct:           true
+  AfterUnion:            true
+  BeforeCatch:           false
+  BeforeElse:            false
+  IndentBraces:          false
+
+# Alignment
+# BinPackArguments: false
+# BinPackParameters: false
+# AlignArrayOfStructures: Right
 AlignConsecutiveDeclarations: true
-AlignEscapedNewlines: Right
-AlignTrailingComments: true
-AllowAllArgumentsOnNextLine: false
-AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortBlocksOnASingleLine: true
-AllowShortFunctionsOnASingleLine: false
-AlwaysBreakTemplateDeclarations : true
-BinPackArguments: false
-BreakBeforeBinaryOperators: All
-BreakBeforeBraces: Allman
-BreakConstructorInitializers: BeforeComma
-BreakStringLiterals: true
-FixNamespaceComments: true
-IncludeBlocks: Regroup
-IndentCaseLabels: false
-IndentPPDirectives: AfterHash
-NamespaceIndentation: None
-PointerAlignment: Right
-ReflowComments: true
-SortIncludes: false
-Standard: c++17
-UseCRLF: false
-UseTab: Never
+AlignConsecutiveAssignments: true

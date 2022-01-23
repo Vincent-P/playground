@@ -1,79 +1,124 @@
 #pragma once
+#include <exo/macros/assert.h>
 #include <exo/macros/packed.h>
 #include <exo/maths/vectors.h>
 
 PACKED(struct Rect {
-    exo::float2 position;
-    exo::float2 size;
+	exo::float2 position;
+	exo::float2 size;
 })
+
+struct RectLeftRight
+{
+	Rect left;
+	Rect right;
+};
+
+struct RectTopBottom
+{
+	Rect top;
+	Rect bottom;
+};
+
+// -- Positioning
 
 inline Rect rect_center(const Rect &container, const exo::float2 &element_size)
 {
-    return {
-        .position = container.position + 0.5 * (container.size - element_size),
-        .size     = element_size,
-    };
+	return {
+		.position = container.position + 0.5 * (container.size - element_size),
+		.size = element_size,
+	};
 }
 
-inline Rect rect_center(const Rect &container, const Rect &rect)
-{
-    return rect_center(container, rect.size);
-}
+// -- Testing
 
 inline bool rect_is_point_inside(const Rect &container, const exo::float2 &point)
 {
-    return container.position.x <= point.x && point.x <= container.position.x + container.size.x
-           && container.position.y <= point.y && point.y <= container.position.y + container.size.y;
+	return container.position.x <= point.x && point.x <= container.position.x + container.size.x && container.position.y <= point.y && point.y <= container.position.y + container.size.y;
 }
 
-inline Rect rect_split_off_top(const Rect &r, float height, float margin)
+// -- Splitting
+
+inline Rect rect_divide_x(const Rect &r, float margin, u32 n, u32 i)
 {
-    // __________
-    // | split  |
-    // ----------
-    // | margin |
-    // ----------
-    // | r      |
-    // ----------
-    return {
-        .position = r.position,
-        .size     = {r.size.x, height + margin},
-    };
+	ASSERT(n > 0 && i < n);
+	const float split_width = r.size.x * (1.0f / float(n)) - float(n - 1) * margin;
+	return {
+		.position = {r.position.x + float(i) * (split_width + margin), r.position.y},
+		.size = {split_width, r.size.y},
+	};
 }
 
-inline Rect rect_split_off_bottom(const Rect &r, float height, float margin)
+inline Rect rect_divide_y(const Rect &r, float margin, u32 n, u32 i)
 {
-    // __________
-    // | r      |
-    // ----------
-    // | margin |
-    // ----------
-    // | split  |
-    // ----------
-    return {
-        .position = r.position + exo::float2{0.0, (r.size.y - height) + margin},
-        .size     = {r.size.x, height},
-    };
+	ASSERT(n > 0 && i < n);
+	const float split_height = r.size.y * (1.0f / float(n)) - float(n - 1) * margin;
+	return {
+		.position = {r.position.x, r.position.y + float(i) * (split_height + margin)},
+		.size = {r.size.x, split_height},
+	};
 }
 
-inline Rect rect_split_off_left(const Rect &r, float width, float /*margin*/)
+inline RectTopBottom rect_split_off_top(const Rect &r, float height, float margin)
 {
-    // ______________________
-    // | split | margin | r |
-    // ----------------------
-    return {
-        .position = r.position,
-        .size     = {width, r.size.y},
-    };
+	return {
+		.top =
+			{
+				.position = r.position,
+				.size = {r.size.x, height},
+			},
+		.bottom =
+			{
+				.position = r.position + exo::float2{0.0f, height + margin},
+				.size = {r.size.x, r.size.y - height - margin},
+			},
+	};
 }
 
-inline Rect rect_split_off_right(const Rect &r, float width, float margin)
+inline RectTopBottom rect_split_off_bottom(const Rect &r, float height, float margin)
 {
-    // ______________________
-    // | r | margin | split |
-    // ----------------------
-    return {
-        .position = r.position + exo::float2{(r.size.x - width) + margin, 0},
-        .size     = {width, r.size.y},
-    };
+	return {
+		.top =
+			{
+				.position = r.position,
+				.size = {r.size.x, r.size.y - height - margin},
+			},
+		.bottom =
+			{
+				.position = r.position + exo::float2{0.0f, r.size.y - height},
+				.size = {r.size.x, height},
+			},
+	};
+}
+
+inline RectLeftRight rect_split_off_left(const Rect &r, float width, float margin)
+{
+	return {
+		.left =
+			{
+				.position = r.position,
+				.size = {width, r.size.y},
+			},
+		.right =
+			{
+				.position = r.position + exo::float2{width + margin, 0.0f},
+				.size = {r.size.x - width - margin, r.size.y},
+			},
+	};
+}
+
+inline RectLeftRight rect_split_off_right(const Rect &r, float width, float margin)
+{
+	return {
+		.left =
+			{
+				.position = r.position,
+				.size = {r.size.x - width - margin, r.size.y},
+			},
+		.right =
+			{
+				.position = r.position + exo::float2{r.size.x - width, 0.0f},
+				.size = {width, r.size.y},
+			},
+	};
 }
