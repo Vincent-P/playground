@@ -100,20 +100,18 @@ exo::int2 measure_label(Font *font, const char *label)
     hb_shape(font->hb_font, buf, nullptr, 0);
 
     u32                  glyph_count;
-    i32                  line_height = font->ft_face->size->metrics.height >> 6;
-    hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
+    i32                  line_height = (font->ft_face->size->metrics.ascender - font->ft_face->size->metrics.descender)>> 6;
+    // hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
     hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
     i32 cursor_x = 0;
-    i32 last_glyph_width = 0;
     for (u32 i = 0; i < glyph_count; i++)
     {
-        auto &cache_entry = font->glyph_cache->get_or_create(glyph_info[i].codepoint);
+        // auto &cache_entry = font->glyph_cache->get_or_create(glyph_info[i].codepoint);
         cursor_x += (glyph_pos[i].x_advance >> 6);
-        last_glyph_width = cache_entry.glyph_size.x;
     }
 
-    return {cursor_x + last_glyph_width, line_height};
+    return {cursor_x, line_height};
 }
 
 void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font *font, const char *label)
@@ -133,7 +131,7 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
     hb_glyph_position_t *glyph_pos   = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
     i32 cursor_x = i32(view_rect.position.x);
-    i32 cursor_y = i32(view_rect.position.y) + line_height;
+    i32 cursor_y = i32(view_rect.position.y) + (font->ft_face->size->metrics.ascender >> 6);
     for (u32 i = 0; i < glyph_count; i++)
     {
         u32 glyph_index   = glyph_info[i].codepoint;

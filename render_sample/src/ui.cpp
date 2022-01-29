@@ -137,8 +137,8 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 {
 	u64 id = ui_make_id(ui_state);
 
-	top    = rect_split_off_top(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness).top;
-	bottom = rect_split_off_top(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness).bottom;
+	top    = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness).top;
+	bottom = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness).bottom;
 
 	auto splitter_input = Rect{
 		.position = view_rect.position + exo::float2{0.0f, top.size.y - ui_theme.input_thickness / 2.0f},
