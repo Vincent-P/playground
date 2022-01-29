@@ -37,6 +37,24 @@ inline bool rect_is_point_inside(const Rect &container, const exo::float2 &point
 	return container.position.x <= point.x && point.x <= container.position.x + container.size.x && container.position.y <= point.y && point.y <= container.position.y + container.size.y;
 }
 
+// -- Margins
+
+inline Rect rect_outset(const Rect &r, float margin)
+{
+    return {
+	.position = r.position - exo::float2(margin),
+	.size = r.size + exo::float2(2.0f * margin),
+    };
+}
+
+inline Rect rect_inset(const Rect &r, float margin)
+{
+    return {
+	.position = r.position + exo::float2(margin),
+	.size = r.size - exo::float2(2.0f * margin),
+    };
+}
+
 // -- Splitting
 
 inline Rect rect_divide_x(const Rect &r, float margin, u32 n, u32 i)

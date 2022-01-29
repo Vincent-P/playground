@@ -129,8 +129,10 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 		value = (float(ui_state.inputs->mouse_position.x) - view_rect.position.x) / view_rect.size.x;
 	}
 
-	const auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y}, .size = {rect_thickness, view_rect.size.y}}, ui_state.i_clip_rect, 0xFF888888);
+	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
+	rect_thickness = 1.0f;
+	painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y}, .size = {rect_thickness, view_rect.size.y}}, ui_state.i_clip_rect, color);
 }
 
 void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
@@ -157,8 +159,15 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 		value = (float(ui_state.inputs->mouse_position.y) - view_rect.position.y) / view_rect.size.y;
 	}
 
-	const auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f}, .size = {view_rect.size.x, rect_thickness}}, ui_state.i_clip_rect, 0xFF888888);
+	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
+	rect_thickness = 1.0f;
+	painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f}, .size = {view_rect.size.x, rect_thickness}}, ui_state.i_clip_rect, color);
 }
 
 void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label) { painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, ui_theme.main_font, label.text); }
+
+void ui_rect(UiState &ui_state, const UiTheme &ui_theme, const UiRect &rect)
+{
+    painter_draw_color_rect(*ui_state.painter, rect.rect, ui_state.i_clip_rect, rect.color);
+}

@@ -293,6 +293,62 @@ static void display_file(RenderSample *app, const Rect &view_rect)
 	}
 }
 
+struct UiCharCheckbox
+{
+    char label;
+    Rect rect;
+    bool *value;
+};
+
+bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCheckbox &checkbox)
+{
+    bool result = checkbox.value ? *checkbox.value : false;
+    u64  id     = ui_make_id(ui_state);
+
+    if (ui_is_hovering(ui_state, checkbox.rect)) {
+	    ui_state.focused = id;
+	    if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
+		    ui_state.active = id;
+	    }
+    }
+
+    if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id && ui_state.active == id) {
+	    result = !result;
+    }
+
+
+    u32 border_color = 0xFF8A8A8A;
+    if (ui_state.focused == id) {
+	    if (ui_state.active == id) {
+		    border_color = 0xFF3D3D3D;
+	    } else {
+		    border_color = 0xFFD5D5D5;
+	    }
+    }
+    u32 bg_color = 0xFFF3F3F3;
+    if (result)
+    {
+	bg_color = 0xFFFBA82D;
+    }
+
+    float border_thickness = 1.0f;
+
+    const char label_str[] = {checkbox.label, '\0'};
+    auto label_rect = rect_center(checkbox.rect, exo::float2(measure_label(ui_theme.main_font, label_str)));
+
+    ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, checkbox.rect));
+    painter_draw_color_rect(*ui_state.painter, checkbox.rect, ui_state.i_clip_rect, border_color);
+    painter_draw_color_rect(*ui_state.painter, rect_inset(checkbox.rect, border_thickness), ui_state.i_clip_rect, bg_color);
+    painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, label_str);
+    ui_pop_clip_rect(ui_state);
+
+    if (checkbox.value && *checkbox.value != result)
+    {
+	*checkbox.value = result;
+    }
+    return result;
+}
+
 static void display_ui(RenderSample *app)
 {
 	app->painter->index_offset = 0;
@@ -301,27 +357,64 @@ static void display_ui(RenderSample *app)
 
 	auto fullscreen_rect = Rect{.position = {0, 0}, .size = exo::float2(app->window->size.x, app->window->size.y)};
 
-	const float menu_item_margin = 4.0f;
-	const float menubar_height = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menu_item_margin;
+	const float menubar_height_margin   = 8.0f;
+	const float menu_item_margin = 12.0f;
+	const float menubar_height          = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
 	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
 
 	/* Menu bar */
-	float item_width = float(measure_label(app->ui_theme.main_font, "File").x) + 2.0f * menu_item_margin;
-	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, item_width, 0.0f);
-	menubar_rect = new_menubar_rect;
+	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFF3F3F3, .rect = menubar_rect});
 
+	menubar_rect = rect_split_off_left(menubar_rect, 0.0f, menu_item_margin).right; // add first margin on the left
+
+	auto label_size = exo::float2(measure_label(app->ui_theme.main_font, "File")) + exo::float2{8.0f, 0.0f};
+	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
+	menubar_rect = new_menubar_rect;
+	file_rect = rect_center(file_rect, label_size);
 	if (ui_button(app->ui_state, app->ui_theme, {.label = "File", .rect = file_rect})) {
 	}
 
-	item_width = float(measure_label(app->ui_theme.main_font, "Help").x) + 2.0f * menu_item_margin;
-	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, item_width, 0.0f);
+	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Help")) + exo::float2{8.0f, 0.0f};
+	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect = new_menubar_rect2;
+	help_rect = rect_center(help_rect, label_size);
 	if (ui_button(app->ui_state, app->ui_theme, {.label = "Help", .rect = help_rect})) {
 	}
 
+	const auto check_margin = 4.0f;
+	const auto check_size = exo::float2{20.0f};
+	auto [check_rect, new_menubar_rect3] = rect_split_off_left(menubar_rect, check_size.x, check_margin);
+	menubar_rect = new_menubar_rect3;
+	check_rect = rect_center(check_rect, check_size);
+	static bool r_checked = false;
+	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'R', .rect = check_rect, .value = &r_checked})) {
+	}
+
+	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
+	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
+	check_rect = rect_center(check_rect, check_size);
+	static bool g_checked = false;
+	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'G', .rect = check_rect, .value = &g_checked})) {
+	}
+
+	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
+	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
+	check_rect = rect_center(check_rect, check_size);
+	static bool b_checked = false;
+	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'B', .rect = check_rect, .value = &b_checked})) {
+	}
+
+
+	check_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).left;
+	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).right;
+	check_rect = rect_center(check_rect, check_size);
+	static bool a_checked = false;
+	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'A', .rect = check_rect, .value = &a_checked})) {
+	}
+
 	/* Content */
-	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 2.0f, 0.0f);
-	painter_draw_color_rect(*app->painter, separator_rect, u32_invalid, 0x88000000);
+	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
+	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFE5E5E5, .rect = separator_rect});
 
 	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
 	ui_push_clip_rect(app->ui_state, i_content_rect);
@@ -387,6 +480,18 @@ static void display_ui(RenderSample *app)
 
 	std::memset(tmp_label, 0, sizeof(tmp_label));
 	fmt::format_to(tmp_label, "Frame: {}", app->renderer->frame_count);
+	label_rect.position.y += label_rect.size.y + 5;
+	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+	std::memset(tmp_label, 0, sizeof(tmp_label));
+	fmt::format_to(tmp_label, "Splitter Y #1: {}", left_hsplit);
+	label_rect.position.y += label_rect.size.y + 5;
+	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
+	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+	std::memset(tmp_label, 0, sizeof(tmp_label));
+	fmt::format_to(tmp_label, "Splitter Y #2: {}", right_hsplit);
 	label_rect.position.y += label_rect.size.y + 5;
 	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
 	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
