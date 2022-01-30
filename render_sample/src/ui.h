@@ -33,6 +33,7 @@ struct UiState
 	u32 i_clip_rect              = u32_invalid;
 	u32 clip_stack[UI_MAX_DEPTH] = {};
 	u32 i_clip_stack             = 0;
+	int cursor                   = 0;
 
 	Inputs  *inputs  = nullptr;
 	Painter *painter = nullptr;

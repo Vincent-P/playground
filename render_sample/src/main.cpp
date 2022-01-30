@@ -361,24 +361,29 @@ static void display_ui(RenderSample *app)
 	const float menu_item_margin = 12.0f;
 	const float menubar_height          = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
 	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
-
+		
 	/* Menu bar */
-	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFF3F3F3, .rect = menubar_rect});
+	const u32 menubar_bg_color = 0xFFF3F3F3;
+	ui_rect(app->ui_state, app->ui_theme, {.color = menubar_bg_color, .rect = menubar_rect});
 
 	menubar_rect = rect_split_off_left(menubar_rect, 0.0f, menu_item_margin).right; // add first margin on the left
+	auto menubar_theme = app->ui_theme;
+	menubar_theme.button_bg_color = 0x00000000;
+	menubar_theme.button_hover_bg_color = 0x06000000;
+	menubar_theme.button_pressed_bg_color = 0x09000000;
 
 	auto label_size = exo::float2(measure_label(app->ui_theme.main_font, "File")) + exo::float2{8.0f, 0.0f};
 	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect = new_menubar_rect;
 	file_rect = rect_center(file_rect, label_size);
-	if (ui_button(app->ui_state, app->ui_theme, {.label = "File", .rect = file_rect})) {
+	if (ui_button(app->ui_state, menubar_theme, {.label = "File", .rect = file_rect})) {
 	}
 
 	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Help")) + exo::float2{8.0f, 0.0f};
 	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect = new_menubar_rect2;
 	help_rect = rect_center(help_rect, label_size);
-	if (ui_button(app->ui_state, app->ui_theme, {.label = "Help", .rect = help_rect})) {
+	if (ui_button(app->ui_state, menubar_theme, {.label = "Help", .rect = help_rect})) {
 	}
 
 	const auto check_margin = 4.0f;
@@ -387,21 +392,21 @@ static void display_ui(RenderSample *app)
 	menubar_rect = new_menubar_rect3;
 	check_rect = rect_center(check_rect, check_size);
 	static bool r_checked = false;
-	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'R', .rect = check_rect, .value = &r_checked})) {
+	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'R', .rect = check_rect, .value = &r_checked})) {
 	}
 
 	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect = rect_center(check_rect, check_size);
 	static bool g_checked = false;
-	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'G', .rect = check_rect, .value = &g_checked})) {
+	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'G', .rect = check_rect, .value = &g_checked})) {
 	}
 
 	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect = rect_center(check_rect, check_size);
 	static bool b_checked = false;
-	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'B', .rect = check_rect, .value = &b_checked})) {
+	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'B', .rect = check_rect, .value = &b_checked})) {
 	}
 
 
@@ -409,7 +414,7 @@ static void display_ui(RenderSample *app)
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).right;
 	check_rect = rect_center(check_rect, check_size);
 	static bool a_checked = false;
-	if (ui_char_checkbox(app->ui_state, app->ui_theme, {.label = 'A', .rect = check_rect, .value = &a_checked})) {
+	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'A', .rect = check_rect, .value = &a_checked})) {
 	}
 
 	/* Content */
@@ -498,6 +503,7 @@ static void display_ui(RenderSample *app)
 
 	ui_pop_clip_rect(app->ui_state);
 	ui_end_frame(app->ui_state);
+	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
 }
 
 static void render(RenderSample *app)

@@ -15,7 +15,7 @@ namespace exo
 {
 using PaintFunction = void (*)(void *user_data);
 
-enum struct Cursor
+enum struct Cursor : int
 {
     None,
     Arrow,

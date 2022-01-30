@@ -188,40 +188,6 @@ void Window::remove_caret()
 
 void Window::set_cursor(Cursor cursor)
 {
-    LPTSTR win32_cursor = nullptr;
-    switch (cursor)
-    {
-    case Cursor::None:
-        break;
-    case Cursor::Arrow:
-        win32_cursor = IDC_ARROW;
-        break;
-    case Cursor::TextInput:
-        win32_cursor = IDC_IBEAM;
-        break;
-    case Cursor::ResizeAll:
-        win32_cursor = IDC_SIZEALL;
-        break;
-    case Cursor::ResizeEW:
-        win32_cursor = IDC_SIZEWE;
-        break;
-    case Cursor::ResizeNS:
-        win32_cursor = IDC_SIZENS;
-        break;
-    case Cursor::ResizeNESW:
-        win32_cursor = IDC_SIZENESW;
-        break;
-    case Cursor::ResizeNWSE:
-        win32_cursor = IDC_SIZENWSE;
-        break;
-    case Cursor::Hand:
-        win32_cursor = IDC_HAND;
-        break;
-    case Cursor::NotAllowed:
-        win32_cursor = IDC_NO;
-        break;
-    }
-    ::SetCursor(cursor == Cursor::None ? nullptr : ::LoadCursor(nullptr, win32_cursor));
     current_cursor = cursor;
 }
 
@@ -278,15 +244,53 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         return 0;
     }
 
-    case WM_KILLFOCUS:
-    {
-        window.has_focus = false;
-        if (window.caret)
-        {
-            DestroyCaret();
-        }
+    case WM_SETCURSOR: {
+	    if (LOWORD(lParam) == HTCLIENT) {
+		    LPTSTR win32_cursor = nullptr;
+		    switch (window.current_cursor) {
+		    case Cursor::None:
+			    break;
+		    case Cursor::Arrow:
+			    win32_cursor = IDC_ARROW;
+			    break;
+		    case Cursor::TextInput:
+			    win32_cursor = IDC_IBEAM;
+			    break;
+		    case Cursor::ResizeAll:
+			    win32_cursor = IDC_SIZEALL;
+			    break;
+		    case Cursor::ResizeEW:
+			    win32_cursor = IDC_SIZEWE;
+			    break;
+		    case Cursor::ResizeNS:
+			    win32_cursor = IDC_SIZENS;
+			    break;
+		    case Cursor::ResizeNESW:
+			    win32_cursor = IDC_SIZENESW;
+			    break;
+		    case Cursor::ResizeNWSE:
+			    win32_cursor = IDC_SIZENWSE;
+			    break;
+		    case Cursor::Hand:
+			    win32_cursor = IDC_HAND;
+			    break;
+		    case Cursor::NotAllowed:
+			    win32_cursor = IDC_NO;
+			    break;
+		    }
+		    ::SetCursor(win32_cursor ? ::LoadCursor(nullptr, win32_cursor) : nullptr);
+		    return 0;
+	    }
+	    break;
+    }
 
-        return 0;
+    case WM_KILLFOCUS: {
+	    window.has_focus = false;
+	    if (window.caret) {
+		    DestroyCaret();
+	    }
+
+	    return 0;
     }
 
     case WM_SIZE:
