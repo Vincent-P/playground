@@ -91,6 +91,10 @@ void main()
         gl_Position = float4(uintBitsToFloat(0xffffffff));
         return;
     }
+    else if (is_sdf_type(primitive_type))
+    {
+	color_rect(position, uv, i_primitive, corner);
+    }
 
     gl_Position = float4(position * scale + translation, 0.0, 1.0);
     o_uv = uv;

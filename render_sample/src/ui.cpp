@@ -96,7 +96,7 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
 			bg_color = ui_theme.button_hover_bg_color;
 		}
 	}
-	painter_draw_color_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color);
+	painter_draw_color_round_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color, 0x0F000000, 2);
 
 	auto label_rect = rect_center(button.rect, exo::float2(measure_label(ui_theme.main_font, button.label)));
 	// painter_draw_color_rect(*ui_state.painter, label_rect, u32_invalid, 0x880000FF);

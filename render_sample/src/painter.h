@@ -16,6 +16,16 @@ PACKED(struct ColorRect
     u32 padding[2];
 })
 
+PACKED(struct SdfRect
+{
+    Rect rect;
+    u32 color;
+    u32 i_clip_rect;
+    u32 border_color;
+    u32 border_thickness;
+})
+static_assert(sizeof(SdfRect) == sizeof(ColorRect));
+
 PACKED(struct TexturedRect
 {
     Rect rect;
@@ -25,11 +35,13 @@ PACKED(struct TexturedRect
     u32 padding[2];
 })
 
-enum RectType
+enum RectType : u32
 {
     RectType_Color = 0,
     RectType_Textured = 1,
     RectType_Clip = 2,
+    RectType_Sdf_RoundRectangle = (0b100000 + 0),
+    RectType_Sdf_Circle = (0b100000 + 1)
 };
 
 union PrimitiveIndex
@@ -71,3 +83,5 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
 void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR);
 exo::int2 measure_label(Font *font, const char *label);
 void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font *font, const char *label);
+void painter_draw_color_round_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);
+void painter_draw_color_circle(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);

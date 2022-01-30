@@ -361,7 +361,7 @@ static void display_ui(RenderSample *app)
 	const float menu_item_margin = 12.0f;
 	const float menubar_height          = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
 	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
-		
+
 	/* Menu bar */
 	const u32 menubar_bg_color = 0xFFF3F3F3;
 	ui_rect(app->ui_state, app->ui_theme, {.color = menubar_bg_color, .rect = menubar_rect});
@@ -450,12 +450,14 @@ static void display_ui(RenderSample *app)
 	ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
 
 	/* Right top pane */
-	if (ui_button(app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 30}}})) {
+	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Button 1")) + exo::float2{64.0f, 8.0f};
+	if (ui_button(app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = label_size}})) {
 		exo::logger::info("Button 1 clicked!!\n");
 	}
 
 	/* Right Bottom pane */
-	Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = {80, 20}};
+	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Open file")) + exo::float2{8.0f, 8.0f};
+	Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = label_size};
 	if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect})) {
 		if (auto fs_path = exo::file_dialog({{"file", "*"}})) {
 			open_file(app, fs_path.value());

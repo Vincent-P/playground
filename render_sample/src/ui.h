@@ -11,10 +11,10 @@ inline constexpr u32 UI_MAX_DEPTH = 128;
 struct UiTheme
 {
 	// colors are in 0xAABBGGRR
-	u32 button_bg_color         = 0xFFDA901E;
-	u32 button_hover_bg_color   = 0xFFD58100;
-	u32 button_pressed_bg_color = 0xFFBC7200;
-	u32 button_label_color      = 0xFFFFFFFF;
+	u32 button_bg_color         = 0xB2FFFF;
+	u32 button_hover_bg_color   = 0x06000000;
+	u32 button_pressed_bg_color = 0x09000000;
+	u32 button_label_color      = 0xFF000000;
 
 	float input_thickness          = 10.0f;
 	float splitter_thickness       = 2.0f;

@@ -13,6 +13,14 @@
 #include <hb-ft.h>
 #include <hb.h>
 
+namespace
+{
+static u32 get_a(const u32 color) { return color & 0xFF000000; }
+static u32 get_r(const u32 color) { return color & 0x000000FF; }
+static u32 get_g(const u32 color) { return color & 0x0000FF00; }
+static u32 get_b(const u32 color) { return color & 0x00FF0000; }
+}
+
 Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size)
 {
 	auto *painter     = scope.allocate<Painter>();
@@ -62,7 +70,7 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
 void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR)
 {
 	// Don't draw invisible rects
-	if ((AABBGGRR & 0xFF000000) == 0) {
+    if (get_a(AABBGGRR) == 0) {
 		return;
 	}
 
@@ -160,4 +168,68 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 			cursor_y += line_height;
 		}
 	}
+}
+
+void painter_draw_color_round_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness)
+{
+	// Don't draw invisible rects
+	if (get_a(color) == 0 && get_a(border_color) == 0) {
+		return;
+	}
+
+	auto misalignment = painter.vertex_bytes_offset % sizeof(SdfRect);
+	if (misalignment != 0) {
+		painter.vertex_bytes_offset += sizeof(SdfRect) - misalignment;
+	}
+
+	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
+	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
+	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
+	vertices[i_rect] = {.rect = rect, .color = color, .i_clip_rect = i_clip_rect, .border_color = border_color, .border_thickness = border_thickness};
+	painter.vertex_bytes_offset += sizeof(SdfRect);
+
+	// 0 - 3
+	// |   |
+	// 1 - 2
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_RoundRectangle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_RoundRectangle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
+
+	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
+	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+}
+
+void painter_draw_color_circle(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness)
+{
+	// Don't draw invisible rects
+	if (get_a(color) == 0 && get_a(border_color) == 0) {
+		return;
+	}
+
+	auto misalignment = painter.vertex_bytes_offset % sizeof(SdfRect);
+	if (misalignment != 0) {
+		painter.vertex_bytes_offset += sizeof(SdfRect) - misalignment;
+	}
+
+	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
+	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
+	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
+	vertices[i_rect] = {.rect = rect, .color = color, .i_clip_rect = i_clip_rect, .border_color = border_color, .border_thickness = border_thickness};
+	painter.vertex_bytes_offset += sizeof(SdfRect);
+
+	// 0 - 3
+	// |   |
+	// 1 - 2
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_Circle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_Circle}};
+	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
+
+	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
+	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }

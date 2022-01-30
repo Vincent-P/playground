@@ -1,6 +1,7 @@
 #pragma shader_stage(fragment)
 
 #include "base/types.h"
+#include "2d/sdf.h"
 #include "render_sample/globals.h"
 
 layout(set = SHADER_SET, binding = 0) uniform Options {
@@ -49,6 +50,27 @@ float4 color_rect(u32 i_primitive, u32 corner, float2 uv)
     return unpackUnorm4x8(rect.color);
 }
 
+float4 sdf_round_rect(u32 i_primitive, u32 corner, float2 uv)
+{
+    u32 primitive_offset = primitive_bytes_offset / sizeof_color_rect;
+    SdfRect rect = global_buffers_sdf_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
+    clip_rect(rect.i_clip_rect);
+
+    const float radius = 5.0;
+    float d = sdRoundedBox((uv - 0.5) * rect.rect.size, rect.rect.size * 0.5, float4(radius));
+
+    float bg_opacity      = clamp(0.5 - d, 0, 1);
+    float border_opacity = clamp(0.5 - (d+rect.border_thickness), 0, 1);
+
+    float4 bg_color     = unpackUnorm4x8(rect.color);
+    float4 border_color = unpackUnorm4x8(rect.border_color);
+
+    float4 res = mix(border_color, bg_color, border_opacity);
+    res.a   = res.a * bg_opacity; // restrict shape outside of border
+    return res;
+}
+
+
 layout(location = 0) in float2 i_uv;
 layout(location = 1) in flat u32 i_primitive_index;
 layout(location = 0) out float4 o_color;
@@ -65,6 +87,10 @@ void main()
     else if (primitive_type == RectType_Color)
     {
         o_color = color_rect(i_primitive, corner, i_uv);
+    }
+    else if (primitive_type == RectType_Sdf_RoundRectangle)
+    {
+	o_color = sdf_round_rect(i_primitive, corner, i_uv);
     }
     else
     {
