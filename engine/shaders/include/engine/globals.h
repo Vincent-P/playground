@@ -119,7 +119,7 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
 
     float delta_t;
     u32 frame_count;
-    u32 first_accumulation_frame;
+    bool enable_taa;
     u32 meshes_data_descriptor;
 
     u32 instances_data_descriptor;
@@ -138,6 +138,11 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     u32 materials_descriptor;
 
     u32 vertex_uvs_descriptor;
+    bool enable_hbao;
+    u32 hbao_samples_per_dir;
+    u32 hbao_dir_count;
+
+    u32 hbao_radius;
 } globals;
 
 layout(set = 1, binding = 0) uniform sampler2D global_textures[];

@@ -59,6 +59,12 @@ void main()
         return;
     }
 
+    if (globals.enable_taa == false)
+    {
+	imageStore(global_images_2d_rgba32f[storage_current_history], pixel_pos, texelFetch(global_textures[sampled_hdr_buffer], pixel_pos, LOD0));
+	return;
+    }
+
     float depth = texelFetch(global_textures[sampled_depth_buffer], pixel_pos, LOD0).r;
 
     float2 uv = (float2(pixel_pos) + float2(0.5)) / float2(output_size);

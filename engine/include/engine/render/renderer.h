@@ -86,10 +86,14 @@ struct Settings
     float resolution_scale      = {1.0f};
     int2  render_resolution     = {0};
     bool  resolution_dirty      = {true};
-    bool  clear_history         = {false};
+    bool  enable_taa            = {true};
     bool  enable_path_tracing   = {false};
     bool  freeze_camera_culling = {false};
     bool  use_blue_noise        = {true};
+    bool enable_hbao = {false};
+    u32 hbao_samples_per_dir = 4;
+    u32 hbao_dir_count = 4;
+    u32 hbao_radius = 32;
 };
 
 PACKED (struct GlobalUniform
@@ -106,7 +110,7 @@ PACKED (struct GlobalUniform
 
     float delta_t;
     u32 frame_count;
-    u32 first_accumulation_frame;
+    u32 enable_taa;
     u32 meshes_data_descriptor;
 
     u32 instances_data_descriptor;
@@ -125,9 +129,14 @@ PACKED (struct GlobalUniform
     u32 materials_descriptor;
 
     u32 vertex_uvs_descriptor;
-    u32 pad00;
-    u32 pad01;
-    u32 pad10;
+    u32 enable_hbao;
+    u32 hbao_samples_per_dir;
+    u32 hbao_dir_count;
+
+    u32 hbao_radius;
+    u32 padding0;
+    u32 padding1;
+    u32 padding2;
 })
 
 PACKED (struct PushConstants
@@ -227,7 +236,6 @@ struct Renderer
     // global uniform data
     u32 instances_offset = 0;
     u32 submesh_instances_offset = 0;
-    u32 first_accumulation_frame = 0;
 
     ImGuiPass imgui_pass;
 

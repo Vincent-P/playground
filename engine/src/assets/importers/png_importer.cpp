@@ -81,9 +81,11 @@ void *PNGImporter::read_data_json(const rapidjson::Value &j_data)
     auto *new_data = create_default_importer_data();
     auto *data = reinterpret_cast<PNGImporter::Data*>(new_data);
 
-    const auto &j_settings = j_data["settings"].GetObj();
     data->settings = {};
-    UNUSED(j_settings);
+    if (j_data.HasMember("settings")) {
+	    const auto &j_settings = j_data["settings"].GetObj();
+	    UNUSED(j_settings);    
+    }
 
     return new_data;
 }

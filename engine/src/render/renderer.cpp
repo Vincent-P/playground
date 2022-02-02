@@ -594,10 +594,11 @@ void Renderer::display_ui()
             {
                 settings.resolution_dirty = true;
             }
-            if (ImGui::Checkbox("TAA: Clear history", &settings.clear_history))
-            {
-                first_accumulation_frame = base_renderer->frame_count;
-            }
+            ImGui::Checkbox("Enable TAA", &settings.enable_taa);
+            ImGui::Checkbox("Enable HBAO", &settings.enable_hbao);
+            ImGui::DragInt("HBAO: Samples per dir", (int*)&settings.hbao_samples_per_dir, 1, 1, 16);
+            ImGui::DragInt("HBAO: Number of dir", (int*)&settings.hbao_dir_count, 1, 1, 8);
+            ImGui::DragInt("HBAO: Radius", (int*)&settings.hbao_radius, 1, 4, 64);
             ImGui::Checkbox("Enable Path tracing", &settings.enable_path_tracing);
             ImGui::Checkbox("Freeze camera culling", &settings.freeze_camera_culling);
             ImGui::Checkbox("Use blue noise", &settings.use_blue_noise);
@@ -689,11 +690,11 @@ void Renderer::update(const RenderWorld &render_world)
     global_data->camera_projection_inverse  = render_world.main_camera_projection_inverse;
     global_data->camera_previous_view       = last_view;
     global_data->camera_previous_projection = last_proj;
-    global_data->render_resolution          = floor(settings.resolution_scale * float2(settings.render_resolution)),
-    global_data->jitter_offset              = current_sample;
+    global_data->render_resolution          = floor(settings.resolution_scale * float2(settings.render_resolution));
+    global_data->jitter_offset              = settings.enable_taa ? current_sample : float2{};
     global_data->delta_t                    = 0.016f;
     global_data->frame_count                = base_renderer->frame_count;
-    global_data->first_accumulation_frame   = this->first_accumulation_frame;
+    global_data->enable_taa                 = u32(settings.enable_taa);
     global_data->meshes_data_descriptor     = device.get_buffer_storage_index(meshes_buffer);
     global_data->instances_data_descriptor  = device.get_buffer_storage_index(instances_data.buffer);
     global_data->instances_offset           = this->instances_offset;
@@ -708,6 +709,10 @@ void Renderer::update(const RenderWorld &render_world)
     global_data->culled_instances_indices_descriptor = device.get_buffer_storage_index(culled_instances_compact_indices);
     global_data->materials_descriptor  = device.get_buffer_storage_index(this->materials_buffer);
     global_data->vertex_uvs_descriptor = device.get_buffer_storage_index(this->vertex_uvs_buffer.buffer);
+    global_data->enable_hbao = u32(settings.enable_hbao);
+    global_data->hbao_samples_per_dir = settings.hbao_samples_per_dir;
+    global_data->hbao_dir_count = settings.hbao_dir_count;
+    global_data->hbao_radius = settings.hbao_radius;
 
     last_view = render_world.main_camera_view;
     last_proj = render_world.main_camera_projection;
@@ -938,14 +943,6 @@ void Renderer::update(const RenderWorld &render_world)
         ZoneNamedN(taa, "TAA", true);
         timings.begin_label(cmd, "TAA");
         cmd.begin_debug_label("TAA");
-
-        if (settings.clear_history)
-        {
-            cmd.clear_barrier(previous_history, gfx::ImageUsage::TransferDst);
-            cmd.clear_image(previous_history, {.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
-            this->first_accumulation_frame = base_renderer->frame_count;
-        }
-
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderRead);
         cmd.barrier(previous_history, gfx::ImageUsage::ComputeShaderRead);
         cmd.clear_barrier(current_history, gfx::ImageUsage::ComputeShaderReadWrite);
