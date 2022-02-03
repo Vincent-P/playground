@@ -133,9 +133,10 @@ layout(set = SHADER_SET, binding = 0) uniform Options {
 
 /// HBAO
 
-float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_tangent, float depth, float2 rng, out float3 debug)
+float hbao(int2 pixel_pos, float3 world_normal, float3 world_tangent, float depth, float2 rng, out float3 debug)
 {
-	float3 clip_space = float3(screen_uv * 2.0 - float2(1.0), depth);
+   float2 depth_resolution = float2(textureSize(DEPTH_BUFFER, LOD0));
+	float3 clip_space = float3((float2(pixel_pos) / depth_resolution) * 2.0 - float2(1.0), depth);
 	float4 view_pos = (globals.camera_projection_inverse * float4(clip_space, 1.0));
 	view_pos /= view_pos.w;
 
@@ -144,34 +145,36 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 
 	rng = rng * 2.0 - 1.0;
 
+	float radius = globals.hbao_radius;
+
 	float ao = 0.0;
 	debug = float3(0.0);
 	for (u32 i_dir = 0; i_dir < globals.hbao_dir_count; i_dir += 1)
 	{
 		float sample_dir_angle = float(i_dir) * (2.0 * PI) / globals.hbao_dir_count;
 
-		#if 1
 		float2 sample_dir = float2(cos(sample_dir_angle) * rng.x - sin(sample_dir_angle) * rng.y,
 					   cos(sample_dir_angle) * rng.y + sin(sample_dir_angle) * rng.x);
-		#else
-		float2 sample_dir = float2(cos(sample_dir_angle), sin(sample_dir_angle));
-		#endif
 
-		clip_space.z = texelFetch(DEPTH_BUFFER, int2(floor(float2(pixel_pos) + sample_dir)), LOD0).r;
+		int2 sample_pixel = int2(floor(float2(pixel_pos) + sample_dir));
+		clip_space.xy = (float2(sample_pixel) / depth_resolution) * 2.0 - 1.0;
+		clip_space.z = texelFetch(DEPTH_BUFFER, sample_pixel, LOD0).r;
 		float4 sample_view_dir_p = (globals.camera_projection_inverse * float4(clip_space, 1.0));
 		float3 tangent = (sample_view_dir_p.xyz / sample_view_dir_p.w) - view_pos.xyz;
 		tangent -= dot(tangent, view_normal) * view_normal;
-		float t = 30.0 + atan((tangent.z) / (length(tangent.xy)));
+		float t = 1.0 + atan((tangent.z) / (length(tangent.xy)));
 
+		// March to find the horizon
 		float max_elevation = -INF;
 		float max_d = 1.0;
 		for (u32 i_sample = 0; i_sample < globals.hbao_samples_per_dir; i_sample += 1)
 		{
-			float sample_d = globals.hbao_radius * float(i_sample+1) / float(globals.hbao_samples_per_dir);
+			float sample_d = radius * float(i_sample+1) / float(globals.hbao_samples_per_dir);
 
-			int2 sample_pixel = int2(floor(float2(pixel_pos) + sample_d * sample_dir));
+			sample_pixel = int2(floor(float2(pixel_pos) + sample_d * sample_dir));
 
 			float sampled_depth = texelFetch(DEPTH_BUFFER, sample_pixel, LOD0).r;
+			clip_space.xy = (float2(sample_pixel) / depth_resolution) * 2.0 - 1.0;
 			clip_space.z = sampled_depth;
 			float4 sampled_view_pos = (globals.camera_projection_inverse * float4(clip_space, 1.0));
 			sampled_view_pos /= sampled_view_pos.w;
@@ -180,6 +183,7 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 
 			float h = atan((origin_to_sample.z) / (length(origin_to_sample.xy)));
 
+			// Keep the highest horizon
 			if (h > max_elevation)
 			{
 			    max_elevation = h;
@@ -187,8 +191,9 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 			}
 		}
 
-		float r = max_d / globals.hbao_radius;
-		ao += clamp(sin(max_elevation) - sin(t), 0, 1) * (1 - r * r);
+		float r = max_d / radius;
+		r = (1.0 - r * r);
+		ao += clamp(sin(max_elevation) - sin(t), 0, 1) * r;
 	}
 
 	ao /= globals.hbao_dir_count;
@@ -344,7 +349,7 @@ void main()
 	float3 debug = float3(0, 0, 0);
 	if (globals.enable_hbao)
 	{
-	ao = hbao(screen_uv, pixel_pos, surface_normal, bitangent, depth, u1_u2, debug);
+	ao = hbao(pixel_pos, surface_normal, bitangent, depth, u1_u2, debug);
 	}
 	else
 	{
