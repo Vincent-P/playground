@@ -429,7 +429,7 @@ Result<void> AssetManager::save_asset(Asset *asset)
 {
     exo::ScopeStack scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
     exo::Serializer serializer  = exo::Serializer::create(&scope);
-    serializer.buffer_size = 10_MiB;
+    serializer.buffer_size = 32_MiB;
     serializer.buffer      = scope.allocate(serializer.buffer_size);
     serializer.is_writing = true;
     asset->serialize(serializer);

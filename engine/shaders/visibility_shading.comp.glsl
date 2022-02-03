@@ -132,6 +132,7 @@ layout(set = SHADER_SET, binding = 0) uniform Options {
 
 
 /// HBAO
+
 float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_tangent, float depth, float2 rng, out float3 debug)
 {
 	float3 clip_space = float3(screen_uv * 2.0 - float2(1.0), depth);
@@ -142,9 +143,11 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 	float3 view_tangent = normalize((globals.camera_view * float4(world_tangent, 0.0)).xyz);
 
 	float t = atan((view_tangent.z) / (length(view_tangent.xy)));
+	t += 15.0 * TO_RADIANS;
 	rng = rng * 2.0 - 1.0;
 
 	float ao = 0.0;
+	debug = float3(0.0);
 	for (u32 i_dir = 0; i_dir < globals.hbao_dir_count; i_dir += 1)
 	{
 		float sample_dir_angle = float(i_dir) * (2.0 * PI) / globals.hbao_dir_count;
@@ -152,7 +155,7 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 					   cos(sample_dir_angle) * rng.y + sin(sample_dir_angle) * rng.x);
 
 		float max_elevation = -INF;
-		float3 max_sample = float3(0.0);
+		float max_d = 1.0;
 		for (u32 i_sample = 0; i_sample < globals.hbao_samples_per_dir; i_sample += 1)
 		{
 			float sample_d = (globals.hbao_radius / abs(view_pos.z)) * float(i_sample+1) / float(globals.hbao_samples_per_dir);
@@ -166,23 +169,21 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 			sampled_view_pos /= sampled_view_pos.w;
 
 			float3 origin_to_sample = (sampled_view_pos.xyz - view_pos.xyz);
-			debug = float3(origin_to_sample);
 
-			float h = atan((sampled_view_pos.z) / (length(sampled_view_pos.xy)));
+			float h = atan((origin_to_sample.z) / (length(origin_to_sample.xy)));
 
 			if (h > max_elevation)
 			{
 			    max_elevation = h;
-			    max_sample = sampled_view_pos.xyz;
+			    max_d = sample_d;
 			}
 		}
 
-		ao += sin(max_elevation) - sin(t);
+		ao += (sin(max_elevation) - sin(t)) * (clamp(2.0 / max_d, 0, 1));
 	}
 
 	ao /= globals.hbao_dir_count;
-	ao = clamp(ao, 0, 1);
-	debug = float3(ao);
+	debug = float3(1.0 - ao);
 
 	return ao;
 }
@@ -339,13 +340,14 @@ void main()
 	else
 	{
 	ao = float(tlas_any_hit(ray, hit_info) == false);
+	debug = float3(ao);
 	}
 
 	float3 radiance = ao * albedo;
 
 
 	#if 1
-	imageStore(HDR_BUFFER, pixel_pos, float4(TurboColormap(float(hit_info.box_inter_count) / 100.0), 1.0));
+	// debug = TurboColormap(float(hit_info.box_inter_count) / 100.0);
 	imageStore(HDR_BUFFER, pixel_pos, float4(material.base_color_factor.rgb, 1.0));
 	imageStore(HDR_BUFFER, pixel_pos, float4(float3(ao), 1.0));
 	imageStore(HDR_BUFFER, pixel_pos, float4(float3(debug), 1.0));

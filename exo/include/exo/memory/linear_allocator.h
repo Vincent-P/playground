@@ -28,7 +28,7 @@ struct LinearAllocator
     u8 *end = nullptr;
 };
 
-inline u8                tls_data[16 << 20];
+inline u8                tls_data[64 << 20];
 inline thread_local auto tls_allocator = LinearAllocator::with_external_memory(tls_data, sizeof(tls_data));
 
 }; // namespace exo
