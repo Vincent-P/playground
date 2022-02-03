@@ -142,8 +142,6 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 	float3 view_normal = normalize((globals.camera_view * float4(world_normal, 0.0)).xyz);
 	float3 view_tangent = normalize((globals.camera_view * float4(world_tangent, 0.0)).xyz);
 
-	float t = atan((view_tangent.z) / (length(view_tangent.xy)));
-	t += 15.0 * TO_RADIANS;
 	rng = rng * 2.0 - 1.0;
 
 	float ao = 0.0;
@@ -151,19 +149,29 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 	for (u32 i_dir = 0; i_dir < globals.hbao_dir_count; i_dir += 1)
 	{
 		float sample_dir_angle = float(i_dir) * (2.0 * PI) / globals.hbao_dir_count;
+
+		#if 1
 		float2 sample_dir = float2(cos(sample_dir_angle) * rng.x - sin(sample_dir_angle) * rng.y,
 					   cos(sample_dir_angle) * rng.y + sin(sample_dir_angle) * rng.x);
+		#else
+		float2 sample_dir = float2(cos(sample_dir_angle), sin(sample_dir_angle));
+		#endif
+
+		clip_space.z = texelFetch(DEPTH_BUFFER, int2(floor(float2(pixel_pos) + sample_dir)), LOD0).r;
+		float4 sample_view_dir_p = (globals.camera_projection_inverse * float4(clip_space, 1.0));
+		float3 tangent = (sample_view_dir_p.xyz / sample_view_dir_p.w) - view_pos.xyz;
+		tangent -= dot(tangent, view_normal) * view_normal;
+		float t = 30.0 + atan((tangent.z) / (length(tangent.xy)));
 
 		float max_elevation = -INF;
 		float max_d = 1.0;
 		for (u32 i_sample = 0; i_sample < globals.hbao_samples_per_dir; i_sample += 1)
 		{
-			float sample_d = (globals.hbao_radius / abs(view_pos.z)) * float(i_sample+1) / float(globals.hbao_samples_per_dir);
+			float sample_d = globals.hbao_radius * float(i_sample+1) / float(globals.hbao_samples_per_dir);
 
 			int2 sample_pixel = int2(floor(float2(pixel_pos) + sample_d * sample_dir));
 
 			float sampled_depth = texelFetch(DEPTH_BUFFER, sample_pixel, LOD0).r;
-
 			clip_space.z = sampled_depth;
 			float4 sampled_view_pos = (globals.camera_projection_inverse * float4(clip_space, 1.0));
 			sampled_view_pos /= sampled_view_pos.w;
@@ -175,11 +183,12 @@ float hbao(float2 screen_uv, int2 pixel_pos, float3 world_normal, float3 world_t
 			if (h > max_elevation)
 			{
 			    max_elevation = h;
-			    max_d = sample_d;
+			    max_d = length(origin_to_sample);
 			}
 		}
 
-		ao += (sin(max_elevation) - sin(t)) * (clamp(2.0 / max_d, 0, 1));
+		float r = max_d / globals.hbao_radius;
+		ao += clamp(sin(max_elevation) - sin(t), 0, 1) * (1 - r * r);
 	}
 
 	ao /= globals.hbao_dir_count;
