@@ -10,11 +10,10 @@
 #include <string_view>
 
 namespace exo { struct ScopeStack; }
+namespace exo { struct Platform; }
 
 namespace exo
 {
-using PaintFunction = void (*)(void *user_data);
-
 enum struct Cursor : int
 {
     None,
@@ -37,7 +36,7 @@ struct Caret
 
 struct Window
 {
-    static Window *create(ScopeStack &scope, int2 size, const std::string_view title);
+    static Window *create(Platform *platform, ScopeStack &scope, int2 size, const std::string_view title);
     ~Window() = default;
 
     void set_title(std::string_view new_title);
@@ -76,8 +75,6 @@ struct Window
     EnumArray<bool, VirtualKey> keys_pressed           = {};
     EnumArray<bool, MouseButton> mouse_buttons_pressed = {};
     void *native_data;
-    void *user_data;
-    PaintFunction paint_callback;
 };
 
 } // namespace exo

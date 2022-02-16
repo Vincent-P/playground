@@ -9,6 +9,7 @@
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
+namespace exo {struct Platform;}
 namespace exo {struct Window;}
 namespace exo {struct ScopeStack;}
 
@@ -24,6 +25,7 @@ class App
     void camera_update();
     void display_ui();
 
+	exo::Platform *platform;
     exo::Window *window;
     AssetManager  *asset_manager;
     Renderer      *renderer;

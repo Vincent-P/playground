@@ -1,6 +1,6 @@
 ﻿---
 Standard: Latest
-ColumnLimit: 220
+ColumnLimit: 120
 
 # Use tabs for indentation
 IndentWidth: 8
@@ -24,8 +24,8 @@ BraceWrapping:
   IndentBraces:          false
 
 # Alignment
-# BinPackArguments: false
-# BinPackParameters: false
+BinPackArguments: false
+BinPackParameters: false
 # AlignArrayOfStructures: Right
 AlignConsecutiveDeclarations: true
 AlignConsecutiveAssignments: true

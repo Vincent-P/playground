@@ -26,7 +26,8 @@ if (WIN32)
     src/os/file_dialog_win32.cpp
     src/os/utils_win32.cpp
     src/os/window_win32.cpp
-    src/os/mapped_file_win32.cpp)
+    src/os/mapped_file_win32.cpp
+	src/os/platform_win32.cpp)
 
   set(OS_LIBS
     ${OS_LIBS}

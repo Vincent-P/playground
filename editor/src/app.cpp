@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <exo/os/file_watcher.h>
+#include <exo/os/platform.h>
 #include <exo/os/window.h>
 #include <exo/memory/scope_stack.h>
 
@@ -18,7 +19,10 @@ App *App::create(exo::ScopeStack &scope)
 {
     auto *app = scope.allocate<App>();
 
-    app->window        = exo::Window::create(scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
+	app->platform = reinterpret_cast<exo::Platform*>(scope.allocate(exo::platform_get_size()));
+	exo::platform_create(app->platform);
+
+    app->window        = exo::Window::create(app->platform, scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
     app->asset_manager = AssetManager::create(scope);
     app->asset_manager->load_all_metas();
 
@@ -57,6 +61,7 @@ App::~App()
 {
     scene.destroy();
     UI::destroy_context();
+	exo::platform_destroy(platform);
 }
 
 void App::display_ui()

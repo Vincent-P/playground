@@ -2,6 +2,7 @@
 
 #include "exo/logger.h"
 #include "exo/memory/scope_stack.h"
+#include "exo/os/platform.h"
 
 #include "utils_win32.h"
 
@@ -65,9 +66,7 @@ static void update_key_state(Window &window, VirtualKey key)
 }
 } // namespace
 
-static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-Window *Window::create(ScopeStack &scope, int2 size, const std::string_view title)
+Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const std::string_view title)
 {
     auto *window  = scope.allocate<Window>();
     window->title = std::string(title);
@@ -76,36 +75,9 @@ Window *Window::create(ScopeStack &scope, int2 size, const std::string_view titl
     window->events.reserve(5); // should be good enough
     window->native_data = scope.allocate<WindowWin32>();
 
-    auto utf16_title = utf8_to_utf16(title);
-
-    HINSTANCE instance = GetModuleHandle(nullptr);
-
-    // Register the window class.
-    WNDCLASS wc      = {};
-    wc.lpfnWndProc   = window_proc;
-    wc.hInstance     = instance;
-    wc.lpszClassName = L"SupEd Window Class";
-    wc.style         = CS_OWNDC;
-    RegisterClass(&wc);
-
     // Create the window instance
     HWND &hwnd = impl(*window).wnd;
-    hwnd       = CreateWindowEx(WS_EX_TRANSPARENT,               // Optional window styles.
-                          wc.lpszClassName,                // Window class
-                          utf16_title.c_str(),             // Window text
-                          WS_BORDER | WS_OVERLAPPEDWINDOW, // Window style
-                          // Position and size
-                          CW_USEDEFAULT,
-                          CW_USEDEFAULT,
-                          // Width height
-                          window->size.x,
-                          window->size.y,
-                          nullptr,  // Parent window
-                          nullptr,  // Menu
-                          instance, // Instance handle
-                          window    // Additional application data
-    );
-
+	hwnd = (HWND)platform_create_window(platform, size, title);
     ASSERT(hwnd);
     ShowWindow(hwnd, SW_SHOW);
     return window;
@@ -136,6 +108,7 @@ void Window::set_title(std::string_view new_title)
     ASSERT(res != 0);
 }
 
+static void window_process_message(Window &window, MSG &message);
 void Window::poll_events()
 {
     // need to take care of shit, control and alt manually...
@@ -146,11 +119,10 @@ void Window::poll_events()
     update_key_state(*this, VirtualKey::LAlt);
     update_key_state(*this, VirtualKey::RAlt);
 
-    MSG msg;
-    if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-    {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+    MSG msg = {};
+
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+		window_process_message(*this, msg);
     }
 }
 
@@ -192,42 +164,14 @@ void Window::set_cursor(Cursor cursor)
 }
 
 // Window callback function (handles window messages)
-static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static void window_process_message(Window &window, MSG &message)
 {
-    // Get the window from the user pointer
-    Window *tmp;
-    if (uMsg == WM_CREATE)
+    switch (message.message)
     {
-        auto *p_create = reinterpret_cast<CREATESTRUCT *>(lParam);
-        tmp            = reinterpret_cast<Window *>(p_create->lpCreateParams);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)tmp);
-    }
-    else
-    {
-        LONG_PTR ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        tmp          = reinterpret_cast<Window *>(ptr);
-    }
-
-    Window &window = *tmp;
-
-    switch (uMsg)
-    {
-    case WM_CREATE:
-    {
-        // no need to create gl context
-        return 0;
-    }
-
     case WM_CLOSE:
     {
         window.stop = true;
-        break;
-    }
-
-    case WM_DESTROY:
-    {
-        PostQuitMessage(0);
-        return 0;
+		break;
     }
 
     case WM_SETFOCUS:
@@ -236,16 +180,15 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         if (window.caret)
         {
-            CreateCaret(hwnd, (HBITMAP) nullptr, window.caret->size.x, window.caret->size.y);
+            CreateCaret(message.hwnd, (HBITMAP) nullptr, window.caret->size.x, window.caret->size.y);
             SetCaretPos(window.caret->position.x, window.caret->position.y);
-            ShowCaret(hwnd);
+            ShowCaret(message.hwnd);
         }
-
-        return 0;
+		break;
     }
 
     case WM_SETCURSOR: {
-	    if (LOWORD(lParam) == HTCLIENT) {
+	    if (LOWORD(message.lParam) == HTCLIENT) {
 		    LPTSTR win32_cursor = nullptr;
 		    switch (window.current_cursor) {
 		    case Cursor::None:
@@ -279,7 +222,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			    break;
 		    }
 		    ::SetCursor(win32_cursor ? ::LoadCursor(nullptr, win32_cursor) : nullptr);
-		    return 0;
 	    }
 	    break;
     }
@@ -290,26 +232,31 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		    DestroyCaret();
 	    }
 
-	    return 0;
+	    break;
+    }
+
+    case WM_WINDOWPOSCHANGED: {
+	    auto *window_pos = reinterpret_cast<WINDOWPOS *>(message.lParam);
+	    logger::info("WM_WINDOWPOSCHANGED xy: {}x{}, wh: {}x{}\n", window_pos->x, window_pos->y, window_pos->cx, window_pos->cy);
+
+        if (window_pos->cx != window.size.x || window_pos->cy != window.size.y) {
+
+
+        window.size = {window_pos->cx, window_pos->cy};
+        }
+
+	    break;
     }
 
     case WM_SIZE:
     {
-        window.minimized = wParam == SIZE_MINIMIZED;
-        window.maximized = wParam == SIZE_MAXIMIZED;
+        window.minimized = message.wParam == SIZE_MINIMIZED;
+        window.maximized = message.wParam == SIZE_MAXIMIZED;
 
-        window.size = {LOWORD(lParam), HIWORD(lParam)};
+        window.size = {LOWORD(message.lParam), HIWORD(message.lParam)};
         // window.push_event<event::Resize>({.width = window.width, .height = window.height});
-        // logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
-        return 0;
-    }
-
-    case WM_PAINT:
-    {
-        if (window.paint_callback) {
-            window.paint_callback(window.user_data);
-        }
-        return 0;
+        logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
+        break;
     }
 
     // --- Keyboard Inputs
@@ -322,7 +269,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         {
             auto virtual_key       = static_cast<VirtualKey>(i);
             auto win32_virtual_key = native_to_virtual[virtual_key];
-            if (static_cast<i32>(wParam) == win32_virtual_key)
+            if (static_cast<i32>(message.wParam) == win32_virtual_key)
             {
                 key = virtual_key;
                 break;
@@ -332,7 +279,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         if (key != VirtualKey::Count)
         {
             auto state = ButtonState::Pressed;
-            if (uMsg == WM_KEYUP)
+            if (message.message == WM_KEYUP)
             {
                 state = ButtonState::Released;
             }
@@ -340,18 +287,18 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             window.events.push_back({Event::KeyType, events::Key{.key = key, .state = state}});
             window.keys_pressed[key] = state == ButtonState::Pressed;
         }
-        return 0;
+        break;
     }
 
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN:
     {
-        return 0;
+        break;
     }
 
     case WM_CHAR:
     {
-        switch (wParam)
+        switch (message.wParam)
         {
         case 0x08:
         {
@@ -388,7 +335,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             // Process displayable characters.
             static wchar_t buffer[3] = {0, 0, 0};
 
-            wchar_t codepoint = static_cast<wchar_t>(wParam);
+            wchar_t codepoint = static_cast<wchar_t>(message.wParam);
             bool    clear     = false;
 
             if (is_high_surrogate(codepoint))
@@ -419,14 +366,14 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
         }
         }
 
-        return 0;
+        break;
     }
 
     // Handle input methods: emoji picker or CJK keyboards for example
     case WM_IME_COMPOSITION:
     {
-        HIMC himc = ImmGetContext(hwnd);
-        if (lParam & GCS_COMPSTR) // Retrieve or update the reading string of the current composition.
+        HIMC himc = ImmGetContext(message.hwnd);
+        if (message.lParam & GCS_COMPSTR) // Retrieve or update the reading string of the current composition.
         {
             i32 res = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
             ASSERT(res > 0);
@@ -440,7 +387,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
                 window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {nullptr}});
             }
         }
-        else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
+        else if (message.lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
         {
             i32 res = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
             ASSERT(res > 0);
@@ -455,7 +402,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
             }
         }
 
-        return 0;
+        break;
     }
 
     case WM_IME_ENDCOMPOSITION:
@@ -468,18 +415,18 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     case WM_MOUSEWHEEL:
     {
         // fwKeys = GET_KEYSTATE_WPARAM(wParam);
-        int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+        int delta = GET_WHEEL_DELTA_WPARAM(message.wParam) / WHEEL_DELTA;
         window.events.push_back({.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -delta}});
-        return 0;
+        break;
     }
 
     case WM_MOUSEMOVE:
     {
-        int x = GET_X_LPARAM(lParam);
-        int y = GET_Y_LPARAM(lParam);
+        int x = GET_X_LPARAM(message.lParam);
+        int y = GET_Y_LPARAM(message.lParam);
         window.events.push_back({.type = Event::MouseMoveType, .mouse_move = {x, y}});
         window.mouse_position = {x, y};
-        return 0;
+        break;
     }
 
     case WM_LBUTTONDOWN:
@@ -492,26 +439,26 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     case WM_XBUTTONDBLCLK:
     {
         MouseButton button = MouseButton::Count;
-        if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
+        if (message.message == WM_LBUTTONDOWN || message.message == WM_LBUTTONDBLCLK)
         {
             button = MouseButton::Left;
         }
-        if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONDBLCLK)
+        if (message.message == WM_RBUTTONDOWN || message.message == WM_RBUTTONDBLCLK)
         {
             button = MouseButton::Right;
         }
-        if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONDBLCLK)
+        if (message.message == WM_MBUTTONDOWN || message.message == WM_MBUTTONDBLCLK)
         {
             button = MouseButton::Middle;
         }
-        if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK)
+        if (message.message == WM_XBUTTONDOWN || message.message == WM_XBUTTONDBLCLK)
         {
-            button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
+            button = (GET_XBUTTON_WPARAM(message.wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
         }
         window.events.push_back(
             {.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Pressed}});
         window.mouse_buttons_pressed[button] = true;
-        return 0;
+        break;
     }
 
     case WM_LBUTTONUP:
@@ -520,31 +467,28 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     case WM_XBUTTONUP:
     {
         MouseButton button = MouseButton::Count;
-        if (uMsg == WM_LBUTTONUP)
+        if (message.message == WM_LBUTTONUP)
         {
             button = MouseButton::Left;
         }
-        if (uMsg == WM_RBUTTONUP)
+        if (message.message == WM_RBUTTONUP)
         {
             button = MouseButton::Right;
         }
-        if (uMsg == WM_MBUTTONUP)
+        if (message.message == WM_MBUTTONUP)
         {
             button = MouseButton::Middle;
         }
-        if (uMsg == WM_XBUTTONUP)
+        if (message.message == WM_XBUTTONUP)
         {
-            button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
+            button = (GET_XBUTTON_WPARAM(message.wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
         }
         window.events.push_back(
             {.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Released}});
         window.mouse_buttons_pressed[button] = true;
-        return 0;
+        break;
     }
     }
-
-    // default message handling
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 } // namespace exo

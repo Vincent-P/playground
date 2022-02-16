@@ -8,6 +8,7 @@
 #include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/os/platform.h>
 #include <exo/os/window.h>
 
 #include <engine/render/base_renderer.h>
@@ -55,6 +56,7 @@ PACKED(struct PushConstants {
 
 struct RenderSample
 {
+	exo::Platform *platform;
 	exo::Window *window;
 	UiTheme ui_theme;
 	UiState ui_state;
@@ -64,6 +66,7 @@ struct RenderSample
 
 	FT_Library library;
 	hb_buffer_t *current_file_hb_buf = nullptr;
+    bool wants_to_open_file = false;
 	Vec<u8> current_file_data = {};
 	int cursor_offset = 0;
 
@@ -141,7 +144,11 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	ZoneScoped;
 
 	auto *app = scope.allocate<RenderSample>();
-	app->window = exo::Window::create(scope, {1280, 720}, "Render sample");
+
+	app->platform = reinterpret_cast<exo::Platform*>(scope.allocate(exo::platform_get_size()));
+	exo::platform_create(app->platform);
+
+	app->window = exo::Window::create(app->platform, scope, {1280, 720}, "Render sample");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
 	app->renderer = BaseRenderer::create(scope, app->window,
@@ -193,6 +200,7 @@ void render_sample_destroy(RenderSample *app)
 	ZoneScoped;
 
 	hb_buffer_destroy(app->current_file_hb_buf);
+	exo::platform_destroy(app->platform);
 }
 
 static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
@@ -349,7 +357,7 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
     return result;
 }
 
-static void display_ui(RenderSample *app)
+static void display_ui_old(RenderSample *app)
 {
 	app->painter->index_offset = 0;
 	app->painter->vertex_bytes_offset = 0;
@@ -459,9 +467,7 @@ static void display_ui(RenderSample *app)
 	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Open file")) + exo::float2{8.0f, 8.0f};
 	Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = label_size};
 	if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect})) {
-		if (auto fs_path = exo::file_dialog({{"file", "*"}})) {
-			open_file(app, fs_path.value());
-		}
+	    app->wants_to_open_file = true;
 	}
 
 	char tmp_label[128] = {};
@@ -502,6 +508,65 @@ static void display_ui(RenderSample *app)
 	label_rect.position.y += label_rect.size.y + 5;
 	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
 	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+
+	ui_pop_clip_rect(app->ui_state);
+	ui_end_frame(app->ui_state);
+	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
+}
+
+static void display_ui(RenderSample *app)
+{
+	app->painter->index_offset = 0;
+	app->painter->vertex_bytes_offset = 0;
+	ui_new_frame(app->ui_state);
+
+	auto fullscreen_rect = Rect{.position = {0, 0}, .size = exo::float2(app->window->size.x, app->window->size.y)};
+
+	const float menubar_height_margin   = 8.0f;
+	const float menu_item_margin = 12.0f;
+	const float menubar_height          = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
+	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
+
+	/* Menu bar */
+	const u32 menubar_bg_color = 0xFFF3F3F3;
+	ui_rect(app->ui_state, app->ui_theme, {.color = menubar_bg_color, .rect = menubar_rect});
+
+	menubar_rect = rect_split_off_left(menubar_rect, 0.0f, menu_item_margin).right; // add first margin on the left
+	auto menubar_theme = app->ui_theme;
+	menubar_theme.button_bg_color = 0x00000000;
+	menubar_theme.button_hover_bg_color = 0x06000000;
+	menubar_theme.button_pressed_bg_color = 0x09000000;
+
+	/* Content */
+	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
+	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFE5E5E5, .rect = separator_rect});
+
+	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
+	ui_push_clip_rect(app->ui_state, i_content_rect);
+
+	static float vsplit = 0.5f;
+	Rect left_pane = {};
+	Rect right_pane = {};
+	ui_splitter_x(app->ui_state, app->ui_theme, content_rect, vsplit, left_pane, right_pane);
+
+	/* Left pane */
+	static float left_hsplit = 0.5f;
+	Rect left_top_pane = {};
+	Rect left_bottom_pane = {};
+	ui_splitter_y(app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
+
+	/* Left top pane */
+	u32 i_left_top_pane = ui_register_clip_rect(app->ui_state, left_top_pane);
+	ui_push_clip_rect(app->ui_state, i_left_top_pane);
+	ui_pop_clip_rect(app->ui_state);
+
+	/* Left bottom pane */
+
+	/* Right pane */
+	static float right_hsplit = 0.5f;
+	Rect right_top_pane = {};
+	Rect right_bottom_pane = {};
+	ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
 
 	ui_pop_clip_rect(app->ui_state);
 	ui_end_frame(app->ui_state);
@@ -647,13 +712,6 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto &inputs = app->inputs;
 	open_file(app, "C:\\Users\\vince\\.emacs.d\\projects");
 
-	window->user_data = app;
-	window->paint_callback = +[](void *user_data) {
-		auto *app = reinterpret_cast<RenderSample *>(user_data);
-		display_ui(app);
-		render(app);
-	};
-
 	while (!window->should_close()) {
 		window->poll_events();
 
@@ -676,6 +734,18 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;
+		}
+
+		display_ui(app);
+		render(app);
+
+		if (app->wants_to_open_file)
+		{
+		    if (auto path = exo::file_dialog({{"file", "*"}}))
+		    {
+			open_file(app, path.value());
+		    }
+		    app->wants_to_open_file = false;
 		}
 
 		window->events.clear();
