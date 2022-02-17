@@ -1,7 +1,11 @@
 #include "exo/os/platform.h"
-#include <windows.h>
+#include <exo/logger.h>
+#include <exo/macros/assert.h>
 
 #include "utils_win32.h"
+
+#include <windows.h>
+#include <winuser.h>
 
 static_assert(sizeof(DWORD) == sizeof(u32));
 #define CREATE_DANGEROUS_WINDOW (WM_USER + 0x1337)
@@ -9,7 +13,7 @@ static_assert(sizeof(DWORD) == sizeof(u32));
 
 struct WindowCreationParams
 {
-	exo::int2 size;
+	exo::int2        size;
 	std::string_view title;
 };
 
@@ -17,8 +21,8 @@ namespace exo
 {
 struct Platform
 {
-	u32 main_thread_id;
-	u32 window_creation_thread_id;
+	u32  main_thread_id;
+	u32  window_creation_thread_id;
 	HWND window_creation_window;
 };
 
@@ -46,24 +50,21 @@ static LRESULT CALLBACK window_creation_proc(HWND window, UINT message, WPARAM w
 {
 	LRESULT result = 0;
 
-    // Get the platform from the user pointer
-    Platform *platform;
-    if (message == WM_CREATE)
-    {
-        auto *p_create = reinterpret_cast<CREATESTRUCT *>(lparam);
-        platform            = reinterpret_cast<Platform *>(p_create->lpCreateParams);
-        SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)platform);
-    }
-    else
-    {
-        LONG_PTR ptr = GetWindowLongPtr(window, GWLP_USERDATA);
-        platform          = reinterpret_cast<Platform *>(ptr);
-    }
+	// Get the platform from the user pointer
+	Platform *platform;
+	if (message == WM_CREATE) {
+		auto *p_create = reinterpret_cast<CREATESTRUCT *>(lparam);
+		platform       = reinterpret_cast<Platform *>(p_create->lpCreateParams);
+		SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)platform);
+	} else {
+		LONG_PTR ptr = GetWindowLongPtr(window, GWLP_USERDATA);
+		platform     = reinterpret_cast<Platform *>(ptr);
+	}
 
 	switch (message) {
 	case CREATE_DANGEROUS_WINDOW: {
-            the_baby *Baby = (the_baby *)wparam;
-            result = (LRESULT)CreateWindowExW(Baby->dwExStyle,
+		the_baby *Baby = (the_baby *)wparam;
+		result         = (LRESULT)CreateWindowExW(Baby->dwExStyle,
                                                   Baby->lpClassName,
                                                   Baby->lpWindowName,
                                                   Baby->dwStyle,
@@ -75,7 +76,7 @@ static LRESULT CALLBACK window_creation_proc(HWND window, UINT message, WPARAM w
                                                   Baby->hMenu,
                                                   Baby->hInstance,
                                                   Baby->lpParam);
-			break;
+		break;
 	}
 
 	case DESTROY_DANGEROUS_WINDOW: {
@@ -83,8 +84,7 @@ static LRESULT CALLBACK window_creation_proc(HWND window, UINT message, WPARAM w
 		break;
 	}
 
-	default:
-	{
+	default: {
 		result = DefWindowProcW(window, message, wparam, lparam);
 		break;
 	}
@@ -95,7 +95,7 @@ static LRESULT CALLBACK window_creation_proc(HWND window, UINT message, WPARAM w
 
 static DWORD WINAPI window_creation_thread(void *param)
 {
-	auto *platform = reinterpret_cast<Platform*>(param);
+	auto *platform = reinterpret_cast<Platform *>(param);
 
 	WNDCLASSEXW WindowClass   = {};
 	WindowClass.cbSize        = sizeof(WindowClass);
@@ -107,82 +107,86 @@ static DWORD WINAPI window_creation_thread(void *param)
 	WindowClass.lpszClassName = L"WindowCreationClass";
 	RegisterClassExW(&WindowClass);
 
-	platform->window_creation_window = CreateWindowExW(0, WindowClass.lpszClassName, L"WindowCreationWindow", 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, WindowClass.hInstance, platform);
+	platform->window_creation_window = CreateWindowExW(0,
+							   WindowClass.lpszClassName,
+							   L"WindowCreationWindow",
+							   0,
+							   CW_USEDEFAULT,
+							   CW_USEDEFAULT,
+							   CW_USEDEFAULT,
+							   CW_USEDEFAULT,
+							   0,
+							   0,
+							   WindowClass.hInstance,
+							   platform);
 
 	// This background "window creation" thread will forward all interesting events back to the main thread.
-	// All other messages will go through the default window proc, as well as custom messages to create or destroy windows.
-    for(;;)
-    {
-        MSG message = {};
-        GetMessageW(&message, 0, 0, 0);
-        TranslateMessage(&message);
+	// All other messages will go through the default window proc, as well as custom messages to create or destroy
+	// windows.
+	for (;;) {
+		MSG message = {};
+		GetMessageW(&message, 0, 0, 0);
+		TranslateMessage(&message);
 
-        if((message.message == WM_CHAR) ||
-           (message.message == WM_KEYDOWN) ||
-           (message.message == WM_QUIT) ||
-           (message.message == WM_SIZE))
-        {
-            PostThreadMessageW(platform->main_thread_id, message.message, message.wParam, message.lParam);
-        }
-        else
-        {
-            DispatchMessageW(&message);
-        }
-    }
+		switch (message.message) {
+		case WM_CHAR:
+		case WM_KEYDOWN:
+		case WM_QUIT:
+		case WM_SIZE: {
+			PostThreadMessageW(platform->main_thread_id, message.message, message.wParam, message.lParam);
+		}
+
+		default: {
+			DispatchMessageW(&message);
+		}
+		}
+	}
 
 	return 0;
 }
 
 // --- Window forwarding
 
-
 static LRESULT CALLBACK window_forward_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
 	LRESULT result = 0;
-    // Get the platform from the user pointer
-    Platform *platform;
-    if (message == WM_CREATE)
-    {
-        auto *p_create = reinterpret_cast<CREATESTRUCT *>(lparam);
-        platform            = reinterpret_cast<Platform *>(p_create->lpCreateParams);
-        SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)platform);
-    }
-    else
-    {
-        LONG_PTR ptr = GetWindowLongPtr(window, GWLP_USERDATA);
-        platform          = reinterpret_cast<Platform *>(ptr);
-    }
+	// Get the platform from the user pointer
+	Platform *platform;
+	if (message == WM_CREATE) {
+		auto *p_create = reinterpret_cast<CREATESTRUCT *>(lparam);
+		platform       = reinterpret_cast<Platform *>(p_create->lpCreateParams);
+		SetWindowLongPtr(window, GWLP_USERDATA, (LONG_PTR)platform);
+	} else {
+		LONG_PTR ptr = GetWindowLongPtr(window, GWLP_USERDATA);
+		platform     = reinterpret_cast<Platform *>(ptr);
+	}
 
-    switch (message)
-    {
-        // NOTE(casey): Mildly annoying, if you want to specify a window, you have
-        // to snuggle the params yourself, because Windows doesn't let you forward
-        // a god damn window message even though the program IS CALLED WINDOWS. It's
-        // in the name! Let me pass it!
-        case WM_CLOSE:
-        {
-            PostThreadMessageW(platform->main_thread_id, message, (WPARAM)window, lparam);
-        } break;
+	switch (message) {
+	// NOTE(casey): Mildly annoying, if you want to specify a window, you have
+	// to snuggle the params yourself, because Windows doesn't let you forward
+	// a god damn window message even though the program IS CALLED WINDOWS. It's
+	// in the name! Let me pass it!
+	case WM_CLOSE: {
+		PostThreadMessageW(platform->main_thread_id, message, (WPARAM)window, lparam);
+	} break;
 
-        // NOTE(casey): Anything you want the application to handle, forward to the main thread
-        // here.
-        case WM_MOUSEMOVE:
-        case WM_LBUTTONDOWN:
-        case WM_LBUTTONUP:
-        case WM_DESTROY:
-        case WM_CHAR:
-	case WM_SIZE:
-        {
-            PostThreadMessageW(platform->main_thread_id, message, wparam, lparam);
-        } break;
+	// NOTE(casey): Anything you want the application to handle, forward to the main thread
+	// here.
+	case WM_MOUSEMOVE:
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_CHAR:
+	case WM_SIZE: {
+		BOOL res = PostThreadMessageW(platform->main_thread_id, message, wparam, lparam);
+		ASSERT(res != 0);
+	} break;
 
-        default:
-        {
-            result = DefWindowProcW(window, message, wparam, lparam);
-        } break;
-    }
+	default: {
+		result = DefWindowProcW(window, message, wparam, lparam);
+	} break;
+	}
 
-    return result;
+	return result;
 }
 
 // ---
@@ -198,20 +202,14 @@ Platform *platform_create(void *memory)
 	CreateThread(0, 0, window_creation_thread, memory, 0, (LPDWORD)&platform->window_creation_thread_id);
 
 	volatile int i = 0;
-	while (true) {
-		if (platform->window_creation_window != NULL)
-		{
-			break;
-		}
-		i += 1;
+	while (platform->window_creation_window == NULL) {
+		i++;
 	}
 
 	return platform;
 }
 
-void platform_destroy(Platform *platform)
-{
-}
+void platform_destroy(Platform *platform) {}
 
 u64 platform_create_window(Platform *platform, int2 size, std::string_view title)
 {
@@ -228,8 +226,8 @@ u64 platform_create_window(Platform *platform, int2 size, std::string_view title
 	WindowClass.style         = CS_OWNDC;
 	RegisterClassExW(&WindowClass);
 
-	the_baby Baby  = {};
-	Baby.dwExStyle = WS_EX_TRANSPARENT;
+	the_baby Baby     = {};
+	Baby.dwExStyle    = WS_EX_TRANSPARENT;
 	Baby.lpClassName  = WindowClass.lpszClassName;
 	Baby.lpWindowName = utf16_title.c_str();
 	Baby.dwStyle      = WS_BORDER | WS_OVERLAPPEDWINDOW;

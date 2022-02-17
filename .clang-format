@@ -29,3 +29,5 @@ BinPackParameters: false
 # AlignArrayOfStructures: Right
 AlignConsecutiveDeclarations: true
 AlignConsecutiveAssignments: true
+
+SortIncludes: Never

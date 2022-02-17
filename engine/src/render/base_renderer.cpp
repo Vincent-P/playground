@@ -188,8 +188,7 @@ void BaseRenderer::reload_shader(std::string_view shader_name)
 void BaseRenderer::on_resize()
 {
     device.wait_idle();
-    surface.destroy_swapchain(device);
-    surface.create_swapchain(device);
+    surface.recreate_swapchain(device);
 }
 
 bool BaseRenderer::start_frame()

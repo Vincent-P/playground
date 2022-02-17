@@ -193,4 +193,71 @@ void Surface::destroy_swapchain(Device &device)
     this->swapchain = VK_NULL_HANDLE;
 }
 
+
+void Surface::recreate_swapchain(Device &device)
+{
+    // Use default extent for the swapchain
+    VkSurfaceCapabilitiesKHR capabilities;
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
+    this->width  = static_cast<i32>(capabilities.currentExtent.width);
+    this->height = static_cast<i32>(capabilities.currentExtent.height);
+
+    VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
+
+    VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+    ci.surface                  = this->surface;
+    ci.minImageCount            = this->images.size();
+    ci.imageFormat              = this->format.format;
+    ci.imageColorSpace          = this->format.colorSpace;
+    ci.imageExtent.width        = static_cast<u32>(this->width);
+    ci.imageExtent.height       = static_cast<u32>(this->height);
+    ci.imageArrayLayers         = 1;
+    ci.imageUsage               = image_usage;
+    ci.imageSharingMode         = VK_SHARING_MODE_EXCLUSIVE;
+    ci.queueFamilyIndexCount    = 0;
+    ci.pQueueFamilyIndices      = nullptr;
+    ci.preTransform             = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    ci.compositeAlpha           = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    ci.presentMode              = this->present_mode;
+    ci.clipped                  = VK_TRUE;
+	ci.oldSwapchain             = this->swapchain;
+
+	VkSwapchainKHR new_swapchain;
+    VK_CHECK(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
+
+    vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
+	this->swapchain = new_swapchain;
+
+	u32 images_count = this->images.size();
+    Vec<VkImage> vkimages(images_count);
+    VK_CHECK(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
+
+    for (uint i_image = 0; i_image < images_count; i_image++)
+    {
+		device.destroy_image(this->images[i_image]);
+        this->images[i_image] = device.create_image(
+            {
+                .name   = fmt::format("Swapchain #{}", i_image),
+                .size   = {width, height, 1},
+                .format = format.format,
+                .usages = image_usage,
+            },
+            vkimages[i_image]);
+    }
+
+    for (auto &semaphore : this->image_acquired_semaphores)
+    {
+        vkDestroySemaphore(device.device, semaphore, nullptr);
+        VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+    }
+
+    for (auto &semaphore : this->can_present_semaphores)
+    {
+        vkDestroySemaphore(device.device, semaphore, nullptr);
+        VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+    }
+}
+
 } // namespace vulkan

@@ -38,5 +38,6 @@ struct Surface
     void destroy(Context &context, Device &device);
     void create_swapchain(Device &device);
     void destroy_swapchain(Device &device);
+	void recreate_swapchain(Device &device);
 };
 }

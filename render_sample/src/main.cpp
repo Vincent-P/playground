@@ -125,8 +125,7 @@ static void resize(gfx::Device &device, gfx::Surface &surface, exo::DynamicArray
 	ZoneScoped;
 
 	device.wait_idle();
-	surface.destroy_swapchain(device);
-	surface.create_swapchain(device);
+	surface.recreate_swapchain(device);
 
 	for (usize i_image = 0; i_image < surface.images.size(); i_image += 1) {
 		device.destroy_framebuffer(framebuffers[i_image]);
@@ -573,7 +572,7 @@ static void display_ui(RenderSample *app)
 	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
 }
 
-static void render(RenderSample *app)
+static void render(RenderSample *app, bool has_resize)
 {
 	ZoneScoped;
 
@@ -586,11 +585,14 @@ static void render(RenderSample *app)
 	auto &surface = renderer.surface;
 	auto &work_pool = renderer.work_pools[renderer.frame_count % FRAME_QUEUE_LENGTH];
 
-	device.wait_idle();
-	device.reset_work_pool(work_pool);
+	if (has_resize)
+	{
+		resize(device, surface, framebuffers);
+	}
 
 	bool out_of_date_swapchain = renderer.start_frame();
 	if (out_of_date_swapchain) {
+		exo::logger::info("outofdate start\n");
 		resize(device, surface, framebuffers);
 		return;
 	}
@@ -671,6 +673,7 @@ static void render(RenderSample *app)
 	out_of_date_swapchain = renderer.end_frame(cmd);
 	if (out_of_date_swapchain) {
 		resize(device, surface, framebuffers);
+		exo::logger::info("outofdate end\n");
 	}
 }
 
@@ -715,6 +718,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	while (!window->should_close()) {
 		window->poll_events();
 
+		bool has_resize = false;
 		for (const auto &event : window->events) {
 			switch (event.type) {
 			case exo::Event::KeyType: {
@@ -723,10 +727,15 @@ int main(int /*argc*/, char ** /*argv*/)
 			case exo::Event::CharacterType: {
 				break;
 			}
+			case exo::Event::ResizeType: {
+				has_resize = true;
+				break;
+			}
 			default:
 				break;
 			}
 		}
+
 		inputs.process(window->events);
 
 		if (auto scroll = inputs.get_scroll_this_frame()) {
@@ -737,7 +746,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 
 		display_ui(app);
-		render(app);
+		render(app, has_resize);
 
 		if (app->wants_to_open_file)
 		{

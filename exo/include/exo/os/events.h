@@ -51,8 +51,8 @@ struct Focus
 
 struct Resize
 {
-    uint width;
-    uint height;
+    int width;
+    int height;
 };
 } // namespace exo::events
 
