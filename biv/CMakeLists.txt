@@ -1,5 +1,8 @@
 set(SOURCE_FILES
   src/main.cpp
+  src/glyph_cache.cpp
+  src/painter.cpp
+  src/ui.cpp
 )
 
 add_executable(render_sample ${SOURCE_FILES})
@@ -9,4 +12,11 @@ target_include_directories(render_sample PRIVATE src)
 target_link_libraries(render_sample
   PRIVATE
   engine
+  # Luau.Compiler
+  # Luau.VM
+  harfbuzz
+  freetype
   )
+
+add_subdirectory(shaders/)
+add_dependencies(render_sample render_sample.shaders)
