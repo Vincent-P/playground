@@ -56,7 +56,7 @@ struct Window
     [[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[key]; }
     [[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const { return mouse_buttons_pressed[button]; }
     [[nodiscard]] inline int2 get_mouse_position() const { return mouse_position; }
-    void *get_win32_hwnd() const;
+    u64 get_win32_hwnd() const;
 
     std::string title;
     int2 size;

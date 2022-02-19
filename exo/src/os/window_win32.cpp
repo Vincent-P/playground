@@ -73,7 +73,7 @@ Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const s
 	return window;
 }
 
-void *Window::get_win32_hwnd() const { return impl(*this).wnd; }
+u64 Window::get_win32_hwnd() const { return (u64)impl(*this).wnd; }
 
 float2 Window::get_dpi_scale() const
 {
@@ -233,7 +233,7 @@ static bool window_process_message(Window &window, MSG &message)
 		window.size = {LOWORD(message.lParam), HIWORD(message.lParam)};
 		auto resize_event = events::Resize{.width = window.size.x, .height = window.size.y};
 		window.events.push_back({.type = Event::ResizeType, .resize = resize_event});
-		logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
+		//logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
 		break;
 	}
 

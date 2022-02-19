@@ -128,18 +128,17 @@ static DWORD WINAPI window_creation_thread(void *param)
 		GetMessageW(&message, 0, 0, 0);
 		TranslateMessage(&message);
 
-		switch (message.message) {
-		case WM_CHAR:
-		case WM_KEYDOWN:
-		case WM_QUIT:
-		case WM_SIZE: {
-			PostThreadMessageW(platform->main_thread_id, message.message, message.wParam, message.lParam);
-		}
-
-		default: {
-			DispatchMessageW(&message);
-		}
-		}
+        if((message.message == WM_CHAR) ||
+           (message.message == WM_KEYDOWN) ||
+           (message.message == WM_QUIT) ||
+           (message.message == WM_SIZE))
+        {
+            PostThreadMessageW(platform->main_thread_id, message.message, message.wParam, message.lParam);
+        }
+        else
+        {
+            DispatchMessageW(&message);
+        }
 	}
 
 	return 0;
@@ -161,6 +160,12 @@ static LRESULT CALLBACK window_forward_proc(HWND window, UINT message, WPARAM wp
 		platform     = reinterpret_cast<Platform *>(ptr);
 	}
 
+	if (message == WM_SIZE)
+	{
+		// Lock resize at 60Hz, reduce flickering A LOT when resizing
+		Sleep(16);
+	}
+
 	switch (message) {
 	// NOTE(casey): Mildly annoying, if you want to specify a window, you have
 	// to snuggle the params yourself, because Windows doesn't let you forward
@@ -172,13 +177,13 @@ static LRESULT CALLBACK window_forward_proc(HWND window, UINT message, WPARAM wp
 
 	// NOTE(casey): Anything you want the application to handle, forward to the main thread
 	// here.
-	case WM_MOUSEMOVE:
-	case WM_LBUTTONDOWN:
-	case WM_LBUTTONUP:
-	case WM_CHAR:
-	case WM_SIZE: {
-		BOOL res = PostThreadMessageW(platform->main_thread_id, message, wparam, lparam);
-		ASSERT(res != 0);
+        case WM_MOUSEMOVE:
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_DESTROY:
+        case WM_SIZE:
+	case WM_CHAR: {
+		PostThreadMessageW(platform->main_thread_id, message, wparam, lparam);
 	} break;
 
 	default: {

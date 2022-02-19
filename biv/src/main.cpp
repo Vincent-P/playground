@@ -356,7 +356,7 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
     return result;
 }
 
-static void display_ui_old(RenderSample *app)
+static void display_ui(RenderSample *app)
 {
 	app->painter->index_offset = 0;
 	app->painter->vertex_bytes_offset = 0;
@@ -513,65 +513,6 @@ static void display_ui_old(RenderSample *app)
 	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
 }
 
-static void display_ui(RenderSample *app)
-{
-	app->painter->index_offset = 0;
-	app->painter->vertex_bytes_offset = 0;
-	ui_new_frame(app->ui_state);
-
-	auto fullscreen_rect = Rect{.position = {0, 0}, .size = exo::float2(app->window->size.x, app->window->size.y)};
-
-	const float menubar_height_margin   = 8.0f;
-	const float menu_item_margin = 12.0f;
-	const float menubar_height          = float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
-	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
-
-	/* Menu bar */
-	const u32 menubar_bg_color = 0xFFF3F3F3;
-	ui_rect(app->ui_state, app->ui_theme, {.color = menubar_bg_color, .rect = menubar_rect});
-
-	menubar_rect = rect_split_off_left(menubar_rect, 0.0f, menu_item_margin).right; // add first margin on the left
-	auto menubar_theme = app->ui_theme;
-	menubar_theme.button_bg_color = 0x00000000;
-	menubar_theme.button_hover_bg_color = 0x06000000;
-	menubar_theme.button_pressed_bg_color = 0x09000000;
-
-	/* Content */
-	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
-	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFE5E5E5, .rect = separator_rect});
-
-	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
-	ui_push_clip_rect(app->ui_state, i_content_rect);
-
-	static float vsplit = 0.5f;
-	Rect left_pane = {};
-	Rect right_pane = {};
-	ui_splitter_x(app->ui_state, app->ui_theme, content_rect, vsplit, left_pane, right_pane);
-
-	/* Left pane */
-	static float left_hsplit = 0.5f;
-	Rect left_top_pane = {};
-	Rect left_bottom_pane = {};
-	ui_splitter_y(app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
-
-	/* Left top pane */
-	u32 i_left_top_pane = ui_register_clip_rect(app->ui_state, left_top_pane);
-	ui_push_clip_rect(app->ui_state, i_left_top_pane);
-	ui_pop_clip_rect(app->ui_state);
-
-	/* Left bottom pane */
-
-	/* Right pane */
-	static float right_hsplit = 0.5f;
-	Rect right_top_pane = {};
-	Rect right_bottom_pane = {};
-	ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
-
-	ui_pop_clip_rect(app->ui_state);
-	ui_end_frame(app->ui_state);
-	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
-}
-
 static void render(RenderSample *app, bool has_resize)
 {
 	ZoneScoped;
@@ -592,7 +533,6 @@ static void render(RenderSample *app, bool has_resize)
 
 	bool out_of_date_swapchain = renderer.start_frame();
 	if (out_of_date_swapchain) {
-		exo::logger::info("outofdate start\n");
 		resize(device, surface, framebuffers);
 		return;
 	}
@@ -673,7 +613,6 @@ static void render(RenderSample *app, bool has_resize)
 	out_of_date_swapchain = renderer.end_frame(cmd);
 	if (out_of_date_swapchain) {
 		resize(device, surface, framebuffers);
-		exo::logger::info("outofdate end\n");
 	}
 }
 

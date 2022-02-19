@@ -77,5 +77,4 @@ add_subdirectory(exo)
 add_subdirectory(engine)
 add_subdirectory(editor)
 add_subdirectory(render_sample)
-
-install(TARGETS engine RUNTIME)
+add_subdirectory(biv)

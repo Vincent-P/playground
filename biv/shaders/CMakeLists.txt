@@ -3,7 +3,7 @@ set(GLSL_INCLUDES
   ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/maths.h
   ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/types.h
   ${PROJECT_SOURCE_DIR}/engine/shaders/include/base/bindless.h
-  ${PROJECT_SOURCE_DIR}/render_sample/shaders/include/render_sample/globals.h
+  ${PROJECT_SOURCE_DIR}/biv/shaders/include/biv/globals.h
   )
 
 set(GLSL_FILES
@@ -17,7 +17,7 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
 
   add_custom_command(
     OUTPUT ${SPIRV_FILE}
-    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL_FILE} -o ${SPIRV_FILE} -I ${PROJECT_SOURCE_DIR}/engine/shaders/include -I ${PROJECT_SOURCE_DIR}/render_sample/shaders/include
+    COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL_FILE} -o ${SPIRV_FILE} -I ${PROJECT_SOURCE_DIR}/engine/shaders/include -I ${PROJECT_SOURCE_DIR}/biv/shaders/include
     DEPENDS ${GLSL_FILE} ${GLSL_INCLUDES}
     )
 
@@ -25,5 +25,5 @@ foreach(GLSL_FILE IN LISTS GLSL_FILES)
   list(APPEND SPIRV_FILES ${SPIRV_FILE})
 endforeach()
 
-add_custom_target(render_sample.shaders DEPENDS ${SPIRV_FILES})
+add_custom_target(biv.shaders DEPENDS ${SPIRV_FILES})
 install(FILES ${SPIRV_FILES} DESTINATION bin/shaders)
