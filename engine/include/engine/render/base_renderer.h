@@ -8,6 +8,7 @@
 #include "engine/render/ring_buffer.h"
 #include "engine/render/render_timings.h"
 #include "engine/render/streamer.h"
+#include "engine/render/vulkan/descriptor_set.h"
 
 #include <array>
 
@@ -23,15 +24,16 @@ struct BaseRenderer
     ~BaseRenderer();
 
     // Ring buffer uniforms
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len);
-    void *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len);
-    void *bind_global_options(usize options_len);
+    void *bind_compute_shader_options(gfx::ComputeWork &cmd, usize options_len);
+    void *bind_graphics_shader_options(gfx::GraphicsWork &cmd, usize options_len);
     template<typename T>
-    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
+    T *bind_compute_shader_options(gfx::ComputeWork &cmd) { return (T*)bind_compute_shader_options(cmd, sizeof(T)); }
     template<typename T>
-    T *bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program) { return (T*)bind_shader_options(cmd, program, sizeof(T)); }
+    T *bind_graphics_shader_options(gfx::GraphicsWork &cmd) { return (T*)bind_graphics_shader_options(cmd, sizeof(T)); }
+
+    void *bind_global_options(gfx::GraphicsWork &cmd, usize options_len);
     template<typename T>
-    T *bind_global_options() { return (T*)bind_global_options(sizeof(T)); }
+    T *bind_global_options(gfx::GraphicsWork &cmd) { return (T*)bind_global_options(cmd, sizeof(T)); }
 
     void reload_shader(std::string_view shader_name);
     void on_resize();
@@ -53,6 +55,7 @@ struct BaseRenderer
     gfx::Fence fence = {};
 
     RingBuffer dynamic_uniform_buffer = {};
+	Vec<gfx::DynamicBufferDescriptor> dynamic_descriptors;
     RingBuffer dynamic_vertex_buffer = {};
     RingBuffer dynamic_index_buffer = {};
 

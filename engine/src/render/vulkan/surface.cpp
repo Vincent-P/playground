@@ -206,7 +206,7 @@ void Surface::recreate_swapchain(Device &device)
 
     VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
     ci.surface                  = this->surface;
-    ci.minImageCount            = this->images.size();
+    ci.minImageCount            = static_cast<u32>(this->images.size());
     ci.imageFormat              = this->format.format;
     ci.imageColorSpace          = this->format.colorSpace;
     ci.imageExtent.width        = static_cast<u32>(this->width);
@@ -228,7 +228,7 @@ void Surface::recreate_swapchain(Device &device)
     vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = new_swapchain;
 
-	u32 images_count = this->images.size();
+	u32 images_count = static_cast<u32>(this->images.size());
     Vec<VkImage> vkimages(images_count);
     VK_CHECK(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 

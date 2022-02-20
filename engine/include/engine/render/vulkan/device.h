@@ -4,7 +4,6 @@
 #include <exo/collections/vector.h>
 #include <exo/collections/pool.h>
 
-#include "engine/render/vulkan/bindless_set.h"
 #include "engine/render/vulkan/buffer.h"
 #include "engine/render/vulkan/commands.h"
 #include "engine/render/vulkan/descriptor_set.h"
@@ -31,12 +30,9 @@ enum BuiltinSampler
 
 struct GlobalDescriptorSets
 {
-    VkDescriptorPool pool;
+    VkDescriptorPool uniform_descriptor_pool;
+    BindlessSet bindless;
     VkPipelineLayout pipeline_layout;
-    DescriptorSet uniform;
-    BindlessSet storage_images;
-    BindlessSet sampled_images;
-    BindlessSet storage_buffers;
 };
 
 struct PushConstantLayout
@@ -61,7 +57,6 @@ struct Device
     u32 transfer_family_idx = u32_invalid;
     VmaAllocator allocator;
 
-    VkDescriptorPool descriptor_pool;
     PushConstantLayout push_constant_layout;
     GlobalDescriptorSets global_sets;
 
@@ -142,11 +137,6 @@ struct Device
     void flush_buffer(Handle<Buffer> buffer_handle);
 
     // Global descriptor set
-    void bind_global_uniform_buffer(Handle<Buffer> buffer_handle, usize offset, usize range);
-    void bind_global_storage_image(u32 index, Handle<Image> image_handle);
-    void bind_global_sampled_image(u32 index, Handle<Image> image_handle);
-    inline Handle<Image> get_global_sampled_image(u32 index) { return get_image_descriptor(global_sets.sampled_images, index); }
-
     void update_globals();
 
     // Swapchain

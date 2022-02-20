@@ -1,120 +1,71 @@
 #pragma once
-#include <exo/hash.h>
 #include <exo/collections/handle.h>
-#include <exo/collections/vector.h>
+#include <exo/memory/free_list.h>
 
 #include <volk.h>
-#include <span>
+#include <array>
 
 namespace vulkan
 {
-struct Device;
-struct Image;
 struct Buffer;
-struct GraphicsState;
+struct Image;
+struct Device;
 
-struct ImageDescriptor
+// Every pipeline has one dynamic buffer descriptor used to pass shader params,
+// images and buffer should be passed as indices to the bindless set
+
+struct DynamicBufferDescriptor
 {
-    Handle<Image> image_handle;
+	Handle<Buffer> buffer;
+	VkDescriptorSet vkset;
+	u32 dynamic_offset; // offset in bytes from where the range begins
+	u32 size; // size of the range
 };
 
-struct BufferDescriptor
+extern VkDescriptorSetLayout dynamic_buffer_layout;
+
+void create_dynamic_buffer_layout(Device &device);
+void destroy_buffer_descriptor_layout(Device &device);
+
+DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> &buffer_handle, usize range_size);
+void destroy_buffer_descriptor(Device &device, DynamicBufferDescriptor &descriptor);
+void destroy_buffer_descriptor_layout(Device &device);
+
+
+struct BindlessSet
 {
-    Handle<Buffer> buffer_handle;
+	template <typename T> using PerSet = std::array<T, 3>;
+	static constexpr usize PER_SAMPLER = 0;
+	static constexpr usize PER_IMAGE = 1;
+	static constexpr usize PER_BUFFER = 2;
+
+	VkDescriptorPool vkpool = VK_NULL_HANDLE;
+    VkDescriptorSetLayout vklayout = VK_NULL_HANDLE;
+    VkDescriptorSet vkset = VK_NULL_HANDLE;
+
+	Vec<Handle<Image>> sampler_images;
+	Vec<Handle<Image>> storage_images;
+	Vec<Handle<Buffer>> storage_buffers;
+	PerSet<exo::FreeList> free_list = {};
+    PerSet<Vec<u32>> pending_bind = {};
+    PerSet<Vec<u32>> pending_unbind = {};
 };
 
-struct DynamicDescriptor
-{
-    Handle<Buffer> buffer_handle;
-    usize          size;
-    usize          offset;
-};
+BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 image_count, u32 buffer_count);
+void destroy_bindless_set(const Device &device, BindlessSet &set);
 
-union DescriptorType
-{
-    static const u32 Empty         = 0;
-    static const u32 SampledImage  = 1;
-    static const u32 StorageImage  = 2;
-    static const u32 StorageBuffer = 3;
-    static const u32 DynamicBuffer = 4;
+u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle);
+u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle);
+u32 bind_storage_buffer(BindlessSet &bindless, Handle<Buffer> buffer_handle);
 
-    struct
-    {
-        u32 count : 24;
-        u32 type : 8;
-    } bits;
-    u32 raw;
-};
+void unbind_sampler_image(BindlessSet &set, u32 index);
+void unbind_storage_image(BindlessSet &set, u32 index);
+void unbind_storage_buffer(BindlessSet &set, u32 index);
 
-union Descriptor
-{
-    ImageDescriptor   image;
-    BufferDescriptor  buffer;
-    DynamicDescriptor dynamic;
+void update_bindless_set(Device &device, BindlessSet &set);
 
-    // for std::hash
-    struct
-    {
-        u64 one;
-        u64 two;
-        u64 three;
-    } raw;
-};
+Handle<Image> get_sampler_image_at(BindlessSet &set, u32 index);
+Handle<Image> get_storage_image_at(BindlessSet &set, u32 index);
+Handle<Buffer> get_storage_buffer_at(BindlessSet &set, u32 index);
 
-struct DescriptorSet
-{
-    VkDescriptorSetLayout layout;
-    Vec<Descriptor>       descriptors;
-    Vec<DescriptorType>   descriptor_desc;
-
-    // linear map
-    Vec<VkDescriptorSet> vkhandles;
-    Vec<usize>           hashes;
-
-    // dynamic offsets
-    Vec<usize> dynamic_descriptors;
-    Vec<usize> dynamic_offsets;
-};
-
-DescriptorSet create_descriptor_set(Device &device, std::span<const DescriptorType> descriptors);
-void          destroy_descriptor_set(Device &device, DescriptorSet &set);
-
-void bind_uniform_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
-void bind_storage_buffer(DescriptorSet &set, u32 slot, Handle<Buffer> buffer_handle);
-void bind_image(DescriptorSet &set, u32 slot, Handle<Image> image_handle);
-
-VkDescriptorSet find_or_create_descriptor_set(Device &device, DescriptorSet &set);
-
-// -- Utils
-
-inline VkDescriptorType to_vk(DescriptorType desc_type)
-{
-    switch (desc_type.bits.type)
-    {
-    case DescriptorType::SampledImage:
-        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    case DescriptorType::StorageImage:
-        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    case DescriptorType::StorageBuffer:
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case DescriptorType::DynamicBuffer:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    }
-    ASSERT(false);
-    return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 }
-
-} // namespace vulkan
-
-namespace std
-{
-template <>
-struct hash<vulkan::Descriptor>
-{
-    std::size_t operator()(vulkan::Descriptor const &descriptor) const noexcept
-    {
-        usize hash = descriptor.raw.one;
-        return hash;
-    }
-};
-} // namespace std

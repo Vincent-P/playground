@@ -4,7 +4,7 @@
 #include "base/constants.h"
 #include "engine/globals.h"
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
+layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     uint sampled_hdr_buffer;
     uint storage_output_frame;
 };

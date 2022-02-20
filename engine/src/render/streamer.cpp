@@ -13,8 +13,8 @@ namespace
 {
 static bool copy_to_staging(Streamer &streamer, const void *data, usize len)
 {
-    if (len % 4 != 0) {
-        len += 4 - (len % 4);
+    if (len % 16 != 0) {
+		len += 16 - (len % 16);
     }
 
     // wrap cursor at the end the buffer

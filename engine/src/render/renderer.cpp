@@ -420,8 +420,6 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
     renderer->settings.resolution_dirty  = true;
     renderer->settings.render_resolution = int2(surface.width, surface.height);
 
-    gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
-
     // Create ImGui pass
     imgui_pass_init(device, renderer->imgui_pass, VK_FORMAT_R8G8B8A8_UNORM);
 
@@ -432,7 +430,6 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
         state.fragment_shader    = device.create_shader("shaders/opaque.frag.glsl.spv");
         state.attachments_format
             = {.attachments_format = {VK_FORMAT_R32G32_UINT}, .depth_format = VK_FORMAT_D32_SFLOAT};
-        state.descriptors.push_back(one_dynamic_buffer_descriptor);
         renderer->opaque_program = device.create_program("gltf opaque", state);
 
         gfx::RenderState render_state      = {};
@@ -446,85 +443,73 @@ Renderer *Renderer::create(exo::ScopeStack &scope, exo::Window *window, AssetMan
     renderer->taa_program = device.create_program("taa",
                                                  {
                                                      .shader      = device.create_shader("shaders/taa.comp.glsl.spv"),
-                                                     .descriptors = {one_dynamic_buffer_descriptor},
                                                  });
 
     renderer->tonemap_program = device.create_program("tonemap",
                                                      {
                                                          .shader = device.create_shader("shaders/tonemap.comp.glsl.spv"),
-                                                         .descriptors = {one_dynamic_buffer_descriptor},
                                                      });
 
     renderer->path_tracer_program
         = device.create_program("path tracer",
                                 {
                                     .shader      = device.create_shader("shaders/path_tracer.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->instances_culling_program
         = device.create_program("instances culling",
                                 {
                                     .shader      = device.create_shader("shaders/instances_culling.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->parallel_prefix_sum_program
         = device.create_program("parallel prefix sum",
                                 {
                                     .shader      = device.create_shader("shaders/parallel_prefix_sum.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->copy_culled_instances_index_program
         = device.create_program("copy instances",
                                 {
                                     .shader      = device.create_shader("shaders/copy_instances_index.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->init_draw_calls_program
         = device.create_program("init draw calls",
                                 {
                                     .shader      = device.create_shader("shaders/init_draw_calls.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->drawcalls_fill_predicate_program
         = device.create_program("draw calls fill predicate",
                                 {
                                     .shader      = device.create_shader("shaders/drawcalls_fill_predicate.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
     renderer->copy_draw_calls_program
         = device.create_program("copy culled draw calls",
                                 {
                                     .shader      = device.create_shader("shaders/copy_draw_calls.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
                                 });
 
-    renderer->visibility_shading_program
-        = device.create_program("visibility shading",
-                                {
-                                    .shader      = device.create_shader("shaders/visibility_shading.comp.glsl.spv"),
-                                    .descriptors = {one_dynamic_buffer_descriptor},
-                                });
+	renderer->visibility_shading_program =
+		device.create_program("visibility shading",
+				  {
+					  .shader = device.create_shader("shaders/visibility_shading.comp.glsl.spv"),
+				  });
 
-    auto compute_halton = [](u32 index, u32 radix)
-    {
-        float result   = 0.f;
-        float fraction = 1.f / float(radix);
+	auto compute_halton = [](u32 index, u32 radix) {
+		float result   = 0.f;
+		float fraction = 1.f / float(radix);
 
-        while (index != 0)
-        {
-            result += float(index % radix) * fraction;
+	    while (index != 0) {
+		    result += float(index % radix) * fraction;
 
-            index /= radix;
-            fraction /= float(radix);
-        }
+		    index /= radix;
+		    fraction /= float(radix);
+	    }
 
-        return result;
+	    return result;
     };
 
     for (u32 i_halton = 0; i_halton < ARRAY_SIZE(renderer->halton_sequence); i_halton++)
@@ -683,7 +668,7 @@ void Renderer::update(const RenderWorld &render_world)
     static float4x4 last_view = render_world.main_camera_view;
     static float4x4 last_proj = render_world.main_camera_projection;
 
-    auto *global_data                       = base_renderer->bind_global_options<GlobalUniform>();
+    auto *global_data                       = base_renderer->bind_global_options<GlobalUniform>(cmd);
     global_data->camera_view                = render_world.main_camera_view;
     global_data->camera_projection          = render_world.main_camera_projection;
     global_data->camera_view_inverse        = render_world.main_camera_view_inverse;
@@ -721,7 +706,6 @@ void Renderer::update(const RenderWorld &render_world)
 
     // -- Do the actual rendering
 
-    cmd.bind_global_set();
     cmd.bind_index_buffer(this->index_buffer.buffer, VK_INDEX_TYPE_UINT32);
 
     // vulkan only: this command buffer will wait for the image acquire semaphore
@@ -756,7 +740,7 @@ void Renderer::update(const RenderWorld &render_world)
             u32 storage_output;
         };
 
-        auto *options           = base_renderer->bind_shader_options<PathTracerOptions>(cmd, path_tracer_program);
+        auto *options           = base_renderer->bind_compute_shader_options<PathTracerOptions>(cmd);
         options->storage_output = device.get_image_storage_index(hdr_buffer);
 
         auto hdr_buffer_size = device.get_image_size(hdr_buffer);
@@ -782,7 +766,7 @@ void Renderer::update(const RenderWorld &render_world)
                 u32 draw_arguments_descriptor;
             };
             {
-                auto *options = base_renderer->bind_shader_options<GenDrawCallOptions>(cmd, init_draw_calls_program);
+                auto *options = base_renderer->bind_compute_shader_options<GenDrawCallOptions>(cmd);
                 options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
             }
             cmd.bind_pipeline(init_draw_calls_program);
@@ -803,7 +787,7 @@ void Renderer::update(const RenderWorld &render_world)
                 float4x4 camera_view;
                 u32      instances_visibility_descriptor;
             };
-            auto *options = base_renderer->bind_shader_options<CullInstancesOptions>(cmd, instances_culling_program);
+            auto *options = base_renderer->bind_compute_shader_options<CullInstancesOptions>(cmd);
             options->camera_view                     = culling_view;
             options->instances_visibility_descriptor = device.get_buffer_storage_index(predicate_buffer);
             cmd.bind_pipeline(instances_culling_program);
@@ -850,7 +834,7 @@ void Renderer::update(const RenderWorld &render_world)
                 u32 draw_arguments_descriptor;
             };
             auto *options
-                = base_renderer->bind_shader_options<FillPredicateOptions>(cmd, drawcalls_fill_predicate_program);
+                = base_renderer->bind_compute_shader_options<FillPredicateOptions>(cmd);
             options->predicate_descriptor      = device.get_buffer_storage_index(predicate_buffer);
             options->draw_arguments_descriptor = device.get_buffer_storage_index(draw_arguments);
             cmd.bind_pipeline(drawcalls_fill_predicate_program);
@@ -895,7 +879,7 @@ void Renderer::update(const RenderWorld &render_world)
             u32 nothing;
         };
         {
-            auto *options    = base_renderer->bind_shader_options<OpaqueOptions>(cmd, opaque_program);
+            auto *options    = base_renderer->bind_graphics_shader_options<OpaqueOptions>(cmd);
             options->nothing = 42;
             cmd.bind_pipeline(opaque_program, 0);
             cmd.draw_indexed_indirect_count({.arguments_buffer = culled_draw_arguments,
@@ -922,7 +906,7 @@ void Renderer::update(const RenderWorld &render_world)
         cmd.barrier(hdr_buffer, gfx::ImageUsage::ComputeShaderReadWrite);
         auto hdr_buffer_size = device.get_image_size(hdr_buffer);
         {
-            auto *options = base_renderer->bind_shader_options<ShadingOptions>(cmd, visibility_shading_program);
+            auto *options = base_renderer->bind_compute_shader_options<ShadingOptions>(cmd);
             options->sampled_visibility_buffer = device.get_image_sampled_index(visibility_buffer);
             options->sampled_depth_buffer      = device.get_image_sampled_index(depth_buffer);
             options->sampled_blue_noise
@@ -957,7 +941,7 @@ void Renderer::update(const RenderWorld &render_world)
             uint storage_current_history;
         };
 
-        auto *options                     = base_renderer->bind_shader_options<TAAOptions>(cmd, taa_program);
+        auto *options                     = base_renderer->bind_compute_shader_options<TAAOptions>(cmd);
         options->sampled_hdr_buffer       = device.get_image_sampled_index(hdr_buffer);
         options->sampled_depth_buffer     = device.get_image_sampled_index(depth_buffer);
         options->sampled_previous_history = device.get_image_sampled_index(previous_history);
@@ -985,7 +969,7 @@ void Renderer::update(const RenderWorld &render_world)
             uint storage_output_frame;
         };
 
-        auto *options                 = base_renderer->bind_shader_options<TonemapOptions>(cmd, tonemap_program);
+        auto *options                 = base_renderer->bind_compute_shader_options<TonemapOptions>(cmd);
         options->sampled_input        = device.get_image_sampled_index(tonemap_input);
         options->storage_output_frame = device.get_image_storage_index(ldr_buffer);
         cmd.bind_pipeline(tonemap_program);
@@ -1170,7 +1154,7 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
             u32 reduction_group_sum_descriptor;
         };
 
-        auto *options              = base_renderer->bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
+        auto *options              = base_renderer->bind_compute_shader_options<ScanOptions>(cmd);
         options->input_descriptor  = device.get_buffer_storage_index(predicate_buffer);
         options->output_descriptor = device.get_buffer_storage_index(scanned_indices);
         options->reduction_group_sum_descriptor = device.get_buffer_storage_index(group_sum_reduction);
@@ -1189,7 +1173,7 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
             u32 reduction_group_sum_descriptor;
         };
 
-        auto *options              = base_renderer->bind_shader_options<ScanOptions>(cmd, parallel_prefix_sum_program);
+        auto *options              = base_renderer->bind_compute_shader_options<ScanOptions>(cmd);
         options->input_descriptor  = device.get_buffer_storage_index(group_sum_reduction);
         options->output_descriptor = options->input_descriptor;
         options->reduction_group_sum_descriptor = u32_invalid;
@@ -1203,13 +1187,8 @@ void Renderer::compact_buffer(gfx::ComputeWork &cmd, i32 count, Handle<gfx::Comp
         cmd.barrier(scanned_indices, gfx::BufferUsage::ComputeShaderRead);
         cmd.barrier(group_sum_reduction, gfx::BufferUsage::ComputeShaderRead);
 
-        auto [options, options_offset] = base_renderer->dynamic_uniform_buffer.allocate(device, options_len);
+		auto *options = base_renderer->bind_compute_shader_options(cmd, options_len);
         std::memcpy(options, options_data, options_len);
-        cmd.bind_uniform_buffer(copy_program,
-                                0,
-                                base_renderer->dynamic_uniform_buffer.buffer,
-                                options_offset,
-                                options_len);
 
         cmd.bind_pipeline(copy_program);
         cmd.dispatch(dispatch_size({count, 1, 1}, 128));

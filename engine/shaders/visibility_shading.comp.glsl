@@ -119,7 +119,7 @@ void unpack_uvs(Material material, inout float2 uv0, inout float2 uv1, inout flo
 	uv2 = (matrix * float3(uv2, 1)).xy;
 }
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
+layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
 	uint sampled_visibility_buffer;
 	uint sampled_depth_buffer;
 	uint sampled_blue_noise;

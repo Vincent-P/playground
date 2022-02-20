@@ -17,38 +17,52 @@ namespace vulkan
 
 void Work::begin()
 {
-    ZoneScoped;
-    VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-    binfo.flags                    = 0;
-    vkBeginCommandBuffer(command_buffer, &binfo);
+	ZoneScoped;
+	VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	binfo.flags                    = 0;
+	vkBeginCommandBuffer(command_buffer, &binfo);
+
+	vkCmdBindDescriptorSets(command_buffer,
+				VK_PIPELINE_BIND_POINT_COMPUTE,
+				device->global_sets.pipeline_layout,
+				0,
+				1,
+				&device->global_sets.bindless.vkset,
+				0,
+				nullptr);
+
+	if (queue_type == QueueType::Graphics) {
+		vkCmdBindDescriptorSets(command_buffer,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					device->global_sets.pipeline_layout,
+					0,
+					1,
+					&device->global_sets.bindless.vkset,
+					0,
+					nullptr);
+	}
 }
 
-void Work::bind_global_set()
+void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor,
+			    u32                            offset,
+			    QueueType                      queue_type,
+			    u32                            i_set /*= 2*/)
 {
-    ZoneScoped;
-    if (queue_type == QueueType::Graphics || queue_type == QueueType::Compute)
-    {
-        VkPipelineLayout layout = device->global_sets.pipeline_layout;
-        VkDescriptorSet  sets[] = {
-            find_or_create_descriptor_set(*device, device->global_sets.uniform),
-            device->global_sets.sampled_images.set,
-            device->global_sets.storage_images.set,
-            device->global_sets.storage_buffers.set,
-        };
+	VkPipelineBindPoint bindpoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	if (queue_type == QueueType::Compute) {
+		bindpoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+	} else {
+		ASSERT(queue_type == QueueType::Graphics);
+	}
 
-        u32      offsets_count = static_cast<u32>(device->global_sets.uniform.dynamic_offsets.size());
-        exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
-        for (usize i_offset = 0; i_offset < offsets_count; i_offset += 1)
-        {
-            offsets.push_back(static_cast<u32>(device->global_sets.uniform.dynamic_offsets[i_offset]));
-        }
-
-        if (queue_type == QueueType::Graphics)
-        {
-            vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, ARRAY_SIZE(sets), sets, offsets_count, offsets.data());
-        }
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, ARRAY_SIZE(sets), sets, offsets_count, offsets.data());
-    }
+	vkCmdBindDescriptorSets(command_buffer,
+				bindpoint,
+				device->global_sets.pipeline_layout,
+				i_set,
+				1,
+				&dynamic_descriptor.vkset,
+				1,
+				&offset);
 }
 
 void Work::end()
@@ -316,15 +330,6 @@ void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
 {
     ZoneScoped;
     auto &          program = *device->compute_programs.get(program_handle);
-    VkDescriptorSet set     = find_or_create_descriptor_set(*device, program.descriptor_set);
-
-    exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
-    for (usize offset : program.descriptor_set.dynamic_offsets)
-    {
-        offsets.push_back(static_cast<u32>(offset));
-    }
-
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 4, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
@@ -340,52 +345,6 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
     auto image = *device->images.get(image_handle);
 
     vkCmdClearColorImage(command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_view.range);
-}
-
-void ComputeWork::bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
-{
-    ZoneScoped;
-    auto &program = *device->compute_programs.get(program_handle);
-    auto &buffer  = *device->buffers.get(buffer_handle);
-    ASSERT(offset + size < buffer.desc.size);
-    ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
-}
-
-void ComputeWork::bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size)
-{
-    ZoneScoped;
-    auto &program = *device->graphics_programs.get(program_handle);
-    auto &buffer  = *device->buffers.get(buffer_handle);
-    ASSERT(offset + size < buffer.desc.size);
-    ::vulkan::bind_uniform_buffer(program.descriptor_set, slot, buffer_handle, offset, size);
-}
-
-void ComputeWork::bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle)
-{
-    ZoneScoped;
-    auto &program = *device->compute_programs.get(program_handle);
-    ::vulkan::bind_storage_buffer(program.descriptor_set, slot, buffer_handle);
-}
-
-void ComputeWork::bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle)
-{
-    ZoneScoped;
-    auto &program = *device->graphics_programs.get(program_handle);
-    ::vulkan::bind_storage_buffer(program.descriptor_set, slot, buffer_handle);
-}
-
-void ComputeWork::bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle)
-{
-    ZoneScoped;
-    auto &program = *device->compute_programs.get(program_handle);
-    ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
-}
-
-void ComputeWork::bind_storage_image(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Image> image_handle)
-{
-    ZoneScoped;
-    auto &program = *device->graphics_programs.get(program_handle);
-    ::vulkan::bind_image(program.descriptor_set, slot, image_handle);
 }
 
 void ComputeWork::push_constant(const void *data, usize len)
@@ -461,16 +420,6 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
     ZoneScoped;
     auto &program  = *device->graphics_programs.get(program_handle);
     auto  pipeline = program.pipelines[pipeline_index];
-
-    VkDescriptorSet set = find_or_create_descriptor_set(*device, program.descriptor_set);
-
-    exo::DynamicArray<u32, MAX_DYNAMIC_DESCRIPTORS> offsets = {};
-    for (usize offset : program.descriptor_set.dynamic_offsets)
-    {
-        offsets.push_back(static_cast<u32>(offset));
-    }
-
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, program.pipeline_layout, 4, 1, &set, static_cast<u32>(offsets.size()), offsets.data());
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 

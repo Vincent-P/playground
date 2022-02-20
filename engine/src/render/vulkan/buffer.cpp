@@ -1,6 +1,6 @@
 #include "render/vulkan/buffer.h"
 
-#include "render/vulkan/bindless_set.h"
+#include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
@@ -64,9 +64,7 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
     if (buffer_info.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
     {
         auto &buffer = *buffers.get(handle);
-        Descriptor buffer_descriptor = {};
-        buffer_descriptor.buffer.buffer_handle = handle;
-        buffer.descriptor_idx = bind_descriptor(global_sets.storage_buffers, buffer_descriptor);
+        buffer.descriptor_idx = bind_storage_buffer(global_sets.bindless, handle);
     }
 
     return handle;

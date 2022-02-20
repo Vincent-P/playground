@@ -4,7 +4,6 @@
 #include <exo/collections/handle.h>
 #include <exo/collections/dynamic_array.h>
 
-#include "engine/render/vulkan/descriptor_set.h"
 #include "engine/render/vulkan/operators.h"
 
 #include <string>
@@ -12,10 +11,10 @@
 
 namespace vulkan
 {
+struct Image;
+
 inline constexpr usize MAX_ATTACHMENTS         = 4; // Maximum number of attachments (color + depth) in a framebuffer
 inline constexpr usize MAX_RENDERPASS          = 4; // Maximum number of renderpass (combination of load operator) per framebuffer
-inline constexpr usize MAX_SHADER_DESCRIPTORS  = 4; // Maximum number of descriptors in a shader descriptor set (usually just one uniform buffer)
-inline constexpr usize MAX_DYNAMIC_DESCRIPTORS = 4; // Maximum number of total dynamic descriptors (in all descriptor sets)
 inline constexpr usize MAX_RENDER_STATES       = 4; // Maximum number of render state per pipeline
 
 struct Shader
@@ -142,7 +141,6 @@ struct GraphicsState
     Handle<Shader> vertex_shader;
     Handle<Shader> fragment_shader;
     FramebufferFormat attachments_format;
-    exo::DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct GraphicsProgram
@@ -153,19 +151,14 @@ struct GraphicsProgram
     exo::DynamicArray<RenderState, MAX_RENDER_STATES> render_states;
 
     // pipeline
-    VkPipelineLayout pipeline_layout;
     exo::DynamicArray<VkPipeline, MAX_RENDER_STATES> pipelines;
     VkPipelineCache cache;
     VkRenderPass renderpass;
-
-    // data binded to the program
-    DescriptorSet descriptor_set;
 };
 
 struct ComputeState
 {
     Handle<Shader> shader;
-    exo::DynamicArray<DescriptorType, MAX_SHADER_DESCRIPTORS> descriptors;
 };
 
 struct ComputeProgram
@@ -173,8 +166,6 @@ struct ComputeProgram
     std::string name;
     ComputeState state;
     VkPipeline pipeline;
-    VkPipelineLayout pipeline_layout;
-    DescriptorSet descriptor_set;
 };
 
 // -- Utils

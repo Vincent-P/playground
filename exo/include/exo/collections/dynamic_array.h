@@ -56,6 +56,7 @@ struct DynamicArray
     constexpr const T *end() const noexcept    { return begin() + array_size; }
     constexpr T *      end() noexcept          { return begin() + array_size; }
     constexpr usize size() const noexcept      { return end() - begin(); }
+    constexpr usize capacity() const noexcept      { return CAPACITY; }
     constexpr bool empty() const noexcept      { return array_size == 0; }
     constexpr const T *data() const noexcept   { return &array[0]; }
     constexpr T *data() noexcept               { return &array[0]; }

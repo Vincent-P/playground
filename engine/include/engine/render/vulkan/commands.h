@@ -22,6 +22,7 @@ struct ComputeProgram;
 struct GraphicsProgram;
 struct Framebuffer;
 struct LoadOp;
+struct DynamicBufferDescriptor;
 
 inline constexpr usize MAX_SEMAPHORES = 4; // Maximum number of waitable semaphores per command buffer
 
@@ -59,6 +60,7 @@ struct Work
 
     void begin();
     void bind_global_set();
+	void bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, QueueType queue_type, u32 i_set = 2);
     void end();
 
     void wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst);
@@ -101,13 +103,6 @@ struct ComputeWork : TransferWork
     void dispatch(uint3 workgroups);
 
     void clear_image(Handle<Image> image, VkClearColorValue clear_color);
-
-    void bind_uniform_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
-    void bind_uniform_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle, usize offset, usize size);
-    void bind_storage_buffer(Handle<ComputeProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
-    void bind_storage_buffer(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Buffer> buffer_handle);
-    void bind_storage_image(Handle<ComputeProgram> program_handle, u32 slot, Handle<Image> image_handle);
-    void bind_storage_image(Handle<GraphicsProgram> program_handle, u32 slot, Handle<Image> image_handle);
 
     void push_constant(const void *data, usize len);
     template<typename T>

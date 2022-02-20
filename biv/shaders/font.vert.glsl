@@ -2,9 +2,9 @@
 
 #include "base/types.h"
 #include "base/constants.h"
-#include "render_sample/globals.h"
+#include "biv/globals.h"
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
+layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     float2 scale;
     float2 translation;
     u32 vertices_descriptor_index;

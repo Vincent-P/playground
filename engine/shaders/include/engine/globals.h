@@ -3,11 +3,8 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
-// #extension GL_EXT_buffer_reference : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_ARB_shader_draw_parameters : require
-
 #include "base/types.h"
+#include "base/bindless.h"
 
 /// --- Structures
 
@@ -105,8 +102,7 @@ layout(push_constant) uniform PushConstants {
     u32 gui_texture_id;
 } push_constants;
 
-
-layout(set = 0, binding = 0) uniform GlobalUniform {
+layout(set = GLOBAL_UNIFORM_SET, binding = 0) uniform GlobalUniform {
     float4x4 camera_view;
     float4x4 camera_projection;
     float4x4 camera_view_inverse;
@@ -145,31 +141,21 @@ layout(set = 0, binding = 0) uniform GlobalUniform {
     u32 hbao_radius;
 } globals;
 
-layout(set = 1, binding = 0) uniform sampler2D global_textures[];
-layout(set = 1, binding = 0) uniform usampler2D global_textures_uint[];
-layout(set = 1, binding = 0) uniform sampler3D global_textures_3d[];
-layout(set = 1, binding = 0) uniform usampler3D global_textures_3d_uint[];
+#define BINDLESS_BUFFER layout(set = GLOBAL_BINDLESS_SET, binding = GLOBAL_BUFFER_BINDING) buffer
 
-layout(set = 2, binding = 0, rgba8) uniform image2D global_images_2d_rgba8[];
-layout(set = 2, binding = 0, rgba16f) uniform image2D global_images_2d_rgba16f[];
-layout(set = 2, binding = 0, rgba32f) uniform image2D global_images_2d_rgba32f[];
-layout(set = 2, binding = 0, r32f) uniform image2D global_images_2d_r32f[];
-
-layout(set = 3, binding = 0) buffer UiVerticesBuffer            { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
-layout(set = 3, binding = 0) buffer FontVerticesBuffer          { FontVertex vertices[];  } global_buffers_font_vert[];
-layout(set = 3, binding = 0) buffer InstancesBuffer             { RenderInstance render_instances[]; } global_buffers_instances[];
-layout(set = 3, binding = 0) buffer MeshesBuffer                { RenderMesh render_meshes[]; } global_buffers_meshes[];
-layout(set = 3, binding = 0) buffer SubMeshInstancesBuffer      { SubMeshInstance submesh_instances[]; } global_buffers_submesh_instances[];
-layout(set = 3, binding = 0) buffer SubMeshesBuffer             { SubMesh submeshes[]; } global_buffers_submeshes[];
-layout(set = 3, binding = 0) buffer PositionsBuffer             { float4 positions[]; } global_buffers_positions[];
-layout(set = 3, binding = 0) buffer UvsBuffer                   { float2 uvs[]; } global_buffers_uvs[];
-layout(set = 3, binding = 0) buffer IndicesBuffer               { u32 indices[]; } global_buffers_indices[];
-layout(set = 3, binding = 0) buffer BVHBuffer                   { BVHNode nodes[]; } global_buffers_bvh[];
-layout(set = 3, binding = 0) buffer DrawArgumentsBuffer         { u32 draw_count; DrawIndexedOptions arguments[]; } global_buffers_draw_arguments[];
-layout(set = 3, binding = 0) buffer UintBuffer                  { u32 data[]; } global_buffers_uint[];
-layout(set = 3, binding = 0) buffer MaterialsBuffer             { Material materials[]; } global_buffers_materials[];
-
-#define SHADER_SET 4
+BINDLESS_BUFFER UiVerticesBuffer            { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
+BINDLESS_BUFFER FontVerticesBuffer          { FontVertex vertices[];  } global_buffers_font_vert[];
+BINDLESS_BUFFER InstancesBuffer             { RenderInstance render_instances[]; } global_buffers_instances[];
+BINDLESS_BUFFER MeshesBuffer                { RenderMesh render_meshes[]; } global_buffers_meshes[];
+BINDLESS_BUFFER SubMeshInstancesBuffer      { SubMeshInstance submesh_instances[]; } global_buffers_submesh_instances[];
+BINDLESS_BUFFER SubMeshesBuffer             { SubMesh submeshes[]; } global_buffers_submeshes[];
+BINDLESS_BUFFER PositionsBuffer             { float4 positions[]; } global_buffers_positions[];
+BINDLESS_BUFFER UvsBuffer                   { float2 uvs[]; } global_buffers_uvs[];
+BINDLESS_BUFFER IndicesBuffer               { u32 indices[]; } global_buffers_indices[];
+BINDLESS_BUFFER BVHBuffer                   { BVHNode nodes[]; } global_buffers_bvh[];
+BINDLESS_BUFFER DrawArgumentsBuffer         { u32 draw_count; DrawIndexedOptions arguments[]; } global_buffers_draw_arguments[];
+BINDLESS_BUFFER UintBuffer                  { u32 data[]; } global_buffers_uint[];
+BINDLESS_BUFFER MaterialsBuffer             { Material materials[]; } global_buffers_materials[];
 
 /// --- Accessors
 

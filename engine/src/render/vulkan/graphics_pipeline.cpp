@@ -161,30 +161,6 @@ void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
 
 Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsState &graphics_state)
 {
-    DescriptorSet set = create_descriptor_set(*this, graphics_state.descriptors);
-
-    std::array sets = {
-        global_sets.uniform.layout,
-        global_sets.sampled_images.layout,
-        global_sets.storage_images.layout,
-        global_sets.storage_buffers.layout,
-        set.layout,
-    };
-
-    VkPushConstantRange push_constant_range;
-    push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
-    push_constant_range.offset     = 0;
-    push_constant_range.size       = static_cast<u32>(push_constant_layout.size);
-
-    VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipeline_layout_info.setLayoutCount             = static_cast<u32>(sets.size());
-    pipeline_layout_info.pSetLayouts                = sets.data();
-    pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
-    pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
-
-    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
-    VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout));
-
     VkPipelineCacheCreateInfo cache_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
     VkPipelineCache cache = VK_NULL_HANDLE;
     VK_CHECK(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
@@ -195,10 +171,8 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
     return graphics_programs.add({
         .name = name,
         .graphics_state = graphics_state,
-        .pipeline_layout = pipeline_layout,
         .cache = cache,
         .renderpass = renderpass.vkhandle,
-        .descriptor_set = std::move(set),
     });
 }
 
@@ -212,10 +186,7 @@ void Device::destroy_program(Handle<GraphicsProgram> program_handle)
         }
 
         vkDestroyPipelineCache(device, program->cache, nullptr);
-        vkDestroyPipelineLayout(device, program->pipeline_layout, nullptr);
         vkDestroyRenderPass(device, program->renderpass, nullptr);
-
-        destroy_descriptor_set(*this, program->descriptor_set);
 
         graphics_programs.remove(program_handle);
     }
@@ -362,7 +333,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
     }
 
     VkGraphicsPipelineCreateInfo pipe_i = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    pipe_i.layout                       = program.pipeline_layout;
+    pipe_i.layout                       = global_sets.pipeline_layout;
     pipe_i.basePipelineHandle           = nullptr;
     pipe_i.basePipelineIndex            = 0;
     pipe_i.pVertexInputState            = &vert_i;

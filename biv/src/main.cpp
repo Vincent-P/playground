@@ -159,14 +159,12 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	auto *window = app->window;
 	auto *renderer = app->renderer;
 
-	gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
 	gfx::GraphicsState gui_state = {};
 	gui_state.vertex_shader = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/"
 								 "font.vert.glsl.spv");
 	gui_state.fragment_shader = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/"
 								   "font.frag.glsl.spv");
 	gui_state.attachments_format = {.attachments_format = {renderer->surface.format.format}};
-	gui_state.descriptors.push_back(one_dynamic_buffer_descriptor);
 	app->font_program = renderer->device.create_program("font", gui_state);
 
 	gfx::RenderState state = {.rasterization = {.culling = false}, .alpha_blending = true};
@@ -540,11 +538,10 @@ static void render(RenderSample *app, bool has_resize)
 	gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
 	cmd.begin();
 
-	auto *global_data = renderer.bind_global_options<u32>();
+	auto *global_data = renderer.bind_global_options<u32>(cmd);
 	global_data[0] = 0;
 
 	device.update_globals();
-	cmd.bind_global_set();
 	cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 	if (renderer.frame_count == 0) {
@@ -578,7 +575,7 @@ static void render(RenderSample *app, bool has_resize)
 		}
 
 		for (u32 image_sampled_idx : painter->used_textures) {
-			cmd.barrier(device.get_global_sampled_image(image_sampled_idx), gfx::ImageUsage::GraphicsShaderRead);
+			cmd.barrier(gfx::get_sampler_image_at(device.global_sets.bindless, image_sampled_idx), gfx::ImageUsage::GraphicsShaderRead);
 		}
 
 		PACKED(struct PainterOptions {
@@ -588,7 +585,7 @@ static void render(RenderSample *app, bool has_resize)
 			u32 primitive_byte_offset;
 		})
 
-		auto *options = renderer.bind_shader_options<PainterOptions>(cmd, font_program);
+		auto *options = renderer.bind_graphics_shader_options<PainterOptions>(cmd);
 		options->scale = float2(2.0f / window->size.x, 2.0f / window->size.y);
 		options->translation = float2(-1.0f, -1.0f);
 		options->vertices_descriptor_index = device.get_buffer_storage_index(renderer.dynamic_vertex_buffer.buffer);

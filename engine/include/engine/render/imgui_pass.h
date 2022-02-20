@@ -1,9 +1,13 @@
 #pragma once
-#include "engine/render/vulkan/image.h"
-#include "engine/render/vulkan/pipelines.h"
 struct BaseRenderer;
 namespace vulkan { struct GraphicsWork; }
+namespace vulkan { struct Device; }
+namespace vulkan { struct Image; }
+namespace vulkan { struct GraphicsProgram; }
+namespace vulkan { struct Framebuffer; }
 namespace gfx = vulkan;
+
+#include <volk.h>
 
 struct ImGuiPass
 {

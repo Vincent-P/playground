@@ -28,10 +28,12 @@ layout(set = GLOBAL_UNIFORM_SET, binding = 0) uniform GlobalUniform {
     u32 textured_rect_buffer_descriptor;
 } globals;
 
-layout(set = GLOBAL_BUFFER_SET, binding = 0) buffer UiVerticesBuffer   { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
-layout(set = GLOBAL_BUFFER_SET, binding = 0) buffer ColorRectBuffer    { ColorRect rects[];  } global_buffers_color_rects[];
-layout(set = GLOBAL_BUFFER_SET, binding = 0) buffer TexturedRectBuffer { TexturedRect rects[];  } global_buffers_textured_rects[];
-layout(set = GLOBAL_BUFFER_SET, binding = 0) buffer RectBuffer { Rect rects[];  } global_buffers_rects[];
-layout(set = GLOBAL_BUFFER_SET, binding = 0) buffer SdfBuffer { SdfRect rects[];  } global_buffers_sdf_rects[];
+#define BINDLESS_BUFFER layout(set = GLOBAL_BINDLESS_SET, binding = GLOBAL_BUFFER_BINDING) buffer
+
+BINDLESS_BUFFER UiVerticesBuffer   { ImGuiVertex vertices[];  } global_buffers_ui_vert[];
+BINDLESS_BUFFER ColorRectBuffer    { ColorRect rects[];  } global_buffers_color_rects[];
+BINDLESS_BUFFER TexturedRectBuffer { TexturedRect rects[];  } global_buffers_textured_rects[];
+BINDLESS_BUFFER RectBuffer         { Rect rects[];  } global_buffers_rects[];
+BINDLESS_BUFFER SdfBuffer          { SdfRect rects[];  } global_buffers_sdf_rects[];
 
 #endif

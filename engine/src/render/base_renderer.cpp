@@ -1,4 +1,6 @@
 #include "render/base_renderer.h"
+#include "render/vulkan/descriptor_set.h"
+#include "render/vulkan/queues.h"
 
 #include <exo/logger.h>
 #include <exo/os/window.h>
@@ -16,7 +18,7 @@ BaseRenderer *BaseRenderer::create(exo::ScopeStack &scope, exo::Window *window, 
 
     // Initialize the API
     renderer->window = window;
-    renderer->context = gfx::Context::create(false, window);
+    renderer->context = gfx::Context::create({.enable_validation = true});
 
     // Pick a GPU
     auto &physical_devices = renderer->context.physical_devices;
@@ -110,24 +112,42 @@ BaseRenderer::~BaseRenderer()
     context.destroy();
 }
 
-void* BaseRenderer::bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::GraphicsProgram> program, usize options_len)
+static gfx::DynamicBufferDescriptor &find_or_create_uniform_descriptor(BaseRenderer &renderer, usize range_size)
+{
+	for (auto &dynamic_descriptor : renderer.dynamic_descriptors)
+	{
+		if (dynamic_descriptor.size == range_size)
+		{
+			return dynamic_descriptor;
+		}
+	}
+
+	renderer.dynamic_descriptors.push_back(gfx::create_buffer_descriptor(renderer.device, renderer.dynamic_uniform_buffer.buffer, range_size));
+	return renderer.dynamic_descriptors.back();
+}
+
+void* BaseRenderer::bind_compute_shader_options(gfx::ComputeWork &cmd, usize options_len)
 {
     auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
-    cmd.bind_uniform_buffer(program, 0, dynamic_uniform_buffer.buffer, options_offset, options_len);
+	auto &descriptor = find_or_create_uniform_descriptor(*this, options_len);
+	cmd.bind_uniform_set(descriptor, options_offset, gfx::QueueType::Compute);
     return options;
 }
 
-void* BaseRenderer::bind_shader_options(gfx::ComputeWork &cmd, Handle<gfx::ComputeProgram> program, usize options_len)
+void* BaseRenderer::bind_graphics_shader_options(gfx::GraphicsWork &cmd, usize options_len)
 {
     auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
-    cmd.bind_uniform_buffer(program, 0, dynamic_uniform_buffer.buffer, options_offset, options_len);
+	auto &descriptor = find_or_create_uniform_descriptor(*this, options_len);
+	cmd.bind_uniform_set(descriptor, options_offset, gfx::QueueType::Graphics);
     return options;
 }
 
-void* BaseRenderer::bind_global_options(usize options_len)
+void* BaseRenderer::bind_global_options(gfx::GraphicsWork &cmd, usize options_len)
 {
     auto [options, options_offset] = dynamic_uniform_buffer.allocate(device, options_len);
-    device.bind_global_uniform_buffer(dynamic_uniform_buffer.buffer, options_offset, options_len);
+	auto &descriptor = find_or_create_uniform_descriptor(*this, options_len);
+	cmd.bind_uniform_set(descriptor, options_offset, gfx::QueueType::Compute, 1);
+	cmd.bind_uniform_set(descriptor, options_offset, gfx::QueueType::Graphics, 1);
     return options;
 }
 

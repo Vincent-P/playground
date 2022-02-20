@@ -1,6 +1,7 @@
 #include "render/imgui_pass.h"
 
 #include "render/base_renderer.h"
+#include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/commands.h"
 namespace gfx = vulkan;
 
@@ -9,13 +10,10 @@ namespace gfx = vulkan;
 
 void imgui_pass_init(gfx::Device &device, ImGuiPass &pass, VkFormat color_attachment_format)
 {
-    gfx::DescriptorType one_dynamic_buffer_descriptor = {{.count = 1, .type = gfx::DescriptorType::DynamicBuffer}};
-
     gfx::GraphicsState gui_state = {};
     gui_state.vertex_shader      = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/gui.vert.glsl.spv");
     gui_state.fragment_shader    = device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/gui.frag.glsl.spv");
     gui_state.attachments_format = {.attachments_format = {color_attachment_format}};
-    gui_state.descriptors.push_back(one_dynamic_buffer_descriptor);
     pass.program = device.create_program("imgui", gui_state);
 
     gfx::RenderState state = {.rasterization = {.culling = false}, .alpha_blending = true};
@@ -139,7 +137,7 @@ void imgui_pass_draw(BaseRenderer &renderer, ImGuiPass &pass, gfx::GraphicsWork 
         u32    vertices_descriptor_index;
     })
 
-    auto *options = renderer.bind_shader_options<ImguiOptions>(cmd, pass.program);
+    auto *options = renderer.bind_graphics_shader_options<ImguiOptions>(cmd);
     std::memset(options, 0, sizeof(ImguiOptions));
     options->scale = float2(2.0f / data->DisplaySize.x, 2.0f / data->DisplaySize.y);
     options->translation = float2(-1.0f - data->DisplayPos.x * options->scale.x, -1.0f - data->DisplayPos.y * options->scale.y);
@@ -151,7 +149,7 @@ void imgui_pass_draw(BaseRenderer &renderer, ImGuiPass &pass, gfx::GraphicsWork 
     for (i_draw = 0; i_draw < draws.size(); i_draw += 1)
     {
         const auto &draw = draws[i_draw];
-        cmd.barrier(device.get_global_sampled_image(draw.texture_id), gfx::ImageUsage::GraphicsShaderRead);
+        cmd.barrier(gfx::get_sampler_image_at(device.global_sets.bindless, draw.texture_id), gfx::ImageUsage::GraphicsShaderRead);
     }
 
     // Draw pass

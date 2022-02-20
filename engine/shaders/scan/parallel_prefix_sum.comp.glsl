@@ -4,7 +4,7 @@
 #include "base/constants.h"
 #include "engine/globals.h"
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
+layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     u32 input_descriptor;
     u32 output_descriptor;
     u32 reduction_group_sum_descriptor;

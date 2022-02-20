@@ -16,6 +16,12 @@ struct LinearAllocator
     LinearAllocator &operator=(LinearAllocator &&other);
 
     void *allocate(usize size);
+	template <typename T>
+	T *allocate(usize nb_element)
+	{
+		return reinterpret_cast<T*>(this->allocate(nb_element * sizeof(T)));
+	}
+
     void  rewind(void *p);
 
     void *get_ptr() const

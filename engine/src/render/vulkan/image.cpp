@@ -1,6 +1,6 @@
 #include "render/vulkan/image.h"
 
-#include "render/vulkan/bindless_set.h"
+#include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
@@ -122,13 +122,13 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
     if (is_sampled)
     {
         auto &image = *images.get(handle);
-        image.full_view.sampled_idx = bind_descriptor(global_sets.sampled_images, {.image = {handle}});
+        image.full_view.sampled_idx = bind_sampler_image(global_sets.bindless, handle);
     }
 
     if (is_storage)
     {
         auto &image = *images.get(handle);
-        image.full_view.storage_idx = bind_descriptor(global_sets.storage_images, {.image = {handle}});
+        image.full_view.storage_idx = bind_storage_image(global_sets.bindless, handle);
     }
 
     return handle;
@@ -138,8 +138,8 @@ void Device::destroy_image(Handle<Image> image_handle)
 {
     if (auto *image = images.get(image_handle))
     {
-        if (image->full_view.sampled_idx != u32_invalid) { unbind_descriptor(global_sets.sampled_images, image->full_view.sampled_idx); }
-        if (image->full_view.storage_idx != u32_invalid) { unbind_descriptor(global_sets.storage_images, image->full_view.storage_idx); }
+        if (image->full_view.sampled_idx != u32_invalid) { unbind_sampler_image(global_sets.bindless, image->full_view.sampled_idx); }
+        if (image->full_view.storage_idx != u32_invalid) { unbind_storage_image(global_sets.bindless, image->full_view.storage_idx); }
         if (!image->is_proxy)
         {
             vmaDestroyImage(allocator, image->vkhandle, image->allocation);

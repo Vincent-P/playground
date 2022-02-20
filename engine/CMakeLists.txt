@@ -42,7 +42,6 @@ set(SOURCE_FILES
   src/render/vulkan/context.cpp
   src/render/vulkan/commands.cpp
   src/render/vulkan/descriptor_set.cpp
-  src/render/vulkan/bindless_set.cpp
   src/render/vulkan/image.cpp
   src/render/vulkan/buffer.cpp
   src/render/vulkan/device.cpp

@@ -36,7 +36,7 @@ float mitchell_netravali(float x) {
 }
 
 
-layout(set = SHADER_SET, binding = 0) uniform Options {
+layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     uint sampled_hdr_buffer;
     uint sampled_depth_buffer;
     uint sampled_previous_history;
