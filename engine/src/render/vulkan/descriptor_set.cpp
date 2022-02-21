@@ -169,6 +169,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 
 void destroy_bindless_set(const Device &device, BindlessSet &bindless)
 {
+    vkDestroyDescriptorPool(device.device, bindless.vkpool, nullptr);
     vkDestroyDescriptorSetLayout(device.device, bindless.vklayout, nullptr);
     bindless.free_list[BindlessSet::PER_SAMPLER].destroy();
     bindless.free_list[BindlessSet::PER_IMAGE].destroy();

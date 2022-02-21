@@ -21,6 +21,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 		return VK_FALSE;
 	}
 
+	// Resize with out of date imageExtent
+	if (pCallbackData->messageIdNumber == 0x7cd0911d) {
+		return VK_FALSE;
+	}
+
 	exo::logger::error("{}\n", pCallbackData->pMessage);
 
 	if (pCallbackData->objectCount) {

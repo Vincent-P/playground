@@ -101,6 +101,11 @@ void Surface::create_swapchain(Device &device)
     // Use default extent for the swapchain
     VkSurfaceCapabilitiesKHR capabilities;
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
+    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.width == 0)
+    {
+	return;
+    }
+
     this->width  = static_cast<i32>(capabilities.currentExtent.width);
     this->height = static_cast<i32>(capabilities.currentExtent.height);
 
@@ -199,6 +204,11 @@ void Surface::recreate_swapchain(Device &device)
     // Use default extent for the swapchain
     VkSurfaceCapabilitiesKHR capabilities;
     VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
+    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.width == 0)
+    {
+	return;
+    }
+
     this->width  = static_cast<i32>(capabilities.currentExtent.width);
     this->height = static_cast<i32>(capabilities.currentExtent.height);
 
