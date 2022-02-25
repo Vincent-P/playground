@@ -63,19 +63,14 @@ struct RenderSample
 	Inputs inputs;
 	BaseRenderer *renderer;
 	Painter *painter;
-
 	FT_Library library;
-	hb_buffer_t *current_file_hb_buf = nullptr;
-    bool wants_to_open_file = false;
-	Vec<u8> current_file_data = {};
-	int cursor_offset = 0;
-
-	Font *main_font;
+	bool       wants_to_open_file = false;
 	Font *ui_font;
-
-	Handle<gfx::GraphicsProgram> font_program;
-
+	Handle<gfx::GraphicsProgram> ui_program;
+	Handle<gfx::GraphicsProgram> viewer_program;
 	exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_framebuffers;
+    Handle<gfx::Image> viewer_gpu_image;
+    Rect viewer_clip_rect;
 };
 
 // --- fwd
@@ -159,16 +154,22 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	auto *window = app->window;
 	auto *renderer = app->renderer;
 
+#define SHADER_PATH(x) "C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/" x
 	gfx::GraphicsState gui_state = {};
-	gui_state.vertex_shader = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/"
-								 "font.vert.glsl.spv");
-	gui_state.fragment_shader = renderer->device.create_shader("C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/"
-								   "font.frag.glsl.spv");
+	gui_state.vertex_shader = renderer->device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
+	gui_state.fragment_shader = renderer->device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
 	gui_state.attachments_format = {.attachments_format = {renderer->surface.format.format}};
-	app->font_program = renderer->device.create_program("font", gui_state);
+	app->ui_program = renderer->device.create_program("gui", gui_state);
+	renderer->device.compile(app->ui_program, {.rasterization = {.culling = false}, .alpha_blending = true});
 
-	gfx::RenderState state = {.rasterization = {.culling = false}, .alpha_blending = true};
-	renderer->device.compile(app->font_program, state);
+	gfx::GraphicsState viewer_state = {};
+	viewer_state.vertex_shader = renderer->device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
+	viewer_state.fragment_shader = renderer->device.create_shader(SHADER_PATH("viewer.frag.glsl.spv"));
+	viewer_state.attachments_format = {.attachments_format = {renderer->surface.format.format}};
+	app->viewer_program = renderer->device.create_program("viewer", viewer_state);
+	renderer->device.compile(app->viewer_program, {.rasterization = {.culling = false}, .alpha_blending = false});
+
+#undef SHADER_PATH
 
 	app->swapchain_framebuffers.resize(renderer->surface.images.size());
 	resize(renderer->device, renderer->surface, app->swapchain_framebuffers);
@@ -177,9 +178,6 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	ASSERT(!error);
 
 	exo::logger::info("DPI at creation: {}x{}\n", window->get_dpi_scale().x, window->get_dpi_scale().y);
-
-	app->main_font = font_create(scope, app->renderer, app->library, "C:\\Windows\\Fonts\\JetBrainsMono-Regular.ttf", 13, 4096, VK_FORMAT_R8_UNORM);
-	app->current_file_hb_buf = hb_buffer_create();
 
 	app->ui_font = font_create(scope, app->renderer, app->library, "C:\\Windows\\Fonts\\segoeui.ttf", 13, 1024, VK_FORMAT_R8_UNORM);
 
@@ -196,7 +194,6 @@ void render_sample_destroy(RenderSample *app)
 {
 	ZoneScoped;
 
-	hb_buffer_destroy(app->current_file_hb_buf);
 	exo::platform_destroy(app->platform);
 }
 
@@ -240,61 +237,6 @@ static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
 		cache_entry.uploaded = true;
 		cache_entry.glyph_top_left = {slot->bitmap_left, slot->bitmap_top};
 		cache_entry.glyph_size = {static_cast<int>(slot->bitmap.width), static_cast<int>(slot->bitmap.rows)};
-	}
-}
-
-static void display_file(RenderSample *app, const Rect &view_rect)
-{
-	auto &ui_state = app->ui_state;
-
-	auto &painter = *app->painter;
-
-	const u8 *text = app->current_file_data.data();
-	auto *buf = app->current_file_hb_buf;
-	auto *font = app->main_font;
-
-	i32 line_height = font->ft_face->size->metrics.height >> 6;
-
-	u32 glyph_count;
-	hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
-	hb_glyph_position_t *glyph_pos = hb_buffer_get_glyph_positions(buf, &glyph_count);
-
-	i32 cursor_x = static_cast<i32>(view_rect.position.x);
-	i32 cursor_y = static_cast<i32>(view_rect.position.y) + line_height;
-	for (u32 i = 0; i < glyph_count; i++) {
-		u32 glyph_index = glyph_info[i].codepoint;
-		auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
-		if (cache_entry.uploaded == false) {
-			upload_glyph(app->renderer, font, glyph_index);
-		}
-
-		// line wrap each glyph
-		if (cursor_x + cache_entry.glyph_size.x > view_rect.position.x + view_rect.size.x) {
-			cursor_x = static_cast<i32>(view_rect.position.x);
-			cursor_y += line_height;
-		}
-
-		if (cursor_y - line_height > view_rect.position.y + view_rect.size.y) {
-			break;
-		}
-
-		Rect rect = {
-		    .position = exo::float2(exo::int2{cursor_x + cache_entry.glyph_top_left.x, cursor_y - cache_entry.glyph_top_left.y}),
-		    .size = exo::float2(cache_entry.glyph_size),
-		};
-		Rect uv = {
-		    .position = (1.0f / float(font->cache_resolution)) * exo::float2(cache_entry.x * font->glyph_width_px, cache_entry.y * font->glyph_height_px),
-		    .size = (1.0f / float(font->cache_resolution)) * exo::float2(cache_entry.glyph_size),
-		};
-		painter_draw_textured_rect(painter, rect, ui_state.i_clip_rect, uv, font->glyph_atlas_gpu_idx);
-
-		cursor_x += glyph_pos[i].x_advance >> 6;
-		cursor_y += glyph_pos[i].y_advance >> 6;
-
-		if (text[glyph_info[i].cluster] == '\n') {
-			cursor_x = static_cast<i32>(view_rect.position.x);
-			cursor_y += line_height;
-		}
 	}
 }
 
@@ -429,82 +371,8 @@ static void display_ui(RenderSample *app)
 	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
 	ui_push_clip_rect(app->ui_state, i_content_rect);
 
-	static float vsplit = 0.5f;
-	Rect left_pane = {};
-	Rect right_pane = {};
-	ui_splitter_x(app->ui_state, app->ui_theme, content_rect, vsplit, left_pane, right_pane);
-
-	/* Left pane */
-	static float left_hsplit = 0.5f;
-	Rect left_top_pane = {};
-	Rect left_bottom_pane = {};
-	ui_splitter_y(app->ui_state, app->ui_theme, left_pane, left_hsplit, left_top_pane, left_bottom_pane);
-
-	/* Left top pane */
-	u32 i_left_top_pane = ui_register_clip_rect(app->ui_state, left_top_pane);
-	ui_push_clip_rect(app->ui_state, i_left_top_pane);
-	display_file(app, left_top_pane);
-	ui_pop_clip_rect(app->ui_state);
-
-	/* Left bottom pane */
-
-	/* Right pane */
-	static float right_hsplit = 0.5f;
-	Rect right_top_pane = {};
-	Rect right_bottom_pane = {};
-	ui_splitter_y(app->ui_state, app->ui_theme, right_pane, right_hsplit, right_top_pane, right_bottom_pane);
-
-	/* Right top pane */
-	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Button 1")) + exo::float2{64.0f, 8.0f};
-	if (ui_button(app->ui_state, app->ui_theme, {.label = "Button 1", .rect = {.position = right_top_pane.position + exo::float2{10.0f, 10.0f}, .size = label_size}})) {
-		exo::logger::info("Button 1 clicked!!\n");
-	}
-
-	/* Right Bottom pane */
-	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Open file")) + exo::float2{8.0f, 8.0f};
-	Rect open_file_rect = {.position = right_bottom_pane.position + exo::float2{10.0f, 10.0f}, .size = label_size};
-	if (ui_button(app->ui_state, app->ui_theme, {.label = "Open file", .rect = open_file_rect})) {
-	    app->wants_to_open_file = true;
-	}
-
-	char tmp_label[128] = {};
-	Rect label_rect = open_file_rect;
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "Current file size: {}", app->current_file_data.size());
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "UI focused: {}", app->ui_state.focused);
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "UI active: {}", app->ui_state.active);
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "Frame: {}", app->renderer->frame_count);
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "Splitter Y #1: {}", left_hsplit);
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
-
-	std::memset(tmp_label, 0, sizeof(tmp_label));
-	fmt::format_to(tmp_label, "Splitter Y #2: {}", right_hsplit);
-	label_rect.position.y += label_rect.size.y + 5;
-	label_rect.size = exo::float2(measure_label(app->ui_theme.main_font, tmp_label));
-	ui_label(app->ui_state, app->ui_theme, {.text = tmp_label, .rect = label_rect});
+	// image viewer
+	app->viewer_clip_rect = content_rect;
 
 	ui_pop_clip_rect(app->ui_state);
 	ui_end_frame(app->ui_state);
@@ -517,7 +385,7 @@ static void render(RenderSample *app, bool has_resize)
 
 	auto &renderer = *app->renderer;
 	auto &framebuffers = app->swapchain_framebuffers;
-	auto font_program = app->font_program;
+	auto ui_program = app->ui_program;
 	auto *window = app->window;
 
 	auto &device = renderer.device;
@@ -545,9 +413,9 @@ static void render(RenderSample *app, bool has_resize)
 	cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 	if (renderer.frame_count == 0) {
-		cmd.clear_barrier(app->main_font->glyph_atlas, gfx::ImageUsage::TransferDst);
-		cmd.clear_image(app->main_font->glyph_atlas, VkClearColorValue{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
-		cmd.barrier(app->main_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
+		cmd.clear_barrier(app->ui_font->glyph_atlas, gfx::ImageUsage::TransferDst);
+		cmd.clear_image(app->ui_font->glyph_atlas, VkClearColorValue{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
+		cmd.barrier(app->ui_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
 	}
 	renderer.streamer.update(cmd);
 
@@ -595,11 +463,47 @@ static void render(RenderSample *app, bool has_resize)
 		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
 		cmd.set_viewport({.width = (float)window->size.x, .height = (float)window->size.y, .minDepth = 0.0f, .maxDepth = 1.0f});
 		cmd.set_scissor({.extent = {.width = (u32)window->size.x, .height = (u32)window->size.y}});
-		cmd.bind_pipeline(font_program, 0);
+		cmd.bind_pipeline(ui_program, 0);
 		cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
 		u32 constants[] = {0, 0};
 		cmd.push_constant(constants, sizeof(constants));
 		cmd.draw_indexed({.vertex_count = painter->index_offset});
+		cmd.end_pass();
+	}
+
+	if (app->viewer_gpu_image.is_valid())
+	{
+		ZoneScopedN("Viewer");
+		cmd.barrier(app->viewer_gpu_image, gfx::ImageUsage::GraphicsShaderRead);
+
+		PACKED(struct ViewerOptions {
+			float2 scale;
+			float2 translation;
+			u32 texture_descriptor;
+		})
+
+		auto *options = renderer.bind_graphics_shader_options<ViewerOptions>(cmd);
+		options->scale = float2(2.0f, 2.0f);
+		options->translation = float2(-1.0f, -1.0f);
+		options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image);
+		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
+		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
+		cmd.set_viewport({
+			.x        = (float)app->viewer_clip_rect.position.x,
+			.y        = (float)app->viewer_clip_rect.position.y,
+			.width    = (float)app->viewer_clip_rect.size.x,
+			.height   = (float)app->viewer_clip_rect.size.y,
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f,
+		});
+		cmd.set_scissor({.extent = {
+					 .width  = (u32)app->viewer_clip_rect.size.x,
+					 .height = (u32)app->viewer_clip_rect.size.x,
+				 }});
+		cmd.bind_pipeline(app->viewer_program, 0);
+		u32 constants[] = {0, 0};
+		cmd.push_constant(constants, sizeof(constants));
+		cmd.draw({.vertex_count = 6});
 		cmd.end_pass();
 	}
 
@@ -616,29 +520,8 @@ static void render(RenderSample *app, bool has_resize)
 static void open_file(RenderSample *app, const std::filesystem::path &path)
 {
 	ZoneScoped;
-
+	//TODO: PNG importer
 	exo::logger::info("Opened file: {}\n", path);
-
-	std::ifstream file{path, std::ios::binary};
-	ASSERT(!file.fail());
-	std::streampos begin;
-	std::streampos end;
-	begin = file.tellg();
-	file.seekg(0, std::ios::end);
-	end = file.tellg();
-	app->current_file_data = Vec<u8>(static_cast<usize>(end - begin));
-	file.seekg(0, std::ios::beg);
-	file.read(reinterpret_cast<char *>(app->current_file_data.data()), end - begin);
-	file.close();
-
-	auto *buf = app->current_file_hb_buf;
-	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, reinterpret_cast<const char *>(app->current_file_data.data()), static_cast<int>(app->current_file_data.size()), 0, -1);
-	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
-	hb_buffer_set_language(buf, hb_language_from_string("en", -1));
-
-	hb_shape(app->main_font->hb_font, buf, nullptr, 0);
 }
 
 u8 global_stack_mem[64 << 20];
@@ -649,7 +532,6 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto *app = render_sample_init(global_scope);
 	auto *window = app->window;
 	auto &inputs = app->inputs;
-	open_file(app, "C:\\Users\\vince\\.emacs.d\\projects");
 
 	while (!window->should_close()) {
 		window->poll_events();
@@ -674,9 +556,6 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		inputs.process(window->events);
 
-		if (auto scroll = inputs.get_scroll_this_frame()) {
-			app->cursor_offset -= scroll->y * 7;
-		}
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;
 		}

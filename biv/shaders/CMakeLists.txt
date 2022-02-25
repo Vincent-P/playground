@@ -7,8 +7,8 @@ set(GLSL_INCLUDES
   )
 
 set(GLSL_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/font.frag.glsl
-  ${CMAKE_CURRENT_SOURCE_DIR}/font.vert.glsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/ui.frag.glsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/ui.vert.glsl
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)
