@@ -1,23 +1,28 @@
+#include <exo/prelude.h>
+
 #include <exo/os/buttons.h>
 #include <exo/os/file_dialog.h>
-#include <exo/prelude.h>
+#include <exo/os/mapped_file.h>
+#include <exo/os/platform.h>
+#include <exo/os/window.h>
 
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 #include <exo/macros/packed.h>
+#include <exo/macros/defer.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
-#include <exo/os/platform.h>
-#include <exo/os/window.h>
 
 #include <engine/render/base_renderer.h>
 #include <engine/render/vulkan/context.h>
 #include <engine/render/vulkan/device.h>
 #include <engine/render/vulkan/surface.h>
+#include <engine/render/vulkan/utils.h>
 namespace gfx = vulkan;
 
 #include <engine/inputs.h>
+#include <engine/assets/texture.h>
 
 #include "font.h"
 #include "glyph_cache.h"
@@ -33,6 +38,7 @@ namespace gfx = vulkan;
 #include FT_FREETYPE_H
 #include <hb-ft.h>
 #include <hb.h>
+#include <spng.h>
 
 void *operator new(std::size_t count)
 {
@@ -54,24 +60,52 @@ PACKED(struct PushConstants {
 	u32 gui_texture_id = u32_invalid;
 })
 
+struct Image
+{
+    PixelFormat format;
+    ImageExtension extension;
+    i32 width;
+    i32 height;
+    i32 depth;
+    i32 levels;
+    Vec<usize> mip_offsets;
+
+    void *impl_data; // ktxTexture* for libktx, u8* containing raw pixels for png
+    const void* pixels_data;
+    usize data_size;
+};
+
 struct RenderSample
 {
 	exo::Platform *platform;
 	exo::Window *window;
-	UiTheme ui_theme;
-	UiState ui_state;
 	Inputs inputs;
+
 	BaseRenderer *renderer;
-	Painter *painter;
-	FT_Library library;
-	bool       wants_to_open_file = false;
-	Font *ui_font;
 	Handle<gfx::GraphicsProgram> ui_program;
 	Handle<gfx::GraphicsProgram> viewer_program;
 	exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_framebuffers;
-    Handle<gfx::Image> viewer_gpu_image;
+    Handle<gfx::Image> viewer_gpu_image_upload;
+    Handle<gfx::Image> viewer_gpu_image_current;
+
+	FT_Library library;
+	Painter *painter;
+
+	UiTheme ui_theme;
+	UiState ui_state;
+	bool       wants_to_open_file = false;
+	Font *ui_font;
     Rect viewer_clip_rect;
+
+	Image image;
+	bool display_channels[4] = {true, true, true, false};
+	u32 viewer_flags = 0b00000000'00000000'00000000'00001110;
 };
+
+const u32 RED_CHANNEL_MASK   = 0b00000000'00000000'00000000'00001000;
+const u32 GREEN_CHANNEL_MASK = 0b00000000'00000000'00000000'00000100;
+const u32 BLUE_CHANNEL_MASK  = 0b00000000'00000000'00000000'00000010;
+const u32 ALPHA_CHANNEL_MASK = 0b00000000'00000000'00000000'00000001;
 
 // --- fwd
 static void open_file(RenderSample *app, const std::filesystem::path &path);
@@ -142,7 +176,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->platform = reinterpret_cast<exo::Platform*>(scope.allocate(exo::platform_get_size()));
 	exo::platform_create(app->platform);
 
-	app->window = exo::Window::create(app->platform, scope, {1280, 720}, "Render sample");
+	app->window = exo::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
 	app->renderer = BaseRenderer::create(scope, app->window,
@@ -319,11 +353,21 @@ static void display_ui(RenderSample *app)
 	menubar_theme.button_hover_bg_color = 0x06000000;
 	menubar_theme.button_pressed_bg_color = 0x09000000;
 
-	auto label_size = exo::float2(measure_label(app->ui_theme.main_font, "File")) + exo::float2{8.0f, 0.0f};
+	auto label_size = exo::float2(measure_label(app->ui_theme.main_font, "Open Image")) + exo::float2{8.0f, 0.0f};
 	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect = new_menubar_rect;
 	file_rect = rect_center(file_rect, label_size);
-	if (ui_button(app->ui_state, menubar_theme, {.label = "File", .rect = file_rect})) {
+	if (ui_button(app->ui_state, menubar_theme, {.label = "Open Image", .rect = file_rect})) {
+		app->wants_to_open_file = true;
+
+		if (app->wants_to_open_file)
+		{
+		    if (auto path = exo::file_dialog({{"PNG Image", "*.png"}}))
+		    {
+				open_file(app, path.value());
+		    }
+		    app->wants_to_open_file = false;
+		}
 	}
 
 	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Help")) + exo::float2{8.0f, 0.0f};
@@ -338,31 +382,27 @@ static void display_ui(RenderSample *app)
 	auto [check_rect, new_menubar_rect3] = rect_split_off_left(menubar_rect, check_size.x, check_margin);
 	menubar_rect = new_menubar_rect3;
 	check_rect = rect_center(check_rect, check_size);
-	static bool r_checked = false;
-	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'R', .rect = check_rect, .value = &r_checked})) {
-	}
+	ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
+	app->viewer_flags = app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK) : (app->viewer_flags & ~RED_CHANNEL_MASK);
 
 	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect = rect_center(check_rect, check_size);
-	static bool g_checked = false;
-	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'G', .rect = check_rect, .value = &g_checked})) {
-	}
+	ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
+	app->viewer_flags = app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK) : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
 
 	check_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect = rect_center(check_rect, check_size);
-	static bool b_checked = false;
-	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'B', .rect = check_rect, .value = &b_checked})) {
-	}
+	ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
+	app->viewer_flags = app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK) : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
 
 
 	check_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).right;
 	check_rect = rect_center(check_rect, check_size);
-	static bool a_checked = false;
-	if (ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'A', .rect = check_rect, .value = &a_checked})) {
-	}
+	ui_char_checkbox(app->ui_state, menubar_theme, {.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
+	app->viewer_flags = app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK) : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
 
 	/* Content */
 	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
@@ -417,6 +457,13 @@ static void render(RenderSample *app, bool has_resize)
 		cmd.clear_image(app->ui_font->glyph_atlas, VkClearColorValue{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
 		cmd.barrier(app->ui_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
 	}
+
+	if (app->viewer_gpu_image_upload != app->viewer_gpu_image_current)
+	{
+		renderer.streamer.upload_image_full(app->viewer_gpu_image_upload, app->image.pixels_data, app->image.data_size);
+		app->viewer_gpu_image_current = app->viewer_gpu_image_upload;
+	}
+
 	renderer.streamer.update(cmd);
 
 	auto swapchain_framebuffer = framebuffers[surface.current_image];
@@ -471,21 +518,43 @@ static void render(RenderSample *app, bool has_resize)
 		cmd.end_pass();
 	}
 
-	if (app->viewer_gpu_image.is_valid())
+	if (app->viewer_gpu_image_current.is_valid())
 	{
 		ZoneScopedN("Viewer");
-		cmd.barrier(app->viewer_gpu_image, gfx::ImageUsage::GraphicsShaderRead);
+		cmd.barrier(app->viewer_gpu_image_current, gfx::ImageUsage::GraphicsShaderRead);
 
 		PACKED(struct ViewerOptions {
 			float2 scale;
 			float2 translation;
 			u32 texture_descriptor;
+			u32 viewer_flags;
 		})
 
-		auto *options = renderer.bind_graphics_shader_options<ViewerOptions>(cmd);
-		options->scale = float2(2.0f, 2.0f);
-		options->translation = float2(-1.0f, -1.0f);
-		options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image);
+		float w = float(app->image.width);
+		float h = float(app->image.height);
+		float aspect = w / h;
+
+		if (app->image.width < app->viewer_clip_rect.size.x && app->image.height < app->viewer_clip_rect.size.y)
+		{
+			int2 dist = int2(app->viewer_clip_rect.size) - int2(app->image.width, app->image.height);
+			if (dist.x < dist.y)
+			{
+				w = app->viewer_clip_rect.size.x;
+				h = w / aspect ;
+			}
+			else
+			{
+				h = app->viewer_clip_rect.size.y;
+				w = h * aspect;
+			}
+		}
+
+		auto *options               = renderer.bind_graphics_shader_options<ViewerOptions>(cmd);
+		options->scale.x            = 2.0f * float(w) / app->viewer_clip_rect.size.x;
+		options->scale.y            = 2.0f * float(h) / app->viewer_clip_rect.size.y;
+		options->translation        = float2(-1.0f, -1.0f);
+		options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image_current);
+		options->viewer_flags       = app->viewer_flags;
 		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
 		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
 		cmd.set_viewport({
@@ -496,10 +565,14 @@ static void render(RenderSample *app, bool has_resize)
 			.minDepth = 0.0f,
 			.maxDepth = 1.0f,
 		});
-		cmd.set_scissor({.extent = {
-					 .width  = (u32)app->viewer_clip_rect.size.x,
-					 .height = (u32)app->viewer_clip_rect.size.x,
-				 }});
+		cmd.set_scissor({
+				.offset = {.x = (i32)app->viewer_clip_rect.position.x, .y = (i32)app->viewer_clip_rect.position.y},
+			.extent =
+				{
+					.width  = (u32)app->viewer_clip_rect.size.x,
+					.height = (u32)app->viewer_clip_rect.size.y,
+				},
+		});
 		cmd.bind_pipeline(app->viewer_program, 0);
 		u32 constants[] = {0, 0};
 		cmd.push_constant(constants, sizeof(constants));
@@ -517,11 +590,89 @@ static void render(RenderSample *app, bool has_resize)
 	}
 }
 
+static VkFormat to_vk(PixelFormat pformat)
+{
+    // clang-format off
+    switch (pformat)
+    {
+    case PixelFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
+    case PixelFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+    case PixelFormat::BC7_SRGB: return VK_FORMAT_BC7_SRGB_BLOCK;
+    case PixelFormat::BC7_UNORM: return VK_FORMAT_BC7_UNORM_BLOCK;
+    case PixelFormat::BC4_UNORM: return VK_FORMAT_BC4_UNORM_BLOCK;
+    case PixelFormat::BC5_UNORM: return VK_FORMAT_BC5_UNORM_BLOCK;
+    default: ASSERT(false);
+    }
+    // clang-format on
+    exo::unreachable();
+}
+
 static void open_file(RenderSample *app, const std::filesystem::path &path)
 {
 	ZoneScoped;
 	//TODO: PNG importer
 	exo::logger::info("Opened file: {}\n", path);
+
+	auto mapped_file = exo::MappedFile::open(path.string());
+	if (!mapped_file) {
+		return;
+	}
+
+    const u8 png_signature[] = {
+        0x89,
+        0x50,
+        0x4E,
+        0x47,
+        0x0D,
+        0x0A,
+        0x1A,
+        0x0A
+    };
+
+	bool is_signature_valid = mapped_file->size > sizeof(png_signature)
+		&& std::memcmp(mapped_file->base_addr, png_signature, sizeof(png_signature)) == 0;
+	if (!is_signature_valid) {
+		return;
+	}
+
+    spng_ctx *ctx = spng_ctx_new(0);
+    DEFER
+    {
+        spng_ctx_free(ctx);
+    };
+
+    spng_set_png_buffer(ctx, mapped_file->base_addr, mapped_file->size);
+
+    struct spng_ihdr ihdr;
+    if (spng_get_ihdr(ctx, &ihdr))
+    {
+        return;
+    }
+
+    usize decoded_size = 0;
+    spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &decoded_size);
+
+    Image &new_image      = app->image;
+    new_image.impl_data = reinterpret_cast<u8 *>(malloc(decoded_size));
+    spng_decode_image(ctx, new_image.impl_data, decoded_size, SPNG_FMT_RGBA8, 0);
+
+    new_image.extension = ImageExtension::PNG;
+    new_image.width     = static_cast<int>(ihdr.width);
+    new_image.height    = static_cast<int>(ihdr.height);
+    new_image.depth     = 1;
+    new_image.levels    = 1;
+    new_image.format    = PixelFormat::R8G8B8A8_UNORM;
+    new_image.mip_offsets.push_back(0);
+
+    new_image.pixels_data  = new_image.impl_data;
+    new_image.data_size = decoded_size;
+
+	app->viewer_gpu_image_upload = app->renderer->device.create_image({
+                .name       = "Viewer image",
+                .size       = exo::int3(new_image.width, new_image.height, new_image.depth),
+                .mip_levels = static_cast<u32>(new_image.levels),
+                .format     = to_vk(new_image.format),
+		});
 }
 
 u8 global_stack_mem[64 << 20];
@@ -562,15 +713,6 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		display_ui(app);
 		render(app, has_resize);
-
-		if (app->wants_to_open_file)
-		{
-		    if (auto path = exo::file_dialog({{"file", "*"}}))
-		    {
-			open_file(app, path.value());
-		    }
-		    app->wants_to_open_file = false;
-		}
 
 		window->events.clear();
 

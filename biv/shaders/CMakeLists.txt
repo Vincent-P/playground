@@ -9,6 +9,8 @@ set(GLSL_INCLUDES
 set(GLSL_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/ui.frag.glsl
   ${CMAKE_CURRENT_SOURCE_DIR}/ui.vert.glsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/viewer.frag.glsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/viewer.vert.glsl
   )
 
 foreach(GLSL_FILE IN LISTS GLSL_FILES)

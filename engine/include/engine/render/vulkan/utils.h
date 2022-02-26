@@ -2,8 +2,8 @@
 #include <exo/logger.h>
 #include <exo/collections/vector.h>
 
-#include "render/vulkan/image.h"
-#include "render/vulkan/buffer.h"
+#include "engine/render/vulkan/image.h"
+#include "engine/render/vulkan/buffer.h"
 
 #include <volk.h>
 #include <stdexcept>

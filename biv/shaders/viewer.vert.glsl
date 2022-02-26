@@ -8,6 +8,7 @@ layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     float2 scale;
     float2 translation;
     u32 texture_descriptor;
+    u32 viewer_flags;
 };
 
 const float2 quad_vertices[] = {

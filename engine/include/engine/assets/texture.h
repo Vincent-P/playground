@@ -3,7 +3,7 @@
 #include <exo/collections/vector.h>
 #include <exo/serializer.h>
 
-#include "assets/asset.h"
+#include "engine/assets/asset.h"
 
 enum struct ImageExtension : u16
 {
