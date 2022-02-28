@@ -19,6 +19,15 @@ auto max_impl(V a)
     return res;
 }
 
+template <typename V> auto min_impl(V a)
+{
+	auto res = a[0];
+	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
+		res = std::min(res, a[i_component]);
+	}
+	return res;
+}
+
 template<typename V>
 usize max_comp_impl(V a)
 {
@@ -91,6 +100,10 @@ V floor_impl(V a)
 float max(float2 v) { return max_impl(v); }
 float max(float3 v) { return max_impl(v); }
 float max(float4 v) { return max_impl(v); }
+
+float min(float2 v) { return min_impl(v); }
+float min(float3 v) { return min_impl(v); }
+float min(float4 v) { return min_impl(v); }
 
 usize max_comp(float2 v) { return max_comp_impl(v); }
 usize max_comp(float3 v) { return max_comp_impl(v); }
