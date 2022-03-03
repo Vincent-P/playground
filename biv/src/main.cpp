@@ -550,6 +550,7 @@ static void render(RenderSample *app, bool has_resize)
 			float2 translation;
 			u32    texture_descriptor;
 			u32    viewer_flags;
+			float2 viewport_size;
 		})
 
 		float w      = float(app->image.width);
@@ -567,6 +568,7 @@ static void render(RenderSample *app, bool has_resize)
 		options->translation        = float2(-1.0f, -1.0f);
 		options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image_current);
 		options->viewer_flags       = app->viewer_flags;
+		options->viewport_size      = app->viewer_clip_rect.size;
 		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
 		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
 		cmd.set_viewport({
