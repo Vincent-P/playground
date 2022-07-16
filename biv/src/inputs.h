@@ -1,10 +1,10 @@
 #pragma once
 
-#include <exo/option.h>
 #include <exo/maths/vectors.h>
 #include <exo/collections/vector.h>
 #include <exo/collections/map.h>
-#include <exo/os/buttons.h>
+#include <exo/option.h>
+#include <exo/buttons.h>
 
 #include <optional>
 #include <string>

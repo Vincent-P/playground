@@ -1,13 +1,12 @@
-#include "exo/os/mapped_file.h"
+#include "cross/mapped_file.h"
 
 #include "utils_win32.h"
 #include <exo/macros/defer.h>
 
 #include <windows.h>
 
-namespace exo
+namespace cross
 {
-
 MappedFile::MappedFile(MappedFile &&moved) { *this = std::move(moved); }
 
 MappedFile::~MappedFile() { this->close(); }
@@ -58,5 +57,4 @@ void MappedFile::close()
 		base_addr = nullptr;
 	}
 }
-
-}; // namespace exo
+}; // namespace cross

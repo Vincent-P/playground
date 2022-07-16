@@ -3,9 +3,8 @@
 #include "ui.h"
 
 #include <exo/option.h>
-#include <exo/os/events.h>
+#include <cross/events.h>
 
-#include <imgui.h>
 #include <ranges>
 
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }
@@ -94,71 +93,5 @@ void Inputs::process(const Vec<exo::Event> &events)
     else
     {
         mouse_delta = std::nullopt;
-    }
-}
-
-static void display_optional(const char *label, Option<int2> vector)
-{
-    ImGui::TextUnformatted(label);
-    ImGui::SameLine();
-    if (vector)
-    {
-        ImGui::Text("%dx%d", vector->x, vector->y);
-    }
-    else
-    {
-        ImGui::Text("none");
-    }
-}
-
-void Inputs::display_ui()
-{
-    ZoneScoped;
-    if (auto w = UI::begin_window("Inputs"))
-    {
-        if (ImGui::CollapsingHeader("Keys"))
-        {
-            for (usize i = 0; i < static_cast<usize>(exo::VirtualKey::Count); i++)
-            {
-                auto key = static_cast<exo::VirtualKey>(i);
-                ImGui::Text("%s: %s", to_string(key), is_pressed(key) ? "Pressed" : "Released");
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Mouse buttons"))
-        {
-            for (usize i = 0; i < static_cast<usize>(exo::MouseButton::Count); i++)
-            {
-                auto button = static_cast<exo::MouseButton>(i);
-                ImGui::Text("%s: %s", to_string(button), is_pressed(button) ? "Pressed" : "Released");
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Mouse"))
-        {
-            ImGui::Text("position: %dx%d", mouse_position.x, mouse_position.y);
-            display_optional("delta: ", mouse_delta);
-            display_optional("mouse drag start: ", mouse_drag_start);
-            display_optional("mouse drag delta: ", mouse_drag_delta);
-            display_optional("scroll: ", scroll_this_frame);
-        }
-
-        if (ImGui::CollapsingHeader("Bindings"))
-        {
-            for (const auto &[action, binding] : bindings)
-            {
-                ImGui::Text("%s: ", to_string(action));
-                for (const auto &key : binding.keys)
-                {
-                    ImGui::SameLine();
-                    ImGui::Text("%s ", to_string(key));
-                }
-                for (const auto &mouse_button : binding.mouse_buttons)
-                {
-                    ImGui::SameLine();
-                    ImGui::Text("%s ", to_string(mouse_button));
-                }
-            }
-        }
     }
 }

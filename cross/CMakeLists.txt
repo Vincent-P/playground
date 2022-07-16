@@ -12,6 +12,7 @@ if (WIN32)
 	${SOURCE_FILES}
 	src/file_dialog_win32.cpp
 	src/platform_win32.cpp
+	src/mapped_file_win32.cpp
 	src/utils_win32.cpp
 	src/utils_win32.h
 	src/window_win32.cpp)

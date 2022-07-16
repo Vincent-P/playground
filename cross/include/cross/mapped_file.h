@@ -1,13 +1,10 @@
 #pragma once
-#include "exo/os/prelude.h"
 #include <exo/maths/numerics.h>
 #include <exo/option.h>
 #include <string_view>
 
-namespace
-
+namespace cross
 {
-
 struct MappedFile
 {
 #if defined(CROSS_WINDOWS)
@@ -24,10 +21,9 @@ struct MappedFile
 	~MappedFile();
 
 	MappedFile &operator=(const MappedFile &copied) = delete;
-	MappedFile &operator=(MappedFile &&moved);
+	MappedFile &operator                            =(MappedFile &&moved);
 
 	static Option<MappedFile> open(const std::string_view &path);
 	void                      close();
 };
-
-}; // namespace
+}; // namespace cross

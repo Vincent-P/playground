@@ -1,10 +1,10 @@
 #include "ui.h"
 
-#include <engine/inputs.h>
 #include <exo/maths/pointer.h>
-#include <exo/os/window.h>
+#include <cross/window.h>
 
 #include "painter.h"
+#include "inputs.h"
 #include "rect.h"
 
 bool ui_is_hovering(const UiState &ui_state, const Rect &rect) { return rect_is_point_inside(rect, float2(ui_state.inputs->mouse_position)); }
@@ -15,7 +15,7 @@ void ui_new_frame(UiState &ui_state)
 {
 	ui_state.gen     = 0;
 	ui_state.focused = 0;
-	ui_state.cursor  = static_cast<int>(exo::Cursor::Arrow);
+	ui_state.cursor  = static_cast<int>(cross::Cursor::Arrow);
 }
 
 void ui_end_frame(UiState &ui_state)
@@ -121,7 +121,7 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 
 	// behavior
 	if (ui_is_hovering(ui_state, splitter_input)) {
-		ui_state.cursor  = static_cast<int>(exo::Cursor::ResizeEW);
+		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeEW);
 		ui_state.focused = id;
 		if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui_state.active = id;
@@ -152,7 +152,7 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 
 	// behavior
 	if (ui_is_hovering(ui_state, splitter_input)) {
-		ui_state.cursor  = static_cast<int>(exo::Cursor::ResizeNS);
+		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeNS);
 		ui_state.focused = id;
 		if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui_state.active = id;

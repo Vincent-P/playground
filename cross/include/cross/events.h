@@ -1,6 +1,6 @@
 #pragma once
 
-#include "exo/os/buttons.h"
+#include "exo/buttons.h"
 #include <string>
 
 namespace exo::events

@@ -1,10 +1,8 @@
-#include <exo/prelude.h>
-
-#include <exo/os/buttons.h>
-#include <exo/os/file_dialog.h>
-#include <exo/os/mapped_file.h>
-#include <exo/os/platform.h>
-#include <exo/os/window.h>
+#include <exo/buttons.h>
+#include <cross/file_dialog.h>
+#include <cross/mapped_file.h>
+#include <cross/platform.h>
+#include <cross/window.h>
 
 #include <exo/logger.h>
 #include <exo/collections/dynamic_array.h>
@@ -21,12 +19,11 @@
 #include <render/vulkan/utils.h>
 namespace gfx = vulkan;
 
-#include <engine/inputs.h>
-
 #include "font.h"
 #include "glyph_cache.h"
 #include "painter.h"
 #include "ui.h"
+#include "inputs.h"
 
 #include <Tracy.hpp>
 #include <array>
@@ -59,6 +56,21 @@ PACKED(struct PushConstants {
 	u32 gui_texture_id = u32_invalid;
 })
 
+enum struct PixelFormat
+{
+
+    R8G8B8A8_UNORM,
+    R8G8B8A8_SRGB,
+    BC7_SRGB,
+    BC7_UNORM,
+    BC4_UNORM,
+    BC5_UNORM,
+};
+
+enum struct ImageExtension {
+    PNG
+};
+
 struct Image
 {
 	PixelFormat    format;
@@ -76,8 +88,8 @@ struct Image
 
 struct RenderSample
 {
-	exo::Platform *platform;
-	exo::Window   *window;
+	cross::Platform *platform;
+	cross::Window   *window;
 	Inputs         inputs;
 
 	BaseRenderer                                                          *renderer;
@@ -181,10 +193,10 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
 	auto *app = scope.allocate<RenderSample>();
 
-	app->platform = reinterpret_cast<exo::Platform *>(scope.allocate(exo::platform_get_size()));
-	exo::platform_create(app->platform);
+	app->platform = reinterpret_cast<cross::Platform *>(scope.allocate(cross::platform_get_size()));
+	cross::platform_create(app->platform);
 
-	app->window = exo::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
+	app->window = cross::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
 	app->renderer = BaseRenderer::create(scope,
@@ -238,7 +250,7 @@ void render_sample_destroy(RenderSample *app)
 {
 	ZoneScoped;
 
-	exo::platform_destroy(app->platform);
+	cross::platform_destroy(app->platform);
 }
 
 static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
@@ -350,6 +362,7 @@ static void display_ui(RenderSample *app)
 	app->painter->vertex_bytes_offset = 0;
 	ui_new_frame(app->ui_state);
 
+	exo::logger::info("{} Display UI: {}x{}\n", app->renderer->frame_count, app->window->size.x, app->window->size.y);
 	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(app->window->size.x, app->window->size.y)};
 
 	const float menubar_height_margin = 8.0f;
@@ -373,7 +386,7 @@ static void display_ui(RenderSample *app)
 	menubar_rect                       = new_menubar_rect;
 	file_rect                          = rect_center(file_rect, label_size);
 	if (ui_button(app->ui_state, menubar_theme, {.label = "Open Image", .rect = file_rect})) {
-		if (auto path = exo::file_dialog({{"PNG Image", "*.png"}})) {
+		if (auto path = cross::file_dialog({{"PNG Image", "*.png"}})) {
 			open_file(app, path.value());
 		}
 	}
@@ -431,7 +444,7 @@ static void display_ui(RenderSample *app)
 
 	ui_pop_clip_rect(app->ui_state);
 	ui_end_frame(app->ui_state);
-	app->window->set_cursor(static_cast<exo::Cursor>(app->ui_state.cursor));
+	app->window->set_cursor(static_cast<cross::Cursor>(app->ui_state.cursor));
 }
 
 static void render(RenderSample *app, bool has_resize)
@@ -452,9 +465,9 @@ static void render(RenderSample *app, bool has_resize)
 	}
 
 	bool out_of_date_swapchain = renderer.start_frame();
-	if (out_of_date_swapchain) {
+	while (out_of_date_swapchain) {
 		resize(device, surface, framebuffers);
-		return;
+		out_of_date_swapchain = renderer.start_frame();
 	}
 
 	gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
@@ -606,19 +619,22 @@ static void render(RenderSample *app, bool has_resize)
 
 static VkFormat to_vk(PixelFormat pformat)
 {
-	// clang-format off
-    switch (pformat)
-    {
-    case PixelFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-    case PixelFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
-    case PixelFormat::BC7_SRGB: return VK_FORMAT_BC7_SRGB_BLOCK;
-    case PixelFormat::BC7_UNORM: return VK_FORMAT_BC7_UNORM_BLOCK;
-    case PixelFormat::BC4_UNORM: return VK_FORMAT_BC4_UNORM_BLOCK;
-    case PixelFormat::BC5_UNORM: return VK_FORMAT_BC5_UNORM_BLOCK;
-    default: ASSERT(false);
-    }
-	// clang-format on
-	exo::unreachable();
+	switch (pformat) {
+	case PixelFormat::R8G8B8A8_UNORM:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	case PixelFormat::R8G8B8A8_SRGB:
+		return VK_FORMAT_R8G8B8A8_SRGB;
+	case PixelFormat::BC7_SRGB:
+		return VK_FORMAT_BC7_SRGB_BLOCK;
+	case PixelFormat::BC7_UNORM:
+		return VK_FORMAT_BC7_UNORM_BLOCK;
+	case PixelFormat::BC4_UNORM:
+		return VK_FORMAT_BC4_UNORM_BLOCK;
+	case PixelFormat::BC5_UNORM:
+		return VK_FORMAT_BC5_UNORM_BLOCK;
+	default:
+		ASSERT(false);
+	}
 }
 
 static void open_file(RenderSample *app, const std::filesystem::path &path)
@@ -627,7 +643,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 	// TODO: PNG importer
 	exo::logger::info("Opened file: {}\n", path);
 
-	auto mapped_file = exo::MappedFile::open(path.string());
+	auto mapped_file = cross::MappedFile::open(path.string());
 	if (!mapped_file) {
 		return;
 	}

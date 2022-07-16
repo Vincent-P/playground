@@ -206,8 +206,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	Window &window = *tmp;
 
-	printf("%x\n", uMsg);
-
 	switch (uMsg) {
 	case WM_CREATE: {
 		// no need to create gl context
