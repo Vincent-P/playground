@@ -5,8 +5,8 @@
 #include <exo/os/window.h>
 #include <exo/memory/scope_stack.h>
 
-#include <engine/render/renderer.h>
-#include <engine/render/render_world_system.h>
+#include <render/renderer.h>
+#include <render/render_world_system.h>
 #include <engine/assets/asset_manager.h>
 #include <engine/ui.h>
 

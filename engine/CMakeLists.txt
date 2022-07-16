@@ -52,18 +52,10 @@ set(SOURCE_FILES
 
 add_library(engine STATIC ${SOURCE_FILES})
 setup_app_target(engine)
-target_precompile_headers(engine PRIVATE src/pch.h)
-target_compile_options(engine PRIVATE ${APP_CXX_FLAGS})
-target_include_directories(exo SYSTEM PUBLIC include)
-target_include_directories(engine PRIVATE src include/engine)
-
 target_link_libraries(engine PUBLIC
   exo
-  volk
   Threads::Threads
-  imgui
   meshopt
-  vma
   libktx
   libspng
   tracy

@@ -7,7 +7,7 @@
 #include "painter.h"
 #include "rect.h"
 
-bool ui_is_hovering(const UiState &ui_state, const Rect &rect) { return rect_is_point_inside(rect, exo::float2(ui_state.inputs->mouse_position)); }
+bool ui_is_hovering(const UiState &ui_state, const Rect &rect) { return rect_is_point_inside(rect, float2(ui_state.inputs->mouse_position)); }
 
 u64 ui_make_id(UiState &state) { return ++state.gen; }
 
@@ -98,7 +98,7 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
 	}
 	painter_draw_color_round_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color, 0x0F000000, 2);
 
-	auto label_rect = rect_center(button.rect, exo::float2(measure_label(ui_theme.main_font, button.label)));
+	auto label_rect = rect_center(button.rect, float2(measure_label(ui_theme.main_font, button.label)));
 	// painter_draw_color_rect(*ui_state.painter, label_rect, u32_invalid, 0x880000FF);
 	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, button.label);
 
@@ -115,7 +115,7 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 	right = rect_split_off_left(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness).right;
 
 	auto splitter_input = Rect{
-		.position = view_rect.position + exo::float2{left.size.x - ui_theme.input_thickness / 2.0f, 0.0f},
+		.position = view_rect.position + float2{left.size.x - ui_theme.input_thickness / 2.0f, 0.0f},
 		.size     = {ui_theme.input_thickness, view_rect.size.y},
 	};
 
@@ -146,7 +146,7 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 	bottom = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness).bottom;
 
 	auto splitter_input = Rect{
-		.position = view_rect.position + exo::float2{0.0f, top.size.y - ui_theme.input_thickness / 2.0f},
+		.position = view_rect.position + float2{0.0f, top.size.y - ui_theme.input_thickness / 2.0f},
 		.size     = {view_rect.size.x, ui_theme.input_thickness},
 	};
 

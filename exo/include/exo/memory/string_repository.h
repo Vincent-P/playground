@@ -1,6 +1,6 @@
 #pragma once
-#include "exo/maths/numerics.h"
 #include "exo/collections/index_map.h"
+#include "exo/maths/numerics.h"
 #include <string_view>
 
 /**
@@ -17,25 +17,25 @@ namespace exo
 {
 struct StringRepository
 {
-    static StringRepository create();
-    static StringRepository with_capacity(usize capacity);
-    ~StringRepository();
+	static StringRepository create();
+	static StringRepository with_capacity(usize capacity);
+	~StringRepository();
 
-    // Move-only struct
-    StringRepository()                              = default;
-    StringRepository(const StringRepository &other) = delete;
-    StringRepository &operator=(const StringRepository &other) = delete;
-    StringRepository(StringRepository &&other);
-    StringRepository &operator=(StringRepository &&other);
+	// Move-only struct
+	StringRepository()                                         = default;
+	StringRepository(const StringRepository &other)            = delete;
+	StringRepository &operator=(const StringRepository &other) = delete;
+	StringRepository(StringRepository &&other);
+	StringRepository &operator=(StringRepository &&other);
 
-    const char *intern(std::string_view s);
-    bool        is_interned(std::string_view s);
+	const char *intern(std::string_view s);
+	bool        is_interned(std::string_view s);
 
-  private:
-    IndexMap offsets       = {};
-    char    *string_buffer = nullptr;
-    usize    buffer_size   = 0;
+private:
+	IndexMap offsets       = {};
+	char    *string_buffer = nullptr;
+	usize    buffer_size   = 0;
 };
 
 inline thread_local auto tls_string_repository = StringRepository::create();
-}
+} // namespace exo

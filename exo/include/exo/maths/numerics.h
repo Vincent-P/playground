@@ -17,10 +17,10 @@ using uint  = unsigned int;
 using f32   = float;
 using f64   = double;
 
-constexpr inline u64 operator"" _K(unsigned long long value)    { return value * 1000u; }
-constexpr inline u64 operator"" _KiB(unsigned long long value)  { return value << 10; }
-constexpr inline u64 operator"" _MiB(unsigned long long value)  { return value << 20; }
-constexpr inline u64 operator"" _GiB(unsigned long long value)  { return value << 30; }
+constexpr inline u64   operator"" _K(unsigned long long value) { return value * 1000u; }
+constexpr inline u64   operator"" _KiB(unsigned long long value) { return value << 10; }
+constexpr inline u64   operator"" _MiB(unsigned long long value) { return value << 20; }
+constexpr inline u64   operator"" _GiB(unsigned long long value) { return value << 30; }
 constexpr inline usize operator"" _uz(unsigned long long value) { return static_cast<usize>(value); }
 
 static constexpr u32 u32_invalid = ~u32(0);
@@ -32,15 +32,15 @@ namespace exo
 {
 constexpr f32 to_radians(f32 degres)
 {
-    // 180    -> PI
-    // degres -> ?
-    return degres * PI / 180.0f;
+	// 180    -> PI
+	// degres -> ?
+	return degres * PI / 180.0f;
 }
 
 constexpr f64 to_radians(f64 degres)
 {
-    // 180    -> PI
-    // degres -> ?
-    return degres * PI / 180.0;
+	// 180    -> PI
+	// degres -> ?
+	return degres * PI / 180.0;
 }
-}
+} // namespace exo

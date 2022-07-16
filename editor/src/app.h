@@ -4,7 +4,7 @@
 #include <exo/os/file_watcher.h>
 #include <engine/inputs.h>
 #include <engine/scene.h>
-#include <engine/render/render_world.h>
+#include <render/render_world.h>
 
 struct ScopeStack;
 struct AssetManager;

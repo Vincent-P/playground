@@ -3,6 +3,5 @@
 
 namespace exo
 {
-template <typename T>
-using Set = phmap::flat_hash_set<T>;
+template <typename T> using Set = phmap::flat_hash_set<T>;
 }

@@ -5,12 +5,12 @@ namespace exo::virtual_allocator
 {
 enum struct MemoryAccess
 {
-    ReadOnly,
-    ReadWrite
+	ReadOnly,
+	ReadWrite
 };
 
 u32   get_page_size();
 void *reserve(usize size);
 void *commit(void *page, usize size, MemoryAccess access = MemoryAccess::ReadWrite);
 void  free(void *region);
-}; // namespace virtual_allocator
+}; // namespace exo::virtual_allocator

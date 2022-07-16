@@ -1,21 +1,7 @@
-# ImGui
-add_library(imgui
-  imgui/imgui.cpp
-  imgui/imgui_demo.cpp
-  imgui/imgui_draw.cpp
-  imgui/imgui_tables.cpp
-  imgui/imgui_widgets.cpp)
-
-target_compile_definitions(imgui PUBLIC IMGUI_USER_CONFIG="imgui_config.h")
-target_include_directories(imgui SYSTEM PUBLIC imgui/)
-target_include_directories(imgui PRIVATE ${CMAKE_SOURCE_DIR}/exo/include/ ${CMAKE_SOURCE_DIR}/engine/src/)
-set_target_properties(imgui PROPERTIES CXX_STANDARD 20)
-target_compile_options(imgui PRIVATE ${THIRD_PARTY_CXX_FLAGS})
-
 # {fmt}
 add_library(fmt fmt/src/format.cc fmt/src/os.cc)
+setup_thirdparty_target(fmt)
 target_include_directories(fmt SYSTEM PUBLIC fmt/include)
-target_compile_options(fmt PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
 # meshoptimizer
 add_library(meshopt
@@ -34,8 +20,8 @@ add_library(meshopt
   meshoptimizer/vertexfilter.cpp
   meshoptimizer/vfetchanalyzer.cpp
   meshoptimizer/vfetchoptimizer.cpp)
+setup_thirdparty_target(meshopt)
 target_include_directories(meshopt SYSTEM PUBLIC meshoptimizer/)
-target_compile_options(meshopt PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 
 # Vulkan Headers
 add_library(vulkan_headers INTERFACE)
@@ -43,15 +29,15 @@ target_include_directories(vulkan_headers SYSTEM INTERFACE vulkan_headers/includ
 
 # Vulkan Memory Allocator
 add_library(vma vk_mem_alloc/vk_mem_alloc.cc)
+setup_thirdparty_target(vma)
 target_include_directories(vma SYSTEM PUBLIC vk_mem_alloc/)
-target_compile_options(vma PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_compile_definitions(vma PRIVATE VMA_STATIC_VULKAN_FUNCTIONS=0)
 target_link_libraries(vma PRIVATE vulkan_headers)
 
 #volk
 add_library(volk volk/volk.c)
+setup_thirdparty_target(volk)
 target_include_directories(volk SYSTEM PUBLIC volk/)
-target_compile_options(volk PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_link_libraries(volk PUBLIC vulkan_headers)
 target_compile_definitions(volk PUBLIC
   $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
@@ -109,6 +95,7 @@ add_library(libktx
     libktx/src/vkformat_enum.h
     libktx/src/vkformat_str.c
   )
+setup_thirdparty_target(libktx)
 target_compile_definitions(libktx PUBLIC
   KHRONOS_STATIC
   KTX_FEATURE_WRITE=0
@@ -123,7 +110,6 @@ target_include_directories(libktx PRIVATE
     libktx/src/basisu/transcoder
     libktx/other_include
     libktx/utils)
-target_compile_options(libktx PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 target_link_libraries(libktx
   volk
   Threads::Threads)
@@ -152,17 +138,20 @@ add_library(zlib_ng
     zlib_ng/uncompr.c
     zlib_ng/zutil.c
     )
+setup_thirdparty_target(zlib_ng)
 target_include_directories(zlib_ng SYSTEM PUBLIC zlib_ng/)
 target_compile_definitions(zlib_ng PRIVATE ZLIB_COMPAT)
 
 #libspng
 add_library(libspng libspng/spng.c)
+setup_thirdparty_target(libspng)
 target_link_libraries(libspng zlib_ng)
 target_include_directories(libspng SYSTEM PUBLIC libspng/)
 target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 
 #Tracy profiler
 add_library(tracy tracy/TracyClient.cpp)
+setup_thirdparty_target(tracy)
 target_include_directories(tracy SYSTEM PUBLIC tracy/)
 target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
@@ -175,10 +164,6 @@ target_include_directories(parallel_hashmap SYSTEM INTERFACE parallel_hashmap/)
 add_library(xxhash INTERFACE)
 target_compile_definitions(xxhash INTERFACE XXH_INLINE_ALL XXH_PRIVATE_API)
 target_include_directories(xxhash SYSTEM INTERFACE xxhash/)
-
-#leaf
-add_library(leaf INTERFACE)
-target_include_directories(leaf SYSTEM INTERFACE leaf/)
 
 #rapidjson
 add_library(rapidjson INTERFACE)
@@ -298,6 +283,7 @@ add_library(freetype_no_hb
   ${FREETYPE_PRIVATE_HEADERS}
   ${FREETYPE_BASE_SRCS}
 )
+setup_thirdparty_target(freetype_no_hb)
 
 set_target_properties(freetype_no_hb PROPERTIES C_VISIBILITY_PRESET hidden)
 
@@ -376,6 +362,7 @@ set(HARFBUZZ_SOURCES
   )
 
 add_library(harfbuzz ${HARFBUZZ_SOURCES})
+setup_thirdparty_target(harfbuzz)
 target_link_libraries(harfbuzz PRIVATE freetype_no_hb)
 target_include_directories(harfbuzz SYSTEM PUBLIC harfbuzz/src)
 target_compile_definitions(harfbuzz PRIVATE HAVE_FREETYPE)
@@ -412,6 +399,7 @@ add_library(freetype
   ${FREETYPE_PRIVATE_HEADERS}
   ${FREETYPE_BASE_SRCS}
 )
+setup_thirdparty_target(freetype)
 set_target_properties(freetype PROPERTIES C_VISIBILITY_PRESET hidden)
 target_compile_definitions(freetype PRIVATE FT2_BUILD_LIBRARY)
 if (WIN32)
@@ -431,6 +419,3 @@ target_include_directories(
       ${CMAKE_CURRENT_BINARY_DIR}/freetype/include/freetype/config
 )
 target_link_libraries(freetype PRIVATE harfbuzz)
-
-#luau
-#add_subdirectory(luau)

@@ -4,32 +4,25 @@
 namespace exo
 {
 
-template <typename T>
-inline std::size_t hash_value(const T &v)
-{
-    return std::hash<T>{}(v);
-}
+template <typename T> inline std::size_t hash_value(const T &v) { return std::hash<T>{}(v); }
 
-template <typename T>
-inline void hash_combine(std::size_t &seed, const T &v)
+template <typename T> inline void hash_combine(std::size_t &seed, const T &v)
 {
-    seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 } // namespace exo
 
 namespace std
 {
-template <typename T>
-struct hash<std::vector<T>>
+template <typename T> struct hash<std::vector<T>>
 {
-    std::size_t operator()(std::vector<T> const &vec) const noexcept
-    {
-        std::size_t hash = vec.size();
-        for (auto &i : vec)
-        {
-            exo::hash_combine(hash, i);
-        }
-        return hash;
-    }
+	std::size_t operator()(std::vector<T> const &vec) const noexcept
+	{
+		std::size_t hash = vec.size();
+		for (auto &i : vec) {
+			exo::hash_combine(hash, i);
+		}
+		return hash;
+	}
 };
 } // namespace std

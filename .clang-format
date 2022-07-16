@@ -1,33 +1,35 @@
-﻿---
-Standard: Latest
-ColumnLimit: 120
-
-# Use tabs for indentation
-IndentWidth: 8
-TabWidth: 8
-ContinuationIndentWidth: 8
-UseTab: ForContinuationAndIndentation
-
-# Use brace on new line for function/namespace/class declarations only
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterClass:            true
-  AfterControlStatement: false
-  AfterEnum:             true
-  AfterFunction:         true
-  AfterNamespace:        true
-  AfterObjCDeclaration:  true
-  AfterStruct:           true
-  AfterUnion:            true
-  BeforeCatch:           false
-  BeforeElse:            false
-  IndentBraces:          false
-
-# Alignment
+# Format Style Options - Created with Clang Power Tools
+---
+AccessModifierOffset: -4
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
-# AlignArrayOfStructures: Right
-AlignConsecutiveDeclarations: true
-AlignConsecutiveAssignments: true
-
-SortIncludes: Never
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+BreakBeforeBraces: Custom
+ColumnLimit: 120
+ContinuationIndentWidth: 4
+IndentWidth: 4
+SortIncludes: true
+Standard: Latest
+TabWidth: 4
+UseTab: AlignWithSpaces
+...

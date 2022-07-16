@@ -1,18 +1,16 @@
-#include <exo/prelude.h>
-
+#include <cross/platform.h>
+#include <cross/window.h>
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 #include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
-#include <exo/os/platform.h>
-#include <exo/os/window.h>
 
-#include <engine/render/base_renderer.h>
-#include <engine/render/vulkan/context.h>
-#include <engine/render/vulkan/device.h>
-#include <engine/render/vulkan/surface.h>
+#include <render/base_renderer.h>
+#include <render/vulkan/context.h>
+#include <render/vulkan/device.h>
+#include <render/vulkan/surface.h>
 
 #include <Tracy.hpp>
 #include <windows.h>
@@ -36,13 +34,14 @@ void operator delete(void *ptr) noexcept
 u8  global_stack_mem[64 << 20];
 int main(int /*argc*/, char ** /*argv*/)
 {
-	exo::LinearAllocator global_allocator = exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
+	exo::LinearAllocator global_allocator =
+		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
-	auto *platform = reinterpret_cast<exo::Platform *>(global_scope.allocate(exo::platform_get_size()));
-	exo::platform_create(platform);
+	auto *platform = reinterpret_cast<cross::Platform *>(global_scope.allocate(cross::platform_get_size()));
+	cross::platform_create(platform);
 
-	auto *window = exo::Window::create(platform, global_scope, {1280, 720}, "Render sample");
+	auto *window = cross::Window::create(platform, global_scope, {1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
 	auto *renderer = BaseRenderer::create(global_scope, window, {});
@@ -91,7 +90,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		auto framebuffer = framebuffers[surface.current_image];
 
 		cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-		cmd.begin_pass(framebuffer, std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 1.0f, 1.0f}}})});
+		cmd.begin_pass(framebuffer, std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 1.0f}}})});
 		cmd.end_pass();
 		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
 		cmd.end();
@@ -99,7 +98,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		return cmd;
 	};
 #else
-    int X = 0;
+	int X = 0;
 #endif
 
 	while (!window->should_close()) {
@@ -126,19 +125,17 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		// -- Render
 #if defined(GPU_RENDER)
-		if (has_resize)
-		{
+		if (has_resize) {
 			resize();
 		}
 
 		bool out_of_date_swapchain = renderer->start_frame();
-		while (out_of_date_swapchain)
-		{
+		while (out_of_date_swapchain) {
 			resize();
 			out_of_date_swapchain = renderer->start_frame();
 		}
 
-		auto cmd = draw();
+		auto cmd              = draw();
 		out_of_date_swapchain = renderer->end_frame(cmd);
 #else
 		int  MidPoint = (X++ % (64 * 1024)) / 64;
@@ -157,6 +154,6 @@ int main(int /*argc*/, char ** /*argv*/)
 		FrameMark
 	}
 
-	exo::platform_destroy(platform);
+	cross::platform_destroy(platform);
 	return 0;
 }

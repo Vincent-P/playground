@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(CMAKE_CXX_STANDARD 17)
-
 project(test-vulkan LANGUAGES C CXX)
 
 # External dependencies
 find_package(Threads)
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # Global C++ flags
 add_compile_options(
@@ -22,6 +21,9 @@ add_compile_options(
 
   # Optimize for AVX2
   $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
+
+  # Multi-processor compilation
+  $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
 
 # C++ flags for the project's code
@@ -37,21 +39,15 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wshadow>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Woverloaded-virtual>
 
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
-  $<$<CXX_COMPILER_ID:MSVC>:/permissive->
+  $<$<CXX_COMPILER_ID:MSVC>:/permissive-> # Enable standard conformance
   $<$<CXX_COMPILER_ID:MSVC>:/w14640> # Enable warning on thread un-safe static member initialization
-
-  # 0-sized array
-  $<$<CXX_COMPILER_ID:MSVC>:/wd4200>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-zero-length-array>
-
-  $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-field-initializers>
 
   # utils
   # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
   # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-  # $<$<CXX_COMPILER_ID:Clang>:-ftime-trace>
   )
 
 # C++ flags for third party libraries
@@ -59,22 +55,34 @@ set(THIRD_PARTY_CXX_FLAGS
   # Disable warnings for third-party libs
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
-  $<$<CXX_COMPILER_ID:MSVC>:/MP>
   )
 
 function(SETUP_APP_TARGET TARGET)
-  message(STATUS "Setting up target ${TARGET}")
+  message(STATUS "Setting up application target ${TARGET}")
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
+  target_compile_options(${TARGET} PRIVATE ${APP_CXX_FLAGS})
+  target_include_directories(${TARGET} SYSTEM PUBLIC include)
+  target_include_directories(${TARGET} PRIVATE src)
 
-  if (CMAKE_BUILD_TYPE MATCHES "Release")
-    message(STATUS "Enabling LTO")
-    set_target_properties(${TARGET} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
-  endif ()
+  if (WIN32)
+	target_compile_definitions(${TARGET} PRIVATE PLATFORM_WINDOWS)
+  else()
+	message( FATAL_ERROR "Platform not supported." )
+  endif()
+endfunction()
+
+function(SETUP_THIRDPARTY_TARGET TARGET)
+  message(STATUS "Setting up third party target ${TARGET}")
+  set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 17)
+  set_target_properties(${TARGET} PROPERTIES FOLDER "third_party")
+  target_compile_options(${TARGET} PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 endfunction()
 
 add_subdirectory(third_party)
 add_subdirectory(exo)
-add_subdirectory(engine)
-add_subdirectory(editor)
+add_subdirectory(cross)
+add_subdirectory(render)
+# add_subdirectory(engine)
+# add_subdirectory(editor)
 add_subdirectory(render_sample)
-add_subdirectory(biv)
+# add_subdirectory(biv)

@@ -99,7 +99,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }
 
-exo::int2 measure_label(Font *font, const char *label)
+int2 measure_label(Font *font, const char *label)
 {
 	auto *buf = font->label_buf;
 	hb_buffer_clear_contents(buf);
@@ -153,8 +153,8 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 		}
 
 		Rect rect = {
-			.position = exo::float2(exo::int2{cursor_x + cache_entry.glyph_top_left.x, cursor_y - cache_entry.glyph_top_left.y}),
-			.size     = exo::float2(cache_entry.glyph_size),
+			.position = float2(int2{cursor_x + cache_entry.glyph_top_left.x, cursor_y - cache_entry.glyph_top_left.y}),
+			.size     = float2(cache_entry.glyph_size),
 		};
 		Rect uv = {.position = {(cache_entry.x * font->glyph_width_px) / float(font->cache_resolution), (cache_entry.y * font->glyph_height_px) / float(font->cache_resolution)},
 			   .size     = {cache_entry.glyph_size.x / float(font->cache_resolution), cache_entry.glyph_size.y / float(font->cache_resolution)}};

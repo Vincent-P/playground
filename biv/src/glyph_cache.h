@@ -13,8 +13,8 @@ struct GlyphEntry
 
     // user data
     bool uploaded = false;
-    exo::int2 glyph_top_left = {};
-    exo::int2 glyph_size     = {};
+    int2 glyph_top_left = {};
+    int2 glyph_size     = {};
 
     // LRU chain
     u32 lru_prev = 0;

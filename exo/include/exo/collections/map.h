@@ -4,7 +4,6 @@
 namespace exo
 {
 
-template <typename K, typename V>
-using Map = phmap::flat_hash_map<K, V>;
+template <typename K, typename V> using Map = phmap::flat_hash_map<K, V>;
 
 }

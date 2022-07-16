@@ -6,23 +6,22 @@
 #include <exo/os/platform.h>
 #include <exo/os/window.h>
 
+#include <exo/logger.h>
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/vector.h>
-#include <exo/logger.h>
 #include <exo/macros/packed.h>
 #include <exo/macros/defer.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
 
-#include <engine/render/base_renderer.h>
-#include <engine/render/vulkan/context.h>
-#include <engine/render/vulkan/device.h>
-#include <engine/render/vulkan/surface.h>
-#include <engine/render/vulkan/utils.h>
+#include <render/base_renderer.h>
+#include <render/vulkan/context.h>
+#include <render/vulkan/device.h>
+#include <render/vulkan/surface.h>
+#include <render/vulkan/utils.h>
 namespace gfx = vulkan;
 
 #include <engine/inputs.h>
-#include <engine/assets/texture.h>
 
 #include "font.h"
 #include "glyph_cache.h"
@@ -269,9 +268,9 @@ static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
 
 	// Upload it to GPU
 	const ImageRegion regions[] = {{
-		.image_offset = exo::int2(cache_entry.x * font->glyph_width_px, cache_entry.y * font->glyph_height_px),
-		.image_size   = exo::int2(slot->bitmap.width, slot->bitmap.rows),
-		.buffer_size  = exo::int2(slot->bitmap.pitch, 0),
+		.image_offset = int2(cache_entry.x * font->glyph_width_px, cache_entry.y * font->glyph_height_px),
+		.image_size   = int2(slot->bitmap.width, slot->bitmap.rows),
+		.buffer_size  = int2(slot->bitmap.pitch, 0),
 	}};
 
 	// Don't upload 0x0 glyphs
@@ -330,7 +329,7 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
 	float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
-	auto       label_rect  = rect_center(checkbox.rect, exo::float2(measure_label(ui_theme.main_font, label_str)));
+	auto       label_rect  = rect_center(checkbox.rect, float2(measure_label(ui_theme.main_font, label_str)));
 
 	ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, checkbox.rect));
 	painter_draw_color_rect(*ui_state.painter, checkbox.rect, ui_state.i_clip_rect, border_color);
@@ -351,7 +350,7 @@ static void display_ui(RenderSample *app)
 	app->painter->vertex_bytes_offset = 0;
 	ui_new_frame(app->ui_state);
 
-	auto fullscreen_rect = Rect{.position = {0, 0}, .size = exo::float2(app->window->size.x, app->window->size.y)};
+	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(app->window->size.x, app->window->size.y)};
 
 	const float menubar_height_margin = 8.0f;
 	const float menu_item_margin      = 12.0f;
@@ -369,7 +368,7 @@ static void display_ui(RenderSample *app)
 	menubar_theme.button_hover_bg_color   = 0x06000000;
 	menubar_theme.button_pressed_bg_color = 0x09000000;
 
-	auto label_size = exo::float2(measure_label(app->ui_theme.main_font, "Open Image")) + exo::float2{8.0f, 0.0f};
+	auto label_size = float2(measure_label(app->ui_theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
 	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect                       = new_menubar_rect;
 	file_rect                          = rect_center(file_rect, label_size);
@@ -379,7 +378,7 @@ static void display_ui(RenderSample *app)
 		}
 	}
 
-	label_size = exo::float2(measure_label(app->ui_theme.main_font, "Help")) + exo::float2{8.0f, 0.0f};
+	label_size = float2(measure_label(app->ui_theme.main_font, "Help")) + float2{8.0f, 0.0f};
 	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect                        = new_menubar_rect2;
 	help_rect                           = rect_center(help_rect, label_size);
@@ -387,7 +386,7 @@ static void display_ui(RenderSample *app)
 	}
 
 	const auto check_margin              = 4.0f;
-	const auto check_size                = exo::float2{20.0f};
+	const auto check_size                = float2{20.0f};
 	auto [check_rect, new_menubar_rect3] = rect_split_off_left(menubar_rect, check_size.x, check_margin);
 	menubar_rect                         = new_menubar_rect3;
 	check_rect                           = rect_center(check_rect, check_size);
@@ -557,7 +556,7 @@ static void render(RenderSample *app, bool has_resize)
 		float h      = float(app->image.height);
 		float aspect = w / h;
 
-		float fit_scale = exo::min(app->viewer_clip_rect.size * exo::float2(1.0f / w, 1.0f/ h));
+		float fit_scale = exo::min(app->viewer_clip_rect.size * float2(1.0f / w, 1.0f/ h));
 
 		w = fit_scale * w;
 		h = fit_scale * h;
@@ -671,7 +670,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 
 	app->viewer_gpu_image_upload = app->renderer->device.create_image({
 		.name       = "Viewer image",
-		.size       = exo::int3(new_image.width, new_image.height, new_image.depth),
+		.size       = int3(new_image.width, new_image.height, new_image.depth),
 		.mip_levels = static_cast<u32>(new_image.levels),
 		.format     = to_vk(new_image.format),
 	});

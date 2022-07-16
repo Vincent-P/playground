@@ -81,7 +81,7 @@ struct Painter
 Painter *painter_allocate(exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size);
 void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture);
 void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR);
-exo::int2 measure_label(Font *font, const char *label);
+int2 measure_label(Font *font, const char *label);
 void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font *font, const char *label);
 void painter_draw_color_round_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);
 void painter_draw_color_circle(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);

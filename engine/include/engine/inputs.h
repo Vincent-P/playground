@@ -44,8 +44,8 @@ class Inputs
     bool is_pressed(Action action) const;
     bool is_pressed(exo::VirtualKey Key) const;
     bool is_pressed(exo::MouseButton mouse_button) const;
-    inline exo::Option<exo::int2> get_scroll_this_frame() const { return scroll_this_frame; }
-    inline exo::Option<exo::int2> get_mouse_delta() const { return mouse_delta; }
+    inline exo::Option<int2> get_scroll_this_frame() const { return scroll_this_frame; }
+    inline exo::Option<int2> get_mouse_delta() const { return mouse_delta; }
 
     void process(const exo::Vec<exo::Event> &events);
     inline void consume_scroll() { scroll_this_frame = {}; }
@@ -57,9 +57,9 @@ class Inputs
     exo::EnumArray<bool, exo::VirtualKey> keys_pressed           = {};
     exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
 
-    exo::Option<exo::int2> scroll_this_frame = {};
-    exo::Option<exo::int2> mouse_drag_start  = {};
-    exo::Option<exo::int2> mouse_drag_delta  = {};
-    exo::Option<exo::int2> mouse_delta       = {};
-    exo::int2         mouse_position    = {0};
+    exo::Option<int2> scroll_this_frame = {};
+    exo::Option<int2> mouse_drag_start  = {};
+    exo::Option<int2> mouse_drag_delta  = {};
+    exo::Option<int2> mouse_delta       = {};
+    int2         mouse_position    = {0};
 };
