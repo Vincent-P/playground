@@ -1,13 +1,16 @@
 #include "ui.h"
 
-#include <exo/maths/pointer.h>
 #include <cross/window.h>
+#include <exo/maths/pointer.h>
 
-#include "painter.h"
 #include "inputs.h"
+#include "painter.h"
 #include "rect.h"
 
-bool ui_is_hovering(const UiState &ui_state, const Rect &rect) { return rect_is_point_inside(rect, float2(ui_state.inputs->mouse_position)); }
+bool ui_is_hovering(const UiState &ui_state, const Rect &rect)
+{
+	return rect_is_point_inside(rect, float2(ui_state.inputs->mouse_position));
+}
 
 u64 ui_make_id(UiState &state) { return ++state.gen; }
 
@@ -83,7 +86,8 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
 		}
 	}
 
-	if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id && ui_state.active == id) {
+	if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
+		ui_state.active == id) {
 		result = true;
 	}
 
@@ -98,16 +102,18 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
 	}
 	painter_draw_color_round_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color, 0x0F000000, 2);
 
-	auto label_rect = rect_center(button.rect, float2(measure_label(ui_theme.main_font, button.label)));
+	auto label_rect =
+		rect_center(button.rect, float2(measure_label(*ui_state.painter, *ui_theme.main_font, button.label)));
 	// painter_draw_color_rect(*ui_state.painter, label_rect, u32_invalid, 0x880000FF);
-	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, button.label);
+	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, *ui_theme.main_font, button.label);
 
 	ui_pop_clip_rect(ui_state);
 
 	return result;
 }
 
-void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
+void ui_splitter_x(
+	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
 {
 	u64 id = ui_make_id(ui_state);
 
@@ -132,13 +138,18 @@ void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 		value = (float(ui_state.inputs->mouse_position.x) - view_rect.position.x) / view_rect.size.x;
 	}
 
-	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	const auto color    = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
 	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	rect_thickness = 1.0f;
-	painter_draw_color_rect(*ui_state.painter, {.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y}, .size = {rect_thickness, view_rect.size.y}}, ui_state.i_clip_rect, color);
+	rect_thickness      = 1.0f;
+	painter_draw_color_rect(*ui_state.painter,
+		{.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y},
+			.size  = {rect_thickness, view_rect.size.y}},
+		ui_state.i_clip_rect,
+		color);
 }
 
-void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
+void ui_splitter_y(
+	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
 {
 	u64 id = ui_make_id(ui_state);
 
@@ -163,15 +174,22 @@ void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_
 		value = (float(ui_state.inputs->mouse_position.y) - view_rect.position.y) / view_rect.size.y;
 	}
 
-	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	const auto color    = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
 	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	rect_thickness = 1.0f;
-	painter_draw_color_rect(*ui_state.painter, {.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f}, .size = {view_rect.size.x, rect_thickness}}, ui_state.i_clip_rect, color);
+	rect_thickness      = 1.0f;
+	painter_draw_color_rect(*ui_state.painter,
+		{.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f},
+			.size  = {view_rect.size.x, rect_thickness}},
+		ui_state.i_clip_rect,
+		color);
 }
 
-void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label) { painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, ui_theme.main_font, label.text); }
+void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
+{
+	painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, *ui_theme.main_font, label.text);
+}
 
 void ui_rect(UiState &ui_state, const UiTheme &ui_theme, const UiRect &rect)
 {
-    painter_draw_color_rect(*ui_state.painter, rect.rect, ui_state.i_clip_rect, rect.color);
+	painter_draw_color_rect(*ui_state.painter, rect.rect, ui_state.i_clip_rect, rect.color);
 }

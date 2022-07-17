@@ -9,14 +9,14 @@
 namespace vulkan
 {
 
-Surface Surface::create(Context &context, Device &device, const cross::Window &window)
+Surface Surface::create(Context &context, Device &device, u64 window_handle)
 {
 	Surface surface = {};
 
 	/// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 	VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-	sci.hwnd                        = reinterpret_cast<HWND>(window.get_win32_hwnd());
+	sci.hwnd                        = reinterpret_cast<HWND>(window_handle);
 	sci.hinstance                   = GetModuleHandle(nullptr);
 	VK_CHECK(vkCreateWin32SurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
@@ -28,27 +28,31 @@ Surface Surface::create(Context &context, Device &device, const cross::Window &w
 
 	// Query support, needed before present
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
-	                                              device.graphics_family_idx,
-	                                              surface.surface,
-	                                              &surface.present_queue_supported[QueueType::Graphics]));
+		device.graphics_family_idx,
+		surface.surface,
+		&surface.present_queue_supported[QueueType::Graphics]));
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
-	                                              device.compute_family_idx,
-	                                              surface.surface,
-	                                              &surface.present_queue_supported[QueueType::Compute]));
+		device.compute_family_idx,
+		surface.surface,
+		&surface.present_queue_supported[QueueType::Compute]));
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
-	                                              device.transfer_family_idx,
-	                                              surface.surface,
-	                                              &surface.present_queue_supported[QueueType::Transfer]));
+		device.transfer_family_idx,
+		surface.surface,
+		&surface.present_queue_supported[QueueType::Transfer]));
 
 	// Find a good present mode (by priority Mailbox then Immediate then FIFO)
 	u32 present_modes_count = 0;
-	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-		device.physical_device.vkdevice, surface.surface, &present_modes_count, nullptr));
+	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
+		surface.surface,
+		&present_modes_count,
+		nullptr));
 
 	exo::DynamicArray<VkPresentModeKHR, 8> present_modes = {};
 	present_modes.resize(present_modes_count);
-	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(
-		device.physical_device.vkdevice, surface.surface, &present_modes_count, present_modes.data()));
+	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
+		surface.surface,
+		&present_modes_count,
+		present_modes.data()));
 	surface.present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
 	for (auto &pm : present_modes) {
@@ -70,11 +74,15 @@ Surface Surface::create(Context &context, Device &device, const cross::Window &w
 	// Find the best format
 	uint                    formats_count = 0;
 	Vec<VkSurfaceFormatKHR> formats;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-		device.physical_device.vkdevice, surface.surface, &formats_count, nullptr));
+	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
+		surface.surface,
+		&formats_count,
+		nullptr));
 	formats.resize(formats_count);
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(
-		device.physical_device.vkdevice, surface.surface, &formats_count, formats.data()));
+	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
+		surface.surface,
+		&formats_count,
+		formats.data()));
 	surface.format = formats[0];
 	if (surface.format.format == VK_FORMAT_UNDEFINED) {
 		surface.format.format     = VK_FORMAT_B8G8R8A8_UNORM;

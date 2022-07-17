@@ -1,8 +1,11 @@
 #include "render/ring_buffer.h"
 
-#include "exo/maths/pointer.h"
+#include <exo/maths/pointer.h>
 
+#include "render/vulkan/buffer.h"
 #include "render/vulkan/device.h"
+
+#include <vk_mem_alloc.h>
 
 RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc)
 {
@@ -20,6 +23,7 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 	buf.buffer_start = reinterpret_cast<u8 *>(device.map_buffer(buf.buffer));
 	buf.buffer_end   = buf.buffer_start + desc.size;
 	buf.cursor       = buf.buffer_start;
+	buf.size         = desc.size;
 	return buf;
 }
 

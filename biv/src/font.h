@@ -1,27 +1,22 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/collections/handle.h>
-namespace vulkan { struct Image; }
-namespace gfx = vulkan;
-
-struct FT_FaceRec_;
-typedef FT_FaceRec_ *FT_Face;
 struct hb_font_t;
-struct hb_buffer_t;
-struct GlyphCache;
+struct GlyphImage;
+struct GlyphMetrics;
+
+struct FontMetrics
+{
+	i32 height;
+	i32 ascender;
+	i32 descender;
+};
 
 struct Font
 {
-    i32          size_pt;
-    u32 glyph_width_px;
-    u32 glyph_height_px;
-    u32          cache_resolution;
+	hb_font_t  *hb_font = nullptr;
+	FontMetrics metrics;
 
-    FT_Face     ft_face;
-    hb_font_t   *hb_font   = nullptr;
-    hb_buffer_t *label_buf = nullptr;
-
-    GlyphCache  *glyph_cache;
-    exo::Handle<gfx::Image> glyph_atlas;
-    u32 glyph_atlas_gpu_idx;
+	static Font from_file(const char *path, i32 size_in_pt, i32 face_index = 0);
 };
+
+void freetype_rasterizer(Font &font, u32 glyph_id, GlyphImage &out_image, GlyphMetrics &out_metrics);

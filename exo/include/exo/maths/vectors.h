@@ -48,7 +48,7 @@ float3 cross(float3 a, float3 b);
 #define VECTOR_RAW_ACCESS(vector_type, size, inner_type)                                                               \
 	static constexpr usize SIZE = size;                                                                                \
 	using element_type          = inner_type;                                                                          \
-	element_type                 &operator[](usize i_component) { return data()[i_component]; }                        \
+	element_type				 &operator[](usize i_component) { return data()[i_component]; }                        \
 	const element_type           &operator[](usize i_component) const { return data()[i_component]; }                  \
 	constexpr element_type       *data() { return &x; }                                                                \
 	constexpr const element_type *data() const { return &x; }
@@ -69,8 +69,8 @@ struct int2
 	bool operator==(const int2 &b) const = default;
 	VECTOR_RAW_ACCESS(int2, 2, i32)
 
-	// Access swizzle for 2D vectors
-	// clang-format off
+// Access swizzle for 2D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr int2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -94,8 +94,8 @@ struct uint2
 	bool operator==(const uint2 &b) const = default;
 	VECTOR_RAW_ACCESS(uint2, 2, u32)
 
-	// Access swizzle for 2D vectors
-	// clang-format off
+// Access swizzle for 2D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr uint2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -119,8 +119,8 @@ struct float2
 	bool operator==(const float2 &b) const = default;
 	VECTOR_RAW_ACCESS(float2, 2, float)
 
-	// Access swizzle for 2D vectors
-	// clang-format off
+// Access swizzle for 2D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr float2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -146,8 +146,8 @@ struct int3
 	bool operator==(const int3 &b) const = default;
 	VECTOR_RAW_ACCESS(int3, 3, i32)
 
-// Access swizzle for 3D vectors
-// clang-format off
+	// Access swizzle for 3D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr int3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -177,8 +177,8 @@ struct uint3
 	bool operator==(const uint3 &b) const = default;
 	VECTOR_RAW_ACCESS(uint3, 3, u32)
 
-	// Access swizzle for 3D vectors
-	// clang-format off
+// Access swizzle for 3D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr uint3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -208,8 +208,8 @@ struct float3
 	bool operator==(const float3 &b) const = default;
 	VECTOR_RAW_ACCESS(float3, 3, float)
 
-	// Access swizzle for 3D vectors
-	// clang-format off
+// Access swizzle for 3D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr float3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -237,8 +237,8 @@ struct float4
 	bool operator==(const float4 &b) const = default;
 	VECTOR_RAW_ACCESS(float4, 4, float)
 
-	// Access swizzle for 4D vectors
-	// clang-format off
+// Access swizzle for 4D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC4_S4(a, b, c, d) constexpr float4 a##b##c##d() const { return {a, b, c, d}; }
     VEC4_SWIZZLES
@@ -312,6 +312,7 @@ constexpr uint2 operator*(u32 a, uint2 b)   { return {a * b.x, a * b.y}; }
 constexpr float2 operator+(float2 a, float2 b) { return {a.x + b.x, a.y + b.y}; }
 constexpr float2 operator-(float2 a, float2 b) { return {a.x - b.x, a.y - b.y}; }
 constexpr float2 operator*(float2 a, float2 b) { return {a.x * b.x, a.y * b.y}; }
+constexpr float2 operator/(float2 a, float2 b) { return {a.x / b.x, a.y / b.y}; }
 constexpr float2 operator*(float a, float2 b)  { return {a * b.x, a * b.y}; }
 
 constexpr int3 operator+(int3 a, int3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
@@ -327,11 +328,13 @@ constexpr uint3 operator*(u32 a, uint3 b)   { return {a * b.x, a * b.y, a * b.z}
 constexpr float3 operator+(float3 a, float3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 constexpr float3 operator-(float3 a, float3 b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
 constexpr float3 operator*(float3 a, float3 b) { return {a.x * b.x, a.y * b.y, a.z * b.z}; }
+constexpr float3 operator/(float3 a, float3 b) { return {a.x / b.x, a.y / b.y, a.z / b.z}; }
 constexpr float3 operator*(float a, float3 b)  { return {a * b.x, a * b.y, a * b.z}; }
 
 constexpr float4 operator+(float4 a, float4 b) { return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}; }
 constexpr float4 operator-(float4 a, float4 b) { return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}; }
 constexpr float4 operator*(float4 a, float4 b) { return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w}; }
+constexpr float4 operator/(float4 a, float4 b) { return {a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w}; }
 constexpr float4 operator*(float a, float4 b)  { return {a * b.x, a * b.y, a * b.z, a * b.w}; }
 // clang-format on
 

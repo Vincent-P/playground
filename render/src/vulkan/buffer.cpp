@@ -54,7 +54,7 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 	});
 
 	if (buffer_info.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) {
-		auto &buffer          = *buffers.get(handle);
+		auto &buffer          = buffers.get(handle);
 		buffer.descriptor_idx = bind_storage_buffer(global_sets.bindless, handle);
 	}
 
@@ -63,20 +63,19 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 
 void Device::destroy_buffer(Handle<Buffer> buffer_handle)
 {
-	if (auto *buffer = buffers.get(buffer_handle)) {
-		if (buffer->mapped) {
-			vmaUnmapMemory(allocator, buffer->allocation);
-			buffer->mapped = nullptr;
-		}
-
-		vmaDestroyBuffer(allocator, buffer->vkhandle, buffer->allocation);
-		buffers.remove(buffer_handle);
+	auto &buffer = buffers.get(buffer_handle);
+	if (buffer.mapped) {
+		vmaUnmapMemory(allocator, buffer.allocation);
+		buffer.mapped = nullptr;
 	}
+
+	vmaDestroyBuffer(allocator, buffer.vkhandle, buffer.allocation);
+	buffers.remove(buffer_handle);
 }
 
 void *Device::map_buffer(Handle<Buffer> buffer_handle)
 {
-	auto &buffer = *buffers.get(buffer_handle);
+	auto &buffer = buffers.get(buffer_handle);
 	if (!buffer.mapped) {
 		VK_CHECK(vmaMapMemory(allocator, buffer.allocation, &buffer.mapped));
 	}
@@ -86,7 +85,7 @@ void *Device::map_buffer(Handle<Buffer> buffer_handle)
 
 u64 Device::get_buffer_address(Handle<Buffer> buffer_handle)
 {
-	auto &buffer = *buffers.get(buffer_handle);
+	auto &buffer = buffers.get(buffer_handle);
 
 	if (buffer.desc.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
 		VkBufferDeviceAddressInfo address_info = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
@@ -99,23 +98,21 @@ u64 Device::get_buffer_address(Handle<Buffer> buffer_handle)
 
 usize Device::get_buffer_size(Handle<Buffer> buffer_handle)
 {
-	auto &buffer = *buffers.get(buffer_handle);
+	auto &buffer = buffers.get(buffer_handle);
 	return buffer.desc.size;
 }
 
 void Device::flush_buffer(Handle<Buffer> buffer_handle)
 {
-	auto &buffer = *buffers.get(buffer_handle);
+	auto &buffer = buffers.get(buffer_handle);
 	if (buffer.mapped) {
 		vmaFlushAllocation(allocator, buffer.allocation, 0, buffer.desc.size);
 	}
 }
 u32 Device::get_buffer_storage_index(Handle<Buffer> buffer_handle)
 {
-	if (auto *buffer = buffers.get(buffer_handle)) {
-		return buffer->descriptor_idx;
-	}
-	return 0;
+	auto &buffer = buffers.get(buffer_handle);
+	return buffer.descriptor_idx;
 }
 
 } // namespace vulkan

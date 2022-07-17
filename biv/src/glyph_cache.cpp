@@ -1,163 +1,152 @@
 #include "glyph_cache.h"
 
-#include <exo/memory/scope_stack.h>
-#include <exo/macros/assert.h>
+#include "font.h"
 
-#include <cstring>
+static void lru_cache_use(exo::Pool<GlyphEntry> &cache, Handle<GlyphEntry> &head, Handle<GlyphEntry> handle)
+{
+	if (head == handle) {
+		return;
+	}
 
-namespace
-{
-static GlyphEntry *get_entry(GlyphCache &cache, u32 i_entry)
-{
-    ASSERT(i_entry < cache.entry_count);
-    return cache.entries + i_entry;
+	// Remove the element from the list
+	auto &element_prev = cache.get(handle).lru_prev;
+	auto &element_next = cache.get(handle).lru_next;
+
+	if (element_next.is_valid()) {
+		cache.get(element_next).lru_prev = element_prev;
+	}
+	if (element_prev.is_valid()) {
+		cache.get(element_prev).lru_next = element_next;
+	}
+	element_prev = Handle<GlyphEntry>::invalid();
+
+	// Connect the head to the element
+	if (head.is_valid()) {
+		auto &head_prev = cache.get(head).lru_prev;
+		ASSERT(head_prev.is_valid() == false);
+		head_prev = handle;
+	}
+
+	// Connect the element to the head
+	element_next = head;
+
+	// The new head is the element
+	head = handle;
 }
 
-static GlyphEntry *get_sentinel(GlyphCache &cache)
+static Handle<GlyphEntry> lru_cache_pop(exo::Pool<GlyphEntry> &cache, Handle<GlyphEntry> &head)
 {
-    return get_entry(cache, 0);
+	if (head.is_valid() == false) {
+		return {};
+	}
+
+	Handle<GlyphEntry> popped = head;
+
+	auto head_next = cache.get(head).lru_next;
+
+	// The new head is head_next
+	if (head_next.is_valid()) {
+		cache.get(head_next).lru_prev = Handle<GlyphEntry>::invalid();
+	}
+	head = head_next;
+
+	return popped;
 }
 
-static u32 *get_slot(GlyphCache &cache, u32 glyph_id)
+// Returns the pixel offset from the top left corner and atlas coords for a specified face and glyph
+Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *image)
 {
-    const u32 i = glyph_id & cache.hash_mask;
-    return cache.slots + i;
+	auto &face_cache = this->face_caches[0];
+
+	// Find an already allocated glyph
+	for (const auto &glyph_key : face_cache) {
+		if (glyph_key.glyph_id == glyph_id) {
+			const auto &glyph_entry = this->lru_cache.get(glyph_key.handle);
+			lru_cache_use(this->lru_cache, this->lru_head, glyph_key.handle);
+
+			if (glyph_entry.allocator_id == -1) {
+				return None;
+			}
+
+			if (image) {
+				*image = glyph_entry.image;
+			}
+
+			const auto &atlas_alloc = this->allocator.get(glyph_entry.allocator_id);
+			return Some(atlas_alloc.pos);
+		}
+	}
+
+	// Not found, we need to rasterize it
+	GlyphImage   glyph_image   = {};
+	GlyphMetrics glyph_metrics = {};
+	this->rasterizer(font, glyph_id, glyph_image, glyph_metrics);
+
+	i32 alloc_id;
+	if (glyph_image.image_size.x == 0 || glyph_image.image_size.y == 0) {
+		alloc_id = -1;
+	} else {
+		alloc_id = this->alloc_glyph(int2(glyph_image.image_size) + int2(2));
+	}
+
+	auto new_glyph_handle = this->lru_cache.add(GlyphEntry{
+		.allocator_id = alloc_id,
+		.glyph_id     = glyph_id,
+		.image        = glyph_image,
+		.metrics      = glyph_metrics,
+	});
+	lru_cache_use(this->lru_cache, this->lru_head, new_glyph_handle);
+	face_cache.push_back(GlyphKey{
+		.handle   = new_glyph_handle,
+		.glyph_id = glyph_id,
+	});
+
+	this->events.push_back(GlyphEvent{
+		.type         = GlyphEvent::Type::New,
+		.glyph_handle = new_glyph_handle,
+	});
+
+	if (alloc_id == -1) {
+		return None;
+	}
+
+	if (image) {
+		*image = glyph_image;
+	}
+
+	const auto &atlas_alloc = this->allocator.get(alloc_id);
+	return Some(atlas_alloc.pos);
 }
 
-static u32 evict_least_recently_used(GlyphCache &cache)
+i32 GlyphCache::alloc_glyph(int2 alloc_size)
 {
-    auto *sentinel = get_sentinel(cache);
-    const u32 i_evict = sentinel->lru_prev;
-    ASSERT(i_evict);
+	ASSERT(alloc_size.x > 0 && alloc_size.y > 0);
+	auto alloc_id = this->allocator.alloc(alloc_size);
+	while (alloc_id == -1) {
+		// Evict the least recently used glyph
+		auto evicted_glyph_handle   = lru_cache_pop(this->lru_cache, this->lru_head);
+		auto evicted_glyph_alloc_id = this->lru_cache.get(evicted_glyph_handle).allocator_id;
+		this->lru_cache.remove(evicted_glyph_handle);
 
-    auto *entry_to_evict = get_entry(cache, i_evict);
+		// Remove it from the face cache
+		auto &face_cache  = this->face_caches[0];
+		usize i_glyph_key = 0;
+		for (; i_glyph_key < face_cache.size(); ++i_glyph_key) {
+			if (face_cache[i_glyph_key].handle == evicted_glyph_handle) {
+				break;
+			}
+		}
+		exo::vector_swap_remove(face_cache, i_glyph_key);
 
-    // Remove the last LRU entry from the chain
-    auto *prev_entry = get_entry(cache, entry_to_evict->lru_prev);
-    sentinel->lru_prev = entry_to_evict->lru_prev;
-    prev_entry->lru_next = 0;
+		// Deallocate it in the atlas
+		auto glyph_removed = this->allocator.unref(evicted_glyph_alloc_id);
 
-    // Find the entry in its hash chain
-    u32 *i_next = get_slot(cache, entry_to_evict->glyph_id);
-    while (*i_next != i_evict)
-    {
-        ASSERT(*i_next);
-        i_next = &get_entry(cache, *i_next)->next;
-    }
-    ASSERT(*i_next == i_evict);
-    *i_next = entry_to_evict->next;
-
-    // Push the slot to the head of the free list
-    entry_to_evict->next = sentinel->next;
-    sentinel->next = i_evict;
-
-    return 0;
-}
-} // namespace
-
-
-GlyphCache *GlyphCache::create(exo::ScopeStack &scope, GlyphCacheParams params)
-{
-    GlyphCache *result = scope.allocate<GlyphCache>();
-
-    result->params = params;
-    result->entry_count = params.entry_count;
-    result->slot_size = params.hash_count;
-    result->hash_mask = params.hash_count - 1;
-
-    result->slots = reinterpret_cast<u32*>(scope.allocate(params.hash_count * sizeof(u32)));
-    result->entries = reinterpret_cast<GlyphEntry*>(scope.allocate(params.entry_count * sizeof(GlyphEntry)));
-
-    std::memset(result->slots, 0, params.hash_count * sizeof(u32));
-
-    u32 x = 0;
-    u32 y = 0;
-
-    for (u32 i_entry = 0; i_entry < params.entry_count; i_entry += 1)
-    {
-        if (x >= params.glyph_per_row)
-        {
-            x = 0;
-            y += 1;
-        }
-
-        result->entries[i_entry].glyph_id = 0;
-        result->entries[i_entry].x        = x;
-        result->entries[i_entry].y        = y;
-        result->entries[i_entry].uploaded = false;
-        result->entries[i_entry].lru_prev = 0;
-        result->entries[i_entry].lru_next = 0;
-        result->entries[i_entry].next     = (i_entry + 1) < params.entry_count ? (i_entry + 1) : 0;
-
-        x += 1;
-    }
-
-    return result;
+		if (glyph_removed) {
+			// Try to allocate it again
+			alloc_id = this->allocator.alloc(alloc_size);
+		}
+	}
+	return alloc_id;
 }
 
-/*
-  Init():
-    slot = {0, 0, 0, ..., 0}
-    entries = {.next = 1}, {.next = 2}, ..., {.next = size-1}, {.next = 0}
-
-    first entry is the sentinel for the lru cache and entry free list
- */
-
-GlyphEntry &GlyphCache::get_or_create(u32 glyph_id)
-{
-    GlyphEntry *result = nullptr;
-    auto *sentinel = get_sentinel(*this);
-
-    // Find the entry corresponding to the glyph id
-    u32 *slot = get_slot(*this, glyph_id);
-    u32 i_entry = *slot;
-    while (i_entry)
-    {
-        auto *entry = get_entry(*this, i_entry);
-        if (entry->glyph_id == glyph_id)
-        {
-            break;
-        }
-        i_entry = entry->next;
-    }
-
-    // Entry not found, insert it
-    if (!i_entry)
-    {
-        i_entry = sentinel->next;
-
-        // The cache is full, we need to evict LRU elements to make space
-        if (!i_entry)
-        {
-            i_entry = evict_least_recently_used(*this);
-        }
-
-        ASSERT(i_entry);
-        result = get_entry(*this, i_entry);
-        result->glyph_id = glyph_id;
-        result->lru_prev = 0;
-        result->lru_next = 0;
-
-        sentinel->next = result->next;
-        result->next = *slot;
-        *slot = i_entry;
-    }
-    else
-    {
-        result = get_entry(*this, i_entry);
-
-        // Remove the entry from the LRU chain
-        auto *prev = get_entry(*this, result->lru_prev);
-        auto *next = get_entry(*this, result->lru_next);
-        prev->lru_next = result->lru_next;
-        next->lru_prev = result->lru_prev;
-    }
-
-    ASSERT(result && i_entry);
-    // Push the entry to the top of the LRU chain
-    result->lru_prev = 0;
-    result->lru_next = sentinel->lru_next;
-    sentinel->lru_next = i_entry;
-
-    return *result;
-}
+void GlyphCache::clear_events() { this->events.clear(); }

@@ -3,8 +3,9 @@
 
 namespace exo
 {
-
 /// --- Handle type (Typed index that can be invalid)
+usize _hash_handle(u32 index, u32 gen);
+
 template <typename T> struct Handle
 {
 	static constexpr Handle invalid() { return Handle(); }
@@ -25,10 +26,8 @@ private:
 	template <typename T> friend struct Pool;
 	template <typename T> friend struct PoolIterator;
 	template <typename T> friend struct ConstPoolIterator;
-	friend inline usize hash_value(const Handle<T> &h) { return hash_handle(index, gen); }
+	friend inline usize hash_value(const Handle<T> &h) { return _hash_handle(h.index, h.gen); }
 };
-
-usize _hash_handle(u32 index, u32 gen);
 } // namespace exo
 
 using exo::Handle;

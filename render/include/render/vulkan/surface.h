@@ -37,7 +37,7 @@ struct Surface
 	exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   image_acquired_semaphores;
 	exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES>   can_present_semaphores;
 
-	static Surface create(Context &context, Device &device, const cross::Window &window);
+	static Surface create(Context &context, Device &device, u64 window_handle);
 	void           destroy(Context &context, Device &device);
 	void           create_swapchain(Device &device);
 	void           destroy_swapchain(Device &device);

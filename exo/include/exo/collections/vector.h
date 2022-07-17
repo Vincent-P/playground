@@ -20,6 +20,15 @@ template <typename T> inline void vector_insert_unique(Vec<T> &vector, const T &
 	}
 	vector.push_back(element);
 }
+
+template <typename T> inline void vector_swap_remove(Vec<T> &vector, size_t i)
+{
+	ASSERT(vector.size() > 0);
+	if (vector.size() > 0) {
+		std::swap(vector[i], vector[vector.size() - 1]);
+	}
+	vector.pop_back();
+}
 } // namespace exo
 
 using exo::Vec;

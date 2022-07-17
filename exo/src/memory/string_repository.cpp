@@ -46,7 +46,7 @@ const char *StringRepository::intern(std::string_view s)
 	const usize new_page_count = round_up_to_alignment(page_size, new_size);
 	if (new_page_count != page_count) {
 		virtual_allocator::commit(this->string_buffer + page_count * page_size,
-		                          (new_page_count - page_count) * page_size);
+			(new_page_count - page_count) * page_size);
 	}
 
 	std::memcpy(string_buffer + this->buffer_size, s.data(), s.size() + 1);

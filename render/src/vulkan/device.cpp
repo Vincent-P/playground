@@ -1,14 +1,14 @@
 #include "render/vulkan/device.h"
 
+#include "render/vulkan/context.h"
+#include "render/vulkan/framebuffer.h"
+#include "render/vulkan/pipelines.h"
+#include "render/vulkan/utils.h"
+
 #include <exo/collections/array.h>
 #include <exo/logger.h>
 
-#include "render/vulkan/context.h"
-#include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/surface.h"
-#include "render/vulkan/utils.h"
-
-#include <volk.h>
+#include <vk_mem_alloc.h>
 
 namespace vulkan
 {
@@ -30,7 +30,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	}
 
 	if (desc.buffer_device_address == false &&
-	    device.physical_device.vulkan12_features.bufferDeviceAddress == VK_TRUE) {
+		device.physical_device.vulkan12_features.bufferDeviceAddress == VK_TRUE) {
 		device.physical_device.vulkan12_features.bufferDeviceAddress = VK_FALSE;
 	}
 
@@ -39,13 +39,15 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 	/// --- Create the logical device
 	uint installed_device_extensions_count = 0;
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(
-		device.physical_device.vkdevice, nullptr, &installed_device_extensions_count, nullptr));
+	VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
+		nullptr,
+		&installed_device_extensions_count,
+		nullptr));
 	Vec<VkExtensionProperties> installed_device_extensions(installed_device_extensions_count);
 	VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
-	                                              nullptr,
-	                                              &installed_device_extensions_count,
-	                                              installed_device_extensions.data()));
+		nullptr,
+		&installed_device_extensions_count,
+		installed_device_extensions.data()));
 
 	Vec<const char *> device_extensions;
 	device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -59,8 +61,9 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	uint queue_families_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice, &queue_families_count, nullptr);
 	Vec<VkQueueFamilyProperties> queue_families(queue_families_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(
-		device.physical_device.vkdevice, &queue_families_count, queue_families.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice,
+		&queue_families_count,
+		queue_families.data());
 
 	Vec<VkDeviceQueueCreateInfo> queue_create_infos;
 	float                        priority = 0.0;
@@ -157,12 +160,27 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		push_constant_range.offset     = 0;
 		push_constant_range.size       = static_cast<u32>(device.push_constant_layout.size);
 
-		create_dynamic_buffer_layout(device);
+		// Create the dynamic buffer descriptor layout
+		VkDescriptorSetLayoutBinding bindings[] = {{
+			.binding         = 0,
+			.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			.descriptorCount = 1,
+			.stageFlags      = VK_SHADER_STAGE_ALL,
+		}};
+
+		VkDescriptorSetLayoutCreateInfo desc_layout_info = {
+			.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = exo::Array::len(bindings),
+			.pBindings    = bindings,
+		};
+
+		VK_CHECK(
+			vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_sets.uniform_layout));
 
 		VkDescriptorSetLayout layouts[] = {
 			device.global_sets.bindless.vklayout,
-			dynamic_buffer_layout,
-			dynamic_buffer_layout,
+			device.global_sets.uniform_layout,
+			device.global_sets.uniform_layout,
 		};
 
 		VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
@@ -227,7 +245,7 @@ void Device::destroy(const Context &context)
 	for (auto sampler : samplers)
 		vkDestroySampler(device, sampler, nullptr);
 
-	destroy_buffer_descriptor_layout(*this);
+	vkDestroyDescriptorSetLayout(device, global_sets.uniform_layout, nullptr);
 	vkDestroyDescriptorPool(device, global_sets.uniform_descriptor_pool, nullptr);
 	destroy_bindless_set(*this, global_sets.bindless);
 	vkDestroyPipelineLayout(device, global_sets.pipeline_layout, nullptr);
@@ -239,5 +257,18 @@ void Device::destroy(const Context &context)
 /// --- Global descriptor set
 
 void Device::update_globals() { update_bindless_set(*this, global_sets.bindless); }
+
+const DynamicBufferDescriptor &Device::find_or_create_uniform_descriptor(Handle<Buffer> buffer_handle, usize size)
+{
+	for (u32 i = 0; i < global_sets.uniform_descriptors.size(); ++i) {
+		const auto &descriptor = global_sets.uniform_descriptors[i];
+		if (descriptor.buffer == buffer_handle && descriptor.size == size) {
+			return descriptor;
+		}
+	}
+
+	global_sets.uniform_descriptors.push_back(create_buffer_descriptor(*this, buffer_handle, size));
+	return global_sets.uniform_descriptors.back();
+}
 
 } // namespace vulkan

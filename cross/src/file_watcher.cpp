@@ -106,12 +106,12 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 	watch.wd   = last_wd++;
 
 	watch.directory_handle = CreateFileA(path,
-	                                     GENERIC_READ,
-	                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-	                                     nullptr,
-	                                     OPEN_EXISTING,
-	                                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, // needed to get changes
-	                                     nullptr);
+		GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		nullptr,
+		OPEN_EXISTING,
+		FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, // needed to get changes
+		nullptr);
 
 	watch.overlapped = {};
 	watch.buffer     = {};
@@ -121,13 +121,13 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 	notify_flags |= FILE_NOTIFY_CHANGE_FILE_NAME;  // renaming, creating or deleting a file
 
 	BOOL res = ReadDirectoryChangesW(watch.directory_handle,
-	                                 watch.buffer.data(),
-	                                 static_cast<DWORD>(watch.buffer.size()),
-	                                 true,
-	                                 notify_flags,
-	                                 nullptr,
-	                                 &watch.overlapped,
-	                                 nullptr);
+		watch.buffer.data(),
+		static_cast<DWORD>(watch.buffer.size()),
+		true,
+		notify_flags,
+		nullptr,
+		&watch.overlapped,
+		nullptr);
 	ASSERT(res);
 
 	fw.watches.push_back(std::move(watch));
@@ -183,13 +183,13 @@ static void fetch_events_internal(FileWatcher &fw)
 		notify_flags |= FILE_NOTIFY_CHANGE_FILE_NAME;  // renaming, creating or deleting a file
 
 		res = ReadDirectoryChangesW(watch.directory_handle,
-		                            watch.buffer.data(),
-		                            static_cast<DWORD>(watch.buffer.size()),
-		                            true,
-		                            notify_flags,
-		                            nullptr,
-		                            &watch.overlapped,
-		                            nullptr);
+			watch.buffer.data(),
+			static_cast<DWORD>(watch.buffer.size()),
+			true,
+			notify_flags,
+			nullptr,
+			&watch.overlapped,
+			nullptr);
 		ASSERT(res);
 	}
 }
@@ -197,8 +197,9 @@ static void fetch_events_internal(FileWatcher &fw)
 
 static const Watch &watch_from_event_internal(const FileWatcher &fw, const WatchEvent &event)
 {
-	return *std::find_if(
-		std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) { return watch.wd == event.wd; });
+	return *std::find_if(std::begin(fw.watches), std::end(fw.watches), [&](const auto &watch) {
+		return watch.wd == event.wd;
+	});
 }
 
 FileWatcher FileWatcher::create() { return create_internal(); }

@@ -1,9 +1,11 @@
+#include "render/vulkan/shader.h"
+
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
-#include "vulkan/vulkan_core.h"
 
 #include <filesystem>
 #include <fstream>
+#include <volk.h>
 
 namespace
 {
@@ -55,9 +57,8 @@ Handle<Shader> Device::create_shader(std::string_view path)
 
 void Device::destroy_shader(Handle<Shader> shader_handle)
 {
-	if (auto *shader = shaders.get(shader_handle)) {
-		vkDestroyShaderModule(device, shader->vkhandle, nullptr);
-		shaders.remove(shader_handle);
-	}
+	auto &shader = shaders.get(shader_handle);
+	vkDestroyShaderModule(device, shader.vkhandle, nullptr);
+	shaders.remove(shader_handle);
 }
 }; // namespace vulkan

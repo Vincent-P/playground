@@ -1,20 +1,18 @@
 #include <cross/platform.h>
 #include <cross/window.h>
-#include <exo/collections/dynamic_array.h>
-#include <exo/collections/vector.h>
-#include <exo/logger.h>
-#include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
 
-#include <render/base_renderer.h>
-#include <render/vulkan/context.h>
-#include <render/vulkan/device.h>
-#include <render/vulkan/surface.h>
+#include <render/simple_renderer.h>
+#include <render/vulkan/commands.h>
+
+#define GPU_RENDER
 
 #include <Tracy.hpp>
+#include <cstdio>
+#if !defined(GPU_RENDER)
 #include <windows.h>
-namespace gfx = vulkan;
+#endif
 
 void *operator new(std::size_t count)
 {
@@ -29,8 +27,6 @@ void operator delete(void *ptr) noexcept
 	free(ptr);
 }
 
-#define GPU_RENDER
-
 u8  global_stack_mem[64 << 20];
 int main(int /*argc*/, char ** /*argv*/)
 {
@@ -44,67 +40,15 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto *window = cross::Window::create(platform, global_scope, {1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
-	auto *renderer = BaseRenderer::create(global_scope, window, {});
-
-	exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> framebuffers;
-	framebuffers.resize(renderer->surface.images.size());
-
-	for (usize i_image = 0; i_image < renderer->surface.images.size(); i_image += 1) {
-		renderer->device.destroy_framebuffer(framebuffers[i_image]);
-		framebuffers[i_image] = renderer->device.create_framebuffer(
-			{
-				.width  = renderer->surface.width,
-				.height = renderer->surface.height,
-			},
-			std::array{renderer->surface.images[i_image]});
-	}
-
-	auto resize = [&]() {
-		auto &device  = renderer->device;
-		auto &surface = renderer->surface;
-
-		device.wait_idle();
-		surface.recreate_swapchain(device);
-
-		for (usize i_image = 0; i_image < surface.images.size(); i_image += 1) {
-			device.destroy_framebuffer(framebuffers[i_image]);
-			framebuffers[i_image] = device.create_framebuffer(
-				{
-					.width  = surface.width,
-					.height = surface.height,
-				},
-				std::array{surface.images[i_image]});
-		}
-	};
-
-	auto draw = [&]() -> gfx::GraphicsWork {
-		auto &device  = renderer->device;
-		auto &surface = renderer->surface;
-
-		auto             &work_pool = renderer->work_pools[renderer->frame_count % FRAME_QUEUE_LENGTH];
-		gfx::GraphicsWork cmd       = device.get_graphics_work(work_pool);
-		cmd.begin();
-
-		cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-		auto framebuffer = framebuffers[surface.current_image];
-
-		cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-		cmd.begin_pass(framebuffer, std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 0.0f, 1.0f}}})});
-		cmd.end_pass();
-		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
-		cmd.end();
-
-		return cmd;
-	};
+	auto renderer = SimpleRenderer::create(window->get_win32_hwnd(), {});
 #else
 	int X = 0;
 #endif
+	int i_frame = 0;
 
 	while (!window->should_close()) {
 		window->poll_events();
 
-		bool has_resize = false;
 		for (const auto &event : window->events) {
 			switch (event.type) {
 			case exo::Event::KeyType: {
@@ -114,29 +58,27 @@ int main(int /*argc*/, char ** /*argv*/)
 				break;
 			}
 			case exo::Event::ResizeType: {
-				has_resize = true;
 				break;
 			}
-			default:
+			default: {
 				break;
+			}
 			}
 		}
 		window->events.clear();
 
 		// -- Render
+		printf("%d\n", i_frame);
 #if defined(GPU_RENDER)
-		if (has_resize) {
-			resize();
+		{
+			auto intermediate_buffer = renderer.render_graph.output(TextureDesc{
+				.name = "render buffer desc",
+				.size = TextureSize::screen_relative(float2(1.0, 1.0)),
+			});
+			renderer.render_graph.graphic_pass(intermediate_buffer,
+				[](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {});
+			renderer.render(intermediate_buffer, 1.0);
 		}
-
-		bool out_of_date_swapchain = renderer->start_frame();
-		while (out_of_date_swapchain) {
-			resize();
-			out_of_date_swapchain = renderer->start_frame();
-		}
-
-		auto cmd              = draw();
-		out_of_date_swapchain = renderer->end_frame(cmd);
 #else
 		int  MidPoint = (X++ % (64 * 1024)) / 64;
 		HWND Window   = (HWND)window->get_win32_hwnd();
@@ -150,7 +92,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 		ReleaseDC(Window, DC);
 #endif
-
+		i_frame += 1;
 		FrameMark
 	}
 

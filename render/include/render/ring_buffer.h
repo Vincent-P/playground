@@ -26,6 +26,7 @@ struct RingBuffer
 	std::string         name;
 	u32                 usage = 0;
 	Handle<gfx::Buffer> buffer;
+	usize               size;
 
 	u8 *cursor;
 	u8 *buffer_start;

@@ -5,7 +5,9 @@
 #include <exo/maths/numerics.h>
 #include <exo/option.h>
 
+#include "render/vulkan/framebuffer.h"
 #include "render/vulkan/operators.h"
+#include "render/vulkan/shader.h"
 
 #include <string>
 #include <volk.h>
@@ -13,19 +15,6 @@
 namespace vulkan
 {
 struct Image;
-
-inline constexpr usize MAX_ATTACHMENTS = 4; // Maximum number of attachments (color + depth) in a framebuffer
-inline constexpr usize MAX_RENDERPASS =
-	4; // Maximum number of renderpass (combination of load operator) per framebuffer
-inline constexpr usize MAX_RENDER_STATES = 4; // Maximum number of render state per pipeline
-
-struct Shader
-{
-	std::string    filename;
-	VkShaderModule vkhandle;
-	Vec<u8>        bytecode;
-	bool           operator==(const Shader &other) const = default;
-};
 
 enum struct PrimitiveTopology
 {
@@ -64,73 +53,6 @@ struct RenderState
 	bool               alpha_blending = false;
 
 	bool operator==(const RenderState &) const = default;
-};
-
-struct LoadOp
-{
-	enum struct Type
-	{
-		Load,
-		Clear,
-		Ignore
-	};
-
-	Type         type;
-	VkClearValue color;
-
-	static inline LoadOp load()
-	{
-		LoadOp load_op;
-		load_op.type  = Type::Load;
-		load_op.color = {};
-		return load_op;
-	}
-
-	static inline LoadOp clear(VkClearValue color)
-	{
-		LoadOp load_op;
-		load_op.type  = Type::Clear;
-		load_op.color = color;
-		return load_op;
-	}
-
-	static inline LoadOp ignore()
-	{
-		LoadOp load_op;
-		load_op.type  = Type::Ignore;
-		load_op.color = {};
-		return load_op;
-	}
-
-	inline bool operator==(const LoadOp &other) const { return this->type == other.type && this->color == other.color; }
-};
-
-struct RenderPass
-{
-	VkRenderPass                               vkhandle;
-	exo::DynamicArray<LoadOp, MAX_ATTACHMENTS> load_ops;
-};
-
-struct FramebufferFormat
-{
-	i32                                          width       = 0;
-	i32                                          height      = 0;
-	u32                                          layer_count = 1;
-	exo::DynamicArray<VkFormat, MAX_ATTACHMENTS> attachments_format;
-	Option<VkFormat>                             depth_format;
-	bool                                         operator==(const FramebufferFormat &) const = default;
-};
-
-struct Framebuffer
-{
-	VkFramebuffer                                     vkhandle = VK_NULL_HANDLE;
-	FramebufferFormat                                 format;
-	exo::DynamicArray<Handle<Image>, MAX_ATTACHMENTS> color_attachments;
-	Handle<Image>                                     depth_attachment;
-
-	exo::DynamicArray<RenderPass, MAX_RENDERPASS> renderpasses;
-
-	bool operator==(const Framebuffer &) const = default;
 };
 
 // Everything needed to build a pipeline except render state which is a separate struct
@@ -177,20 +99,6 @@ inline VkPrimitiveTopology to_vk(PrimitiveTopology topology)
 		return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 	}
 	return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-}
-
-inline VkAttachmentLoadOp to_vk(LoadOp op)
-{
-	switch (op.type) {
-	case LoadOp::Type::Load:
-		return VK_ATTACHMENT_LOAD_OP_LOAD;
-	case LoadOp::Type::Clear:
-		return VK_ATTACHMENT_LOAD_OP_CLEAR;
-	case LoadOp::Type::Ignore:
-		return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	}
-	ASSERT(false);
-	return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
 }
 
 } // namespace vulkan

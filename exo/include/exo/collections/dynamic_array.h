@@ -79,14 +79,14 @@ template <typename T, usize C> constexpr T &DynamicArray<T, C>::operator[](usize
 
 template <typename T, usize C> constexpr void DynamicArray<T, C>::push_back(T &&value) noexcept
 {
-	ASSERT(array_size + 1 < C);
+	ASSERT(array_size + 1 <= C);
 	array[array_size] = std::move(value);
 	array_size += 1;
 }
 
 template <typename T, usize C> constexpr void DynamicArray<T, C>::push_back(const T &value) noexcept
 {
-	ASSERT(array_size + 1 < C);
+	ASSERT(array_size + 1 <= C);
 	array[array_size] = value;
 	array_size += 1;
 }

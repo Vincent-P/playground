@@ -1,47 +1,49 @@
 set(SOURCE_FILES
-  include/render/vulkan/buffer.h
-  include/render/vulkan/commands.h
-  include/render/vulkan/context.h
-  include/render/vulkan/descriptor_set.h
-  include/render/vulkan/device.h
-  include/render/vulkan/image.h
+
+  # vulkan
   include/render/vulkan/operators.h
   include/render/vulkan/physical_device.h
-  include/render/vulkan/pipelines.h
   include/render/vulkan/queries.h
   include/render/vulkan/queues.h
-  include/render/vulkan/surface.h
   include/render/vulkan/synchronization.h
   include/render/vulkan/utils.h
+  include/render/vulkan/buffer.h
   src/vulkan/buffer.cpp
+  include/render/vulkan/commands.h
   src/vulkan/commands.cpp
-  src/vulkan/compute_pipeline.cpp
+  include/render/vulkan/context.h
   src/vulkan/context.cpp
+  include/render/vulkan/descriptor_set.h
   src/vulkan/descriptor_set.cpp
+  include/render/vulkan/device.h
   src/vulkan/device.cpp
-  src/vulkan/graphics_pipeline.cpp
+  include/render/vulkan/image.h
   src/vulkan/image.cpp
-  src/vulkan/shader.cpp
+  include/render/vulkan/pipelines.h
+  src/vulkan/compute_pipeline.cpp
+  src/vulkan/graphics_pipeline.cpp
+  include/render/vulkan/surface.h
   src/vulkan/surface.cpp
+  include/render/vulkan/shader.h
+  src/vulkan/shader.cpp
+  include/render/vulkan/framebuffer.h
+  src/vulkan/framebuffer.cpp
 
-  include/render/base_renderer.h
-  include/render/bvh.h
-  include/render/render_timings.h
+  # render graph
+  include/render/render_graph/resource_registry.h
+  src/render_graph/resource_registry.cpp
+  include/render/render_graph/graph.h
+  src/render_graph/graph.cpp
+  include/render/render_graph/builtins.h
+  src/render_graph/builtins.cpp
+
   include/render/ring_buffer.h
-  include/render/streamer.h
-  include/render/unified_buffer_storage.h
-  src/base_renderer.cpp
-  src/bvh.cpp
-  src/render_timings.cpp
   src/ring_buffer.cpp
-  src/streamer.cpp
-  src/unified_buffer_storage.cpp
 
-# render/include/render/renderer.h
-# render/include/render/render_world.h
-# render/include/render/render_world_system.h
-# render/src/renderer.cpp
-# render/src/render_world_system.cpp
+  include/render/shader_watcher.h
+
+  include/render/simple_renderer.h
+  src/simple_renderer.cpp
 )
 
 add_library(render STATIC ${SOURCE_FILES})

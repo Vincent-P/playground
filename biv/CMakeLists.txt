@@ -4,6 +4,12 @@ set(SOURCE_FILES
   src/painter.cpp
   src/ui.cpp
   src/inputs.cpp
+
+  src/font.h
+  src/font.cpp
+
+  src/shelf_allocator.h
+  src/shelf_allocator.cpp
 )
 
 add_executable(biv ${SOURCE_FILES})
@@ -18,5 +24,12 @@ target_link_libraries(biv
   libspng
   )
 
-add_subdirectory(shaders/)
-add_dependencies(biv biv.shaders)
+setup_shaders(biv
+  SOURCES
+  ui.frag.glsl
+  ui.vert.glsl
+  viewer.frag.glsl
+  viewer.vert.glsl
+  DEPENDENCIES
+  engine
+)

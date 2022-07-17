@@ -1,25 +1,31 @@
 #pragma once
 #include <exo/collections/pool.h>
-#include <exo/collections/vector.h>
-#include <exo/maths/numerics.h>
-#include <exo/option.h>
 
-#include "render/vulkan/buffer.h"
 #include "render/vulkan/commands.h"
 #include "render/vulkan/descriptor_set.h"
-#include "render/vulkan/image.h"
 #include "render/vulkan/physical_device.h"
-#include "render/vulkan/pipelines.h"
 #include "render/vulkan/synchronization.h"
 
-#include <vk_mem_alloc.h>
+#include <volk.h>
 
+VK_DEFINE_HANDLE(VmaAllocator);
 namespace vulkan
 {
 struct Surface;
 struct Context;
 struct WorkPool;
 struct QueryPool;
+struct Shader;
+struct GraphicsProgram;
+struct GraphicsState;
+struct RenderState;
+struct ComputeProgram;
+struct ComputeState;
+struct RenderPass;
+struct Framebuffer;
+struct FramebufferFormat;
+struct ImageDescription;
+struct BufferDescription;
 
 enum BuiltinSampler
 {
@@ -30,9 +36,11 @@ enum BuiltinSampler
 
 struct GlobalDescriptorSets
 {
-	VkDescriptorPool uniform_descriptor_pool;
-	BindlessSet      bindless;
-	VkPipelineLayout pipeline_layout;
+	VkDescriptorPool             uniform_descriptor_pool;
+	VkDescriptorSetLayout        uniform_layout;
+	BindlessSet                  bindless;
+	VkPipelineLayout             pipeline_layout;
+	Vec<DynamicBufferDescriptor> uniform_descriptors;
 };
 
 struct PushConstantLayout
@@ -105,13 +113,13 @@ struct Device
 	// Graphics Pipeline
 	Handle<GraphicsProgram> create_program(std::string name, const GraphicsState &graphics_state);
 	void                    destroy_program(Handle<GraphicsProgram> program_handle);
-	unsigned                compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
+	u32  compile_graphics_state(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
+	void compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, usize i_pipeline);
 
 	// Framebuffers
-	Handle<Framebuffer> create_framebuffer(const FramebufferFormat       &fb_desc,
-	                                       std::span<const Handle<Image>> color_attachments,
-	                                       Handle<Image>                  depth_attachment = {});
-	void                destroy_framebuffer(Handle<Framebuffer> framebuffer_handle);
+	Handle<Framebuffer> create_framebuffer(
+		int3 size, std::span<const Handle<Image>> color_attachments, Handle<Image> depth_attachment = {});
+	void destroy_framebuffer(Handle<Framebuffer> framebuffer_handle);
 
 	RenderPass &find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops); // private
 
@@ -126,6 +134,7 @@ struct Device
 	u32           get_image_sampled_index(Handle<Image> image_handle);
 	u32           get_image_storage_index(Handle<Image> image_handle);
 	int3          get_image_size(Handle<Image> image_handle);
+	void          unbind_image(Handle<Image> image_handle);
 
 	Handle<Buffer> create_buffer(const BufferDescription &buffer_desc);
 	void           destroy_buffer(Handle<Buffer> buffer_handle);
@@ -141,7 +150,8 @@ struct Device
 	void flush_buffer(Handle<Buffer> buffer_handle);
 
 	// Global descriptor set
-	void update_globals();
+	void                           update_globals();
+	const DynamicBufferDescriptor &find_or_create_uniform_descriptor(Handle<Buffer> buffer_handle, usize size);
 
 	// Swapchain
 	bool acquire_next_swapchain(Surface &surface);

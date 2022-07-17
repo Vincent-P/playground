@@ -7,12 +7,12 @@
 namespace vulkan
 {
 
-static ImageView create_image_view(Device                  &device,
-                                   VkImage                  vkhandle,
-                                   std::string            &&name,
-                                   VkImageSubresourceRange &range,
-                                   VkFormat                 format,
-                                   VkImageViewType          type)
+static ImageView create_image_view(Device &device,
+	VkImage                                vkhandle,
+	std::string                          &&name,
+	VkImageSubresourceRange               &range,
+	VkFormat                               format,
+	VkImageViewType                        type)
 {
 	ImageView view;
 
@@ -51,6 +51,10 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	bool is_sampled = image_desc.usages & VK_IMAGE_USAGE_SAMPLED_BIT;
 	bool is_storage = image_desc.usages & VK_IMAGE_USAGE_STORAGE_BIT;
 	bool is_depth   = is_depth_format(image_desc.format);
+
+	ASSERT(image_desc.size.x > 0);
+	ASSERT(image_desc.size.y > 0);
+	ASSERT(image_desc.size.z > 0);
 
 	VkImageCreateInfo image_info     = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	image_info.imageType             = image_desc.type;
@@ -99,11 +103,11 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	VkFormat format                    = image_desc.format;
 
 	ImageView full_view = create_image_view(*this,
-	                                        vkhandle,
-	                                        fmt::format("{} full view", image_desc.name),
-	                                        full_range,
-	                                        format,
-	                                        view_type_from_image(image_desc.type));
+		vkhandle,
+		fmt::format("{} full view", image_desc.name),
+		full_range,
+		format,
+		view_type_from_image(image_desc.type));
 
 	auto handle = images.add({
 		.desc       = image_desc,
@@ -118,12 +122,12 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 
 	// Bindless (bind everything)
 	if (is_sampled) {
-		auto &image                 = *images.get(handle);
+		auto &image                 = images.get(handle);
 		image.full_view.sampled_idx = bind_sampler_image(global_sets.bindless, handle);
 	}
 
 	if (is_storage) {
-		auto &image                 = *images.get(handle);
+		auto &image                 = images.get(handle);
 		image.full_view.storage_idx = bind_storage_image(global_sets.bindless, handle);
 	}
 
@@ -132,44 +136,38 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 
 void Device::destroy_image(Handle<Image> image_handle)
 {
-	if (auto *image = images.get(image_handle)) {
-		if (image->full_view.sampled_idx != u32_invalid) {
-			unbind_sampler_image(global_sets.bindless, image->full_view.sampled_idx);
-		}
-		if (image->full_view.storage_idx != u32_invalid) {
-			unbind_storage_image(global_sets.bindless, image->full_view.storage_idx);
-		}
-		if (!image->is_proxy) {
-			vmaDestroyImage(allocator, image->vkhandle, image->allocation);
-		}
-		vkDestroyImageView(device, image->full_view.vkhandle, nullptr);
-		images.remove(image_handle);
+	auto &image = images.get(image_handle);
+	this->unbind_image(image_handle);
+	if (!image.is_proxy) {
+		vmaDestroyImage(allocator, image.vkhandle, image.allocation);
 	}
+	vkDestroyImageView(device, image.full_view.vkhandle, nullptr);
+	images.remove(image_handle);
 }
 
 int3 Device::get_image_size(Handle<Image> image_handle)
 {
-	if (auto *image = images.get(image_handle)) {
-		return image->desc.size;
-	}
-	return {0};
+	return this->images.get(image_handle).desc.size;
 }
 
 u32 Device::get_image_sampled_index(Handle<Image> image_handle)
 {
-	if (auto *image = images.get(image_handle)) {
-		return image->full_view.sampled_idx;
-	} else {
-		return u32_invalid;
-	}
+	return this->images.get(image_handle).full_view.sampled_idx;
 }
 
 u32 Device::get_image_storage_index(Handle<Image> image_handle)
 {
-	if (auto *image = images.get(image_handle)) {
-		return image->full_view.storage_idx;
-	} else {
-		return u32_invalid;
+	return this->images.get(image_handle).full_view.storage_idx;
+}
+
+void Device::unbind_image(Handle<Image> image_handle)
+{
+	auto &image = images.get(image_handle);
+	if (image.full_view.sampled_idx != u32_invalid) {
+		unbind_sampler_image(global_sets.bindless, image.full_view.sampled_idx);
+	}
+	if (image.full_view.storage_idx != u32_invalid) {
+		unbind_storage_image(global_sets.bindless, image.full_view.storage_idx);
 	}
 }
 }; // namespace vulkan

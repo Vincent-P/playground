@@ -1,8 +1,10 @@
 #pragma once
-#include <exo/maths/numerics.h>
-
 namespace exo::Array
 {
-template <typename T, usize N> using Reference = T (&)[N];
-template <typename T, usize N> [[nodiscard]] inline constexpr usize len(Reference<const T, N> _) { return N; }
+template <typename T, size_t N> using Reference = T (&)[N];
+template <typename T, size_t N> [[nodiscard]] inline constexpr size_t len(Reference<const T, N> _) { return N; }
+template <typename T, size_t N> struct AsStruct
+{
+	T inner[N];
+};
 } // namespace exo::Array

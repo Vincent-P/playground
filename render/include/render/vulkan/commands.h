@@ -3,19 +3,20 @@
 #include <exo/collections/enum_array.h>
 #include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
+#include <exo/maths/vectors.h>
 #include <exo/option.h>
 
-#include "render/vulkan/buffer.h"
-#include "render/vulkan/image.h"
 #include "render/vulkan/queues.h"
 #include "render/vulkan/synchronization.h"
 
+#include <string_view>
 #include <volk.h>
 
 namespace vulkan
 {
 struct Device;
 struct Image;
+struct Buffer;
 struct Surface;
 struct QueryPool;
 struct ComputeProgram;
@@ -23,6 +24,8 @@ struct GraphicsProgram;
 struct Framebuffer;
 struct LoadOp;
 struct DynamicBufferDescriptor;
+enum struct BufferUsage : u8;
+enum struct ImageUsage : u8;
 
 inline constexpr usize MAX_SEMAPHORES = 4; // Maximum number of waitable semaphores per command buffer
 
@@ -61,10 +64,8 @@ struct Work
 
 	void begin();
 	void bind_global_set();
-	void bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor,
-	                      u32                            offset,
-	                      QueueType                      queue_type,
-	                      u32                            i_set = 2);
+	void bind_uniform_set(
+		const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, QueueType queue_type, u32 i_set = 2);
 	void end();
 
 	void wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst);
@@ -77,8 +78,8 @@ struct Work
 	void absolute_barrier(Handle<Image> image_handle);
 	void barrier(Handle<Image> image, ImageUsage usage_destination);
 	void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
-	void barriers(std::span<std::pair<Handle<Image>, ImageUsage>>   images,
-	              std::span<std::pair<Handle<Buffer>, BufferUsage>> buffers);
+	void barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images,
+		std::span<std::pair<Handle<Buffer>, BufferUsage>>         buffers);
 
 	// queries
 	void reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count);
@@ -93,9 +94,8 @@ struct Work
 
 struct TransferWork : Work
 {
-	void copy_buffer(Handle<Buffer>                                   src,
-	                 Handle<Buffer>                                   dst,
-	                 std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size);
+	void copy_buffer(
+		Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size);
 	void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
 	void copy_image(Handle<Image> src, Handle<Image> dst);
 	void blit_image(Handle<Image> src, Handle<Image> dst);
@@ -156,7 +156,7 @@ struct GraphicsWork : ComputeWork
 
 	using ComputeWork::bind_pipeline; // make it visible on GraphicsWork
 	void bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index);
-	void
-	bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16, usize offset = 0);
+	void bind_index_buffer(
+		Handle<Buffer> buffer_handle, VkIndexType index_type = VK_INDEX_TYPE_UINT16, usize offset = 0);
 };
 } // namespace vulkan

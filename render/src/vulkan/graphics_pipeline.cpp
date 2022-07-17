@@ -1,162 +1,12 @@
 #include "render/vulkan/pipelines.h"
 
+#include <exo/collections/array.h>
+
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
-#include <algorithm>
-
 namespace vulkan
 {
-
-/// --- Renderpass
-
-RenderPass create_renderpass(Device &device, const FramebufferFormat &format, std::span<const LoadOp> load_ops)
-{
-	auto attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
-	ASSERT(load_ops.size() == attachments_count);
-
-	Vec<VkAttachmentReference> color_refs;
-	color_refs.reserve(format.attachments_format.size());
-
-	Vec<VkAttachmentDescription> attachment_descriptions;
-	attachment_descriptions.reserve(attachments_count);
-
-	for (u32 i_color = 0; i_color < format.attachments_format.size(); i_color += 1) {
-		color_refs.push_back({
-			.attachment = static_cast<u32>(attachment_descriptions.size()),
-			.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		});
-
-		attachment_descriptions.push_back(VkAttachmentDescription{
-			.format        = format.attachments_format[i_color],
-			.samples       = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp        = to_vk(load_ops[i_color]),
-			.storeOp       = VK_ATTACHMENT_STORE_OP_STORE,
-			.initialLayout = load_ops[i_color].type == LoadOp::Type::Clear ? VK_IMAGE_LAYOUT_UNDEFINED
-		                                                                   : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		});
-	}
-
-	VkAttachmentReference depth_ref{
-		.attachment = 0,
-		.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-	};
-
-	if (format.depth_format.has_value()) {
-		depth_ref.attachment = static_cast<u32>(attachment_descriptions.size());
-
-		attachment_descriptions.push_back(VkAttachmentDescription{
-			.format        = format.depth_format.value(),
-			.samples       = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp        = to_vk(load_ops.back()),
-			.storeOp       = VK_ATTACHMENT_STORE_OP_STORE,
-			.initialLayout = load_ops.back().type == LoadOp::Type::Clear ? VK_IMAGE_LAYOUT_UNDEFINED
-		                                                                 : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-			.finalLayout   = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-		});
-	}
-
-	VkSubpassDescription subpass;
-	subpass.flags                   = 0;
-	subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.inputAttachmentCount    = 0;
-	subpass.pInputAttachments       = nullptr;
-	subpass.colorAttachmentCount    = static_cast<u32>(color_refs.size());
-	subpass.pColorAttachments       = color_refs.data();
-	subpass.pResolveAttachments     = nullptr;
-	subpass.pDepthStencilAttachment = format.depth_format.has_value() ? &depth_ref : nullptr;
-	subpass.preserveAttachmentCount = 0;
-	subpass.pPreserveAttachments    = nullptr;
-
-	VkRenderPassCreateInfo rp_info = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-	rp_info.attachmentCount        = static_cast<u32>(attachment_descriptions.size());
-	rp_info.pAttachments           = attachment_descriptions.data();
-	rp_info.subpassCount           = 1;
-	rp_info.pSubpasses             = &subpass;
-	rp_info.dependencyCount        = 0;
-	rp_info.pDependencies          = nullptr;
-
-	VkRenderPass vk_renderpass = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
-
-	return {.vkhandle = vk_renderpass, .load_ops = load_ops};
-}
-
-RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops)
-{
-	ASSERT(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
-	ASSERT(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
-
-	for (auto &renderpass : framebuffer.renderpasses) {
-		if (std::ranges::equal(renderpass.load_ops, load_ops)) {
-			return renderpass;
-		}
-	}
-
-	framebuffer.renderpasses.push_back(create_renderpass(*this, framebuffer.format, load_ops));
-	return framebuffer.renderpasses.back();
-}
-
-/// --- Framebuffer
-
-Handle<Framebuffer> Device::create_framebuffer(const FramebufferFormat       &fb_desc,
-                                               std::span<const Handle<Image>> color_attachments,
-                                               Handle<Image>                  depth_attachment)
-{
-	Framebuffer fb       = {};
-	fb.format            = fb_desc;
-	fb.color_attachments = color_attachments;
-	fb.depth_attachment  = depth_attachment;
-
-	ASSERT(fb.format.attachments_format.empty());
-	ASSERT(fb.format.depth_format.has_value() == false);
-
-	auto attachments_count = fb.color_attachments.size() + (fb.depth_attachment.is_valid() ? 1 : 0);
-
-	Vec<VkImageView> attachment_views;
-	attachment_views.reserve(attachments_count);
-	for (const auto &attachment : fb.color_attachments) {
-		const auto &image = *this->images.get(attachment);
-		attachment_views.push_back(image.full_view.vkhandle);
-		fb.format.attachments_format.push_back(image.desc.format);
-	}
-	if (fb.depth_attachment.is_valid()) {
-		const auto &image = *this->images.get(fb.depth_attachment);
-		attachment_views.push_back(image.full_view.vkhandle);
-		fb.format.depth_format = image.desc.format;
-	}
-
-	auto &renderpass = this->find_or_create_renderpass(fb, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
-
-	VkFramebufferCreateInfo fb_info = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-	fb_info.renderPass              = renderpass.vkhandle;
-	fb_info.attachmentCount         = static_cast<u32>(attachments_count);
-	fb_info.pAttachments            = attachment_views.data();
-	fb_info.width                   = static_cast<u32>(fb.format.width);
-	fb_info.height                  = static_cast<u32>(fb.format.height);
-	fb_info.layers                  = fb.format.layer_count;
-
-	fb.vkhandle = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &fb.vkhandle));
-
-	return framebuffers.add(std::move(fb));
-}
-
-void Device::destroy_framebuffer(Handle<Framebuffer> framebuffer_handle)
-{
-	if (auto *framebuffer = framebuffers.get(framebuffer_handle)) {
-		vkDestroyFramebuffer(device, framebuffer->vkhandle, nullptr);
-
-		for (auto &renderpass : framebuffer->renderpasses) {
-			vkDestroyRenderPass(device, renderpass.vkhandle, nullptr);
-		}
-		framebuffers.remove(framebuffer_handle);
-	}
-}
-
-/// --- Graphics program
-
 Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsState &graphics_state)
 {
 	VkPipelineCacheCreateInfo cache_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
@@ -178,29 +28,40 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
 
 void Device::destroy_program(Handle<GraphicsProgram> program_handle)
 {
-	if (auto *program = graphics_programs.get(program_handle)) {
-		for (auto pipeline : program->pipelines) {
-			vkDestroyPipeline(device, pipeline, nullptr);
-		}
-
-		vkDestroyPipelineCache(device, program->cache, nullptr);
-		vkDestroyRenderPass(device, program->renderpass, nullptr);
-
-		graphics_programs.remove(program_handle);
+	auto &program = graphics_programs.get(program_handle);
+	for (auto pipeline : program.pipelines) {
+		vkDestroyPipeline(device, pipeline, nullptr);
 	}
+
+	vkDestroyPipelineCache(device, program.cache, nullptr);
+	vkDestroyRenderPass(device, program.renderpass, nullptr);
+
+	graphics_programs.remove(program_handle);
 }
 
-unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderState &render_state)
+u32 Device::compile_graphics_state(Handle<GraphicsProgram> &program_handle, const RenderState &render_state)
 {
-	auto *p_program = graphics_programs.get(program_handle);
-	ASSERT(p_program);
-	auto &program = *p_program;
+	auto &program = graphics_programs.get(program_handle);
 
-	Vec<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	program.render_states.push_back(render_state);
+
+	u32 i_pipeline = static_cast<u32>(program.pipelines.size());
+	program.pipelines.push_back(VK_NULL_HANDLE);
+	compile_graphics_pipeline(program_handle, i_pipeline);
+	return i_pipeline;
+}
+
+void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, usize i_pipeline)
+{
+	auto &program = graphics_programs.get(program_handle);
+
+	const auto &render_state = program.render_states[i_pipeline];
+
+	VkDynamicState dynamic_states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
 	VkPipelineDynamicStateCreateInfo dyn_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-	dyn_i.dynamicStateCount                = static_cast<u32>(dynamic_states.size());
-	dyn_i.pDynamicStates                   = dynamic_states.data();
+	dyn_i.dynamicStateCount                = static_cast<u32>(exo::Array::len(dynamic_states));
+	dyn_i.pDynamicStates                   = dynamic_states;
 
 	VkPipelineVertexInputStateCreateInfo vert_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
@@ -256,17 +117,17 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 		}
 	}
 
-	VkPipelineColorBlendStateCreateInfo colorblend_i = {.sType =
-	                                                        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-	colorblend_i.flags                               = 0;
-	colorblend_i.attachmentCount                     = static_cast<u32>(att_states.size());
-	colorblend_i.pAttachments                        = att_states.data();
-	colorblend_i.logicOpEnable                       = VK_FALSE;
-	colorblend_i.logicOp                             = VK_LOGIC_OP_COPY;
-	colorblend_i.blendConstants[0]                   = 0.0f;
-	colorblend_i.blendConstants[1]                   = 0.0f;
-	colorblend_i.blendConstants[2]                   = 0.0f;
-	colorblend_i.blendConstants[3]                   = 0.0f;
+	VkPipelineColorBlendStateCreateInfo colorblend_i = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+	colorblend_i.flags             = 0;
+	colorblend_i.attachmentCount   = static_cast<u32>(att_states.size());
+	colorblend_i.pAttachments      = att_states.data();
+	colorblend_i.logicOpEnable     = VK_FALSE;
+	colorblend_i.logicOp           = VK_LOGIC_OP_COPY;
+	colorblend_i.blendConstants[0] = 0.0f;
+	colorblend_i.blendConstants[1] = 0.0f;
+	colorblend_i.blendConstants[2] = 0.0f;
+	colorblend_i.blendConstants[3] = 0.0f;
 
 	VkPipelineViewportStateCreateInfo vp_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 	vp_i.flags                             = 0;
@@ -302,11 +163,10 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 	ms_i.alphaToOneEnable                     = VK_FALSE;
 	ms_i.minSampleShading                     = .2f;
 
-	Vec<VkPipelineShaderStageCreateInfo> shader_stages;
-	shader_stages.reserve(3);
+	exo::DynamicArray<VkPipelineShaderStageCreateInfo, 2> shader_stages;
 
 	if (program.graphics_state.vertex_shader.is_valid()) {
-		const auto                     &shader      = *shaders.get(program.graphics_state.vertex_shader);
+		const auto                     &shader      = shaders.get(program.graphics_state.vertex_shader);
 		VkPipelineShaderStageCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 		create_info.stage                           = VK_SHADER_STAGE_VERTEX_BIT;
 		create_info.module                          = shader.vkhandle;
@@ -315,7 +175,7 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 	}
 
 	if (program.graphics_state.fragment_shader.is_valid()) {
-		const auto                     &shader      = *shaders.get(program.graphics_state.fragment_shader);
+		const auto                     &shader      = shaders.get(program.graphics_state.fragment_shader);
 		VkPipelineShaderStageCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 		create_info.stage                           = VK_SHADER_STAGE_FRAGMENT_BIT;
 		create_info.module                          = shader.vkhandle;
@@ -341,20 +201,14 @@ unsigned Device::compile(Handle<GraphicsProgram> &program_handle, const RenderSt
 	pipe_i.renderPass                   = program.renderpass;
 	pipe_i.subpass                      = 0;
 
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &pipeline));
+	VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &program.pipelines[i_pipeline]));
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
-		ni.objectHandle                  = reinterpret_cast<u64>(pipeline);
+		ni.objectHandle                  = reinterpret_cast<u64>(program.pipelines[i_pipeline]);
 		ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
 		ni.pObjectName                   = program.name.c_str();
 		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
 	}
-
-	program.pipelines.push_back(pipeline);
-	program.render_states.push_back(render_state);
-
-	return static_cast<u32>(program.pipelines.size());
 }
 } // namespace vulkan

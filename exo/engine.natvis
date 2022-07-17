@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="exo::Pool&lt;*&gt;">
+        <DisplayString>{{ size={size} capacity={capacity} freelist_head={freelist_head} }}</DisplayString>
+        <Expand>
+            <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
+
+            <Variable Name="ElementSize" InitialValue="sizeof($T1) > sizeof(uint32_t) ? sizeof($T1) : sizeof(uint32_t)" />
+            <Variable Name="ElementSizeWithMeta" InitialValue="ElementSize + sizeof(uint32_t)" />
+            <Variable Name="iElement" InitialValue="0" />
+            <Variable Name="isOccupied" InitialValue="false" />
+            <Variable Name="Generation" InitialValue="0" />
+            <Variable Name="pMetadata" InitialValue="(uint32_t*)0" />
+            <Variable Name="pElement" InitialValue="($T1*)0 " />
+            <Variable Name="pFreelist" InitialValue="(uint32_t*)0 " />
+
+            <Size>capacity</Size>
+            <Loop>
+                <Exec>pMetadata = (uint32_t*)((char*)buffer + iElement * ElementSizeWithMeta)</Exec>
+                <Exec>pElement = ($T1*)((char*)buffer + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+                <Exec>pFreelist = (uint32_t*)((char*)buffer + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+                <Exec>isOccupied = (*pMetadata) &amp; 0b00000000000000000000000000000001</Exec>
+                <Exec>Generation = (*pMetadata) &amp; 0b11111111111111111111111111111110</Exec>
+
+                <Item Condition="isOccupied" Name="[{iElement}] Gen {Generation}">*pElement</Item>
+                <Item Condition="!isOccupied" Name="[{iElement}] Gen {Generation}">*pFreelist</Item>
+
+                <Exec>iElement += 1</Exec>
+            </Loop>
+
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+    <Type Name="vulkan::Image">
+        <DisplayString>{desc.name} - {desc.size}</DisplayString>
+    </Type>
+
+    <Type Name="vulkan::Buffer">
+        <DisplayString>{desc.name} - {desc.size}</DisplayString>
+    </Type>
+</AutoVisualizer>

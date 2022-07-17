@@ -1,10 +1,10 @@
 #pragma once
-#include <exo/collections/vector.h>
 #include <exo/logger.h>
 
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/image.h"
 
+#include <span>
 #include <stdexcept>
 #include <volk.h>
 
@@ -106,7 +106,7 @@ inline const char *vkres_to_str(VkResult code)
 		}                                                                                                              \
 	} while (0)
 
-inline bool is_extension_installed(const char *wanted, const Vec<VkExtensionProperties> &installed)
+inline bool is_extension_installed(const char *wanted, std::span<const VkExtensionProperties> installed)
 {
 	for (const auto &extension : installed) {
 		if (!strcmp(wanted, extension.extensionName)) {
@@ -243,8 +243,8 @@ inline bool is_image_barrier_needed(ImageUsage src, ImageUsage dst)
 	return !(src == ImageUsage::GraphicsShaderRead && dst == ImageUsage::GraphicsShaderRead);
 }
 
-inline VkImageMemoryBarrier
-get_image_barrier(VkImage image, const ImageAccess &src, const ImageAccess &dst, const VkImageSubresourceRange &range)
+inline VkImageMemoryBarrier get_image_barrier(
+	VkImage image, const ImageAccess &src, const ImageAccess &dst, const VkImageSubresourceRange &range)
 {
 	VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
 	b.oldLayout            = src.layout;
@@ -368,8 +368,8 @@ inline BufferAccess get_dst_buffer_access(BufferUsage usage)
 	return access;
 }
 
-inline VkBufferMemoryBarrier
-get_buffer_barrier(VkBuffer buffer, const BufferAccess &src, const BufferAccess &dst, usize offset, usize size)
+inline VkBufferMemoryBarrier get_buffer_barrier(
+	VkBuffer buffer, const BufferAccess &src, const BufferAccess &dst, usize offset, usize size)
 {
 	VkBufferMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
 	b.srcAccessMask         = src.access;

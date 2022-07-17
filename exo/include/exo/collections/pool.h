@@ -24,25 +24,25 @@ template <typename T> struct ConstPoolIterator;
 
 template <typename T> struct Pool
 {
-	static constexpr u32 ELEMENT_SIZE = sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T);
+	static constexpr u32 ELEMENT_SIZE() { return sizeof(T) < sizeof(u32) ? sizeof(u32) : sizeof(T); }
 
-	Pool(u32 _capacity = 0);
+	Pool() = default;
+	explicit Pool(u32 _capacity);
 	~Pool();
 
-	Pool(const Pool &other)            = delete;
+	Pool(const Pool &other) = delete;
 	Pool &operator=(const Pool &other) = delete;
 
 	Pool(Pool &&other);
 	Pool &operator=(Pool &&other);
 
 	Handle<T> add(T &&value);
-	const T  *get(Handle<T> handle) const;
-	T        *get(Handle<T> handle);
+	const T  &get(Handle<T> handle) const;
+	T        &get(Handle<T> handle);
 	const T  &get_unchecked(u32 index) const;
 	void      remove(Handle<T> handle);
+	void      clear();
 
-	static_assert(std::forward_iterator<PoolIterator<T>>);
-	static_assert(std::forward_iterator<ConstPoolIterator<T>>);
 	PoolIterator<T> begin();
 	PoolIterator<T> end();
 
@@ -51,10 +51,10 @@ template <typename T> struct Pool
 
 	bool operator==(const Pool &rhs) const = default;
 
-	void *buffer        = {};
+	void *buffer        = nullptr;
 	u32   freelist_head = u32_invalid;
-	u32   size          = {};
-	u32   capacity      = {};
+	u32   size          = 0;
+	u32   capacity      = 0;
 };
 
 // Helpers
@@ -74,13 +74,13 @@ union ElementMetadata
 template <typename T> T *element_ptr(Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<T *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
+		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
 }
 
 template <typename T> const T *element_ptr(const Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<const T *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
+		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
 }
 
 template <typename T> u32 *freelist_ptr(Pool<T> &pool, u32 i) { return reinterpret_cast<u32 *>(element_ptr(pool, i)); }
@@ -93,13 +93,13 @@ template <typename T> const u32 *freelist_ptr(const Pool<T> &pool, u32 i)
 template <typename T> ElementMetadata *metadata_ptr(Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<ElementMetadata *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata))));
+		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
 }
 
 template <typename T> const ElementMetadata *metadata_ptr(const Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<const ElementMetadata *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata))));
+		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
 }
 } // namespace
 
@@ -179,7 +179,7 @@ template <typename T> Pool<T>::Pool(u32 _capacity)
 		return;
 	}
 
-	buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
+	buffer = malloc(capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)));
 
 	// Init the free list
 	freelist_head = 0;
@@ -219,7 +219,7 @@ template <typename T> Handle<T> Pool<T>::add(T &&value)
 			new_capacity = 2;
 		}
 
-		void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE + sizeof(ElementMetadata)));
+		void *new_buffer = realloc(buffer, new_capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)));
 		ASSERT(new_buffer != nullptr);
 		buffer = new_buffer;
 
@@ -256,23 +256,26 @@ template <typename T> Handle<T> Pool<T>::add(T &&value)
 	return {i_element, metadata->bits.generation};
 }
 
-template <typename T> const T *Pool<T>::get(Handle<T> handle) const
+template <typename T> const T &Pool<T>::get(Handle<T> handle) const
 {
+	ASSERT(handle.is_valid());
+
 	u32   i_element = handle.index;
 	auto *metadata  = metadata_ptr(*this, i_element);
 	auto *element   = element_ptr(*this, i_element);
 
-	return handle.is_valid() && i_element < capacity && metadata->bits.is_occupied &&
-	               metadata->bits.generation == handle.gen
-	           ? element
-	           : nullptr;
+	ASSERT(i_element < capacity);
+	ASSERT(metadata->bits.is_occupied);
+	ASSERT(metadata->bits.generation == handle.gen);
+
+	return *element;
 }
 
 template <typename T> const T &Pool<T>::get_unchecked(u32 index) const { return *element_ptr(*this, index); }
 
-template <typename T> T *Pool<T>::get(Handle<T> handle)
+template <typename T> T &Pool<T>::get(Handle<T> handle)
 {
-	return const_cast<T *>(static_cast<const Pool<T> &>(*this).get(handle));
+	return const_cast<T &>(static_cast<const Pool<T> &>(*this).get(handle));
 }
 
 template <typename T> void Pool<T>::remove(Handle<T> handle)
@@ -294,6 +297,23 @@ template <typename T> void Pool<T>::remove(Handle<T> handle)
 	freelist_head = handle.index;
 
 	size = size - 1;
+}
+
+template <typename T> void Pool<T>::clear()
+{
+	this->size          = 0;
+	this->freelist_head = 0;
+
+	for (u32 i = 0; i < this->capacity - 1; i += 1) {
+		auto *metadata = metadata_ptr(*this, i);
+		metadata->raw  = 0;
+
+		u32 *freelist_element = freelist_ptr(*this, i);
+		*freelist_element     = i + 1;
+	}
+
+	metadata_ptr(*this, capacity - 1)->raw = 0;
+	*freelist_ptr(*this, capacity - 1)     = u32_invalid;
 }
 
 template <typename T> PoolIterator<T> Pool<T>::begin()

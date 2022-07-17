@@ -10,7 +10,7 @@ void Device::recreate_program_internal(ComputeProgram &program)
 {
 	vkDestroyPipeline(device, program.pipeline, nullptr);
 
-	const auto &shader = *shaders.get(program.state.shader);
+	const auto &shader = shaders.get(program.state.shader);
 
 	VkComputePipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
 	pipeline_info.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -27,7 +27,7 @@ void Device::recreate_program_internal(ComputeProgram &program)
 
 Handle<ComputeProgram> Device::create_program(std::string name, const ComputeState &compute_state)
 {
-	const auto &shader = *shaders.get(compute_state.shader);
+	const auto &shader = shaders.get(compute_state.shader);
 
 	VkComputePipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
 	pipeline_info.stage                       = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -56,9 +56,8 @@ Handle<ComputeProgram> Device::create_program(std::string name, const ComputeSta
 
 void Device::destroy_program(Handle<ComputeProgram> program_handle)
 {
-	if (auto *program = compute_programs.get(program_handle)) {
-		vkDestroyPipeline(device, program->pipeline, nullptr);
-		compute_programs.remove(program_handle);
-	}
+	auto &program = compute_programs.get(program_handle);
+	vkDestroyPipeline(device, program.pipeline, nullptr);
+	compute_programs.remove(program_handle);
 }
 } // namespace vulkan

@@ -17,8 +17,12 @@ std::wstring utf8_to_utf16(const std::string_view &str)
 	usize size_needed = static_cast<usize>(res);
 	// TODO: Remove allocation
 	std::wstring result(size_needed, 0);
-	MultiByteToWideChar(
-		CP_UTF8, 0, str.data(), static_cast<int>(str.size()), result.data(), static_cast<int>(result.size()));
+	MultiByteToWideChar(CP_UTF8,
+		0,
+		str.data(),
+		static_cast<int>(str.size()),
+		result.data(),
+		static_cast<int>(result.size()));
 	return result;
 }
 
@@ -33,13 +37,13 @@ std::string utf16_to_utf8(const std::wstring_view &wstr)
 	usize       size_needed = static_cast<usize>(res);
 	std::string result(size_needed, 0);
 	WideCharToMultiByte(CP_UTF8,
-	                    0,
-	                    wstr.data(),
-	                    static_cast<int>(wstr.size()),
-	                    result.data(),
-	                    static_cast<int>(result.size()),
-	                    nullptr,
-	                    nullptr);
+		0,
+		wstr.data(),
+		static_cast<int>(wstr.size()),
+		result.data(),
+		static_cast<int>(result.size()),
+		nullptr,
+		nullptr);
 	return result;
 }
 

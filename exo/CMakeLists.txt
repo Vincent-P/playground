@@ -52,6 +52,9 @@ set(SOURCE_FILES
   src/lib.cpp
   src/serializer.cpp
   src/uuid.cpp
+
+  engine.natvis
+  phmap.natvis
   )
 
 add_library(exo STATIC ${SOURCE_FILES})

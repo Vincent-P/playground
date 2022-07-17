@@ -1,14 +1,18 @@
 #include "render/vulkan/commands.h"
+
+#include "render/vulkan/buffer.h"
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
-
+#include "render/vulkan/image.h"
 #include "render/vulkan/pipelines.h"
 #include "render/vulkan/queries.h"
 #include "render/vulkan/queues.h"
 #include "render/vulkan/surface.h"
 #include "render/vulkan/utils.h"
-#include "vulkan/vulkan_core.h"
+
 #include <exo/collections/dynamic_array.h>
+
+#include <volk.h>
 
 #define ZoneScoped
 
@@ -25,30 +29,28 @@ void Work::begin()
 	vkBeginCommandBuffer(command_buffer, &binfo);
 
 	vkCmdBindDescriptorSets(command_buffer,
-	                        VK_PIPELINE_BIND_POINT_COMPUTE,
-	                        device->global_sets.pipeline_layout,
-	                        0,
-	                        1,
-	                        &device->global_sets.bindless.vkset,
-	                        0,
-	                        nullptr);
+		VK_PIPELINE_BIND_POINT_COMPUTE,
+		device->global_sets.pipeline_layout,
+		0,
+		1,
+		&device->global_sets.bindless.vkset,
+		0,
+		nullptr);
 
 	if (queue_type == QueueType::Graphics) {
 		vkCmdBindDescriptorSets(command_buffer,
-		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-		                        device->global_sets.pipeline_layout,
-		                        0,
-		                        1,
-		                        &device->global_sets.bindless.vkset,
-		                        0,
-		                        nullptr);
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			device->global_sets.pipeline_layout,
+			0,
+			1,
+			&device->global_sets.bindless.vkset,
+			0,
+			nullptr);
 	}
 }
 
-void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor,
-                            u32                            offset,
-                            QueueType                      queue_type,
-                            u32                            i_set /*= 2*/)
+void Work::bind_uniform_set(
+	const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, QueueType queue_type, u32 i_set /*= 2*/)
 {
 	VkPipelineBindPoint bindpoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	if (queue_type == QueueType::Compute) {
@@ -58,13 +60,13 @@ void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor,
 	}
 
 	vkCmdBindDescriptorSets(command_buffer,
-	                        bindpoint,
-	                        device->global_sets.pipeline_layout,
-	                        i_set,
-	                        1,
-	                        &dynamic_descriptor.vkset,
-	                        1,
-	                        &offset);
+		bindpoint,
+		device->global_sets.pipeline_layout,
+		i_set,
+		1,
+		&dynamic_descriptor.vkset,
+		1,
+		&offset);
 }
 
 void Work::end()
@@ -94,7 +96,7 @@ void Work::prepare_present(Surface &surface)
 void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
 {
 	ZoneScoped;
-	auto &buffer = *device->buffers.get(buffer_handle);
+	auto &buffer = device->buffers.get(buffer_handle);
 
 	auto src_access = get_src_buffer_access(buffer.usage);
 	auto dst_access = get_dst_buffer_access(usage_destination);
@@ -107,7 +109,7 @@ void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
 void Work::absolute_barrier(Handle<Image> image_handle)
 {
 	ZoneScoped;
-	auto &image = *device->images.get(image_handle);
+	auto &image = device->images.get(image_handle);
 
 	auto src_access = get_src_image_access(image.usage);
 
@@ -122,21 +124,21 @@ void Work::absolute_barrier(Handle<Image> image_handle)
 	b.subresourceRange     = image.full_view.range;
 
 	vkCmdPipelineBarrier(command_buffer,
-	                     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-	                     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-	                     0,
-	                     0,
-	                     nullptr,
-	                     0,
-	                     nullptr,
-	                     1,
-	                     &b);
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		&b);
 }
 
 void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 {
 	ZoneScoped;
-	auto &image = *device->images.get(image_handle);
+	auto &image = device->images.get(image_handle);
 
 	auto src_access = get_src_image_access(image.usage);
 	auto dst_access = get_dst_image_access(usage_destination);
@@ -148,7 +150,7 @@ void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 
 void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 {
-	auto &image = *device->images.get(image_handle);
+	auto &image = device->images.get(image_handle);
 
 	auto src_access = get_src_image_access(ImageUsage::None);
 	auto dst_access = get_dst_image_access(usage_destination);
@@ -158,8 +160,8 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 	image.usage = usage_destination;
 }
 
-void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>>   images,
-                    std::span<std::pair<Handle<Buffer>, BufferUsage>> buffers)
+void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images,
+	std::span<std::pair<Handle<Buffer>, BufferUsage>>               buffers)
 {
 	ZoneScoped;
 	exo::DynamicArray<VkImageMemoryBarrier, 8>  image_barriers  = {};
@@ -169,7 +171,7 @@ void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>>   images,
 	VkPipelineStageFlags dst_stage = 0;
 
 	for (auto &[image_handle, usage_dst] : images) {
-		auto &image      = *device->images.get(image_handle);
+		auto &image      = device->images.get(image_handle);
 		auto  src_access = get_src_image_access(image.usage);
 		auto  dst_access = get_dst_image_access(usage_dst);
 		image_barriers.push_back(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range));
@@ -180,7 +182,7 @@ void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>>   images,
 	}
 
 	for (auto &[buffer_handle, usage_dst] : buffers) {
-		auto &buffer     = *device->buffers.get(buffer_handle);
+		auto &buffer     = device->buffers.get(buffer_handle);
 		auto  src_access = get_src_buffer_access(buffer.usage);
 		auto  dst_access = get_dst_buffer_access(usage_dst);
 		buffer_barriers.push_back(get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size));
@@ -191,15 +193,15 @@ void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>>   images,
 	}
 
 	vkCmdPipelineBarrier(command_buffer,
-	                     src_stage,
-	                     dst_stage,
-	                     0,
-	                     0,
-	                     nullptr,
-	                     static_cast<u32>(buffer_barriers.size()),
-	                     buffer_barriers.data(),
-	                     static_cast<u32>(image_barriers.size()),
-	                     image_barriers.data());
+		src_stage,
+		dst_stage,
+		0,
+		0,
+		nullptr,
+		static_cast<u32>(buffer_barriers.size()),
+		buffer_barriers.data(),
+		static_cast<u32>(image_barriers.size()),
+		image_barriers.data());
 }
 
 // Queries
@@ -242,13 +244,12 @@ void Work::begin_debug_label(std::string_view label, float4 color)
 void Work::end_debug_label() { vkCmdEndDebugUtilsLabelEXT(command_buffer); }
 
 /// --- TransferWork
-void TransferWork::copy_buffer(Handle<Buffer>                                   src,
-                               Handle<Buffer>                                   dst,
-                               std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
+void TransferWork::copy_buffer(
+	Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
 	ZoneScoped;
-	auto &src_buffer = *device->buffers.get(src);
-	auto &dst_buffer = *device->buffers.get(dst);
+	auto &src_buffer = device->buffers.get(src);
+	auto &dst_buffer = device->buffers.get(dst);
 
 	exo::DynamicArray<VkBufferCopy, 16> buffer_copies = {};
 
@@ -261,17 +262,17 @@ void TransferWork::copy_buffer(Handle<Buffer>                                   
 	}
 
 	vkCmdCopyBuffer(command_buffer,
-	                src_buffer.vkhandle,
-	                dst_buffer.vkhandle,
-	                static_cast<u32>(buffer_copies.size()),
-	                buffer_copies.data());
+		src_buffer.vkhandle,
+		dst_buffer.vkhandle,
+		static_cast<u32>(buffer_copies.size()),
+		buffer_copies.data());
 }
 
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 {
 	ZoneScoped;
-	auto &src_buffer = *device->buffers.get(src);
-	auto &dst_buffer = *device->buffers.get(dst);
+	auto &src_buffer = device->buffers.get(src);
+	auto &dst_buffer = device->buffers.get(dst);
 
 	VkBufferCopy copy = {
 		.srcOffset = 0,
@@ -285,8 +286,8 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
 {
 	ZoneScoped;
-	auto &src_image = *device->images.get(src);
-	auto &dst_image = *device->images.get(dst);
+	auto &src_image = device->images.get(src);
+	auto &dst_image = device->images.get(dst);
 
 	VkImageCopy copy                   = {};
 	copy.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
@@ -304,19 +305,19 @@ void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
 	copy.extent.depth                  = static_cast<u32>(std::min(src_image.desc.size.z, dst_image.desc.size.z));
 
 	vkCmdCopyImage(command_buffer,
-	               src_image.vkhandle,
-	               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-	               dst_image.vkhandle,
-	               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	               1,
-	               &copy);
+		src_image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		dst_image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&copy);
 }
 
 void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 {
 	ZoneScoped;
-	auto &src_image = *device->images.get(src);
-	auto &dst_image = *device->images.get(dst);
+	auto &src_image = device->images.get(src);
+	auto &dst_image = device->images.get(dst);
 
 	VkImageBlit blit                   = {};
 	blit.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
@@ -325,48 +326,47 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 	blit.srcSubresource.layerCount     = src_image.full_view.range.layerCount;
 	blit.srcOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
 	blit.srcOffsets[1]                 = {.x = static_cast<i32>(src_image.desc.size.x),
-	                                      .y = static_cast<i32>(src_image.desc.size.y),
-	                                      .z = static_cast<i32>(src_image.desc.size.z)};
+						.y                   = static_cast<i32>(src_image.desc.size.y),
+						.z                   = static_cast<i32>(src_image.desc.size.z)};
 	blit.dstSubresource.aspectMask     = dst_image.full_view.range.aspectMask;
 	blit.dstSubresource.mipLevel       = dst_image.full_view.range.baseMipLevel;
 	blit.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
 	blit.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
 	blit.dstOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
 	blit.dstOffsets[1]                 = {.x = static_cast<i32>(dst_image.desc.size.x),
-	                                      .y = static_cast<i32>(dst_image.desc.size.y),
-	                                      .z = static_cast<i32>(dst_image.desc.size.z)};
+						.y                   = static_cast<i32>(dst_image.desc.size.y),
+						.z                   = static_cast<i32>(dst_image.desc.size.z)};
 
 	vkCmdBlitImage(command_buffer,
-	               src_image.vkhandle,
-	               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-	               dst_image.vkhandle,
-	               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	               1,
-	               &blit,
-	               VK_FILTER_NEAREST);
+		src_image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		dst_image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&blit,
+		VK_FILTER_NEAREST);
 }
 
-void TransferWork::copy_buffer_to_image(Handle<Buffer>               src,
-                                        Handle<Image>                dst,
-                                        std::span<VkBufferImageCopy> buffer_copy_regions)
+void TransferWork::copy_buffer_to_image(
+	Handle<Buffer> src, Handle<Image> dst, std::span<VkBufferImageCopy> buffer_copy_regions)
 {
 	ZoneScoped;
-	auto &src_buffer = *device->buffers.get(src);
-	auto &dst_image  = *device->images.get(dst);
+	auto &src_buffer = device->buffers.get(src);
+	auto &dst_image  = device->images.get(dst);
 
 	u32 region_count = static_cast<u32>(buffer_copy_regions.size());
 	vkCmdCopyBufferToImage(command_buffer,
-	                       src_buffer.vkhandle,
-	                       dst_image.vkhandle,
-	                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	                       region_count,
-	                       buffer_copy_regions.data());
+		src_buffer.vkhandle,
+		dst_image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		region_count,
+		buffer_copy_regions.data());
 }
 
 void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)
 {
 	ZoneScoped;
-	auto &buffer = *device->buffers.get(buffer_handle);
+	auto &buffer = device->buffers.get(buffer_handle);
 	vkCmdFillBuffer(command_buffer, buffer.vkhandle, 0, buffer.desc.size, data);
 }
 /// --- ComputeWork
@@ -374,7 +374,7 @@ void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)
 void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
 {
 	ZoneScoped;
-	auto &program = *device->compute_programs.get(program_handle);
+	auto &program = device->compute_programs.get(program_handle);
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
@@ -387,17 +387,25 @@ void ComputeWork::dispatch(uint3 workgroups)
 void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clear_color)
 {
 	ZoneScoped;
-	auto image = *device->images.get(image_handle);
+	auto image = device->images.get(image_handle);
 
-	vkCmdClearColorImage(
-		command_buffer, image.vkhandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image.full_view.range);
+	vkCmdClearColorImage(command_buffer,
+		image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		&clear_color,
+		1,
+		&image.full_view.range);
 }
 
 void ComputeWork::push_constant(const void *data, usize len)
 {
 	ZoneScoped;
-	vkCmdPushConstants(
-		command_buffer, device->global_sets.pipeline_layout, VK_SHADER_STAGE_ALL, 0, static_cast<u32>(len), data);
+	vkCmdPushConstants(command_buffer,
+		device->global_sets.pipeline_layout,
+		VK_SHADER_STAGE_ALL,
+		0,
+		static_cast<u32>(len),
+		data);
 }
 
 /// --- GraphicsWork
@@ -406,32 +414,35 @@ void GraphicsWork::draw_indexed(const DrawIndexedOptions &options)
 {
 	ZoneScoped;
 	vkCmdDrawIndexed(command_buffer,
-	                 options.vertex_count,
-	                 options.instance_count,
-	                 options.index_offset,
-	                 options.vertex_offset,
-	                 options.instance_offset);
+		options.vertex_count,
+		options.instance_count,
+		options.index_offset,
+		options.vertex_offset,
+		options.instance_offset);
 }
 
 void GraphicsWork::draw(const DrawOptions &options)
 {
 	ZoneScoped;
-	vkCmdDraw(
-		command_buffer, options.vertex_count, options.instance_count, options.vertex_offset, options.instance_offset);
+	vkCmdDraw(command_buffer,
+		options.vertex_count,
+		options.instance_count,
+		options.vertex_offset,
+		options.instance_offset);
 }
 
 void GraphicsWork::draw_indexed_indirect_count(const DrawIndexedIndirectCountOptions &options)
 {
 	ZoneScoped;
-	auto &arguments = *device->buffers.get(options.arguments_buffer);
-	auto &count     = *device->buffers.get(options.count_buffer);
+	auto &arguments = device->buffers.get(options.arguments_buffer);
+	auto &count     = device->buffers.get(options.count_buffer);
 	vkCmdDrawIndexedIndirectCount(command_buffer,
-	                              arguments.vkhandle,
-	                              options.arguments_offset,
-	                              count.vkhandle,
-	                              options.count_offset,
-	                              options.max_draw_count,
-	                              options.stride);
+		arguments.vkhandle,
+		options.arguments_offset,
+		count.vkhandle,
+		options.count_offset,
+		options.max_draw_count,
+		options.stride);
 }
 
 void GraphicsWork::set_scissor(const VkRect2D &rect)
@@ -449,7 +460,7 @@ void GraphicsWork::set_viewport(const VkViewport &viewport)
 void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<const LoadOp> load_ops)
 {
 	ZoneScoped;
-	auto &framebuffer = *device->framebuffers.get(framebuffer_handle);
+	auto &framebuffer = device->framebuffers.get(framebuffer_handle);
 	auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
 
 	exo::DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
@@ -460,8 +471,8 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<
 	VkRenderPassBeginInfo begin_info    = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
 	begin_info.renderPass               = renderpass.vkhandle;
 	begin_info.framebuffer              = framebuffer.vkhandle;
-	begin_info.renderArea.extent.width  = static_cast<u32>(framebuffer.format.width);
-	begin_info.renderArea.extent.height = static_cast<u32>(framebuffer.format.height);
+	begin_info.renderArea.extent.width  = static_cast<u32>(framebuffer.format.size[0]);
+	begin_info.renderArea.extent.height = static_cast<u32>(framebuffer.format.size[1]);
 	begin_info.clearValueCount          = static_cast<u32>(clear_colors.size());
 	begin_info.pClearValues             = clear_colors.data();
 
@@ -473,7 +484,7 @@ void GraphicsWork::end_pass() { vkCmdEndRenderPass(command_buffer); }
 void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index)
 {
 	ZoneScoped;
-	auto &program  = *device->graphics_programs.get(program_handle);
+	auto &program  = device->graphics_programs.get(program_handle);
 	auto  pipeline = program.pipelines[pipeline_index];
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
@@ -481,7 +492,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
 void GraphicsWork::bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type, usize offset)
 {
 	ZoneScoped;
-	auto &buffer = *device->buffers.get(buffer_handle);
+	auto &buffer = device->buffers.get(buffer_handle);
 	vkCmdBindIndexBuffer(command_buffer, buffer.vkhandle, offset, index_type);
 }
 
@@ -562,13 +573,13 @@ void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count
 	ASSERT(first_query + count < query_pool.capacity);
 
 	vkGetQueryPoolResults(device,
-	                      query_pool.vkhandle,
-	                      first_query,
-	                      count,
-	                      count * sizeof(u64),
-	                      results.data() + old_size,
-	                      sizeof(u64),
-	                      VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+		query_pool.vkhandle,
+		first_query,
+		count,
+		count * sizeof(u64),
+		results.data() + old_size,
+		sizeof(u64),
+		VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 }
 
 // Work
@@ -745,8 +756,8 @@ bool Device::present(Surface &surface, Work &work)
 void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 {
 	ZoneScoped;
-	// 10 sec in nanoseconds
-	u64                 timeout   = 10llu * 1000llu * 1000llu * 1000llu;
+	// 1 sec in nanoseconds
+	u64                 timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
 	wait_info.semaphoreCount      = 1;
 	wait_info.pSemaphores         = &fence.timeline_semaphore;
@@ -764,8 +775,8 @@ void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64>
 		semaphores.push_back(fences[i_fence].timeline_semaphore);
 	}
 
-	// 10 sec in nanoseconds
-	u64                 timeout   = 10llu * 1000llu * 1000llu * 1000llu;
+	// 1 sec in nanoseconds
+	u64                 timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
 	wait_info.semaphoreCount      = static_cast<u32>(fences.size());
 	wait_info.pSemaphores         = semaphores.data();
@@ -787,11 +798,11 @@ bool Device::acquire_next_swapchain(Surface &surface)
 	surface.previous_image = surface.current_image;
 
 	auto res = vkAcquireNextImageKHR(device,
-	                                 surface.swapchain,
-	                                 std::numeric_limits<uint64_t>::max(),
-	                                 surface.image_acquired_semaphores[surface.current_image],
-	                                 nullptr,
-	                                 &surface.current_image);
+		surface.swapchain,
+		std::numeric_limits<uint64_t>::max(),
+		surface.image_acquired_semaphores[surface.current_image],
+		nullptr,
+		&surface.current_image);
 
 	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
 		error = true;

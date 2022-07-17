@@ -115,20 +115,20 @@ Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const s
 
 	// hwnd       = (HWND)platform_create_window(platform, size, title);
 	auto utf16_title = utf8_to_utf16(title);
-	hwnd             = CreateWindowEx(WS_EX_TRANSPARENT,               // Optional window styles.
-                          wc.lpszClassName,                // Window class
-                          utf16_title.c_str(),             // Window text
-                          WS_BORDER | WS_OVERLAPPEDWINDOW, // Window style
-                          // Position and size
-                          CW_USEDEFAULT,
-                          CW_USEDEFAULT,
-                          // Width height
-                          window->size.x,
-                          window->size.y,
-                          nullptr,  // Parent window
-                          nullptr,  // Menu
-                          instance, // Instance handle
-                          window    // Additional application data
+	hwnd             = CreateWindowEx(WS_EX_TRANSPARENT, // Optional window styles.
+        wc.lpszClassName,                    // Window class
+        utf16_title.c_str(),                 // Window text
+        WS_BORDER | WS_OVERLAPPEDWINDOW,     // Window style
+        // Position and size
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        // Width height
+        window->size.x,
+        window->size.y,
+        nullptr,  // Parent window
+        nullptr,  // Menu
+        instance, // Instance handle
+        window    // Additional application data
     );
 
 	ASSERT(hwnd);

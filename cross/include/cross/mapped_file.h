@@ -21,7 +21,7 @@ struct MappedFile
 	~MappedFile();
 
 	MappedFile &operator=(const MappedFile &copied) = delete;
-	MappedFile &operator                            =(MappedFile &&moved);
+	MappedFile &operator=(MappedFile &&moved);
 
 	static Option<MappedFile> open(const std::string_view &path);
 	void                      close();

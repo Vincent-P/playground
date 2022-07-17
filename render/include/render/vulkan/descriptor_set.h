@@ -1,9 +1,7 @@
 #pragma once
 #include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
-#include <exo/memory/free_list.h>
 
-#include <array>
 #include <volk.h>
 
 namespace vulkan
@@ -12,29 +10,19 @@ struct Buffer;
 struct Image;
 struct Device;
 
-// Every pipeline has one dynamic buffer descriptor used to pass shader params,
-// images and buffer should be passed as indices to the bindless set
-
 struct DynamicBufferDescriptor
 {
 	Handle<Buffer>  buffer;
 	VkDescriptorSet vkset;
-	u32             dynamic_offset; // offset in bytes from where the range begins
-	u32             size;           // size of the range
+	u32             size;
 };
-
-extern VkDescriptorSetLayout dynamic_buffer_layout;
-
-void create_dynamic_buffer_layout(Device &device);
-void destroy_buffer_descriptor_layout(Device &device);
 
 DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> &buffer_handle, usize range_size);
 void                    destroy_buffer_descriptor(Device &device, DynamicBufferDescriptor &descriptor);
-void                    destroy_buffer_descriptor_layout(Device &device);
 
 struct BindlessSet
 {
-	template <typename T> using PerSet = std::array<T, 3>;
+	template <typename T> using PerSet = T[3];
 	static constexpr usize PER_SAMPLER = 0;
 	static constexpr usize PER_IMAGE   = 1;
 	static constexpr usize PER_BUFFER  = 2;
@@ -43,12 +31,12 @@ struct BindlessSet
 	VkDescriptorSetLayout vklayout = VK_NULL_HANDLE;
 	VkDescriptorSet       vkset    = VK_NULL_HANDLE;
 
-	Vec<Handle<Image>>    sampler_images;
-	Vec<Handle<Image>>    storage_images;
-	Vec<Handle<Buffer>>   storage_buffers;
-	PerSet<exo::FreeList> free_list      = {};
-	PerSet<Vec<u32>>      pending_bind   = {};
-	PerSet<Vec<u32>>      pending_unbind = {};
+	Vec<Handle<Image>>  sampler_images;
+	Vec<Handle<Image>>  storage_images;
+	Vec<Handle<Buffer>> storage_buffers;
+	PerSet<Vec<u32>>    free_list      = {};
+	PerSet<Vec<u32>>    pending_bind   = {};
+	PerSet<Vec<u32>>    pending_unbind = {};
 };
 
 BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 image_count, u32 buffer_count);

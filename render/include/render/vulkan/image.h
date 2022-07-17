@@ -31,7 +31,7 @@ struct ImageAccess
 	QueueType            queue  = QueueType::Graphics;
 };
 
-enum struct ImageUsage
+enum struct ImageUsage : u8
 {
 	None,
 	GraphicsShaderRead,

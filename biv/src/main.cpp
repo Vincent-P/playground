@@ -1,40 +1,38 @@
-#include <exo/buttons.h>
 #include <cross/file_dialog.h>
 #include <cross/mapped_file.h>
 #include <cross/platform.h>
 #include <cross/window.h>
+#include <exo/buttons.h>
 
-#include <exo/logger.h>
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/vector.h>
-#include <exo/macros/packed.h>
+#include <exo/logger.h>
 #include <exo/macros/defer.h>
+#include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
 
-#include <render/base_renderer.h>
-#include <render/vulkan/context.h>
-#include <render/vulkan/device.h>
-#include <render/vulkan/surface.h>
-#include <render/vulkan/utils.h>
-namespace gfx = vulkan;
+#include <render/bindings.h>
+#include <render/shader_watcher.h>
+#include <render/simple_renderer.h>
+#include <render/vulkan/commands.h>
+#include <render/vulkan/image.h>
+#include <render/vulkan/pipelines.h>
 
 #include "font.h"
 #include "glyph_cache.h"
+#include "inputs.h"
 #include "painter.h"
 #include "ui.h"
-#include "inputs.h"
 
 #include <Tracy.hpp>
 #include <array>
 #include <filesystem>
 #include <fmt/printf.h>
 #include <fstream>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include <hb-ft.h>
-#include <hb.h>
 #include <spng.h>
+
+inline constexpr int2 GLYPH_ATLAS_RESOLUTION = int2(1024, 1024);
 
 void *operator new(std::size_t count)
 {
@@ -59,16 +57,17 @@ PACKED(struct PushConstants {
 enum struct PixelFormat
 {
 
-    R8G8B8A8_UNORM,
-    R8G8B8A8_SRGB,
-    BC7_SRGB,
-    BC7_UNORM,
-    BC4_UNORM,
-    BC5_UNORM,
+	R8G8B8A8_UNORM,
+	R8G8B8A8_SRGB,
+	BC7_SRGB,
+	BC7_UNORM,
+	BC4_UNORM,
+	BC5_UNORM,
 };
 
-enum struct ImageExtension {
-    PNG
+enum struct ImageExtension
+{
+	PNG
 };
 
 struct Image
@@ -90,21 +89,20 @@ struct RenderSample
 {
 	cross::Platform *platform;
 	cross::Window   *window;
-	Inputs         inputs;
+	Inputs           inputs;
 
-	BaseRenderer                                                          *renderer;
-	Handle<gfx::GraphicsProgram>                                           ui_program;
-	Handle<gfx::GraphicsProgram>                                           viewer_program;
-	exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> swapchain_framebuffers;
-	Handle<gfx::Image>                                                     viewer_gpu_image_upload;
-	Handle<gfx::Image>                                                     viewer_gpu_image_current;
+	SimpleRenderer                  renderer;
+	Handle<vulkan::GraphicsProgram> ui_program;
+	Handle<vulkan::GraphicsProgram> viewer_program;
+	Handle<vulkan::Image>           viewer_gpu_image_upload;
+	Handle<vulkan::Image>           viewer_gpu_image_current;
+	Handle<vulkan::Image>           glyph_atlas;
 
-	FT_Library library;
-	Painter   *painter;
+	Painter *painter;
 
 	UiTheme ui_theme;
 	UiState ui_state;
-	Font   *ui_font;
+	Font    ui_font;
 	Rect    viewer_clip_rect;
 
 	Image image;
@@ -120,73 +118,7 @@ const u32 ALPHA_CHANNEL_MASK = 0b00000000'00000000'00000000'00000001;
 // --- fwd
 static void open_file(RenderSample *app, const std::filesystem::path &path);
 
-// --- UI
-
-static Font *font_create(exo::ScopeStack &scope,
-			 BaseRenderer    *renderer,
-			 FT_Library      &library,
-			 const char      *font_path,
-			 i32              size_in_pt,
-			 u32              cache_resolution,
-			 VkFormat         cache_format)
-{
-	auto *font = scope.allocate<Font>();
-
-	auto error = FT_New_Face(library, font_path, 0, &font->ft_face);
-	ASSERT(!error);
-
-	font->size_pt = size_in_pt;
-	FT_Set_Char_Size(font->ft_face, 0, size_in_pt * 64, 0, 96);
-
-	font->hb_font = hb_ft_font_create_referenced(font->ft_face);
-	hb_ft_font_set_funcs(font->hb_font);
-	font->label_buf = hb_buffer_create();
-
-	font->glyph_width_px  = u32(font->ft_face->bbox.xMax - font->ft_face->bbox.xMin) >> 6;
-	font->glyph_height_px = u32(font->ft_face->bbox.yMax - font->ft_face->bbox.yMin) >> 6;
-
-	font->cache_resolution = cache_resolution;
-	font->glyph_cache      = GlyphCache::create(scope,
-                                               {
-							    .hash_count  = 64 << 10,
-							    .entry_count = (cache_resolution / font->glyph_width_px) *
-                                                                      (cache_resolution / font->glyph_height_px),
-							    .glyph_per_row = cache_resolution / font->glyph_width_px,
-                                               });
-
-	font->glyph_atlas = renderer->device.create_image({
-		.name   = "Font atlas",
-		.size   = {(i32)cache_resolution, (i32)cache_resolution, 1},
-		.format = cache_format,
-	});
-
-	font->glyph_atlas_gpu_idx = renderer->device.get_image_sampled_index(font->glyph_atlas);
-
-	return font;
-}
-
 // --- App
-
-static void resize(gfx::Device                                                            &device,
-		   gfx::Surface                                                           &surface,
-		   exo::DynamicArray<Handle<gfx::Framebuffer>, gfx::MAX_SWAPCHAIN_IMAGES> &framebuffers)
-{
-	ZoneScoped;
-
-	device.wait_idle();
-	surface.recreate_swapchain(device);
-
-	for (usize i_image = 0; i_image < surface.images.size(); i_image += 1) {
-		device.destroy_framebuffer(framebuffers[i_image]);
-		framebuffers[i_image] = device.create_framebuffer(
-			{
-				.width  = surface.width,
-				.height = surface.height,
-			},
-			std::array{surface.images[i_image]});
-	}
-}
-
 RenderSample *render_sample_init(exo::ScopeStack &scope)
 {
 	ZoneScoped;
@@ -199,49 +131,43 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->window = cross::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
-	app->renderer = BaseRenderer::create(scope,
-					     app->window,
-					     {
-						     .push_constant_layout  = {.size = sizeof(PushConstants)},
-						     .buffer_device_address = false,
-					     });
+	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd(), {});
 
 	auto *window   = app->window;
-	auto *renderer = app->renderer;
+	auto &renderer = app->renderer;
 
-#define SHADER_PATH(x) "C:/Users/vince/Documents/code/test-vulkan/build/msvc/shaders/" x
-	gfx::GraphicsState gui_state = {};
-	gui_state.vertex_shader      = renderer->device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
-	gui_state.fragment_shader    = renderer->device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
-	gui_state.attachments_format = {.attachments_format = {renderer->surface.format.format}};
-	app->ui_program              = renderer->device.create_program("gui", gui_state);
-	renderer->device.compile(app->ui_program, {.rasterization = {.culling = false}, .alpha_blending = true});
+	vulkan::GraphicsState gui_state = {};
+	gui_state.vertex_shader         = renderer.device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
+	gui_state.fragment_shader       = renderer.device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
+	gui_state.attachments_format    = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
+	app->ui_program                 = renderer.device.create_program("gui", gui_state);
+	renderer.device.compile_graphics_state(app->ui_program,
+		{.rasterization = {.culling = false}, .alpha_blending = true});
 
-	gfx::GraphicsState viewer_state = {};
-	viewer_state.vertex_shader      = renderer->device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
-	viewer_state.fragment_shader    = renderer->device.create_shader(SHADER_PATH("viewer.frag.glsl.spv"));
-	viewer_state.attachments_format = {.attachments_format = {renderer->surface.format.format}};
-	app->viewer_program             = renderer->device.create_program("viewer", viewer_state);
-	renderer->device.compile(app->viewer_program, {.rasterization = {.culling = false}, .alpha_blending = true});
+	vulkan::GraphicsState viewer_state = {};
+	viewer_state.vertex_shader         = renderer.device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
+	viewer_state.fragment_shader       = renderer.device.create_shader(SHADER_PATH("viewer.frag.glsl.spv"));
+	viewer_state.attachments_format    = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
+	app->viewer_program                = renderer.device.create_program("viewer", viewer_state);
+	renderer.device.compile_graphics_state(app->viewer_program,
+		{.rasterization = {.culling = false}, .alpha_blending = true});
 
-#undef SHADER_PATH
-
-	app->swapchain_framebuffers.resize(renderer->surface.images.size());
-	resize(renderer->device, renderer->surface, app->swapchain_framebuffers);
-
-	auto error = FT_Init_FreeType(&app->library);
-	ASSERT(!error);
+	app->glyph_atlas = app->renderer.device.create_image({
+		.name   = "Glyph atlas",
+		.size   = int3(GLYPH_ATLAS_RESOLUTION, 1),
+		.format = VK_FORMAT_R8_UNORM,
+	});
 
 	exo::logger::info("DPI at creation: {}x{}\n", window->get_dpi_scale().x, window->get_dpi_scale().y);
 
-	app->ui_font = font_create(
-		scope, app->renderer, app->library, "C:\\Windows\\Fonts\\segoeui.ttf", 13, 1024, VK_FORMAT_R8_UNORM);
+	app->ui_font = Font::from_file("C:\\Windows\\Fonts\\segoeui.ttf", 13);
 
-	app->painter = painter_allocate(scope, 8_MiB, 8_MiB);
+	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
+	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->glyph_atlas);
 
 	app->ui_state.painter   = app->painter;
 	app->ui_state.inputs    = &app->inputs;
-	app->ui_theme.main_font = app->ui_font;
+	app->ui_theme.main_font = &app->ui_font;
 
 	return app;
 }
@@ -251,54 +177,6 @@ void render_sample_destroy(RenderSample *app)
 	ZoneScoped;
 
 	cross::platform_destroy(app->platform);
-}
-
-static void upload_glyph(BaseRenderer *renderer, Font *font, u32 glyph_index)
-{
-	auto &cache_entry = font->glyph_cache->get_or_create(glyph_index);
-	if (cache_entry.uploaded) {
-		return;
-	}
-
-	ZoneScopedN("Upload glyph");
-
-	// Render the glyph with FreeType
-	int error = 0;
-	{
-		ZoneScopedN("Load glyph");
-		error = FT_Load_Glyph(font->ft_face, glyph_index, 0);
-		ASSERT(!error);
-	}
-
-	{
-		ZoneScopedN("Render glyph");
-		error = FT_Render_Glyph(font->ft_face->glyph, FT_RENDER_MODE_NORMAL);
-		ASSERT(!error);
-	}
-
-	FT_GlyphSlot slot = font->ft_face->glyph;
-
-	// Upload it to GPU
-	const ImageRegion regions[] = {{
-		.image_offset = int2(cache_entry.x * font->glyph_width_px, cache_entry.y * font->glyph_height_px),
-		.image_size   = int2(slot->bitmap.width, slot->bitmap.rows),
-		.buffer_size  = int2(slot->bitmap.pitch, 0),
-	}};
-
-	// Don't upload 0x0 glyphs
-	int  bitmap_area = regions[0].image_size.x * regions[0].image_size.y;
-	bool uploaded    = bitmap_area <= 0
-				   ? true
-				   : renderer->streamer.upload_image_regions(font->glyph_atlas,
-                                                                          slot->bitmap.buffer,
-                                                                          slot->bitmap.pitch * slot->bitmap.rows,
-                                                                          regions);
-
-	if (uploaded) {
-		cache_entry.uploaded       = true;
-		cache_entry.glyph_top_left = {slot->bitmap_left, slot->bitmap_top};
-		cache_entry.glyph_size = {static_cast<int>(slot->bitmap.width), static_cast<int>(slot->bitmap.rows)};
-	}
 }
 
 struct UiCharCheckbox
@@ -321,7 +199,7 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
 	}
 
 	if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
-	    ui_state.active == id) {
+		ui_state.active == id) {
 		result = !result;
 	}
 
@@ -341,13 +219,16 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
 	float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
-	auto       label_rect  = rect_center(checkbox.rect, float2(measure_label(ui_theme.main_font, label_str)));
+	auto       label_rect =
+		rect_center(checkbox.rect, float2(measure_label(*ui_state.painter, *ui_theme.main_font, label_str)));
 
 	ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, checkbox.rect));
 	painter_draw_color_rect(*ui_state.painter, checkbox.rect, ui_state.i_clip_rect, border_color);
-	painter_draw_color_rect(
-		*ui_state.painter, rect_inset(checkbox.rect, border_thickness), ui_state.i_clip_rect, bg_color);
-	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, ui_theme.main_font, label_str);
+	painter_draw_color_rect(*ui_state.painter,
+		rect_inset(checkbox.rect, border_thickness),
+		ui_state.i_clip_rect,
+		bg_color);
+	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, *ui_theme.main_font, label_str);
 	ui_pop_clip_rect(ui_state);
 
 	if (checkbox.value && *checkbox.value != result) {
@@ -362,14 +243,12 @@ static void display_ui(RenderSample *app)
 	app->painter->vertex_bytes_offset = 0;
 	ui_new_frame(app->ui_state);
 
-	exo::logger::info("{} Display UI: {}x{}\n", app->renderer->frame_count, app->window->size.x, app->window->size.y);
 	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(app->window->size.x, app->window->size.y)};
 
 	const float menubar_height_margin = 8.0f;
 	const float menu_item_margin      = 12.0f;
-	const float menubar_height =
-		float(app->ui_theme.main_font->ft_face->size->metrics.height >> 6) + 2.0f * menubar_height_margin;
-	auto [menubar_rect, rest_rect] = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
+	const float menubar_height        = float(app->ui_theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
+	auto [menubar_rect, rest_rect]    = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
 
 	/* Menu bar */
 	const u32 menubar_bg_color = 0xFFF3F3F3;
@@ -381,7 +260,8 @@ static void display_ui(RenderSample *app)
 	menubar_theme.button_hover_bg_color   = 0x06000000;
 	menubar_theme.button_pressed_bg_color = 0x09000000;
 
-	auto label_size = float2(measure_label(app->ui_theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
+	auto label_size =
+		float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
 	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect                       = new_menubar_rect;
 	file_rect                          = rect_center(file_rect, label_size);
@@ -391,7 +271,7 @@ static void display_ui(RenderSample *app)
 		}
 	}
 
-	label_size = float2(measure_label(app->ui_theme.main_font, "Help")) + float2{8.0f, 0.0f};
+	label_size = float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Help")) + float2{8.0f, 0.0f};
 	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
 	menubar_rect                        = new_menubar_rect2;
 	help_rect                           = rect_center(help_rect, label_size);
@@ -403,34 +283,38 @@ static void display_ui(RenderSample *app)
 	auto [check_rect, new_menubar_rect3] = rect_split_off_left(menubar_rect, check_size.x, check_margin);
 	menubar_rect                         = new_menubar_rect3;
 	check_rect                           = rect_center(check_rect, check_size);
-	ui_char_checkbox(
-		app->ui_state, menubar_theme, {.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
-	app->viewer_flags = app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK)
-						     : (app->viewer_flags & ~RED_CHANNEL_MASK);
+	ui_char_checkbox(app->ui_state,
+		menubar_theme,
+		{.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
+	app->viewer_flags =
+		app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK) : (app->viewer_flags & ~RED_CHANNEL_MASK);
 
 	check_rect   = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect   = rect_center(check_rect, check_size);
-	ui_char_checkbox(
-		app->ui_state, menubar_theme, {.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
-	app->viewer_flags = app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK)
-						     : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
+	ui_char_checkbox(app->ui_state,
+		menubar_theme,
+		{.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
+	app->viewer_flags =
+		app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK) : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
 
 	check_rect   = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
 	check_rect   = rect_center(check_rect, check_size);
-	ui_char_checkbox(
-		app->ui_state, menubar_theme, {.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
-	app->viewer_flags = app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK)
-						     : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
+	ui_char_checkbox(app->ui_state,
+		menubar_theme,
+		{.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
+	app->viewer_flags =
+		app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK) : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
 
 	check_rect   = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).left;
 	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).right;
 	check_rect   = rect_center(check_rect, check_size);
-	ui_char_checkbox(
-		app->ui_state, menubar_theme, {.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
-	app->viewer_flags = app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK)
-						     : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
+	ui_char_checkbox(app->ui_state,
+		menubar_theme,
+		{.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
+	app->viewer_flags =
+		app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK) : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
 
 	/* Content */
 	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
@@ -451,170 +335,147 @@ static void render(RenderSample *app, bool has_resize)
 {
 	ZoneScoped;
 
-	auto &renderer     = *app->renderer;
-	auto &framebuffers = app->swapchain_framebuffers;
-	auto  ui_program   = app->ui_program;
-	auto *window       = app->window;
+	auto &renderer = app->renderer;
+	auto &graph    = renderer.render_graph;
 
-	auto &device    = renderer.device;
-	auto &surface   = renderer.surface;
-	auto &work_pool = renderer.work_pools[renderer.frame_count % FRAME_QUEUE_LENGTH];
+	auto intermediate_buffer = renderer.render_graph.output(TextureDesc{
+		.name = "render buffer desc",
+		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
+	});
+	auto glyph_atlas         = app->glyph_atlas;
 
-	if (has_resize) {
-		resize(device, surface, framebuffers);
-	}
-
-	bool out_of_date_swapchain = renderer.start_frame();
-	while (out_of_date_swapchain) {
-		resize(device, surface, framebuffers);
-		out_of_date_swapchain = renderer.start_frame();
-	}
-
-	gfx::GraphicsWork cmd = device.get_graphics_work(work_pool);
-	cmd.begin();
-
-	auto *global_data = renderer.bind_global_options<u32>(cmd);
-	global_data[0]    = 0;
-
-	device.update_globals();
-	cmd.wait_for_acquired(surface, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-	if (renderer.frame_count == 0) {
-		cmd.clear_barrier(app->ui_font->glyph_atlas, gfx::ImageUsage::TransferDst);
-		cmd.clear_image(app->ui_font->glyph_atlas, VkClearColorValue{.float32 = {0.0f, 0.0f, 0.0f, 0.0f}});
-		cmd.barrier(app->ui_font->glyph_atlas, gfx::ImageUsage::GraphicsShaderRead);
-	}
-
-	if (app->viewer_gpu_image_upload != app->viewer_gpu_image_current) {
-		renderer.streamer.upload_image_full(
-			app->viewer_gpu_image_upload, app->image.pixels_data, app->image.data_size);
-		app->viewer_gpu_image_current = app->viewer_gpu_image_upload;
-	}
-
-	renderer.streamer.update(cmd);
-
-	auto swapchain_framebuffer = framebuffers[surface.current_image];
-
-	cmd.clear_barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-	cmd.begin_pass(swapchain_framebuffer,
-		       std::array{gfx::LoadOp::clear({.color = {.float32 = {1.0f, 1.0f, 1.0f, 1.0f}}})});
-	cmd.end_pass();
-
-	{
-		auto *painter = app->painter;
-		ZoneScopedN("Painter");
-		auto [p_vertices, vert_offset] = renderer.dynamic_vertex_buffer.allocate(
-			renderer.device, painter->vertex_bytes_offset, sizeof(TexturedRect) * sizeof(ColorRect));
-		std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
-
-		ASSERT(vert_offset % sizeof(TexturedRect) == 0);
-		ASSERT(vert_offset % sizeof(ColorRect) == 0);
-		ASSERT(vert_offset % sizeof(Rect) == 0);
-
-		auto [p_indices, ind_offset] = renderer.dynamic_index_buffer.allocate(
-			renderer.device, painter->index_offset * sizeof(PrimitiveIndex), sizeof(PrimitiveIndex));
-		std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
-
-		for (const auto &font_glyph : painter->glyphs_to_upload) {
-			upload_glyph(app->renderer, font_glyph.font, font_glyph.glyph_index);
+	auto *painter = app->painter;
+	graph.raw_pass([painter, glyph_atlas](RenderGraph &graph, PassApi &api, vulkan::ComputeWork &cmd) {
+		Vec<VkBufferImageCopy> glyphs_to_upload;
+		painter->glyph_cache.process_events([&](const GlyphEvent &event, const GlyphImage *image, int2 pos) {
+			if (event.type == GlyphEvent::Type::New && image) {
+				auto [p_image, image_offset] = api.upload_buffer.allocate(api.device, image->data_size);
+				std::memcpy(p_image, image->data, image->data_size);
+				auto copy = VkBufferImageCopy{
+					.bufferOffset = image_offset,
+					.imageSubresource =
+						{
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.layerCount = 1,
+						},
+					.imageOffset =
+						{
+							.x = pos.x,
+							.y = pos.y,
+							.z = 0,
+						},
+					.imageExtent =
+						{
+							.width  = image->image_size.x,
+							.height = image->image_size.y,
+							.depth  = 1,
+						},
+				};
+				glyphs_to_upload.push_back(copy);
+			}
+		});
+		painter->glyph_cache.clear_events();
+		if (!glyphs_to_upload.empty()) {
+			cmd.barrier(glyph_atlas, vulkan::ImageUsage::TransferDst);
+			cmd.copy_buffer_to_image(api.upload_buffer.buffer, glyph_atlas, glyphs_to_upload);
+			cmd.barrier(glyph_atlas, vulkan::ImageUsage::GraphicsShaderRead);
 		}
+	});
 
-		for (u32 image_sampled_idx : painter->used_textures) {
-			cmd.barrier(gfx::get_sampler_image_at(device.global_sets.bindless, image_sampled_idx),
-				    gfx::ImageUsage::GraphicsShaderRead);
-		}
+	auto output     = intermediate_buffer;
+	auto ui_program = app->ui_program;
+	graph.graphic_pass(output,
+		[painter, output, ui_program](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {
+			ZoneScopedN("Painter");
+			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(api.device,
+				painter->vertex_bytes_offset,
+				sizeof(TexturedRect) * sizeof(ColorRect));
+			std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
 
-		PACKED(struct PainterOptions {
-			float2 scale;
-			float2 translation;
-			u32    vertices_descriptor_index;
-			u32    primitive_byte_offset;
-		})
+			ASSERT(vert_offset % sizeof(TexturedRect) == 0);
+			ASSERT(vert_offset % sizeof(ColorRect) == 0);
+			ASSERT(vert_offset % sizeof(Rect) == 0);
 
-		auto *options        = renderer.bind_graphics_shader_options<PainterOptions>(cmd);
-		options->scale       = float2(2.0f / window->size.x, 2.0f / window->size.y);
-		options->translation = float2(-1.0f, -1.0f);
-		options->vertices_descriptor_index =
-			device.get_buffer_storage_index(renderer.dynamic_vertex_buffer.buffer);
-		options->primitive_byte_offset = static_cast<u32>(vert_offset);
+			auto [p_indices, ind_offset] = api.dynamic_index_buffer.allocate(api.device,
+				painter->index_offset * sizeof(PrimitiveIndex),
+				sizeof(PrimitiveIndex));
+			std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
 
-		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
-		cmd.set_viewport({.width    = (float)window->size.x,
-				  .height   = (float)window->size.y,
-				  .minDepth = 0.0f,
-				  .maxDepth = 1.0f});
-		cmd.set_scissor({.extent = {.width = (u32)window->size.x, .height = (u32)window->size.y}});
-		cmd.bind_pipeline(ui_program, 0);
-		cmd.bind_index_buffer(renderer.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
-		u32 constants[] = {0, 0};
-		cmd.push_constant(constants, sizeof(constants));
-		cmd.draw_indexed({.vertex_count = painter->index_offset});
-		cmd.end_pass();
-	}
+			PACKED(struct PainterOptions {
+				float2 scale;
+				float2 translation;
+				u32    vertices_descriptor_index;
+				u32    primitive_byte_offset;
+			})
 
+			auto  output_size = graph.image_size(output);
+			auto *options     = reinterpret_cast<PainterOptions *>(
+                bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(PainterOptions)));
+			options->scale                     = float2(2.0) / float2(output_size.x, output_size.y);
+			options->translation               = float2(-1.0f, -1.0f);
+			options->vertices_descriptor_index = api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);
+			options->primitive_byte_offset     = static_cast<u32>(vert_offset);
+
+			cmd.bind_pipeline(ui_program, 0);
+			cmd.bind_index_buffer(api.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
+			cmd.draw_indexed({.vertex_count = painter->index_offset});
+		});
+
+#if 0
 	if (app->viewer_gpu_image_current.is_valid()) {
-		ZoneScopedN("Viewer");
-		cmd.barrier(app->viewer_gpu_image_current, gfx::ImageUsage::GraphicsShaderRead);
+		graph.graphic_pass([glyph_atlas](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {
+			cmd.barrier(app->viewer_gpu_image_current, vulkan::ImageUsage::GraphicsShaderRead);
 
-		PACKED(struct ViewerOptions {
-			float2 scale;
-			float2 translation;
-			u32    texture_descriptor;
-			u32    viewer_flags;
-			float2 viewport_size;
-		})
+			PACKED(struct ViewerOptions {
+				float2 scale;
+				float2 translation;
+				u32    texture_descriptor;
+				u32    viewer_flags;
+				float2 viewport_size;
+			})
 
-		float w      = float(app->image.width);
-		float h      = float(app->image.height);
-		float aspect = w / h;
+			float w      = float(app->image.width);
+			float h      = float(app->image.height);
+			float aspect = w / h;
 
-		float fit_scale = exo::min(app->viewer_clip_rect.size * float2(1.0f / w, 1.0f/ h));
+			float fit_scale = exo::min(app->viewer_clip_rect.size * float2(1.0f / w, 1.0f / h));
 
-		w = fit_scale * w;
-		h = fit_scale * h;
+			w = fit_scale * w;
+			h = fit_scale * h;
 
-		auto *options               = renderer.bind_graphics_shader_options<ViewerOptions>(cmd);
-		options->scale.x            = 2.0f * float(w) / app->viewer_clip_rect.size.x;
-		options->scale.y            = 2.0f * float(h) / app->viewer_clip_rect.size.y;
-		options->translation        = float2(-1.0f, -1.0f);
-		options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image_current);
-		options->viewer_flags       = app->viewer_flags;
-		options->viewport_size      = app->viewer_clip_rect.size;
-		cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::ColorAttachment);
-		cmd.begin_pass(swapchain_framebuffer, std::array{gfx::LoadOp::load()});
-		cmd.set_viewport({
-			.x        = (float)app->viewer_clip_rect.position.x,
-			.y        = (float)app->viewer_clip_rect.position.y,
-			.width    = (float)app->viewer_clip_rect.size.x,
-			.height   = (float)app->viewer_clip_rect.size.y,
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f,
+			auto *options               = renderer.bind_graphics_shader_options<ViewerOptions>(cmd);
+			options->scale.x            = 2.0f * float(w) / app->viewer_clip_rect.size.x;
+			options->scale.y            = 2.0f * float(h) / app->viewer_clip_rect.size.y;
+			options->translation        = float2(-1.0f, -1.0f);
+			options->texture_descriptor = device.get_image_sampled_index(app->viewer_gpu_image_current);
+			options->viewer_flags       = app->viewer_flags;
+			options->viewport_size      = app->viewer_clip_rect.size;
+			cmd.barrier(surface.images[surface.current_image], vulkan::ImageUsage::ColorAttachment);
+			cmd.begin_pass(swapchain_framebuffer, std::array{vulkan::LoadOp::load()});
+			cmd.set_viewport({
+				.x        = (float)app->viewer_clip_rect.position.x,
+				.y        = (float)app->viewer_clip_rect.position.y,
+				.width    = (float)app->viewer_clip_rect.size.x,
+				.height   = (float)app->viewer_clip_rect.size.y,
+				.minDepth = 0.0f,
+				.maxDepth = 1.0f,
+			});
+			cmd.set_scissor({
+				.offset = {.x = (i32)app->viewer_clip_rect.position.x, .y = (i32)app->viewer_clip_rect.position.y},
+				.extent =
+					{
+						.width  = (u32)app->viewer_clip_rect.size.x,
+						.height = (u32)app->viewer_clip_rect.size.y,
+					},
+			});
+			cmd.bind_pipeline(app->viewer_program, 0);
+			cmd.draw({.vertex_count = 6});
+			cmd.end_pass();
 		});
-		cmd.set_scissor({
-			.offset = {.x = (i32)app->viewer_clip_rect.position.x,
-				   .y = (i32)app->viewer_clip_rect.position.y},
-			.extent =
-				{
-					.width  = (u32)app->viewer_clip_rect.size.x,
-					.height = (u32)app->viewer_clip_rect.size.y,
-				},
-		});
-		cmd.bind_pipeline(app->viewer_program, 0);
-		u32 constants[] = {0, 0};
-		cmd.push_constant(constants, sizeof(constants));
-		cmd.draw({.vertex_count = 6});
-		cmd.end_pass();
 	}
+#endif
 
-	cmd.barrier(surface.images[surface.current_image], gfx::ImageUsage::Present);
-
-	cmd.end();
-
-	out_of_date_swapchain = renderer.end_frame(cmd);
-	if (out_of_date_swapchain) {
-		resize(device, surface, framebuffers);
-	}
+	renderer.render(intermediate_buffer, 1.0);
 }
 
 static VkFormat to_vk(PixelFormat pformat)
@@ -651,7 +512,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 	const u8 png_signature[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
 	bool is_signature_valid = mapped_file->size > sizeof(png_signature) &&
-				  std::memcmp(mapped_file->base_addr, png_signature, sizeof(png_signature)) == 0;
+	                          std::memcmp(mapped_file->base_addr, png_signature, sizeof(png_signature)) == 0;
 	if (!is_signature_valid) {
 		return;
 	}
@@ -684,7 +545,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 	new_image.pixels_data = new_image.impl_data;
 	new_image.data_size   = decoded_size;
 
-	app->viewer_gpu_image_upload = app->renderer->device.create_image({
+	app->viewer_gpu_image_upload = app->renderer.device.create_image({
 		.name       = "Viewer image",
 		.size       = int3(new_image.width, new_image.height, new_image.depth),
 		.mip_levels = static_cast<u32>(new_image.levels),

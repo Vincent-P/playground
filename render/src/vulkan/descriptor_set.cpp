@@ -12,37 +12,13 @@ namespace vulkan
 {
 /// --- Dynamic buffer descriptor
 
-VkDescriptorSetLayout dynamic_buffer_layout = VK_NULL_HANDLE;
-
-void create_dynamic_buffer_layout(Device &device)
-{
-	VkDescriptorSetLayoutBinding bindings[] = {{
-		.binding         = 0,
-		.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-		.descriptorCount = 1,
-		.stageFlags      = VK_SHADER_STAGE_ALL,
-	}};
-
-	VkDescriptorSetLayoutCreateInfo desc_layout_info = {
-		.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = exo::Array::len(bindings),
-		.pBindings    = bindings,
-	};
-
-	VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &dynamic_buffer_layout));
-}
-
 DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> &buffer_handle, usize range_size)
 {
-	auto &buffer = *device.buffers.get(buffer_handle);
-
-	if (dynamic_buffer_layout == VK_NULL_HANDLE) {
-		create_dynamic_buffer_layout(device);
-	}
+	auto &buffer = device.buffers.get(buffer_handle);
 
 	VkDescriptorSetAllocateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	set_info.descriptorPool              = device.global_sets.uniform_descriptor_pool;
-	set_info.pSetLayouts                 = &dynamic_buffer_layout;
+	set_info.pSetLayouts                 = &device.global_sets.uniform_layout;
 	set_info.descriptorSetCount          = 1;
 
 	VkDescriptorSet vkset = VK_NULL_HANDLE;
@@ -64,22 +40,15 @@ DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> 
 	vkUpdateDescriptorSets(device.device, exo::Array::len(writes), writes, 0, nullptr);
 
 	return DynamicBufferDescriptor{
-		.buffer         = buffer_handle,
-		.vkset          = vkset,
-		.dynamic_offset = 0,
-		.size           = static_cast<u32>(range_size),
+		.buffer = buffer_handle,
+		.vkset  = vkset,
+		.size   = static_cast<u32>(range_size),
 	};
 }
 
 void destroy_buffer_descriptor(Device &device, DynamicBufferDescriptor &descriptor)
 {
 	vkFreeDescriptorSets(device.device, device.global_sets.uniform_descriptor_pool, 1, &descriptor.vkset);
-}
-
-void destroy_buffer_descriptor_layout(Device &device)
-{
-	vkDestroyDescriptorSetLayout(device.device, dynamic_buffer_layout, nullptr);
-	dynamic_buffer_layout = VK_NULL_HANDLE;
 }
 
 /// --- Bindless set
@@ -159,9 +128,17 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
 	}
 
-	bindless.free_list[BindlessSet::PER_SAMPLER] = exo::FreeList::create(sampler_count);
-	bindless.free_list[BindlessSet::PER_IMAGE]   = exo::FreeList::create(image_count);
-	bindless.free_list[BindlessSet::PER_BUFFER]  = exo::FreeList::create(buffer_count);
+	auto init_freelist = [](Vec<u32> &list, u32 count) {
+		list.resize(count);
+		for (u32 i = 0; i < count; ++i) {
+			list[i] = count - i;
+		}
+		list[0] = u32_invalid;
+	};
+
+	init_freelist(bindless.free_list[BindlessSet::PER_SAMPLER], sampler_count);
+	init_freelist(bindless.free_list[BindlessSet::PER_IMAGE], image_count);
+	init_freelist(bindless.free_list[BindlessSet::PER_BUFFER], buffer_count);
 
 	bindless.sampler_images.resize(sampler_count);
 	bindless.storage_images.resize(image_count);
@@ -174,14 +151,15 @@ void destroy_bindless_set(const Device &device, BindlessSet &bindless)
 {
 	vkDestroyDescriptorPool(device.device, bindless.vkpool, nullptr);
 	vkDestroyDescriptorSetLayout(device.device, bindless.vklayout, nullptr);
-	bindless.free_list[BindlessSet::PER_SAMPLER].destroy();
-	bindless.free_list[BindlessSet::PER_IMAGE].destroy();
-	bindless.free_list[BindlessSet::PER_BUFFER].destroy();
+	bindless.free_list[BindlessSet::PER_SAMPLER].clear();
+	bindless.free_list[BindlessSet::PER_IMAGE].clear();
+	bindless.free_list[BindlessSet::PER_BUFFER].clear();
 }
 
 u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	u32 new_index                      = bindless.free_list[BindlessSet::PER_SAMPLER].allocate();
+	u32 new_index = bindless.free_list[BindlessSet::PER_SAMPLER].back();
+	bindless.free_list[BindlessSet::PER_SAMPLER].pop_back();
 	bindless.sampler_images[new_index] = image_handle;
 	bindless.pending_bind[BindlessSet::PER_SAMPLER].push_back(new_index);
 	return new_index;
@@ -189,7 +167,8 @@ u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 
 u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	u32 new_index                      = bindless.free_list[BindlessSet::PER_IMAGE].allocate();
+	u32 new_index = bindless.free_list[BindlessSet::PER_IMAGE].back();
+	bindless.free_list[BindlessSet::PER_IMAGE].pop_back();
 	bindless.storage_images[new_index] = image_handle;
 	bindless.pending_bind[BindlessSet::PER_IMAGE].push_back(new_index);
 	return new_index;
@@ -197,7 +176,8 @@ u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle)
 
 u32 bind_storage_buffer(BindlessSet &bindless, Handle<Buffer> buffer_handle)
 {
-	u32 new_index                       = bindless.free_list[BindlessSet::PER_BUFFER].allocate();
+	u32 new_index = bindless.free_list[BindlessSet::PER_BUFFER].back();
+	bindless.free_list[BindlessSet::PER_BUFFER].pop_back();
 	bindless.storage_buffers[new_index] = buffer_handle;
 	bindless.pending_bind[BindlessSet::PER_BUFFER].push_back(new_index);
 	return new_index;
@@ -206,21 +186,21 @@ u32 bind_storage_buffer(BindlessSet &bindless, Handle<Buffer> buffer_handle)
 void unbind_sampler_image(BindlessSet &set, u32 index)
 {
 	set.sampler_images[index] = {};
-	set.free_list[BindlessSet::PER_SAMPLER].free(index);
+	set.free_list[BindlessSet::PER_SAMPLER].push_back(index);
 	set.pending_unbind[BindlessSet::PER_SAMPLER].push_back(index);
 }
 
 void unbind_storage_image(BindlessSet &set, u32 index)
 {
 	set.storage_images[index] = {};
-	set.free_list[BindlessSet::PER_IMAGE].free(index);
+	set.free_list[BindlessSet::PER_IMAGE].push_back(index);
 	set.pending_unbind[BindlessSet::PER_IMAGE].push_back(index);
 }
 
 void unbind_storage_buffer(BindlessSet &set, u32 index)
 {
 	set.storage_buffers[index] = {};
-	set.free_list[BindlessSet::PER_BUFFER].free(index);
+	set.free_list[BindlessSet::PER_BUFFER].push_back(index);
 	set.pending_unbind[BindlessSet::PER_BUFFER].push_back(index);
 }
 
@@ -257,7 +237,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 	};
 
-	for (u32 i_set = 0; i_set < bindless.pending_bind.size(); i_set += 1) {
+	for (u32 i_set = 0; i_set < exo::Array::len(bindless.pending_bind); i_set += 1) {
 		auto &pending_binds   = bindless.pending_bind[i_set];
 		auto &pending_unbinds = bindless.pending_unbind[i_set];
 
@@ -277,7 +257,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 			switch (i_set) {
 			case BindlessSet::PER_SAMPLER: {
 				auto        image_handle = bindless.sampler_images[to_bind];
-				const auto &image        = *device.images.get(image_handle);
+				const auto &image        = device.images.get(image_handle);
 				*image_infos             = {
 								.sampler     = device.samplers[BuiltinSampler::Default],
 								.imageView   = image.full_view.vkhandle,
@@ -288,7 +268,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 			}
 			case BindlessSet::PER_IMAGE: {
 				auto        image_handle = bindless.storage_images[to_bind];
-				const auto &image        = *device.images.get(image_handle);
+				const auto &image        = device.images.get(image_handle);
 				*image_infos             = {
 								.sampler     = device.samplers[BuiltinSampler::Default],
 								.imageView   = image.full_view.vkhandle,
@@ -299,7 +279,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 			}
 			case BindlessSet::PER_BUFFER: {
 				auto        buffer_handle = bindless.storage_buffers[to_bind];
-				const auto &buffer        = *device.buffers.get(buffer_handle);
+				const auto &buffer        = device.buffers.get(buffer_handle);
 				*buffer_infos             = {
 								.buffer = buffer.vkhandle,
 								.offset = 0,
@@ -330,7 +310,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 			auto &copy           = *descriptor_copies++;
 			copy                 = {.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET};
 			copy.srcSet          = bindless.vkset;
-			copy.srcBinding      = 0;
+			copy.srcBinding      = i_set;
 			copy.srcArrayElement = 0;
 			copy.dstSet          = bindless.vkset;
 			copy.dstBinding      = i_set;

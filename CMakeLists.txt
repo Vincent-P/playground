@@ -69,6 +69,7 @@ function(SETUP_APP_TARGET TARGET)
   else()
 	message( FATAL_ERROR "Platform not supported." )
   endif()
+  target_compile_definitions(${TARGET} PRIVATE OUT_DIR="${CMAKE_BINARY_DIR}" TARGET_NAME="${TARGET}")
 endfunction()
 
 function(SETUP_THIRDPARTY_TARGET TARGET)
@@ -76,6 +77,41 @@ function(SETUP_THIRDPARTY_TARGET TARGET)
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 17)
   set_target_properties(${TARGET} PROPERTIES FOLDER "third_party")
   target_compile_options(${TARGET} PRIVATE ${THIRD_PARTY_CXX_FLAGS})
+endfunction()
+
+function(SETUP_SHADERS TARGET)
+  set(options )
+  set(oneValueArgs )
+  set(multiValueArgs SOURCES DEPENDENCIES)
+  cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+  message(STATUS "Adding target ${TARGET}.shaders")
+
+  # Generate a list of include paths
+  set(INCLUDE_ARGS )
+  set(DEPENDS_PATHS )
+  foreach(DEP IN LISTS args_DEPENDENCIES)
+    list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/${DEP}/shaders/include/")
+    list(APPEND DEPENDS_PATHS "${PROJECT_SOURCE_DIR}/${DEP}/shaders/include/")
+  endforeach()
+  list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/${TARGET}/shaders/include/")
+
+  foreach(FILENAME IN LISTS args_SOURCES)
+    set(SHADER_INPUT_DIR "${PROJECT_SOURCE_DIR}/${TARGET}/shaders")
+    set(SHADER_OUTPUT_DIR "${PROJECT_BINARY_DIR}/${TARGET}/shaders")
+    set(GLSL_FILE "${SHADER_INPUT_DIR}/${FILENAME}")
+    set(SPIRV_FILE "${SHADER_OUTPUT_DIR}/${FILENAME}.spv")
+
+    add_custom_command(
+      OUTPUT ${SPIRV_FILE}
+      COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL_FILE} -o ${SPIRV_FILE} ${INCLUDE_ARGS}
+      DEPENDS ${GLSL_FILE}
+    )
+    list(APPEND SPIRV_FILES ${SPIRV_FILE})
+  endforeach()
+
+  add_custom_target(${TARGET}.shaders DEPENDS ${SPIRV_FILES})
+  add_dependencies(${TARGET} ${TARGET}.shaders)
 endfunction()
 
 add_subdirectory(third_party)

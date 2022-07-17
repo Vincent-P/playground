@@ -2,16 +2,18 @@
 
 #include "exo/hash.h"
 
-#if defined(ENABLE_DOCTEST)
-#include <doctest.h>
-
+namespace exo
+{
 usize _hash_handle(u32 index, u32 gen)
 {
 	usize seed = hash_value(index);
 	hash_combine(seed, gen);
 	return seed;
 }
+} // namespace exo
 
+#if defined(ENABLE_DOCTEST)
+#include <doctest.h>
 namespace test
 {
 TEST_CASE("Handles")

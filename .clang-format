@@ -3,8 +3,10 @@
 AccessModifierOffset: -4
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
+AllowAllArgumentsOnNextLine: false
 BinPackArguments: false
 BinPackParameters: false
+AlignAfterOpenBracket: DontAlign
 BraceWrapping:
   AfterCaseLabel: false
   AfterClass: true

@@ -12,9 +12,9 @@
 namespace vulkan
 {
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                                     VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                                     void * /*unused*/)
+	VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
+	const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+	void * /*unused*/)
 {
 	// Read-after-write on bindless render targets
 	if (pCallbackData->messageIdNumber == 1287084845) {
@@ -130,8 +130,8 @@ Context Context::create(const ContextDescription &desc)
 	VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
 	if (physical_devices_count > ctx.physical_devices.capacity()) {
 		exo::logger::info("There are {} physical devices, only the first {} are enabled.\n",
-		                  physical_devices_count,
-		                  ctx.physical_devices.capacity());
+			physical_devices_count,
+			ctx.physical_devices.capacity());
 	}
 
 	exo::DynamicArray<VkPhysicalDevice, MAX_PHYSICAL_DEVICES> vkphysical_devices;
