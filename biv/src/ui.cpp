@@ -112,21 +112,17 @@ bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &butto
 	return result;
 }
 
-void ui_splitter_x(
-	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right)
+void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, Rect view_rect, float &value, Rect &left, Rect &right)
 {
 	u64 id = ui_make_id(ui_state);
 
-	left  = rect_split_off_left(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness).left;
-	right = rect_split_off_left(view_rect, value * view_rect.size.x, ui_theme.splitter_thickness).right;
-
-	auto splitter_input = Rect{
-		.position = view_rect.position + float2{left.size.x - ui_theme.input_thickness / 2.0f, 0.0f},
-		.size     = {ui_theme.input_thickness, view_rect.size.y},
-	};
+	Rect rect          = view_rect;
+	left               = rect_split_left(rect, value * view_rect.size.x);
+	Rect splitter_rect = rect_split_left(rect, ui_theme.splitter_thickness);
+	right              = rect;
 
 	// behavior
-	if (ui_is_hovering(ui_state, splitter_input)) {
+	if (ui_is_hovering(ui_state, splitter_rect)) {
 		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeEW);
 		ui_state.focused = id;
 		if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
@@ -135,34 +131,28 @@ void ui_splitter_x(
 	}
 
 	if (ui_state.active == id) {
-		value = (float(ui_state.inputs->mouse_position.x) - view_rect.position.x) / view_rect.size.x;
+		value = (float(ui_state.inputs->mouse_position.x) - view_rect.pos.x) / view_rect.size.x;
 	}
 
-	const auto color    = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
-	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	rect_thickness      = 1.0f;
-	painter_draw_color_rect(*ui_state.painter,
-		{.position = {right.position.x - rect_thickness / 2.0f, view_rect.position.y},
-			.size  = {rect_thickness, view_rect.size.y}},
-		ui_state.i_clip_rect,
-		color);
+	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	if (ui_state.focused == id) {
+		float thickness_difference = ui_theme.splitter_hover_thickness - ui_theme.splitter_thickness;
+		splitter_rect              = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
+	}
+	painter_draw_color_rect(*ui_state.painter, splitter_rect, ui_state.i_clip_rect, color);
 }
 
-void ui_splitter_y(
-	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom)
+void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, Rect view_rect, float &value, Rect &top, Rect &bottom)
 {
 	u64 id = ui_make_id(ui_state);
 
-	top    = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness).top;
-	bottom = rect_split_off_top(view_rect, value * view_rect.size.y, ui_theme.splitter_thickness).bottom;
-
-	auto splitter_input = Rect{
-		.position = view_rect.position + float2{0.0f, top.size.y - ui_theme.input_thickness / 2.0f},
-		.size     = {view_rect.size.x, ui_theme.input_thickness},
-	};
+	Rect rect          = view_rect;
+	top                = rect_split_top(rect, value * view_rect.size.y);
+	Rect splitter_rect = rect_split_top(rect, ui_theme.splitter_thickness);
+	bottom             = rect;
 
 	// behavior
-	if (ui_is_hovering(ui_state, splitter_input)) {
+	if (ui_is_hovering(ui_state, splitter_rect)) {
 		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeNS);
 		ui_state.focused = id;
 		if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
@@ -171,25 +161,13 @@ void ui_splitter_y(
 	}
 
 	if (ui_state.active == id) {
-		value = (float(ui_state.inputs->mouse_position.y) - view_rect.position.y) / view_rect.size.y;
+		value = (float(ui_state.inputs->mouse_position.y) - view_rect.pos.y) / view_rect.size.y;
 	}
 
-	const auto color    = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
-	auto rect_thickness = ui_state.focused == id ? ui_theme.splitter_hover_thickness : ui_theme.splitter_thickness;
-	rect_thickness      = 1.0f;
-	painter_draw_color_rect(*ui_state.painter,
-		{.position = {view_rect.position.x, bottom.position.y - rect_thickness / 2.0f},
-			.size  = {view_rect.size.x, rect_thickness}},
-		ui_state.i_clip_rect,
-		color);
-}
-
-void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label)
-{
-	painter_draw_label(*ui_state.painter, label.rect, ui_state.i_clip_rect, *ui_theme.main_font, label.text);
-}
-
-void ui_rect(UiState &ui_state, const UiTheme &ui_theme, const UiRect &rect)
-{
-	painter_draw_color_rect(*ui_state.painter, rect.rect, ui_state.i_clip_rect, rect.color);
+	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
+	if (ui_state.focused == id) {
+		float thickness_difference = ui_theme.splitter_hover_thickness - ui_theme.splitter_thickness;
+		splitter_rect              = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
+	}
+	painter_draw_color_rect(*ui_state.painter, splitter_rect, ui_state.i_clip_rect, color);
 }

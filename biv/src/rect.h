@@ -3,140 +3,112 @@
 #include <exo/macros/packed.h>
 #include <exo/maths/vectors.h>
 
+enum struct SplitDirection : u8
+{
+	Top,
+	Bottom,
+	Left,
+	Right,
+};
+
+inline bool split_is_horizontal(SplitDirection direction)
+{
+	switch (direction) {
+	case SplitDirection::Left:
+	case SplitDirection::Right:
+		return true;
+	case SplitDirection::Top:
+	case SplitDirection::Bottom:
+		return false;
+	}
+}
+
 PACKED(struct Rect {
-	float2 position;
+	float2 pos;
 	float2 size;
 })
 
-struct RectLeftRight
-{
-	Rect left;
-	Rect right;
-};
+// -- Posing
 
-struct RectTopBottom
-{
-	Rect top;
-	Rect bottom;
-};
-
-// -- Positioning
-
-inline Rect rect_center(const Rect &container, const float2 &element_size)
+inline Rect rect_center(Rect container, const float2 &element_size)
 {
 	return {
-		.position = container.position + 0.5 * (container.size - element_size),
+		.pos  = container.pos + 0.5 * (container.size - element_size),
 		.size = element_size,
 	};
 }
 
 // -- Testing
 
-inline bool rect_is_point_inside(const Rect &container, const float2 &point)
+inline bool rect_is_point_inside(Rect container, const float2 &point)
 {
-	return container.position.x <= point.x && point.x <= container.position.x + container.size.x && container.position.y <= point.y && point.y <= container.position.y + container.size.y;
+	return container.pos.x <= point.x && point.x <= container.pos.x + container.size.x && container.pos.y <= point.y &&
+	       point.y <= container.pos.y + container.size.y;
 }
 
 // -- Margins
 
-inline Rect rect_outset(const Rect &r, float margin)
+inline Rect rect_outset(Rect r, float2 margin)
 {
-    return {
-	.position = r.position - float2(margin),
-	.size = r.size + float2(2.0f * margin),
-    };
+	return {
+		.pos  = r.pos - margin,
+		.size = r.size + 2.0f * margin,
+	};
 }
 
-inline Rect rect_inset(const Rect &r, float margin)
-{
-    return {
-	.position = r.position + float2(margin),
-	.size = r.size - float2(2.0f * margin),
-    };
-}
+inline Rect rect_inset(Rect r, float2 margin) { return rect_outset(r, float2(-margin.x, -margin.y)); }
 
 // -- Splitting
 
-inline Rect rect_divide_x(const Rect &r, float margin, u32 n, u32 i)
+inline Rect rect_split_top(Rect &r, float height)
 {
-	ASSERT(n > 0 && i < n);
-	const float split_width = r.size.x * (1.0f / float(n)) - float(n - 1) * margin;
-	return {
-		.position = {r.position.x + float(i) * (split_width + margin), r.position.y},
-		.size = {split_width, r.size.y},
-	};
+	auto top    = Rect{.pos = r.pos, .size = {r.size[0], height}};
+	auto bottom = Rect{.pos = {r.pos[0], r.pos[1] + height}, .size = {r.size[0], r.size[1] - height}};
+	r           = bottom;
+	return top;
 }
 
-inline Rect rect_divide_y(const Rect &r, float margin, u32 n, u32 i)
+inline Rect rect_split_bottom(Rect &r, float height)
 {
-	ASSERT(n > 0 && i < n);
-	const float split_height = r.size.y * (1.0f / float(n)) - float(n - 1) * margin;
-	return {
-		.position = {r.position.x, r.position.y + float(i) * (split_height + margin)},
-		.size = {r.size.x, split_height},
-	};
+	auto top    = Rect{.pos = r.pos, .size = {r.size[0], r.size[1] - height}};
+	auto bottom = Rect{.pos = {r.pos[0], r.pos[1] + top.size[1]}, .size = {r.size[0], height}};
+	r           = top;
+	return bottom;
 }
 
-inline RectTopBottom rect_split_off_top(const Rect &r, float height, float margin)
+inline Rect rect_split_left(Rect &r, float width)
 {
-	return {
-		.top =
-			{
-				.position = r.position,
-				.size = {r.size.x, height},
-			},
-		.bottom =
-			{
-				.position = r.position + float2{0.0f, height + margin},
-				.size = {r.size.x, r.size.y - height - margin},
-			},
-	};
+	auto left  = Rect{.pos = r.pos, .size = {width, r.size[1]}};
+	auto right = Rect{.pos = {r.pos[0] + width, r.pos[1]}, .size = {r.size[0] - width, r.size[1]}};
+	r          = right;
+	return left;
 }
 
-inline RectTopBottom rect_split_off_bottom(const Rect &r, float height, float margin)
+inline Rect rect_split_right(Rect &r, float width)
 {
-	return {
-		.top =
-			{
-				.position = r.position,
-				.size = {r.size.x, r.size.y - height - margin},
-			},
-		.bottom =
-			{
-				.position = r.position + float2{0.0f, r.size.y - height},
-				.size = {r.size.x, height},
-			},
-	};
+	auto left  = Rect{.pos = r.pos, .size = {r.size[0] - width, r.size[1]}};
+	auto right = Rect{.pos = {r.pos[0] + left.size[0], r.pos[1]}, .size = {width, r.size[1]}};
+	r          = left;
+	return right;
 }
 
-inline RectLeftRight rect_split_off_left(const Rect &r, float width, float margin)
+struct RectSplit
 {
-	return {
-		.left =
-			{
-				.position = r.position,
-				.size = {width, r.size.y},
-			},
-		.right =
-			{
-				.position = r.position + float2{width + margin, 0.0f},
-				.size = {r.size.x - width - margin, r.size.y},
-			},
-	};
-}
+	Rect          *rect      = nullptr;
+	SplitDirection direction = SplitDirection::Top;
 
-inline RectLeftRight rect_split_off_right(const Rect &r, float width, float margin)
-{
-	return {
-		.left =
-			{
-				.position = r.position,
-				.size = {r.size.x - width - margin, r.size.y},
-			},
-		.right =
-			{
-				.position = r.position + float2{r.size.x - width, 0.0f},
-				.size = {width, r.size.y},
-			},
-	};
-}
+	Rect split(float value)
+	{
+		ASSERT(this->rect);
+		switch (this->direction) {
+		case SplitDirection::Top:
+			return rect_split_top(*this->rect, value);
+		case SplitDirection::Bottom:
+			return rect_split_bottom(*this->rect, value);
+		case SplitDirection::Left:
+			return rect_split_left(*this->rect, value);
+		case SplitDirection::Right:
+			return rect_split_right(*this->rect, value);
+		}
+	}
+};

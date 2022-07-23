@@ -139,8 +139,8 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 	hb_glyph_info_t     *glyph_infos     = hb_buffer_get_glyph_infos(buf, &glyph_count);
 	hb_glyph_position_t *glyph_positions = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
-	i32 cursor_x = i32(view_rect.position.x);
-	i32 cursor_y = i32(view_rect.position.y) + font.metrics.ascender;
+	i32 cursor_x = i32(view_rect.pos.x);
+	i32 cursor_y = i32(view_rect.pos.y) + font.metrics.ascender;
 	for (u32 i = 0; i < glyph_count; i++) {
 		u32 glyph_index = glyph_infos[i].codepoint;
 		i32 x_advance   = glyph_positions[i].x_advance;
@@ -152,12 +152,12 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 			int2 glyph_pos = cache_entry.value();
 
 			Rect rect = {
-				.position = float2(int2{cursor_x + glyph_image.top_left.x, cursor_y - glyph_image.top_left.y}),
-				.size     = float2(glyph_image.image_size),
+				.pos  = float2(int2{cursor_x + glyph_image.top_left.x, cursor_y - glyph_image.top_left.y}),
+				.size = float2(glyph_image.image_size),
 			};
 			Rect uv = {
-				.position = float2(glyph_pos) / float2(painter.glyph_cache.allocator.size),
-				.size     = float2(glyph_image.image_size) / float2(painter.glyph_cache.allocator.size),
+				.pos  = float2(glyph_pos) / float2(painter.glyph_cache.allocator.size),
+				.size = float2(glyph_image.image_size) / float2(painter.glyph_cache.allocator.size),
 			};
 
 			painter_draw_textured_rect(painter, rect, i_clip_rect, uv, painter.glyph_atlas_gpu_idx);
@@ -167,7 +167,7 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 		cursor_y += y_advance >> 6;
 
 		if (label[glyph_infos[i].cluster] == '\n') {
-			cursor_x = i32(view_rect.position.x);
+			cursor_x = i32(view_rect.pos.x);
 			cursor_y += line_height;
 		}
 	}

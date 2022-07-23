@@ -243,18 +243,19 @@ static void display_ui(RenderSample *app)
 	app->painter->vertex_bytes_offset = 0;
 	ui_new_frame(app->ui_state);
 
-	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
+	auto content_rect = Rect{.pos = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
 
 	const float menubar_height_margin = 8.0f;
 	const float menu_item_margin      = 12.0f;
 	const float menubar_height        = float(app->ui_theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
-	auto [menubar_rect, rest_rect]    = rect_split_off_top(fullscreen_rect, menubar_height, 0.0f);
+	Rect        menubar_rect          = rect_split_top(content_rect, menubar_height);
 
 	/* Menu bar */
 	const u32 menubar_bg_color = 0xFFF3F3F3;
-	ui_rect(app->ui_state, app->ui_theme, {.color = menubar_bg_color, .rect = menubar_rect});
+	painter_draw_color_rect(*app->painter, menubar_rect, app->ui_state.i_clip_rect, menubar_bg_color);
 
-	menubar_rect = rect_split_off_left(menubar_rect, 0.0f, menu_item_margin).right; // add first margin on the left
+	// add first margin on the left
+	rect_split_left(menubar_rect, menu_item_margin);
 	auto menubar_theme                    = app->ui_theme;
 	menubar_theme.button_bg_color         = 0x00000000;
 	menubar_theme.button_hover_bg_color   = 0x06000000;
@@ -262,9 +263,10 @@ static void display_ui(RenderSample *app)
 
 	auto label_size =
 		float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
-	auto [file_rect, new_menubar_rect] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
-	menubar_rect                       = new_menubar_rect;
-	file_rect                          = rect_center(file_rect, label_size);
+
+	Rect file_rect = rect_split_left(menubar_rect, label_size.x);
+	rect_split_left(menubar_rect, menu_item_margin);
+	file_rect = rect_center(file_rect, label_size);
 	if (ui_button(app->ui_state, menubar_theme, {.label = "Open Image", .rect = file_rect})) {
 		if (auto path = cross::file_dialog({{"PNG Image", "*.png"}})) {
 			open_file(app, path.value());
@@ -272,44 +274,47 @@ static void display_ui(RenderSample *app)
 	}
 
 	label_size = float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Help")) + float2{8.0f, 0.0f};
-	auto [help_rect, new_menubar_rect2] = rect_split_off_left(menubar_rect, label_size.x, menu_item_margin);
-	menubar_rect                        = new_menubar_rect2;
-	help_rect                           = rect_center(help_rect, label_size);
+	Rect help_rect = rect_split_left(menubar_rect, label_size.x);
+	rect_split_left(menubar_rect, menu_item_margin);
+
+	help_rect = rect_center(help_rect, label_size);
 	if (ui_button(app->ui_state, menubar_theme, {.label = "Help", .rect = help_rect})) {
 	}
 
-	const auto check_margin              = 4.0f;
-	const auto check_size                = float2{20.0f};
-	auto [check_rect, new_menubar_rect3] = rect_split_off_left(menubar_rect, check_size.x, check_margin);
-	menubar_rect                         = new_menubar_rect3;
-	check_rect                           = rect_center(check_rect, check_size);
+	const auto check_margin = 4.0f;
+	const auto check_size   = float2{20.0f};
+	Rect       check_rect   = rect_split_left(menubar_rect, check_size.x);
+	rect_split_left(menubar_rect, check_margin);
+
+	check_rect = rect_center(check_rect, check_size);
 	ui_char_checkbox(app->ui_state,
 		menubar_theme,
 		{.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
 	app->viewer_flags =
 		app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK) : (app->viewer_flags & ~RED_CHANNEL_MASK);
 
-	check_rect   = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
-	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
-	check_rect   = rect_center(check_rect, check_size);
+	check_rect = rect_split_left(menubar_rect, check_size.x);
+	rect_split_left(menubar_rect, check_margin);
+	check_rect = rect_center(check_rect, check_size);
 	ui_char_checkbox(app->ui_state,
 		menubar_theme,
 		{.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
 	app->viewer_flags =
 		app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK) : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
 
-	check_rect   = rect_split_off_left(menubar_rect, check_size.x, check_margin).left;
-	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, check_margin).right;
-	check_rect   = rect_center(check_rect, check_size);
+	check_rect = rect_split_left(menubar_rect, check_size.x);
+	rect_split_left(menubar_rect, check_margin);
+	check_rect = rect_center(check_rect, check_size);
 	ui_char_checkbox(app->ui_state,
 		menubar_theme,
 		{.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
 	app->viewer_flags =
 		app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK) : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
 
-	check_rect   = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).left;
-	menubar_rect = rect_split_off_left(menubar_rect, check_size.x, menu_item_margin).right;
-	check_rect   = rect_center(check_rect, check_size);
+	check_rect = rect_split_left(menubar_rect, check_size.x);
+	rect_split_left(menubar_rect, menu_item_margin);
+
+	check_rect = rect_center(check_rect, check_size);
 	ui_char_checkbox(app->ui_state,
 		menubar_theme,
 		{.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
@@ -317,8 +322,8 @@ static void display_ui(RenderSample *app)
 		app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK) : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
 
 	/* Content */
-	auto [separator_rect, content_rect] = rect_split_off_top(rest_rect, 1.0f, 0.0f);
-	ui_rect(app->ui_state, app->ui_theme, {.color = 0xFFE5E5E5, .rect = separator_rect});
+	auto separator_rect = rect_split_top(content_rect, 1.0f);
+	painter_draw_color_rect(*app->painter, separator_rect, app->ui_state.i_clip_rect, 0xFFE5E5E5);
 
 	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
 	ui_push_clip_rect(app->ui_state, i_content_rect);
@@ -452,15 +457,15 @@ static void render(RenderSample *app)
 			cmd.barrier(surface.images[surface.current_image], vulkan::ImageUsage::ColorAttachment);
 			cmd.begin_pass(swapchain_framebuffer, std::array{vulkan::LoadOp::load()});
 			cmd.set_viewport({
-				.x        = (float)app->viewer_clip_rect.position.x,
-				.y        = (float)app->viewer_clip_rect.position.y,
+				.x        = (float)app->viewer_clip_rect.pos.x,
+				.y        = (float)app->viewer_clip_rect.pos.y,
 				.width    = (float)app->viewer_clip_rect.size.x,
 				.height   = (float)app->viewer_clip_rect.size.y,
 				.minDepth = 0.0f,
 				.maxDepth = 1.0f,
 			});
 			cmd.set_scissor({
-				.offset = {.x = (i32)app->viewer_clip_rect.position.x, .y = (i32)app->viewer_clip_rect.position.y},
+				.offset = {.x = (i32)app->viewer_clip_rect.pos.x, .y = (i32)app->viewer_clip_rect.pos.y},
 				.extent =
 					{
 						.width  = (u32)app->viewer_clip_rect.size.x,
