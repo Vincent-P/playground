@@ -72,24 +72,24 @@ enum struct ImageExtension
 
 struct Image
 {
-	PixelFormat    format;
-	ImageExtension extension;
-	i32            width;
-	i32            height;
-	i32            depth;
-	i32            levels;
-	Vec<usize>     mip_offsets;
+	PixelFormat    format      = PixelFormat::R8G8B8A8_SRGB;
+	ImageExtension extension   = ImageExtension::PNG;
+	i32            width       = 0;
+	i32            height      = 0;
+	i32            depth       = 0;
+	i32            levels      = 0;
+	Vec<usize>     mip_offsets = {};
 
-	void       *impl_data; // ktxTexture* for libktx, u8* containing raw pixels for png
-	const void *pixels_data;
-	usize       data_size;
+	void       *impl_data   = nullptr; // ktxTexture* for libktx, u8* containing raw pixels for png
+	const void *pixels_data = nullptr;
+	usize       data_size   = 0;
 };
 
 struct RenderSample
 {
-	cross::Platform *platform;
-	cross::Window   *window;
-	Inputs           inputs;
+	cross::Platform *platform = nullptr;
+	cross::Window   *window   = nullptr;
+	Inputs           inputs   = {};
 
 	SimpleRenderer                  renderer;
 	Handle<vulkan::GraphicsProgram> ui_program;
@@ -98,12 +98,12 @@ struct RenderSample
 	Handle<vulkan::Image>           viewer_gpu_image_current;
 	Handle<vulkan::Image>           glyph_atlas;
 
-	Painter *painter;
+	Painter *painter = nullptr;
 
 	UiTheme ui_theme;
 	UiState ui_state;
 	Font    ui_font;
-	Rect    viewer_clip_rect;
+	Rect    viewer_clip_rect = {};
 
 	Image image;
 	bool  display_channels[4] = {true, true, true, false};
@@ -131,7 +131,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->window = cross::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
-	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd(), {});
+	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd());
 
 	auto *window   = app->window;
 	auto &renderer = app->renderer;
@@ -160,7 +160,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
 	exo::logger::info("DPI at creation: {}x{}\n", window->get_dpi_scale().x, window->get_dpi_scale().y);
 
-	app->ui_font = Font::from_file("C:\\Windows\\Fonts\\segoeui.ttf", 13);
+	app->ui_font = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
 
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
 	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->glyph_atlas);
@@ -243,7 +243,7 @@ static void display_ui(RenderSample *app)
 	app->painter->vertex_bytes_offset = 0;
 	ui_new_frame(app->ui_state);
 
-	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(app->window->size.x, app->window->size.y)};
+	auto fullscreen_rect = Rect{.position = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
 
 	const float menubar_height_margin = 8.0f;
 	const float menu_item_margin      = 12.0f;
@@ -331,7 +331,7 @@ static void display_ui(RenderSample *app)
 	app->window->set_cursor(static_cast<cross::Cursor>(app->ui_state.cursor));
 }
 
-static void render(RenderSample *app, bool has_resize)
+static void render(RenderSample *app)
 {
 	ZoneScoped;
 
@@ -345,11 +345,11 @@ static void render(RenderSample *app, bool has_resize)
 	auto glyph_atlas         = app->glyph_atlas;
 
 	auto *painter = app->painter;
-	graph.raw_pass([painter, glyph_atlas](RenderGraph &graph, PassApi &api, vulkan::ComputeWork &cmd) {
+	graph.raw_pass([painter, glyph_atlas](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 		Vec<VkBufferImageCopy> glyphs_to_upload;
 		painter->glyph_cache.process_events([&](const GlyphEvent &event, const GlyphImage *image, int2 pos) {
 			if (event.type == GlyphEvent::Type::New && image) {
-				auto [p_image, image_offset] = api.upload_buffer.allocate(api.device, image->data_size);
+				auto [p_image, image_offset] = api.upload_buffer.allocate(image->data_size);
 				std::memcpy(p_image, image->data, image->data_size);
 				auto copy = VkBufferImageCopy{
 					.bufferOffset = image_offset,
@@ -387,8 +387,7 @@ static void render(RenderSample *app, bool has_resize)
 	graph.graphic_pass(output,
 		[painter, output, ui_program](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {
 			ZoneScopedN("Painter");
-			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(api.device,
-				painter->vertex_bytes_offset,
+			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(painter->vertex_bytes_offset,
 				sizeof(TexturedRect) * sizeof(ColorRect));
 			std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
 
@@ -396,9 +395,9 @@ static void render(RenderSample *app, bool has_resize)
 			ASSERT(vert_offset % sizeof(ColorRect) == 0);
 			ASSERT(vert_offset % sizeof(Rect) == 0);
 
-			auto [p_indices, ind_offset] = api.dynamic_index_buffer.allocate(api.device,
-				painter->index_offset * sizeof(PrimitiveIndex),
-				sizeof(PrimitiveIndex));
+			auto [p_indices, ind_offset] =
+				api.dynamic_index_buffer.allocate(painter->index_offset * sizeof(PrimitiveIndex),
+					sizeof(PrimitiveIndex));
 			std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
 
 			PACKED(struct PainterOptions {
@@ -411,7 +410,7 @@ static void render(RenderSample *app, bool has_resize)
 			auto  output_size = graph.image_size(output);
 			auto *options     = reinterpret_cast<PainterOptions *>(
                 bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(PainterOptions)));
-			options->scale                     = float2(2.0) / float2(output_size.x, output_size.y);
+			options->scale                     = float2(2.0) / float2(int2(output_size.x, output_size.y));
 			options->translation               = float2(-1.0f, -1.0f);
 			options->vertices_descriptor_index = api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);
 			options->primitive_byte_offset     = static_cast<u32>(vert_offset);
@@ -495,6 +494,7 @@ static VkFormat to_vk(PixelFormat pformat)
 		return VK_FORMAT_BC5_UNORM_BLOCK;
 	default:
 		ASSERT(false);
+		return {};
 	}
 }
 
@@ -565,25 +565,6 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	while (!window->should_close()) {
 		window->poll_events();
-
-		bool has_resize = false;
-		for (const auto &event : window->events) {
-			switch (event.type) {
-			case exo::Event::KeyType: {
-				break;
-			}
-			case exo::Event::CharacterType: {
-				break;
-			}
-			case exo::Event::ResizeType: {
-				has_resize = true;
-				break;
-			}
-			default:
-				break;
-			}
-		}
-
 		inputs.process(window->events);
 
 		if (inputs.is_pressed(Action::QuitApp)) {
@@ -591,7 +572,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		}
 
 		display_ui(app);
-		render(app, has_resize);
+		render(app);
 
 		window->events.clear();
 

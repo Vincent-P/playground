@@ -64,8 +64,7 @@ struct Work
 
 	void begin();
 	void bind_global_set();
-	void bind_uniform_set(
-		const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, QueueType queue_type, u32 i_set = 2);
+	void bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, u32 i_set = 2);
 	void end();
 
 	void wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst);

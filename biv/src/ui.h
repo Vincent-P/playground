@@ -22,7 +22,7 @@ struct UiTheme
 	u32   splitter_color           = 0xFFE5E5E5;
 	u32   splitter_hover_color     = 0xFFD1D1D1;
 
-	Font *main_font;
+	Font *main_font = nullptr;
 };
 
 struct UiState
@@ -68,7 +68,9 @@ void ui_push_clip_rect(UiState &ui_state, u32 i_clip_rect);
 void ui_pop_clip_rect(UiState &ui_state);
 
 bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button);
-void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right);
-void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom);
+void ui_splitter_x(
+	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &left, Rect &right);
+void ui_splitter_y(
+	UiState &ui_state, const UiTheme &ui_theme, const Rect &view_rect, float &value, Rect &top, Rect &bottom);
 void ui_label(UiState &ui_state, const UiTheme &ui_theme, const UiLabel &label);
 void ui_rect(UiState &ui_state, const UiTheme &ui_theme, const UiRect &rect);

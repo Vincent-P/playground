@@ -27,7 +27,7 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 	return buf;
 }
 
-std::pair<void *, usize> RingBuffer::allocate(gfx::Device &device, usize len, usize alignment)
+std::pair<void *, usize> RingBuffer::allocate(usize len, usize alignment)
 {
 	u64 dist = static_cast<u64>(cursor - buffer_start) % alignment;
 	if (dist != 0) {
@@ -49,7 +49,7 @@ std::pair<void *, usize> RingBuffer::allocate(gfx::Device &device, usize len, us
 	auto *offset = cursor;
 	cursor += len;
 
-	ASSERT((offset - buffer_start) % alignment == 0);
+	ASSERT((offset - buffer_start) % static_cast<i64>(alignment) == 0);
 	return std::make_pair(offset, offset - buffer_start);
 }
 

@@ -31,12 +31,6 @@ enum struct Cursor : int
 	NotAllowed
 };
 
-struct Caret
-{
-	int2 position{0};
-	int2 size{0};
-};
-
 struct Window
 {
 	static Window *create(Platform *platform, exo::ScopeStack &scope, int2 size, const std::string_view title);
@@ -44,11 +38,6 @@ struct Window
 
 	void set_title(std::string_view new_title);
 	void poll_events();
-
-	// caret operations
-	void set_caret_pos(int2 pos);
-	void set_caret_size(int2 size);
-	void remove_caret();
 
 	// cursor operations
 	void set_cursor(Cursor cursor);
@@ -69,8 +58,7 @@ struct Window
 	bool        stop{false};
 	Cursor      current_cursor = Cursor::Arrow;
 
-	int2          mouse_position = {0.0f};
-	Option<Caret> caret{};
+	int2 mouse_position = int2{0, 0};
 
 	bool has_focus{false};
 	bool minimized{false};

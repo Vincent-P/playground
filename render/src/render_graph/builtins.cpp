@@ -26,7 +26,7 @@ Handle<TextureDesc> acquire_next_image(RenderGraph &graph, SwapchainPass &pass)
 			is_outdated = api.device.acquire_next_swapchain(self->surface);
 		}
 
-		graph.resources.screen_size = float2(self->surface.width, self->surface.height);
+		graph.resources.screen_size = float2(int2(self->surface.width, self->surface.height));
 		graph.resources.set_image(output, self->surface.images[self->surface.current_image]);
 		cmd.wait_for_acquired(self->surface, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
 	});
@@ -37,14 +37,14 @@ Handle<TextureDesc> acquire_next_image(RenderGraph &graph, SwapchainPass &pass)
 void present(RenderGraph &graph, SwapchainPass &pass, u64 signal_value)
 {
 	SwapchainPass *self = &pass;
-	graph.raw_pass([self, signal_value](RenderGraph &graph, PassApi &api, vulkan::ComputeWork &cmd) {
+	graph.raw_pass([self, signal_value](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 		cmd.barrier(self->surface.images[self->surface.current_image], vulkan::ImageUsage::Present);
 		cmd.end();
 		cmd.prepare_present(self->surface);
 
 		api.device.submit(cmd, std::span{&self->fence, 1}, std::span{&signal_value, 1});
 		self->i_frame += 1;
-		auto _is_outdated = api.device.present(self->surface, cmd);
+		api.device.present(self->surface, cmd);
 	});
 }
 

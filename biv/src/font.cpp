@@ -41,7 +41,7 @@ Font Font::from_file(const char *path, i32 size_in_pt, i32 face_index)
 	return res;
 }
 
-void freetype_rasterizer(Font &font, u32 glyph_id, GlyphImage &out_image, GlyphMetrics &out_metrics)
+void freetype_rasterizer(Font &font, u32 glyph_id, GlyphImage &out_image, GlyphMetrics & /*out_metrics*/)
 {
 	FT_Face face = hb_ft_font_get_face(font.hb_font);
 

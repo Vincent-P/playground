@@ -7,11 +7,11 @@
 
 namespace cross
 {
-MappedFile::MappedFile(MappedFile &&moved) { *this = std::move(moved); }
+MappedFile::MappedFile(MappedFile &&moved) noexcept { *this = std::move(moved); }
 
 MappedFile::~MappedFile() { this->close(); }
 
-MappedFile &MappedFile::operator=(MappedFile &&moved)
+MappedFile &MappedFile::operator=(MappedFile &&moved) noexcept
 {
 	if (this != &moved) {
 		base_addr = std::exchange(moved.base_addr, nullptr);

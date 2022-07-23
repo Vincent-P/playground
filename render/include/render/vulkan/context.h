@@ -17,8 +17,8 @@ struct ContextDescription
 
 struct Context
 {
-	VkInstance                                              instance;
-	Option<VkDebugUtilsMessengerEXT>                        debug_messenger;
+	VkInstance                                              instance        = VK_NULL_HANDLE;
+	Option<VkDebugUtilsMessengerEXT>                        debug_messenger = {};
 	exo::DynamicArray<PhysicalDevice, MAX_PHYSICAL_DEVICES> physical_devices;
 
 	/// --

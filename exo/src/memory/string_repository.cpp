@@ -19,9 +19,9 @@ StringRepository StringRepository::with_capacity(usize capacity)
 
 StringRepository::~StringRepository() { virtual_allocator::free(this->string_buffer); }
 
-StringRepository::StringRepository(StringRepository &&other) { *this = std::move(other); }
+StringRepository::StringRepository(StringRepository &&other) noexcept { *this = std::move(other); }
 
-StringRepository &StringRepository::operator=(StringRepository &&other)
+StringRepository &StringRepository::operator=(StringRepository &&other) noexcept
 {
 	this->offsets       = std::exchange(other.offsets, {});
 	this->string_buffer = std::exchange(other.string_buffer, nullptr);

@@ -23,14 +23,14 @@ struct RingBufferDescription
 
 struct RingBuffer
 {
-	std::string         name;
-	u32                 usage = 0;
-	Handle<gfx::Buffer> buffer;
-	usize               size;
+	std::string         name   = "unnamed";
+	u32                 usage  = 0;
+	Handle<gfx::Buffer> buffer = {};
+	usize               size   = 0;
 
-	u8 *cursor;
-	u8 *buffer_start;
-	u8 *buffer_end;
+	u8 *cursor       = nullptr;
+	u8 *buffer_start = nullptr;
+	u8 *buffer_end   = nullptr;
 
 	u32                        i_frame = 0;
 	exo::DynamicArray<u8 *, 3> frame_start; // keep track of the start of each frame
@@ -40,6 +40,6 @@ struct RingBuffer
 	// The alignment field is necessary to put different data structures inside the same buffer, and be able to index
 	// them from the returned offset The default value is 256 so that the returned offset can be used as a dynamic
 	// uniform buffer
-	std::pair<void *, usize> allocate(gfx::Device &device, usize len, usize subalignment = 256);
+	std::pair<void *, usize> allocate(usize len, usize subalignment = 256);
 	void                     start_frame();
 };

@@ -17,7 +17,6 @@ using uint  = unsigned int;
 using f32   = float;
 using f64   = double;
 
-constexpr inline u64   operator"" _K(unsigned long long value) { return value * 1000u; }
 constexpr inline u64   operator"" _KiB(unsigned long long value) { return value << 10; }
 constexpr inline u64   operator"" _MiB(unsigned long long value) { return value << 20; }
 constexpr inline u64   operator"" _GiB(unsigned long long value) { return value << 30; }

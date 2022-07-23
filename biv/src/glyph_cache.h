@@ -79,14 +79,12 @@ struct GlyphCache
 	template <typename Lambda> void process_events(Lambda fn) const
 	{
 		for (const auto &event : this->events) {
-			const GlyphImage   *image    = nullptr;
-			const GlyphMetrics *metrics  = nullptr;
-			int2                position = int2(0);
+			const GlyphImage *image    = nullptr;
+			int2              position = int2(0);
 			if (event.type == GlyphEvent::Type::New) {
 				const auto &entry = this->lru_cache.get(event.glyph_handle);
 				if (entry.allocator_id > -1) {
 					image    = &entry.image;
-					metrics  = &entry.metrics;
 					position = this->allocator.get(entry.allocator_id).pos;
 				}
 			}

@@ -22,11 +22,11 @@ struct StringRepository
 	~StringRepository();
 
 	// Move-only struct
-	StringRepository()                                         = default;
-	StringRepository(const StringRepository &other)            = delete;
+	StringRepository()                              = default;
+	StringRepository(const StringRepository &other) = delete;
 	StringRepository &operator=(const StringRepository &other) = delete;
-	StringRepository(StringRepository &&other);
-	StringRepository &operator=(StringRepository &&other);
+	StringRepository(StringRepository &&other) noexcept;
+	StringRepository &operator=(StringRepository &&other) noexcept;
 
 	const char *intern(std::string_view s);
 	bool        is_interned(std::string_view s);

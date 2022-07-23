@@ -21,7 +21,7 @@ struct SimpleRenderer
 	usize                   frame_count = 0;
 	float                   time        = 0.0;
 
-	static SimpleRenderer create(u64 window_handle, int2 window_size);
+	static SimpleRenderer create(u64 window_handle);
 	void                  destroy();
 
 	void                   render(Handle<TextureDesc> output, float dt);

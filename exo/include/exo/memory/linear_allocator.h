@@ -9,11 +9,11 @@ struct LinearAllocator
 public:
 	static LinearAllocator with_external_memory(void *p, usize len);
 
-	LinearAllocator()                                        = default;
-	LinearAllocator(const LinearAllocator &other)            = delete;
+	LinearAllocator()                             = default;
+	LinearAllocator(const LinearAllocator &other) = delete;
 	LinearAllocator &operator=(const LinearAllocator &other) = delete;
-	LinearAllocator(LinearAllocator &&other);
-	LinearAllocator &operator=(LinearAllocator &&other);
+	LinearAllocator(LinearAllocator &&other) noexcept;
+	LinearAllocator &operator=(LinearAllocator &&other) noexcept;
 
 	void                    *allocate(usize size);
 	template <typename T> T *allocate(usize nb_element)

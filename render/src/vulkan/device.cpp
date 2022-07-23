@@ -146,7 +146,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 		VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 		pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		pool_info.poolSizeCount              = exo::Array::len(pool_sizes);
+		pool_info.poolSizeCount              = static_cast<u32>(exo::Array::len(pool_sizes));
 		pool_info.pPoolSizes                 = pool_sizes;
 		pool_info.maxSets                    = 1024;
 
@@ -170,7 +170,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 		VkDescriptorSetLayoutCreateInfo desc_layout_info = {
 			.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.bindingCount = exo::Array::len(bindings),
+			.bindingCount = static_cast<u32>(exo::Array::len(bindings)),
 			.pBindings    = bindings,
 		};
 
@@ -184,7 +184,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		};
 
 		VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-		pipeline_layout_info.setLayoutCount             = exo::Array::len(layouts);
+		pipeline_layout_info.setLayoutCount             = static_cast<u32>(exo::Array::len(layouts));
 		pipeline_layout_info.pSetLayouts                = layouts;
 		pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
 		pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
@@ -217,7 +217,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	return device;
 }
 
-void Device::destroy(const Context &context)
+void Device::destroy(const Context & /*context*/)
 {
 	this->wait_idle();
 
@@ -260,8 +260,7 @@ void Device::update_globals() { update_bindless_set(*this, global_sets.bindless)
 
 const DynamicBufferDescriptor &Device::find_or_create_uniform_descriptor(Handle<Buffer> buffer_handle, usize size)
 {
-	for (u32 i = 0; i < global_sets.uniform_descriptors.size(); ++i) {
-		const auto &descriptor = global_sets.uniform_descriptors[i];
+	for (const auto &descriptor : global_sets.uniform_descriptors) {
 		if (descriptor.buffer == buffer_handle && descriptor.size == size) {
 			return descriptor;
 		}

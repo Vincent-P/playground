@@ -7,7 +7,7 @@
 
 namespace vulkan
 {
-Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsState &graphics_state)
+Handle<GraphicsProgram> Device::create_program(std::string_view name, const GraphicsState &graphics_state)
 {
 	VkPipelineCacheCreateInfo cache_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
 	VkPipelineCache           cache      = VK_NULL_HANDLE;
@@ -19,7 +19,7 @@ Handle<GraphicsProgram> Device::create_program(std::string name, const GraphicsS
 		create_renderpass(*this, graphics_state.attachments_format, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
 
 	return graphics_programs.add({
-		.name           = name,
+		.name           = std::string{name},
 		.graphics_state = graphics_state,
 		.cache          = cache,
 		.renderpass     = renderpass.vkhandle,
@@ -97,7 +97,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	Vec<VkPipelineColorBlendAttachmentState> att_states;
 	att_states.reserve(program.graphics_state.attachments_format.attachments_format.size());
 
-	for (const auto &color_attachment : program.graphics_state.attachments_format.attachments_format) {
+	for (usize i_color = 0; i_color < program.graphics_state.attachments_format.attachments_format.size(); ++i_color) {
 		att_states.emplace_back();
 		auto &state = att_states.back();
 		state.colorWriteMask =

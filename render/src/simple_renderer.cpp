@@ -4,7 +4,7 @@
 
 #include <exo/logger.h>
 
-SimpleRenderer SimpleRenderer::create(u64 window_handle, int2 window_size)
+SimpleRenderer SimpleRenderer::create(u64 window_handle)
 {
 	SimpleRenderer renderer;
 	renderer.context = vulkan::Context::create({.enable_validation = true});

@@ -40,7 +40,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto *window = cross::Window::create(platform, global_scope, {1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
-	auto renderer = SimpleRenderer::create(window->get_win32_hwnd(), {});
+	auto renderer = SimpleRenderer::create(window->get_win32_hwnd());
 #else
 	int X = 0;
 #endif
@@ -48,23 +48,6 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	while (!window->should_close()) {
 		window->poll_events();
-
-		for (const auto &event : window->events) {
-			switch (event.type) {
-			case exo::Event::KeyType: {
-				break;
-			}
-			case exo::Event::CharacterType: {
-				break;
-			}
-			case exo::Event::ResizeType: {
-				break;
-			}
-			default: {
-				break;
-			}
-			}
-		}
 		window->events.clear();
 
 		// -- Render
@@ -76,7 +59,7 @@ int main(int /*argc*/, char ** /*argv*/)
 				.size = TextureSize::screen_relative(float2(1.0, 1.0)),
 			});
 			renderer.render_graph.graphic_pass(intermediate_buffer,
-				[](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {});
+				[](RenderGraph & /*graph*/, PassApi & /*api*/, vulkan::GraphicsWork & /*cmd*/) {});
 			renderer.render(intermediate_buffer, 1.0);
 		}
 #else

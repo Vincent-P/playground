@@ -18,13 +18,11 @@ set(SOURCE_FILES
   include/exo/macros/packed.h
 
   include/exo/memory/buddy_allocator.h
-  include/exo/memory/free_list.h
   include/exo/memory/linear_allocator.h
   include/exo/memory/scope_stack.h
   include/exo/memory/string_repository.h
   include/exo/memory/virtual_allocator.h
   src/memory/buddy_allocator.cpp
-  src/memory/free_list.cpp
   src/memory/linear_allocator.cpp
   src/memory/scope_stack.cpp
   src/memory/string_repository.cpp

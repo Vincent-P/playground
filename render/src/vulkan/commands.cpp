@@ -49,8 +49,7 @@ void Work::begin()
 	}
 }
 
-void Work::bind_uniform_set(
-	const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, QueueType queue_type, u32 i_set /*= 2*/)
+void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, u32 i_set /*= 2*/)
 {
 	VkPipelineBindPoint bindpoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	if (queue_type == QueueType::Compute) {

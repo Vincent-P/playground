@@ -6,6 +6,7 @@
 #include "render/vulkan/physical_device.h"
 #include "render/vulkan/synchronization.h"
 
+#include <string_view>
 #include <volk.h>
 
 VK_DEFINE_HANDLE(VmaAllocator);
@@ -36,34 +37,34 @@ enum BuiltinSampler
 
 struct GlobalDescriptorSets
 {
-	VkDescriptorPool             uniform_descriptor_pool;
-	VkDescriptorSetLayout        uniform_layout;
-	BindlessSet                  bindless;
-	VkPipelineLayout             pipeline_layout;
-	Vec<DynamicBufferDescriptor> uniform_descriptors;
+	VkDescriptorPool             uniform_descriptor_pool = VK_NULL_HANDLE;
+	VkDescriptorSetLayout        uniform_layout          = VK_NULL_HANDLE;
+	BindlessSet                  bindless                = {};
+	VkPipelineLayout             pipeline_layout         = VK_NULL_HANDLE;
+	Vec<DynamicBufferDescriptor> uniform_descriptors     = {};
 };
 
 struct PushConstantLayout
 {
-	usize size;
+	usize size = 0;
 };
 
 struct DeviceDescription
 {
-	const PhysicalDevice *physical_device;
-	PushConstantLayout    push_constant_layout;
-	bool                  buffer_device_address;
+	const PhysicalDevice *physical_device       = nullptr;
+	PushConstantLayout    push_constant_layout  = {};
+	bool                  buffer_device_address = false;
 };
 
 struct Device
 {
-	DeviceDescription desc;
-	VkDevice          device = VK_NULL_HANDLE;
-	PhysicalDevice    physical_device;
+	DeviceDescription desc                = {};
+	VkDevice          device              = VK_NULL_HANDLE;
+	PhysicalDevice    physical_device     = {};
 	u32               graphics_family_idx = u32_invalid;
 	u32               compute_family_idx  = u32_invalid;
 	u32               transfer_family_idx = u32_invalid;
-	VmaAllocator      allocator;
+	VmaAllocator      allocator           = VK_NULL_HANDLE;
 
 	PushConstantLayout   push_constant_layout;
 	GlobalDescriptorSets global_sets;
@@ -111,7 +112,7 @@ struct Device
 	void           destroy_shader(Handle<Shader> shader_handle);
 
 	// Graphics Pipeline
-	Handle<GraphicsProgram> create_program(std::string name, const GraphicsState &graphics_state);
+	Handle<GraphicsProgram> create_program(std::string_view name, const GraphicsState &graphics_state);
 	void                    destroy_program(Handle<GraphicsProgram> program_handle);
 	u32  compile_graphics_state(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
 	void compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, usize i_pipeline);
@@ -125,7 +126,7 @@ struct Device
 
 	// Compute pipeline
 	void                   recreate_program_internal(ComputeProgram &compute_program);
-	Handle<ComputeProgram> create_program(std::string name, const ComputeState &compute_state);
+	Handle<ComputeProgram> create_program(std::string_view name, const ComputeState &compute_state);
 	void                   destroy_program(Handle<ComputeProgram> program_handle);
 
 	// Resources

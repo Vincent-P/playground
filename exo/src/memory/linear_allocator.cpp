@@ -15,9 +15,9 @@ LinearAllocator LinearAllocator::with_external_memory(void *p, usize len)
 	return result;
 }
 
-LinearAllocator::LinearAllocator(LinearAllocator &&other) { *this = std::move(other); }
+LinearAllocator::LinearAllocator(LinearAllocator &&other) noexcept { *this = std::move(other); }
 
-LinearAllocator &LinearAllocator::operator=(LinearAllocator &&other)
+LinearAllocator &LinearAllocator::operator=(LinearAllocator &&other) noexcept
 {
 	this->ptr = std::exchange(other.ptr, nullptr);
 	this->end = std::exchange(other.end, nullptr);

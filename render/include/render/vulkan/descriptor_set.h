@@ -31,12 +31,12 @@ struct BindlessSet
 	VkDescriptorSetLayout vklayout = VK_NULL_HANDLE;
 	VkDescriptorSet       vkset    = VK_NULL_HANDLE;
 
-	Vec<Handle<Image>>  sampler_images;
-	Vec<Handle<Image>>  storage_images;
-	Vec<Handle<Buffer>> storage_buffers;
-	PerSet<Vec<u32>>    free_list      = {};
-	PerSet<Vec<u32>>    pending_bind   = {};
-	PerSet<Vec<u32>>    pending_unbind = {};
+	Vec<Handle<Image>>  sampler_images  = {};
+	Vec<Handle<Image>>  storage_images  = {};
+	Vec<Handle<Buffer>> storage_buffers = {};
+	PerSet<Vec<u32>>    free_list       = {};
+	PerSet<Vec<u32>>    pending_bind    = {};
+	PerSet<Vec<u32>>    pending_unbind  = {};
 };
 
 BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 image_count, u32 buffer_count);

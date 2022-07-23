@@ -17,11 +17,11 @@ struct MappedFile
 
 	MappedFile()                         = default;
 	MappedFile(const MappedFile &copied) = delete;
-	MappedFile(MappedFile &&moved);
+	MappedFile(MappedFile &&moved) noexcept;
 	~MappedFile();
 
 	MappedFile &operator=(const MappedFile &copied) = delete;
-	MappedFile &operator=(MappedFile &&moved);
+	MappedFile &operator                            =(MappedFile &&moved) noexcept;
 
 	static Option<MappedFile> open(const std::string_view &path);
 	void                      close();

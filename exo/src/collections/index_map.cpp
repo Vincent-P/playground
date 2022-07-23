@@ -4,8 +4,6 @@
 
 namespace exo
 {
-namespace
-{
 inline constexpr uint GROWTH_FACTOR = 2;
 
 inline constexpr uint MAX_LOAD_FACTOR_NUMERATOR   = 2;
@@ -16,7 +14,7 @@ inline constexpr u64 UNUSED    = 0xffffffffffffffff;
 
 constexpr bool is_empty(u64 key) { return key == TOMBSTONE || key == UNUSED; }
 
-u64 find_element(u64 hash, u64 *keys, usize capacity)
+static u64 find_element(const u64 hash, const u64 *keys, const usize capacity)
 {
 	ASSERT(keys != nullptr && capacity > 0);
 
@@ -34,7 +32,7 @@ u64 find_element(u64 hash, u64 *keys, usize capacity)
 	return i % capacity;
 }
 
-u64 find_free_slot(u64 hash, u64 *keys, usize capacity)
+static u64 find_free_slot(const u64 hash, const u64 *keys, const usize capacity)
 {
 	ASSERT(keys != nullptr && capacity > 0);
 
@@ -51,8 +49,6 @@ u64 find_free_slot(u64 hash, u64 *keys, usize capacity)
 
 	return i % capacity;
 }
-
-}; // namespace
 
 IndexMap IndexMap::with_capacity(u64 _capacity)
 {
@@ -78,9 +74,9 @@ IndexMap::~IndexMap()
 	free(this->values);
 }
 
-IndexMap::IndexMap(IndexMap &&other) { *this = std::move(other); }
+IndexMap::IndexMap(IndexMap &&other) noexcept { *this = std::move(other); }
 
-IndexMap &IndexMap::operator=(IndexMap &&other)
+IndexMap &IndexMap::operator=(IndexMap &&other) noexcept
 {
 	this->keys     = std::exchange(other.keys, nullptr);
 	this->values   = std::exchange(other.values, nullptr);

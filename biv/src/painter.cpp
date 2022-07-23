@@ -13,13 +13,10 @@
 #include <hb-ft.h>
 #include <hb.h>
 
-namespace
-{
 static u32 get_a(const u32 color) { return color & 0xFF000000; }
 static u32 get_r(const u32 color) { return color & 0x000000FF; }
 static u32 get_g(const u32 color) { return color & 0x0000FF00; }
 static u32 get_b(const u32 color) { return color & 0x00FF0000; }
-} // namespace
 
 Painter *painter_allocate(
 	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size)

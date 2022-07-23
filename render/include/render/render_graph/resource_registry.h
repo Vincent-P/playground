@@ -65,7 +65,7 @@ struct ResourceRegistry
 	float2                                         screen_size = float2(1.0);
 	u64                                            i_frame     = 0;
 
-	void begin_frame(vulkan::Device &device, u64 i_frame);
+	void begin_frame(vulkan::Device &device, u64 frame);
 	void end_frame();
 
 	void                  set_image(Handle<TextureDesc> desc_handle, Handle<vulkan::Image> image_handle);

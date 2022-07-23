@@ -6,15 +6,15 @@ struct GlyphMetrics;
 
 struct FontMetrics
 {
-	i32 height;
-	i32 ascender;
-	i32 descender;
+	i32 height    = 0;
+	i32 ascender  = 0;
+	i32 descender = 0;
 };
 
 struct Font
 {
 	hb_font_t  *hb_font = nullptr;
-	FontMetrics metrics;
+	FontMetrics metrics = {};
 
 	static Font from_file(const char *path, i32 size_in_pt, i32 face_index = 0);
 };

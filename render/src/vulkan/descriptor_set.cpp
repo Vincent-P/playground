@@ -37,7 +37,7 @@ DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> 
 		},
 	};
 
-	vkUpdateDescriptorSets(device.device, exo::Array::len(writes), writes, 0, nullptr);
+	vkUpdateDescriptorSets(device.device, static_cast<u32>(exo::Array::len(writes)), writes, 0, nullptr);
 
 	return DynamicBufferDescriptor{
 		.buffer = buffer_handle,
@@ -65,7 +65,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 
 	VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 	pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-	pool_info.poolSizeCount              = exo::Array::len(pool_sizes);
+	pool_info.poolSizeCount              = static_cast<u32>(exo::Array::len(pool_sizes));
 	pool_info.pPoolSizes                 = pool_sizes;
 	pool_info.maxSets                    = 3;
 
@@ -100,7 +100,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 
 	VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {
 		.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-		.bindingCount  = exo::Array::len(bindings),
+		.bindingCount  = static_cast<u32>(exo::Array::len(bindings)),
 		.pBindingFlags = flags,
 	};
 
@@ -108,7 +108,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 		.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.pNext        = &flags_info,
 		.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
-		.bindingCount = exo::Array::len(bindings),
+		.bindingCount = static_cast<u32>(exo::Array::len(bindings)),
 		.pBindings    = bindings,
 	};
 

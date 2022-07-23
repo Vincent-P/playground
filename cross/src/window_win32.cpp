@@ -20,8 +20,6 @@ using namespace exo;
 namespace cross
 {
 
-namespace
-{
 struct WindowWin32
 {
 	HWND      wnd           = nullptr;
@@ -58,7 +56,7 @@ static void update_key_state(Window &window, VirtualKey key)
 		if (old) {
 			state = ButtonState::Released;
 		}
-		window.events.push_back({Event::KeyType, events::Key{.key = key, .state = state}});
+		window.events.push_back({Event::KeyType, {events::Key{.key = key, .state = state}}});
 	}
 }
 
@@ -85,7 +83,6 @@ static void poll_events_fiber(void *window)
 		SwitchToFiber(main_fiber);
 	}
 }
-} // namespace
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -158,36 +155,6 @@ void Window::set_title(std::string_view new_title)
 
 void Window::poll_events() { SwitchToFiber(impl(*this).polling_fiber); }
 
-void Window::set_caret_pos(int2 pos)
-{
-	if (!caret) {
-		caret.emplace<Caret>({});
-	}
-	caret->position = pos;
-
-	DestroyCaret();
-
-	auto wnd = impl(*this).wnd;
-
-	CreateCaret(wnd, (HBITMAP) nullptr, caret->size.x, caret->size.y);
-	SetCaretPos(caret->position.x, caret->position.y);
-	ShowCaret(wnd);
-}
-
-void Window::set_caret_size(int2 size)
-{
-	if (!caret) {
-		caret.emplace<Caret>({});
-	}
-	caret->size = size;
-}
-
-void Window::remove_caret()
-{
-	DestroyCaret();
-	caret = std::nullopt;
-}
-
 void Window::set_cursor(Cursor cursor) { current_cursor = cursor; }
 
 // Window callback function (handles window messages)
@@ -224,19 +191,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	case WM_SETFOCUS: {
 		window.has_focus = true;
-
-		if (window.caret) {
-			CreateCaret(hwnd, (HBITMAP) nullptr, window.caret->size.x, window.caret->size.y);
-			SetCaretPos(window.caret->position.x, window.caret->position.y);
-			ShowCaret(hwnd);
-		}
-
 		return 0;
 	}
 
 	case WM_SETCURSOR: {
 		if (LOWORD(lParam) == HTCLIENT) {
-			LPTSTR win32_cursor = nullptr;
+			LPWSTR win32_cursor = nullptr;
 			switch (window.current_cursor) {
 			case Cursor::None:
 				break;
@@ -276,10 +236,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	case WM_KILLFOCUS: {
 		window.has_focus = false;
-		if (window.caret) {
-			DestroyCaret();
-		}
-
 		return 0;
 	}
 
@@ -317,7 +273,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				state = ButtonState::Released;
 			}
 
-			window.events.push_back({Event::KeyType, events::Key{.key = key, .state = state}});
+			window.events.push_back({Event::KeyType, {events::Key{.key = key, .state = state}}});
 			window.keys_pressed[key] = state == ButtonState::Pressed;
 		}
 		return 0;
@@ -342,7 +298,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		}
 		case 0x1B: {
 			// Process an escape.
-			window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\e"}});
 			break;
 		}
 		case 0x09: {
@@ -359,8 +314,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			// Process displayable characters.
 			static wchar_t buffer[3] = {0, 0, 0};
 
-			wchar_t codepoint = static_cast<wchar_t>(wParam);
-			bool    clear     = false;
+			auto codepoint = static_cast<wchar_t>(wParam);
+			bool clear     = false;
 
 			if (is_high_surrogate(codepoint)) {
 				buffer[0] = codepoint;

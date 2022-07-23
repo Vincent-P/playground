@@ -12,15 +12,15 @@ namespace exo
 {
 struct IndexMap
 {
-	static IndexMap with_capacity(u64 c);
+	static IndexMap with_capacity(u64 _capacity);
 	~IndexMap();
 
 	// Move-only struct
-	IndexMap()                                 = default;
-	IndexMap(const IndexMap &other)            = delete;
+	IndexMap()                      = default;
+	IndexMap(const IndexMap &other) = delete;
 	IndexMap &operator=(const IndexMap &other) = delete;
-	IndexMap(IndexMap &&other);
-	IndexMap &operator=(IndexMap &&other);
+	IndexMap(IndexMap &&other) noexcept;
+	IndexMap &operator=(IndexMap &&other) noexcept;
 
 	Option<u64> at(u64 hash);
 	void        insert(u64 hash, u64 index);

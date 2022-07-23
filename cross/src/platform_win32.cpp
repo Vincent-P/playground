@@ -32,7 +32,7 @@ Platform *platform_create(void *memory)
 	return platform;
 }
 
-void platform_destroy(Platform *platform) {}
+void platform_destroy(Platform * /*platform*/) {}
 
 void *platform_win32_get_main_fiber(Platform *platform) { return platform->main_fiber; }
 } // namespace cross

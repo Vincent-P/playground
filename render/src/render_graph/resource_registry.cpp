@@ -5,26 +5,26 @@
 #include <render/vulkan/framebuffer.h>
 #include <render/vulkan/image.h>
 
-void ResourceRegistry::begin_frame(vulkan::Device &device, u64 i_frame)
+void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 {
-	this->i_frame = i_frame;
+	this->i_frame = frame;
 
 	Vec<Handle<vulkan::Image>> img_to_remove;
 	for (auto [image_handle, metadata] : this->image_pool) {
 		// Unbind images from the bindless set unused for 18 frames
-		if ((metadata.last_frame_used + 18) < i_frame) {
+		if ((metadata.last_frame_used + 18) < this->i_frame) {
 			device.unbind_image(image_handle);
 		}
 
 		// Destroy images unused for 19 frames
-		if ((metadata.last_frame_used + 19) < i_frame) {
+		if ((metadata.last_frame_used + 19) < this->i_frame) {
 			img_to_remove.push_back(image_handle);
 		}
 	}
 
 	Vec<Handle<vulkan::Framebuffer>> fb_to_remove;
 	for (auto [fb_handle, last_frame_used] : this->framebuffer_pool) {
-		if (last_frame_used + 3 < i_frame) {
+		if (last_frame_used + 3 < this->i_frame) {
 			fb_to_remove.push_back(fb_handle);
 		}
 	}
@@ -123,6 +123,9 @@ int2 ResourceRegistry::texture_desc_handle_size(Handle<TextureDesc> desc_handle)
 		return texture_size.size.int2;
 	case TextureSizeType::ScreenRelative:
 		return int2(this->screen_size * texture_size.size.float2);
+	default:
+		ASSERT(false);
+		return {};
 	}
 }
 
