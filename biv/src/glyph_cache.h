@@ -1,12 +1,10 @@
 #pragma once
-#include <exo/collections/array.h>
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/vectors.h>
 #include <exo/option.h>
 
-#include "glyph_cache.h"
 #include "shelf_allocator.h"
 
 struct Font;
@@ -43,7 +41,7 @@ struct GlyphEvent
 // A glyph that is in the cache
 struct GlyphEntry
 {
-	i32          allocator_id;
+	AllocationId allocator_id;
 	GlyphId      glyph_id;
 	GlyphImage   image;
 	GlyphMetrics metrics;
@@ -83,7 +81,7 @@ struct GlyphCache
 			int2              position = int2(0);
 			if (event.type == GlyphEvent::Type::New) {
 				const auto &entry = this->lru_cache.get(event.glyph_handle);
-				if (entry.allocator_id > -1) {
+				if (entry.allocator_id.is_valid()) {
 					image    = &entry.image;
 					position = this->allocator.get(entry.allocator_id).pos;
 				}
@@ -94,5 +92,5 @@ struct GlyphCache
 	void clear_events();
 
 private:
-	i32 alloc_glyph(int2 alloc_size);
+	AllocationId alloc_glyph(int2 alloc_size);
 };

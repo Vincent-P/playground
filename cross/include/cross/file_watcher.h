@@ -7,7 +7,6 @@
 
 #if defined(PLATFORM_WINDOWS)
 #include <array>
-#include <basetsd.h> // win32 types
 #include <wtypes.h>  // HANDLE type
 #endif
 

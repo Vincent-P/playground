@@ -1,7 +1,6 @@
 #include "exo/macros/assert.h"
 
 #include <cstdio>
-#include <cstdlib>
 
 #if !defined(__PRETTY_FUNCTION__)
 #define __PRETTY_FUNCTION__ __FUNCTION__

@@ -1,15 +1,15 @@
 #pragma once
-#include <exo/collections/map.h>
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/vectors.h>
 
 // Simple implementation in JS: https://github.com/mapbox/shelf-pack
+
+using AllocationId = Handle<struct Allocation>;
 struct Allocation
 {
 	int2 pos      = int2(0);
 	int2 size     = int2(0);
-	i32  id       = 0;
 	i32  refcount = 0;
 };
 
@@ -29,16 +29,15 @@ struct Shelf
 struct ShelfAllocator
 {
 	int2 size = int2(0, 0);
-	i32  gen  = 0;
 
-	Vec<Shelf>                shelves;
-	exo::Map<i32, Allocation> allocations;
-	Vec<FreeAllocation>       freelist;
+	Vec<Shelf>            shelves;
+	exo::Pool<Allocation> allocations;
+	Vec<FreeAllocation>   freelist;
 
-	i32               alloc(int2 alloc_size);
-	const Allocation &get(i32 id) const;
+	AllocationId      alloc(int2 alloc_size);
+	const Allocation &get(AllocationId id) const;
 
-	void ref(i32 id);
+	void ref(AllocationId id);
 	// Returns true if the alloc has been freed
-	bool unref(i32 id);
+	bool unref(AllocationId id);
 };

@@ -4,7 +4,6 @@
 #include "exo/collections/vector.h"
 #include "exo/events.h"
 #include "exo/maths/vectors.h"
-#include "exo/option.h"
 
 #include <string>
 #include <string_view>

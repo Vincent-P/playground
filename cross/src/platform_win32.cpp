@@ -1,10 +1,5 @@
 #include "cross/platform.h"
 
-#include <exo/logger.h>
-#include <exo/macros/assert.h>
-
-#include "utils_win32.h"
-
 #include <windows.h>
 #include <winuser.h>
 

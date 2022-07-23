@@ -20,7 +20,7 @@ void Device::recreate_program_internal(ComputeProgram &program)
 	pipeline_info.layout                      = global_sets.pipeline_layout;
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
+	vk_check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
 
 	program.pipeline = pipeline;
 }
@@ -37,7 +37,7 @@ Handle<ComputeProgram> Device::create_program(std::string_view name, const Compu
 	pipeline_info.layout                      = global_sets.pipeline_layout;
 
 	VkPipeline pipeline = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
+	vk_check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
 
 	auto name_string = std::string{name};
 
@@ -46,7 +46,7 @@ Handle<ComputeProgram> Device::create_program(std::string_view name, const Compu
 		ni.objectHandle                  = reinterpret_cast<u64>(pipeline);
 		ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
 		ni.pObjectName                   = name_string.c_str();
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device, &ni));
 	}
 
 	return compute_programs.add({

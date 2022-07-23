@@ -6,12 +6,13 @@
 #include "cross/platform.h"
 #include "utils_win32.h"
 
+// clang-format off
 #include <windows.h> // needed before imm.h
-
 #include <imm.h>
 #include <string>
 #include <windowsx.h>
 #include <winuser.h>
+// clang-format on
 
 #pragma comment(lib, "imm32.lib")
 

@@ -1,10 +1,17 @@
 #include "render/vulkan/surface.h"
 
+#include <cross/window.h>
+#include <exo/collections/dynamic_array.h>
+
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
-#include <cross/window.h>
-#include <exo/collections/dynamic_array.h>
+
+#include <fmt/format.h>
+
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+#include <windows.h>
+#endif
 
 namespace vulkan
 {
@@ -18,38 +25,40 @@ Surface Surface::create(Context &context, Device &device, u64 window_handle)
 	VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 	sci.hwnd                        = reinterpret_cast<HWND>(window_handle);
 	sci.hinstance                   = GetModuleHandle(nullptr);
-	VK_CHECK(vkCreateWin32SurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
+	vk_check(vkCreateWin32SurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 	VkXcbSurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
 	sci.connection                = window.xcb.connection;
 	sci.window                    = window.xcb.window;
-	VK_CHECK(vkCreateXcbSurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
+	vk_check(vkCreateXcbSurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
+#else
+#error "Unknown platform."
 #endif
 
 	// Query support, needed before present
-	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
 		device.graphics_family_idx,
 		surface.surface,
 		&surface.present_queue_supported[QueueType::Graphics]));
-	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
 		device.compute_family_idx,
 		surface.surface,
 		&surface.present_queue_supported[QueueType::Compute]));
-	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.vkdevice,
 		device.transfer_family_idx,
 		surface.surface,
 		&surface.present_queue_supported[QueueType::Transfer]));
 
 	// Find a good present mode (by priority Mailbox then Immediate then FIFO)
 	u32 present_modes_count = 0;
-	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
 		surface.surface,
 		&present_modes_count,
 		nullptr));
 
 	exo::DynamicArray<VkPresentModeKHR, 8> present_modes = {};
 	present_modes.resize(present_modes_count);
-	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device.vkdevice,
 		surface.surface,
 		&present_modes_count,
 		present_modes.data()));
@@ -74,12 +83,12 @@ Surface Surface::create(Context &context, Device &device, u64 window_handle)
 	// Find the best format
 	uint                    formats_count = 0;
 	Vec<VkSurfaceFormatKHR> formats;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
 		surface.surface,
 		&formats_count,
 		nullptr));
 	formats.resize(formats_count);
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
+	vk_check(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
 		surface.surface,
 		&formats_count,
 		formats.data()));
@@ -111,7 +120,7 @@ void Surface::create_swapchain(Device &device)
 {
 	// Use default extent for the swapchain
 	VkSurfaceCapabilitiesKHR capabilities;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
+	vk_check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
 	if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0) {
 		return;
 	}
@@ -148,13 +157,13 @@ void Surface::create_swapchain(Device &device)
 	ci.presentMode              = this->present_mode;
 	ci.clipped                  = VK_TRUE;
 
-	VK_CHECK(vkCreateSwapchainKHR(device.device, &ci, nullptr, &this->swapchain));
+	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &this->swapchain));
 
 	uint images_count = 0;
-	VK_CHECK(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, nullptr));
+	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, nullptr));
 
 	Vec<VkImage> vkimages(images_count);
-	VK_CHECK(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
+	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	this->images.resize(images_count);
 	for (uint i_image = 0; i_image < images_count; i_image++) {
@@ -171,13 +180,13 @@ void Surface::create_swapchain(Device &device)
 	this->can_present_semaphores.resize(images_count);
 	for (auto &semaphore : this->can_present_semaphores) {
 		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	this->image_acquired_semaphores.resize(images_count);
 	for (auto &semaphore : this->image_acquired_semaphores) {
 		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }
 
@@ -205,7 +214,7 @@ void Surface::recreate_swapchain(Device &device)
 {
 	// Use default extent for the swapchain
 	VkSurfaceCapabilitiesKHR capabilities;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
+	vk_check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device.vkdevice, this->surface, &capabilities));
 	if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0) {
 		return;
 	}
@@ -234,14 +243,14 @@ void Surface::recreate_swapchain(Device &device)
 	ci.oldSwapchain             = this->swapchain;
 
 	VkSwapchainKHR new_swapchain;
-	VK_CHECK(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
+	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
 
 	vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = new_swapchain;
 
 	u32          images_count = static_cast<u32>(this->images.size());
 	Vec<VkImage> vkimages(images_count);
-	VK_CHECK(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
+	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	for (uint i_image = 0; i_image < images_count; i_image++) {
 		device.destroy_image(this->images[i_image]);
@@ -258,13 +267,13 @@ void Surface::recreate_swapchain(Device &device)
 	for (auto &semaphore : this->image_acquired_semaphores) {
 		vkDestroySemaphore(device.device, semaphore, nullptr);
 		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	for (auto &semaphore : this->can_present_semaphores) {
 		vkDestroySemaphore(device.device, semaphore, nullptr);
 		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		VK_CHECK(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }
 

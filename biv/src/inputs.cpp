@@ -5,15 +5,14 @@
 #include <cross/events.h>
 #include <exo/option.h>
 
-#include <ranges>
+#include <algorithm>
 
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }
 
 bool Inputs::is_pressed(Action action) const
 {
-	auto binding_it = bindings.find(action);
-	if (binding_it != bindings.end()) {
-		const auto &binding = binding_it->second;
+	if (bindings[action].has_value()) {
+		const auto &binding = this->bindings[action].value();
 		return std::ranges::all_of(binding.keys, [&](exo::VirtualKey key) { return is_pressed(key); }) &&
 		       std::ranges::all_of(binding.mouse_buttons, [&](exo::MouseButton button) { return is_pressed(button); });
 	}

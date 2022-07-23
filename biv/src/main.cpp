@@ -4,7 +4,6 @@
 #include <cross/window.h>
 #include <exo/buttons.h>
 
-#include <exo/collections/dynamic_array.h>
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 #include <exo/macros/defer.h>
@@ -26,10 +25,7 @@
 #include "ui.h"
 
 #include <Tracy.hpp>
-#include <array>
 #include <filesystem>
-#include <fmt/printf.h>
-#include <fstream>
 #include <spng.h>
 
 inline constexpr int2 GLYPH_ATLAS_RESOLUTION = int2(1024, 1024);

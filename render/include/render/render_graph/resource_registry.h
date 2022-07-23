@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/collections/handle.h>
-#include <exo/collections/map.h>
+#include <exo/collections/index_map.h>
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/vectors.h>
@@ -56,12 +56,21 @@ struct ImageMetadata
 	u64                 last_frame_used = 0;
 };
 
+struct FramebufferMetadata
+{
+	u64 last_frame_used = 0;
+};
+
 struct ResourceRegistry
 {
 	exo::Pool<TextureDesc>                         texture_descs;
-	exo::Map<Handle<vulkan::Image>, ImageMetadata> image_pool;
+	exo::Pool<ImageMetadata> image_metadatas;
+	exo::IndexMap image_pool;
+
 	Vec<Handle<vulkan::Framebuffer>>               framebuffers;
-	exo::Map<Handle<vulkan::Framebuffer>, u64>     framebuffer_pool;
+	exo::Pool<FramebufferMetadata> framebuffer_metadatas;
+	exo::IndexMap     framebuffer_pool;
+
 	float2                                         screen_size = float2(1.0);
 	u64                                            i_frame     = 0;
 

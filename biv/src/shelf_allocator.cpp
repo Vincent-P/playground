@@ -1,43 +1,36 @@
 #include "shelf_allocator.h"
 
-#include <exo/collections/array.h>
 #include <exo/macros/assert.h>
 
-static i32 shelf_alloc(ShelfAllocator &allocator, Shelf &shelf, int2 alloc_size, i32 id)
+static AllocationId shelf_alloc(ShelfAllocator &allocator, Shelf &shelf, int2 alloc_size)
 {
 	if (alloc_size.x > shelf.free) {
-		return -1;
+		return {};
 	}
 
-	Allocation alloc = {
+	shelf.free -= alloc_size.x;
+
+	return allocator.allocations.add({
 		.pos      = {shelf.size.x - shelf.free, shelf.y},
 		.size     = alloc_size,
-		.id       = id,
 		.refcount = 1,
-	};
-
-	shelf.free -= alloc_size.x;
-	allocator.allocations[id] = alloc;
-
-	return id;
+	});
 }
 
-static i32 freelist_alloc(ShelfAllocator &allocator, u32 i_freelist, int2 alloc_size, i32 id)
+static AllocationId freelist_alloc(ShelfAllocator &allocator, u32 i_freelist, int2 alloc_size)
 {
-	auto &new_alloc = allocator.freelist[i_freelist];
+	auto new_alloc = allocator.freelist[i_freelist];
+	exo::swap_remove(allocator.freelist, i_freelist);
+
 	ASSERT(new_alloc.capacity.x >= alloc_size.x);
 	ASSERT(new_alloc.capacity.y >= alloc_size.y);
-	new_alloc.alloc.id       = id;
 	new_alloc.alloc.refcount = 1;
 	new_alloc.alloc.size     = alloc_size;
-	return id;
+	return allocator.allocations.add(std::move(new_alloc.alloc));
 }
 
-i32 ShelfAllocator::alloc(int2 alloc_size)
+AllocationId ShelfAllocator::alloc(int2 alloc_size)
 {
-	i32 id = this->gen;
-	this->gen += 1;
-
 	i32 y               = 0;
 	u32 i_best_shelf    = u32_invalid;
 	u32 i_best_freelist = u32_invalid;
@@ -47,7 +40,7 @@ i32 ShelfAllocator::alloc(int2 alloc_size)
 	for (u32 i_freelist = 0; i_freelist < this->freelist.size(); ++i_freelist) {
 		const auto &freealloc = this->freelist[i_freelist];
 		if (alloc_size == freealloc.capacity) {
-			return freelist_alloc(*this, i_freelist, alloc_size, id);
+			return freelist_alloc(*this, i_freelist, alloc_size);
 		}
 
 		if (alloc_size.y > freealloc.capacity.y || alloc_size.x > freealloc.capacity.x) {
@@ -73,7 +66,7 @@ i32 ShelfAllocator::alloc(int2 alloc_size)
 		}
 
 		if (alloc_size.y == shelf.size.y) {
-			return shelf_alloc(*this, shelf, alloc_size, id);
+			return shelf_alloc(*this, shelf, alloc_size);
 		}
 
 		if (alloc_size.y > shelf.size.y) {
@@ -90,11 +83,11 @@ i32 ShelfAllocator::alloc(int2 alloc_size)
 	}
 
 	if (i_best_freelist != u32_invalid) {
-		return freelist_alloc(*this, i_best_freelist, alloc_size, id);
+		return freelist_alloc(*this, i_best_freelist, alloc_size);
 	}
 
 	if (i_best_shelf != u32_invalid) {
-		return shelf_alloc(*this, this->shelves[i_best_shelf], alloc_size, id);
+		return shelf_alloc(*this, this->shelves[i_best_shelf], alloc_size);
 	}
 
 	if (alloc_size.y < (this->size.y - y) && alloc_size.x < this->size.x) {
@@ -103,27 +96,27 @@ i32 ShelfAllocator::alloc(int2 alloc_size)
 			.y    = y,
 			.free = this->size.x,
 		});
-		return shelf_alloc(*this, this->shelves.back(), alloc_size, id);
+		return shelf_alloc(*this, this->shelves.back(), alloc_size);
 	}
 
-	return -1;
+	return {};
 }
 
-const Allocation &ShelfAllocator::get(i32 id) const { return this->allocations.at(id); }
+const Allocation &ShelfAllocator::get(AllocationId id) const { return this->allocations.get(id); }
 
-void ShelfAllocator::ref(i32 id)
+void ShelfAllocator::ref(AllocationId id)
 {
-	auto &alloc = this->allocations.at(id);
+	auto &alloc = this->allocations.get(id);
 	alloc.refcount += 1;
 }
 
-bool ShelfAllocator::unref(i32 id)
+bool ShelfAllocator::unref(AllocationId id)
 {
-	auto &alloc = this->allocations.at(id);
+	auto &alloc = this->allocations.get(id);
 	alloc.refcount -= 1;
 	if (alloc.refcount <= 0) {
 		this->freelist.push_back({.alloc = alloc, .capacity = alloc.size});
-		this->allocations.erase(id);
+		this->allocations.remove(id);
 		return true;
 	}
 	return false;

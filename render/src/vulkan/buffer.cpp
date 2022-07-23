@@ -4,6 +4,8 @@
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
+#include <vk_mem_alloc.h>
+
 namespace vulkan
 {
 Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
@@ -22,21 +24,21 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 	buffer_info.pQueueFamilyIndices   = nullptr;
 
 	VmaAllocationCreateInfo alloc_info{};
-	alloc_info.usage     = new_buffer.memory_usage;
+	alloc_info.usage     = VmaMemoryUsage(new_buffer.memory_usage);
 	alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
 	alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(new_buffer.name.c_str()));
 
 	VkBuffer      vkhandle   = VK_NULL_HANDLE;
 	VmaAllocation allocation = VK_NULL_HANDLE;
 
-	VK_CHECK(vmaCreateBuffer(allocator, &buffer_info, &alloc_info, &vkhandle, &allocation, nullptr));
+	vk_check(vmaCreateBuffer(allocator, &buffer_info, &alloc_info, &vkhandle, &allocation, nullptr));
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT name_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
 		name_info.objectHandle                  = reinterpret_cast<u64>(vkhandle);
 		name_info.objectType                    = VK_OBJECT_TYPE_BUFFER;
 		name_info.pObjectName                   = new_buffer.name.c_str();
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &name_info));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device, &name_info));
 	}
 
 	u64 gpu_address = 0;
@@ -77,7 +79,7 @@ void *Device::map_buffer(Handle<Buffer> buffer_handle)
 {
 	auto &buffer = buffers.get(buffer_handle);
 	if (!buffer.mapped) {
-		VK_CHECK(vmaMapMemory(allocator, buffer.allocation, &buffer.mapped));
+		vk_check(vmaMapMemory(allocator, buffer.allocation, &buffer.mapped));
 	}
 
 	return buffer.mapped;

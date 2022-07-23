@@ -1,8 +1,6 @@
 #pragma once
-#include "exo/macros/assert.h"
 #include "exo/maths/pointer.h"
 #include "exo/memory/linear_allocator.h"
-#include <new>
 #include <type_traits>
 
 namespace exo

@@ -72,7 +72,7 @@ RenderPass create_renderpass(Device &device, const FramebufferFormat &format, st
 	rp_info.pDependencies          = nullptr;
 
 	VkRenderPass vk_renderpass = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
+	vk_check(vkCreateRenderPass(device.device, &rp_info, nullptr, &vk_renderpass));
 
 	return {.vkhandle = vk_renderpass, .load_ops = load_ops};
 }
@@ -129,7 +129,7 @@ Handle<Framebuffer> Device::create_framebuffer(
 	fb_info.layers                  = static_cast<u32>(fb.format.size[2]);
 
 	fb.vkhandle = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateFramebuffer(device, &fb_info, nullptr, &fb.vkhandle));
+	vk_check(vkCreateFramebuffer(device, &fb_info, nullptr, &fb.vkhandle));
 
 	return framebuffers.add(std::move(fb));
 }

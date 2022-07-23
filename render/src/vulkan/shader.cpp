@@ -46,7 +46,7 @@ Handle<Shader> Device::create_shader(std::string_view path)
 	info.pCode                    = reinterpret_cast<const u32 *>(bytecode.data());
 
 	VkShaderModule vkhandle = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateShaderModule(device, &info, nullptr, &vkhandle));
+	vk_check(vkCreateShaderModule(device, &info, nullptr, &vkhandle));
 
 	return shaders.add({
 		.filename = std::string(path),

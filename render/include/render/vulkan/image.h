@@ -1,10 +1,9 @@
 #pragma once
 #include <exo/maths/vectors.h>
 
-#include "render/vulkan/operators.h"
+#include "render/vulkan/memory.h"
 #include "render/vulkan/queues.h"
 
-#include <vk_mem_alloc.h>
 #include <volk.h>
 
 // TODO interned strings
@@ -54,7 +53,7 @@ struct ImageDescription
 	VkFormat              format                                      = VK_FORMAT_R8G8B8A8_UNORM;
 	VkSampleCountFlagBits samples                                     = VK_SAMPLE_COUNT_1_BIT;
 	VkImageUsageFlags     usages                                      = sampled_image_usage;
-	VmaMemoryUsage        memory_usage                                = VMA_MEMORY_USAGE_GPU_ONLY;
+	MemoryUsage           memory_usage                                = MemoryUsage::GPU_ONLY;
 	bool                  operator==(const ImageDescription &b) const = default;
 };
 

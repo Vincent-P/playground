@@ -71,7 +71,7 @@ void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u
 void Work::end()
 {
 	ZoneScoped;
-	VK_CHECK(vkEndCommandBuffer(command_buffer));
+	vk_check(vkEndCommandBuffer(command_buffer));
 }
 
 void Work::wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst)
@@ -507,13 +507,13 @@ void Device::create_work_pool(WorkPool &work_pool)
 		.queueFamilyIndex = this->graphics_family_idx,
 	};
 
-	VK_CHECK(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.graphics().vk_handle));
+	vk_check(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.graphics().vk_handle));
 
 	pool_info.queueFamilyIndex = this->compute_family_idx;
-	VK_CHECK(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.compute().vk_handle));
+	vk_check(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.compute().vk_handle));
 
 	pool_info.queueFamilyIndex = this->transfer_family_idx;
-	VK_CHECK(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.transfer().vk_handle));
+	vk_check(vkCreateCommandPool(this->device, &pool_info, nullptr, &work_pool.transfer().vk_handle));
 }
 
 void Device::reset_work_pool(WorkPool &work_pool)
@@ -525,7 +525,7 @@ void Device::reset_work_pool(WorkPool &work_pool)
 			is_used = false;
 		}
 
-		VK_CHECK(vkResetCommandPool(this->device, command_pool.vk_handle, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
+		vk_check(vkResetCommandPool(this->device, command_pool.vk_handle, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
 	}
 }
 
@@ -545,7 +545,7 @@ void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
 	pool_info.queryType             = VK_QUERY_TYPE_TIMESTAMP;
 	pool_info.queryCount            = query_capacity;
 
-	VK_CHECK(vkCreateQueryPool(device, &pool_info, nullptr, &query_pool.vkhandle));
+	vk_check(vkCreateQueryPool(device, &pool_info, nullptr, &query_pool.vkhandle));
 
 	query_pool.capacity = query_capacity;
 }
@@ -604,7 +604,7 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
 		ai.commandPool                 = command_pool.vk_handle;
 		ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		ai.commandBufferCount          = 1;
-		VK_CHECK(vkAllocateCommandBuffers(device.device, &ai, &work.command_buffer));
+		vk_check(vkAllocateCommandBuffers(device.device, &ai, &work.command_buffer));
 
 		command_pool.command_buffers.push_back(work.command_buffer);
 		command_pool.command_buffers_is_used.push_back(true);
@@ -650,7 +650,7 @@ Fence Device::create_fence(u64 initial_value)
 	VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 	semaphore_info.pNext                 = &timeline_info;
 
-	VK_CHECK(vkCreateSemaphore(device, &semaphore_info, nullptr, &fence.timeline_semaphore));
+	vk_check(vkCreateSemaphore(device, &semaphore_info, nullptr, &fence.timeline_semaphore));
 
 	return fence;
 }
@@ -658,7 +658,7 @@ Fence Device::create_fence(u64 initial_value)
 u64 Device::get_fence_value(Fence &fence)
 {
 	ZoneScoped;
-	VK_CHECK(vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
+	vk_check(vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
 	return fence.value;
 }
 
@@ -669,7 +669,7 @@ void Device::set_fence_value(Fence &fence, u64 value)
 	signal_info.semaphore             = fence.timeline_semaphore;
 	signal_info.value                 = value;
 
-	VK_CHECK(vkSignalSemaphore(device, &signal_info));
+	vk_check(vkSignalSemaphore(device, &signal_info));
 }
 
 void Device::destroy_fence(Fence &fence)
@@ -728,7 +728,7 @@ void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<
 	submit_info.signalSemaphoreCount = static_cast<u32>(signal_list.size());
 	submit_info.pSignalSemaphores    = signal_list.data();
 
-	VK_CHECK(vkQueueSubmit(work.queue, 1, &submit_info, VK_NULL_HANDLE));
+	vk_check(vkQueueSubmit(work.queue, 1, &submit_info, VK_NULL_HANDLE));
 }
 
 bool Device::present(Surface &surface, Work &work)
@@ -746,7 +746,7 @@ bool Device::present(Surface &surface, Work &work)
 	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
 		return true;
 	} else {
-		VK_CHECK(res);
+		vk_check(res);
 	}
 
 	return false;
@@ -761,7 +761,7 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 	wait_info.semaphoreCount      = 1;
 	wait_info.pSemaphores         = &fence.timeline_semaphore;
 	wait_info.pValues             = &wait_value;
-	VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
+	vk_check(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
 void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64> wait_values)
@@ -780,13 +780,13 @@ void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64>
 	wait_info.semaphoreCount      = static_cast<u32>(fences.size());
 	wait_info.pSemaphores         = semaphores.data();
 	wait_info.pValues             = wait_values.data();
-	VK_CHECK(vkWaitSemaphores(device, &wait_info, timeout));
+	vk_check(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
 void Device::wait_idle()
 {
 	ZoneScoped;
-	VK_CHECK(vkDeviceWaitIdle(device));
+	vk_check(vkDeviceWaitIdle(device));
 }
 
 bool Device::acquire_next_swapchain(Surface &surface)
@@ -806,7 +806,7 @@ bool Device::acquire_next_swapchain(Surface &surface)
 	if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR) {
 		error = true;
 	} else {
-		VK_CHECK(res);
+		vk_check(res);
 	}
 
 	return error;

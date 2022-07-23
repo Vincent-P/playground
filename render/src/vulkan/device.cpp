@@ -39,12 +39,12 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 	/// --- Create the logical device
 	uint installed_device_extensions_count = 0;
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
+	vk_check(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
 		nullptr,
 		&installed_device_extensions_count,
 		nullptr));
 	Vec<VkExtensionProperties> installed_device_extensions(installed_device_extensions_count);
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
+	vk_check(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
 		nullptr,
 		&installed_device_extensions_count,
 		installed_device_extensions.data()));
@@ -116,7 +116,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	dci.ppEnabledExtensionNames = device_extensions.data();
 	dci.pEnabledFeatures        = nullptr;
 
-	VK_CHECK(vkCreateDevice(device.physical_device.vkdevice, &dci, nullptr, &device.device));
+	vk_check(vkCreateDevice(device.physical_device.vkdevice, &dci, nullptr, &device.device));
 	volkLoadDevice(device.device);
 
 	device.physical_device.features.pNext = nullptr;
@@ -136,7 +136,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	}
 	allocator_info.pVulkanFunctions = &vma_functions;
-	VK_CHECK(vmaCreateAllocator(&allocator_info, &device.allocator));
+	vk_check(vmaCreateAllocator(&allocator_info, &device.allocator));
 
 	/// --- Descriptor sets
 	{
@@ -150,7 +150,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		pool_info.pPoolSizes                 = pool_sizes;
 		pool_info.maxSets                    = 1024;
 
-		VK_CHECK(
+		vk_check(
 			vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_sets.uniform_descriptor_pool));
 
 		device.global_sets.bindless = create_bindless_set(device, 1024, 1024, 32 * 1024);
@@ -174,7 +174,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 			.pBindings    = bindings,
 		};
 
-		VK_CHECK(
+		vk_check(
 			vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_sets.uniform_layout));
 
 		VkDescriptorSetLayout layouts[] = {
@@ -189,7 +189,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
 		pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
 
-		VK_CHECK(
+		vk_check(
 			vkCreatePipelineLayout(device.device, &pipeline_layout_info, nullptr, &device.global_sets.pipeline_layout));
 	}
 
@@ -208,11 +208,11 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	sampler_info.maxLod              = 7;
 	sampler_info.maxAnisotropy       = 8.0f;
 	sampler_info.anisotropyEnable    = true;
-	VK_CHECK(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Default]));
+	vk_check(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Default]));
 
 	sampler_info.magFilter = VK_FILTER_NEAREST;
 	sampler_info.minFilter = VK_FILTER_NEAREST;
-	VK_CHECK(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Nearest]));
+	vk_check(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Nearest]));
 
 	return device;
 }

@@ -11,7 +11,7 @@ Handle<GraphicsProgram> Device::create_program(std::string_view name, const Grap
 {
 	VkPipelineCacheCreateInfo cache_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
 	VkPipelineCache           cache      = VK_NULL_HANDLE;
-	VK_CHECK(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
+	vk_check(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
 
 	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
@@ -201,14 +201,14 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	pipe_i.renderPass                   = program.renderpass;
 	pipe_i.subpass                      = 0;
 
-	VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &program.pipelines[i_pipeline]));
+	vk_check(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipe_i, nullptr, &program.pipelines[i_pipeline]));
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
 		ni.objectHandle                  = reinterpret_cast<u64>(program.pipelines[i_pipeline]);
 		ni.objectType                    = VK_OBJECT_TYPE_PIPELINE;
 		ni.pObjectName                   = program.name.c_str();
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device, &ni));
 	}
 }
 } // namespace vulkan

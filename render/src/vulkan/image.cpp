@@ -4,6 +4,9 @@
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
+#include <fmt/format.h>
+#include <vk_mem_alloc.h>
+
 namespace vulkan
 {
 
@@ -31,14 +34,14 @@ static ImageView create_image_view(Device &device,
 	vci.subresourceRange      = range;
 	vci.viewType              = type;
 
-	VK_CHECK(vkCreateImageView(device.device, &vci, nullptr, &view.vkhandle));
+	vk_check(vkCreateImageView(device.device, &vci, nullptr, &view.vkhandle));
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
 		ni.objectHandle                  = reinterpret_cast<u64>(view.vkhandle);
 		ni.objectType                    = VK_OBJECT_TYPE_IMAGE_VIEW;
 		ni.pObjectName                   = view.name.c_str();
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
 	}
 
 	view.sampled_idx = 0;
@@ -80,10 +83,10 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	} else {
 		VmaAllocationCreateInfo alloc_info{};
 		alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
-		alloc_info.usage     = image_desc.memory_usage;
+		alloc_info.usage     = VmaMemoryUsage(image_desc.memory_usage);
 		alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(image_desc.name.c_str()));
 
-		VK_CHECK(vmaCreateImage(allocator, &image_info, &alloc_info, &vkhandle, &allocation, nullptr));
+		vk_check(vmaCreateImage(allocator, &image_info, &alloc_info, &vkhandle, &allocation, nullptr));
 	}
 
 	if (vkSetDebugUtilsObjectNameEXT) {
@@ -91,7 +94,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 		ni.objectHandle                  = reinterpret_cast<u64>(vkhandle);
 		ni.objectType                    = VK_OBJECT_TYPE_IMAGE;
 		ni.pObjectName                   = image_desc.name.c_str();
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device, &ni));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device, &ni));
 	}
 
 	VkImageSubresourceRange full_range = {};
@@ -145,10 +148,7 @@ void Device::destroy_image(Handle<Image> image_handle)
 	images.remove(image_handle);
 }
 
-int3 Device::get_image_size(Handle<Image> image_handle)
-{
-	return this->images.get(image_handle).desc.size;
-}
+int3 Device::get_image_size(Handle<Image> image_handle) { return this->images.get(image_handle).desc.size; }
 
 u32 Device::get_image_sampled_index(Handle<Image> image_handle)
 {

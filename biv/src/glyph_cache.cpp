@@ -64,7 +64,7 @@ Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *i
 			const auto &glyph_entry = this->lru_cache.get(glyph_key.handle);
 			lru_cache_use(this->lru_cache, this->lru_head, glyph_key.handle);
 
-			if (glyph_entry.allocator_id == -1) {
+			if (!glyph_entry.allocator_id.is_valid()) {
 				return None;
 			}
 
@@ -82,9 +82,9 @@ Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *i
 	GlyphMetrics glyph_metrics = {};
 	this->rasterizer(font, glyph_id, glyph_image, glyph_metrics);
 
-	i32 alloc_id;
+	AllocationId alloc_id;
 	if (glyph_image.image_size.x == 0 || glyph_image.image_size.y == 0) {
-		alloc_id = -1;
+		alloc_id = AllocationId::invalid();
 	} else {
 		alloc_id = this->alloc_glyph(int2(glyph_image.image_size) + int2(2));
 	}
@@ -106,7 +106,7 @@ Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *i
 		.glyph_handle = new_glyph_handle,
 	});
 
-	if (alloc_id == -1) {
+	if (!alloc_id.is_valid()) {
 		return None;
 	}
 
@@ -118,11 +118,11 @@ Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *i
 	return Some(atlas_alloc.pos);
 }
 
-i32 GlyphCache::alloc_glyph(int2 alloc_size)
+AllocationId GlyphCache::alloc_glyph(int2 alloc_size)
 {
 	ASSERT(alloc_size.x > 0 && alloc_size.y > 0);
 	auto alloc_id = this->allocator.alloc(alloc_size);
-	while (alloc_id == -1) {
+	while (!alloc_id.is_valid()) {
 		// Evict the least recently used glyph
 		auto evicted_glyph_handle   = lru_cache_pop(this->lru_cache, this->lru_head);
 		auto evicted_glyph_alloc_id = this->lru_cache.get(evicted_glyph_handle).allocator_id;
@@ -136,7 +136,7 @@ i32 GlyphCache::alloc_glyph(int2 alloc_size)
 				break;
 			}
 		}
-		exo::vector_swap_remove(face_cache, i_glyph_key);
+		exo::swap_remove(face_cache, i_glyph_key);
 
 		// Deallocate it in the atlas
 		auto glyph_removed = this->allocator.unref(evicted_glyph_alloc_id);

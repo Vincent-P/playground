@@ -1,6 +1,5 @@
 #include "exo/memory/buddy_allocator.h"
 
-#include "exo/logger.h"
 #include "exo/macros/assert.h"
 #include <bit>
 

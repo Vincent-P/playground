@@ -4,13 +4,11 @@
 #include "glyph_cache.h"
 
 #include <cstring> // for std::memset
-#include <exo/collections/vector.h>
 #include <exo/macros/assert.h>
 #include <exo/memory/scope_stack.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <hb-ft.h>
 #include <hb.h>
 
 static u32 get_a(const u32 color) { return color & 0xFF000000; }

@@ -22,7 +22,7 @@ DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> 
 	set_info.descriptorSetCount          = 1;
 
 	VkDescriptorSet vkset = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateDescriptorSets(device.device, &set_info, &vkset));
+	vk_check(vkAllocateDescriptorSets(device.device, &set_info, &vkset));
 
 	VkDescriptorBufferInfo buffer_infos[] = {
 		{.buffer = buffer.vkhandle, .offset = 0, .range = range_size},
@@ -69,7 +69,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 	pool_info.pPoolSizes                 = pool_sizes;
 	pool_info.maxSets                    = 3;
 
-	VK_CHECK(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &bindless.vkpool));
+	vk_check(vkCreateDescriptorPool(device.device, &pool_info, nullptr, &bindless.vkpool));
 
 	VkDescriptorSetLayoutBinding bindings[] = {
 		{
@@ -112,20 +112,20 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 		.pBindings    = bindings,
 	};
 
-	VK_CHECK(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &bindless.vklayout));
+	vk_check(vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &bindless.vklayout));
 
 	VkDescriptorSetAllocateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	set_info.descriptorPool              = bindless.vkpool;
 	set_info.pSetLayouts                 = &bindless.vklayout;
 	set_info.descriptorSetCount          = 1;
-	VK_CHECK(vkAllocateDescriptorSets(device.device, &set_info, &bindless.vkset));
+	vk_check(vkAllocateDescriptorSets(device.device, &set_info, &bindless.vkset));
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
 		ni.objectHandle                  = reinterpret_cast<u64>(bindless.vkset);
 		ni.objectType                    = VK_OBJECT_TYPE_DESCRIPTOR_SET;
 		ni.pObjectName                   = "Bindless descriptor set";
-		VK_CHECK(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
+		vk_check(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
 	}
 
 	auto init_freelist = [](Vec<u32> &list, u32 count) {

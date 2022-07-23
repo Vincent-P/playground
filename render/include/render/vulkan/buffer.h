@@ -1,9 +1,9 @@
 #pragma once
-#include "render/vulkan/operators.h"
-#include "render/vulkan/queues.h"
+#include <exo/maths/numerics.h>
+
+#include "render/vulkan/memory.h"
 
 #include <string>
-#include <vk_mem_alloc.h>
 #include <volk.h>
 
 namespace vulkan
@@ -38,7 +38,7 @@ struct BufferAccess
 {
 	VkPipelineStageFlags stage  = 0;
 	VkAccessFlags        access = 0;
-	// queue?
+	// q	ueue?
 };
 
 struct BufferDescription
@@ -46,7 +46,7 @@ struct BufferDescription
 	std::string        name         = "No name";
 	usize              size         = 1;
 	VkBufferUsageFlags usage        = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	VmaMemoryUsage     memory_usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	MemoryUsage        memory_usage = MemoryUsage::GPU_ONLY;
 
 	bool operator==(const BufferDescription &b) const = default;
 };
@@ -55,7 +55,7 @@ struct Buffer
 {
 	BufferDescription desc;
 	VkBuffer          vkhandle;
-	VmaAllocation     allocation;
+	Allocation        allocation;
 	BufferUsage       usage = BufferUsage::None;
 	void             *mapped;
 	u64               gpu_address;

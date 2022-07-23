@@ -1,12 +1,9 @@
 #pragma once
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/handle.h>
-#include <exo/collections/vector.h>
-#include <exo/maths/numerics.h>
 #include <exo/option.h>
 
 #include "render/vulkan/framebuffer.h"
-#include "render/vulkan/operators.h"
 #include "render/vulkan/shader.h"
 
 #include <string>

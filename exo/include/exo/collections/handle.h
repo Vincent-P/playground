@@ -14,7 +14,6 @@ template <typename T> struct Handle
 	constexpr Handle &operator=(const Handle &other)        = default;
 	constexpr bool    operator==(const Handle &other) const = default;
 
-	[[nodiscard]] constexpr u32  value() const { return index; }
 	[[nodiscard]] constexpr bool is_valid() const { return index != u32_invalid && gen != u32_invalid; }
 
 private:
@@ -28,6 +27,7 @@ private:
 	template <typename T> friend struct ConstPoolIterator;
 	friend inline usize hash_value(const Handle<T> &h) { return _hash_handle(h.index, h.gen); }
 };
+	
 } // namespace exo
 
 using exo::Handle;

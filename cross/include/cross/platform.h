@@ -1,7 +1,5 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <exo/maths/vectors.h>
-#include <string_view>
 
 namespace exo
 {

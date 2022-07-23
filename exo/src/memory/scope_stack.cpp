@@ -1,5 +1,4 @@
 #include "exo/memory/scope_stack.h"
-#include "exo/logger.h"
 
 #include <utility>
 

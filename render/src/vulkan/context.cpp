@@ -1,7 +1,6 @@
 #include "render/vulkan/context.h"
 
 #include "render/vulkan/operators.h"
-#include "render/vulkan/physical_device.h"
 #include "render/vulkan/utils.h"
 #include <exo/memory/linear_allocator.h>
 
@@ -48,7 +47,7 @@ Context Context::create(const ContextDescription &desc)
 	Context ctx = {};
 
 	/// --- Load the vulkan dynamic libs
-	VK_CHECK(volkInitialize());
+	vk_check(volkInitialize());
 
 	/// --- Create Instance
 	exo::DynamicArray<const char *, 8> instance_extensions;
@@ -68,11 +67,11 @@ Context Context::create(const ContextDescription &desc)
 	instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 	uint layer_props_count = 0;
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
+	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
 
 	auto *installed_layers = reinterpret_cast<VkLayerProperties *>(
 		exo::tls_allocator.allocate(layer_props_count * sizeof(VkLayerProperties)));
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
+	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
 
 	u32 i_validation = u32_invalid;
 	for (u32 i_layer = 0; i_layer < layer_props_count; i_layer += 1) {
@@ -107,7 +106,7 @@ Context Context::create(const ContextDescription &desc)
 	create_info.enabledExtensionCount   = static_cast<uint32_t>(instance_extensions.size());
 	create_info.ppEnabledExtensionNames = instance_extensions.data();
 
-	VK_CHECK(vkCreateInstance(&create_info, nullptr, &ctx.instance));
+	vk_check(vkCreateInstance(&create_info, nullptr, &ctx.instance));
 	volkLoadInstance(ctx.instance);
 
 	/// --- Init debug layers
@@ -121,13 +120,13 @@ Context Context::create(const ContextDescription &desc)
 		ci.pfnUserCallback = debug_callback;
 
 		VkDebugUtilsMessengerEXT messenger;
-		VK_CHECK(vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
+		vk_check(vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
 		ctx.debug_messenger = messenger;
 	}
 
 	/// --- Enumerate devices
 	uint physical_devices_count = 0;
-	VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
+	vk_check(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
 	if (physical_devices_count > ctx.physical_devices.capacity()) {
 		exo::logger::info("There are {} physical devices, only the first {} are enabled.\n",
 			physical_devices_count,
@@ -136,7 +135,7 @@ Context Context::create(const ContextDescription &desc)
 
 	exo::DynamicArray<VkPhysicalDevice, MAX_PHYSICAL_DEVICES> vkphysical_devices;
 	vkphysical_devices.resize(physical_devices_count);
-	VK_CHECK(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, vkphysical_devices.data()));
+	vk_check(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, vkphysical_devices.data()));
 
 	ctx.physical_devices.resize(physical_devices_count);
 

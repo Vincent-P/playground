@@ -5,8 +5,6 @@
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/device.h"
 
-#include <vk_mem_alloc.h>
-
 RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &desc)
 {
 	RingBuffer buf;
@@ -16,7 +14,7 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 		.name         = buf.name,
 		.size         = desc.size,
 		.usage        = buf.usage,
-		.memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+		.memory_usage = vulkan::MemoryUsage::CPU_TO_GPU,
 	});
 
 	buf.frame_start.resize(desc.frame_queue_length + 1);

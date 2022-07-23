@@ -1,12 +1,12 @@
 set(SOURCE_FILES
 
   # vulkan
+  include/render/vulkan/memory.h
   include/render/vulkan/operators.h
   include/render/vulkan/physical_device.h
   include/render/vulkan/queries.h
   include/render/vulkan/queues.h
   include/render/vulkan/synchronization.h
-  include/render/vulkan/utils.h
   include/render/vulkan/buffer.h
   src/vulkan/buffer.cpp
   include/render/vulkan/commands.h
@@ -28,6 +28,8 @@ set(SOURCE_FILES
   src/vulkan/shader.cpp
   include/render/vulkan/framebuffer.h
   src/vulkan/framebuffer.cpp
+  include/render/vulkan/utils.h
+  src/vulkan/utils.cpp
 
   # render graph
   include/render/render_graph/resource_registry.h

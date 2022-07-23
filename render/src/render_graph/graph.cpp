@@ -4,8 +4,6 @@
 #include "render/vulkan/framebuffer.h"
 #include "render/vulkan/image.h"
 
-#include <exo/collections/array.h>
-
 void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 {
 	this->resources.begin_frame(api.device, this->i_frame);

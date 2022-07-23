@@ -16,6 +16,7 @@ constexpr bool is_empty(u64 key) { return key == TOMBSTONE || key == UNUSED; }
 
 static u64 find_element(const u64 hash, const u64 *keys, const usize capacity)
 {
+	// the map was not created with IndexMap::with_capacity
 	ASSERT(keys != nullptr && capacity > 0);
 
 	const u64 i_start = hash % capacity;
@@ -34,6 +35,7 @@ static u64 find_element(const u64 hash, const u64 *keys, const usize capacity)
 
 static u64 find_free_slot(const u64 hash, const u64 *keys, const usize capacity)
 {
+	// the map was not created with IndexMap::with_capacity
 	ASSERT(keys != nullptr && capacity > 0);
 
 	const u64 i_start = hash % capacity;
@@ -41,6 +43,7 @@ static u64 find_free_slot(const u64 hash, const u64 *keys, const usize capacity)
 
 	do {
 		const u64 key = keys[i % capacity];
+		ASSERT(key != hash);
 		if (is_empty(key)) {
 			break;
 		}
@@ -87,10 +90,14 @@ IndexMap &IndexMap::operator=(IndexMap &&other) noexcept
 
 Option<u64> IndexMap::at(u64 hash)
 {
+	if (this->capacity == 0) {
+		return None;
+	}
+
 	const u64 i = find_element(hash, this->keys, this->capacity);
 
 	if (is_empty(keys[i]) || keys[i] != hash) {
-		return std::nullopt;
+		return None;
 	}
 
 	return values[i];
@@ -137,6 +144,9 @@ void IndexMap::check_growth()
 		// fill new keys with previous keys
 		const u64 *keys_end = this->keys + this->capacity;
 		for (u64 *key = this->keys, *value = this->values; key < keys_end; key += 1, value += 1) {
+			if (is_empty(*key)) {
+				continue;
+			}
 			u64 i = find_free_slot(*key, new_keys, new_capacity);
 			ASSERT(is_empty(new_keys[i]));
 			new_keys[i]   = *key;
@@ -150,5 +160,38 @@ void IndexMap::check_growth()
 		this->keys     = new_keys;
 		this->values   = new_values;
 	}
+}
+
+IndexMapIterator::IndexMapIterator(const IndexMap *_map, u32 starting_index) : map{_map}, current_index{starting_index}
+{
+	this->goto_next_valid();
+}
+IndexMapIterator::Value IndexMapIterator::dereference() const
+{
+	ASSERT(this->current_index != u32_invalid);
+	return {map->keys[this->current_index], map->values[this->current_index]};
+}
+
+void IndexMapIterator::goto_next_valid()
+{
+	for (; this->current_index < map->capacity; ++this->current_index) {
+		if (!is_empty(map->keys[this->current_index])) {
+			break;
+		}
+	}
+	if (this->current_index == map->capacity) {
+		this->current_index = u32_invalid;
+	}
+}
+
+void IndexMapIterator::increment()
+{
+	this->current_index += 1;
+	this->goto_next_valid();
+}
+
+bool IndexMapIterator::equal_to(const IndexMapIterator &other) const
+{
+	return this->map == other.map && this->current_index == other.current_index;
 }
 } // namespace exo
