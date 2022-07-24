@@ -22,8 +22,8 @@ struct StringRepository
 	~StringRepository();
 
 	// Move-only struct
-	StringRepository()                              = default;
-	StringRepository(const StringRepository &other) = delete;
+	StringRepository()                                         = default;
+	StringRepository(const StringRepository &other)            = delete;
 	StringRepository &operator=(const StringRepository &other) = delete;
 	StringRepository(StringRepository &&other) noexcept;
 	StringRepository &operator=(StringRepository &&other) noexcept;

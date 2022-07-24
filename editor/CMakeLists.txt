@@ -1,8 +1,11 @@
 set(SOURCE_FILES
-  src/main.cpp
   src/app.cpp
+  src/app.h
+  src/main.cpp
+  src/renderer.cpp
+  src/renderer.h
 )
 
 add_executable(editor ${SOURCE_FILES})
 setup_app_target(editor)
-target_link_libraries(editor engine)
+target_link_libraries(editor PUBLIC engine)

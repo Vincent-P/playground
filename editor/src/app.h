@@ -1,43 +1,49 @@
 #pragma once
-#include <exo/prelude.h>
-
-#include <exo/os/file_watcher.h>
-#include <engine/inputs.h>
+#include "renderer.h"
+#include <cross/file_watcher.h>
+#include <engine/render_world.h>
 #include <engine/scene.h>
-#include <render/render_world.h>
+#include <gameplay/inputs.h>
 
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
-namespace exo {struct Platform;}
-namespace exo {struct Window;}
-namespace exo {struct ScopeStack;}
+namespace cross
+{
+struct Platform;
+}
+namespace cross
+{
+struct Window;
+}
+namespace exo
+{
+struct ScopeStack;
+}
 
 class App
 {
-  public:
-    static App *create(exo::ScopeStack &scope);
-    ~App();
+public:
+	static App *create(exo::ScopeStack &scope);
+	~App();
 
-    void run();
+	void run();
 
-  private:
-    void camera_update();
-    void display_ui();
+private:
+	void camera_update();
 
-	exo::Platform *platform;
-    exo::Window *window;
-    AssetManager  *asset_manager;
-    Renderer      *renderer;
+	cross::Platform *platform;
+	cross::Window   *window;
+	AssetManager    *asset_manager;
+	Renderer         renderer;
 
-    Inputs inputs;
+	Inputs inputs;
 
-    RenderWorld render_world;
+	RenderWorld render_world;
 
-    Scene scene;
+	Scene scene;
 
-    exo::FileWatcher watcher;
-    exo::Watch shaders_watch;
+	cross::FileWatcher watcher;
 
-    bool is_minimized;
+	bool is_minimized;
 };

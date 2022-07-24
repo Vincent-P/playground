@@ -69,7 +69,16 @@ function(SETUP_APP_TARGET TARGET)
   else()
 	message( FATAL_ERROR "Platform not supported." )
   endif()
-  target_compile_definitions(${TARGET} PRIVATE OUT_DIR="${CMAKE_BINARY_DIR}" TARGET_NAME="${TARGET}")
+
+  target_compile_definitions(${TARGET} PRIVATE
+    OUT_DIR="${CMAKE_BINARY_DIR}"
+    TARGET_NAME="${TARGET}"
+    $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
+    $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
+    $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
+    $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
+    $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
+  )
 endfunction()
 
 function(SETUP_THIRDPARTY_TARGET TARGET)
@@ -125,7 +134,11 @@ add_subdirectory(third_party)
 add_subdirectory(exo)
 add_subdirectory(cross)
 add_subdirectory(render)
-# add_subdirectory(engine)
-# add_subdirectory(editor)
+add_subdirectory(assets)
+add_subdirectory(gameplay)
+add_subdirectory(painter)
+add_subdirectory(ui)
+add_subdirectory(engine)
+add_subdirectory(editor)
 add_subdirectory(render_sample)
 add_subdirectory(biv)

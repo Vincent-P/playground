@@ -23,7 +23,6 @@ template <typename T> inline void vector_insert_unique(Vec<T> &vector, const T &
 
 template <typename T> inline void swap_remove(Vec<T> &vector, size_t i)
 {
-	ASSERT(vector.size() > 0);
 	if (vector.size() > 0) {
 		std::swap(vector[i], vector[vector.size() - 1]);
 	}

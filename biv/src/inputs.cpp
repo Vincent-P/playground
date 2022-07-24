@@ -1,10 +1,5 @@
 #include "inputs.h"
 
-#include "ui.h"
-
-#include <cross/events.h>
-#include <exo/option.h>
-
 #include <algorithm>
 
 void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }

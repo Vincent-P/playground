@@ -1,0 +1,4 @@
+X("Quit", QuitApp)
+X("Camera modifier", CameraModifier)
+X("Camera move", CameraMove)
+X("Camer orbit", CameraOrbit)

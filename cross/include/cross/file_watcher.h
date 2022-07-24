@@ -7,7 +7,7 @@
 
 #if defined(PLATFORM_WINDOWS)
 #include <array>
-#include <wtypes.h>  // HANDLE type
+#include <wtypes.h> // HANDLE type
 #endif
 
 namespace cross

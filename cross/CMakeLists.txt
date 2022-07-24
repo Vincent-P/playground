@@ -48,11 +48,4 @@ endif()
 
 add_library(cross STATIC ${SOURCE_FILES})
 setup_app_target(cross)
-target_link_libraries(cross PUBLIC ${OS_LIBS} exo)
-target_compile_definitions(cross PUBLIC
-  $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
-  $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
-  $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
-  $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
-  $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-  )
+target_link_libraries(cross PRIVATE ${OS_LIBS} exo)

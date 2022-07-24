@@ -63,16 +63,16 @@ struct FramebufferMetadata
 
 struct ResourceRegistry
 {
-	exo::Pool<TextureDesc>                         texture_descs;
+	exo::Pool<TextureDesc>   texture_descs;
 	exo::Pool<ImageMetadata> image_metadatas;
-	exo::IndexMap image_pool;
+	exo::IndexMap            image_pool;
 
-	Vec<Handle<vulkan::Framebuffer>>               framebuffers;
-	exo::Pool<FramebufferMetadata> framebuffer_metadatas;
-	exo::IndexMap     framebuffer_pool;
+	Vec<Handle<vulkan::Framebuffer>> framebuffers;
+	exo::Pool<FramebufferMetadata>   framebuffer_metadatas;
+	exo::IndexMap                    framebuffer_pool;
 
-	float2                                         screen_size = float2(1.0);
-	u64                                            i_frame     = 0;
+	float2 screen_size = float2(1.0);
+	u64    i_frame     = 0;
 
 	void begin_frame(vulkan::Device &device, u64 frame);
 	void end_frame();

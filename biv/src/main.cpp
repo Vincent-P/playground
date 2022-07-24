@@ -18,11 +18,12 @@
 #include <render/vulkan/image.h>
 #include <render/vulkan/pipelines.h>
 
-#include "font.h"
-#include "glyph_cache.h"
+#include "painter/font.h"
+#include "painter/glyph_cache.h"
+#include "painter/painter.h"
+#include "ui/ui.h"
+
 #include "inputs.h"
-#include "painter.h"
-#include "ui.h"
 
 #include <Tracy.hpp>
 #include <filesystem>
@@ -162,7 +163,6 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->glyph_atlas);
 
 	app->ui_state.painter   = app->painter;
-	app->ui_state.inputs    = &app->inputs;
 	app->ui_theme.main_font = &app->ui_font;
 
 	return app;
@@ -189,12 +189,12 @@ bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCh
 
 	if (ui_is_hovering(ui_state, checkbox.rect)) {
 		ui_state.focused = id;
-		if (ui_state.active == 0 && ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui_state.active == 0 && ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui_state.active = id;
 		}
 	}
 
-	if (!ui_state.inputs->mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
+	if (!ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
 		ui_state.active == id) {
 		result = !result;
 	}

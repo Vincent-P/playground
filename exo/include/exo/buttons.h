@@ -1,6 +1,6 @@
 #pragma once
-#include "exo/maths/numerics.h"
 #include "exo/collections/enum_array.h"
+#include "exo/maths/numerics.h"
 
 namespace exo
 {

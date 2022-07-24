@@ -27,7 +27,7 @@ private:
 	template <typename T> friend struct ConstPoolIterator;
 	friend inline usize hash_value(const Handle<T> &h) { return _hash_handle(h.index, h.gen); }
 };
-	
+
 } // namespace exo
 
 using exo::Handle;

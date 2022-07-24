@@ -30,7 +30,7 @@ template <typename T> struct Pool
 	explicit Pool(u32 _capacity);
 	~Pool();
 
-	Pool(const Pool &other) = delete;
+	Pool(const Pool &other)            = delete;
 	Pool &operator=(const Pool &other) = delete;
 
 	Pool(Pool &&other);

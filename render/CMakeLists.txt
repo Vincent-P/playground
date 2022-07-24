@@ -46,16 +46,12 @@ set(SOURCE_FILES
 
   include/render/simple_renderer.h
   src/simple_renderer.cpp
+
+  include/render/bindings.h
 )
 
 add_library(render STATIC ${SOURCE_FILES})
 setup_app_target(render)
 
-target_link_libraries(render PUBLIC exo cross volk vma)
-target_compile_definitions(render PUBLIC
-  $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
-  $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
-  $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
-  $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
-  $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-  )
+target_link_libraries(render PUBLIC exo cross volk)
+target_link_libraries(render PRIVATE vma)

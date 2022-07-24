@@ -9,8 +9,8 @@ struct LinearAllocator
 public:
 	static LinearAllocator with_external_memory(void *p, usize len);
 
-	LinearAllocator()                             = default;
-	LinearAllocator(const LinearAllocator &other) = delete;
+	LinearAllocator()                                        = default;
+	LinearAllocator(const LinearAllocator &other)            = delete;
 	LinearAllocator &operator=(const LinearAllocator &other) = delete;
 	LinearAllocator(LinearAllocator &&other) noexcept;
 	LinearAllocator &operator=(LinearAllocator &&other) noexcept;

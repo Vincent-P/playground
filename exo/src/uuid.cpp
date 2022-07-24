@@ -39,27 +39,27 @@ UUID UUID::create()
 	return new_uuid;
 }
 
-UUID UUID::from_string(const char *s, usize len)
+UUID UUID::from_string(std::string_view str)
 {
 	UUID new_uuid;
 
-	ASSERT(len == UUID::STR_LEN);
+	ASSERT(str.length() == UUID::STR_LEN);
 
 	// 83ce0c20-4bb21feb-e6957dbb-5fcc54d5
 	for (usize i = 0; i < UUID::STR_LEN; i += 1) {
 		if (i == 8 || i == 17 || i == 26) {
-			ASSERT(s[i] == '-');
+			ASSERT(str[i] == '-');
 		} else {
-			ASSERT(('0' <= s[i] && s[i] <= '9') || ('a' <= s[i] && s[i] <= 'f'));
+			ASSERT(('0' <= str[i] && str[i] <= '9') || ('a' <= str[i] && str[i] <= 'f'));
 		}
 
-		new_uuid.str[i] = s[i];
+		new_uuid.str[i] = str[i];
 	}
 
 	for (usize i_data = 0; i_data < 4; i_data += 1) {
 		// 0..8, 1..17, 18..26, 27..35
 		for (usize i = (i_data * 9); i < (i_data + 1) * 8 + i_data; i += 1) {
-			uint n                = static_cast<uint>(s[i] >= 'a' ? s[i] - 'a' + 10 : s[i] - '0');
+			uint n                = static_cast<uint>(str[i] >= 'a' ? str[i] - 'a' + 10 : str[i] - '0');
 			new_uuid.data[i_data] = new_uuid.data[i_data] * 16 + n;
 		}
 	}
