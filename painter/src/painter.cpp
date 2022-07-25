@@ -41,6 +41,8 @@ Painter *painter_allocate(
 
 void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture)
 {
+	ASSERT(texture != u32_invalid);
+
 	auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
 	if (misalignment != 0) {
 		painter.vertex_bytes_offset += sizeof(TexturedRect) - misalignment;

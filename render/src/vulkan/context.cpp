@@ -3,6 +3,7 @@
 #include "render/vulkan/operators.h"
 #include "render/vulkan/utils.h"
 #include <exo/memory/linear_allocator.h>
+#include <exo/memory/scope_stack.h>
 
 #include "vulkan/vulkan_core.h"
 #include <exo/collections/dynamic_array.h>
@@ -69,8 +70,8 @@ Context Context::create(const ContextDescription &desc)
 	uint layer_props_count = 0;
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
 
-	auto *installed_layers = reinterpret_cast<VkLayerProperties *>(
-		exo::tls_allocator.allocate(layer_props_count * sizeof(VkLayerProperties)));
+	auto  allocator_scope  = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+	auto *installed_layers = reinterpret_cast<VkLayerProperties *>(allocator_scope.allocate(layer_props_count * sizeof(VkLayerProperties)));
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
 
 	u32 i_validation = u32_invalid;

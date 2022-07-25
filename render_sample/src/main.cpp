@@ -59,6 +59,7 @@ int main(int /*argc*/, char ** /*argv*/)
 				.size = TextureSize::screen_relative(float2(1.0, 1.0)),
 			});
 			renderer.render_graph.graphic_pass(intermediate_buffer,
+				Handle<TextureDesc>::invalid(),
 				[](RenderGraph & /*graph*/, PassApi & /*api*/, vulkan::GraphicsWork & /*cmd*/) {});
 			renderer.render(intermediate_buffer, 1.0);
 		}

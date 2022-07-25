@@ -1,0 +1,93 @@
+#include "custom_ui.h"
+
+#include "ui.h"
+
+#include <exo/collections/array.h>
+#include <painter/painter.h>
+
+#include <algorithm>
+#include <cmath>
+#include <fmt/format.h>
+
+namespace custom_ui
+{
+static float3 turbo_colormap(float x)
+{
+	const float4 kRedFloat4   = float4(0.13572138, 4.61539260, -42.66032258, 132.13108234);
+	const float4 kGreenFloat4 = float4(0.09140261, 2.19418839, 4.84296658, -14.18503333);
+	const float4 kBlueFloat4  = float4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+	const float2 kRedFloat2   = float2(-152.94239396, 59.28637943);
+	const float2 kGreenFloat2 = float2(4.27729857, 2.82956604);
+	const float2 kBlueFloat2  = float2(-89.90310912, 27.34824973);
+
+	x         = std::clamp(x, 0.0f, 1.0f);
+	float4 v4 = float4(1.0, x, x * x, x * x * x);
+	float2 v2 = v4.zw() * v4.z;
+	return float3(dot(v4, kRedFloat4) + dot(v2, kRedFloat2),
+		dot(v4, kGreenFloat4) + dot(v2, kGreenFloat2),
+		dot(v4, kBlueFloat4) + dot(v2, kBlueFloat2));
+}
+
+static u32 color_from_floats(f32 r, f32 g, f32 b, f32 a)
+{
+	u32 ru = u32(r * 255.0f) & 0xFF;
+	u32 gu = u32(g * 255.0f) & 0xFF;
+	u32 bu = u32(b * 255.0f) & 0xFF;
+	u32 au = u32(a * 255.0f) & 0xFF;
+
+	return (((((au << 8) | bu) << 8) | gu) << 8) | ru;
+}
+
+void histogram(Ui &ui, FpsHistogramWidget widget)
+{
+	auto cursor = widget.rect.pos + widget.rect.size;
+	painter_draw_color_rect(*ui.painter, widget.rect, u32_invalid, color_from_floats(0.0, 0.0, 0.0, 0.5));
+
+	for (u32 i_time = 0; i_time < exo::Array::len(widget.histogram->frame_times); ++i_time) {
+		auto dt = widget.histogram->frame_times[i_time];
+		if (cursor.x < widget.rect.pos.x) {
+			break;
+		}
+
+		const auto target_fps     = 144.0f;
+		const auto max_frame_time = 1.0f / 15.0f; //  in seconds
+
+		float rect_width = dt / (1.0f / target_fps);
+		float height_factor =
+			(std::log2(dt) - std::log2(1.0f / target_fps)) / (std::log2(max_frame_time) - std::log2(1.0 / target_fps));
+		float  rect_height  = std::clamp(height_factor, 0.1f, 1.0f) * widget.rect.size[1];
+		float3 rect_color   = turbo_colormap(dt / (1.0f / 120.0f));
+		u32    rect_color_u = color_from_floats(rect_color[0], rect_color[1], rect_color[2], 1.0);
+
+		rect_width  = std::max(rect_width, 1.0f);
+		rect_height = std::max(rect_height, 1.0f);
+
+		cursor[0] -= rect_width;
+
+		auto rect = Rect{
+			.pos  = {std::ceil(cursor.x), std::ceil(cursor.y - rect_height)},
+			.size = {rect_width, rect_height},
+		};
+		painter_draw_color_rect(*ui.painter, rect, u32_invalid, rect_color_u);
+	}
+
+	const usize FRAMES_FOR_FPS = 30;
+	float       fps            = 0.0f;
+	for (u32 i_time = 0; i_time < exo::Array::len(widget.histogram->frame_times) && i_time < FRAMES_FOR_FPS; ++i_time) {
+		fps += widget.histogram->frame_times[i_time];
+	}
+	fps = std::min(exo::Array::len(widget.histogram->frame_times), FRAMES_FOR_FPS) / fps;
+
+	auto fps_string = fmt::format("{}", fps);
+	painter_draw_label(*ui.painter, widget.rect, u32_invalid, ui.ui_font, fps_string.c_str());
+}
+
+void FpsHistogram::push_time(float dt)
+{
+	for (u32 i_time = 1; i_time < exo::Array::len(this->frame_times); ++i_time) {
+		this->frame_times[exo::Array::len(this->frame_times) - i_time] =
+			this->frame_times[exo::Array::len(this->frame_times) - i_time - 1];
+	}
+	this->frame_times[0] = dt;
+}
+} // namespace custom_ui

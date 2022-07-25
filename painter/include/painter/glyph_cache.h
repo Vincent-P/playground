@@ -74,8 +74,11 @@ struct GlyphCache
 	// Returns the pixel offset from the top left corner and atlas coords for a specified face and glyph
 	Option<int2> queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *image);
 
-	template <typename Lambda> void process_events(Lambda fn) const
+	template <typename Lambda> void process_events(Lambda fn)
 	{
+		Vec<GlyphEvent> events_to_keep;
+		// Copy them to tmp allocator to keep alloc
+
 		for (const auto &event : this->events) {
 			const GlyphImage *image    = nullptr;
 			int2              position = int2(0);
@@ -86,10 +89,14 @@ struct GlyphCache
 					position = this->allocator.get(entry.allocator_id).pos;
 				}
 			}
-			fn(event, image, position);
+
+			if (fn(event, image, position) == false) {
+				events_to_keep.push_back(event);
+			}
 		}
+
+		this->events = std::move(events_to_keep);
 	}
-	void clear_events();
 
 private:
 	AllocationId alloc_glyph(int2 alloc_size);

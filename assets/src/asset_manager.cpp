@@ -143,48 +143,47 @@ void AssetManager::load_all_metas()
 
 void AssetManager::setup_file_watcher(cross::FileWatcher &watcher)
 {
-	int assets_wd = watcher.add_watch(ASSET_PATH).wd;
+	this->asset_watcher = watcher.add_watch(ASSET_PATH).wd;
+}
 
-	// TODO: Properly watch file system changes and respond accordingly
-	watcher.on_file_change([&, assets_wd](const cross::Watch &watch, const cross::WatchEvent &event) {
-		if (watch.wd != assets_wd) {
-			return;
+void AssetManager::on_file_change(const cross::Watch &watch, const cross::WatchEvent &event)
+{
+	if (watch.wd != this->asset_watcher) {
+		return;
+	}
+
+	const char *p = "";
+	switch (event.action) {
+	case cross::WatchEventAction::FileChanged:
+		p = "file changed: ";
+		break;
+	case cross::WatchEventAction::FileRemoved:
+		p = "file removed: ";
+		break;
+	case cross::WatchEventAction::FileAdded:
+		p = "file added: ";
+		break;
+	case cross::WatchEventAction::FileRenamed:
+		p = "file renamed: ";
+		break;
+	}
+
+	auto file_path = this->resources_directory / event.name;
+
+	exo::logger::info("[AssetManager] {} {}\n", p, file_path);
+
+	if (event.action == cross::WatchEventAction::FileChanged || event.action == cross::WatchEventAction::FileAdded) {
+		if (!this->has_meta_file(file_path)) {
+			this->create_resource_meta(file_path);
 		}
+	}
 
-		const char *p = "";
-		switch (event.action) {
-		case cross::WatchEventAction::FileChanged:
-			p = "file changed: ";
-			break;
-		case cross::WatchEventAction::FileRemoved:
-			p = "file removed: ";
-			break;
-		case cross::WatchEventAction::FileAdded:
-			p = "file added: ";
-			break;
-		case cross::WatchEventAction::FileRenamed:
-			p = "file renamed: ";
-			break;
-		}
+	if (event.action == cross::WatchEventAction::FileRemoved) {
+		// unload asset, remove meta from memory and filesystem
+	}
 
-		auto file_path = this->resources_directory / event.name;
-
-		exo::logger::info("[AssetManager] {} {}\n", p, file_path);
-
-		if (event.action == cross::WatchEventAction::FileChanged ||
-			event.action == cross::WatchEventAction::FileAdded) {
-			if (!this->has_meta_file(file_path)) {
-				this->create_resource_meta(file_path);
-			}
-		}
-
-		if (event.action == cross::WatchEventAction::FileRemoved) {
-			// unload asset, remove meta from memory and filesystem
-		}
-
-		if (event.action == cross::WatchEventAction::FileRenamed) {
-		}
-	});
+	if (event.action == cross::WatchEventAction::FileRenamed) {
+	}
 }
 
 Result<Asset *> AssetManager::import_resource(
@@ -260,7 +259,7 @@ Result<void> AssetManager::save_asset(Asset *asset)
 {
 	exo::ScopeStack scope      = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	exo::Serializer serializer = exo::Serializer::create(&scope);
-	serializer.buffer_size     = 32_MiB;
+	serializer.buffer_size     = 96_MiB;
 	serializer.buffer          = scope.allocate(serializer.buffer_size);
 	serializer.is_writing      = true;
 	asset->serialize(serializer);

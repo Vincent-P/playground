@@ -35,7 +35,9 @@
 namespace cross
 {
 struct FileWatcher;
-}
+struct Watch;
+struct WatchEvent;
+} // namespace cross
 namespace exo
 {
 struct ScopeStack;
@@ -82,6 +84,7 @@ struct AssetManager
 
 	void load_all_metas();
 	void setup_file_watcher(cross::FileWatcher &watcher);
+	void on_file_change(const cross::Watch &watch, const cross::WatchEvent &event);
 
 	// -- Resource files
 
@@ -159,6 +162,7 @@ private:
 	exo::Map<exo::UUID, AssetMeta>    asset_metadatas;
 
 	exo::DynamicArray<GenericImporter, 16> importers; // import resource into assets
+	int                                    asset_watcher = -1;
 };
 
 // -- Template Implementations

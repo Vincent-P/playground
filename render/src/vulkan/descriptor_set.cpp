@@ -2,6 +2,7 @@
 
 #include <exo/collections/array.h>
 #include <exo/memory/linear_allocator.h>
+#include <exo/memory/scope_stack.h>
 
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
@@ -206,6 +207,8 @@ void unbind_storage_buffer(BindlessSet &set, u32 index)
 
 void update_bindless_set(Device &device, BindlessSet &bindless)
 {
+	auto tmp_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+
 	// Allocate memory for descriptor writes and copies
 	usize total_bind_count = bindless.pending_bind[BindlessSet::PER_SAMPLER].size() +
 	                         bindless.pending_bind[BindlessSet::PER_IMAGE].size() +
@@ -214,8 +217,8 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 	                           bindless.pending_unbind[BindlessSet::PER_IMAGE].size() +
 	                           bindless.pending_unbind[BindlessSet::PER_BUFFER].size();
 
-	auto *descriptor_writes       = exo::tls_allocator.allocate<VkWriteDescriptorSet>(total_bind_count);
-	auto *descriptor_copies       = exo::tls_allocator.allocate<VkCopyDescriptorSet>(total_unbind_count);
+	auto *descriptor_writes       = tmp_scope.allocate<VkWriteDescriptorSet>(total_bind_count);
+	auto *descriptor_copies       = tmp_scope.allocate<VkCopyDescriptorSet>(total_unbind_count);
 	auto *descriptor_writes_begin = descriptor_writes;
 	auto *descriptor_copies_begin = descriptor_copies;
 
@@ -225,11 +228,9 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 	usize total_buffer_info_count = bindless.pending_bind[BindlessSet::PER_BUFFER].size();
 
 	VkDescriptorImageInfo *image_infos =
-		total_image_info_count > 0 ? exo::tls_allocator.allocate<VkDescriptorImageInfo>(total_image_info_count)
-								   : nullptr;
+		total_image_info_count > 0 ? tmp_scope.allocate<VkDescriptorImageInfo>(total_image_info_count) : nullptr;
 	VkDescriptorBufferInfo *buffer_infos =
-		total_buffer_info_count > 0 ? exo::tls_allocator.allocate<VkDescriptorBufferInfo>(total_buffer_info_count)
-									: nullptr;
+		total_buffer_info_count > 0 ? tmp_scope.allocate<VkDescriptorBufferInfo>(total_buffer_info_count) : nullptr;
 
 	VkDescriptorType descriptor_types[] = {
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

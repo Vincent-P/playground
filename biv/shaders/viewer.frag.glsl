@@ -1,7 +1,7 @@
 #pragma shader_stage(fragment)
 
 #include "base/types.h"
-#include "biv/globals.h"
+#include "2d/rects.h"
 
 layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     float2 scale;
@@ -21,7 +21,7 @@ void main()
 	float2 texture_size = textureSize(global_textures[texture_descriptor], LOD0);
 	float2 texture_texel_size = 1.0 / texture_size;
 	float2 viewport_texel_size = 1.0 / viewport_size;
-	
+
 	// grid spacing
 	// 1-10
 	// 10-50

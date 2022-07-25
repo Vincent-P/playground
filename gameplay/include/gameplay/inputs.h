@@ -56,4 +56,5 @@ public:
 	exo::Option<int2> mouse_drag_delta  = {};
 	exo::Option<int2> mouse_delta       = {};
 	int2              mouse_position    = {0};
+	int2              main_window_size  = {};
 };

@@ -4,6 +4,7 @@
 
 #include "base/types.h"
 #include "base/constants.h"
+#include "base/bindless.h"
 
 struct Rect
 {
@@ -52,5 +53,12 @@ bool is_sdf_type(u32 primitive_type)
 {
     return (primitive_type & 32) != 0;
 }
+
+#define BINDLESS_BUFFER layout(set = GLOBAL_BINDLESS_SET, binding = GLOBAL_BUFFER_BINDING) buffer
+
+BINDLESS_BUFFER ColorRectBuffer    { ColorRect rects[];  } global_buffers_color_rects[];
+BINDLESS_BUFFER TexturedRectBuffer { TexturedRect rects[];  } global_buffers_textured_rects[];
+BINDLESS_BUFFER RectBuffer         { Rect rects[];  } global_buffers_rects[];
+BINDLESS_BUFFER SdfBuffer          { SdfRect rects[];  } global_buffers_sdf_rects[];
 
 #endif

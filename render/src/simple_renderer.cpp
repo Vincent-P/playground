@@ -1,6 +1,8 @@
 #include "render/simple_renderer.h"
 
 #include "render/vulkan/buffer.h"
+#include "render/vulkan/pipelines.h"
+#include "render/vulkan/shader.h"
 
 #include <exo/logger.h>
 
@@ -42,7 +44,7 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	renderer.uniform_buffer = RingBuffer::create(device,
 		{
 			.name               = "Dynamic Uniform",
-			.size               = 128_KiB,
+			.size               = 512_KiB,
 			.gpu_usage          = vulkan::uniform_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
@@ -66,7 +68,7 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	renderer.upload_buffer = RingBuffer::create(device,
 		{
 			.name               = "Upload buffer",
-			.size               = 8_MiB,
+			.size               = 128_MiB,
 			.gpu_usage          = vulkan::source_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
@@ -96,6 +98,14 @@ void SimpleRenderer::destroy()
 	this->context.destroy();
 }
 
+void SimpleRenderer::start_frame()
+{
+	this->uniform_buffer.start_frame();
+	this->dynamic_vertex_buffer.start_frame();
+	this->dynamic_index_buffer.start_frame();
+	this->upload_buffer.start_frame();
+}
+
 void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 {
 	auto i_frame          = this->swapchain_node.i_frame;
@@ -109,13 +119,9 @@ void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 	this->device.wait_for_fence(this->swapchain_node.fence, i_frame);
 	this->device.reset_work_pool(workpool);
 
-	// TODO: reload shader
+	this->reload_shaders();
 
 	this->device.update_globals();
-	this->uniform_buffer.start_frame();
-	this->dynamic_vertex_buffer.start_frame();
-	this->dynamic_index_buffer.start_frame();
-	this->upload_buffer.start_frame();
 
 	auto pass_api = PassApi{
 		.context               = this->context,
@@ -132,3 +138,38 @@ void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 }
 
 const vulkan::Surface &SimpleRenderer::surface() { return this->swapchain_node.surface; }
+
+void SimpleRenderer::reload_shaders()
+{
+	Vec<Handle<vulkan::Shader>> shaders_to_reload;
+	this->shader_watcher.update([&](const auto &watch, const auto &event) {
+		auto full_path = watch.path + event.name;
+		fmt::print("event: {}\n", full_path);
+		for (const auto [shader_handle, p_shader] : this->device.shaders) {
+			fmt::print("shader: {}\n", p_shader->filename);
+			if (p_shader->filename == full_path) {
+				shaders_to_reload.push_back(shader_handle);
+			}
+		}
+		fmt::print("\n");
+	});
+
+	for (auto reloaded_shader : shaders_to_reload) {
+		this->device.reload_shader(reloaded_shader);
+
+		for (auto [program_handle, p_program] : this->device.graphics_programs) {
+			if (p_program->graphics_state.vertex_shader == reloaded_shader ||
+				p_program->graphics_state.fragment_shader == reloaded_shader) {
+				for (u32 i_pipeline = 0; i_pipeline < p_program->pipelines.size(); ++i_pipeline) {
+					this->device.compile_graphics_pipeline(program_handle, i_pipeline);
+				}
+			}
+		}
+
+		for (auto [program_handle, p_program] : this->device.compute_programs) {
+			if (p_program->state.shader == reloaded_shader) {
+				this->device.recreate_program_internal(*p_program);
+			}
+		}
+	}
+}

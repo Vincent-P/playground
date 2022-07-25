@@ -6,11 +6,11 @@
 
 namespace exo
 {
-
 LinearAllocator LinearAllocator::with_external_memory(void *p, usize len)
 {
 	LinearAllocator result = {};
-	result.ptr             = reinterpret_cast<u8 *>(p);
+	result.base_address    = reinterpret_cast<u8 *>(p);
+	result.ptr             = result.base_address;
 	result.end             = result.ptr + len;
 	return result;
 }
@@ -19,8 +19,9 @@ LinearAllocator::LinearAllocator(LinearAllocator &&other) noexcept { *this = std
 
 LinearAllocator &LinearAllocator::operator=(LinearAllocator &&other) noexcept
 {
-	this->ptr = std::exchange(other.ptr, nullptr);
-	this->end = std::exchange(other.end, nullptr);
+	this->base_address = std::exchange(other.base_address, nullptr);
+	this->ptr          = std::exchange(other.ptr, nullptr);
+	this->end          = std::exchange(other.end, nullptr);
 	return *this;
 }
 
@@ -34,5 +35,4 @@ void *LinearAllocator::allocate(usize size)
 }
 
 void LinearAllocator::rewind(void *p) { this->ptr = reinterpret_cast<u8 *>(p); }
-
 } // namespace exo

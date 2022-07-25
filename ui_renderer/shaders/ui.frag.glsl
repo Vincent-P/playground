@@ -2,7 +2,7 @@
 
 #include "base/types.h"
 #include "2d/sdf.h"
-#include "biv/globals.h"
+#include "2d/rects.h"
 
 layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     float2 scale;
@@ -39,7 +39,7 @@ float4 textured_rect(u32 i_primitive, u32 corner, float2 uv)
 
     float alpha = texture(global_textures[nonuniformEXT(rect.texture_descriptor)], uv).r;
 
-    return float4(0, 0, 0, alpha);
+    return float4(alpha);
 }
 
 float4 color_rect(u32 i_primitive, u32 corner, float2 uv)

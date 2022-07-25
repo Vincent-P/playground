@@ -1,0 +1,574 @@
+#include "mesh_renderer.h"
+
+#include <exo/macros/packed.h>
+#include <exo/uuid_formatter.h>
+
+#include <assets/asset_manager.h>
+#include <assets/material.h>
+#include <assets/mesh.h>
+#include <assets/texture.h>
+
+#include <engine/render_world.h>
+
+#include <render/bindings.h>
+#include <render/shader_watcher.h>
+#include <render/simple_renderer.h> // for FRAME_QUEUE_LENGTH...
+#include <render/vulkan/device.h>
+
+#include <bit>
+#include <render/vulkan/image.h>
+
+struct SubmeshDescriptor
+{
+	u32 i_material   = u32_invalid;
+	u32 first_index  = u32_invalid;
+	u32 first_vertex = u32_invalid;
+	u32 index_count  = u32_invalid;
+};
+static_assert(sizeof(SubmeshDescriptor) == sizeof(float4));
+
+struct MeshDescriptor
+{
+	u32 index_buffer_descriptor     = u32_invalid;
+	u32 positions_buffer_descriptor = u32_invalid;
+	u32 uvs_buffer_descriptor       = u32_invalid;
+	u32 submesh_buffer_descriptor   = u32_invalid;
+};
+static_assert(sizeof(MeshDescriptor) == sizeof(float4));
+
+PACKED(struct InstanceDescriptor {
+	float4x4 transform;
+	u32      i_mesh_descriptor;
+	u32      padding0;
+	u32      padding1;
+	u32      padding2;
+})
+static_assert(sizeof(InstanceDescriptor) == 5 * sizeof(float4));
+
+PACKED(struct MaterialDescriptor {
+	float4 base_color_factor          = float4(1.0f);
+	float4 emissive_factor            = float4(0.0f);
+	float  metallic_factor            = 0.0f;
+	float  roughness_factor           = 0.0f;
+	u32    base_color_texture         = u32_invalid;
+	u32    normal_texture             = u32_invalid;
+	u32    metallic_roughness_texture = u32_invalid;
+	float  rotation                   = 0.0f;
+	float2 offset                     = float2(0.0f);
+	float2 scale                      = float2(1.0f);
+	float2 pad00;
+})
+static_assert(sizeof(MaterialDescriptor) == 5 * sizeof(float4));
+
+MeshRenderer MeshRenderer::create(vulkan::Device &device)
+{
+	MeshRenderer renderer      = {};
+	renderer.mesh_uuid_map     = exo::IndexMap::with_capacity(64);
+	renderer.material_uuid_map = exo::IndexMap::with_capacity(64);
+	renderer.texture_uuid_map  = exo::IndexMap::with_capacity(64);
+	renderer.instances_buffer  = RingBuffer::create(device,
+        {
+			 .name               = "Instances buffer",
+			 .size               = 128_KiB,
+			 .gpu_usage          = vulkan::storage_buffer_usage,
+			 .frame_queue_length = FRAME_QUEUE_LENGTH,
+        });
+	renderer.meshes_buffer     = device.create_buffer({
+			.name         = "Meshes buffer",
+			.size         = sizeof(MeshDescriptor) * (1 << 15),
+			.usage        = vulkan::storage_buffer_usage,
+			.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+    });
+	renderer.materials_buffer  = device.create_buffer({
+		 .name         = "Materials buffer",
+		 .size         = sizeof(MaterialDescriptor) * (1 << 20),
+		 .usage        = vulkan::storage_buffer_usage,
+		 .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+    });
+
+	vulkan::GraphicsState gui_state = {};
+	gui_state.vertex_shader         = device.create_shader(SHADER_PATH("simple_mesh.vert.glsl.spv"));
+	gui_state.fragment_shader       = device.create_shader(SHADER_PATH("simple_mesh.frag.glsl.spv"));
+	gui_state.attachments_format    = {
+		   .attachments_format = {VK_FORMAT_R8G8B8A8_UNORM},
+		   .depth_format       = Some(VK_FORMAT_D32_SFLOAT),
+    };
+
+	renderer.simple_program          = device.create_program("simple mesh renderer", gui_state);
+	vulkan::RenderState render_state = {};
+	render_state.depth.test          = Some(VK_COMPARE_OP_GREATER_OR_EQUAL);
+	render_state.depth.enable_write  = true;
+	device.compile_graphics_state(renderer.simple_program, render_state);
+
+	return renderer;
+}
+
+template <typename T> static Handle<T> as_handle(u64 bytes)
+{
+	static_assert(sizeof(Handle<T>) == sizeof(u64));
+	return std::bit_cast<Handle<T>>(bytes);
+}
+
+template <typename T> static u64 to_u64(Handle<T> handle)
+{
+	static_assert(sizeof(Handle<T>) == sizeof(u64));
+	return std::bit_cast<u64>(handle);
+}
+
+static Handle<RenderTexture> get_or_create_texture(
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID texture_uuid)
+{
+	auto asset   = asset_manager->get_asset(texture_uuid);
+	auto texture = reinterpret_cast<Texture *>(asset.value());
+
+	auto render_texture_handle = renderer.texture_uuid_map.at(hash_value(texture_uuid));
+	if (render_texture_handle) {
+		return as_handle<RenderTexture>(render_texture_handle.value());
+	}
+
+	RenderTexture render_texture = {};
+	render_texture.texture_asset = texture_uuid;
+
+	ASSERT(texture->format == PixelFormat::R8G8B8A8_UNORM);
+	ASSERT(texture->mip_offsets.size() == 1);
+	ASSERT(texture->levels == 1);
+	ASSERT(texture->depth == 1);
+
+	render_texture.image = device.create_image({
+		.name = "Texture",
+		.size =
+			{
+				texture->width,
+				texture->height,
+				texture->depth,
+			},
+		.format = VK_FORMAT_R8G8B8A8_UNORM,
+	});
+
+	// Add the texture to the map
+	auto handle = renderer.render_textures.add(std::move(render_texture));
+	renderer.texture_uuid_map.insert(hash_value(texture_uuid), to_u64(handle));
+	return handle;
+}
+
+static Handle<RenderMaterial> get_or_create_material(
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID material_uuid)
+{
+	auto asset    = asset_manager->get_asset(material_uuid);
+	auto material = reinterpret_cast<Material *>(asset.value());
+
+	auto render_material_handle = renderer.material_uuid_map.at(hash_value(material_uuid));
+	if (render_material_handle) {
+		return as_handle<RenderMaterial>(render_material_handle.value());
+	}
+
+	RenderMaterial render_material = {};
+	render_material.material_asset = material_uuid;
+	if (material->base_color_texture.is_valid()) {
+		render_material.base_color_texture =
+			get_or_create_texture(renderer, asset_manager, device, material->base_color_texture);
+	}
+
+	// Add the material to the map
+	auto handle = renderer.render_materials.add(std::move(render_material));
+	renderer.material_uuid_map.insert(hash_value(material_uuid), to_u64(handle));
+	return handle;
+}
+
+static Handle<RenderMesh> get_or_create_mesh(
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID mesh_uuid)
+{
+	auto asset = asset_manager->get_asset(mesh_uuid);
+	auto mesh  = reinterpret_cast<Mesh *>(asset.value());
+
+	auto render_mesh_handle = renderer.mesh_uuid_map.at(hash_value(mesh_uuid));
+	if (render_mesh_handle) {
+		return as_handle<RenderMesh>(render_mesh_handle.value());
+	}
+
+	RenderMesh render_mesh       = {};
+	render_mesh.index_buffer     = device.create_buffer({
+			.name         = "Index buffer",
+			.size         = mesh->indices.size() * sizeof(u32),
+			.usage        = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
+			.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+    });
+	render_mesh.positions_buffer = device.create_buffer({
+		.name         = "Positions buffer",
+		.size         = mesh->positions.size() * sizeof(float4),
+		.usage        = vulkan::storage_buffer_usage,
+		.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+	});
+	render_mesh.uvs_buffer       = device.create_buffer({
+			  .name         = "UV buffer",
+			  .size         = mesh->uvs.size() * sizeof(float2),
+			  .usage        = vulkan::storage_buffer_usage,
+			  .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+    });
+	render_mesh.submesh_buffer   = device.create_buffer({
+		  .name         = "Submesh buffer",
+		  .size         = mesh->submeshes.size() * sizeof(SubmeshDescriptor),
+		  .usage        = vulkan::storage_buffer_usage,
+		  .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+    });
+	render_mesh.mesh_asset       = mesh_uuid;
+
+	for (const auto &submesh : mesh->submeshes) {
+		auto render_material_handle = get_or_create_material(renderer, asset_manager, device, submesh.material);
+
+		render_mesh.render_submeshes.push_back(RenderSubmesh{
+			.material    = render_material_handle,
+			.index_count = submesh.index_count,
+			.first_index = submesh.first_index,
+		});
+	}
+
+	auto handle = renderer.render_meshes.add(std::move(render_mesh));
+	renderer.mesh_uuid_map.insert(hash_value(mesh_uuid), to_u64(handle));
+	return handle;
+}
+
+void register_upload_nodes(RenderGraph &graph,
+	MeshRenderer                       &mesh_renderer,
+	vulkan::Device                     &device,
+	RingBuffer                         &upload_buffer,
+	AssetManager                       *asset_manager,
+	const RenderWorld                  &world)
+{
+	mesh_renderer.instances_buffer.start_frame();
+	mesh_renderer.drawcalls.clear();
+
+	// Gather instances of uploaded meshes
+	for (const auto &instance : world.drawable_instances) {
+		auto        render_mesh_handle = get_or_create_mesh(mesh_renderer, asset_manager, device, instance.mesh_asset);
+		const auto &render_mesh        = mesh_renderer.render_meshes.get(render_mesh_handle);
+		if (!render_mesh.is_uploaded) {
+			continue;
+		}
+
+		auto [p_data, instance_bytes_offset] =
+			mesh_renderer.instances_buffer.allocate(sizeof(InstanceDescriptor), sizeof(InstanceDescriptor));
+		ASSERT(p_data);
+		auto *p_instance              = reinterpret_cast<InstanceDescriptor *>(p_data);
+		p_instance->i_mesh_descriptor = render_mesh_handle.get_index();
+		p_instance->transform         = instance.world_transform;
+
+		ASSERT(instance_bytes_offset % sizeof(InstanceDescriptor) == 0);
+
+		for (u32 i_submesh = 0; i_submesh < render_mesh.render_submeshes.size(); ++i_submesh) {
+			const auto &submesh = render_mesh.render_submeshes[i_submesh];
+			mesh_renderer.drawcalls.push_back(SimpleDraw{
+				.instance_offset = static_cast<u32>(instance_bytes_offset / sizeof(InstanceDescriptor)),
+				.instance_count  = 1,
+				.index_count     = submesh.index_count,
+				.index_offset    = submesh.first_index,
+				.index_buffer    = render_mesh.index_buffer,
+				.i_submesh       = i_submesh,
+			});
+		}
+	}
+
+	// Upload new textures
+	for (auto [handle, p_render_texture] : mesh_renderer.render_textures) {
+		if (!p_render_texture->is_uploaded) {
+
+			auto *texture = static_cast<Texture *>(asset_manager->get_asset(p_render_texture->texture_asset).value());
+			auto [p_upload_data, upload_offset] = upload_buffer.allocate(texture->data_size);
+
+			if (p_upload_data) {
+
+				fmt::print("[Renderer] Uploading texture asset {} at offset 0x{:x} frame #{}\n",
+					texture->uuid,
+					upload_offset,
+					upload_buffer.i_frame);
+
+				std::memcpy(p_upload_data, texture->pixels_data, texture->data_size);
+				mesh_renderer.image_uploads.push_back(RenderImageUpload{
+					.dst_image     = p_render_texture->image,
+					.upload_offset = upload_offset,
+					.upload_size   = texture->data_size,
+					.extent        = int3(texture->width, texture->height, texture->depth),
+				});
+				p_render_texture->is_uploaded = true;
+			}
+		}
+	}
+
+	// Upload new materials
+	for (auto [handle, p_render_material] : mesh_renderer.render_materials) {
+		auto is_texture_uploaded = [](MeshRenderer &mesh_renderer, Handle<RenderTexture> texture_handle) -> bool {
+			return !texture_handle.is_valid() || mesh_renderer.render_textures.get(texture_handle).is_uploaded;
+		};
+
+		bool textures_uploaded = is_texture_uploaded(mesh_renderer, p_render_material->base_color_texture) &&
+		                         is_texture_uploaded(mesh_renderer, p_render_material->normal_texture) &&
+		                         is_texture_uploaded(mesh_renderer, p_render_material->metallic_roughness_texture);
+
+		if (!p_render_material->is_uploaded && textures_uploaded) {
+			auto [p_upload_data, upload_offset] = upload_buffer.allocate(sizeof(MaterialDescriptor));
+			if (p_upload_data) {
+
+				auto *material_asset =
+					static_cast<Material *>(asset_manager->get_asset(p_render_material->material_asset).value());
+				auto *p_upload_material = reinterpret_cast<MaterialDescriptor *>(p_upload_data);
+
+				fmt::print("[Renderer] Uploading material asset {} at offset 0x{:x} frame #{}\n",
+					material_asset->uuid,
+					upload_offset,
+					upload_buffer.i_frame);
+
+				*p_upload_material                   = MaterialDescriptor{};
+				p_upload_material->base_color_factor = material_asset->base_color_factor;
+				p_upload_material->emissive_factor   = material_asset->emissive_factor;
+				p_upload_material->metallic_factor   = material_asset->metallic_factor;
+				p_upload_material->roughness_factor  = material_asset->roughness_factor;
+				p_upload_material->rotation          = material_asset->uv_transform.rotation;
+				p_upload_material->offset            = material_asset->uv_transform.offset;
+				p_upload_material->scale             = material_asset->uv_transform.scale;
+
+				if (p_render_material->base_color_texture.is_valid()) {
+					auto image = mesh_renderer.render_textures.get(p_render_material->base_color_texture).image;
+					p_upload_material->base_color_texture = device.get_image_sampled_index(image);
+				}
+				if (p_render_material->normal_texture.is_valid()) {
+					auto image = mesh_renderer.render_textures.get(p_render_material->normal_texture).image;
+					p_upload_material->normal_texture = device.get_image_sampled_index(image);
+				}
+				if (p_render_material->metallic_roughness_texture.is_valid()) {
+					auto image = mesh_renderer.render_textures.get(p_render_material->metallic_roughness_texture).image;
+					p_upload_material->metallic_roughness_texture = device.get_image_sampled_index(image);
+				}
+
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = mesh_renderer.materials_buffer,
+					.dst_offset    = handle.get_index() * sizeof(MaterialDescriptor),
+					.upload_offset = upload_offset,
+					.upload_size   = sizeof(MaterialDescriptor),
+				});
+
+				p_render_material->is_uploaded = true;
+			}
+		}
+	}
+
+	// Upload new meshes
+	for (auto [handle, p_render_mesh] : mesh_renderer.render_meshes) {
+		bool materials_uploaded = true;
+		for (i32 i_submesh = 0; i_submesh < p_render_mesh->render_submeshes.size() && materials_uploaded; ++i_submesh) {
+			const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
+			if (render_submesh.material.is_valid()) {
+				materials_uploaded = mesh_renderer.render_materials.get(render_submesh.material).is_uploaded;
+			}
+		}
+
+		if (!p_render_mesh->is_uploaded && materials_uploaded) {
+
+			auto indices_size         = device.get_buffer_size(p_render_mesh->index_buffer);
+			auto positions_size       = device.get_buffer_size(p_render_mesh->positions_buffer);
+			auto uvs_size             = device.get_buffer_size(p_render_mesh->uvs_buffer);
+			auto submeshes_size       = device.get_buffer_size(p_render_mesh->submesh_buffer);
+			auto mesh_descriptor_size = sizeof(MeshDescriptor);
+			auto total_size = indices_size + positions_size + uvs_size + submeshes_size + mesh_descriptor_size;
+
+			auto [p_upload_data, upload_offset] = upload_buffer.allocate(total_size);
+			if (p_upload_data) {
+
+				auto *mesh_asset = static_cast<Mesh *>(asset_manager->get_asset(p_render_mesh->mesh_asset).value());
+				fmt::print("[Renderer] Uploading mesh asset {} at offset 0x{:x} frame #{}\n",
+					mesh_asset->uuid,
+					upload_offset,
+					upload_buffer.i_frame);
+
+				auto p_indices   = mesh_asset->indices.data();
+				auto p_positions = mesh_asset->positions.data();
+				auto p_uvs       = mesh_asset->uvs.data();
+
+				auto *cursor = p_upload_data;
+				std::memcpy(cursor, p_indices, indices_size);
+				cursor = exo::ptr_offset(cursor, indices_size);
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = p_render_mesh->index_buffer,
+					.upload_offset = upload_offset,
+					.upload_size   = indices_size,
+				});
+
+				std::memcpy(cursor, p_positions, positions_size);
+				cursor = exo::ptr_offset(cursor, positions_size);
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = p_render_mesh->positions_buffer,
+					.upload_offset = upload_offset + indices_size,
+					.upload_size   = positions_size,
+				});
+
+				std::memcpy(cursor, p_uvs, uvs_size);
+				cursor = exo::ptr_offset(cursor, uvs_size);
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = p_render_mesh->uvs_buffer,
+					.upload_offset = upload_offset + indices_size + positions_size,
+					.upload_size   = uvs_size,
+				});
+
+				for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.size(); ++i_submesh) {
+					const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
+
+					auto *p_upload_submeshes                   = reinterpret_cast<SubmeshDescriptor *>(cursor);
+					p_upload_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
+					p_upload_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
+					p_upload_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
+					if (render_submesh.material.is_valid() &&
+						mesh_renderer.render_materials.get(render_submesh.material).is_uploaded) {
+						p_upload_submeshes[i_submesh].i_material = render_submesh.material.get_index();
+					} else {
+						p_upload_submeshes[i_submesh].i_material = u32_invalid;
+					}
+				}
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = p_render_mesh->submesh_buffer,
+					.upload_offset = upload_offset + indices_size + positions_size + uvs_size,
+					.upload_size   = submeshes_size,
+				});
+
+				cursor                    = exo::ptr_offset(cursor, submeshes_size);
+				auto *p_upload_descriptor = reinterpret_cast<MeshDescriptor *>(cursor);
+				p_upload_descriptor->index_buffer_descriptor =
+					device.get_buffer_storage_index(p_render_mesh->index_buffer);
+				p_upload_descriptor->positions_buffer_descriptor =
+					device.get_buffer_storage_index(p_render_mesh->positions_buffer);
+				p_upload_descriptor->uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
+				p_upload_descriptor->submesh_buffer_descriptor =
+					device.get_buffer_storage_index(p_render_mesh->submesh_buffer);
+				mesh_renderer.buffer_uploads.push_back(RenderUploads{
+					.dst_buffer    = mesh_renderer.meshes_buffer,
+					.dst_offset    = handle.get_index() * sizeof(MeshDescriptor),
+					.upload_offset = upload_offset + indices_size + positions_size + uvs_size + submeshes_size,
+					.upload_size   = sizeof(MeshDescriptor),
+				});
+
+				// free mesh memory, we dont need it anymroe
+				mesh_asset->indices.clear();
+				mesh_asset->indices.shrink_to_fit();
+				mesh_asset->positions.clear();
+				mesh_asset->positions.shrink_to_fit();
+				mesh_asset->uvs.clear();
+				mesh_asset->uvs.shrink_to_fit();
+
+				p_render_mesh->is_uploaded = true;
+			}
+		}
+	}
+
+	// Submit upload commands
+	if (!mesh_renderer.image_uploads.empty()) {
+		auto uploads_span = std::span{mesh_renderer.image_uploads};
+		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
+			for (const auto &upload : uploads_span) {
+				auto copy = VkBufferImageCopy{
+					.bufferOffset = upload.upload_offset,
+					.imageSubresource =
+						{
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.layerCount = 1,
+						},
+					.imageOffset =
+						{
+							.x = 0,
+							.y = 0,
+							.z = 0,
+						},
+					.imageExtent =
+						{
+							.width  = u32(upload.extent.x),
+							.height = u32(upload.extent.y),
+							.depth  = u32(upload.extent.z),
+						},
+				};
+
+				cmd.barrier(upload.dst_image, vulkan::ImageUsage::TransferDst);
+				cmd.copy_buffer_to_image(api.upload_buffer.buffer, upload.dst_image, std::span{&copy, 1});
+				cmd.barrier(upload.dst_image, vulkan::ImageUsage::GraphicsShaderRead);
+			}
+		});
+		mesh_renderer.image_uploads.clear();
+	}
+	if (!mesh_renderer.buffer_uploads.empty()) {
+		auto uploads_span = std::span{mesh_renderer.buffer_uploads};
+		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
+			for (const auto &upload : uploads_span) {
+				std::tuple<usize, usize, usize> offsets_size = {upload.upload_offset,
+					upload.dst_offset,
+					upload.upload_size};
+				cmd.copy_buffer(api.upload_buffer.buffer, upload.dst_buffer, std::span{&offsets_size, 1});
+			}
+		});
+		mesh_renderer.buffer_uploads.clear();
+	}
+
+	mesh_renderer.view                 = world.main_camera_view;
+	mesh_renderer.projection           = world.main_camera_projection;
+	mesh_renderer.instances_descriptor = device.get_buffer_storage_index(mesh_renderer.instances_buffer.buffer);
+	mesh_renderer.meshes_descriptor    = device.get_buffer_storage_index(mesh_renderer.meshes_buffer);
+	mesh_renderer.materials_descriptor = device.get_buffer_storage_index(mesh_renderer.materials_buffer);
+}
+
+void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Handle<TextureDesc> output)
+{
+	auto drawcalls_span       = std::span{mesh_renderer.drawcalls};
+	auto instances_descriptor = mesh_renderer.instances_descriptor;
+	auto meshes_descriptor    = mesh_renderer.meshes_descriptor;
+	auto materials_descriptor = mesh_renderer.materials_descriptor;
+	auto simple_program       = mesh_renderer.simple_program;
+	auto projection           = mesh_renderer.projection;
+	auto view                 = mesh_renderer.view;
+
+	auto depth_buffer = graph.output(TextureDesc{
+		.name   = "depth buffer desc",
+		.size   = TextureSize::screen_relative(float2(1.0, 1.0)),
+		.format = VK_FORMAT_D32_SFLOAT,
+	});
+
+	graph.graphic_pass(output,
+		depth_buffer,
+		[drawcalls_span,
+			instances_descriptor,
+			meshes_descriptor,
+			materials_descriptor,
+			simple_program,
+			view,
+			projection](RenderGraph & /*graph*/, PassApi &api, vulkan::GraphicsWork &cmd) {
+			auto last_index_buffer = Handle<vulkan::Buffer>::invalid();
+			for (const auto &drawcall : drawcalls_span) {
+				PACKED(struct Options {
+					float4x4 view;
+					float4x4 projection;
+					u32      instances_descriptor;
+					u32      meshes_descriptor;
+					u32      i_submesh;
+					u32      materials_descriptor;
+				})
+
+				auto *options = reinterpret_cast<Options *>(
+					bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(Options)));
+				options->view                 = view;
+				options->projection           = projection;
+				options->instances_descriptor = instances_descriptor;
+				options->meshes_descriptor    = meshes_descriptor;
+				options->i_submesh            = drawcall.i_submesh;
+				options->materials_descriptor = materials_descriptor;
+
+				cmd.bind_pipeline(simple_program, 0);
+
+				if (drawcall.index_buffer != last_index_buffer) {
+					cmd.bind_index_buffer(drawcall.index_buffer, VK_INDEX_TYPE_UINT32, 0);
+					last_index_buffer = drawcall.index_buffer;
+				}
+
+				cmd.draw_indexed(vulkan::DrawIndexedOptions{
+					.vertex_count    = drawcall.index_count,
+					.instance_count  = drawcall.instance_count,
+					.index_offset    = drawcall.index_offset,
+					.vertex_offset   = 0,
+					.instance_offset = drawcall.instance_offset,
+				});
+			}
+		});
+}

@@ -53,4 +53,5 @@ struct CameraInputComponent : BaseComponent
 	bool         camera_orbit  = false;
 	int2         scroll        = {};
 	Option<int2> mouse_delta   = {};
+	float        aspect_ratio  = {};
 };

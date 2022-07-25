@@ -150,14 +150,18 @@ void Device::destroy_image(Handle<Image> image_handle)
 
 int3 Device::get_image_size(Handle<Image> image_handle) { return this->images.get(image_handle).desc.size; }
 
-u32 Device::get_image_sampled_index(Handle<Image> image_handle)
+u32 Device::get_image_sampled_index(Handle<Image> image_handle) const
 {
-	return this->images.get(image_handle).full_view.sampled_idx;
+	u32 index = this->images.get(image_handle).full_view.sampled_idx;
+	ASSERT(index != u32_invalid);
+	return index;
 }
 
-u32 Device::get_image_storage_index(Handle<Image> image_handle)
+u32 Device::get_image_storage_index(Handle<Image> image_handle) const
 {
-	return this->images.get(image_handle).full_view.storage_idx;
+	u32 index = this->images.get(image_handle).full_view.storage_idx;
+	ASSERT(index != u32_invalid);
+	return index;
 }
 
 void Device::unbind_image(Handle<Image> image_handle)
@@ -165,9 +169,11 @@ void Device::unbind_image(Handle<Image> image_handle)
 	auto &image = images.get(image_handle);
 	if (image.full_view.sampled_idx != u32_invalid) {
 		unbind_sampler_image(global_sets.bindless, image.full_view.sampled_idx);
+		image.full_view.sampled_idx = u32_invalid;
 	}
 	if (image.full_view.storage_idx != u32_invalid) {
 		unbind_storage_image(global_sets.bindless, image.full_view.storage_idx);
+		image.full_view.storage_idx = u32_invalid;
 	}
 }
 }; // namespace vulkan

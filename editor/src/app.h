@@ -5,6 +5,9 @@
 #include <engine/scene.h>
 #include <gameplay/inputs.h>
 
+#include "custom_ui.h"
+#include "ui.h"
+
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
@@ -30,12 +33,14 @@ public:
 	void run();
 
 private:
-	void camera_update();
+	void display_ui(double dt);
 
-	cross::Platform *platform;
-	cross::Window   *window;
-	AssetManager    *asset_manager;
-	Renderer         renderer;
+	cross::Platform        *platform;
+	cross::Window          *window;
+	AssetManager           *asset_manager;
+	Renderer                renderer;
+	Ui                      ui;
+	custom_ui::FpsHistogram histogram;
 
 	Inputs inputs;
 

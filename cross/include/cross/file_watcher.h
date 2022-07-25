@@ -64,14 +64,11 @@ struct FileWatcher
 
 	Vec<Watch>      watches;
 	Vec<WatchEvent> current_events;
-	Vec<FileEventF> callbacks;
 
 	static FileWatcher create();
 
 	Watch add_watch(const char *path);
-	void  on_file_change(const FileEventF &f);
-
-	void update();
-	void destroy();
+	void  update(const FileEventF &f);
+	void  destroy();
 };
 } // namespace cross

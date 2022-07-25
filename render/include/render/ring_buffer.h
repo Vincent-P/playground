@@ -23,17 +23,18 @@ struct RingBufferDescription
 
 struct RingBuffer
 {
-	std::string         name   = "unnamed";
-	u32                 usage  = 0;
-	Handle<gfx::Buffer> buffer = {};
-	usize               size   = 0;
+	std::string         name     = "unnamed";
+	u32                 usage    = 0;
+	Handle<gfx::Buffer> buffer   = {};
+	usize               capacity = 0;
 
-	u8 *cursor       = nullptr;
-	u8 *buffer_start = nullptr;
-	u8 *buffer_end   = nullptr;
+	u8  *start  = nullptr;
+	u64  cursor = 0;
+	u64  tail   = 0;
+	bool full   = false;
 
-	u32                        i_frame = 0;
-	exo::DynamicArray<u8 *, 3> frame_start; // keep track of the start of each frame
+	u32                       i_frame = 0;
+	exo::DynamicArray<u64, 3> frame_size_allocated;
 
 	static RingBuffer create(gfx::Device &device, const RingBufferDescription &desc);
 

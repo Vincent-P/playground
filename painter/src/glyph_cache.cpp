@@ -148,5 +148,3 @@ AllocationId GlyphCache::alloc_glyph(int2 alloc_size)
 	}
 	return alloc_id;
 }
-
-void GlyphCache::clear_events() { this->events.clear(); }

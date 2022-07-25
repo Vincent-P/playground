@@ -39,6 +39,8 @@ using GraphicCb = std::function<void(RenderGraph &, PassApi &, vulkan::GraphicsW
 struct GraphicPass
 {
 	Handle<TextureDesc> color_attachment;
+	Handle<TextureDesc> depth_attachment;
+	bool                clear = true;
 };
 
 using RawCb = std::function<void(RenderGraph &, PassApi &, vulkan::ComputeWork &)>;
@@ -55,11 +57,11 @@ struct Pass
 	} pass;
 	GraphicCb execute;
 
-	static Pass graphic(Handle<TextureDesc> color_attachment, GraphicCb execute)
+	static Pass graphic(Handle<TextureDesc> color_attachment, Handle<TextureDesc> depth_attachment, GraphicCb execute)
 	{
 		return Pass{
 			.type    = PassType::Graphic,
-			.pass    = {.graphic = {.color_attachment = color_attachment}},
+			.pass    = {.graphic = {.color_attachment = color_attachment, .depth_attachment = depth_attachment}},
 			.execute = std::move(execute),
 		};
 	}
@@ -80,9 +82,10 @@ struct RenderGraph
 	Vec<Pass>        passes;
 	u64              i_frame = 0;
 
-	void execute(PassApi api, vulkan::WorkPool &work_pool);
-	void graphic_pass(Handle<TextureDesc> color_attachment, GraphicCb execute);
-	void raw_pass(RawCb execute);
+	void         execute(PassApi api, vulkan::WorkPool &work_pool);
+	GraphicPass &graphic_pass(
+		Handle<TextureDesc> color_attachment, Handle<TextureDesc> depth_buffer, GraphicCb execute);
+	RawPass &raw_pass(RawCb execute);
 
 	Handle<TextureDesc> output(TextureDesc desc);
 	int3                image_size(Handle<TextureDesc> desc_handle);

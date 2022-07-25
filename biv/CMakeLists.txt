@@ -12,16 +12,16 @@ target_link_libraries(biv
   cross
   render
   ui
+  ui_renderer
   painter
   libspng
   )
 
 setup_shaders(biv
   SOURCES
-  ui.frag.glsl
-  ui.vert.glsl
   viewer.frag.glsl
   viewer.vert.glsl
   DEPENDENCIES
   engine
+  ui_renderer
 )

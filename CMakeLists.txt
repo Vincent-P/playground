@@ -113,7 +113,7 @@ function(SETUP_SHADERS TARGET)
 
     add_custom_command(
       OUTPUT ${SPIRV_FILE}
-      COMMAND glslc --target-env=vulkan1.2 -std=460 ${GLSL_FILE} -o ${SPIRV_FILE} ${INCLUDE_ARGS}
+      COMMAND glslc --target-env=vulkan1.2 -std=460 -g ${GLSL_FILE} -o ${SPIRV_FILE} ${INCLUDE_ARGS}
       DEPENDS ${GLSL_FILE}
     )
     list(APPEND SPIRV_FILES ${SPIRV_FILE})
@@ -137,8 +137,9 @@ add_subdirectory(render)
 add_subdirectory(assets)
 add_subdirectory(gameplay)
 add_subdirectory(painter)
-add_subdirectory(ui)
 add_subdirectory(engine)
+add_subdirectory(ui)
+add_subdirectory(ui_renderer)
 add_subdirectory(editor)
 add_subdirectory(render_sample)
 add_subdirectory(biv)

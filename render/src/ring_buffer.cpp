@@ -17,47 +17,98 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 		.memory_usage = vulkan::MemoryUsage::CPU_TO_GPU,
 	});
 
-	buf.frame_start.resize(desc.frame_queue_length + 1);
-	buf.buffer_start = reinterpret_cast<u8 *>(device.map_buffer(buf.buffer));
-	buf.buffer_end   = buf.buffer_start + desc.size;
-	buf.cursor       = buf.buffer_start;
-	buf.size         = desc.size;
+	buf.frame_size_allocated.resize(desc.frame_queue_length);
+	for (auto &v : buf.frame_size_allocated) {
+		v = 0;
+	}
+
+	buf.start    = reinterpret_cast<u8 *>(device.map_buffer(buf.buffer));
+	buf.cursor   = 0;
+	buf.capacity = desc.size;
 	return buf;
+}
+
+static u64 size_until(u64 capacity, u64 from, u64 to)
+{
+	if (from > to) {
+		// the occupied size is between to and from
+		return capacity - (from - to);
+	} else {
+		return to - from;
+	}
+}
+
+static u64 ringbuffer_size_from(RingBuffer &ringbuffer, u64 from)
+{
+	if (ringbuffer.full) {
+		return ringbuffer.capacity;
+	} else if (from >= ringbuffer.tail) {
+		return from - ringbuffer.tail;
+	} else {
+		return ringbuffer.capacity - (ringbuffer.tail - from);
+	}
 }
 
 std::pair<void *, usize> RingBuffer::allocate(usize len, usize alignment)
 {
-	u64 dist = static_cast<u64>(cursor - buffer_start) % alignment;
-	auto new_cursor = this->cursor;
+	u64 offset    = cursor;
+	u64 allocated = 0;
 
-	if (dist != 0) {
-		new_cursor += alignment - dist;
+	// Align the offset to the desired alignment
+	if ((offset % alignment) != 0) {
+		u64 diff = alignment - (offset % alignment);
+		offset += diff;
+		allocated += diff;
 	}
 
-	// wrap cursor at the end the buffer
-	if (new_cursor + len > buffer_end) {
-		new_cursor = buffer_start;
-	}
+	const auto free_space = this->capacity - ringbuffer_size_from(*this, offset);
 
-	// check if there is enough space
-	const auto frame_size           = frame_start.size();
-	const u8  *previous_frame_start = frame_start[(i_frame + frame_size - 1) % frame_size];
-	if (previous_frame_start && new_cursor < previous_frame_start && new_cursor + len > previous_frame_start) {
-		ASSERT(!"Not enough space");
+	if (len >= free_space) {
 		return std::make_pair(nullptr, 0);
 	}
 
-	auto *offset = new_cursor;
-	new_cursor += len;
+	if (offset + len < this->capacity) {
+		// free space at the end
+	} else if (this->tail >= len) {
+		// the len is not enough at the end
+		allocated += (this->capacity - offset);
+		offset = 0;
+	} else {
+		// There is not enough space???
+		ASSERT(false);
+	}
 
-	cursor = new_cursor;
+	allocated += len;
 
-	ASSERT((offset - buffer_start) % static_cast<i64>(alignment) == 0);
-	return std::make_pair(offset, offset - buffer_start);
+	const usize frame_count = this->frame_size_allocated.size();
+
+	this->frame_size_allocated[this->i_frame % frame_count] += allocated;
+
+	this->cursor = offset + len;
+
+	// Do these happen in practice?
+	// ASSERT(this->frame_size_allocated[this->i_frame % frame_count] <= this->capacity);
+	if (this->cursor >= this->capacity) {
+		ASSERT(this->cursor == this->capacity);
+		this->cursor = 0;
+	}
+	if (this->cursor == this->tail) {
+		this->full = true;
+	}
+
+	ASSERT(offset % alignment == 0);
+	return std::make_pair(this->start + offset, offset);
 }
 
 void RingBuffer::start_frame()
 {
-	i_frame += 1;
-	frame_start[i_frame % frame_start.size()] = cursor;
+	this->i_frame += 1;
+
+	const usize frame_count            = this->frame_size_allocated.size();
+	u64         allocated_latest_frame = this->frame_size_allocated[this->i_frame % frame_count];
+	if (allocated_latest_frame > 0) {
+		this->tail = (this->tail + allocated_latest_frame) % this->capacity;
+		this->full = false;
+	}
+	this->frame_size_allocated[this->i_frame % frame_count] = 0;
 }

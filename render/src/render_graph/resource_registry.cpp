@@ -4,6 +4,7 @@
 #include <exo/collections/dynamic_array.h>
 #include <render/vulkan/framebuffer.h>
 #include <render/vulkan/image.h>
+#include <render/vulkan/utils.h>
 
 #include <bit>
 
@@ -112,13 +113,20 @@ Handle<vulkan::Image> ResourceRegistry::resolve_image(vulkan::Device &device, Ha
 
 	Handle<vulkan::Image> resolved_image_handle = desc.resolved_image;
 	if (resolved_image_handle.is_valid() == false) {
+
+		VkImageUsageFlags usages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+		                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+		                           VK_IMAGE_USAGE_STORAGE_BIT;
+		if (vulkan::is_depth_format(desc.format)) {
+			usages = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		}
+
 		auto desc_spec = vulkan::ImageDescription{
 			.name   = desc.name,
 			.size   = int3(this->texture_desc_handle_size(desc_handle), 1),
 			.type   = desc.image_type,
 			.format = desc.format,
-			.usages = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-		              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			.usages = usages,
 		};
 
 		for (auto [image_handle_b, metadata_handle_b] : this->image_pool) {

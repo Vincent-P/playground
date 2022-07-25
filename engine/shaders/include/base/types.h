@@ -24,6 +24,4 @@
 #define i32 int
 #define i64 int64_t
 
-#define PACKED
-
 #endif

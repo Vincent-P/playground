@@ -20,12 +20,20 @@ void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 
 			auto framebuffer = this->resources.resolve_framebuffer(api.device,
 				std::span{&graphic_pass.color_attachment, 1},
-				Handle<TextureDesc>::invalid());
+				graphic_pass.depth_attachment);
 
 			ctx.barrier(output_image, vulkan::ImageUsage::ColorAttachment);
 
-			auto clear_color = vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}});
-			ctx.begin_pass(framebuffer, std::span{&clear_color, 1});
+			exo::DynamicArray<vulkan::LoadOp, vulkan::MAX_ATTACHMENTS> load_ops;
+			if (graphic_pass.clear) {
+				load_ops.push_back(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
+			} else {
+				load_ops.push_back(vulkan::LoadOp::ignore());
+			}
+			if (graphic_pass.depth_attachment.is_valid()) {
+				load_ops.push_back(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
+			}
+			ctx.begin_pass(framebuffer, load_ops);
 
 			ctx.set_viewport(
 
@@ -51,12 +59,18 @@ void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 	this->i_frame += 1;
 }
 
-void RenderGraph::graphic_pass(Handle<TextureDesc> color_attachment, GraphicCb execute)
+GraphicPass &RenderGraph::graphic_pass(
+	Handle<TextureDesc> color_attachment, Handle<TextureDesc> depth_buffer, GraphicCb execute)
 {
-	passes.push_back(Pass::graphic(color_attachment, std::move(execute)));
+	passes.push_back(Pass::graphic(color_attachment, depth_buffer, std::move(execute)));
+	return passes.back().pass.graphic;
 }
 
-void RenderGraph::raw_pass(RawCb execute) { passes.push_back(Pass::raw(std::move(execute))); }
+RawPass &RenderGraph::raw_pass(RawCb execute)
+{
+	passes.push_back(Pass::raw(std::move(execute)));
+	return passes.back().pass.raw;
+}
 
 Handle<TextureDesc> RenderGraph::output(TextureDesc desc) { return this->resources.texture_descs.add(std::move(desc)); }
 int3                RenderGraph::image_size(Handle<TextureDesc> desc_handle)

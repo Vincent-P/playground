@@ -23,11 +23,6 @@ void PrepareRenderWorld::update(const UpdateContext &)
 
 	// -- Fill the render world with data from the scene
 	ASSERT(main_camera != nullptr);
-	{
-		float aspect_ratio = 1.0f;
-		main_camera->set_perspective(aspect_ratio);
-	}
-
 	render_world.main_camera_view               = main_camera->get_view();
 	render_world.main_camera_projection         = main_camera->get_projection();
 	render_world.main_camera_view_inverse       = main_camera->get_view_inverse();

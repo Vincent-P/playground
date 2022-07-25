@@ -9,7 +9,7 @@
 #include <doctest.h>
 #endif
 
-u8 global_stack_mem[64 << 10];
+u8 global_stack_mem[32 << 20];
 
 void *operator new(std::size_t count)
 {

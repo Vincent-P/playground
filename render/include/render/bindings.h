@@ -6,7 +6,8 @@
 
 namespace bindings
 {
-void *bind_shader_options(vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_len)
+inline void *bind_shader_options(
+	vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_len)
 {
 	auto [p_options, offset] =
 		ring_buffer.allocate(options_len, 0x40); // 0x10 enough on AMD, should probably check device features

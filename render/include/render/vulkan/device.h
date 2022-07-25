@@ -109,6 +109,7 @@ struct Device
 
 	// Shaders
 	Handle<Shader> create_shader(std::string_view path);
+	void           reload_shader(Handle<Shader> shader_handle);
 	void           destroy_shader(Handle<Shader> shader_handle);
 
 	// Graphics Pipeline
@@ -132,8 +133,8 @@ struct Device
 	// Resources
 	Handle<Image> create_image(const ImageDescription &image_desc, Option<VkImage> proxy = {});
 	void          destroy_image(Handle<Image> image_handle);
-	u32           get_image_sampled_index(Handle<Image> image_handle);
-	u32           get_image_storage_index(Handle<Image> image_handle);
+	u32           get_image_sampled_index(Handle<Image> image_handle) const;
+	u32           get_image_storage_index(Handle<Image> image_handle) const;
 	int3          get_image_size(Handle<Image> image_handle);
 	void          unbind_image(Handle<Image> image_handle);
 

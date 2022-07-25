@@ -2,7 +2,7 @@
 
 #include "base/types.h"
 #include "base/constants.h"
-#include "biv/globals.h"
+#include "2d/rects.h"
 
 layout(set = SHADER_UNIFORM_SET, binding = 0) uniform Options {
     float2 scale;

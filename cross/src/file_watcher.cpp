@@ -206,7 +206,7 @@ FileWatcher FileWatcher::create() { return create_internal(); }
 
 Watch FileWatcher::add_watch(const char *path) { return add_watch_internal(*this, path); }
 
-void FileWatcher::update()
+void FileWatcher::update(const FileEventF &cb)
 {
 	ZoneScoped;
 
@@ -214,15 +214,11 @@ void FileWatcher::update()
 
 	for (const auto &event : current_events) {
 		const auto &watch = watch_from_event_internal(*this, event);
-		for (const auto &cb : callbacks) {
-			cb(watch, event);
-		}
+		cb(watch, event);
 	}
 
 	current_events.clear();
 }
-
-void FileWatcher::on_file_change(const FileEventF &f) { callbacks.push_back(f); }
 
 void FileWatcher::destroy() { destroy_internal(*this); }
 } // namespace cross

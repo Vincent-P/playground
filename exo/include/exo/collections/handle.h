@@ -15,6 +15,7 @@ template <typename T> struct Handle
 	constexpr bool    operator==(const Handle &other) const = default;
 
 	[[nodiscard]] constexpr bool is_valid() const { return index != u32_invalid && gen != u32_invalid; }
+	[[nodiscard]] constexpr u32  get_index() const { return index; }
 
 private:
 	constexpr Handle(u32 _index, u32 _gen) : index(_index), gen(_gen) {}

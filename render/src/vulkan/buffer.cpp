@@ -114,6 +114,7 @@ void Device::flush_buffer(Handle<Buffer> buffer_handle)
 u32 Device::get_buffer_storage_index(Handle<Buffer> buffer_handle)
 {
 	auto &buffer = buffers.get(buffer_handle);
+	ASSERT(buffer.descriptor_idx != u32_invalid);
 	return buffer.descriptor_idx;
 }
 

@@ -18,6 +18,8 @@
 #include <render/vulkan/image.h>
 #include <render/vulkan/pipelines.h>
 
+#include <ui_renderer/ui_renderer.h>
+
 #include "painter/font.h"
 #include "painter/glyph_cache.h"
 #include "painter/painter.h"
@@ -89,11 +91,10 @@ struct RenderSample
 	Inputs           inputs   = {};
 
 	SimpleRenderer                  renderer;
-	Handle<vulkan::GraphicsProgram> ui_program;
+	UiRenderer                      ui_renderer;
 	Handle<vulkan::GraphicsProgram> viewer_program;
 	Handle<vulkan::Image>           viewer_gpu_image_upload;
 	Handle<vulkan::Image>           viewer_gpu_image_current;
-	Handle<vulkan::Image>           glyph_atlas;
 
 	Painter *painter = nullptr;
 
@@ -128,18 +129,10 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->window = cross::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
-	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd());
-
-	auto *window   = app->window;
+	app->renderer  = SimpleRenderer::create(app->window->get_win32_hwnd());
 	auto &renderer = app->renderer;
 
-	vulkan::GraphicsState gui_state = {};
-	gui_state.vertex_shader         = renderer.device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
-	gui_state.fragment_shader       = renderer.device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
-	gui_state.attachments_format    = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
-	app->ui_program                 = renderer.device.create_program("gui", gui_state);
-	renderer.device.compile_graphics_state(app->ui_program,
-		{.rasterization = {.culling = false}, .alpha_blending = true});
+	app->ui_renderer = UiRenderer::create(renderer.device, GLYPH_ATLAS_RESOLUTION);
 
 	vulkan::GraphicsState viewer_state = {};
 	viewer_state.vertex_shader         = renderer.device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
@@ -149,18 +142,11 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	renderer.device.compile_graphics_state(app->viewer_program,
 		{.rasterization = {.culling = false}, .alpha_blending = true});
 
-	app->glyph_atlas = app->renderer.device.create_image({
-		.name   = "Glyph atlas",
-		.size   = int3(GLYPH_ATLAS_RESOLUTION, 1),
-		.format = VK_FORMAT_R8_UNORM,
-	});
+	exo::logger::info("DPI at creation: {}x{}\n", app->window->get_dpi_scale().x, app->window->get_dpi_scale().y);
 
-	exo::logger::info("DPI at creation: {}x{}\n", window->get_dpi_scale().x, window->get_dpi_scale().y);
-
-	app->ui_font = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
-
+	app->ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
-	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->glyph_atlas);
+	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->ui_renderer.glyph_atlas);
 
 	app->ui_state.painter   = app->painter;
 	app->ui_theme.main_font = &app->ui_font;
@@ -343,83 +329,8 @@ static void render(RenderSample *app)
 		.name = "render buffer desc",
 		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
 	});
-	auto glyph_atlas         = app->glyph_atlas;
 
-	auto *painter = app->painter;
-	graph.raw_pass([painter, glyph_atlas](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
-		Vec<VkBufferImageCopy> glyphs_to_upload;
-		painter->glyph_cache.process_events([&](const GlyphEvent &event, const GlyphImage *image, int2 pos) {
-			if (event.type == GlyphEvent::Type::New && image) {
-				auto [p_image, image_offset] = api.upload_buffer.allocate(image->data_size);
-				std::memcpy(p_image, image->data, image->data_size);
-				auto copy = VkBufferImageCopy{
-					.bufferOffset = image_offset,
-					.imageSubresource =
-						{
-							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							.layerCount = 1,
-						},
-					.imageOffset =
-						{
-							.x = pos.x,
-							.y = pos.y,
-							.z = 0,
-						},
-					.imageExtent =
-						{
-							.width  = image->image_size.x,
-							.height = image->image_size.y,
-							.depth  = 1,
-						},
-				};
-				glyphs_to_upload.push_back(copy);
-			}
-		});
-		painter->glyph_cache.clear_events();
-		if (!glyphs_to_upload.empty()) {
-			cmd.barrier(glyph_atlas, vulkan::ImageUsage::TransferDst);
-			cmd.copy_buffer_to_image(api.upload_buffer.buffer, glyph_atlas, glyphs_to_upload);
-			cmd.barrier(glyph_atlas, vulkan::ImageUsage::GraphicsShaderRead);
-		}
-	});
-
-	auto output     = intermediate_buffer;
-	auto ui_program = app->ui_program;
-	graph.graphic_pass(output,
-		[painter, output, ui_program](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {
-			ZoneScopedN("Painter");
-			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(painter->vertex_bytes_offset,
-				sizeof(TexturedRect) * sizeof(ColorRect));
-			std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
-
-			ASSERT(vert_offset % sizeof(TexturedRect) == 0);
-			ASSERT(vert_offset % sizeof(ColorRect) == 0);
-			ASSERT(vert_offset % sizeof(Rect) == 0);
-
-			auto [p_indices, ind_offset] =
-				api.dynamic_index_buffer.allocate(painter->index_offset * sizeof(PrimitiveIndex),
-					sizeof(PrimitiveIndex));
-			std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
-
-			PACKED(struct PainterOptions {
-				float2 scale;
-				float2 translation;
-				u32    vertices_descriptor_index;
-				u32    primitive_byte_offset;
-			})
-
-			auto  output_size = graph.image_size(output);
-			auto *options     = reinterpret_cast<PainterOptions *>(
-                bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(PainterOptions)));
-			options->scale                     = float2(2.0) / float2(int2(output_size.x, output_size.y));
-			options->translation               = float2(-1.0f, -1.0f);
-			options->vertices_descriptor_index = api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);
-			options->primitive_byte_offset     = static_cast<u32>(vert_offset);
-
-			cmd.bind_pipeline(ui_program, 0);
-			cmd.bind_index_buffer(api.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
-			cmd.draw_indexed({.vertex_count = painter->index_offset});
-		});
+	register_graph(graph, app->ui_renderer, app->painter, intermediate_buffer);
 
 #if 0
 	if (app->viewer_gpu_image_current.is_valid()) {
