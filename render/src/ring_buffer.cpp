@@ -28,24 +28,29 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 std::pair<void *, usize> RingBuffer::allocate(usize len, usize alignment)
 {
 	u64 dist = static_cast<u64>(cursor - buffer_start) % alignment;
+	auto new_cursor = this->cursor;
+
 	if (dist != 0) {
-		cursor += alignment - dist;
+		new_cursor += alignment - dist;
 	}
 
 	// wrap cursor at the end the buffer
-	if (cursor + len > buffer_end) {
-		cursor = buffer_start;
+	if (new_cursor + len > buffer_end) {
+		new_cursor = buffer_start;
 	}
 
 	// check if there is enough space
 	const auto frame_size           = frame_start.size();
 	const u8  *previous_frame_start = frame_start[(i_frame + frame_size - 1) % frame_size];
-	if (previous_frame_start && cursor < previous_frame_start && cursor + len > previous_frame_start) {
+	if (previous_frame_start && new_cursor < previous_frame_start && new_cursor + len > previous_frame_start) {
 		ASSERT(!"Not enough space");
+		return std::make_pair(nullptr, 0);
 	}
 
-	auto *offset = cursor;
-	cursor += len;
+	auto *offset = new_cursor;
+	new_cursor += len;
+
+	cursor = new_cursor;
 
 	ASSERT((offset - buffer_start) % static_cast<i64>(alignment) == 0);
 	return std::make_pair(offset, offset - buffer_start);

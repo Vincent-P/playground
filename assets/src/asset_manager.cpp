@@ -2,6 +2,7 @@
 
 #include "assets/asset.h"
 #include "assets/asset_constructors.h"
+#include "assets/importers/generic_importer.h"
 #include "assets/importers/gltf_importer.h"
 #include "assets/importers/ktx2_importer.h"
 #include "assets/importers/png_importer.h"

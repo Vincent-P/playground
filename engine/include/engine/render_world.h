@@ -30,9 +30,6 @@ struct RenderWorld
 	float4x4 main_camera_projection_inverse;
 
 	Vec<DrawableInstance> drawable_instances;
-
-	// intermediate result
-	exo::Map<exo::UUID, MeshInstance> mesh_instances;
 };
 
 /**

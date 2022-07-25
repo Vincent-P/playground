@@ -62,7 +62,7 @@ private:
 	{
 		using Settings = typename T::Settings;
 		wrapper(T &&arg) : value{std::forward<decltype(arg)>(arg)} {}
-		~wrapper() override {}
+		virtual ~wrapper() override {}
 		bool can_import(const void *file_data, usize file_size) final { return value.can_import(file_data, file_size); }
 		Result<Asset *> import(AssetManager *m, exo::UUID r, const void *d, usize s, void *i) final
 		{

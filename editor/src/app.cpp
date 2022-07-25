@@ -35,14 +35,14 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->watcher = cross::FileWatcher::create();
 	app->asset_manager->setup_file_watcher(app->watcher);
-	app->renderer = Renderer::create(app->window->get_win32_hwnd());
+	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
 	app->is_minimized = false;
 
 	app->scene.init(app->asset_manager, &app->inputs);
 
 	using namespace std::literals;
-	auto scene_uuid = exo::UUID::from_string("82f1c7fe-4b5b7fcc-23ca8a83-6ac8704a"sv);
+	auto scene_uuid = exo::UUID::from_string("5c7664b8-4f380ff5-41ccd8b1-8d1087a6"sv);
 	auto result     = app->asset_manager->load_asset(scene_uuid);
 	ASSERT(result);
 	SubScene *scene_asset = dynamic_cast<SubScene *>(result.value());
