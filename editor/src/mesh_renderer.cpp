@@ -168,6 +168,14 @@ static Handle<RenderMaterial> get_or_create_material(
 		render_material.base_color_texture =
 			get_or_create_texture(renderer, asset_manager, device, material->base_color_texture);
 	}
+	if (material->normal_texture.is_valid()) {
+		render_material.normal_texture =
+			get_or_create_texture(renderer, asset_manager, device, material->normal_texture);
+	}
+	if (material->metallic_roughness_texture.is_valid()) {
+		render_material.metallic_roughness_texture =
+			get_or_create_texture(renderer, asset_manager, device, material->metallic_roughness_texture);
+	}
 
 	// Add the material to the map
 	auto handle = renderer.render_materials.add(std::move(render_material));

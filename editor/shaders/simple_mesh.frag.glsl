@@ -27,6 +27,18 @@ void main()
 	    base_color = base_color * texture(global_textures[nonuniformEXT(material.base_color_texture)], i_uvs);
     }
 
+    float4 normal = float4(0, 0, 1, 1);
+    if (material.normal_texture != u32_invalid) {
+	    normal = texture(global_textures[nonuniformEXT(material.normal_texture)], i_uvs);
+    }
+
+    float4 metallic_roughness = float4(0.0);
+    if (material.metallic_roughness_texture != u32_invalid) {
+	    metallic_roughness = texture(global_textures[nonuniformEXT(material.metallic_roughness_texture)], i_uvs);
+    }
+
     o_color.rgb = base_color.rgb;
+    o_color.rgb = normal.rgb;
+    o_color.rgb = metallic_roughness.rgb;
     o_color.a = 1.0;
 }

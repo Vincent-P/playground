@@ -520,14 +520,12 @@ static void import_materials(ImportContext &ctx)
 			new_material->name = exo::tls_string_repository.intern(j_material["name"].GetString());
 		}
 
-		if (j_material.HasMember("pbrMetallicRoughness")) {
-			const auto &j_pbr = j_material["pbrMetallicRoughness"].GetObj();
-
-			if (j_pbr.HasMember("baseColorTexture")) {
-				const auto &j_base_color_texture = j_pbr["baseColorTexture"];
-				u32         texture_index        = j_base_color_texture["index"].GetUint();
-				const auto &j_texture            = j_document["textures"][texture_index];
-				u32         texture_uuid_index   = u32_invalid;
+		auto load_texture = [&](auto &json_object, const char *texture_name) -> Option<exo::UUID> {
+			if (json_object.HasMember(texture_name)) {
+				const auto &j_texture_desc          = json_object[texture_name];
+				u32         texture_index      = j_texture_desc["index"].GetUint();
+				const auto &j_texture          = j_document["textures"][texture_index];
+				u32         texture_uuid_index = u32_invalid;
 
 				if (j_texture.HasMember("extensions")) {
 					for (const auto &j_extension : j_texture["extensions"].GetObj()) {
@@ -543,11 +541,25 @@ static void import_materials(ImportContext &ctx)
 				}
 
 				ASSERT(texture_uuid_index != u32_invalid);
+				return Some(ctx.importer_data.texture_uuids[texture_uuid_index]);
+			}
+			return None;
+		};
 
-				new_material->base_color_texture = ctx.importer_data.texture_uuids[texture_uuid_index];
+		if (auto normal_uuid = load_texture(j_material, "normalTexture"); normal_uuid) {
+			new_material->normal_texture = normal_uuid.value();
+			new_material->dependencies.push_back(new_material->normal_texture);
+		}
+
+		if (j_material.HasMember("pbrMetallicRoughness")) {
+			const auto &j_pbr = j_material["pbrMetallicRoughness"].GetObj();
+
+			if (auto base_color_uuid = load_texture(j_pbr, "baseColorTexture"); base_color_uuid) {
+				new_material->base_color_texture = base_color_uuid.value();
 				new_material->dependencies.push_back(new_material->base_color_texture);
 
-				// TODO: Assert that all textures of this material have the same texture transform
+// TODO: implement KHR_texture_transform
+#if 0
 				if (j_base_color_texture.HasMember("extensions") &&
 					j_base_color_texture["extensions"].HasMember("KHR_texture_transform")) {
 					const auto &extension = j_base_color_texture["extensions"]["KHR_texture_transform"];
@@ -563,6 +575,13 @@ static void import_materials(ImportContext &ctx)
 						new_material->uv_transform.rotation = extension["rotation"].GetFloat();
 					}
 				}
+#endif
+			}
+
+			if (auto metallic_roughness_uuid = load_texture(j_pbr, "metallicRoughnessTexture");
+				metallic_roughness_uuid) {
+				new_material->metallic_roughness_texture = metallic_roughness_uuid.value();
+				new_material->dependencies.push_back(new_material->metallic_roughness_texture);
 			}
 
 			if (j_pbr.HasMember("baseColorFactor")) {
@@ -571,7 +590,16 @@ static void import_materials(ImportContext &ctx)
 					new_material->base_color_factor[i] = j_pbr["baseColorFactor"].GetArray()[i].GetFloat();
 				}
 			}
+
+			if (j_pbr.HasMember("metallicFactor")) {
+				new_material->metallic_factor = j_pbr["metallicFactor"].GetFloat();
+			}
+
+			if (j_pbr.HasMember("roughnessFactor")) {
+				new_material->roughness_factor = j_pbr["roughnessFactor"].GetFloat();
+			}
 		}
+
 		ctx.asset_manager->save_asset(new_material);
 	}
 }
