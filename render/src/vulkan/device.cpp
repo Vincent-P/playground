@@ -214,6 +214,12 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	sampler_info.minFilter = VK_FILTER_NEAREST;
 	vk_check(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Nearest]));
 
+	device.create_image(ImageDescription{.name = "empty image", .usages = storage_image_usage | sampled_image_usage});
+	for (u32 i_slot = 1; i_slot < 1024; ++i_slot) {
+		device.global_sets.bindless.pending_unbind[BindlessSet::PER_SAMPLER].push_back(i_slot);
+		device.global_sets.bindless.pending_unbind[BindlessSet::PER_IMAGE].push_back(i_slot);
+	}
+
 	return device;
 }
 

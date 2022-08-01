@@ -4,6 +4,7 @@
 #include <exo/uuid.h>
 
 #include "assets/asset.h"
+#include "assets/asset_id.h"
 namespace exo
 {
 struct Serializer;
@@ -20,15 +21,16 @@ struct TextureTransform
 };
 
 // Dependencies: Textures
+REGISTER_ASSET_TYPE(Material, create_asset_id('MAT'))
 struct Material : Asset
 {
 	float4           base_color_factor          = float4(1.0f);
 	float4           emissive_factor            = float4(0.0f);
 	float            metallic_factor            = 1.0f;
 	float            roughness_factor           = 1.0f;
-	exo::UUID        base_color_texture         = {};
-	exo::UUID        normal_texture             = {};
-	exo::UUID        metallic_roughness_texture = {};
+	AssetId          base_color_texture         = {};
+	AssetId          normal_texture             = {};
+	AssetId          metallic_roughness_texture = {};
 	TextureTransform uv_transform               = {};
 
 	static Asset *create();

@@ -4,5 +4,5 @@
 
 namespace exo
 {
-template <> void Serializer::serialize<UUID>(UUID &uuid);
+void serialize(Serializer &serializer, UUID &uuid);
 }

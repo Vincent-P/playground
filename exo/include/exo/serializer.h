@@ -3,6 +3,8 @@
 #include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
 
+#include <span>
+
 namespace exo
 {
 struct StringRepository;
@@ -14,11 +16,11 @@ struct int2;
 struct Serializer;
 
 template <typename T>
-concept MemberSerializable = requires(T a)
+concept MemberSerializable = requires(T &a)
 {
-	{
-		a.serialize(*(Serializer *)nullptr)
-		} -> std::same_as<void>;
+	// clang-format off
+	{ a.serialize(*(Serializer *)nullptr) } -> std::same_as<void>;
+	// clang-format on
 };
 
 struct Serializer
@@ -27,39 +29,6 @@ struct Serializer
 
 	void read_bytes(void *dst, usize len);
 	void write_bytes(const void *src, usize len);
-
-	template <typename T> void serialize(T &data);
-
-	template <MemberSerializable T> void serialize(T &data);
-
-	template <typename T, usize n> void serialize(T (&data)[n]);
-
-	template <typename T> void serialize(Vec<T> &data);
-
-	// builtin types
-	void serialize(i8 &data);
-	void serialize(i16 &data);
-	void serialize(i32 &data);
-	void serialize(i64 &data);
-	void serialize(u8 &data);
-	void serialize(u16 &data);
-	void serialize(u32 &data);
-	void serialize(u64 &data);
-
-	void serialize(f32 &data);
-	void serialize(f64 &data);
-
-	void serialize(char &data);
-	void serialize(bool &data);
-
-	// interned string
-	void serialize(const char *&data);
-
-	// vectors
-	void serialize(float4x4 &data);
-	void serialize(float4 &data);
-	void serialize(float2 &data);
-	void serialize(int2 &data);
 
 	StringRepository *str_repo;
 	ScopeStack       *scope;
@@ -70,32 +39,57 @@ struct Serializer
 	usize             buffer_size;
 };
 
-template <MemberSerializable T> void Serializer::serialize(T &data) { data.serialize(*this); }
+template <MemberSerializable T> void serialize(Serializer &serializer, T &data) { data.serialize(serializer); }
 
-template <typename T, usize n> void Serializer::serialize(T (&data)[n])
+template <typename T, usize n> void serialize(Serializer &serializer, T (&data)[n])
 {
 	usize size = n;
-	serialize(size);
+	serialize(serializer, size);
 	ASSERT(size == n);
 
 	for (usize i = 0; i < size; i += 1) {
-		serialize(data[i]);
+		serialize(serializer, data[i]);
 	}
 }
 
-template <typename T> void Serializer::serialize(Vec<T> &data)
+template <typename T> void serialize(Serializer &serializer, Vec<T> &data)
 {
 	usize size = data.size();
-	serialize(size);
+	serialize(serializer, size);
 
-	if (this->is_writing == false) {
+	if (serializer.is_writing == false) {
 		data.resize(size);
 	}
 
 	ASSERT(size == data.size());
 	for (usize i = 0; i < size; i += 1) {
-		serialize(data[i]);
+		serialize(serializer, data[i]);
 	}
 }
+
+// builtin types
+void serialize(Serializer &serializer, i8 &data);
+void serialize(Serializer &serializer, i16 &data);
+void serialize(Serializer &serializer, i32 &data);
+void serialize(Serializer &serializer, i64 &data);
+void serialize(Serializer &serializer, u8 &data);
+void serialize(Serializer &serializer, u16 &data);
+void serialize(Serializer &serializer, u32 &data);
+void serialize(Serializer &serializer, u64 &data);
+
+void serialize(Serializer &serializer, f32 &data);
+void serialize(Serializer &serializer, f64 &data);
+
+void serialize(Serializer &serializer, char &data);
+void serialize(Serializer &serializer, bool &data);
+
+// interned string
+void serialize(Serializer &serializer, const char *&data);
+
+// vectors
+void serialize(Serializer &serializer, float4x4 &data);
+void serialize(Serializer &serializer, float4 &data);
+void serialize(Serializer &serializer, float2 &data);
+void serialize(Serializer &serializer, int2 &data);
 
 } // namespace exo

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "gameplay/component.h"
-#include <exo/uuid.h>
+#include <assets/asset_id.h>
 
 struct MeshComponent : SpatialComponent
 {
-	exo::UUID mesh_asset;
+	AssetId mesh_asset;
 };

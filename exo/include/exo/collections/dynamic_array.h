@@ -39,6 +39,7 @@ template <typename T, usize CAPACITY> struct DynamicArray
 				array[i].~T();
 			}
 		}
+		array_size = 0;
 	}
 
 	constexpr const T &operator[](usize i) const;

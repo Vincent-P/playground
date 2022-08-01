@@ -4,8 +4,10 @@
 #include <exo/uuid.h>
 
 #include "assets/asset.h"
+#include "assets/asset_id.h"
 
 // Hierarchy of entities made of meshes and transforms
+REGISTER_ASSET_TYPE(SubScene, create_asset_id('SUBS'))
 struct SubScene : Asset
 {
 	static Asset *create();
@@ -17,7 +19,7 @@ struct SubScene : Asset
 
 	// SoA nodes layout
 	Vec<float4x4>     transforms;
-	Vec<exo::UUID>    meshes;
+	Vec<AssetId>      meshes;
 	Vec<const char *> names;
 	Vec<Vec<u32>>     children;
 };

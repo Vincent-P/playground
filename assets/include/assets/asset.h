@@ -6,6 +6,8 @@
 
 #include <string>
 
+#include "assets/asset_id.h"
+
 namespace exo
 {
 struct Serializer;
@@ -16,6 +18,7 @@ enum struct AssetState
 	Unloaded,
 	Loading,
 	Loaded,
+	Installed,
 	Count
 };
 
@@ -23,6 +26,7 @@ inline constexpr exo::EnumArray<const char *, AssetState> asset_state_to_string{
 	"Unloaded",
 	"Loading",
 	"Loaded",
+	"Installed",
 };
 
 inline constexpr const char *to_string(AssetState state) { return asset_state_to_string[state]; }
@@ -36,7 +40,7 @@ struct Asset
 
 	bool operator==(const Asset &other) const = default;
 
-	inline void add_dependency_checked(exo::UUID dependency)
+	inline void add_dependency_checked(AssetId dependency)
 	{
 		usize i = 0;
 		for (; i < dependencies.size(); i += 1) {
@@ -45,15 +49,16 @@ struct Asset
 			}
 		}
 		if (i >= dependencies.size()) {
-			dependencies.push_back(dependency);
+			dependencies.push_back(std::move(dependency));
 		}
 	}
 
 	// --
-	exo::UUID      uuid;
-	AssetState     state;
-	const char    *name;
-	Vec<exo::UUID> dependencies;
+	AssetId      uuid;
+	AssetState   state;
+	std::string  name;
+	std::string  path;
+	Vec<AssetId> dependencies;
 };
 
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use

@@ -4,10 +4,13 @@ set(SOURCE_FILES
   include/exo/collections/dynamic_array.h
   include/exo/collections/enum_array.h
   include/exo/collections/handle.h
+  include/exo/collections/handle_map.h
   include/exo/collections/index_map.h
+  include/exo/collections/index_map_serializer.h
   include/exo/collections/iterator_facade.h
   include/exo/collections/map.h
   include/exo/collections/pool.h
+  include/exo/collections/pool_serializer.h
   include/exo/collections/set.h
   include/exo/collections/vector.h
   include/exo/events.h
@@ -39,7 +42,9 @@ set(SOURCE_FILES
   include/exo/uuid_formatter.h
   include/exo/uuid_serializer.h
   src/collections/index_map.cpp
+  src/collections/index_map_serializer.cpp
   src/collections/pool.cpp
+  src/collections/pool_serializer.cpp
   src/lib.cpp
   src/maths/matrices.cpp
   src/maths/vectors.cpp
@@ -52,9 +57,12 @@ set(SOURCE_FILES
   src/uuid.cpp
   src/uuid_serializer.cpp
 
+  include/exo/path.h
+  src/path.cpp
+
   engine.natvis
   phmap.natvis
-  )
+   "include/exo/string_serializer.h" "include/exo/serializer_helper.h")
 
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo)

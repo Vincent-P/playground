@@ -1,12 +1,5 @@
 #pragma once
-
-#include <exo/result.h>
-#include <exo/uuid.h>
-
-#include <rapidjson/fwd.h>
-
-struct AssetManager;
-struct Asset;
+#include "assets/importers/importer.h"
 
 enum struct KTX2Errors
 {
@@ -19,28 +12,13 @@ struct LibKtxError
 	int error_code;
 };
 
-struct KTX2Importer
+struct KTX2Importer final : Importer
 {
-	struct Settings
-	{
-		bool do_something                            = false;
-		bool operator==(const Settings &other) const = default;
-	};
+	static constexpr u64 importer_id = 0x3;
 
-	struct Data
-	{
-		Settings settings;
-	};
+	bool can_import_extension(std::span<std::string_view const> extensions) final;
+	bool can_import_blob(std::span<u8 const> blob) final;
 
-	bool            can_import(const void *file_data, usize file_len);
-	Result<Asset *> import(AssetManager *asset_manager,
-		exo::UUID                        resource_uuid,
-		const void                      *file_data,
-		usize                            file_len,
-		void                            *import_settings = nullptr);
-
-	// Importer data
-	void *create_default_importer_data();
-	void *read_data_json(const rapidjson::Value &j_data);
-	void  write_data_json(rapidjson::GenericPrettyWriter<rapidjson::FileWriteStream> &writer, const void *data);
+	virtual Result<CreateResponse>  create_asset(const CreateRequest &request) override;
+	virtual Result<ProcessResponse> process_asset(const ProcessRequest &request) override;
 };

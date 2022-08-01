@@ -1,14 +1,5 @@
 #pragma once
-
-#include <exo/collections/vector.h>
-#include <exo/result.h>
-#include <exo/uuid.h>
-
-#include <rapidjson/fwd.h>
-
-#include "assets/subscene.h"
-
-struct AssetManager;
+#include "assets/importers/importer.h"
 
 enum struct GLTFError
 {
@@ -16,33 +7,13 @@ enum struct GLTFError
 	SecondChunkNotBIN,
 };
 
-struct GLTFImporter
+struct GLTFImporter final : Importer
 {
-	struct Settings
-	{
-		u32  i_scene                                 = 0;
-		bool apply_transform                         = false;
-		bool remove_degenerate_triangles             = false;
-		bool operator==(const Settings &other) const = default;
-	};
+	static constexpr u64 importer_id = 0x1;
 
-	struct Data
-	{
-		Settings       settings;
-		Vec<exo::UUID> mesh_uuids;
-		Vec<exo::UUID> texture_uuids;
-		Vec<exo::UUID> material_uuids;
-	};
+	bool can_import_extension(std::span<std::string_view const> extensions) override;
+	bool can_import_blob(std::span<u8 const> data) override;
 
-	bool            can_import(const void *file_data, usize file_len);
-	Result<Asset *> import(AssetManager *asset_manager,
-		exo::UUID                        resource_uuid,
-		const void                      *file_data,
-		usize                            file_len,
-		void                            *import_settings = nullptr);
-
-	// Importer data
-	void *create_default_importer_data();
-	void *read_data_json(const rapidjson::Value &j_data);
-	void  write_data_json(rapidjson::GenericPrettyWriter<rapidjson::FileWriteStream> &writer, const void *data);
+	Result<CreateResponse>  create_asset(const CreateRequest &request) override;
+	Result<ProcessResponse> process_asset(const ProcessRequest &request) override;
 };

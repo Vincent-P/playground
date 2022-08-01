@@ -1,8 +1,10 @@
 #include "mesh_renderer.h"
 
+#include <exo/collections/handle_map.h>
 #include <exo/macros/packed.h>
-#include <exo/uuid_formatter.h>
 
+#include <assets/asset_id.h>
+#include <assets/asset_id_formatter.h>
 #include <assets/asset_manager.h>
 #include <assets/material.h>
 #include <assets/mesh.h>
@@ -103,63 +105,59 @@ MeshRenderer MeshRenderer::create(vulkan::Device &device)
 	return renderer;
 }
 
-template <typename T> static Handle<T> as_handle(u64 bytes)
-{
-	static_assert(sizeof(Handle<T>) == sizeof(u64));
-	return std::bit_cast<Handle<T>>(bytes);
-}
-
-template <typename T> static u64 to_u64(Handle<T> handle)
-{
-	static_assert(sizeof(Handle<T>) == sizeof(u64));
-	return std::bit_cast<u64>(handle);
-}
-
 static Handle<RenderTexture> get_or_create_texture(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID texture_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId texture_uuid)
 {
-	auto asset   = asset_manager->get_asset(texture_uuid);
-	auto texture = reinterpret_cast<Texture *>(asset.value());
+	auto texture = asset_manager->load_asset<Texture>(texture_uuid);
 
 	auto render_texture_handle = renderer.texture_uuid_map.at(hash_value(texture_uuid));
 	if (render_texture_handle) {
-		return as_handle<RenderTexture>(render_texture_handle.value());
+		return exo::as_handle<RenderTexture>(render_texture_handle.value());
 	}
 
 	RenderTexture render_texture = {};
 	render_texture.texture_asset = texture_uuid;
 
-	ASSERT(texture->format == PixelFormat::R8G8B8A8_UNORM);
+	VkFormat vk_format = VK_FORMAT_R8G8B8A8_UNORM;
+	switch (texture->format) {
+	case PixelFormat::R8G8B8A8_UNORM: {
+		vk_format = VK_FORMAT_R8G8B8A8_UNORM;
+		break;
+	}
+	default: {
+		ASSERT(false);
+	}
+	}
+
 	ASSERT(texture->mip_offsets.size() == 1);
 	ASSERT(texture->levels == 1);
 	ASSERT(texture->depth == 1);
 
 	render_texture.image = device.create_image({
-		.name = "Texture",
+		.name = texture->name,
 		.size =
 			{
 				texture->width,
 				texture->height,
 				texture->depth,
 			},
-		.format = VK_FORMAT_R8G8B8A8_UNORM,
+		.format = vk_format,
 	});
 
 	// Add the texture to the map
 	auto handle = renderer.render_textures.add(std::move(render_texture));
-	renderer.texture_uuid_map.insert(hash_value(texture_uuid), to_u64(handle));
+	renderer.texture_uuid_map.insert(hash_value(texture_uuid), exo::to_u64(handle));
 	return handle;
 }
 
 static Handle<RenderMaterial> get_or_create_material(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID material_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId material_uuid)
 {
-	auto asset    = asset_manager->get_asset(material_uuid);
-	auto material = reinterpret_cast<Material *>(asset.value());
+	auto material = asset_manager->load_asset<Material>(material_uuid);
 
 	auto render_material_handle = renderer.material_uuid_map.at(hash_value(material_uuid));
 	if (render_material_handle) {
-		return as_handle<RenderMaterial>(render_material_handle.value());
+		return exo::as_handle<RenderMaterial>(render_material_handle.value());
 	}
 
 	RenderMaterial render_material = {};
@@ -179,19 +177,18 @@ static Handle<RenderMaterial> get_or_create_material(
 
 	// Add the material to the map
 	auto handle = renderer.render_materials.add(std::move(render_material));
-	renderer.material_uuid_map.insert(hash_value(material_uuid), to_u64(handle));
+	renderer.material_uuid_map.insert(hash_value(material_uuid), exo::to_u64(handle));
 	return handle;
 }
 
 static Handle<RenderMesh> get_or_create_mesh(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, exo::UUID mesh_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId mesh_uuid)
 {
-	auto asset = asset_manager->get_asset(mesh_uuid);
-	auto mesh  = reinterpret_cast<Mesh *>(asset.value());
+	auto mesh = asset_manager->load_asset<Mesh>(mesh_uuid);
 
 	auto render_mesh_handle = renderer.mesh_uuid_map.at(hash_value(mesh_uuid));
 	if (render_mesh_handle) {
-		return as_handle<RenderMesh>(render_mesh_handle.value());
+		return exo::as_handle<RenderMesh>(render_mesh_handle.value());
 	}
 
 	RenderMesh render_mesh       = {};
@@ -232,7 +229,7 @@ static Handle<RenderMesh> get_or_create_mesh(
 	}
 
 	auto handle = renderer.render_meshes.add(std::move(render_mesh));
-	renderer.mesh_uuid_map.insert(hash_value(mesh_uuid), to_u64(handle));
+	renderer.mesh_uuid_map.insert(hash_value(mesh_uuid), exo::to_u64(handle));
 	return handle;
 }
 
@@ -278,13 +275,12 @@ void register_upload_nodes(RenderGraph &graph,
 
 	// Upload new textures
 	for (auto [handle, p_render_texture] : mesh_renderer.render_textures) {
-		if (!p_render_texture->is_uploaded) {
+		if (p_render_texture->frame_uploaded == u64_invalid) {
 
-			auto *texture = static_cast<Texture *>(asset_manager->get_asset(p_render_texture->texture_asset).value());
+			auto *texture                       = asset_manager->load_asset<Texture>(p_render_texture->texture_asset);
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(texture->data_size);
 
 			if (p_upload_data) {
-
 				fmt::print("[Renderer] Uploading texture asset {} at offset 0x{:x} frame #{}\n",
 					texture->uuid,
 					upload_offset,
@@ -297,15 +293,16 @@ void register_upload_nodes(RenderGraph &graph,
 					.upload_size   = texture->data_size,
 					.extent        = int3(texture->width, texture->height, texture->depth),
 				});
-				p_render_texture->is_uploaded = true;
+				p_render_texture->frame_uploaded = graph.i_frame + 3;
 			}
 		}
 	}
 
 	// Upload new materials
 	for (auto [handle, p_render_material] : mesh_renderer.render_materials) {
-		auto is_texture_uploaded = [](MeshRenderer &mesh_renderer, Handle<RenderTexture> texture_handle) -> bool {
-			return !texture_handle.is_valid() || mesh_renderer.render_textures.get(texture_handle).is_uploaded;
+		auto is_texture_uploaded = [&](MeshRenderer &mesh_renderer, Handle<RenderTexture> texture_handle) -> bool {
+			return !texture_handle.is_valid() ||
+			       (mesh_renderer.render_textures.get(texture_handle).frame_uploaded <= graph.i_frame);
 		};
 
 		bool textures_uploaded = is_texture_uploaded(mesh_renderer, p_render_material->base_color_texture) &&
@@ -316,8 +313,7 @@ void register_upload_nodes(RenderGraph &graph,
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(sizeof(MaterialDescriptor));
 			if (p_upload_data) {
 
-				auto *material_asset =
-					static_cast<Material *>(asset_manager->get_asset(p_render_material->material_asset).value());
+				auto *material_asset    = asset_manager->load_asset<Material>(p_render_material->material_asset);
 				auto *p_upload_material = reinterpret_cast<MaterialDescriptor *>(p_upload_data);
 
 				fmt::print("[Renderer] Uploading material asset {} at offset 0x{:x} frame #{}\n",
@@ -355,6 +351,7 @@ void register_upload_nodes(RenderGraph &graph,
 				});
 
 				p_render_material->is_uploaded = true;
+				break;
 			}
 		}
 	}
@@ -381,7 +378,7 @@ void register_upload_nodes(RenderGraph &graph,
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(total_size);
 			if (p_upload_data) {
 
-				auto *mesh_asset = static_cast<Mesh *>(asset_manager->get_asset(p_render_mesh->mesh_asset).value());
+				auto *mesh_asset = asset_manager->load_asset<Mesh>(p_render_mesh->mesh_asset);
 				fmt::print("[Renderer] Uploading mesh asset {} at offset 0x{:x} frame #{}\n",
 					mesh_asset->uuid,
 					upload_offset,
@@ -461,6 +458,7 @@ void register_upload_nodes(RenderGraph &graph,
 				mesh_asset->uvs.shrink_to_fit();
 
 				p_render_mesh->is_uploaded = true;
+				break;
 			}
 		}
 	}

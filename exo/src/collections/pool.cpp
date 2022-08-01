@@ -4,12 +4,7 @@
 
 namespace exo
 {
-usize _hash_handle(u32 index, u32 gen)
-{
-	usize seed = hash_value(index);
-	hash_combine(seed, gen);
-	return seed;
-}
+usize _hash_handle(u32 index, u32 gen) { return hash_combine(u64(index), u64(gen)); }
 } // namespace exo
 
 #if defined(ENABLE_DOCTEST)

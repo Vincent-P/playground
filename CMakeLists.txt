@@ -24,7 +24,7 @@ add_compile_options(
 
   # Multi-processor compilation
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
-  )
+)
 
 # C++ flags for the project's code
 # https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#compilers
@@ -48,14 +48,14 @@ set(APP_CXX_FLAGS
   # utils
   # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
   # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-  )
+)
 
 # C++ flags for third party libraries
 set(THIRD_PARTY_CXX_FLAGS
   # Disable warnings for third-party libs
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
-  )
+)
 
 function(SETUP_APP_TARGET TARGET)
   message(STATUS "Setting up application target ${TARGET}")
@@ -78,7 +78,7 @@ function(SETUP_APP_TARGET TARGET)
     $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
     $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
     $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-  )
+)
 endfunction()
 
 function(SETUP_THIRDPARTY_TARGET TARGET)
@@ -115,7 +115,7 @@ function(SETUP_SHADERS TARGET)
       OUTPUT ${SPIRV_FILE}
       COMMAND glslc --target-env=vulkan1.2 -std=460 -g ${GLSL_FILE} -o ${SPIRV_FILE} ${INCLUDE_ARGS}
       DEPENDS ${GLSL_FILE}
-    )
+  )
     list(APPEND SPIRV_FILES ${SPIRV_FILE})
   endforeach()
 

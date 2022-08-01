@@ -3,6 +3,7 @@
 #include <exo/logger.h>
 #include <exo/macros/defer.h>
 
+#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
 
@@ -13,9 +14,7 @@
 #include <rapidjson/prettywriter.h>
 #include <volk.h>
 
-namespace
-{
-PixelFormat from_vk(VkFormat vk_format)
+static PixelFormat from_vk(VkFormat vk_format)
 {
 	switch (vk_format) {
 	case VK_FORMAT_R8G8B8A8_UNORM:
@@ -33,33 +32,51 @@ PixelFormat from_vk(VkFormat vk_format)
 	default:
 		ASSERT(false);
 	}
+	return PixelFormat::R8G8B8A8_UNORM;
 }
-} // namespace
 
-bool KTX2Importer::can_import(const void *file_data, usize file_len)
+bool KTX2Importer::can_import_extension(std::span<std::string_view const> extensions)
 {
-	// Section 3.1: https://github.khronos.org/KTX-Specification/
+	for (const auto extension : extensions) {
+		if (extension == std::string_view{".ktx2"}) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool KTX2Importer::can_import_blob(std::span<u8 const> blob)
+{
 	const u8 signature[] = {0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
 
-	ASSERT(file_len > sizeof(signature));
-	return std::memcmp(file_data, signature, sizeof(signature)) == 0;
+	ASSERT(blob.size() > sizeof(signature));
+	return std::memcmp(blob.data(), signature, sizeof(signature)) == 0;
 }
 
-Result<Asset *> KTX2Importer::import(
-	AssetManager *asset_manager, exo::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+Result<CreateResponse> KTX2Importer::create_asset(const CreateRequest &request)
 {
-	auto &ktx2_importer_data = *reinterpret_cast<KTX2Importer::Data *>(importer_data);
+	exo::logger::info("KTX2Importer::create_asset({}, {})\n", request.asset, request.path.view());
+	return Ok(CreateResponse{});
+}
 
+Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest &request)
+{
+	exo::logger::info("KTX2Importer::process_asset({}, {})\n", request.asset, request.path.view());
+	return Ok(ProcessResponse{});
+}
+
+#if 0
+Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> blob)
+{
 	ktxTexture2 *ktx_texture = nullptr;
-	auto         result      = ktxTexture2_CreateFromMemory(reinterpret_cast<const u8 *>(file_data),
-        file_len,
-        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-        &ktx_texture);
+	auto         result =
+		ktxTexture2_CreateFromMemory(blob.data(), blob.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
 	if (result != KTX_SUCCESS) {
 		return Err<Asset *>(KTX2Errors::CreateFailed);
 	}
 
-	auto *new_texture = asset_manager->create_asset<Texture>(resource_uuid);
+	auto *new_texture = new Texture();
+	new_texture->uuid = resource_uuid;
 
 	// https://github.com/KhronosGroup/3D-Formats-Guidelines/blob/main/KTXDeveloperGuide.md
 	if (ktxTexture2_NeedsTranscoding(ktx_texture)) {
@@ -103,27 +120,6 @@ Result<Asset *> KTX2Importer::import(
 	new_texture->pixels_data = ktx_texture->pData;
 	new_texture->data_size   = ktx_texture->dataSize;
 
-	asset_manager->save_asset(new_texture);
 	return Ok<Asset *>(new_texture);
 }
-
-void *KTX2Importer::create_default_importer_data() { return reinterpret_cast<void *>(new KTX2Importer::Data()); }
-
-void *KTX2Importer::read_data_json(const rapidjson::Value &j_data)
-{
-	auto *new_data = create_default_importer_data();
-	auto *data     = reinterpret_cast<KTX2Importer::Data *>(new_data);
-
-	const auto &j_settings = j_data["settings"].GetObj();
-	data->settings         = {};
-
-	return new_data;
-}
-
-void KTX2Importer::write_data_json(rapidjson::GenericPrettyWriter<rapidjson::FileWriteStream> &writer, const void *data)
-{
-	ASSERT(data);
-	const auto *import_data = reinterpret_cast<const KTX2Importer::Data *>(data);
-	writer.StartObject();
-	writer.EndObject();
-}
+#endif

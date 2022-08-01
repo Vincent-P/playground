@@ -4,10 +4,12 @@
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/matrices.h>
-#include <exo/uuid.h>
+
 #include <render/ring_buffer.h>
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/pipelines.h>
+
+#include <assets/asset_id.h>
 
 struct RenderWorld;
 struct AssetManager;
@@ -38,14 +40,14 @@ struct RenderImageUpload
 
 struct RenderTexture
 {
-	exo::UUID             texture_asset = {};
-	Handle<vulkan::Image> image         = {};
-	bool                  is_uploaded   = false;
+	AssetId               texture_asset  = {};
+	Handle<vulkan::Image> image          = {};
+	u64                   frame_uploaded = u64_invalid;
 };
 
 struct RenderMaterial
 {
-	exo::UUID             material_asset             = {};
+	AssetId               material_asset             = {};
 	Handle<RenderTexture> base_color_texture         = {};
 	Handle<RenderTexture> normal_texture             = {};
 	Handle<RenderTexture> metallic_roughness_texture = {};
@@ -61,7 +63,7 @@ struct RenderSubmesh
 
 struct RenderMesh
 {
-	exo::UUID              mesh_asset       = {};
+	AssetId                mesh_asset       = {};
 	Handle<vulkan::Buffer> index_buffer     = {};
 	Handle<vulkan::Buffer> positions_buffer = {};
 	Handle<vulkan::Buffer> uvs_buffer       = {};

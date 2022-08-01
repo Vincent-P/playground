@@ -2,7 +2,9 @@
 #include "assets/asset_constructors.h"
 
 #include <exo/serializer.h>
+#include <exo/string_serializer.h>
 
+#include "assets/asset_id.h"
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
 AssetConstructors &global_asset_constructors()
 {
@@ -12,7 +14,7 @@ AssetConstructors &global_asset_constructors()
 
 void Asset::serialize(exo::Serializer &serializer)
 {
-	serializer.serialize(this->uuid);
-	serializer.serialize(this->name);
-	serializer.serialize(this->dependencies);
+	exo::serialize(serializer, this->uuid);
+	exo::serialize(serializer, this->name);
+	exo::serialize(serializer, this->dependencies);
 }

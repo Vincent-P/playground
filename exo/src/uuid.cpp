@@ -80,6 +80,7 @@ UUID UUID::from_values(const u32 *values)
 
 namespace exo
 {
+template <>
 usize hash_value(const exo::UUID &uuid)
 {
 	return phmap::HashState().combine(uuid.data[0], uuid.data[1], uuid.data[2], uuid.data[3]);

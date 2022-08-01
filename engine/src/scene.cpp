@@ -77,6 +77,6 @@ Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
 void Scene::import_subscene(SubScene *subscene)
 {
 	for (auto i_root : subscene->roots) {
-		auto *new_root = import_subscene_rec(subscene, i_root);
+		import_subscene_rec(subscene, i_root);
 	}
 }

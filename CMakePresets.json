@@ -15,15 +15,13 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-          "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "intelliSenseMode": "windows-clang-x64"
-        },
-        "jetbrains.com/clion": {
-          "toolchain": "Clang12"
         }
       },
       "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
@@ -39,7 +37,8 @@
         "strategy": "external"
       },
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /Oi /RTC1"
+        "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /Oi /RTC1",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
       },
       "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
     }
@@ -53,7 +52,7 @@
       "name": "msvc",
       "configurePreset": "msvc",
       "environment": {
-        "UseMultiToolTask":  "true"
+        "UseMultiToolTask": "true"
       }
     }
   ]

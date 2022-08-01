@@ -2,23 +2,10 @@
 
 #include "render/vulkan/device.h"
 #include <exo/collections/dynamic_array.h>
+#include <exo/collections/handle_map.h>
 #include <render/vulkan/framebuffer.h>
 #include <render/vulkan/image.h>
 #include <render/vulkan/utils.h>
-
-#include <bit>
-
-template <typename T> Handle<T> as_handle(u64 bytes)
-{
-	static_assert(sizeof(Handle<T>) == sizeof(u64));
-	return std::bit_cast<Handle<T>>(bytes);
-}
-
-template <typename T> u64 to_u64(Handle<T> handle)
-{
-	static_assert(sizeof(Handle<T>) == sizeof(u64));
-	return std::bit_cast<u64>(handle);
-}
 
 void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 {
@@ -26,9 +13,9 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 
 	Vec<Handle<vulkan::Image>> img_to_remove;
 	for (auto [image_handle_b, metadata_handle_b] : this->image_pool) {
-		auto image_handle = as_handle<vulkan::Image>(image_handle_b);
+		auto image_handle = exo::as_handle<vulkan::Image>(image_handle_b);
 
-		const auto &metadata = this->image_metadatas.get(as_handle<ImageMetadata>(metadata_handle_b));
+		const auto &metadata = this->image_metadatas.get(exo::as_handle<ImageMetadata>(metadata_handle_b));
 
 		// Unbind images from the bindless set unused for 18 frames
 		if ((metadata.last_frame_used + 18) < this->i_frame) {
@@ -43,9 +30,9 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 
 	Vec<Handle<vulkan::Framebuffer>> fb_to_remove;
 	for (auto [fb_handle_b, metadata_handle_b] : this->framebuffer_pool) {
-		const auto &metadata = this->framebuffer_metadatas.get(as_handle<FramebufferMetadata>(metadata_handle_b));
+		const auto &metadata = this->framebuffer_metadatas.get(exo::as_handle<FramebufferMetadata>(metadata_handle_b));
 		if (metadata.last_frame_used + 3 < this->i_frame) {
-			fb_to_remove.push_back(as_handle<vulkan::Framebuffer>(fb_handle_b));
+			fb_to_remove.push_back(exo::as_handle<vulkan::Framebuffer>(fb_handle_b));
 		}
 	}
 
@@ -55,7 +42,7 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 		for (usize i_fb = 0; i_fb < this->framebuffers.size(); ++i_fb) {
 			if (this->framebuffers[i_fb] == handle_to_remove) {
 				exo::swap_remove(this->framebuffers, i_fb);
-				this->framebuffer_pool.remove(to_u64(handle_to_remove));
+				this->framebuffer_pool.remove(exo::to_u64(handle_to_remove));
 				break;
 			}
 		}
@@ -63,7 +50,7 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 
 	for (const auto handle_to_remove : img_to_remove) {
 		device.destroy_image(handle_to_remove);
-		this->image_pool.remove(to_u64(handle_to_remove));
+		this->image_pool.remove(exo::to_u64(handle_to_remove));
 	}
 }
 
@@ -71,7 +58,7 @@ void ResourceRegistry::end_frame()
 {
 	this->texture_descs.clear();
 	for (auto [image, metadata_handle_b] : this->image_pool) {
-		auto metadata_handle                                     = as_handle<ImageMetadata>(metadata_handle_b);
+		auto metadata_handle                                     = exo::as_handle<ImageMetadata>(metadata_handle_b);
 		this->image_metadatas.get(metadata_handle).resolved_desc = Handle<TextureDesc>::invalid();
 	}
 }
@@ -79,14 +66,14 @@ void ResourceRegistry::end_frame()
 static void update_image_metadata(ResourceRegistry &registry, Handle<vulkan::Image> image, Handle<TextureDesc> desc)
 {
 	ASSERT(image.is_valid());
-	if (auto handle = registry.image_pool.at(to_u64(image)); handle) {
-		auto &metadata           = registry.image_metadatas.get(as_handle<ImageMetadata>(handle.value()));
+	if (auto handle = registry.image_pool.at(exo::to_u64(image)); handle) {
+		auto &metadata           = registry.image_metadatas.get(exo::as_handle<ImageMetadata>(handle.value()));
 		metadata.resolved_desc   = desc;
 		metadata.last_frame_used = registry.i_frame;
 	} else {
 		auto metadata_handle =
 			registry.image_metadatas.add(ImageMetadata{.resolved_desc = desc, .last_frame_used = registry.i_frame});
-		registry.image_pool.insert(to_u64(image), to_u64(metadata_handle));
+		registry.image_pool.insert(exo::to_u64(image), exo::to_u64(metadata_handle));
 	}
 }
 
@@ -104,7 +91,7 @@ void ResourceRegistry::drop_image(Handle<vulkan::Image> image_handle)
 			this->texture_descs.get(handle).resolved_image = Handle<vulkan::Image>::invalid();
 		}
 	}
-	this->image_pool.remove(to_u64(image_handle));
+	this->image_pool.remove(exo::to_u64(image_handle));
 }
 
 Handle<vulkan::Image> ResourceRegistry::resolve_image(vulkan::Device &device, Handle<TextureDesc> desc_handle)
@@ -130,8 +117,8 @@ Handle<vulkan::Image> ResourceRegistry::resolve_image(vulkan::Device &device, Ha
 		};
 
 		for (auto [image_handle_b, metadata_handle_b] : this->image_pool) {
-			auto        image_handle = as_handle<vulkan::Image>(image_handle_b);
-			const auto &metadata     = this->image_metadatas.get(as_handle<ImageMetadata>(metadata_handle_b));
+			auto        image_handle = exo::as_handle<vulkan::Image>(image_handle_b);
+			const auto &metadata     = this->image_metadatas.get(exo::as_handle<ImageMetadata>(metadata_handle_b));
 
 			if (!metadata.resolved_desc.is_valid()) {
 				const auto &image = device.images.get(image_handle);
@@ -170,13 +157,13 @@ int2 ResourceRegistry::texture_desc_handle_size(Handle<TextureDesc> desc_handle)
 static void update_framebuffer_metadata(ResourceRegistry &registry, Handle<vulkan::Framebuffer> framebuffer)
 {
 	ASSERT(framebuffer.is_valid());
-	if (auto handle = registry.framebuffer_pool.at(to_u64(framebuffer)); handle) {
-		auto &metadata           = registry.framebuffer_metadatas.get(as_handle<FramebufferMetadata>(handle.value()));
+	if (auto handle = registry.framebuffer_pool.at(exo::to_u64(framebuffer)); handle) {
+		auto &metadata = registry.framebuffer_metadatas.get(exo::as_handle<FramebufferMetadata>(handle.value()));
 		metadata.last_frame_used = registry.i_frame;
 	} else {
 		auto metadata_handle =
 			registry.framebuffer_metadatas.add(FramebufferMetadata{.last_frame_used = registry.i_frame});
-		registry.framebuffer_pool.insert(to_u64(framebuffer), to_u64(metadata_handle));
+		registry.framebuffer_pool.insert(exo::to_u64(framebuffer), exo::to_u64(metadata_handle));
 	}
 }
 

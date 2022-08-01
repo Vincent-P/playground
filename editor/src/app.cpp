@@ -30,15 +30,13 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->window        = cross::Window::create(app->platform, scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
 	app->asset_manager = AssetManager::create(scope);
-	app->asset_manager->load_all_metas();
 
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 	app->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
 	app->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
 	app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
 
-	app->watcher = cross::FileWatcher::create();
-	app->asset_manager->setup_file_watcher(app->watcher);
+	app->watcher  = cross::FileWatcher::create();
 	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
 	app->ui.ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
@@ -51,19 +49,8 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->scene.init(app->asset_manager, &app->inputs);
 
-	using namespace std::literals;
-	auto scene_uuid = exo::UUID::from_string("aef8176b-438d3966-a1ff18a1-77dd63a6"sv);
-
-	// maison cube "7283e44f-4ea1c6d0-3aa51ea8-b4d61cb1"
-	// maison sponza "aef8176b-438d3966-a1ff18a1-77dd63a6"
-	// maison pica pica "82f1c7fe-4b5b7fcc-23ca8a83-6ac8704a"
-	// work pica pica "42594486-4e8056d5-735e75ad-858f3e45"
-	// work sponza "2e6249e4-4e684ef8-39cac1b2-5b7b0534"
-
-	auto result = app->asset_manager->load_or_import_resource(scene_uuid);
-	ASSERT(result);
-	SubScene *scene_asset = dynamic_cast<SubScene *>(result.value());
-	ASSERT(scene_asset);
+	auto  scene_id    = AssetId::create<SubScene>("NewSponza_Main_Blender_glTF.gltf");
+	auto *scene_asset = app->asset_manager->load_asset<SubScene>(scene_id);
 	app->scene.import_subscene(scene_asset);
 
 	stm_setup();
@@ -87,7 +74,7 @@ void App::display_ui(double dt)
 
 	float em = 15.0f;
 
-	histogram.push_time(dt);
+	histogram.push_time(float(dt));
 	auto histogram_rect = Rect{
 		.pos =
 			{
@@ -151,7 +138,7 @@ void App::run()
 		}
 
 		watcher.update([&](const cross::Watch &watch, const cross::WatchEvent &event) {
-			this->asset_manager->on_file_change(watch, event);
+			// this->asset_manager->on_file_change(watch, event);
 		});
 
 		FrameMark

@@ -12,6 +12,7 @@
 namespace exo
 {
 struct IndexMap;
+struct Serializer;
 struct IndexMapIterator : IteratorFacade<IndexMapIterator>
 {
 
@@ -40,8 +41,8 @@ struct IndexMap
 	~IndexMap();
 
 	// Move-only struct
-	IndexMap()                                 = default;
-	IndexMap(const IndexMap &other)            = delete;
+	IndexMap()                      = default;
+	IndexMap(const IndexMap &other) = delete;
 	IndexMap &operator=(const IndexMap &other) = delete;
 	IndexMap(IndexMap &&other) noexcept;
 	IndexMap &operator=(IndexMap &&other) noexcept;
@@ -51,7 +52,7 @@ struct IndexMap
 	void        remove(u64 hash);
 
 	IndexMapIterator begin() const { return IndexMapIterator(this, 0); }
-	IndexMapIterator end() const { return IndexMapIterator(this, this->capacity); }
+	IndexMapIterator end() const { return IndexMapIterator(this, u32(this->capacity)); }
 
 private:
 	void check_growth();
@@ -62,6 +63,7 @@ private:
 	usize size     = 0;
 
 	friend IndexMapIterator;
+	friend void serialize(Serializer &serializer, IndexMap &data);
 };
 
 } // namespace exo

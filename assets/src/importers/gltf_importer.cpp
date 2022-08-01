@@ -1,9 +1,13 @@
 #include "assets/importers/gltf_importer.h"
 
+#include <assets/importers/importer.h>
 #include <exo/logger.h>
 #include <exo/maths/pointer.h>
 #include <exo/memory/string_repository.h>
 
+#include <cross/mapped_file.h>
+
+#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/material.h"
 #include "assets/mesh.h"
@@ -15,19 +19,7 @@
 #include <rapidjson/filewritestream.h>
 #include <rapidjson/prettywriter.h>
 
-struct ImportContext
-{
-	AssetManager              *asset_manager;
-	SubScene                  *new_scene;
-	const rapidjson::Document &j_document;
-	const void                *binary_chunk;
-	GLTFImporter::Data        &importer_data;
-};
-
-static void import_meshes(ImportContext &ctx);
-static void import_nodes(ImportContext &ctx);
-static void import_materials(ImportContext &ctx);
-static void import_textures(ImportContext &ctx);
+#include <fmt/format.h>
 
 // -- glTF data utils
 
@@ -64,7 +56,6 @@ inline u32 size_of(ComponentType type)
 		return 4;
 	}
 }
-} // namespace gltf
 enum struct ChunkType : u32
 {
 	Json   = 0x4E4F534A,
@@ -89,17 +80,18 @@ struct Header
 
 struct Accessor
 {
-	gltf::ComponentType component_type   = gltf::ComponentType::Invalid;
-	u32                 count            = 0;
-	u32                 nb_component     = 0;
-	u32                 bufferview_index = 0;
-	u32                 byte_offset      = 0;
-	float               min_float;
-	float               max_float;
+	ComponentType component_type   = ComponentType::Invalid;
+	u32           count            = 0;
+	u32           nb_component     = 0;
+	u32           bufferview_index = 0;
+	u32           byte_offset      = 0;
+	float         min_float;
+	float         max_float;
 };
 
 struct BufferView
 {
+	u32 i_buffer    = u32_invalid;
 	u32 byte_offset = 0;
 	u32 byte_length = 1;
 	u32 byte_stride = 0;
@@ -119,7 +111,7 @@ static Accessor get_accessor(const rapidjson::Value &object)
 		res.byte_offset = accessor["byteOffset"].GetUint();
 	}
 
-	res.component_type = gltf::ComponentType(accessor["componentType"].GetInt());
+	res.component_type = ComponentType(accessor["componentType"].GetInt());
 
 	res.count = accessor["count"].GetUint();
 
@@ -156,65 +148,91 @@ static BufferView get_bufferview(const rapidjson::Value &object)
 	if (bufferview.HasMember("byteStride")) {
 		res.byte_stride = bufferview["byteStride"].GetUint();
 	}
+	if (bufferview.HasMember("buffer")) {
+		res.i_buffer = bufferview["buffer"].GetUint();
+	}
 	return res;
 }
+} // namespace gltf
 
 // -- glTF data utils end
 
-bool GLTFImporter::can_import(const void *file_data, usize file_len)
+struct ImporterContext
 {
-	ASSERT(file_len > 4);
-	const char *as_char = reinterpret_cast<const char *>(file_data);
-	return as_char[0] == 'g' && as_char[1] == 'l' && as_char[2] == 'T' && as_char[3] == 'F';
+	ImporterApi               &api;
+	const exo::Path           &main_path; // path of the gltf file
+	SubScene                  *new_scene;
+	const rapidjson::Document &j_document;
+	Vec<cross::MappedFile>     files;
+	Vec<std::span<const u8>>   buffers;
+	const void                *binary_chunk       = nullptr;
+	u32                        i_unnamed_mesh     = 0;
+	u32                        i_unnamed_material = 0;
+	u32                        i_unnamed_texture  = 0;
+	AssetId                    main_id;
+	Vec<AssetId>               material_ids;
+	Vec<AssetId>               mesh_ids;
+	Vec<AssetId>               texture_ids;
+
+	exo::Path relative_to_absolute_path(std::string_view relative_path_str) const
+	{
+		auto dir = exo::Path::remove_filename(this->main_path);
+		return exo::Path::join(dir, relative_path_str);
+	}
+
+	template <typename T> AssetId create_id(std::string_view subname)
+	{
+		std::string copy = this->main_id.name;
+		copy += '_';
+		copy += subname;
+		return AssetId::create<T>(copy);
+	}
+};
+
+static std::span<const u8> get_binary_data(
+	ImporterContext &ctx, const gltf::BufferView &view, const gltf::Accessor &accessor, usize i_element = 0)
+
+{
+	usize byte_stride =
+		view.byte_stride > 0 ? view.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
+
+	usize offset = view.byte_offset + accessor.byte_offset + i_element * byte_stride;
+
+	const u8 *source = nullptr;
+	if (view.i_buffer == u32_invalid) {
+		source = reinterpret_cast<const u8 *>(ctx.binary_chunk);
+	} else {
+		source = ctx.buffers[view.i_buffer].data();
+		ASSERT(ctx.buffers[view.i_buffer].size() >= view.byte_offset + view.byte_length);
+		ASSERT(offset < view.byte_offset + view.byte_length);
+	}
+	ASSERT(source != nullptr);
+	return std::span{exo::ptr_offset(source, offset), view.byte_length};
 }
 
-Result<Asset *> GLTFImporter::import(
-	AssetManager *asset_manager, exo::UUID resource_uuid, const void *file_data, usize file_len, void *importer_data)
+static void import_buffers(ImporterContext &ctx)
 {
-	const auto &header = *reinterpret_cast<const Header *>(file_data);
-	if (header.first_chunk.type != ChunkType::Json) {
-		return Err<Asset *>(GLTFError::FirstChunkNotJSON);
+	if (!ctx.j_document.HasMember("buffers")) {
+		return;
 	}
 
-	const u8 *first_chunk_data = reinterpret_cast<const u8 *>(exo::ptr_offset(&header.first_chunk, sizeof(Chunk)));
+	const auto &j_buffers = ctx.j_document["buffers"].GetArray();
+	for (u32 i_mesh = 0; i_mesh < j_buffers.Size(); i_mesh += 1) {
+		const auto &j_buffer = j_buffers[i_mesh];
 
-	std::string_view    json_content{reinterpret_cast<const char *>(first_chunk_data), header.first_chunk.length};
-	rapidjson::Document document;
-	document.Parse(json_content.data(), json_content.size());
-	if (document.HasParseError()) {
-		return Err<Asset *>(AssetErrors::ParsingError);
+		auto relative_path = std::string_view{j_buffer["uri"].GetString()};
+		auto absolute_path = ctx.relative_to_absolute_path(relative_path);
+		auto bytelength    = j_buffer["byteLength"].GetUint();
+
+		ctx.files.push_back(cross::MappedFile::open(absolute_path.view()).value());
+
+		auto file_content = ctx.files.back().content();
+		ASSERT(file_content.size() == bytelength);
+		ctx.buffers.push_back(file_content);
 	}
-
-	ASSERT(sizeof(Header) + header.first_chunk.length < header.length);
-	const auto *binary_chunk =
-		reinterpret_cast<const Chunk *>(exo::ptr_offset(first_chunk_data, header.first_chunk.length));
-	if (binary_chunk->type != ChunkType::Binary) {
-		return Err<Asset *>(GLTFError::SecondChunkNotBIN);
-	}
-	const auto *binary_chunk_data = reinterpret_cast<const u8 *>(exo::ptr_offset(binary_chunk, sizeof(Chunk)));
-
-	auto *new_scene = asset_manager->create_asset<SubScene>(resource_uuid);
-
-	ASSERT(importer_data);
-	ImportContext ctx = {
-		.asset_manager = asset_manager,
-		.new_scene     = new_scene,
-		.j_document    = document,
-		.binary_chunk  = binary_chunk_data,
-		.importer_data = *reinterpret_cast<GLTFImporter::Data *>(importer_data),
-	};
-
-	import_textures(ctx);
-	import_materials(ctx);
-	import_meshes(ctx);
-	import_nodes(ctx);
-
-	asset_manager->save_asset(new_scene);
-
-	return Ok<Asset *>(new_scene);
 }
 
-static void import_meshes(ImportContext &ctx)
+static void import_meshes(ImporterContext &ctx)
 {
 	const auto &j_accessors   = ctx.j_document["accessors"].GetArray();
 	const auto &j_bufferviews = ctx.j_document["bufferViews"].GetArray();
@@ -226,28 +244,21 @@ static void import_meshes(ImportContext &ctx)
 	}
 
 	const auto &j_meshes = ctx.j_document["meshes"].GetArray();
-
+	ctx.mesh_ids.resize(j_meshes.Size());
 	// Generate new UUID for the meshes if needed
-	auto &mesh_uuids = ctx.importer_data.mesh_uuids;
-	if (mesh_uuids.size() != j_meshes.Size()) {
-		mesh_uuids.resize(j_meshes.Size());
-
-		for (u32 i_mesh = 0; i_mesh < j_meshes.Size(); i_mesh += 1) {
-			if (!mesh_uuids[i_mesh].is_valid()) {
-				mesh_uuids[i_mesh] = exo::UUID::create();
-			}
-		}
-	}
-
 	for (u32 i_mesh = 0; i_mesh < j_meshes.Size(); i_mesh += 1) {
-		// TODO: Check if mesh needs to be re-imported or not
+		const auto &j_mesh = j_meshes[i_mesh];
 
-		// hash = ...compute hash...
-		// if hash == asset_manager->asset_metadatas[mesh_uuid].hash:
-		//   continue;
-
-		const auto &j_mesh   = j_meshes[i_mesh];
-		auto       *new_mesh = ctx.asset_manager->create_asset<Mesh>(mesh_uuids[i_mesh]);
+		std::string mesh_name;
+		if (j_mesh.HasMember("name")) {
+			mesh_name = j_mesh["name"].GetString();
+		} else {
+			mesh_name = fmt::format("Mesh{}", ctx.i_unnamed_mesh);
+			ctx.i_unnamed_mesh += 1;
+		}
+		auto mesh_uuid       = ctx.create_id<Mesh>(mesh_name);
+		ctx.mesh_ids[i_mesh] = mesh_uuid;
+		auto *new_mesh       = ctx.api.create_asset<Mesh>(mesh_uuid);
 
 		if (j_mesh.HasMember("name")) {
 			new_mesh->name = exo::tls_string_repository.intern(j_mesh["name"].GetString());
@@ -269,24 +280,22 @@ static void import_meshes(ImportContext &ctx)
 			// -- Attributes
 			ASSERT(j_primitive.HasMember("indices"));
 			{
-				auto  j_accessor  = j_accessors[j_primitive["indices"].GetUint()].GetObj();
-				auto  accessor    = get_accessor(j_accessor);
-				auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
-				usize byte_stride = bufferview.byte_stride > 0
-				                        ? bufferview.byte_stride
-				                        : gltf::size_of(accessor.component_type) * accessor.nb_component;
+				auto j_accessor = j_accessors[j_primitive["indices"].GetUint()].GetObj();
+				auto accessor   = gltf::get_accessor(j_accessor);
+				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
 				new_mesh->indices.reserve(accessor.count);
 				for (usize i_index = 0; i_index < usize(accessor.count); i_index += 1) {
-					u32   index;
-					usize offset = bufferview.byte_offset + accessor.byte_offset + i_index * byte_stride;
+					u32 index = u32_invalid;
 					if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
-						index = new_submesh.first_vertex +
-						        *reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
+						index =
+							new_submesh.first_vertex +
+							*reinterpret_cast<const u16 *>(get_binary_data(ctx, bufferview, accessor, i_index).data());
 					} else if (accessor.component_type == gltf::ComponentType::UnsignedInt) {
-						index = new_submesh.first_vertex +
-						        *reinterpret_cast<const u32 *>(exo::ptr_offset(ctx.binary_chunk, offset));
+						index =
+							new_submesh.first_vertex +
+							*reinterpret_cast<const u32 *>(get_binary_data(ctx, bufferview, accessor, i_index).data());
 					} else {
 						ASSERT(false);
 					}
@@ -298,27 +307,23 @@ static void import_meshes(ImportContext &ctx)
 
 			usize vertex_count = 0;
 			{
-				auto j_accessor   = j_accessors[j_attributes["POSITION"].GetUint()].GetObj();
-				auto accessor     = get_accessor(j_accessor);
-				vertex_count      = accessor.count;
-				auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
-				usize byte_stride = bufferview.byte_stride > 0
-				                        ? bufferview.byte_stride
-				                        : gltf::size_of(accessor.component_type) * accessor.nb_component;
+				auto j_accessor = j_accessors[j_attributes["POSITION"].GetUint()].GetObj();
+				auto accessor   = gltf::get_accessor(j_accessor);
+				vertex_count    = accessor.count;
+				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
 				new_mesh->positions.reserve(accessor.count);
 				for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1) {
-					usize  offset       = bufferview.byte_offset + accessor.byte_offset + i_position * byte_stride;
 					float4 new_position = {1.0f};
 
 					if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
-						const auto *components =
-							reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
+						const auto *components = reinterpret_cast<const u16 *>(
+							get_binary_data(ctx, bufferview, accessor, i_position).data());
 						new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
 					} else if (accessor.component_type == gltf::ComponentType::Float) {
-						const auto *components =
-							reinterpret_cast<const float *>(exo::ptr_offset(ctx.binary_chunk, offset));
+						const auto *components = reinterpret_cast<const float *>(
+							get_binary_data(ctx, bufferview, accessor, i_position).data());
 						new_position = {float(components[0]), float(components[1]), float(components[2]), 1.0f};
 					} else {
 						ASSERT(false);
@@ -330,26 +335,22 @@ static void import_meshes(ImportContext &ctx)
 
 			if (j_attributes.HasMember("TEXCOORD_0")) {
 				auto j_accessor = j_accessors[j_attributes["TEXCOORD_0"].GetUint()].GetObj();
-				auto accessor   = get_accessor(j_accessor);
+				auto accessor   = gltf::get_accessor(j_accessor);
 				ASSERT(accessor.count == vertex_count);
-				auto  bufferview  = get_bufferview(j_bufferviews[accessor.bufferview_index]);
-				usize byte_stride = bufferview.byte_stride > 0
-				                        ? bufferview.byte_stride
-				                        : gltf::size_of(accessor.component_type) * accessor.nb_component;
+				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
 				new_mesh->uvs.reserve(accessor.count);
 				for (usize i_uv = 0; i_uv < usize(accessor.count); i_uv += 1) {
-					usize  offset = bufferview.byte_offset + accessor.byte_offset + i_uv * byte_stride;
 					float2 new_uv = {1.0f};
 
 					if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
 						const auto *components =
-							reinterpret_cast<const u16 *>(exo::ptr_offset(ctx.binary_chunk, offset));
+							reinterpret_cast<const u16 *>(get_binary_data(ctx, bufferview, accessor, i_uv).data());
 						new_uv = {float(components[0]), float(components[1])};
 					} else if (accessor.component_type == gltf::ComponentType::Float) {
 						const auto *components =
-							reinterpret_cast<const float *>(exo::ptr_offset(ctx.binary_chunk, offset));
+							reinterpret_cast<const float *>(get_binary_data(ctx, bufferview, accessor, i_uv).data());
 						new_uv = {float(components[0]), float(components[1])};
 					} else {
 						ASSERT(false);
@@ -366,12 +367,11 @@ static void import_meshes(ImportContext &ctx)
 
 			if (j_primitive.HasMember("material")) {
 				u32 i_material       = j_primitive["material"].GetUint();
-				new_submesh.material = ctx.importer_data.material_uuids[i_material];
+				new_submesh.material = ctx.material_ids[i_material];
 				new_mesh->add_dependency_checked(new_submesh.material);
 			}
 		}
 
-		ctx.asset_manager->save_asset(new_mesh);
 		ctx.new_scene->add_dependency_checked(new_mesh->uuid);
 		mesh_count += 1;
 	}
@@ -379,7 +379,7 @@ static void import_meshes(ImportContext &ctx)
 	exo::logger::info("[GLTF Importer] Imported {} meshes.\n", mesh_count);
 }
 
-static void import_nodes(ImportContext &ctx)
+static void import_nodes(ImporterContext &ctx)
 {
 	auto get_transform = [](auto j_node) {
 		float4x4 transform = float4x4::identity();
@@ -445,8 +445,7 @@ static void import_nodes(ImportContext &ctx)
 		return transform;
 	};
 
-	u32 i_scene =
-		ctx.j_document.HasMember("scene") ? ctx.j_document["scene"].GetUint() : ctx.importer_data.settings.i_scene;
+	u32         i_scene  = ctx.j_document.HasMember("scene") ? ctx.j_document["scene"].GetUint() : 0;
 	const auto &j_scenes = ctx.j_document["scenes"].GetArray();
 	const auto &j_scene  = j_scenes[i_scene].GetObj();
 	const auto &j_roots  = j_scene["nodes"].GetArray();
@@ -469,7 +468,7 @@ static void import_nodes(ImportContext &ctx)
 
 		if (j_node.HasMember("mesh")) {
 			auto i_mesh = j_node["mesh"].GetUint();
-			ctx.new_scene->meshes.push_back(ctx.importer_data.mesh_uuids[i_mesh]);
+			ctx.new_scene->meshes.push_back(ctx.mesh_ids[i_mesh]);
 		} else {
 			ctx.new_scene->meshes.emplace_back();
 		}
@@ -477,6 +476,8 @@ static void import_nodes(ImportContext &ctx)
 		ctx.new_scene->names.emplace_back();
 		if (j_node.HasMember("name")) {
 			ctx.new_scene->names.back() = exo::tls_string_repository.intern(j_node["name"].GetString());
+		} else {
+			ctx.new_scene->names.back() = "No name";
 		}
 
 		ctx.new_scene->children.emplace_back();
@@ -490,7 +491,7 @@ static void import_nodes(ImportContext &ctx)
 	}
 }
 
-static void import_materials(ImportContext &ctx)
+static void import_materials(ImporterContext &ctx)
 {
 	const auto &j_document = ctx.j_document;
 
@@ -499,63 +500,61 @@ static void import_materials(ImportContext &ctx)
 	}
 
 	const auto &j_materials = ctx.j_document["materials"].GetArray();
-	// Generate new UUID for the materials if needed
-	auto &material_uuids = ctx.importer_data.material_uuids;
-	if (material_uuids.size() != j_materials.Size()) {
-		material_uuids.resize(j_materials.Size());
-
-		for (u32 i_mesh = 0; i_mesh < j_materials.Size(); i_mesh += 1) {
-			if (!material_uuids[i_mesh].is_valid()) {
-				material_uuids[i_mesh] = exo::UUID::create();
-			}
-		}
-	}
-
+	ctx.material_ids.resize(j_materials.Size());
 	for (u32 i_material = 0; i_material < j_materials.Size(); i_material += 1) {
 		const auto &j_material = j_materials[i_material];
 
-		Material *new_material = ctx.asset_manager->create_asset<Material>(material_uuids[i_material]);
+		std::string material_name;
+		if (j_material.HasMember("name")) {
+			material_name = j_material["name"].GetString();
+		} else {
+			material_name = fmt::format("Material{}", ctx.i_unnamed_material);
+			ctx.i_unnamed_material += 1;
+		}
+		auto  material_uuid          = ctx.create_id<Material>(material_name);
+		auto *new_material           = ctx.api.create_asset<Material>(material_uuid);
+		ctx.material_ids[i_material] = material_uuid;
 
 		if (j_material.HasMember("name")) {
 			new_material->name = exo::tls_string_repository.intern(j_material["name"].GetString());
 		}
 
-		auto load_texture = [&](auto &json_object, const char *texture_name) -> Option<exo::UUID> {
+		auto load_texture = [&](auto &json_object, const char *texture_name) -> u32 {
 			if (json_object.HasMember(texture_name)) {
-				const auto &j_texture_desc          = json_object[texture_name];
-				u32         texture_index      = j_texture_desc["index"].GetUint();
-				const auto &j_texture          = j_document["textures"][texture_index];
-				u32         texture_uuid_index = u32_invalid;
+				const auto &j_texture_desc  = json_object[texture_name];
+				u32         i_texture_index = j_texture_desc["index"].GetUint();
+				const auto &j_texture       = j_document["textures"][i_texture_index];
+				u32         i_texture       = u32_invalid;
 
 				if (j_texture.HasMember("extensions")) {
 					for (const auto &j_extension : j_texture["extensions"].GetObj()) {
 						if (std::string_view(j_extension.name.GetString()) == std::string_view("KHR_texture_basisu")) {
-							texture_uuid_index = j_extension.value["source"].GetUint();
+							i_texture = j_extension.value["source"].GetUint();
 							break;
 						}
 					}
 				}
 
-				if (texture_uuid_index == u32_invalid) {
-					texture_uuid_index = j_texture["source"].GetUint();
+				if (i_texture == u32_invalid) {
+					i_texture = j_texture["source"].GetUint();
 				}
 
-				ASSERT(texture_uuid_index != u32_invalid);
-				return Some(ctx.importer_data.texture_uuids[texture_uuid_index]);
+				ASSERT(i_texture != u32_invalid);
+				return i_texture;
 			}
-			return None;
+			return u32_invalid;
 		};
 
-		if (auto normal_uuid = load_texture(j_material, "normalTexture"); normal_uuid) {
-			new_material->normal_texture = normal_uuid.value();
+		if (auto i_normal_texture = load_texture(j_material, "normalTexture"); i_normal_texture != u32_invalid) {
+			new_material->normal_texture = ctx.texture_ids[i_normal_texture];
 			new_material->dependencies.push_back(new_material->normal_texture);
 		}
 
 		if (j_material.HasMember("pbrMetallicRoughness")) {
 			const auto &j_pbr = j_material["pbrMetallicRoughness"].GetObj();
 
-			if (auto base_color_uuid = load_texture(j_pbr, "baseColorTexture"); base_color_uuid) {
-				new_material->base_color_texture = base_color_uuid.value();
+			if (auto i_base_color = load_texture(j_pbr, "baseColorTexture"); i_base_color != u32_invalid) {
+				new_material->base_color_texture = ctx.texture_ids[i_base_color];
 				new_material->dependencies.push_back(new_material->base_color_texture);
 
 // TODO: implement KHR_texture_transform
@@ -578,9 +577,9 @@ static void import_materials(ImportContext &ctx)
 #endif
 			}
 
-			if (auto metallic_roughness_uuid = load_texture(j_pbr, "metallicRoughnessTexture");
-				metallic_roughness_uuid) {
-				new_material->metallic_roughness_texture = metallic_roughness_uuid.value();
+			if (auto i_metallic_roughness = load_texture(j_pbr, "metallicRoughnessTexture");
+				i_metallic_roughness != u32_invalid) {
+				new_material->metallic_roughness_texture = ctx.texture_ids[i_metallic_roughness];
 				new_material->dependencies.push_back(new_material->metallic_roughness_texture);
 			}
 
@@ -599,149 +598,189 @@ static void import_materials(ImportContext &ctx)
 				new_material->roughness_factor = j_pbr["roughnessFactor"].GetFloat();
 			}
 		}
-
-		ctx.asset_manager->save_asset(new_material);
 	}
 }
 
-static void import_textures(ImportContext &ctx)
+static void import_textures(ImporterContext &ctx)
 {
-	const auto &j_document = ctx.j_document;
-
 	if (!ctx.j_document.HasMember("images")) {
 		return;
 	}
 
 	const auto &j_images = ctx.j_document["images"].GetArray();
-	// Generate new UUID for the textures if needed
-	auto &texture_uuids = ctx.importer_data.texture_uuids;
-	if (texture_uuids.size() != j_images.Size()) {
-		texture_uuids.resize(j_images.Size());
 
-		for (u32 i_mesh = 0; i_mesh < j_images.Size(); i_mesh += 1) {
-			if (!texture_uuids[i_mesh].is_valid()) {
-				texture_uuids[i_mesh] = exo::UUID::create();
-			}
-		}
-	}
-
-	const auto &j_bufferviews = j_document["bufferViews"].GetArray();
-
+	ctx.texture_ids.resize(j_images.Size());
 	for (u32 i_image = 0; i_image < j_images.Size(); i_image += 1) {
 		const auto &j_image = j_images[i_image];
 
-		ASSERT(j_image.HasMember("bufferView"));
-
-		auto bufferview_index = j_image["bufferView"].GetUint();
-		auto bufferview       = get_bufferview(j_bufferviews[bufferview_index]);
-
-		const u8 *image_data = reinterpret_cast<const u8 *>(exo::ptr_offset(ctx.binary_chunk, bufferview.byte_offset));
-		usize     size       = bufferview.byte_length;
-
-		auto import =
-			ctx.asset_manager->import_resource(image_data, size, nullptr, u32_invalid, texture_uuids[i_image]);
-		ASSERT(import && dynamic_cast<Texture *>(import.value()));
-		Texture *new_texture = dynamic_cast<Texture *>(import.value());
-
+		std::string texture_name;
 		if (j_image.HasMember("name")) {
-			new_texture->name = exo::tls_string_repository.intern(j_image["name"].GetString());
+			texture_name = j_image["name"].GetString();
+		} else {
+			texture_name = fmt::format("Texture{}", ctx.i_unnamed_texture);
+			ctx.i_unnamed_texture += 1;
 		}
+		ctx.texture_ids[i_image] = ctx.create_id<Texture>(texture_name);
 
-		ctx.asset_manager->save_asset(new_texture);
+		auto *new_texture = ctx.api.retrieve_asset<Texture>(ctx.texture_ids[i_image]);
+		if (j_image.HasMember("name")) {
+			new_texture->name = texture_name;
+		}
 	}
 }
 
-void *GLTFImporter::create_default_importer_data() { return reinterpret_cast<void *>(new GLTFImporter::Data()); }
-
-void *GLTFImporter::read_data_json(const rapidjson::Value &j_data)
+bool GLTFImporter::can_import_extension(std::span<std::string_view const> extensions)
 {
-	auto *new_data = create_default_importer_data();
-	auto *data     = reinterpret_cast<GLTFImporter::Data *>(new_data);
-
-	const auto &j_settings = j_data["settings"].GetObj();
-
-	data->settings = {};
-
-	if (j_settings.HasMember("i_scene")) {
-		data->settings.i_scene = j_settings["i_scene"].GetUint();
-	}
-	if (j_settings.HasMember("apply_transform")) {
-		data->settings.apply_transform = j_settings["apply_transform"].GetBool();
-	}
-	if (j_settings.HasMember("remove_degenerate_triangles")) {
-		data->settings.remove_degenerate_triangles = j_settings["remove_degenerate_triangles"].GetBool();
-	}
-
-	if (j_data.HasMember("mesh_uuids")) {
-		const auto &j_mesh_uuids = j_data["mesh_uuids"].GetArray();
-		data->mesh_uuids.reserve(j_mesh_uuids.Size());
-		for (const auto &j_mesh_uuid : j_mesh_uuids) {
-			auto mesh_uuid =
-				exo::UUID::from_string(std::string_view{j_mesh_uuid.GetString(), j_mesh_uuid.GetStringLength()});
-			data->mesh_uuids.push_back(mesh_uuid);
+	for (const auto extension : extensions) {
+		if (extension == std::string_view{".gltf"}) {
+			return true;
 		}
 	}
-
-	if (j_data.HasMember("texture_uuids")) {
-		const auto &j_texture_uuids = j_data["texture_uuids"].GetArray();
-		data->texture_uuids.reserve(j_texture_uuids.Size());
-		for (const auto &j_texture_uuid : j_texture_uuids) {
-			auto texture_uuid =
-				exo::UUID::from_string(std::string_view{j_texture_uuid.GetString(), j_texture_uuid.GetStringLength()});
-			data->texture_uuids.push_back(texture_uuid);
-		}
-	}
-
-	if (j_data.HasMember("material_uuids")) {
-		const auto &j_material_uuids = j_data["material_uuids"].GetArray();
-		data->material_uuids.reserve(j_material_uuids.Size());
-		for (const auto &j_material_uuid : j_material_uuids) {
-			auto material_uuid = exo::UUID::from_string(
-				std::string_view{j_material_uuid.GetString(), j_material_uuid.GetStringLength()});
-			data->material_uuids.push_back(material_uuid);
-		}
-	}
-
-	return new_data;
+	return false;
 }
 
-void GLTFImporter::write_data_json(rapidjson::GenericPrettyWriter<rapidjson::FileWriteStream> &writer, const void *data)
+bool GLTFImporter::can_import_blob(std::span<u8 const> data)
 {
-	ASSERT(data);
-	const auto *import_data = reinterpret_cast<const GLTFImporter::Data *>(data);
-
-	writer.StartObject();
-
-	writer.Key("settings");
-	writer.StartObject();
-	writer.Key("i_scene");
-	writer.Uint(import_data->settings.i_scene);
-	writer.Key("apply_transform");
-	writer.Bool(import_data->settings.apply_transform);
-	writer.Key("remove_degenerate_triangles");
-	writer.Bool(import_data->settings.remove_degenerate_triangles);
-	writer.EndObject();
-
-	writer.Key("mesh_uuids");
-	writer.StartArray();
-	for (const auto &mesh_uuid : import_data->mesh_uuids) {
-		writer.String(mesh_uuid.str, mesh_uuid.STR_LEN);
-	}
-	writer.EndArray();
-
-	writer.Key("texture_uuids");
-	writer.StartArray();
-	for (const auto &texture_uuid : import_data->texture_uuids) {
-		writer.String(texture_uuid.str, texture_uuid.STR_LEN);
-	}
-	writer.EndArray();
-
-	writer.Key("material_uuids");
-	writer.StartArray();
-	for (const auto &material_uuid : import_data->material_uuids) {
-		writer.String(material_uuid.str, material_uuid.STR_LEN);
-	}
-	writer.EndArray();
-
-	writer.EndObject();
+	ASSERT(data.size() > 4);
+	return data[0] == 'g' && data[1] == 'l' && data[2] == 'T' && data[3] == 'F';
 }
+
+Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
+{
+	exo::logger::info("GLTFImporter::create_asset({}, {})\n", request.asset, request.path.view());
+
+	CreateResponse response{};
+	if (request.asset.is_valid()) {
+		response.new_id = request.asset;
+	} else {
+		response.new_id = AssetId::create<SubScene>(request.path.filename());
+	}
+
+	auto file = cross::MappedFile::open(request.path.view()).value();
+	auto file_content_str =
+		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().size()};
+	rapidjson::Document document;
+	document.Parse(file_content_str.data(), file_content_str.size());
+
+	if (document.HasParseError()) {
+		return Err<Asset *>(AssetErrors::ParsingError);
+	}
+
+	u32 i_unnamed_texture = 0;
+
+	if (document.HasMember("images")) {
+		const auto &j_images = document["images"].GetArray();
+
+		for (u32 i_image = 0; i_image < j_images.Size(); i_image += 1) {
+			const auto &j_image = j_images[i_image];
+
+			// glb images have a bufferView pointing to the binary chunk,
+			// gltf images have an uri field pointing to the path
+
+			// Generate texture id
+			std::string texture_name;
+			if (j_image.HasMember("name")) {
+				texture_name = j_image["name"].GetString();
+			} else {
+				texture_name = fmt::format("Texture{}", i_unnamed_texture);
+				i_unnamed_texture += 1;
+			}
+
+			std::string copy = response.new_id.name;
+			copy += '_';
+			copy += texture_name;
+			auto texture_id    = AssetId::create<Texture>(copy);
+			auto relative_path = j_image["uri"].GetString();
+			auto absolute_path = exo::Path::replace_filename(request.path, relative_path);
+
+			response.dependencies_id.push_back(texture_id);
+			response.dependencies_paths.push_back(absolute_path);
+		}
+	}
+
+	return Ok(response);
+}
+
+Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &request)
+{
+	exo::logger::info("GLTFImporter::process_asset({}, {})\n", request.asset, request.path.view());
+
+	auto file = cross::MappedFile::open(request.path.view()).value();
+	auto file_content_str =
+		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().size()};
+	rapidjson::Document document;
+	document.Parse(file_content_str.data(), file_content_str.size());
+
+	if (document.HasParseError()) {
+		return Err<Asset *>(AssetErrors::ParsingError);
+	}
+
+	auto *new_scene = request.importer_api.create_asset<SubScene>(request.asset);
+
+	ImporterContext ctx = {
+		.api        = request.importer_api,
+		.main_path  = request.path,
+		.new_scene  = new_scene,
+		.j_document = document,
+		.main_id    = request.asset,
+	};
+
+	import_buffers(ctx);
+	import_textures(ctx);
+	import_materials(ctx);
+	import_meshes(ctx);
+	import_nodes(ctx);
+
+	ProcessResponse response{};
+	response.products.push_back(request.asset);
+	for (auto mesh : ctx.mesh_ids) {
+		response.products.push_back(mesh);
+	}
+	for (auto material : ctx.material_ids) {
+		response.products.push_back(material);
+	}
+	return Ok(response);
+}
+
+#if 0
+Result<Asset *> GLTFImporter::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> data)
+{
+	const auto &header = *reinterpret_cast<const Header *>(data.data());
+	if (header.first_chunk.type != ChunkType::Json) {
+		return Err<Asset *>(GLTFError::FirstChunkNotJSON);
+	}
+
+	const u8 *first_chunk_data = reinterpret_cast<const u8 *>(exo::ptr_offset(&header.first_chunk, sizeof(Chunk)));
+
+	std::string_view    json_content{reinterpret_cast<const char *>(first_chunk_data), header.first_chunk.length};
+	rapidjson::Document document;
+	document.Parse(json_content.data(), json_content.size());
+	if (document.HasParseError()) {
+		return Err<Asset *>(AssetErrors::ParsingError);
+	}
+
+	ASSERT(sizeof(Header) + header.first_chunk.length < header.length);
+	const auto *binary_chunk =
+		reinterpret_cast<const Chunk *>(exo::ptr_offset(first_chunk_data, header.first_chunk.length));
+	if (binary_chunk->type != ChunkType::Binary) {
+		return Err<Asset *>(GLTFError::SecondChunkNotBIN);
+	}
+	const auto *binary_chunk_data = reinterpret_cast<const u8 *>(exo::ptr_offset(binary_chunk, sizeof(Chunk)));
+
+	auto *new_scene = api.load_or_create_asset<SubScene>(resource_uuid);
+
+	ImporterContext ctx = {
+		.api           = api,
+		.new_scene     = new_scene,
+		.j_document    = document,
+		.binary_chunk  = binary_chunk_data,
+	};
+
+	import_textures(ctx);
+	import_materials(ctx);
+	import_meshes(ctx);
+	import_nodes(ctx);
+
+	return Ok<Asset *>(new_scene);
+}
+#endif

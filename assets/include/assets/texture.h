@@ -4,6 +4,9 @@
 #include <exo/serializer.h>
 
 #include "assets/asset.h"
+#include "assets/asset_id.h"
+
+#include <span>
 
 enum struct ImageExtension : u16
 {
@@ -13,6 +16,10 @@ enum struct ImageExtension : u16
 
 enum struct PixelFormat : u16
 {
+	R8_UNORM,
+	R8G8_UNORM,
+	R8G8B8_UNORM,
+	R8G8B8_SRGB,
 	R8G8B8A8_UNORM,
 	R8G8B8A8_SRGB,
 	BC4_UNORM, // one channel
@@ -21,11 +28,14 @@ enum struct PixelFormat : u16
 	BC7_SRGB,  // 4 channels
 };
 
+REGISTER_ASSET_TYPE(Texture, create_asset_id('TEX'))
 struct Texture : Asset
 {
 	static Asset *create();
 	const char   *type_name() const final { return "Texture"; }
 	void          serialize(exo::Serializer &serializer) final;
+
+	void read_pixels(std::span<u8> output);
 
 	PixelFormat    format;
 	ImageExtension extension;
@@ -40,6 +50,8 @@ struct Texture : Asset
 	usize       data_size;
 };
 
-template <> void exo::Serializer::serialize<PixelFormat>(PixelFormat &data);
-
-template <> void exo::Serializer::serialize<ImageExtension>(ImageExtension &data);
+namespace exo
+{
+void serialize(Serializer &serializer, PixelFormat &data);
+void serialize(Serializer &serializer, ImageExtension &data);
+} // namespace exo

@@ -2,26 +2,27 @@
 #include "assets/asset_constructors.h"
 
 #include <exo/serializer.h>
+#include <exo/uuid_serializer.h>
 
-static int mesh_ctor = global_asset_constructors().add_constructor("MESH", &Mesh::create);
+static int mesh_ctor = global_asset_constructors().add_constructor(get_asset_id<Mesh>(), &Mesh::create);
 
 Asset *Mesh::create() { return new Mesh(); }
 
 void Mesh::serialize(exo::Serializer &serializer)
 {
 	const char *id = "MESH";
-	serializer.serialize(id);
+	exo::serialize(serializer, id);
 	Asset::serialize(serializer);
-	serializer.serialize(this->indices);
-	serializer.serialize(this->positions);
-	serializer.serialize(this->uvs);
-	serializer.serialize(this->submeshes);
+	exo::serialize(serializer, this->indices);
+	exo::serialize(serializer, this->positions);
+	exo::serialize(serializer, this->uvs);
+	exo::serialize(serializer, this->submeshes);
 }
 
-template <> inline void exo::Serializer::serialize<SubMesh>(SubMesh &data)
+void serialize(exo::Serializer &serializer, SubMesh &data)
 {
-	serialize(data.first_index);
-	serialize(data.first_vertex);
-	serialize(data.index_count);
-	serialize(data.material);
+	exo::serialize(serializer, data.first_index);
+	exo::serialize(serializer, data.first_vertex);
+	exo::serialize(serializer, data.index_count);
+	exo::serialize(serializer, data.material);
 }

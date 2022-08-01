@@ -3,6 +3,8 @@
 #include <exo/collections/vector.h>
 #include <xxhash.h>
 
+#include "assets/asset_id.h"
+
 struct Asset;
 
 using ConstructorFunc = Asset *(*)();
@@ -12,18 +14,16 @@ struct AssetConstructors
 public:
 	AssetConstructors() { indices_map = exo::IndexMap::with_capacity(64); }
 
-	inline int add_constructor(const char *id, ConstructorFunc ctor)
+	inline int add_constructor(AssetTypeId type_id, ConstructorFunc ctor)
 	{
-		const u64 hash = XXH3_64bits(id, strlen(id));
-		indices_map.insert(hash, constructors.size());
+		indices_map.insert(type_id, constructors.size());
 		constructors.push_back(ctor);
 		return 42;
 	}
 
-	inline Asset *create(std::string_view id)
+	inline Asset *create(AssetTypeId type_id)
 	{
-		const u64 hash = XXH3_64bits(id.data(), id.size());
-		if (const auto index = indices_map.at(hash)) {
+		if (const auto index = indices_map.at(type_id)) {
 			ConstructorFunc ctor = constructors[*index];
 			return ctor();
 		}

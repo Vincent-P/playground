@@ -1,42 +1,45 @@
 #include "assets/texture.h"
 #include "assets/asset_constructors.h"
 
-static int texture_ctor = global_asset_constructors().add_constructor("TXTR", &Texture::create);
+static int texture_ctor = global_asset_constructors().add_constructor(get_asset_id<Texture>(), &Texture::create);
 
 Asset *Texture::create() { return new Texture(); }
 
-template <> void exo::Serializer::serialize<PixelFormat>(PixelFormat &data)
+namespace exo
+{
+void serialize(Serializer &serializer, PixelFormat &data)
 {
 	auto value = static_cast<std::underlying_type_t<PixelFormat>>(data);
-	serialize(value);
-	if (this->is_writing == false) {
+	serialize(serializer, value);
+	if (serializer.is_writing == false) {
 		data = static_cast<PixelFormat>(value);
 	}
 }
 
-template <> void exo::Serializer::serialize<ImageExtension>(ImageExtension &data)
+void serialize(Serializer &serializer, ImageExtension &data)
 {
 	auto value = static_cast<std::underlying_type_t<ImageExtension>>(data);
-	serialize(value);
-	if (this->is_writing == false) {
+	serialize(serializer, value);
+	if (serializer.is_writing == false) {
 		data = static_cast<ImageExtension>(value);
 	}
 }
+} // namespace exo
 
 void Texture::serialize(exo::Serializer &serializer)
 {
 	const char *id = "TXTR";
-	serializer.serialize(id);
+	exo::serialize(serializer, id);
 	Asset::serialize(serializer);
-	serializer.serialize(this->format);
-	serializer.serialize(this->extension);
-	serializer.serialize(this->width);
-	serializer.serialize(this->height);
-	serializer.serialize(this->depth);
-	serializer.serialize(this->levels);
-	serializer.serialize(this->mip_offsets);
+	exo::serialize(serializer, this->format);
+	exo::serialize(serializer, this->extension);
+	exo::serialize(serializer, this->width);
+	exo::serialize(serializer, this->height);
+	exo::serialize(serializer, this->depth);
+	exo::serialize(serializer, this->levels);
+	exo::serialize(serializer, this->mip_offsets);
 
-	serializer.serialize(this->data_size);
+	exo::serialize(serializer, this->data_size);
 	if (serializer.is_writing) {
 		serializer.write_bytes(this->pixels_data, this->data_size);
 	} else {

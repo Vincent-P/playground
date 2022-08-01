@@ -1,28 +1,19 @@
 #pragma once
-#include <functional>
+#include "exo/maths/numerics.h"
 
 namespace exo
 {
+template <typename T> u64 hash_value(const T &v) { return v.hash_value(); }
 
-template <typename T> inline std::size_t hash_value(const T &v) { return std::hash<T>{}(v); }
-
-template <typename T> inline void hash_combine(std::size_t &seed, const T &v)
+template <typename T> inline u64 hash_combine(u64 seed, const T &v)
 {
 	seed ^= hash_value(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	return seed;
+}
+
+template <> inline u64 hash_combine<u64>(u64 seed, const u64 &hash)
+{
+	seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	return seed;
 }
 } // namespace exo
-
-namespace std
-{
-template <typename T> struct hash<std::vector<T>>
-{
-	std::size_t operator()(std::vector<T> const &vec) const noexcept
-	{
-		std::size_t hash = vec.size();
-		for (auto &i : vec) {
-			exo::hash_combine(hash, i);
-		}
-		return hash;
-	}
-};
-} // namespace std
