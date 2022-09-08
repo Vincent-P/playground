@@ -122,15 +122,6 @@ void AssetDatabase::insert_asset(Asset *asset)
 
 void serialize(exo::Serializer &serializer, Resource &data)
 {
-	char magic[] = "ResourceRecord";
-	if (serializer.is_writing) {
-		exo::serialize(serializer, magic);
-	} else {
-		const char *sig = nullptr;
-		exo::serialize(serializer, sig);
-		ASSERT(std::strncmp(magic, sig, sizeof(magic)) == 0);
-	}
-
 	exo::serialize(serializer, data.asset_id);
 
 	if (serializer.is_writing) {

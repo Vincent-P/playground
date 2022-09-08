@@ -45,6 +45,7 @@ AssetManager *AssetManager::create(exo::ScopeStack &scope)
 	if (std::filesystem::exists(DatabasePath.view())) {
 		auto resource_file = cross::MappedFile::open(DatabasePath.view()).value();
 		exo::serializer_helper::read_object(resource_file.content(), asset_manager->database);
+		asset_manager->database.asset_id_map = exo::IndexMap::with_capacity(32);
 	} else {
 		asset_manager->database = AssetDatabase::create();
 	}
@@ -113,7 +114,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 		Asset *asset      = manager.load_asset<Asset>(product);
 		auto   asset_path = AssetManager::get_asset_path(product);
 		exo::serializer_helper::write_object_to_file(asset_path.view(), *asset);
-		exo::logger::info("Saving {} to {}\n", product, asset_path.view());
+		exo::logger::info("Saving {}\n", asset_path.view());
 	}
 }
 

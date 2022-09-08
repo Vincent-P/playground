@@ -1,6 +1,5 @@
 #include "assets/importers/ktx2_importer.h"
 
-#include <exo/logger.h>
 #include <exo/macros/defer.h>
 
 #include "assets/asset_id_formatter.h"
@@ -53,17 +52,9 @@ bool KTX2Importer::can_import_blob(std::span<u8 const> blob)
 	return std::memcmp(blob.data(), signature, sizeof(signature)) == 0;
 }
 
-Result<CreateResponse> KTX2Importer::create_asset(const CreateRequest &request)
-{
-	exo::logger::info("KTX2Importer::create_asset({}, {})\n", request.asset, request.path.view());
-	return Ok(CreateResponse{});
-}
+Result<CreateResponse> KTX2Importer::create_asset(const CreateRequest &request) { return Ok(CreateResponse{}); }
 
-Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest &request)
-{
-	exo::logger::info("KTX2Importer::process_asset({}, {})\n", request.asset, request.path.view());
-	return Ok(ProcessResponse{});
-}
+Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest &request) { return Ok(ProcessResponse{}); }
 
 #if 0
 Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> blob)

@@ -1,7 +1,6 @@
 #include "assets/importers/gltf_importer.h"
 
 #include <assets/importers/importer.h>
-#include <exo/logger.h>
 #include <exo/maths/pointer.h>
 #include <exo/memory/string_repository.h>
 
@@ -375,8 +374,6 @@ static void import_meshes(ImporterContext &ctx)
 		ctx.new_scene->add_dependency_checked(new_mesh->uuid);
 		mesh_count += 1;
 	}
-
-	exo::logger::info("[GLTF Importer] Imported {} meshes.\n", mesh_count);
 }
 
 static void import_nodes(ImporterContext &ctx)
@@ -647,8 +644,6 @@ bool GLTFImporter::can_import_blob(std::span<u8 const> data)
 
 Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 {
-	exo::logger::info("GLTFImporter::create_asset({}, {})\n", request.asset, request.path.view());
-
 	CreateResponse response{};
 	if (request.asset.is_valid()) {
 		response.new_id = request.asset;
@@ -703,8 +698,6 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 
 Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &request)
 {
-	exo::logger::info("GLTFImporter::process_asset({}, {})\n", request.asset, request.path.view());
-
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto file_content_str =
 		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().size()};

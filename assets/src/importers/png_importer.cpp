@@ -1,6 +1,5 @@
 #include "assets/importers/png_importer.h"
 
-#include <exo/logger.h>
 #include <exo/macros/defer.h>
 
 #include <cross/mapped_file.h>
@@ -31,8 +30,6 @@ bool PNGImporter::can_import_blob(std::span<u8 const> blob)
 
 Result<CreateResponse> PNGImporter::create_asset(const CreateRequest &request)
 {
-	exo::logger::info("PNGImporter::create_asset({}, {})\n", request.asset, request.path.view());
-
 	CreateResponse response{};
 	if (request.asset.is_valid()) {
 		response.new_id = request.asset;
@@ -45,7 +42,6 @@ Result<CreateResponse> PNGImporter::create_asset(const CreateRequest &request)
 
 Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request)
 {
-	exo::logger::info("PNGImporter::process_asset({}, {})\n", request.asset, request.path.view());
 	ASSERT(request.asset.is_valid());
 
 	spng_ctx *ctx = spng_ctx_new(0);
@@ -108,13 +104,10 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 		ASSERT(false);
 	}
 
-	u8 *buffer = nullptr;
-#if 1
-	buffer = reinterpret_cast<u8 *>(malloc(decoded_size));
+	u8 *buffer = reinterpret_cast<u8 *>(malloc(decoded_size));
 	if (spng_decode_image(ctx, buffer, decoded_size, fmt, 0)) {
 		return Err<Asset *>(PNGErrors::CannotDecodeSize);
 	}
-#endif
 
 	auto  asset_id         = request.asset;
 	auto *new_texture      = request.importer_api.create_asset<Texture>(request.asset);
