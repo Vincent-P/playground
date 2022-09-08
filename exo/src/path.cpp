@@ -102,7 +102,7 @@ Path Path::remove_filename(exo::Path path)
 		}
 	}
 
-	auto path_except_filename = std::string_view{&path.str[0], i_last_sep+1};
+	auto path_except_filename = std::string_view{&path.str[0], i_last_sep + 1};
 	return Path::from_string(path_except_filename);
 }
 
@@ -113,3 +113,9 @@ u64 hash_value(const Path &path)
 	return hash;
 }
 } // namespace exo
+
+#if defined(RUN_TESTS)
+#include <catch2/catch_test_macros.hpp>
+
+TEST_CASE("Tests work", "[path]") { REQUIRE(1 == 1); }
+#endif

@@ -64,6 +64,11 @@ set(SOURCE_FILES
   phmap.natvis
    "include/exo/string_serializer.h" "include/exo/serializer_helper.h")
 
+set(TEST_FILES
+  src/path.cpp
+  src/path.tests.cpp
+)
+
 add_library(exo STATIC ${SOURCE_FILES})
-setup_app_target(exo)
+setup_app_target(exo TESTS ${TEST_FILES})
 target_link_libraries(exo PUBLIC fmt parallel_hashmap tracy xxhash)

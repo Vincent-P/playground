@@ -1,9 +1,21 @@
-cmake_minimum_required(VERSION 3.20)
-
+cmake_minimum_required(VERSION 3.23)
 project(test-vulkan LANGUAGES C CXX)
 
 # External dependencies
 find_package(Threads)
+
+# Fetch test
+Include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.0.1 # or a later release
+)
+FetchContent_MakeAvailable(Catch2)
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(CTest)
+include(Catch)
+
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -57,7 +69,15 @@ set(THIRD_PARTY_CXX_FLAGS
   $<$<CXX_COMPILER_ID:MSVC>:/W0>
 )
 
+
 function(SETUP_APP_TARGET TARGET)
+  # Parse arguments (<targetname> TESTS <test files>)
+  # into args_TESTS
+  set(options )
+  set(oneValueArgs )
+  set(multiValueArgs TESTS)
+  cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
   message(STATUS "Setting up application target ${TARGET}")
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
   target_compile_options(${TARGET} PRIVATE ${APP_CXX_FLAGS})
@@ -78,7 +98,15 @@ function(SETUP_APP_TARGET TARGET)
     $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
     $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
     $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
-)
+  )
+
+  if (args_TESTS)
+    add_executable(${TARGET}.tests ${args_TESTS})
+    set_target_properties(${TARGET}.tests PROPERTIES CXX_STANDARD 20)
+    target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
+    target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
+    catch_discover_tests(${TARGET}.tests)
+  endif()
 endfunction()
 
 function(SETUP_THIRDPARTY_TARGET TARGET)
@@ -88,7 +116,11 @@ function(SETUP_THIRDPARTY_TARGET TARGET)
   target_compile_options(${TARGET} PRIVATE ${THIRD_PARTY_CXX_FLAGS})
 endfunction()
 
+
 function(SETUP_SHADERS TARGET)
+
+  # Parse arguments (<targetname> SOURCES <sources> DEPENDENCIES <deps>)
+  # into args_SOURCES and args_DEPENDENCIES
   set(options )
   set(oneValueArgs )
   set(multiValueArgs SOURCES DEPENDENCIES)
@@ -125,12 +157,10 @@ endfunction()
 
 
 add_subdirectory(third_party)
-
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,modernize-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-modernize-return-braced-init-list)
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,bugprone-*,-bugprone-easily-swappable-parameters)
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,misc-*)
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,performance-*)
-
 add_subdirectory(exo)
 add_subdirectory(cross)
 add_subdirectory(render)

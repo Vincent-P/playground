@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 5,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 20,
+    "minor": 23,
     "patch": 0
   },
   "configurePresets": [
@@ -53,6 +53,17 @@
       "configurePreset": "msvc",
       "environment": {
         "UseMultiToolTask": "true"
+      }
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": { "outputOnFailure": true },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": true
       }
     }
   ]
