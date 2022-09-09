@@ -6,167 +6,192 @@
 #include "painter/painter.h"
 #include "painter/rect.h"
 
-bool ui_is_hovering(const UiState &ui_state, const Rect &rect)
+namespace ui
 {
-	return rect_is_point_inside(rect, float2(ui_state.inputs.mouse_position));
+bool is_hovering(const Ui &ui, const Rect &rect) { return rect_is_point_inside(rect, mouse_position(ui)); }
+
+bool has_clicked(const Ui &ui, u64 id)
+{
+	return !ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui.activation.focused == id &&
+	       ui.activation.active == id;
 }
 
-u64 ui_make_id(UiState &state) { return ++state.gen; }
+u64 make_id(Ui &ui) { return ++ui.activation.gen; }
 
-void ui_new_frame(UiState &ui_state)
+Ui create(Font *font, float font_size, Painter *painter)
 {
-	ui_state.gen     = 0;
-	ui_state.focused = 0;
-	ui_state.cursor  = static_cast<int>(cross::Cursor::Arrow);
+	Ui ui;
+	ui.theme.main_font = font;
+	ui.theme.font_size = font_size;
+	ui.painter         = painter;
+	return ui;
 }
 
-void ui_end_frame(UiState &ui_state)
+void new_frame(Ui &ui)
 {
-	if (!ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-		ui_state.active = 0;
+	ui.activation.gen     = 0;
+	ui.activation.focused = 0;
+	ui.state.cursor       = static_cast<int>(cross::Cursor::Arrow);
+}
+
+void end_frame(Ui &ui)
+{
+	if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		ui.activation.active = 0;
 	} else {
 		// active = invalid means no widget are focused
-		if (ui_state.active == 0) {
-			ui_state.active = u64_invalid;
+		if (ui.activation.active == 0) {
+			ui.activation.active = u64_invalid;
 		}
 	}
 }
 
-u32 ui_register_clip_rect(UiState &ui_state, const Rect &clip_rect)
+u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 {
-	painter_draw_color_rect(*ui_state.painter, clip_rect, u32_invalid, 0x88FF0000);
+	auto &painter                = *ui.painter;
+	usize last_color_rect_offset = painter.vertex_bytes_offset;
+	painter_draw_color_rect(painter, clip_rect, u32_invalid, ColorU32::from_uints(0, 0, 0xFF, 0x88));
 
-	auto i_first_rect_index                                   = ui_state.painter->index_offset - 6;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
-	ui_state.painter->indices[i_first_rect_index++].bits.type = RectType_Clip;
+	auto i_first_rect_index                         = painter.index_offset - 6;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 
-	usize last_color_rect_offset = ui_state.painter->vertex_bytes_offset - sizeof(ColorRect);
 
 	ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
 	return static_cast<u32>(last_color_rect_offset / sizeof(Rect));
 }
 
-void ui_push_clip_rect(UiState &ui_state, u32 i_clip_rect)
+void push_clip_rect(Ui &ui, u32 i_clip_rect)
 {
-	ASSERT(ui_state.i_clip_stack < UI_MAX_DEPTH);
-	ui_state.clip_stack[ui_state.i_clip_stack] = i_clip_rect;
-	ui_state.i_clip_stack += 1;
-	ui_state.i_clip_rect = i_clip_rect;
+	ASSERT(ui.state.i_clip_stack < UI_MAX_DEPTH);
+	ui.state.clip_stack[ui.state.i_clip_stack] = i_clip_rect;
+	ui.state.i_clip_stack += 1;
+	ui.state.i_clip_rect = i_clip_rect;
 }
 
-void ui_pop_clip_rect(UiState &ui_state)
+void pop_clip_rect(Ui &ui)
 {
-	ASSERT(0 < ui_state.i_clip_stack && ui_state.i_clip_stack < UI_MAX_DEPTH);
-	ui_state.i_clip_stack -= 1;
+	ASSERT(0 < ui.state.i_clip_stack && ui.state.i_clip_stack < UI_MAX_DEPTH);
+	ui.state.i_clip_stack -= 1;
 
-	if (ui_state.i_clip_stack > 0) {
-		ui_state.i_clip_rect = ui_state.clip_stack[ui_state.i_clip_stack - 1];
+	if (ui.state.i_clip_stack > 0) {
+		ui.state.i_clip_rect = ui.state.clip_stack[ui.state.i_clip_stack - 1];
 	} else {
-		ui_state.i_clip_rect = u32_invalid;
+		ui.state.i_clip_rect = u32_invalid;
 	}
 }
 
-bool ui_button(UiState &ui_state, const UiTheme &ui_theme, const UiButton &button)
+bool button(Ui &ui, const Button &button)
 {
 	bool result = false;
-	u64  id     = ui_make_id(ui_state);
+	u64  id     = make_id(ui);
 
-	ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, button.rect));
+	push_clip_rect(ui, register_clip_rect(ui, button.rect));
 
 	// behavior
-	if (ui_is_hovering(ui_state, button.rect)) {
-		ui_state.focused = id;
-		if (ui_state.active == 0 && ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			ui_state.active = id;
+	if (is_hovering(ui, button.rect)) {
+		ui.activation.focused = id;
+		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
 		}
 	}
 
-	if (!ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
-		ui_state.active == id) {
+	if (has_clicked(ui, id)) {
 		result = true;
 	}
 
 	// rendering
-	auto bg_color = ui_theme.button_bg_color;
-	if (ui_state.focused == id) {
-		if (ui_state.active == id) {
-			bg_color = ui_theme.button_pressed_bg_color;
+	auto bg_color = ui.theme.button_bg_color;
+	if (ui.activation.focused == id) {
+		if (ui.activation.active == id) {
+			bg_color = ui.theme.button_pressed_bg_color;
 		} else {
-			bg_color = ui_theme.button_hover_bg_color;
+			bg_color = ui.theme.button_hover_bg_color;
 		}
 	}
-	painter_draw_color_round_rect(*ui_state.painter, button.rect, ui_state.i_clip_rect, bg_color, 0x0F000000, 2);
+	painter_draw_color_round_rect(*ui.painter,
+		button.rect,
+		ui.state.i_clip_rect,
+		bg_color,
+		ColorU32::from_uints(0, 0, 0, 0x0F),
+		2);
 
-	auto label_rect =
-		rect_center(button.rect, float2(measure_label(*ui_state.painter, *ui_theme.main_font, button.label)));
-	// painter_draw_color_rect(*ui_state.painter, label_rect, u32_invalid, 0x880000FF);
-	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, *ui_theme.main_font, button.label);
+	auto label_rect = rect_center(button.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, button.label)));
 
-	ui_pop_clip_rect(ui_state);
+	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, button.label);
+
+	pop_clip_rect(ui);
 
 	return result;
 }
 
-void ui_splitter_x(UiState &ui_state, const UiTheme &ui_theme, Rect view_rect, float &value, Rect &left, Rect &right)
+void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
-	u64 id = ui_make_id(ui_state);
+	u64 id = make_id(ui);
 
 	Rect rect          = view_rect;
-	left               = rect_split_left(rect, value * view_rect.size.x);
-	Rect splitter_rect = rect_split_left(rect, ui_theme.splitter_thickness);
-	right              = rect;
+	Rect splitter_rect = rect_split_left(rect, ui.theme.splitter_thickness);
 
 	// behavior
-	if (ui_is_hovering(ui_state, splitter_rect)) {
-		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeEW);
-		ui_state.focused = id;
-		if (ui_state.active == 0 && ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			ui_state.active = id;
+	if (is_hovering(ui, splitter_rect)) {
+		ui.state.cursor       = static_cast<int>(cross::Cursor::ResizeEW);
+		ui.activation.focused = id;
+		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
 		}
 	}
 
-	if (ui_state.active == id) {
-		value = (float(ui_state.inputs.mouse_position.x) - view_rect.pos.x) / view_rect.size.x;
+	if (ui.activation.active == id) {
+		value = (float(ui.inputs.mouse_position.x) - view_rect.pos.x) / view_rect.size.x;
 	}
 
-	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
-	if (ui_state.focused == id) {
-		float thickness_difference = ui_theme.splitter_hover_thickness - ui_theme.splitter_thickness;
+	const auto color = ui.activation.focused == id ? ui.theme.splitter_hover_color : ui.theme.splitter_color;
+	if (ui.activation.focused == id) {
+		float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
 		splitter_rect              = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
 	}
-	painter_draw_color_rect(*ui_state.painter, splitter_rect, ui_state.i_clip_rect, color);
+	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
 
-void ui_splitter_y(UiState &ui_state, const UiTheme &ui_theme, Rect view_rect, float &value, Rect &top, Rect &bottom)
+void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
-	u64 id = ui_make_id(ui_state);
+	u64 id = make_id(ui);
 
 	Rect rect          = view_rect;
-	top                = rect_split_top(rect, value * view_rect.size.y);
-	Rect splitter_rect = rect_split_top(rect, ui_theme.splitter_thickness);
-	bottom             = rect;
+	Rect splitter_rect = rect_split_top(rect, ui.theme.splitter_thickness);
 
 	// behavior
-	if (ui_is_hovering(ui_state, splitter_rect)) {
-		ui_state.cursor  = static_cast<int>(cross::Cursor::ResizeNS);
-		ui_state.focused = id;
-		if (ui_state.active == 0 && ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			ui_state.active = id;
+	if (is_hovering(ui, splitter_rect)) {
+		ui.state.cursor       = static_cast<int>(cross::Cursor::ResizeNS);
+		ui.activation.focused = id;
+		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
 		}
 	}
 
-	if (ui_state.active == id) {
-		value = (float(ui_state.inputs.mouse_position.y) - view_rect.pos.y) / view_rect.size.y;
+	if (ui.activation.active == id) {
+		value = (float(ui.inputs.mouse_position.y) - view_rect.pos.y) / view_rect.size.y;
 	}
 
-	const auto color = ui_state.focused == id ? ui_theme.splitter_hover_color : ui_theme.splitter_color;
-	if (ui_state.focused == id) {
-		float thickness_difference = ui_theme.splitter_hover_thickness - ui_theme.splitter_thickness;
+	const auto color = ui.activation.focused == id ? ui.theme.splitter_hover_color : ui.theme.splitter_color;
+	if (ui.activation.focused == id) {
+		float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
 		splitter_rect              = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
 	}
-	painter_draw_color_rect(*ui_state.painter, splitter_rect, ui_state.i_clip_rect, color);
+	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
+
+void label(Ui &ui, const Label &label)
+{
+	auto label_rect = rect_center(label.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label.text)));
+
+	push_clip_rect(ui, register_clip_rect(ui, label.rect));
+	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label.text);
+	pop_clip_rect(ui);
+}
+
+} // namespace ui

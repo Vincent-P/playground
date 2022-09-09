@@ -11,11 +11,6 @@
 #include FT_FREETYPE_H
 #include <hb.h>
 
-static u32 get_a(const u32 color) { return color & 0xFF000000; }
-static u32 get_r(const u32 color) { return color & 0x000000FF; }
-static u32 get_g(const u32 color) { return color & 0x0000FF00; }
-static u32 get_b(const u32 color) { return color & 0x00FF0000; }
-
 Painter *painter_allocate(
 	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size)
 {
@@ -66,12 +61,13 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
 
 	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
 }
 
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR)
+void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color)
 {
 	// Don't draw invisible rects
-	if (get_a(AABBGGRR) == 0) {
+	if (color.comps.a == 0) {
 		return;
 	}
 
@@ -83,7 +79,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
 	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
 	auto *vertices   = reinterpret_cast<ColorRect *>(painter.vertices);
-	vertices[i_rect] = {.rect = rect, .color = AABBGGRR, .i_clip_rect = i_clip_rect};
+	vertices[i_rect] = {.rect = rect, .color = color.raw, .i_clip_rect = i_clip_rect};
 	painter.vertex_bytes_offset += sizeof(ColorRect);
 
 	// 0 - 3
@@ -97,6 +93,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
 
 	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
+	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }
 
@@ -174,10 +171,10 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 }
 
 void painter_draw_color_round_rect(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness)
+	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
 	// Don't draw invisible rects
-	if (get_a(color) == 0 && get_a(border_color) == 0) {
+	if (color.comps.a == 0 && border_color.comps.a == 0) {
 		return;
 	}
 
@@ -190,9 +187,9 @@ void painter_draw_color_round_rect(
 	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
 	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
 	vertices[i_rect] = {.rect = rect,
-		.color                = color,
+		.color                = color.raw,
 		.i_clip_rect          = i_clip_rect,
-		.border_color         = border_color,
+		.border_color         = border_color.raw,
 		.border_thickness     = border_thickness};
 	painter.vertex_bytes_offset += sizeof(SdfRect);
 
@@ -208,13 +205,14 @@ void painter_draw_color_round_rect(
 
 	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
 }
 
 void painter_draw_color_circle(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness)
+	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
 	// Don't draw invisible rects
-	if (get_a(color) == 0 && get_a(border_color) == 0) {
+	if (color.comps.a == 0 && border_color.comps.a == 0) {
 		return;
 	}
 
@@ -227,9 +225,9 @@ void painter_draw_color_circle(
 	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
 	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
 	vertices[i_rect] = {.rect = rect,
-		.color                = color,
+		.color                = color.raw,
 		.i_clip_rect          = i_clip_rect,
-		.border_color         = border_color,
+		.border_color         = border_color.raw,
 		.border_thickness     = border_thickness};
 	painter.vertex_bytes_offset += sizeof(SdfRect);
 
@@ -245,4 +243,5 @@ void painter_draw_color_circle(
 
 	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
 }

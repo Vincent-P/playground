@@ -1,6 +1,9 @@
 set(SOURCE_FILES
     include/ui/ui.h
     src/ui.cpp
+
+    include/ui/docking.h
+    src/docking.cpp
 )
 
 add_library(ui STATIC ${SOURCE_FILES})

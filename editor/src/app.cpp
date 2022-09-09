@@ -14,6 +14,7 @@
 #include <Tracy.hpp>
 
 #include <string_view>
+#include <ui/docking.h>
 
 #define SOKOL_TIME_IMPL
 #include <sokol_time.h>
@@ -39,11 +40,12 @@ App *App::create(exo::ScopeStack &scope)
 	app->watcher  = cross::FileWatcher::create();
 	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
-	app->ui.ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
-	app->ui.painter                      = painter_allocate(scope, 8_MiB, 8_MiB, int2(1024, 1024));
-	app->ui.painter->glyph_atlas_gpu_idx = app->renderer.glyph_atlas_index();
-	app->ui.ui_state.painter             = app->ui.painter;
-	app->ui.ui_theme.main_font           = &app->ui.ui_font;
+	app->ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
+	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, int2(1024, 1024));
+	app->painter->glyph_atlas_gpu_idx = app->renderer.glyph_atlas_index();
+
+	app->ui      = ui::create(&app->ui_font, 36.0f, app->painter);
+	app->docking = docking::create();
 
 	app->is_minimized = false;
 
@@ -68,11 +70,23 @@ void App::display_ui(double dt)
 {
 	this->ui.painter->index_offset        = 0;
 	this->ui.painter->vertex_bytes_offset = 0;
-	ui_new_frame(this->ui.ui_state);
+	ui::new_frame(this->ui);
 
 	auto fullscreen_rect = Rect{.pos = {0, 0}, .size = float2(int2(this->window->size.x, this->window->size.y))};
 
-	float em = 15.0f;
+	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
+
+	if (auto view_rect = docking::tabview(this->docking, "View 1"); view_rect) {
+		ui::label(this->ui, {.text = "test", .rect = view_rect.value()});
+	}
+
+	if (auto view_rect = docking::tabview(this->docking, "View 2"); view_rect) {
+		ui::label(this->ui, {.text = "test 2", .rect = view_rect.value()});
+	}
+
+	docking::end_docking(this->docking, this->ui);
+
+	float em = this->ui.theme.font_size;
 
 	histogram.push_time(float(dt));
 	auto histogram_rect = Rect{
@@ -90,8 +104,8 @@ void App::display_ui(double dt)
 			.histogram = &this->histogram,
 		});
 
-	ui_end_frame(this->ui.ui_state);
-	this->window->set_cursor(static_cast<cross::Cursor>(this->ui.ui_state.cursor));
+	ui::end_frame(this->ui);
+	this->window->set_cursor(static_cast<cross::Cursor>(this->ui.state.cursor));
 }
 
 void App::run()
@@ -109,7 +123,9 @@ void App::run()
 		}
 
 		inputs.process(window->events);
-		inputs.main_window_size = window->size;
+		inputs.main_window_size               = window->size;
+		this->ui.inputs.mouse_position        = inputs.mouse_position;
+		this->ui.inputs.mouse_buttons_pressed = this->inputs.mouse_buttons_pressed;
 
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;

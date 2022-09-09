@@ -1,7 +1,10 @@
 #pragma once
 #include <painter/rect.h>
 
+namespace ui
+{
 struct Ui;
+}
 namespace custom_ui
 {
 struct FpsHistogram
@@ -16,5 +19,5 @@ struct FpsHistogramWidget
 	FpsHistogram *histogram;
 };
 
-void histogram(Ui &ui, FpsHistogramWidget widget);
+void histogram(ui::Ui &ui, FpsHistogramWidget widget);
 } // namespace custom_ui

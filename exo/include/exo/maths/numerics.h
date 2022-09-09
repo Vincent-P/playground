@@ -22,8 +22,9 @@ constexpr inline u64   operator"" _MiB(unsigned long long value) { return value 
 constexpr inline u64   operator"" _GiB(unsigned long long value) { return value << 30; }
 constexpr inline usize operator"" _uz(unsigned long long value) { return static_cast<usize>(value); }
 
-static constexpr u32 u32_invalid = ~u32(0);
-static constexpr u64 u64_invalid = ~u64(0);
+static constexpr u32   u32_invalid   = ~u32(0);
+static constexpr u64   u64_invalid   = ~u64(0);
+static constexpr usize usize_invalid = ~usize(0);
 
 constexpr f32 PI = 3.1415926535897932384626433832795f;
 

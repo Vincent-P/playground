@@ -98,10 +98,9 @@ struct RenderSample
 
 	Painter *painter = nullptr;
 
-	UiTheme ui_theme;
-	UiState ui_state;
-	Font    ui_font;
-	Rect    viewer_clip_rect = {};
+	ui::Ui ui;
+	Font   ui_font;
+	Rect   viewer_clip_rect = {};
 
 	Image image;
 	bool  display_channels[4] = {true, true, true, false};
@@ -148,8 +147,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
 	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->ui_renderer.glyph_atlas);
 
-	app->ui_state.painter   = app->painter;
-	app->ui_theme.main_font = &app->ui_font;
+	app->ui = ui::create(&app->ui_font, 14.0f, app->painter);
 
 	return app;
 }
@@ -161,106 +159,105 @@ void render_sample_destroy(RenderSample *app)
 	cross::platform_destroy(app->platform);
 }
 
-struct UiCharCheckbox
+namespace ui
+{
+struct CharCheckbox
 {
 	char  label;
 	Rect  rect;
 	bool *value;
 };
 
-bool ui_char_checkbox(UiState &ui_state, const UiTheme &ui_theme, const UiCharCheckbox &checkbox)
+bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 {
 	bool result = checkbox.value ? *checkbox.value : false;
-	u64  id     = ui_make_id(ui_state);
+	u64  id     = make_id(ui);
 
-	if (ui_is_hovering(ui_state, checkbox.rect)) {
-		ui_state.focused = id;
-		if (ui_state.active == 0 && ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			ui_state.active = id;
+	if (is_hovering(ui, checkbox.rect)) {
+		ui.activation.focused = id;
+		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
 		}
 	}
 
-	if (!ui_state.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui_state.focused == id &&
-		ui_state.active == id) {
+	if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui.activation.focused == id &&
+		ui.activation.active == id) {
 		result = !result;
 	}
 
-	u32 border_color = 0xFF8A8A8A;
-	if (ui_state.focused == id) {
-		if (ui_state.active == id) {
-			border_color = 0xFF3D3D3D;
+	auto border_color = ColorU32::from_greyscale(u8(0x8A));
+	if (ui.activation.focused == id) {
+		if (ui.activation.active == id) {
+			border_color = ColorU32::from_greyscale(u8(0x3D));
 		} else {
-			border_color = 0xFFD5D5D5;
+			border_color = ColorU32::from_greyscale(u8(0xD5));
 		}
 	}
-	u32 bg_color = 0xFFF3F3F3;
+	auto bg_color = ColorU32::from_greyscale(u8(0xF3));
 	if (result) {
-		bg_color = 0xFFFBA82D;
+		bg_color = ColorU32::from_uints(0x2D, 0xA8, 0xFB);
 	}
 
 	float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
-	auto       label_rect =
-		rect_center(checkbox.rect, float2(measure_label(*ui_state.painter, *ui_theme.main_font, label_str)));
+	auto label_rect = rect_center(checkbox.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label_str)));
 
-	ui_push_clip_rect(ui_state, ui_register_clip_rect(ui_state, checkbox.rect));
-	painter_draw_color_rect(*ui_state.painter, checkbox.rect, ui_state.i_clip_rect, border_color);
-	painter_draw_color_rect(*ui_state.painter,
-		rect_inset(checkbox.rect, border_thickness),
-		ui_state.i_clip_rect,
-		bg_color);
-	painter_draw_label(*ui_state.painter, label_rect, ui_state.i_clip_rect, *ui_theme.main_font, label_str);
-	ui_pop_clip_rect(ui_state);
+	push_clip_rect(ui, register_clip_rect(ui, checkbox.rect));
+	painter_draw_color_rect(*ui.painter, checkbox.rect, ui.state.i_clip_rect, border_color);
+	painter_draw_color_rect(*ui.painter, rect_inset(checkbox.rect, border_thickness), ui.state.i_clip_rect, bg_color);
+	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label_str);
+	pop_clip_rect(ui);
 
 	if (checkbox.value && *checkbox.value != result) {
 		*checkbox.value = result;
 	}
 	return result;
 }
+} // namespace ui
 
 static void display_ui(RenderSample *app)
 {
 	app->painter->index_offset        = 0;
 	app->painter->vertex_bytes_offset = 0;
-	ui_new_frame(app->ui_state);
+	ui::new_frame(app->ui);
 
 	auto content_rect = Rect{.pos = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
 
 	const float menubar_height_margin = 8.0f;
 	const float menu_item_margin      = 12.0f;
-	const float menubar_height        = float(app->ui_theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
+	const float menubar_height        = float(app->ui.theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
 	Rect        menubar_rect          = rect_split_top(content_rect, menubar_height);
 
 	/* Menu bar */
-	const u32 menubar_bg_color = 0xFFF3F3F3;
-	painter_draw_color_rect(*app->painter, menubar_rect, app->ui_state.i_clip_rect, menubar_bg_color);
+	const auto menubar_bg_color = ColorU32::from_greyscale(u8(0xF3));
+	painter_draw_color_rect(*app->ui.painter, menubar_rect, app->ui.state.i_clip_rect, menubar_bg_color);
 
 	// add first margin on the left
 	rect_split_left(menubar_rect, menu_item_margin);
-	auto menubar_theme                    = app->ui_theme;
-	menubar_theme.button_bg_color         = 0x00000000;
-	menubar_theme.button_hover_bg_color   = 0x06000000;
-	menubar_theme.button_pressed_bg_color = 0x09000000;
+	auto menubar_theme                    = app->ui.theme;
+	menubar_theme.button_bg_color         = ColorU32::from_uints(0, 0, 0, 0x00);
+	menubar_theme.button_hover_bg_color   = ColorU32::from_uints(0, 0, 0, 0x06);
+	menubar_theme.button_pressed_bg_color = ColorU32::from_uints(0, 0, 0, 0x09);
 
 	auto label_size =
-		float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
+		float2(measure_label(*app->ui.painter, *app->ui.theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
 
 	Rect file_rect = rect_split_left(menubar_rect, label_size.x);
 	rect_split_left(menubar_rect, menu_item_margin);
 	file_rect = rect_center(file_rect, label_size);
-	if (ui_button(app->ui_state, menubar_theme, {.label = "Open Image", .rect = file_rect})) {
+	if (ui::button(app->ui, {.label = "Open Image", .rect = file_rect})) {
 		if (auto path = cross::file_dialog({{"PNG Image", "*.png"}})) {
 			open_file(app, path.value());
 		}
 	}
 
-	label_size = float2(measure_label(*app->ui_state.painter, *app->ui_theme.main_font, "Help")) + float2{8.0f, 0.0f};
+	label_size     = float2(measure_label(*app->ui.painter, *app->ui.theme.main_font, "Help")) + float2{8.0f, 0.0f};
 	Rect help_rect = rect_split_left(menubar_rect, label_size.x);
 	rect_split_left(menubar_rect, menu_item_margin);
 
 	help_rect = rect_center(help_rect, label_size);
-	if (ui_button(app->ui_state, menubar_theme, {.label = "Help", .rect = help_rect})) {
+	if (ui::button(app->ui, {.label = "Help", .rect = help_rect})) {
 	}
 
 	const auto check_margin = 4.0f;
@@ -269,27 +266,21 @@ static void display_ui(RenderSample *app)
 	rect_split_left(menubar_rect, check_margin);
 
 	check_rect = rect_center(check_rect, check_size);
-	ui_char_checkbox(app->ui_state,
-		menubar_theme,
-		{.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
+	ui::char_checkbox(app->ui, {.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
 	app->viewer_flags =
 		app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK) : (app->viewer_flags & ~RED_CHANNEL_MASK);
 
 	check_rect = rect_split_left(menubar_rect, check_size.x);
 	rect_split_left(menubar_rect, check_margin);
 	check_rect = rect_center(check_rect, check_size);
-	ui_char_checkbox(app->ui_state,
-		menubar_theme,
-		{.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
+	ui::char_checkbox(app->ui, {.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
 	app->viewer_flags =
 		app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK) : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
 
 	check_rect = rect_split_left(menubar_rect, check_size.x);
 	rect_split_left(menubar_rect, check_margin);
 	check_rect = rect_center(check_rect, check_size);
-	ui_char_checkbox(app->ui_state,
-		menubar_theme,
-		{.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
+	ui::char_checkbox(app->ui, {.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
 	app->viewer_flags =
 		app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK) : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
 
@@ -297,25 +288,26 @@ static void display_ui(RenderSample *app)
 	rect_split_left(menubar_rect, menu_item_margin);
 
 	check_rect = rect_center(check_rect, check_size);
-	ui_char_checkbox(app->ui_state,
-		menubar_theme,
-		{.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
+	ui::char_checkbox(app->ui, {.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
 	app->viewer_flags =
 		app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK) : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
 
 	/* Content */
 	auto separator_rect = rect_split_top(content_rect, 1.0f);
-	painter_draw_color_rect(*app->painter, separator_rect, app->ui_state.i_clip_rect, 0xFFE5E5E5);
+	painter_draw_color_rect(*app->ui.painter,
+		separator_rect,
+		app->ui.state.i_clip_rect,
+		ColorU32::from_greyscale(u8(0xE5)));
 
-	u32 i_content_rect = ui_register_clip_rect(app->ui_state, content_rect);
-	ui_push_clip_rect(app->ui_state, i_content_rect);
+	u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
+	ui::push_clip_rect(app->ui, i_content_rect);
 
 	// image viewer
 	app->viewer_clip_rect = content_rect;
 
-	ui_pop_clip_rect(app->ui_state);
-	ui_end_frame(app->ui_state);
-	app->window->set_cursor(static_cast<cross::Cursor>(app->ui_state.cursor));
+	ui::pop_clip_rect(app->ui);
+	ui::end_frame(app->ui);
+	app->window->set_cursor(static_cast<cross::Cursor>(app->ui.state.cursor));
 }
 
 static void render(RenderSample *app)

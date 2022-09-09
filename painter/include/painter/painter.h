@@ -2,8 +2,9 @@
 #include <exo/macros/packed.h>
 #include <exo/maths/vectors.h>
 
-#include "glyph_cache.h"
-#include "rect.h"
+#include "painter/color.h"
+#include "painter/glyph_cache.h"
+#include "painter/rect.h"
 
 namespace exo
 {
@@ -82,10 +83,10 @@ struct Painter
 Painter *painter_allocate(
 	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size);
 void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture);
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, u32 AABBGGRR);
+void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color);
 int2 measure_label(Painter &painter, Font &font, const char *label);
 void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font &font, const char *label);
 void painter_draw_color_round_rect(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);
+	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness);
 void painter_draw_color_circle(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, u32 color, u32 border_color, u32 border_thickness);
+	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness);

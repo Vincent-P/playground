@@ -4,6 +4,8 @@
 #include <engine/render_world.h>
 #include <engine/scene.h>
 #include <gameplay/inputs.h>
+#include <painter/font.h>
+#include <ui/docking.h>
 
 #include "custom_ui.h"
 #include "ui.h"
@@ -39,7 +41,10 @@ private:
 	cross::Window          *window;
 	AssetManager           *asset_manager;
 	Renderer                renderer;
-	Ui                      ui;
+	ui::Ui                  ui;
+	Font                    ui_font;
+	Painter                *painter;
+	docking::Docking        docking;
 	custom_ui::FpsHistogram histogram;
 
 	Inputs inputs;
