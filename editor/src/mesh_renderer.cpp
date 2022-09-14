@@ -359,7 +359,7 @@ void register_upload_nodes(RenderGraph &graph,
 	// Upload new meshes
 	for (auto [handle, p_render_mesh] : mesh_renderer.render_meshes) {
 		bool materials_uploaded = true;
-		for (i32 i_submesh = 0; i_submesh < p_render_mesh->render_submeshes.size() && materials_uploaded; ++i_submesh) {
+		for (u32 i_submesh = 0; i_submesh < p_render_mesh->render_submeshes.size() && materials_uploaded; ++i_submesh) {
 			const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
 			if (render_submesh.material.is_valid()) {
 				materials_uploaded = mesh_renderer.render_materials.get(render_submesh.material).is_uploaded;

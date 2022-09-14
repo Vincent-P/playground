@@ -31,9 +31,6 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
 
-  # Optimize for AVX2
-  $<$<CXX_COMPILER_ID:MSVC>:/arch:AVX2>
-
   # Multi-processor compilation
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
 )
@@ -45,6 +42,7 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
 
   # Warning level
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Werror>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
@@ -53,9 +51,9 @@ set(APP_CXX_FLAGS
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Woverloaded-virtual>
 
+  $<$<CXX_COMPILER_ID:MSVC>:/WX>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
-  $<$<CXX_COMPILER_ID:MSVC>:/permissive-> # Enable standard conformance
-  $<$<CXX_COMPILER_ID:MSVC>:/w14640> # Enable warning on thread un-safe static member initialization
+  $<$<CXX_COMPILER_ID:MSVC>:/permissive->
 
   # utils
   # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>

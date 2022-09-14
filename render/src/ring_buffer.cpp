@@ -28,16 +28,6 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 	return buf;
 }
 
-static u64 size_until(u64 capacity, u64 from, u64 to)
-{
-	if (from > to) {
-		// the occupied size is between to and from
-		return capacity - (from - to);
-	} else {
-		return to - from;
-	}
-}
-
 static u64 ringbuffer_size_from(RingBuffer &ringbuffer, u64 from)
 {
 	if (ringbuffer.full) {

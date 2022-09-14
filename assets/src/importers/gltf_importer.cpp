@@ -236,8 +236,6 @@ static void import_meshes(ImporterContext &ctx)
 	const auto &j_accessors   = ctx.j_document["accessors"].GetArray();
 	const auto &j_bufferviews = ctx.j_document["bufferViews"].GetArray();
 
-	usize mesh_count = 0;
-
 	if (!ctx.j_document.HasMember("meshes")) {
 		return;
 	}
@@ -372,7 +370,6 @@ static void import_meshes(ImporterContext &ctx)
 		}
 
 		ctx.new_scene->add_dependency_checked(new_mesh->uuid);
-		mesh_count += 1;
 	}
 }
 

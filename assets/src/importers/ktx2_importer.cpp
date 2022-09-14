@@ -13,27 +13,6 @@
 #include <rapidjson/prettywriter.h>
 #include <volk.h>
 
-static PixelFormat from_vk(VkFormat vk_format)
-{
-	switch (vk_format) {
-	case VK_FORMAT_R8G8B8A8_UNORM:
-		return PixelFormat::R8G8B8A8_UNORM;
-	case VK_FORMAT_R8G8B8A8_SRGB:
-		return PixelFormat::R8G8B8A8_SRGB;
-	case VK_FORMAT_BC7_SRGB_BLOCK:
-		return PixelFormat::BC7_SRGB;
-	case VK_FORMAT_BC7_UNORM_BLOCK:
-		return PixelFormat::BC7_UNORM;
-	case VK_FORMAT_BC4_UNORM_BLOCK:
-		return PixelFormat::BC4_UNORM;
-	case VK_FORMAT_BC5_UNORM_BLOCK:
-		return PixelFormat::BC5_UNORM;
-	default:
-		ASSERT(false);
-	}
-	return PixelFormat::R8G8B8A8_UNORM;
-}
-
 bool KTX2Importer::can_import_extension(std::span<std::string_view const> extensions)
 {
 	for (const auto extension : extensions) {
@@ -52,9 +31,12 @@ bool KTX2Importer::can_import_blob(std::span<u8 const> blob)
 	return std::memcmp(blob.data(), signature, sizeof(signature)) == 0;
 }
 
-Result<CreateResponse> KTX2Importer::create_asset(const CreateRequest &request) { return Ok(CreateResponse{}); }
+Result<CreateResponse> KTX2Importer::create_asset(const CreateRequest & /*request*/) { return Ok(CreateResponse{}); }
 
-Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest &request) { return Ok(ProcessResponse{}); }
+Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest & /*request*/)
+{
+	return Ok(ProcessResponse{});
+}
 
 #if 0
 Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> blob)

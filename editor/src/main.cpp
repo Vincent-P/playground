@@ -24,18 +24,8 @@ void operator delete(void *ptr) noexcept
 	free(ptr);
 }
 
-int main(int argc, char **argv)
+int main(int /*argc*/, char ** /*argv*/)
 {
-#if defined(ENABLE_DOCTEST)
-	doctest::Context context;
-	context.applyCommandLine(argc, argv);
-	int res = context.run(); // run
-	if (context.shouldExit()) {
-		return res;
-	}
-#else
-#endif
-
 	exo::LinearAllocator global_allocator =
 		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);

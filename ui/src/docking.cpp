@@ -29,8 +29,10 @@ static Handle<Area> split_area(
 static void update_area_rect(Docking &docking, Handle<Area> area, Rect rect);
 static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle);
 static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating);
+#if 0
 static void draw_docking(Docking &self, ui::Ui &ui);
 static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handle);
+#endif
 
 // std::variant helper
 static AreaContainer       &area_container(Area &area) { return std::get<0>(area); }
@@ -77,8 +79,8 @@ Option<Rect> tabview(Docking &self, std::string_view tabname)
 
 	const auto &container = area_container(area);
 	if (container.selected != u32_invalid && container.tabviews[container.selected] == i_tabview) {
-		auto content_rect  = container.rect;
-		auto _tabwell_rect = rect_split_top(content_rect, 1.5f * self.ui.em_size);
+		auto content_rect = container.rect;
+		/*auto tabwell_rect =*/rect_split_top(content_rect, 1.5f * self.ui.em_size);
 		return Some(content_rect);
 	} else {
 		return None;
@@ -94,8 +96,8 @@ void begin_docking(Docking &self, ui::Ui &ui, Rect rect)
 
 	update_area_rect(self, self.root, rect);
 	for (const auto &floating : self.floating_containers) {
-		auto copy          = floating.rect;
-		auto titlebar_rect = rect_split_top(copy, 1.5f * em);
+		auto copy = floating.rect;
+		/*auto titlebar_rect =*/rect_split_top(copy, 1.5f * em);
 		update_area_rect(self, floating.area, copy);
 	}
 }
@@ -257,14 +259,14 @@ static void remove_empty_areas(Docking &docking, Handle<Area> area_handle)
 				auto child_new_handle = area_handle;
 
 				// Reparent the child's children to ourselves
-				if (auto *splitter = std::get_if<AreaSplitter>(&area)) {
-					auto lchild = splitter->left_child;
-					auto rchild = splitter->right_child;
+				if (auto *child_splitter = std::get_if<AreaSplitter>(&child)) {
+					auto child_lchild = child_splitter->left_child;
+					auto child_rchild = child_splitter->right_child;
 
-					*area_parent(docking.area_pool.get(lchild)) = child_new_handle;
-					*area_parent(docking.area_pool.get(rchild)) = child_new_handle;
-				} else if (auto *container = std::get_if<AreaContainer>(&area)) {
-					for (auto i_tabview : container->tabviews) {
+					*area_parent(docking.area_pool.get(child_lchild)) = child_new_handle;
+					*area_parent(docking.area_pool.get(child_rchild)) = child_new_handle;
+				} else if (auto *child_container = std::get_if<AreaContainer>(&child)) {
+					for (auto i_tabview : child_container->tabviews) {
 						docking.tabviews[i_tabview].area = child_new_handle;
 					}
 				}
@@ -375,7 +377,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		return;
 	}
 
-	auto em   = self.ui.em_size;
+	auto  em   = self.ui.em_size;
 	auto &area = self.area_pool.get(area_handle);
 
 	if (auto *splitter = std::get_if<AreaSplitter>(&area)) {
@@ -401,7 +403,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 			auto        i_tabview = container->tabviews[i];
 			const auto &tabview   = self.tabviews[i_tabview];
 
-			auto _margin  = rect_split_left(tabwell_rect, 0.5f * em);
+			/*auto margin  =*/rect_split_left(tabwell_rect, 0.5f * em);
 			auto tabstate = draw_tab(self.ui, ui, tabview, tabwell_rect);
 			switch (tabstate) {
 			case TabState::Dragging: {
@@ -457,6 +459,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 	draw_area_rec(self, ui, floating_container.area);
 }
 
+#if 0
 static void draw_docking(Docking &self, ui::Ui &ui)
 {
 	auto em = self.ui.em_size;
@@ -471,5 +474,6 @@ static void draw_docking(Docking &self, ui::Ui &ui)
 	}
 }
 
-static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handle) {}
+static void draw_area_overlay(Docking & /*self*/, ui::Ui & /*ui*/, Handle<Area> /*area_handle*/) {}
+#endif
 } // namespace docking

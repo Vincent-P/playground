@@ -117,7 +117,6 @@ void App::run()
 
 		for (auto &event : window->events) {
 			if (event.type == exo::Event::MouseMoveType) {
-				const auto &move   = event.mouse_move;
 				this->is_minimized = false;
 			}
 		}
@@ -153,7 +152,7 @@ void App::run()
 			this->renderer.draw(render_world, this->ui.painter);
 		}
 
-		watcher.update([&](const cross::Watch &watch, const cross::WatchEvent &event) {
+		watcher.update([&](const cross::Watch & /*watch*/, const cross::WatchEvent & /*event*/) {
 			// this->asset_manager->on_file_change(watch, event);
 		});
 

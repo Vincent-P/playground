@@ -19,6 +19,7 @@ inline bool split_is_horizontal(SplitDirection direction)
 		return true;
 	case SplitDirection::Top:
 	case SplitDirection::Bottom:
+	default:
 		return false;
 	}
 }
