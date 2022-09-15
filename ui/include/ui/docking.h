@@ -96,6 +96,7 @@ struct FloatingContainer
 {
 	Handle<Area> area;
 	Rect         rect;
+	float2       drag_offset; // offset from the top_left corner when dragging
 };
 
 struct Docking
@@ -113,4 +114,6 @@ Docking create();
 Option<Rect> tabview(Docking &self, std::string_view tabname);
 void         begin_docking(Docking &self, ui::Ui &ui, Rect rect);
 void         end_docking(Docking &self, ui::Ui &ui);
+
+void inspector_ui(Docking &self, ui::Ui &ui, Rect rect);
 } // namespace docking

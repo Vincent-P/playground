@@ -5,6 +5,8 @@
 #include "painter/color.h"
 #include "painter/rect.h"
 
+#include <string_view>
+
 struct Font;
 struct Painter;
 
@@ -100,4 +102,8 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value);
 void splitter_y(Ui &ui, const Rect &view_rect, float &value);
 void label(Ui &ui, const Label &label);
 void rect(Ui &ui, const Rect &rect);
+
+void label_split_top(Ui &ui, Rect &view_rect, std::string_view label);
+void label_split_left(Ui &ui, Rect &view_rect, std::string_view label);
+
 } // namespace ui

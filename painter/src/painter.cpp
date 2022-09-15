@@ -97,11 +97,11 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
 }
 
-int2 measure_label(Painter &painter, Font &font, const char *label)
+int2 measure_label(Painter &painter, Font &font, std::string_view label)
 {
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label, -1, 0, -1);
+	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
 	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
 	hb_buffer_set_language(buf, hb_language_from_string("en", -1));
@@ -121,11 +121,11 @@ int2 measure_label(Painter &painter, Font &font, const char *label)
 	return {cursor_x, line_height};
 }
 
-void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, const char *label)
+void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, std::string_view label)
 {
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label, -1, 0, -1);
+	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
 	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
 	hb_buffer_set_language(buf, hb_language_from_string("en", -1));

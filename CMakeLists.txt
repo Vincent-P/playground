@@ -153,7 +153,6 @@ function(SETUP_SHADERS TARGET)
   add_dependencies(${TARGET} ${TARGET}.shaders)
 endfunction()
 
-
 add_subdirectory(third_party)
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,modernize-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-modernize-return-braced-init-list)
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,bugprone-*,-bugprone-easily-swappable-parameters)

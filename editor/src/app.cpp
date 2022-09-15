@@ -77,11 +77,27 @@ void App::display_ui(double dt)
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
 	if (auto view_rect = docking::tabview(this->docking, "View 1"); view_rect) {
+		painter_draw_color_rect(*this->ui.painter,
+			view_rect.value(),
+			this->ui.state.i_clip_rect,
+			ColorU32::from_floats(0.1f, 0.2f, 0.3f, 0.5f));
 		ui::label(this->ui, {.text = "test", .rect = view_rect.value()});
 	}
 
 	if (auto view_rect = docking::tabview(this->docking, "View 2"); view_rect) {
+		painter_draw_color_rect(*this->ui.painter,
+			view_rect.value(),
+			this->ui.state.i_clip_rect,
+			ColorU32::from_floats(0.3f, 0.1f, 0.2f, 0.5f));
 		ui::label(this->ui, {.text = "test 2", .rect = view_rect.value()});
+	}
+
+	if (auto view_rect = docking::tabview(this->docking, "Docking"); view_rect) {
+		painter_draw_color_rect(*this->ui.painter,
+			view_rect.value(),
+			this->ui.state.i_clip_rect,
+			ColorU32::from_floats(0.2f, 0.3f, 0.1f, 0.5f));
+		docking::inspector_ui(this->docking, this->ui, view_rect.value());
 	}
 
 	docking::end_docking(this->docking, this->ui);

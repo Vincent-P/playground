@@ -11,19 +11,6 @@ enum struct SplitDirection : u8
 	Right,
 };
 
-inline bool split_is_horizontal(SplitDirection direction)
-{
-	switch (direction) {
-	case SplitDirection::Left:
-	case SplitDirection::Right:
-		return true;
-	case SplitDirection::Top:
-	case SplitDirection::Bottom:
-	default:
-		return false;
-	}
-}
-
 PACKED(struct Rect {
 	float2 pos;
 	float2 size;
@@ -37,6 +24,12 @@ inline Rect rect_center(Rect container, const float2 &element_size)
 		.pos  = container.pos + 0.5 * (container.size - element_size),
 		.size = element_size,
 	};
+}
+
+inline Rect rect_offset(Rect rect, float2 offset)
+{
+	rect.pos = rect.pos + offset;
+	return rect;
 }
 
 // -- Testing

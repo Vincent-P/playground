@@ -30,19 +30,14 @@ Ui create(Font *font, float font_size, Painter *painter)
 void new_frame(Ui &ui)
 {
 	ui.activation.gen     = 0;
-	ui.activation.focused = 0;
+	ui.activation.focused = u64_invalid;
 	ui.state.cursor       = static_cast<int>(cross::Cursor::Arrow);
 }
 
 void end_frame(Ui &ui)
 {
 	if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-		ui.activation.active = 0;
-	} else {
-		// active = invalid means no widget are focused
-		if (ui.activation.active == 0) {
-			ui.activation.active = u64_invalid;
-		}
+		ui.activation.active = u64_invalid;
 	}
 }
 
@@ -59,7 +54,6 @@ u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-
 
 	ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
 	return static_cast<u32>(last_color_rect_offset / sizeof(Rect));
@@ -95,7 +89,7 @@ bool button(Ui &ui, const Button &button)
 	// behavior
 	if (is_hovering(ui, button.rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -133,14 +127,15 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
 	u64 id = make_id(ui);
 
-	Rect rect          = view_rect;
-	Rect splitter_rect = rect_split_left(rect, ui.theme.splitter_thickness);
+	Rect right_rect    = view_rect;
+	Rect left_rect     = rect_split_left(right_rect, value * view_rect.size.x);
+	Rect splitter_rect = rect_split_left(right_rect, ui.theme.splitter_thickness);
 
 	// behavior
 	if (is_hovering(ui, splitter_rect)) {
 		ui.state.cursor       = static_cast<int>(cross::Cursor::ResizeEW);
 		ui.activation.focused = id;
-		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -161,14 +156,15 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
 	u64 id = make_id(ui);
 
-	Rect rect          = view_rect;
-	Rect splitter_rect = rect_split_top(rect, ui.theme.splitter_thickness);
+	Rect bottom_rect   = view_rect;
+	Rect top_rect      = rect_split_top(bottom_rect, value * view_rect.size.y);
+	Rect splitter_rect = rect_split_top(bottom_rect, ui.theme.splitter_thickness);
 
 	// behavior
 	if (is_hovering(ui, splitter_rect)) {
 		ui.state.cursor       = static_cast<int>(cross::Cursor::ResizeNS);
 		ui.activation.focused = id;
-		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -192,6 +188,20 @@ void label(Ui &ui, const Label &label)
 	push_clip_rect(ui, register_clip_rect(ui, label.rect));
 	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label.text);
 	pop_clip_rect(ui);
+}
+
+void label_split_top(Ui &ui, Rect &view_rect, std::string_view label)
+{
+	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
+	auto line_rect  = rect_split_top(view_rect, float(label_size.y));
+	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+}
+
+void label_split_left(Ui &ui, Rect &view_rect, std::string_view label)
+{
+	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
+	auto line_rect  = rect_split_left(view_rect, float(label_size.x));
+	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 }
 
 } // namespace ui

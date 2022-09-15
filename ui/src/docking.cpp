@@ -8,6 +8,8 @@
 #include <exo/maths/numerics.h>
 #include <painter/rect.h>
 
+#include <fmt/format.h>
+
 namespace docking
 {
 Docking create()
@@ -29,10 +31,8 @@ static Handle<Area> split_area(
 static void update_area_rect(Docking &docking, Handle<Area> area, Rect rect);
 static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle);
 static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating);
-#if 0
 static void draw_docking(Docking &self, ui::Ui &ui);
 static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handle);
-#endif
 
 // std::variant helper
 static AreaContainer       &area_container(Area &area) { return std::get<0>(area); }
@@ -97,7 +97,7 @@ void begin_docking(Docking &self, ui::Ui &ui, Rect rect)
 	update_area_rect(self, self.root, rect);
 	for (const auto &floating : self.floating_containers) {
 		auto copy = floating.rect;
-		/*auto titlebar_rect =*/rect_split_top(copy, 1.5f * em);
+		/*auto titlebar_rect =*/rect_split_top(copy, 0.25f * em);
 		update_area_rect(self, floating.area, copy);
 	}
 }
@@ -107,6 +107,12 @@ void end_docking(Docking &self, ui::Ui &ui)
 	draw_area_rec(self, ui, self.root);
 	for (usize i = 0; i < self.floating_containers.size(); ++i) {
 		draw_floating_area(self, ui, i);
+	}
+
+	draw_docking(self, ui);
+
+	for (auto [area_handle, area] : self.area_pool) {
+		draw_area_overlay(self, ui, area_handle);
 	}
 
 	for (const auto &element : self.ui.events) {
@@ -135,18 +141,48 @@ void end_docking(Docking &self, ui::Ui &ui)
 			self.floating_containers.push_back(FloatingContainer{.area = new_container, .rect = new_rect});
 			remove_empty_areas(self, previous_area);
 		} else if (auto *movefloating = std::get_if<events::MoveFloating>(&element)) {
-			self.floating_containers[movefloating->i_floating].rect.pos = movefloating->position;
+			auto &floating_container    = self.floating_containers[movefloating->i_floating];
+			floating_container.rect.pos = movefloating->position - floating_container.drag_offset;
 		}
 	}
 	self.ui.events.clear();
 
-	for (auto &floating_container : self.floating_containers) {
-		auto &area = self.area_pool.get(floating_container.area);
+	for (u32 i_container = 0; i_container < self.floating_containers.size();) {
+		const auto &floating_container = self.floating_containers[i_container];
+		auto       &area               = self.area_pool.get(floating_container.area);
 		if (auto *container = std::get_if<AreaContainer>(&area)) {
 			if (container->tabviews.empty()) {
-				// TODO: remove the floating container
+				self.area_pool.remove(floating_container.area);
+				exo::swap_remove(self.floating_containers, i_container);
+				continue;
 			}
 		}
+		i_container += 1;
+	}
+}
+
+void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
+{
+	auto content_rect = rect;
+
+	auto mouse_pos = ui::mouse_position(ui);
+	ui::label_split_top(ui, content_rect, fmt::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
+
+	for (u32 i_window = 0; i_window < self.floating_containers.size(); ++i_window) {
+		const auto &floating_container = self.floating_containers[i_window];
+		ui::label_split_top(ui, content_rect, "Floating window:");
+		ui::label_split_top(ui,
+			content_rect,
+			fmt::format("  - pos: ({}, {}), size ({}, {}))",
+				floating_container.rect.pos.x,
+				floating_container.rect.pos.y,
+				floating_container.rect.size.x,
+				floating_container.rect.size.y));
+		ui::label_split_top(ui,
+			content_rect,
+			fmt::format("  - dragging offset ({}, {}))",
+				floating_container.drag_offset.x,
+				floating_container.drag_offset.y));
 	}
 }
 
@@ -208,6 +244,18 @@ static Handle<Area> split_area(
 		left_child  = new_old_area_handle;
 		right_child = new_child_handle;
 	}
+
+	auto split_is_horizontal = [](SplitDirection direction) {
+		switch (direction) {
+		case SplitDirection::Left:
+		case SplitDirection::Right:
+			return false;
+		case SplitDirection::Top:
+		case SplitDirection::Bottom:
+		default:
+			return true;
+		}
+	};
 
 	// Replace the old area slot with a new splitter
 	docking.area_pool.get(previous_area_handle) = AreaSplitter{
@@ -304,9 +352,9 @@ static void update_area_rect(Docking &docking, Handle<Area> area_handle, Rect re
 		Rect left_child_rect  = rect;
 		Rect right_child_rect = rect;
 		if (splitter->direction == Direction::Horizontal) {
-			right_child_rect = rect_split_bottom(left_child_rect, splitter->split * rect.size.y);
+			right_child_rect = rect_split_top(left_child_rect, splitter->split * rect.size.y);
 		} else if (splitter->direction == Direction::Vertical) {
-			right_child_rect = rect_split_right(left_child_rect, splitter->split * rect.size.x);
+			right_child_rect = rect_split_left(left_child_rect, splitter->split * rect.size.x);
 		}
 
 		update_area_rect(docking, splitter->left_child, left_child_rect);
@@ -337,7 +385,8 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 	auto em  = docking.em_size;
 	auto id  = ui::make_id(ui);
 
-	auto label_size  = float2(50.0f, 1.0f * em); // TODO: compute size
+	auto label_size  = float2(float(measure_label(*ui.painter, *ui.theme.main_font, tabview.title).x),
+        1.0f * em); // TODO: compute size
 	auto title_rect  = rect_split_left(rect, label_size.x + 1.0f * em);
 	auto detach_rect = rect_split_left(rect, 1.5f * em);
 
@@ -429,51 +478,139 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 // Draw the floating window UI and the docking area of a floating area
 static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 {
-	const auto &floating_container = self.floating_containers[i_floating];
-	auto        em                 = self.ui.em_size;
+	auto &floating_container = self.floating_containers[i_floating];
+	auto  em                 = self.ui.em_size;
 
 	auto rect          = floating_container.rect;
-	auto titlebar_rect = rect_split_top(rect, 1.5f * em);
+	auto titlebar_rect = rect_split_top(rect, 0.25f * em);
 
-	// Draw titlebar
+	// Draw titlebar to move window
+	auto mouse_pos = ui::mouse_position(ui);
 	{
 		auto id = ui::make_id(ui);
 		if (ui::is_hovering(ui, titlebar_rect)) {
 			ui.activation.focused = id;
 			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-				ui.activation.active = id;
+				ui.activation.active           = id;
+				floating_container.drag_offset = ui::mouse_position(ui) - floating_container.rect.pos;
 			}
-
-			if (ui.activation.active == id) {
-				auto mouse_pos = ui.inputs.mouse_position;
-				self.ui.events.push_back(events::MoveFloating{.i_floating = i_floating, .position = float2(mouse_pos)});
-			}
-
-			painter_draw_color_rect(*ui.painter,
-				titlebar_rect,
-				ui.state.i_clip_rect,
-				ColorU32::from_uints(0xFF, 0xFF, 0));
 		}
+
+		if (ui.activation.active == id) {
+			self.ui.events.push_back(events::MoveFloating{.i_floating = i_floating, .position = float2(mouse_pos)});
+		}
+
+		painter_draw_color_rect(*ui.painter, titlebar_rect, ui.state.i_clip_rect, ColorU32::from_uints(0xFF, 0xFF, 0));
 	}
 
 	draw_area_rec(self, ui, floating_container.area);
+
+	// Draw the resize handle
+	auto bottom_rect = rect_split_bottom(rect, 0.5f * em);
+	auto handle_rect = rect_split_right(bottom_rect, 0.5f * em);
+	{
+		auto id = ui::make_id(ui);
+		if (ui::is_hovering(ui, handle_rect)) {
+			ui.activation.focused = id;
+			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+				ui.activation.active           = id;
+				floating_container.drag_offset = mouse_pos - handle_rect.pos;
+			}
+		}
+
+		if (ui.activation.active == id) {
+			floating_container.rect.size = (mouse_pos - floating_container.rect.pos) + floating_container.drag_offset;
+		}
+
+		painter_draw_color_rect(*ui.painter,
+			handle_rect,
+			ui.state.i_clip_rect,
+			ColorU32::from_uints(0xFF, 0, 0xFF, 0xBB));
+	}
 }
 
-#if 0
 static void draw_docking(Docking &self, ui::Ui &ui)
 {
 	auto em = self.ui.em_size;
+
+	// Draw a titlebar at the mouse position when dragging a tab
 	if (self.ui.active_tab != usize_invalid) {
 		const auto &tabview = self.tabviews[self.ui.active_tab];
+
+		auto titlebar_height = 1.5f * em;
+
+		auto label_size = float2(measure_label(*ui.painter, *ui.theme.main_font, tabview.title));
+		label_size.x += 1.0f * em;
+		label_size.y = titlebar_height;
 
 		auto rect = Rect{.pos = float2(ui.inputs.mouse_position), .size = float2(10.0f * em, 1.5f * em)};
 		painter_draw_color_rect(*ui.painter, rect, ui.state.i_clip_rect, ColorU32::from_floats(0.0f, 0.0f, 0.0f, 0.5f));
 
-		auto label_size = float2(50.0f, 1.0f * em); // TODO: compute size
 		ui::label(ui, {.text = tabview.title.c_str(), .rect = rect_center(rect, label_size)});
 	}
 }
 
-static void draw_area_overlay(Docking & /*self*/, ui::Ui & /*ui*/, Handle<Area> /*area_handle*/) {}
-#endif
+// Draw the "docking overlay" to split tabs
+static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
+{
+	auto em = self.ui.em_size;
+	if (self.ui.active_tab == usize_invalid) {
+		return;
+	}
+
+	auto &area = self.area_pool.get(area_handle);
+	if (auto *container = std::get_if<AreaContainer>(&area)) {
+		constexpr float HANDLE_SIZE   = 3.0f;
+		constexpr float HANDLE_OFFSET = HANDLE_SIZE + 0.5f;
+
+		auto drop_rect         = rect_center(container->rect, float2(HANDLE_SIZE * em, HANDLE_SIZE * em));
+		auto split_top_rect    = rect_offset(drop_rect, float2(0.0f, -HANDLE_OFFSET * em));
+		auto split_right_rect  = rect_offset(drop_rect, float2(HANDLE_OFFSET * em, 0.0f));
+		auto split_bottom_rect = rect_offset(drop_rect, float2(0.0f, HANDLE_OFFSET * em));
+		auto split_left_rect   = rect_offset(drop_rect, float2(-HANDLE_OFFSET * em, 0.0f));
+
+		auto overlay_color = ColorU32::from_floats(0.25f, 0.01f, 0.25f, 0.25f);
+		painter_draw_color_rect(*ui.painter, drop_rect, ui.state.i_clip_rect, overlay_color);
+		painter_draw_color_rect(*ui.painter, split_top_rect, ui.state.i_clip_rect, overlay_color);
+		painter_draw_color_rect(*ui.painter, split_right_rect, ui.state.i_clip_rect, overlay_color);
+		painter_draw_color_rect(*ui.painter, split_bottom_rect, ui.state.i_clip_rect, overlay_color);
+		painter_draw_color_rect(*ui.painter, split_left_rect, ui.state.i_clip_rect, overlay_color);
+
+		// Drop a tab in a container
+		if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			if (ui::is_hovering(ui, drop_rect)) {
+				self.ui.events.push_back(events::DropTab{
+					.i_tabview    = self.ui.active_tab,
+					.in_container = area_handle,
+				});
+
+				self.ui.active_tab = usize_invalid;
+			} else if (ui::is_hovering(ui, split_top_rect)) {
+				self.ui.events.push_back(events::Split{
+					.direction = SplitDirection::Top,
+					.i_tabview = self.ui.active_tab,
+					.container = area_handle,
+				});
+			} else if (ui::is_hovering(ui, split_right_rect)) {
+				self.ui.events.push_back(events::Split{
+					.direction = SplitDirection::Left,
+					.i_tabview = self.ui.active_tab,
+					.container = area_handle,
+				});
+			} else if (ui::is_hovering(ui, split_bottom_rect)) {
+				self.ui.events.push_back(events::Split{
+					.direction = SplitDirection::Bottom,
+					.i_tabview = self.ui.active_tab,
+					.container = area_handle,
+				});
+			} else if (ui::is_hovering(ui, split_left_rect)) {
+				self.ui.events.push_back(events::Split{
+					.direction = SplitDirection::Right,
+					.i_tabview = self.ui.active_tab,
+					.container = area_handle,
+				});
+			}
+		}
+	}
+}
 } // namespace docking
