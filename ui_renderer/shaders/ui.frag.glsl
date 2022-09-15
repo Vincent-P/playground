@@ -21,6 +21,9 @@ bool is_in_rect(float2 pos, Rect rect)
         );
 }
 
+float3 linear_to_srgb(float3 linear) { return pow(linear, float3(2.2)); }
+float3 srgb_to_linear(float3 srgb)   { return pow(srgb,   float3(1.0/2.2)); }
+
 void clip_rect(u32 i_clip_rect)
 {
     u32 primitive_offset = primitive_bytes_offset / sizeof_rect;
@@ -38,8 +41,9 @@ float4 textured_rect(u32 i_primitive, u32 corner, float2 uv)
     clip_rect(rect.i_clip_rect);
 
     float alpha = texture(global_textures[nonuniformEXT(rect.texture_descriptor)], uv).r;
-
-    return float4(alpha);
+    float3 color = float3(1.0);
+    color = srgb_to_linear(color);
+    return float4(color, alpha);
 }
 
 float4 color_rect(u32 i_primitive, u32 corner, float2 uv)
@@ -47,7 +51,10 @@ float4 color_rect(u32 i_primitive, u32 corner, float2 uv)
     u32 primitive_offset = primitive_bytes_offset / sizeof_color_rect;
     ColorRect rect = global_buffers_color_rects[vertices_descriptor_index].rects[primitive_offset + i_primitive];
     clip_rect(rect.i_clip_rect);
-    return unpackUnorm4x8(rect.color);
+
+    float4 color = unpackUnorm4x8(rect.color);
+    color.rgb = srgb_to_linear(color.rgb);
+    return color;
 }
 
 float4 sdf_round_rect(u32 i_primitive, u32 corner, float2 uv)
@@ -59,11 +66,14 @@ float4 sdf_round_rect(u32 i_primitive, u32 corner, float2 uv)
     const float radius = 5.0;
     float d = sdRoundedBox((uv - 0.5) * rect.rect.size, rect.rect.size * 0.5, float4(radius));
 
-    float bg_opacity      = clamp(0.5 - d, 0, 1);
+    float bg_opacity     = clamp(0.5 - d, 0, 1);
     float border_opacity = clamp(0.5 - (d+rect.border_thickness), 0, 1);
 
     float4 bg_color     = unpackUnorm4x8(rect.color);
     float4 border_color = unpackUnorm4x8(rect.border_color);
+
+    bg_color.rgb = srgb_to_linear(bg_color.rgb);
+    border_color.rgb = srgb_to_linear(border_color.rgb);
 
     float4 res = mix(border_color, bg_color, border_opacity);
     res.a   = res.a * bg_opacity; // restrict shape outside of border
@@ -90,12 +100,13 @@ void main()
     }
     else if (primitive_type == RectType_Sdf_RoundRectangle)
     {
-	o_color = sdf_round_rect(i_primitive, corner, i_uv);
+	    o_color = sdf_round_rect(i_primitive, corner, i_uv);
     }
     else
     {
         o_color = float4(1, 0, 0, 1);
     }
 
+    // Premultiply alpha
     o_color.rgb = o_color.a * o_color.rgb;
 }

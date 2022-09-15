@@ -46,7 +46,7 @@ App *App::create(exo::ScopeStack &scope)
 	int   font_size_pt = 24;
 	float font_size_px = float(font_size_pt);
 
-	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.ttf", font_size_pt);
+	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, int2(1024, 1024));
 	app->painter->glyph_atlas_gpu_idx = app->renderer.glyph_atlas_index();
 

@@ -8,11 +8,17 @@ struct RenderWorld;
 struct AssetManager;
 struct Painter;
 
+struct SrgbPass
+{
+	Handle<vulkan::ComputeProgram> program;
+};
+
 struct Renderer
 {
 	SimpleRenderer base;
 	MeshRenderer   mesh_renderer;
 	UiRenderer     ui_renderer;
+	SrgbPass       srgb_pass;
 
 	AssetManager *asset_manager = nullptr;
 

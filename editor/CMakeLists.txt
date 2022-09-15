@@ -8,7 +8,6 @@ set(SOURCE_FILES
   src/mesh_renderer.h
   src/custom_ui.cpp
   src/custom_ui.h
-  src/ui.h
 )
 
 add_executable(editor ${SOURCE_FILES})
@@ -20,6 +19,7 @@ setup_shaders(editor
   SOURCES
   simple_mesh.frag.glsl
   simple_mesh.vert.glsl
+  srgb_pass.comp.glsl
   DEPENDENCIES
   engine
 )
