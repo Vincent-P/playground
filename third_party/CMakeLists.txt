@@ -267,15 +267,17 @@ set(FREETYPE_BASE_SRCS
   freetype/src/winfonts/winfnt.c
 )
 
-if (UNIX)
-  list(APPEND FREETYPE_BASE_SRCS freetype/builds/unix/ftsystem.c)
-elseif (WIN32)
-  list(APPEND FREETYPE_BASE_SRCS freetype/builds/windows/ftsystem.c)
-  list(APPEND FREETYPE_BASE_SRCS freetype/builds/windows/ftdebug.c)
-else ()
-  list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftsystem.c)
-  list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftdebug.c)
-endif ()
+# if (UNIX)
+#   list(APPEND FREETYPE_BASE_SRCS freetype/builds/unix/ftsystem.c)
+# elseif (WIN32)
+#   list(APPEND FREETYPE_BASE_SRCS freetype/builds/windows/ftsystem.c)
+#   list(APPEND FREETYPE_BASE_SRCS freetype/builds/windows/ftdebug.c)
+# else ()
+#   list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftsystem.c)
+#   list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftdebug.c)
+# endif ()
+list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftsystem.c)
+list(APPEND FREETYPE_BASE_SRCS freetype/src/base/ftdebug.c)
 
 add_library(freetype_no_hb
   ${FREETYPE_PUBLIC_HEADERS}

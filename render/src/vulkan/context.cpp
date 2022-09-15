@@ -87,7 +87,7 @@ Context Context::create(const ContextDescription &desc)
 	}
 
 	exo::DynamicArray<const char *, 8> instance_layers;
-	if (desc.enable_validation) {
+	if (desc.enable_validation && i_validation != u32_invalid) {
 		instance_layers.push_back("VK_LAYER_KHRONOS_validation");
 	}
 
