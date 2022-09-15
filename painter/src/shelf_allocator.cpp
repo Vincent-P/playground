@@ -8,10 +8,11 @@ static AllocationId shelf_alloc(ShelfAllocator &allocator, Shelf &shelf, int2 al
 		return {};
 	}
 
+	auto pos_x = shelf.size.x - shelf.free;
 	shelf.free -= alloc_size.x;
 
 	return allocator.allocations.add({
-		.pos      = {shelf.size.x - shelf.free, shelf.y},
+		.pos      = {pos_x, shelf.y},
 		.size     = alloc_size,
 		.refcount = 1,
 	});
