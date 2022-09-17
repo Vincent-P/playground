@@ -1,5 +1,4 @@
 set(SOURCE_FILES
-  include/exo/buttons.h
   include/exo/collections/array.h
   include/exo/collections/dynamic_array.h
   include/exo/collections/enum_array.h
@@ -13,9 +12,7 @@ set(SOURCE_FILES
   include/exo/collections/pool_serializer.h
   include/exo/collections/set.h
   include/exo/collections/vector.h
-  include/exo/events.h
   include/exo/hash.h
-  include/exo/keyboard_keys.def
   include/exo/logger.h
   include/exo/macros/assert.h
   include/exo/macros/compiler.h
@@ -29,7 +26,6 @@ set(SOURCE_FILES
   include/exo/maths/vectors.h
   include/exo/maths/vectors_swizzle.h
   include/exo/maths.h
-  include/exo/memory/buddy_allocator.h
   include/exo/memory/linear_allocator.h
   include/exo/memory/scope_stack.h
   include/exo/memory/string_repository.h
@@ -37,7 +33,7 @@ set(SOURCE_FILES
   include/exo/option.h
   include/exo/result.h
   include/exo/serializer.h
-  include/exo/time.h
+
   include/exo/uuid.h
   include/exo/uuid_formatter.h
   include/exo/uuid_serializer.h
@@ -45,10 +41,9 @@ set(SOURCE_FILES
   src/collections/index_map_serializer.cpp
   src/collections/pool.cpp
   src/collections/pool_serializer.cpp
-  src/lib.cpp
+
   src/maths/matrices.cpp
   src/maths/vectors.cpp
-  src/memory/buddy_allocator.cpp
   src/memory/linear_allocator.cpp
   src/memory/scope_stack.cpp
   src/memory/string_repository.cpp
@@ -62,7 +57,7 @@ set(SOURCE_FILES
 
   engine.natvis
   phmap.natvis
-   "include/exo/string_serializer.h" "include/exo/serializer_helper.h")
+   "include/exo/string_serializer.h" "include/exo/serializer_helper.h" "src/macros/assert.cpp")
 
 set(TEST_FILES
   src/path.cpp

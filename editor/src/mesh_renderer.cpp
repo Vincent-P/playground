@@ -106,7 +106,7 @@ MeshRenderer MeshRenderer::create(vulkan::Device &device)
 }
 
 static Handle<RenderTexture> get_or_create_texture(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId texture_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &texture_uuid)
 {
 	auto texture = asset_manager->load_asset<Texture>(texture_uuid);
 
@@ -151,7 +151,7 @@ static Handle<RenderTexture> get_or_create_texture(
 }
 
 static Handle<RenderMaterial> get_or_create_material(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId material_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &material_uuid)
 {
 	auto material = asset_manager->load_asset<Material>(material_uuid);
 
@@ -182,7 +182,7 @@ static Handle<RenderMaterial> get_or_create_material(
 }
 
 static Handle<RenderMesh> get_or_create_mesh(
-	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, AssetId mesh_uuid)
+	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &mesh_uuid)
 {
 	auto mesh = asset_manager->load_asset<Mesh>(mesh_uuid);
 

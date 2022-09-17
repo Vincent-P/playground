@@ -121,9 +121,7 @@ static Accessor get_accessor(const rapidjson::Value &object)
 		res.nb_component = 2;
 	} else if (type == "VEC3") {
 		res.nb_component = 3;
-	} else if (type == "VEC4") {
-		res.nb_component = 4;
-	} else if (type == "MAT2") {
+	} else if (type == "VEC4" || type == "MAT2") {
 		res.nb_component = 4;
 	} else if (type == "MAT3") {
 		res.nb_component = 9;
@@ -173,7 +171,7 @@ struct ImporterContext
 	Vec<AssetId>               mesh_ids;
 	Vec<AssetId>               texture_ids;
 
-	exo::Path relative_to_absolute_path(std::string_view relative_path_str) const
+	[[nodiscard]] exo::Path relative_to_absolute_path(std::string_view relative_path_str) const
 	{
 		auto dir = exo::Path::remove_filename(this->main_path);
 		return exo::Path::join(dir, relative_path_str);
@@ -723,10 +721,10 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 
 	ProcessResponse response{};
 	response.products.push_back(request.asset);
-	for (auto mesh : ctx.mesh_ids) {
+	for (const auto &mesh : ctx.mesh_ids) {
 		response.products.push_back(mesh);
 	}
-	for (auto material : ctx.material_ids) {
+	for (const auto &material : ctx.material_ids) {
 		response.products.push_back(material);
 	}
 	return Ok(response);

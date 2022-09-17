@@ -117,7 +117,7 @@ Path Path::join(exo::Path path, std::string_view str)
 	return path;
 }
 
-Path Path::join(exo::Path lhs, exo::Path rhs)
+Path Path::join(exo::Path lhs, const exo::Path &rhs)
 {
 	append_path(lhs.str, rhs.str);
 	return lhs;
@@ -125,7 +125,7 @@ Path Path::join(exo::Path lhs, exo::Path rhs)
 
 Path Path::replace_filename(exo::Path path, std::string_view new_filename)
 {
-	return Path::join(Path::remove_filename(path), new_filename);
+	return Path::join(Path::remove_filename(std::move(path)), new_filename);
 }
 
 Path Path::remove_filename(exo::Path path)

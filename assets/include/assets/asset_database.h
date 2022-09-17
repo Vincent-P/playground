@@ -38,7 +38,7 @@ struct AssetDatabase
 	Resource &get_resource_from_content(u64 content_hash);
 
 	// Assets
-	Asset *get_asset(AssetId);
+	Asset *get_asset(const AssetId &id);
 	void   insert_asset(Asset *asset);
 };
 

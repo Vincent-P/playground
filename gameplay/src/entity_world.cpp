@@ -64,8 +64,8 @@ void EntityWorld::update(double delta_t)
 
 Entity *EntityWorld::create_entity(std::string_view name)
 {
-	Entity *new_entity = new Entity();
-	new_entity->name   = str_repo.intern(name);
+	auto *new_entity = new Entity();
+	new_entity->name = str_repo.intern(name);
 	entities.insert(new_entity);
 	root_entities.insert(new_entity);
 	return new_entity;

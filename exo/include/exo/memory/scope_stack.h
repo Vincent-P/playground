@@ -26,8 +26,8 @@ public:
 	ScopeStack()                        = default;
 	ScopeStack(const ScopeStack &other) = delete;
 	ScopeStack &operator=(const ScopeStack &other) = delete;
-	ScopeStack(ScopeStack &&other);
-	ScopeStack &operator=(ScopeStack &&other);
+	ScopeStack(ScopeStack &&other) noexcept;
+	ScopeStack &operator=(ScopeStack &&other) noexcept;
 
 private:
 	static inline void *object_from_finalizer(Finalizer *f)

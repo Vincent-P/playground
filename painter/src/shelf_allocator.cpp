@@ -25,9 +25,11 @@ static AllocationId freelist_alloc(ShelfAllocator &allocator, u32 i_freelist, in
 
 	ASSERT(new_alloc.capacity.x >= alloc_size.x);
 	ASSERT(new_alloc.capacity.y >= alloc_size.y);
-	new_alloc.alloc.refcount = 1;
-	new_alloc.alloc.size     = alloc_size;
-	return allocator.allocations.add(std::move(new_alloc.alloc));
+	return allocator.allocations.add({
+		.pos      = new_alloc.alloc.pos,
+		.size     = alloc_size,
+		.refcount = 1,
+	});
 }
 
 AllocationId ShelfAllocator::alloc(int2 alloc_size)

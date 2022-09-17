@@ -25,9 +25,9 @@ ScopeStack::~ScopeStack()
 	}
 }
 
-ScopeStack::ScopeStack(ScopeStack &&other) { *this = std::move(other); }
+ScopeStack::ScopeStack(ScopeStack &&other) noexcept { *this = std::move(other); }
 
-ScopeStack &ScopeStack::operator=(ScopeStack &&other)
+ScopeStack &ScopeStack::operator=(ScopeStack &&other) noexcept
 {
 	this->allocator      = std::exchange(other.allocator, nullptr);
 	this->rewind_ptr     = std::exchange(other.rewind_ptr, nullptr);

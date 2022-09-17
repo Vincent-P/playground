@@ -18,7 +18,7 @@ struct Path
 
 	// static helpers
 	static Path join(exo::Path path, std::string_view str);
-	static Path join(exo::Path lhs, exo::Path rhs);
+	static Path join(exo::Path lhs, const exo::Path &rhs);
 	static Path replace_filename(exo::Path path, std::string_view new_filename);
 	static Path remove_filename(exo::Path path);
 };

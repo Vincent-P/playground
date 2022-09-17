@@ -80,7 +80,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 
 	// Create a new asset for this resource
 	CreateRequest create_req{};
-	create_req.asset = id;
+	create_req.asset = std::move(id);
 	create_req.path  = path;
 	auto create_resp = importer.create_asset(create_req).value();
 	ASSERT(create_resp.new_id.is_valid());
@@ -110,7 +110,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	asset_record.last_imported_hash = resource_hash;
 
 	// write the assets produced by this resource to disk
-	for (auto product : process_resp.products) {
+	for (const auto &product : process_resp.products) {
 		Asset *asset      = manager.load_asset<Asset>(product);
 		auto   asset_path = AssetManager::get_asset_path(product);
 		exo::serializer_helper::write_object_to_file(asset_path.view(), *asset);
@@ -134,7 +134,7 @@ void AssetManager::import_resources(std::span<const Handle<Resource>> records)
 	}
 }
 
-Asset *AssetManager::load_from_disk(AssetId id)
+Asset *AssetManager::load_from_disk(const AssetId &id)
 {
 	auto asset_path = AssetManager::get_asset_path(id);
 	ASSERT(std::filesystem::exists(asset_path.view()));

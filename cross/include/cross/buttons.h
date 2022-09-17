@@ -27,14 +27,14 @@ inline constexpr const char *to_string(MouseButton button) { return mouse_button
 enum struct VirtualKey : uint
 {
 #define X(EnumName, DisplayName, Win32, Xlib) EnumName,
-#include "exo/keyboard_keys.def"
+#include "cross/keyboard_keys.def"
 #undef X
 	Count
 };
 
 inline constexpr EnumArray<const char *, VirtualKey> key_to_string{
 #define X(EnumName, DisplayName, Win32, Xlib) DisplayName,
-#include "exo/keyboard_keys.def"
+#include "cross/keyboard_keys.def"
 #undef X
 };
 

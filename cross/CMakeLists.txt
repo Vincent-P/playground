@@ -4,6 +4,9 @@ set(SOURCE_FILES
   include/cross/window.h
   include/cross/mapped_file.h
   include/cross/file_watcher.h
+  include/cross/events.h
+  include/cross/buttons.h
+  include/cross/keyboard_keys.def
   src/file_watcher.cpp
   )
 

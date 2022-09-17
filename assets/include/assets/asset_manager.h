@@ -64,7 +64,7 @@ struct AssetManager
 	void unload_asset(AssetId id);
 
 private:
-	Asset *load_from_disk(AssetId id);
+	Asset *load_from_disk(const AssetId &id);
 	void   import_resources(std::span<const Handle<Resource>> records);
 };
 

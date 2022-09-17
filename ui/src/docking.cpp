@@ -3,7 +3,7 @@
 #include "painter/painter.h"
 #include "ui/ui.h"
 
-#include <exo/buttons.h>
+#include <cross/buttons.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/numerics.h>
 #include <painter/rect.h>
@@ -168,8 +168,7 @@ void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 	auto mouse_pos = ui::mouse_position(ui);
 	ui::label_split_top(ui, content_rect, fmt::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
 
-	for (u32 i_window = 0; i_window < self.floating_containers.size(); ++i_window) {
-		const auto &floating_container = self.floating_containers[i_window];
+	for (const auto &floating_container : self.floating_containers) {
 		ui::label_split_top(ui, content_rect, "Floating window:");
 		ui::label_split_top(ui,
 			content_rect,

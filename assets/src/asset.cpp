@@ -8,7 +8,7 @@
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
 AssetConstructors &global_asset_constructors()
 {
-	static AssetConstructors *ac = new AssetConstructors();
+	static auto *ac = new AssetConstructors();
 	return *ac;
 }
 

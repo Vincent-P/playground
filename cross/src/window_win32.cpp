@@ -39,7 +39,7 @@ static bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
 
 EnumArray<i32, VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, Xlib) Win32,
-#include "exo/keyboard_keys.def"
+#include "cross/keyboard_keys.def"
 #undef X
 };
 

@@ -37,8 +37,8 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	renderer.device = vulkan::Device::create(renderer.context, device_desc);
 	auto &device    = renderer.device;
 
-	for (usize i = 0; i < FRAME_QUEUE_LENGTH; ++i) {
-		device.create_work_pool(renderer.workpools[i]);
+	for (auto &workpool : renderer.workpools) {
+		device.create_work_pool(workpool);
 	}
 
 	renderer.uniform_buffer = RingBuffer::create(device,
@@ -89,8 +89,8 @@ void SimpleRenderer::destroy()
 	this->device.wait_idle();
 	this->device.destroy_fence(this->swapchain_node.fence);
 
-	for (usize i = 0; i < FRAME_QUEUE_LENGTH; ++i) {
-		device.destroy_work_pool(this->workpools[i]);
+	for (auto &workpool : this->workpools) {
+		device.destroy_work_pool(workpool);
 	}
 
 	this->swapchain_node.surface.destroy(this->context, this->device);

@@ -98,7 +98,7 @@ Resource &AssetDatabase::get_resource_from_content(u64 content_hash)
 }
 
 // -- Assets
-Asset *AssetDatabase::get_asset(AssetId id)
+Asset *AssetDatabase::get_asset(const AssetId &id)
 {
 	u64         id_hash = hash_value(id);
 	Option<u64> ptr     = this->asset_id_map.at(id_hash);

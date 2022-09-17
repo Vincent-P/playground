@@ -2,7 +2,7 @@
 #include <cross/mapped_file.h>
 #include <cross/platform.h>
 #include <cross/window.h>
-#include <exo/buttons.h>
+#include <cross/buttons.h>
 
 #include <exo/collections/vector.h>
 #include <exo/logger.h>

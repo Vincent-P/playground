@@ -127,8 +127,8 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
 	u64 id = make_id(ui);
 
-	Rect right_rect    = view_rect;
-	Rect left_rect     = rect_split_left(right_rect, value * view_rect.size.x);
+	Rect right_rect = view_rect;
+	/*Rect left_rect =*/rect_split_left(right_rect, value * view_rect.size.x);
 	Rect splitter_rect = rect_split_left(right_rect, ui.theme.splitter_thickness);
 
 	// behavior
@@ -156,8 +156,8 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
 	u64 id = make_id(ui);
 
-	Rect bottom_rect   = view_rect;
-	Rect top_rect      = rect_split_top(bottom_rect, value * view_rect.size.y);
+	Rect bottom_rect = view_rect;
+	/*Rect top_rect =*/rect_split_top(bottom_rect, value * view_rect.size.y);
 	Rect splitter_rect = rect_split_top(bottom_rect, ui.theme.splitter_thickness);
 
 	// behavior
