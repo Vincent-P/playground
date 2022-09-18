@@ -8,4 +8,4 @@ set(SOURCE_FILES
 
 add_library(ui STATIC ${SOURCE_FILES})
 setup_app_target(ui)
-target_link_libraries(ui PRIVATE exo painter cross)
+target_link_libraries(ui PUBLIC exo painter cross)

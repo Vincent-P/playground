@@ -1,11 +1,14 @@
 #include "cross/platform.h"
 
+#include <exo/macros/assert.h>
+
+#include <shellscalingapi.h> // for dpi awareness
 #include <windows.h>
 #include <winuser.h>
 
 static_assert(sizeof(DWORD) == sizeof(u32));
 
-namespace cross
+namespace cross::platform
 {
 struct Platform
 {
@@ -13,21 +16,24 @@ struct Platform
 	void *main_fiber     = nullptr;
 };
 
-usize platform_get_size() { return sizeof(Platform); }
+usize get_size() { return sizeof(Platform); }
 
 // --- Window creation thread
 
-Platform *platform_create(void *memory)
+void create(void *memory)
 {
-	auto *platform = reinterpret_cast<Platform *>(memory);
+	ASSERT(!g_platform);
+	g_platform = reinterpret_cast<Platform *>(memory);
 
-	platform->main_thread_id = GetCurrentThreadId();
-	platform->main_fiber     = ConvertThreadToFiber(nullptr);
+	g_platform->main_thread_id = GetCurrentThreadId();
+	g_platform->main_fiber     = ConvertThreadToFiber(nullptr);
 
-	return platform;
+	HRESULT res = 0;
+	res         = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+	ASSERT(SUCCEEDED(res));
 }
 
-void platform_destroy(Platform * /*platform*/) {}
+void destroy() { ASSERT(g_platform); }
 
-void *platform_win32_get_main_fiber(Platform *platform) { return platform->main_fiber; }
-} // namespace cross
+void *win32_get_main_fiber() { return g_platform->main_fiber; }
+} // namespace cross::platform

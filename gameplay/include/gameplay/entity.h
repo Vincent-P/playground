@@ -72,7 +72,6 @@ struct Entity
 		return nullptr;
 	}
 
-private:
 	// create_system
 	void create_system_internal(LocalSystem *system);
 	void destroy_system_internal(LocalSystem *system);

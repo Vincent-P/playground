@@ -1,8 +1,8 @@
+#include <cross/buttons.h>
 #include <cross/file_dialog.h>
 #include <cross/mapped_file.h>
 #include <cross/platform.h>
 #include <cross/window.h>
-#include <cross/buttons.h>
 
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
@@ -86,9 +86,8 @@ struct Image
 
 struct RenderSample
 {
-	cross::Platform *platform = nullptr;
-	cross::Window   *window   = nullptr;
-	Inputs           inputs   = {};
+	cross::Window *window = nullptr;
+	Inputs         inputs = {};
 
 	SimpleRenderer                  renderer;
 	UiRenderer                      ui_renderer;
@@ -122,10 +121,10 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
 	auto *app = scope.allocate<RenderSample>();
 
-	app->platform = reinterpret_cast<cross::Platform *>(scope.allocate(cross::platform_get_size()));
-	cross::platform_create(app->platform);
+	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
+	cross::platform::create(platform);
 
-	app->window = cross::Window::create(app->platform, scope, {1280, 720}, "Best Image Viewer");
+	app->window = cross::Window::create(scope, {1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
 	app->renderer  = SimpleRenderer::create(app->window->get_win32_hwnd());
@@ -152,11 +151,11 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	return app;
 }
 
-void render_sample_destroy(RenderSample *app)
+void render_sample_destroy(RenderSample * /*app*/)
 {
 	ZoneScoped;
 
-	cross::platform_destroy(app->platform);
+	cross::platform::destroy();
 }
 
 namespace ui

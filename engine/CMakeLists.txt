@@ -16,3 +16,5 @@ target_link_libraries(engine PUBLIC
   render
   gameplay
   )
+
+target_link_libraries(engine PRIVATE ui)

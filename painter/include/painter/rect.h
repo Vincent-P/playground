@@ -18,6 +18,13 @@ PACKED(struct Rect {
 
 // -- Posing
 
+inline Rect rect_ceil(Rect rect)
+{
+	rect.pos  = ceil(rect.pos);
+	rect.size = ceil(rect.size);
+	return rect;
+};
+
 inline Rect rect_center(Rect container, const float2 &element_size)
 {
 	return {
@@ -56,53 +63,53 @@ inline Rect rect_inset(Rect r, float2 margin) { return rect_outset(r, float2(-ma
 
 inline Rect rect_split_top(Rect &r, float height)
 {
-	auto top    = Rect{.pos = r.pos, .size = {r.size[0], height}};
-	auto bottom = Rect{.pos = {r.pos[0], r.pos[1] + height}, .size = {r.size[0], r.size[1] - height}};
+	auto top    = rect_ceil(Rect{.pos = r.pos, .size = {r.size[0], height}});
+	auto bottom = rect_ceil(Rect{.pos = {r.pos[0], r.pos[1] + height}, .size = {r.size[0], r.size[1] - height}});
 	r           = bottom;
 	return top;
 }
 
 inline Rect rect_split_bottom(Rect &r, float height)
 {
-	auto top    = Rect{.pos = r.pos, .size = {r.size[0], r.size[1] - height}};
-	auto bottom = Rect{.pos = {r.pos[0], r.pos[1] + top.size[1]}, .size = {r.size[0], height}};
+	auto top    = rect_ceil(Rect{.pos = r.pos, .size = {r.size[0], r.size[1] - height}});
+	auto bottom = rect_ceil(Rect{.pos = {r.pos[0], r.pos[1] + top.size[1]}, .size = {r.size[0], height}});
 	r           = top;
 	return bottom;
 }
 
 inline Rect rect_split_left(Rect &r, float width)
 {
-	auto left  = Rect{.pos = r.pos, .size = {width, r.size[1]}};
-	auto right = Rect{.pos = {r.pos[0] + width, r.pos[1]}, .size = {r.size[0] - width, r.size[1]}};
+	auto left  = rect_ceil(Rect{.pos = r.pos, .size = {width, r.size[1]}});
+	auto right = rect_ceil(Rect{.pos = {r.pos[0] + width, r.pos[1]}, .size = {r.size[0] - width, r.size[1]}});
 	r          = right;
 	return left;
 }
 
 inline Rect rect_split_right(Rect &r, float width)
 {
-	auto left  = Rect{.pos = r.pos, .size = {r.size[0] - width, r.size[1]}};
-	auto right = Rect{.pos = {r.pos[0] + left.size[0], r.pos[1]}, .size = {width, r.size[1]}};
+	auto left  = rect_ceil(Rect{.pos = r.pos, .size = {r.size[0] - width, r.size[1]}});
+	auto right = rect_ceil(Rect{.pos = {r.pos[0] + left.size[0], r.pos[1]}, .size = {width, r.size[1]}});
 	r          = left;
 	return right;
 }
 
 struct RectSplit
 {
-	Rect          *rect      = nullptr;
+	Rect          &rect;
 	SplitDirection direction = SplitDirection::Top;
 
 	Rect split(float value)
 	{
-		ASSERT(this->rect);
 		switch (this->direction) {
 		case SplitDirection::Top:
-			return rect_split_top(*this->rect, value);
+			return rect_split_top(this->rect, value);
 		case SplitDirection::Bottom:
-			return rect_split_bottom(*this->rect, value);
+			return rect_split_bottom(this->rect, value);
 		case SplitDirection::Left:
-			return rect_split_left(*this->rect, value);
+			return rect_split_left(this->rect, value);
+		default:
 		case SplitDirection::Right:
-			return rect_split_right(*this->rect, value);
+			return rect_split_right(this->rect, value);
 		}
 	}
 };

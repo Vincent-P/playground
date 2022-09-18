@@ -10,10 +10,16 @@ namespace ui
 {
 bool is_hovering(const Ui &ui, const Rect &rect) { return rect_is_point_inside(rect, mouse_position(ui)); }
 
-bool has_clicked(const Ui &ui, u64 id)
+bool has_pressed(const Ui &ui, exo::MouseButton button) { return ui.inputs.mouse_buttons_pressed[button]; }
+
+bool has_pressed_and_released(const Ui &ui, exo::MouseButton button)
 {
-	return !ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui.activation.focused == id &&
-	       ui.activation.active == id;
+	return !ui.inputs.mouse_buttons_pressed_last_frame[button] && ui.inputs.mouse_buttons_pressed[button];
+}
+
+bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button)
+{
+	return has_pressed_and_released(ui, button) && ui.activation.focused == id && ui.activation.active == id;
 }
 
 u64 make_id(Ui &ui) { return ++ui.activation.gen; }
@@ -181,27 +187,64 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
 
-void label(Ui &ui, const Label &label)
+void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignment alignment)
 {
-	auto label_rect = rect_center(label.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label.text)));
+	ASSERT(alignment == Alignment::Center);
+	auto label_rect = rect_center(view_rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label)));
 
-	push_clip_rect(ui, register_clip_rect(ui, label.rect));
-	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label.text);
+	push_clip_rect(ui, register_clip_rect(ui, view_rect));
+	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 	pop_clip_rect(ui);
 }
 
-void label_split_top(Ui &ui, Rect &view_rect, std::string_view label)
+void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
 	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
-	auto line_rect  = rect_split_top(view_rect, float(label_size.y));
+	auto line_rect  = rectsplit.split(float(label_size.y));
 	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 }
 
-void label_split_left(Ui &ui, Rect &view_rect, std::string_view label)
+bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
-	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
-	auto line_rect  = rect_split_left(view_rect, float(label_size.x));
-	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+	bool result = false;
+	u64  id     = make_id(ui);
+
+	// layout
+	auto label_size  = measure_label(*ui.painter, *ui.theme.main_font, label);
+	auto button_rect = rectsplit.split(float(label_size.x) + 0.5f * ui.theme.font_size);
+	auto label_rect  = rect_center(button_rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label)));
+
+	// behavior
+	if (is_hovering(ui, button_rect)) {
+		ui.activation.focused = id;
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
+		}
+	}
+
+	if (has_clicked(ui, id)) {
+		result = true;
+	}
+
+	// rendering
+	auto bg_color = ui.theme.button_bg_color;
+	if (ui.activation.focused == id) {
+		if (ui.activation.active == id) {
+			bg_color = ui.theme.button_pressed_bg_color;
+		} else {
+			bg_color = ui.theme.button_hover_bg_color;
+		}
+	}
+	painter_draw_color_round_rect(*ui.painter,
+		button_rect,
+		ui.state.i_clip_rect,
+		bg_color,
+		ColorU32::from_uints(0, 0, 0, 0x0F),
+		2);
+
+	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+
+	return result;
 }
 
 } // namespace ui

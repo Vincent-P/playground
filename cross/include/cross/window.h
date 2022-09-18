@@ -14,8 +14,6 @@ struct ScopeStack;
 }
 namespace cross
 {
-struct Platform;
-
 enum struct Cursor : int
 {
 	None,
@@ -32,7 +30,7 @@ enum struct Cursor : int
 
 struct Window
 {
-	static Window *create(Platform *platform, exo::ScopeStack &scope, int2 size, const std::string_view title);
+	static Window *create(exo::ScopeStack &scope, int2 size, const std::string_view title);
 	~Window() = default;
 
 	void set_title(std::string_view new_title);

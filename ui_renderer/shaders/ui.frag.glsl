@@ -96,4 +96,6 @@ void main()
     {
         o_color = float4(1, 0, 0, 1);
     }
+
+    o_color.rgb = o_color.a * o_color.rgb;
 }

@@ -34,8 +34,9 @@ struct Theme
 
 struct Inputs
 {
-	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
-	int2                                   mouse_position        = {0};
+	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed            = {};
+	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed_last_frame = {};
+	int2                                   mouse_position                   = {0};
 };
 
 struct Activation
@@ -68,12 +69,6 @@ struct Button
 	Rect        rect;
 };
 
-struct Label
-{
-	const char *text;
-	Rect        rect;
-};
-
 struct ColorRect
 {
 	u32  color;
@@ -91,7 +86,9 @@ u64           make_id(Ui &ui);
 float         em(const Ui &ui);
 
 // widget api
-bool has_clicked(const Ui &ui, u64 id);
+bool has_pressed(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
+bool has_pressed_and_released(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
+bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button = exo::MouseButton::Left);
 
 u32  register_clip_rect(Ui &ui, const Rect &clip_rect);
 void push_clip_rect(Ui &ui, u32 i_clip_rect);
@@ -100,10 +97,14 @@ void pop_clip_rect(Ui &ui);
 bool button(Ui &ui, const Button &button);
 void splitter_x(Ui &ui, const Rect &view_rect, float &value);
 void splitter_y(Ui &ui, const Rect &view_rect, float &value);
-void label(Ui &ui, const Label &label);
 void rect(Ui &ui, const Rect &rect);
 
-void label_split_top(Ui &ui, Rect &view_rect, std::string_view label);
-void label_split_left(Ui &ui, Rect &view_rect, std::string_view label);
+enum struct Alignment
+{
+	Center
+};
+void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignment alignment = Alignment::Center);
+void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
+bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
 
 } // namespace ui

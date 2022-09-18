@@ -15,6 +15,7 @@
 // clang-format on
 
 #pragma comment(lib, "imm32.lib")
+#pragma comment(lib, "Shcore.lib")
 
 using namespace exo;
 
@@ -23,9 +24,8 @@ namespace cross
 
 struct WindowWin32
 {
-	HWND      wnd           = nullptr;
-	Platform *platform      = nullptr;
-	void     *polling_fiber = nullptr;
+	HWND  wnd           = nullptr;
+	void *polling_fiber = nullptr;
 };
 
 static WindowWin32       &impl(Window &window) { return *reinterpret_cast<WindowWin32 *>(window.native_data); }
@@ -80,14 +80,14 @@ static void poll_events_fiber(void *window)
 			DispatchMessageW(&msg);
 		}
 
-		void *main_fiber = platform_win32_get_main_fiber(impl(self).platform);
+		void *main_fiber = platform::win32_get_main_fiber();
 		SwitchToFiber(main_fiber);
 	}
 }
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const std::string_view title)
+Window *Window::create(ScopeStack &scope, int2 size, const std::string_view title)
 {
 	auto *window  = scope.allocate<Window>();
 	window->title = std::string(title);
@@ -96,7 +96,6 @@ Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const s
 	window->events.reserve(5); // should be good enough
 	window->native_data = scope.allocate<WindowWin32>();
 
-	impl(*window).platform      = platform;
 	impl(*window).polling_fiber = CreateFiber(0, poll_events_fiber, window);
 
 	// Register the window class
@@ -111,7 +110,6 @@ Window *Window::create(Platform *platform, ScopeStack &scope, int2 size, const s
 	// Create the window instance
 	HWND &hwnd = impl(*window).wnd;
 
-	// hwnd       = (HWND)platform_create_window(platform, size, title);
 	auto utf16_title = utf8_to_utf16(title);
 	hwnd             = CreateWindowEx(WS_EX_TRANSPARENT, // Optional window styles.
         wc.lpszClassName,                    // Window class
@@ -248,10 +246,17 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		// window.push_event<event::Resize>({.width = window.width, .height = window.height});
 		// logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
 
-		void *main_fiber = platform_win32_get_main_fiber(impl(window).platform);
+		void *main_fiber = platform::win32_get_main_fiber();
 		SwitchToFiber(main_fiber);
 
 		return 0;
+	}
+
+	case WM_DPICHANGED: {
+		auto y_dpi = HIWORD(wParam);
+		auto x_dpi = LOWORD(wParam);
+		logger::info("dpi changed {}x{}\n", x_dpi, y_dpi);
+		break;
 	}
 
 		// --- Keyboard Inputs

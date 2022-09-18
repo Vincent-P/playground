@@ -59,7 +59,7 @@ static void area_replace_child(Area &area, Handle<Area> previous_child, Handle<A
 	}
 }
 
-Option<Rect> tabview(Docking &self, std::string_view tabname)
+Option<Rect> tabview(ui::Ui &ui, Docking &self, std::string_view tabname)
 {
 	u32 i_tabview = u32_invalid;
 	for (u32 i = 0; i < self.tabviews.size(); ++i) {
@@ -80,7 +80,8 @@ Option<Rect> tabview(Docking &self, std::string_view tabname)
 	const auto &container = area_container(area);
 	if (container.selected != u32_invalid && container.tabviews[container.selected] == i_tabview) {
 		auto content_rect = container.rect;
-		/*auto tabwell_rect =*/rect_split_top(content_rect, 1.5f * self.ui.em_size);
+		/*auto tabwell_rect =*/rect_split_top(content_rect, 2.0f * self.ui.em_size);
+		painter_draw_color_rect(*ui.painter, content_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x1A)));
 		return Some(content_rect);
 	} else {
 		return None;
@@ -163,22 +164,23 @@ void end_docking(Docking &self, ui::Ui &ui)
 
 void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 {
-	auto content_rect = rect;
+	auto content_rect      = rect;
+	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	auto mouse_pos = ui::mouse_position(ui);
-	ui::label_split_top(ui, content_rect, fmt::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
+	ui::label_split(ui, content_rectsplit, fmt::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
 
 	for (const auto &floating_container : self.floating_containers) {
-		ui::label_split_top(ui, content_rect, "Floating window:");
-		ui::label_split_top(ui,
-			content_rect,
+		ui::label_split(ui, content_rectsplit, "Floating window:");
+		ui::label_split(ui,
+			content_rectsplit,
 			fmt::format("  - pos: ({}, {}), size ({}, {}))",
 				floating_container.rect.pos.x,
 				floating_container.rect.pos.y,
 				floating_container.rect.size.x,
 				floating_container.rect.size.y));
-		ui::label_split_top(ui,
-			content_rect,
+		ui::label_split(ui,
+			content_rectsplit,
 			fmt::format("  - dragging offset ({}, {}))",
 				floating_container.drag_offset.x,
 				floating_container.drag_offset.y));
@@ -244,15 +246,16 @@ static Handle<Area> split_area(
 		right_child = new_child_handle;
 	}
 
+	// Splitting from the top or bottom results in a horizontal split
 	auto split_is_horizontal = [](SplitDirection direction) {
 		switch (direction) {
-		case SplitDirection::Left:
-		case SplitDirection::Right:
-			return false;
 		case SplitDirection::Top:
 		case SplitDirection::Bottom:
-		default:
 			return true;
+		case SplitDirection::Left:
+		case SplitDirection::Right:
+		default:
+			return false;
 		}
 	};
 
@@ -378,43 +381,57 @@ static void update_area_rect(Docking &docking, Handle<Area> area_handle, Rect re
 	}
 }
 
-static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview, Rect &rect)
+static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview, Rect &rect, bool is_active)
 {
+	// Layout
+	auto em          = docking.em_size;
+	auto label_width = float(measure_label(*ui.painter, *ui.theme.main_font, tabview.title).x);
+
+	auto rectsplit  = RectSplit{rect, SplitDirection::Left};
+	auto title_rect = rectsplit.split(label_width + 1.0f * em);
+
+	auto copy               = title_rect;
+	auto bottom_border_rect = rect_split_bottom(copy, 0.1f * em);
+
+	// Interaction
 	auto res = TabState::None;
-	auto em  = docking.em_size;
 	auto id  = ui::make_id(ui);
 
-	auto label_size  = float2(float(measure_label(*ui.painter, *ui.theme.main_font, tabview.title).x),
-        1.0f * em); // TODO: compute size
-	auto title_rect  = rect_split_left(rect, label_size.x + 1.0f * em);
-	auto detach_rect = rect_split_left(rect, 1.5f * em);
-
-	if (ui::is_hovering(ui, title_rect)) {
+	bool is_hovering = ui::is_hovering(ui, title_rect);
+	if (is_hovering) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+
+		bool has_pressed = ui::has_pressed(ui, exo::MouseButton::Left) || ui::has_pressed(ui, exo::MouseButton::Right);
+		if (ui.activation.active == u64_invalid && has_pressed) {
 			ui.activation.active = id;
 		}
 	} else if (ui.activation.active == id) {
 		res = TabState::Dragging;
 	}
 
-	if (ui::has_clicked(ui, id)) {
+	if (is_hovering && ui::has_clicked(ui, id)) {
 		res = TabState::ClickedTitle;
 	}
 
-	if (ui::button(ui, {.label = "D", .rect = detach_rect})) {
+	if (is_hovering && ui::has_clicked(ui, id, exo::MouseButton::Right)) {
 		res = TabState::ClickedDetach;
 	}
 
-	auto color = ColorU32::from_floats(0.53f, 0.53f, 0.73f, 1.0f);
+	// Drawing
+	auto color = ColorU32::from_greyscale(u8(0x33));
 	if (ui.activation.focused == id && ui.activation.active == id) {
-		color = ColorU32::from_floats(0.13f, 0.13f, 0.43f, 1.0f);
+		color = ColorU32::from_greyscale(u8(0x38));
 	} else if (ui.activation.focused == id) {
-		color = ColorU32::from_floats(0.13f, 0.13f, 0.83f, 1.0f);
+		color = ColorU32::from_greyscale(u8(0x42));
 	}
 	painter_draw_color_rect(*ui.painter, title_rect, ui.state.i_clip_rect, color);
-	ui::label(ui, {.text = tabview.title.c_str(), .rect = rect_center(title_rect, label_size)});
+	ui::label_in_rect(ui, title_rect, tabview.title);
 
+	if (is_active) {
+		painter_draw_color_rect(*ui.painter, bottom_border_rect, u32_invalid, ColorU32::from_uints(0x10, 0x75, 0xB2));
+	}
+
+	/* auto margin =*/rectsplit.split(0.1f * em);
 	return res;
 }
 
@@ -442,17 +459,17 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 			return;
 		}
 		auto content_rect = container->rect;
-		auto tabwell_rect = rect_split_top(content_rect, 1.5f * em);
+		auto tabwell_rect = rect_split_top(content_rect, 2.0f * em);
 
 		// Draw the tabwell background
-		painter_draw_color_rect(*ui.painter, tabwell_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x3A)));
+		painter_draw_color_rect(*ui.painter, tabwell_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x28)));
 
 		for (usize i = 0; i < container->tabviews.size(); ++i) {
 			auto        i_tabview = container->tabviews[i];
 			const auto &tabview   = self.tabviews[i_tabview];
 
-			/*auto margin  =*/rect_split_left(tabwell_rect, 0.5f * em);
-			auto tabstate = draw_tab(self.ui, ui, tabview, tabwell_rect);
+			// /*auto margin  =*/rect_split_left(tabwell_rect, 0.5f * em);
+			auto tabstate = draw_tab(self.ui, ui, tabview, tabwell_rect, i == container->selected);
 			switch (tabstate) {
 			case TabState::Dragging: {
 				self.ui.active_tab = i_tabview;
@@ -545,7 +562,7 @@ static void draw_docking(Docking &self, ui::Ui &ui)
 		auto rect = Rect{.pos = float2(ui.inputs.mouse_position), .size = float2(10.0f * em, 1.5f * em)};
 		painter_draw_color_rect(*ui.painter, rect, ui.state.i_clip_rect, ColorU32::from_floats(0.0f, 0.0f, 0.0f, 0.5f));
 
-		ui::label(ui, {.text = tabview.title.c_str(), .rect = rect_center(rect, label_size)});
+		ui::label_in_rect(ui, rect, tabview.title);
 	}
 }
 
@@ -568,48 +585,52 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 		auto split_bottom_rect = rect_offset(drop_rect, float2(0.0f, HANDLE_OFFSET * em));
 		auto split_left_rect   = rect_offset(drop_rect, float2(-HANDLE_OFFSET * em, 0.0f));
 
-		auto overlay_color = ColorU32::from_floats(0.25f, 0.01f, 0.25f, 0.25f);
-		painter_draw_color_rect(*ui.painter, drop_rect, ui.state.i_clip_rect, overlay_color);
-		painter_draw_color_rect(*ui.painter, split_top_rect, ui.state.i_clip_rect, overlay_color);
-		painter_draw_color_rect(*ui.painter, split_right_rect, ui.state.i_clip_rect, overlay_color);
-		painter_draw_color_rect(*ui.painter, split_bottom_rect, ui.state.i_clip_rect, overlay_color);
-		painter_draw_color_rect(*ui.painter, split_left_rect, ui.state.i_clip_rect, overlay_color);
+		auto draw_rect = [&](const Rect &rect, DockingEvent event) {
+			auto color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.25f * 255));
 
-		// Drop a tab in a container
-		if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			if (ui::is_hovering(ui, drop_rect)) {
-				self.ui.events.push_back(events::DropTab{
-					.i_tabview    = self.ui.active_tab,
-					.in_container = area_handle,
-				});
-
-				self.ui.active_tab = usize_invalid;
-			} else if (ui::is_hovering(ui, split_top_rect)) {
-				self.ui.events.push_back(events::Split{
-					.direction = SplitDirection::Top,
-					.i_tabview = self.ui.active_tab,
-					.container = area_handle,
-				});
-			} else if (ui::is_hovering(ui, split_right_rect)) {
-				self.ui.events.push_back(events::Split{
-					.direction = SplitDirection::Left,
-					.i_tabview = self.ui.active_tab,
-					.container = area_handle,
-				});
-			} else if (ui::is_hovering(ui, split_bottom_rect)) {
-				self.ui.events.push_back(events::Split{
-					.direction = SplitDirection::Bottom,
-					.i_tabview = self.ui.active_tab,
-					.container = area_handle,
-				});
-			} else if (ui::is_hovering(ui, split_left_rect)) {
-				self.ui.events.push_back(events::Split{
-					.direction = SplitDirection::Right,
-					.i_tabview = self.ui.active_tab,
-					.container = area_handle,
-				});
+			if (ui::is_hovering(ui, rect)) {
+				if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+					self.ui.events.push_back(std::move(event));
+				}
+				color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.50f * 255));
 			}
-		}
+
+			painter_draw_color_rect(*ui.painter, rect, ui.state.i_clip_rect, color);
+		};
+
+		draw_rect(drop_rect,
+			events::DropTab{
+				.i_tabview    = self.ui.active_tab,
+				.in_container = area_handle,
+			});
+
+		draw_rect(split_top_rect,
+			events::Split{
+				.direction = SplitDirection::Bottom,
+				.i_tabview = self.ui.active_tab,
+				.container = area_handle,
+			});
+
+		draw_rect(split_right_rect,
+			events::Split{
+				.direction = SplitDirection::Left,
+				.i_tabview = self.ui.active_tab,
+				.container = area_handle,
+			});
+
+		draw_rect(split_bottom_rect,
+			events::Split{
+				.direction = SplitDirection::Top,
+				.i_tabview = self.ui.active_tab,
+				.container = area_handle,
+			});
+
+		draw_rect(split_left_rect,
+			events::Split{
+				.direction = SplitDirection::Right,
+				.i_tabview = self.ui.active_tab,
+				.container = area_handle,
+			});
 	}
 }
 } // namespace docking

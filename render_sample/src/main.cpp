@@ -34,10 +34,10 @@ int main(int /*argc*/, char ** /*argv*/)
 		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
-	auto *platform = reinterpret_cast<cross::Platform *>(global_scope.allocate(cross::platform_get_size()));
-	cross::platform_create(platform);
+	auto *platform = reinterpret_cast<cross::platform::Platform *>(global_scope.allocate(cross::platform::get_size()));
+	cross::platform::create(platform);
 
-	auto *window = cross::Window::create(platform, global_scope, {1280, 720}, "Render sample");
+	auto *window = cross::Window::create(global_scope, {1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
 	auto renderer = SimpleRenderer::create(window->get_win32_hwnd());
@@ -80,6 +80,6 @@ int main(int /*argc*/, char ** /*argv*/)
 		FrameMark
 	}
 
-	cross::platform_destroy(platform);
+	cross::platform::destroy();
 	return 0;
 }

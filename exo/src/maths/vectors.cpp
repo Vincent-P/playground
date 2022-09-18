@@ -78,6 +78,15 @@ template <typename V> V floor_impl(V a)
 	return res;
 }
 
+template <typename V> V ceil_impl(V a)
+{
+	V res = V{0};
+	for (usize i_component = 0; i_component < V::SIZE; i_component += 1) {
+		res[i_component] = std::ceil(a[i_component]);
+	}
+	return res;
+}
+
 // clang-format off
 float max(float2 v) { return max_impl(v); }
 float max(float3 v) { return max_impl(v); }
@@ -114,6 +123,10 @@ float4 round(float4 v) { return round_impl(v); }
 float2 floor(float2 v) { return floor_impl(v); }
 float3 floor(float3 v) { return floor_impl(v); }
 float4 floor(float4 v) { return floor_impl(v); }
+
+float2 ceil(float2 v) { return ceil_impl(v); }
+float3 ceil(float3 v) { return ceil_impl(v); }
+float4 ceil(float4 v) { return ceil_impl(v); }
 // clang-format on
 
 float3 cross(float3 a, float3 b) { return {a.y * b.z - b.y * a.z, a.z * b.x - b.z * a.x, a.x * b.y - b.x * a.y}; }

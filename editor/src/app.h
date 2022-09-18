@@ -6,17 +6,13 @@
 #include <gameplay/inputs.h>
 #include <painter/font.h>
 #include <ui/docking.h>
+#include <ui/ui.h>
 
 #include "custom_ui.h"
-#include "ui.h"
 
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
-namespace cross
-{
-struct Platform;
-}
 namespace cross
 {
 struct Window;
@@ -37,7 +33,6 @@ public:
 private:
 	void display_ui(double dt);
 
-	cross::Platform        *platform;
 	cross::Window          *window;
 	AssetManager           *asset_manager;
 	Renderer                renderer;

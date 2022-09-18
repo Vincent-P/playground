@@ -1,5 +1,6 @@
 #include "app.h"
 
+#include <engine/scene.h>
 #include <exo/memory/scope_stack.h>
 
 #include <cross/file_watcher.h>
@@ -15,6 +16,8 @@
 
 #include <string_view>
 #include <ui/docking.h>
+#include <ui/ui.h>
+#include <fmt/format.h>
 
 #define SOKOL_TIME_IMPL
 #include <sokol_time.h>
@@ -26,10 +29,10 @@ App *App::create(exo::ScopeStack &scope)
 {
 	auto *app = scope.allocate<App>();
 
-	app->platform = reinterpret_cast<cross::Platform *>(scope.allocate(cross::platform_get_size()));
-	cross::platform_create(app->platform);
+	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
+	cross::platform::create(platform);
 
-	app->window        = cross::Window::create(app->platform, scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
+	app->window        = cross::Window::create(scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
 	app->asset_manager = AssetManager::create(scope);
 
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
@@ -40,20 +43,25 @@ App *App::create(exo::ScopeStack &scope)
 	app->watcher  = cross::FileWatcher::create();
 	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
-	app->ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
+	int   font_size_pt = 24;
+	float font_size_px = float(font_size_pt);
+
+	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.ttf", font_size_pt);
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, int2(1024, 1024));
 	app->painter->glyph_atlas_gpu_idx = app->renderer.glyph_atlas_index();
 
-	app->ui      = ui::create(&app->ui_font, 36.0f, app->painter);
+	app->ui      = ui::create(&app->ui_font, font_size_px, app->painter);
 	app->docking = docking::create();
 
 	app->is_minimized = false;
 
 	app->scene.init(app->asset_manager, &app->inputs);
 
+#if 0
 	auto  scene_id    = AssetId::create<SubScene>("NewSponza_Main_Blender_glTF.gltf");
 	auto *scene_asset = app->asset_manager->load_asset<SubScene>(scene_id);
 	app->scene.import_subscene(scene_asset);
+#endif
 
 	stm_setup();
 
@@ -63,7 +71,7 @@ App *App::create(exo::ScopeStack &scope)
 App::~App()
 {
 	scene.destroy();
-	cross::platform_destroy(platform);
+	cross::platform::destroy();
 }
 
 void App::display_ui(double dt)
@@ -73,36 +81,46 @@ void App::display_ui(double dt)
 	ui::new_frame(this->ui);
 
 	auto fullscreen_rect = Rect{.pos = {0, 0}, .size = float2(int2(this->window->size.x, this->window->size.y))};
+	auto em = this->ui.theme.font_size;
 
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
-	if (auto view_rect = docking::tabview(this->docking, "View 1"); view_rect) {
-		painter_draw_color_rect(*this->ui.painter,
-			view_rect.value(),
-			this->ui.state.i_clip_rect,
-			ColorU32::from_floats(0.1f, 0.2f, 0.3f, 0.5f));
-		ui::label(this->ui, {.text = "test", .rect = view_rect.value()});
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "View 1"); view_rect) {
+		ui::label_in_rect(ui, view_rect.value(), "test");
 	}
 
-	if (auto view_rect = docking::tabview(this->docking, "View 2"); view_rect) {
-		painter_draw_color_rect(*this->ui.painter,
-			view_rect.value(),
-			this->ui.state.i_clip_rect,
-			ColorU32::from_floats(0.3f, 0.1f, 0.2f, 0.5f));
-		ui::label(this->ui, {.text = "test 2", .rect = view_rect.value()});
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "View 2"); view_rect) {
+		ui::label_in_rect(ui, view_rect.value(), "test 2");
 	}
 
-	if (auto view_rect = docking::tabview(this->docking, "Docking"); view_rect) {
-		painter_draw_color_rect(*this->ui.painter,
-			view_rect.value(),
-			this->ui.state.i_clip_rect,
-			ColorU32::from_floats(0.2f, 0.3f, 0.1f, 0.5f));
-		docking::inspector_ui(this->docking, this->ui, view_rect.value());
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Docking"); view_rect) {
+		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
+		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, view_rect.value()));
+		docking::inspector_ui(this->docking, this->ui, content_rect);
+		ui::pop_clip_rect(this->ui);
+	}
+
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Scene"); view_rect) {
+		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
+		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		scene_debug_ui(this->ui, this->scene, content_rect);
+		ui::pop_clip_rect(this->ui);
+	}
+
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Inputs"); view_rect) {
+		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
+		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+
+		auto rectsplit = RectSplit {content_rect, SplitDirection::Top};
+		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
+		for (auto pressed : this->inputs.mouse_buttons_pressed) {
+			ui::label_split(this->ui, rectsplit, fmt::format("  {}", pressed));
+		}
+
+		ui::pop_clip_rect(this->ui);
 	}
 
 	docking::end_docking(this->docking, this->ui);
-
-	float em = this->ui.theme.font_size;
 
 	histogram.push_time(float(dt));
 	auto histogram_rect = Rect{
@@ -138,9 +156,10 @@ void App::run()
 		}
 
 		inputs.process(window->events);
-		inputs.main_window_size               = window->size;
-		this->ui.inputs.mouse_position        = inputs.mouse_position;
-		this->ui.inputs.mouse_buttons_pressed = this->inputs.mouse_buttons_pressed;
+		inputs.main_window_size                          = window->size;
+		this->ui.inputs.mouse_position                   = inputs.mouse_position;
+		this->ui.inputs.mouse_buttons_pressed_last_frame = this->ui.inputs.mouse_buttons_pressed;
+		this->ui.inputs.mouse_buttons_pressed            = this->inputs.mouse_buttons_pressed;
 
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;

@@ -1,19 +1,13 @@
 #pragma once
 #include <exo/maths/numerics.h>
 
-namespace exo
-{
-struct ScopeStack;
-}
-
-namespace cross
+namespace cross::platform
 {
 struct Platform;
-struct Window;
+static Platform *g_platform = nullptr;
 
-usize     platform_get_size();
-Platform *platform_create(void *memory);
-void      platform_destroy(Platform *platform);
-
-void *platform_win32_get_main_fiber(Platform *platform);
-} // namespace cross
+usize get_size();
+void  create(void *memory);
+void  destroy();
+void *win32_get_main_fiber();
+} // namespace cross::platform

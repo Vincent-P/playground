@@ -24,4 +24,5 @@ set(SOURCE_FILES
 
 add_library(gameplay STATIC ${SOURCE_FILES})
 setup_app_target(gameplay)
-target_link_libraries(gameplay PRIVATE exo assets)
+target_link_libraries(gameplay PUBLIC exo assets)
+target_link_libraries(gameplay PRIVATE ui)

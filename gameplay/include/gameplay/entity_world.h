@@ -11,7 +11,6 @@ struct Entity;
 
 struct EntityWorld
 {
-public:
 	EntityWorld();
 	void update(double delta_t);
 
@@ -28,7 +27,6 @@ public:
 	const SystemRegistry &get_system_registry() const { return system_registry; }
 	SystemRegistry       &get_system_registry() { return system_registry; }
 
-private:
 	void create_system_internal(GlobalSystem *system);
 	void destroy_system_internal(GlobalSystem *system);
 
