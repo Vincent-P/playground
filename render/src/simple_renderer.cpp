@@ -154,6 +154,12 @@ void SimpleRenderer::reload_shaders()
 		fmt::print("\n");
 	});
 
+	if (shaders_to_reload.empty()) {
+		return;
+	}
+
+	this->device.wait_idle();
+
 	for (auto reloaded_shader : shaders_to_reload) {
 		this->device.reload_shader(reloaded_shader);
 
