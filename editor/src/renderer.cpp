@@ -41,6 +41,11 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 		auto input_image  = graph.resources.resolve_image(api.device, input);
 		auto output_image = graph.resources.resolve_image(api.device, output);
 
+		ASSERT(graph.image_size(input) == graph.image_size(output));
+		exo::uint3 dispatch_size = exo::uint3(graph.image_size(input));
+		dispatch_size.x          = (dispatch_size.x / 16) + (dispatch_size.x % 16 != 0);
+		dispatch_size.y          = (dispatch_size.y / 16) + (dispatch_size.y % 16 != 0);
+
 		auto *options = reinterpret_cast<Options *>(
 			bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(Options)));
 		options->linear_input_buffer_texture = api.device.get_image_sampled_index(input_image);
@@ -49,7 +54,7 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 		cmd.barrier(input_image, vulkan::ImageUsage::ComputeShaderRead);
 		cmd.barrier(output_image, vulkan::ImageUsage::ComputeShaderReadWrite);
 		cmd.bind_pipeline(compute_program);
-		cmd.dispatch(exo::uint3(1, 1, 1));
+		cmd.dispatch(dispatch_size);
 	});
 }
 

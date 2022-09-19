@@ -24,22 +24,14 @@ void main()
         return;
     }
 
-    pixel_pos = int2(0, 0);
-    
-    float4 output_color = vec4(1, 0, 0, 1.0);
-    imageStore(global_images_2d_rgba8[srgb_output_buffer_image], pixel_pos, output_color);
-    return;
-    #if 0
-
     float3 hdr = texelFetch(global_textures[linear_input_buffer_texture], pixel_pos, LOD0).rgb;
 
     float3 ldr = hdr;
 
-    // to srgb
+    // linear to srgb
     ldr = pow(ldr, float3(1.0 / 2.2));
 
 
     float4 output_color = vec4(ldr, 1.0);
     imageStore(global_images_2d_rgba8[srgb_output_buffer_image], pixel_pos, output_color);
-    #endif
 }

@@ -21,8 +21,8 @@ bool is_in_rect(float2 pos, Rect rect)
         );
 }
 
-float3 linear_to_srgb(float3 linear) { return pow(linear, float3(2.2)); }
-float3 srgb_to_linear(float3 srgb)   { return pow(srgb,   float3(1.0/2.2)); }
+float3 linear_to_srgb(float3 linear) { return pow(linear, float3(1.0/2.2)); }
+float3 srgb_to_linear(float3 srgb)   { return pow(srgb,   float3(2.2)); }
 
 void clip_rect(u32 i_clip_rect)
 {

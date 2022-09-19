@@ -51,15 +51,16 @@ void Work::begin()
 
 void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u32 offset, u32 i_set /*= 2*/)
 {
-	VkPipelineBindPoint bindpoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	if (queue_type == QueueType::Compute) {
-		bindpoint = VK_PIPELINE_BIND_POINT_COMPUTE;
-	} else {
-		ASSERT(queue_type == QueueType::Graphics);
-	}
-
 	vkCmdBindDescriptorSets(command_buffer,
-		bindpoint,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		device->global_sets.pipeline_layout,
+		i_set,
+		1,
+		&dynamic_descriptor.vkset,
+		1,
+		&offset);
+	vkCmdBindDescriptorSets(command_buffer,
+		VK_PIPELINE_BIND_POINT_COMPUTE,
 		device->global_sets.pipeline_layout,
 		i_set,
 		1,
