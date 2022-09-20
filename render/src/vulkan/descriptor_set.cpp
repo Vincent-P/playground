@@ -132,7 +132,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 	auto init_freelist = [](Vec<u32> &list, u32 count) {
 		list.resize(count);
 		for (u32 i = 0; i < count; ++i) {
-			list[i] = count - i;
+			list[i] = u32(count - 1u) - i;
 		}
 		list[0] = u32_invalid;
 	};
@@ -163,6 +163,7 @@ u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 	bindless.free_list[BindlessSet::PER_SAMPLER].pop_back();
 	bindless.sampler_images[new_index] = image_handle;
 	bindless.pending_bind[BindlessSet::PER_SAMPLER].push_back(new_index);
+
 	return new_index;
 }
 

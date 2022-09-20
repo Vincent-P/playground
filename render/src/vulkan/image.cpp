@@ -17,7 +17,7 @@ static ImageView create_image_view(Device &device,
 	VkFormat                               format,
 	VkImageViewType                        type)
 {
-	ImageView view;
+	ImageView view = {};
 
 	view.vkhandle = VK_NULL_HANDLE;
 	view.name     = std::move(name);
@@ -43,8 +43,6 @@ static ImageView create_image_view(Device &device,
 		ni.pObjectName                   = view.name.c_str();
 		vk_check(vkSetDebugUtilsObjectNameEXT(device.device, &ni));
 	}
-
-	view.sampled_idx = 0;
 
 	return view;
 }
