@@ -47,6 +47,12 @@ inline bool rect_is_point_inside(Rect container, const float2 &point)
 	       point.y <= container.pos.y + container.size.y;
 }
 
+inline bool rect_intersects(Rect a, Rect b)
+{
+	return !(b.pos.x > (a.pos.x + a.size.x) || (b.pos.x + b.size.x) < a.pos.x || b.pos.y > (a.pos.y + a.size.y) ||
+			 (b.pos.y + b.size.y) < a.pos.y);
+}
+
 // -- Margins
 
 inline Rect rect_outset(Rect r, float2 margin)

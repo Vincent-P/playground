@@ -13,15 +13,8 @@ struct float3;
 struct float4;
 
 // -- Functions
-float  max(float2 v);
-float  max(float3 v);
-float  max(float4 v);
-float  min(float2 v);
-float  min(float3 v);
-float  min(float4 v);
-usize  max_comp(float2 v);
-usize  max_comp(float3 v);
-usize  max_comp(float4 v);
+float2 max(float2 lhs, float2 rhs);
+float2 min(float2 lhs, float2 rhs);
 float  length(float2 v);
 float  length(float3 v);
 float  length(float4 v);

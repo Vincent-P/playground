@@ -7,6 +7,7 @@
 #include <cross/platform.h>
 #include <cross/window.h>
 
+#include <assets/asset_id_formatter.h>
 #include <assets/asset_manager.h>
 #include <assets/subscene.h>
 #include <engine/render_world_system.h>
@@ -14,10 +15,11 @@
 
 #include <Tracy.hpp>
 
+#include <fmt/format.h>
 #include <string_view>
 #include <ui/docking.h>
+#include <ui/scroll.h>
 #include <ui/ui.h>
-#include <fmt/format.h>
 
 #define SOKOL_TIME_IMPL
 #include <sokol_time.h>
@@ -81,7 +83,7 @@ void App::display_ui(double dt)
 	ui::new_frame(this->ui);
 
 	auto fullscreen_rect = Rect{.pos = {0, 0}, .size = float2(int2(this->window->size.x, this->window->size.y))};
-	auto em = this->ui.theme.font_size;
+	auto em              = this->ui.theme.font_size;
 
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
@@ -111,11 +113,46 @@ void App::display_ui(double dt)
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 
-		auto rectsplit = RectSplit {content_rect, SplitDirection::Top};
+		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
 		for (auto pressed : this->inputs.mouse_buttons_pressed) {
 			ui::label_split(this->ui, rectsplit, fmt::format("  {}", pressed));
 		}
+
+		ui::pop_clip_rect(this->ui);
+	}
+
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Asset Manager"); view_rect) {
+		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
+		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+
+		static auto scroll_offset = float2();
+		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+		// margin
+		rectsplit.split(10.0f * em);
+		const auto &cliprect = ui::current_clip_rect(this->ui);
+		ui::label_split(this->ui,
+			rectsplit,
+			fmt::format("clip rect {{pos: {}x{}, size: {}x{}}} ",
+				cliprect.pos.x,
+				cliprect.pos.y,
+				cliprect.size.x,
+				cliprect.size.y));
+
+		ui::label_split(this->ui, rectsplit, fmt::format("Resources (offset {}):", scroll_offset.y));
+
+		auto scrollarea_rect   = rectsplit.split(20.0f * em);
+		auto inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
+
+		auto scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
+		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
+			ui::label_split(this->ui,
+				scroll_rectsplit,
+				fmt::format("  - {} {}", p_resource->asset_id, p_resource->resource_path.view()));
+		}
+
+		ui::end_scroll_area(this->ui, inner_content_rect);
 
 		ui::pop_clip_rect(this->ui);
 	}

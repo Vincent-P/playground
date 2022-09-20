@@ -77,6 +77,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	}
 
 	ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
+	ASSERT(painter.vertex_bytes_offset % sizeof(Rect) == 0);
 	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
 	auto *vertices   = reinterpret_cast<ColorRect *>(painter.vertices);
 	vertices[i_rect] = {.rect = rect, .color = color.raw, .i_clip_rect = i_clip_rect};
@@ -93,8 +94,8 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
 
 	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
 	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
+	ASSERT((painter.vertex_bytes_offset - sizeof(ColorRect)) % sizeof(ColorRect) == 0);
 }
 
 int2 measure_label(Painter &painter, Font &font, std::string_view label)

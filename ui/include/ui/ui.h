@@ -51,7 +51,18 @@ struct State
 	u32 i_clip_rect              = u32_invalid;
 	u32 clip_stack[UI_MAX_DEPTH] = {};
 	u32 i_clip_stack             = 0;
-	int cursor                   = 0;
+
+	// Stack containing the "starting" rect for each scroll area, the "starting" rect is the inner content position with
+	// a max size
+	Rect scroll_starting_stack[UI_MAX_DEPTH] = {};
+	// Stack containing the "ending" rect for each scroll area, the "ending" rect is the "starting" rect split by the
+	// user content Substracting the pos from the "ending" rect to the "starting" rect gives the actual content size
+	Rect scroll_ending_stack[UI_MAX_DEPTH] = {};
+	float2 scroll_mouse_delta[UI_MAX_DEPTH]  = {};
+	// Index of the top of the stack
+	u32 i_scroll_stack = 0;
+
+	int cursor = 0;
 };
 
 struct Ui
@@ -69,12 +80,6 @@ struct Button
 	Rect        rect;
 };
 
-struct ColorRect
-{
-	u32  color;
-	Rect rect;
-};
-
 Ui   create(Font *font, float font_size, Painter *painter);
 void new_frame(Ui &ui);
 void end_frame(Ui &ui);
@@ -89,6 +94,9 @@ float         em(const Ui &ui);
 bool has_pressed(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
 bool has_pressed_and_released(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
 bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button = exo::MouseButton::Left);
+
+const Rect &current_clip_rect(const Ui &ui);
+bool        is_clipped(const Ui &ui, const Rect &rect);
 
 u32  register_clip_rect(Ui &ui, const Rect &clip_rect);
 void push_clip_rect(Ui &ui, u32 i_clip_rect);

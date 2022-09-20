@@ -4,6 +4,9 @@ set(SOURCE_FILES
 
     include/ui/docking.h
     src/docking.cpp
+
+    include/ui/scroll.h
+    src/scroll.cpp
 )
 
 add_library(ui STATIC ${SOURCE_FILES})

@@ -26,6 +26,8 @@ float3 srgb_to_linear(float3 srgb)   { return pow(srgb,   float3(2.2)); }
 
 void clip_rect(u32 i_clip_rect)
 {
+	return;
+
     u32 primitive_offset = primitive_bytes_offset / sizeof_rect;
     Rect clipping_rect = global_buffers_rects[vertices_descriptor_index].rects[primitive_offset + i_clip_rect];
     if (i_clip_rect != u32_invalid && !is_in_rect(gl_FragCoord.xy, clipping_rect))

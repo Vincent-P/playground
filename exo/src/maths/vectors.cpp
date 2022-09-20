@@ -8,33 +8,22 @@
 
 namespace exo
 {
-template <typename V> auto max_impl(V a)
+template <typename V> auto max_impl(V lhs, V rhs)
 {
-	auto res = a[0];
+	V res;
 	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
-		res = std::max(res, a[i_component]);
+		res[i_component] = std::max(lhs[i_component], rhs[i_component]);
 	}
 	return res;
 }
 
-template <typename V> auto min_impl(V a)
+template <typename V> auto min_impl(V lhs, V rhs)
 {
-	auto res = a[0];
+	V res;
 	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
-		res = std::min(res, a[i_component]);
+		res[i_component] = std::min(lhs[i_component], rhs[i_component]);
 	}
 	return res;
-}
-
-template <typename V> usize max_comp_impl(V a)
-{
-	usize i_max_comp = 0;
-	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
-		if (a[i_component] > a[i_max_comp]) {
-			i_max_comp = i_component;
-		}
-	}
-	return i_max_comp;
 }
 
 template <typename V> float dot_impl(V a, V b)
@@ -88,17 +77,8 @@ template <typename V> V ceil_impl(V a)
 }
 
 // clang-format off
-float max(float2 v) { return max_impl(v); }
-float max(float3 v) { return max_impl(v); }
-float max(float4 v) { return max_impl(v); }
-
-float min(float2 v) { return min_impl(v); }
-float min(float3 v) { return min_impl(v); }
-float min(float4 v) { return min_impl(v); }
-
-usize max_comp(float2 v) { return max_comp_impl(v); }
-usize max_comp(float3 v) { return max_comp_impl(v); }
-usize max_comp(float4 v) { return max_comp_impl(v); }
+float2 max(float2 lhs, float2 rhs) { return max_impl(lhs, rhs); }
+float2 min(float2 lhs, float2 rhs) { return min_impl(lhs, rhs); }
 
 float length(float2 v) { return length_impl(v); }
 float length(float3 v) { return length_impl(v); }

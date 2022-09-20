@@ -22,6 +22,13 @@ bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button)
 	return has_pressed_and_released(ui, button) && ui.activation.focused == id && ui.activation.active == id;
 }
 
+const Rect &current_clip_rect(const Ui &ui)
+{
+	return reinterpret_cast<const Rect *>(ui.painter->vertices)[ui.state.i_clip_rect];
+}
+
+bool is_clipped(const Ui &ui, const Rect &rect) { return !rect_intersects(rect, current_clip_rect(ui)); }
+
 u64 make_id(Ui &ui) { return ++ui.activation.gen; }
 
 Ui create(Font *font, float font_size, Painter *painter)
@@ -50,7 +57,6 @@ void end_frame(Ui &ui)
 u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 {
 	auto &painter                = *ui.painter;
-	usize last_color_rect_offset = painter.vertex_bytes_offset;
 	painter_draw_color_rect(painter, clip_rect, u32_invalid, ColorU32::from_uints(0, 0, 0xFF, 0x88));
 
 	auto i_first_rect_index                         = painter.index_offset - 6;
@@ -61,6 +67,7 @@ u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 
+	usize last_color_rect_offset = painter.vertex_bytes_offset - sizeof(ColorRect);
 	ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
 	return static_cast<u32>(last_color_rect_offset / sizeof(Rect));
 }
@@ -201,6 +208,11 @@ void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
 	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
 	auto line_rect  = rectsplit.split(float(label_size.y));
+
+	if (is_clipped(ui, line_rect)) {
+		return;
+	}
+
 	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 }
 

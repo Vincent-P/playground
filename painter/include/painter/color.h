@@ -36,4 +36,8 @@ union ColorU32
 
 	static constexpr ColorU32 from_greyscale(float grey) { return ColorU32::from_floats(grey, grey, grey); }
 	static constexpr ColorU32 from_greyscale(u8 grey) { return ColorU32::from_uints(grey, grey, grey); }
+
+	static constexpr auto red() { return ColorU32::from_uints(255, 0, 0); }
+	static constexpr auto green() { return ColorU32::from_uints(0, 255, 0); }
+	static constexpr auto blue() { return ColorU32::from_uints(0, 0, 255); }
 };
