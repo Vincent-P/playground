@@ -16,7 +16,10 @@ namespace ui
 {
 struct Theme
 {
-	// colors are in 0xAABBGGRR
+	// Color scheme
+	ColorU32 accent_color = ColorU32::from_uints(0x10, 0x75, 0xB2);
+
+	// Widget colors
 	ColorU32 button_bg_color         = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.3f);
 	ColorU32 button_hover_bg_color   = ColorU32::from_uints(0, 0, 0, 0x06);
 	ColorU32 button_pressed_bg_color = ColorU32::from_uints(0, 0, 0, 0x09);
@@ -27,6 +30,10 @@ struct Theme
 	float    splitter_hover_thickness = 4.0f;
 	ColorU32 splitter_color           = ColorU32::from_greyscale(u8(0xE5));
 	ColorU32 splitter_hover_color     = ColorU32::from_greyscale(u8(0xD1));
+
+	ColorU32 scroll_area_bg_color  = ColorU32::from_uints(0, 0, 0, 0x44);
+	ColorU32 scroll_bar_bg_color   = ColorU32::from_uints(0xDD, 0xDD, 0xFF, 0x22);
+	ColorU32 scroll_thumb_bg_color = accent_color;
 
 	Font *main_font = nullptr;
 	float font_size = 14.0f;

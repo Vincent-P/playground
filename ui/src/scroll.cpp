@@ -61,9 +61,9 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 	// draw
 	push_clip_rect(ui, register_clip_rect(ui, content_rect));
 
-	painter_draw_color_rect(*ui.painter, content_rect, ui.state.i_clip_rect, ColorU32::green());
-	painter_draw_color_rect(*ui.painter, right_vertical_scrollbar_rect, ui.state.i_clip_rect, ColorU32::red());
-	painter_draw_color_rect(*ui.painter, vertical_thumb, ui.state.i_clip_rect, ColorU32::blue());
+	painter_draw_color_rect(*ui.painter, content_rect, ui.state.i_clip_rect, ui.theme.scroll_area_bg_color);
+	painter_draw_color_rect(*ui.painter, right_vertical_scrollbar_rect, ui.state.i_clip_rect, ui.theme.scroll_bar_bg_color);
+	painter_draw_color_rect(*ui.painter, vertical_thumb, ui.state.i_clip_rect, ui.theme.scroll_thumb_bg_color);
 
 	return ui.state.scroll_starting_stack[ui.state.i_scroll_stack - 1];
 }

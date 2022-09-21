@@ -423,7 +423,7 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 	ui::label_in_rect(ui, title_rect, tabview.title);
 
 	if (is_active) {
-		painter_draw_color_rect(*ui.painter, bottom_border_rect, u32_invalid, ColorU32::from_uints(0x10, 0x75, 0xB2));
+		painter_draw_color_rect(*ui.painter, bottom_border_rect, u32_invalid, ui.theme.accent_color);
 	}
 
 	/* auto margin =*/rectsplit.split(0.1f * em);
