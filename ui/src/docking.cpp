@@ -143,7 +143,7 @@ void end_docking(Docking &self, ui::Ui &ui)
 			remove_empty_areas(self, previous_area);
 		} else if (auto *movefloating = std::get_if<events::MoveFloating>(&element)) {
 			auto &floating_container    = self.floating_containers[movefloating->i_floating];
-			floating_container.rect.pos = movefloating->position - floating_container.drag_offset;
+			floating_container.rect.pos = movefloating->position - ui.state.active_drag_offset;
 		}
 	}
 	self.ui.events.clear();
@@ -179,11 +179,6 @@ void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 				floating_container.rect.pos.y,
 				floating_container.rect.size.x,
 				floating_container.rect.size.y));
-		ui::label_split(ui,
-			content_rectsplit,
-			fmt::format("  - dragging offset ({}, {}))",
-				floating_container.drag_offset.x,
-				floating_container.drag_offset.y));
 	}
 }
 
@@ -507,8 +502,8 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		if (ui::is_hovering(ui, titlebar_rect)) {
 			ui.activation.focused = id;
 			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-				ui.activation.active           = id;
-				floating_container.drag_offset = ui::mouse_position(ui) - floating_container.rect.pos;
+				ui.activation.active        = id;
+				ui.state.active_drag_offset = ui::mouse_position(ui) - floating_container.rect.pos;
 			}
 		}
 
@@ -529,13 +524,13 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		if (ui::is_hovering(ui, handle_rect)) {
 			ui.activation.focused = id;
 			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-				ui.activation.active           = id;
-				floating_container.drag_offset = mouse_pos - handle_rect.pos;
+				ui.activation.active        = id;
+				ui.state.active_drag_offset = mouse_pos - handle_rect.pos;
 			}
 		}
 
 		if (ui.activation.active == id) {
-			floating_container.rect.size = (mouse_pos - floating_container.rect.pos) + floating_container.drag_offset;
+			floating_container.rect.size = mouse_pos - floating_container.rect.pos - ui.state.active_drag_offset + handle_rect.size;
 		}
 
 		painter_draw_color_rect(*ui.painter,

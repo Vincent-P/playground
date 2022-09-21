@@ -15,7 +15,6 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 	ASSERT(ui.state.i_scroll_stack < UI_MAX_DEPTH);
 	auto       &starting_rect = ui.state.scroll_starting_stack[ui.state.i_scroll_stack];
 	const auto &ending_rect   = ui.state.scroll_ending_stack[ui.state.i_scroll_stack];
-	auto       &scroll_delta  = ui.state.scroll_mouse_delta[ui.state.i_scroll_stack];
 	ui.state.i_scroll_stack += 1;
 
 	starting_rect = Rect{
@@ -27,13 +26,14 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 		.pos  = starting_rect.pos,
 		.size = ending_rect.pos - starting_rect.pos,
 	};
-	float2 offset_percent = offset / actual_content_rect.size;
 
 	auto scroll_area_rect              = content_rect;
 	auto right_vertical_scrollbar_rect = rect_split_right(scroll_area_rect, 1.0f * em);
 
+	float2 offset_percent = offset / actual_content_rect.size;
 	auto vertical_thumb = Rect{
-		.pos  = right_vertical_scrollbar_rect.pos + float2(0.0f, offset_percent.y * right_vertical_scrollbar_rect.size.y),
+		.pos =
+			right_vertical_scrollbar_rect.pos + float2(0.0f, offset_percent.y * right_vertical_scrollbar_rect.size.y),
 		.size = {right_vertical_scrollbar_rect.size.x,
 			(content_rect.size.y / actual_content_rect.size.y) * right_vertical_scrollbar_rect.size.y},
 	};
@@ -43,19 +43,20 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 	if (is_hovering(ui, vertical_thumb)) {
 		ui.activation.focused = id;
 		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-			ui.activation.active = id;
-			scroll_delta         = mouse_position(ui) - vertical_thumb.pos;
+			ui.activation.active        = id;
+			ui.state.active_drag_offset = mouse_position(ui) - vertical_thumb.pos;
 		}
 	}
 
 	if (ui.activation.active == id) {
-		auto mouse_offset_percentage =
-			(mouse_position(ui).y - scroll_delta.y - right_vertical_scrollbar_rect.pos.y) / right_vertical_scrollbar_rect.pos.y;
-		offset.y = mouse_offset_percentage * actual_content_rect.size.y;
+		offset_percent =
+			(mouse_position(ui) - ui.state.active_drag_offset - right_vertical_scrollbar_rect.pos) /
+			right_vertical_scrollbar_rect.size;
+		offset.y = actual_content_rect.size.y * offset_percent.y;
 	}
 
+	offset = exo::max(exo::min(offset, actual_content_rect.size - scroll_area_rect.size), float2(0.0f));
 	offset = exo::floor(offset);
-	offset = exo::max(exo::min(offset, actual_content_rect.size), float2(0.0f));
 
 	// draw
 	push_clip_rect(ui, register_clip_rect(ui, content_rect));

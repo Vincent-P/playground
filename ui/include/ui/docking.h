@@ -96,7 +96,6 @@ struct FloatingContainer
 {
 	Handle<Area> area;
 	Rect         rect;
-	float2       drag_offset; // offset from the top_left corner when dragging
 };
 
 struct Docking

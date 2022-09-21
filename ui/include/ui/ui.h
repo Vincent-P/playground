@@ -58,11 +58,13 @@ struct State
 	// Stack containing the "ending" rect for each scroll area, the "ending" rect is the "starting" rect split by the
 	// user content Substracting the pos from the "ending" rect to the "starting" rect gives the actual content size
 	Rect scroll_ending_stack[UI_MAX_DEPTH] = {};
-	float2 scroll_mouse_delta[UI_MAX_DEPTH]  = {};
 	// Index of the top of the stack
 	u32 i_scroll_stack = 0;
 
+	// custom mouse cursor
 	int cursor = 0;
+
+	float2 active_drag_offset = {};
 };
 
 struct Ui

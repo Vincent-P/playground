@@ -45,7 +45,7 @@ App *App::create(exo::ScopeStack &scope)
 	app->watcher  = cross::FileWatcher::create();
 	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
-	int   font_size_pt = 24;
+	int   font_size_pt = 18;
 	float font_size_px = float(font_size_pt);
 
 	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
@@ -126,11 +126,12 @@ void App::display_ui(double dt)
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 
-		static auto scroll_offset = float2();
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 		// margin
 		rectsplit.split(10.0f * em);
+
+		// debug clip rect
 		const auto &cliprect = ui::current_clip_rect(this->ui);
 		ui::label_split(this->ui,
 			rectsplit,
@@ -140,18 +141,21 @@ void App::display_ui(double dt)
 				cliprect.size.x,
 				cliprect.size.y));
 
+		// Resources
+		static auto scroll_offset = float2();
 		ui::label_split(this->ui, rectsplit, fmt::format("Resources (offset {}):", scroll_offset.y));
 
 		auto scrollarea_rect   = rectsplit.split(20.0f * em);
 		auto inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
-
 		auto scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
 			ui::label_split(this->ui,
 				scroll_rectsplit,
 				fmt::format("  - {} {}", p_resource->asset_id, p_resource->resource_path.view()));
 		}
-
+		for (u32 i = 0; i < 17; ++i) {
+			ui::label_split(this->ui, scroll_rectsplit, fmt::format("Line #{}", i));
+		}
 		ui::end_scroll_area(this->ui, inner_content_rect);
 
 		ui::pop_clip_rect(this->ui);
