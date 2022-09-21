@@ -6,3 +6,5 @@ traces
 /.cache/
 /.dir-locals.el
 /.vs/
+/data/database
+/data/compiled_assets
