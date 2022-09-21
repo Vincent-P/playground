@@ -114,9 +114,24 @@ void App::display_ui(double dt)
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+		ui::label_split(this->ui, rectsplit, fmt::format("Active: {}", this->ui.activation.active));
+		ui::label_split(this->ui, rectsplit, fmt::format("Focused: {}", this->ui.activation.focused));
+		rectsplit.split(1.0f * em);
+
 		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
 		for (auto pressed : this->inputs.mouse_buttons_pressed) {
 			ui::label_split(this->ui, rectsplit, fmt::format("  {}", pressed));
+		}
+		rectsplit.split(1.0f * em);
+
+		ui::label_split(this->ui, rectsplit, "Mouse wheel:");
+		if (this->ui.inputs.mouse_wheel) {
+			ui::label_split(this->ui,
+				rectsplit,
+				fmt::format("  {}x{}", this->ui.inputs.mouse_wheel.value().x, this->ui.inputs.mouse_wheel.value().y));
+		} else {
+			ui::label_split(this->ui, rectsplit, "  <none>");
 		}
 
 		ui::pop_clip_rect(this->ui);
@@ -128,33 +143,18 @@ void App::display_ui(double dt)
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-		// margin
-		rectsplit.split(10.0f * em);
-
-		// debug clip rect
-		const auto &cliprect = ui::current_clip_rect(this->ui);
-		ui::label_split(this->ui,
-			rectsplit,
-			fmt::format("clip rect {{pos: {}x{}, size: {}x{}}} ",
-				cliprect.pos.x,
-				cliprect.pos.y,
-				cliprect.size.x,
-				cliprect.size.y));
-
 		// Resources
 		static auto scroll_offset = float2();
 		ui::label_split(this->ui, rectsplit, fmt::format("Resources (offset {}):", scroll_offset.y));
+		rectsplit.split(0.5f * em);
 
-		auto scrollarea_rect   = rectsplit.split(20.0f * em);
-		auto inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
-		auto scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
+		auto &scrollarea_rect    = content_rect;
+		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
+		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
-			ui::label_split(this->ui,
-				scroll_rectsplit,
-				fmt::format("  - {} {}", p_resource->asset_id, p_resource->resource_path.view()));
-		}
-		for (u32 i = 0; i < 17; ++i) {
-			ui::label_split(this->ui, scroll_rectsplit, fmt::format("Line #{}", i));
+			ui::label_split(this->ui, scroll_rectsplit, fmt::format("name: \"{}\"", p_resource->asset_id.name));
+			ui::label_split(this->ui, scroll_rectsplit, fmt::format("path: \"{}\"", p_resource->resource_path.view()));
+			scroll_rectsplit.split(1.0f * em);
 		}
 		ui::end_scroll_area(this->ui, inner_content_rect);
 
@@ -201,6 +201,7 @@ void App::run()
 		this->ui.inputs.mouse_position                   = inputs.mouse_position;
 		this->ui.inputs.mouse_buttons_pressed_last_frame = this->ui.inputs.mouse_buttons_pressed;
 		this->ui.inputs.mouse_buttons_pressed            = this->inputs.mouse_buttons_pressed;
+		this->ui.inputs.mouse_wheel                      = this->inputs.scroll_this_frame;
 
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;

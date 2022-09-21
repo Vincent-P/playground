@@ -31,15 +31,20 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 	auto right_vertical_scrollbar_rect = rect_split_right(scroll_area_rect, 1.0f * em);
 
 	float2 offset_percent = offset / actual_content_rect.size;
-	auto vertical_thumb = Rect{
-		.pos =
-			right_vertical_scrollbar_rect.pos + float2(0.0f, offset_percent.y * right_vertical_scrollbar_rect.size.y),
-		.size = {right_vertical_scrollbar_rect.size.x,
-			(content_rect.size.y / actual_content_rect.size.y) * right_vertical_scrollbar_rect.size.y},
-	};
+	auto   vertical_thumb = Rect{};
+	vertical_thumb.pos =
+		right_vertical_scrollbar_rect.pos + float2(0.0f, offset_percent.y * right_vertical_scrollbar_rect.size.y);
+	vertical_thumb.size = {right_vertical_scrollbar_rect.size.x,
+		(content_rect.size.y / actual_content_rect.size.y) * right_vertical_scrollbar_rect.size.y};
 
 	// interaction
-	auto id = make_id(ui);
+	auto area_id = make_id(ui);
+	auto id      = make_id(ui);
+
+	if (is_hovering(ui, scroll_area_rect)) {
+		ui.activation.focused = area_id;
+	}
+
 	if (is_hovering(ui, vertical_thumb)) {
 		ui.activation.focused = id;
 		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
@@ -48,10 +53,15 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 		}
 	}
 
+	if (ui.activation.focused == id || ui.activation.focused == area_id) {
+		if (ui.inputs.mouse_wheel) {
+			offset = offset + em * float2(ui.inputs.mouse_wheel.value());
+		}
+	}
+
 	if (ui.activation.active == id) {
-		offset_percent =
-			(mouse_position(ui) - ui.state.active_drag_offset - right_vertical_scrollbar_rect.pos) /
-			right_vertical_scrollbar_rect.size;
+		offset_percent = (mouse_position(ui) - ui.state.active_drag_offset - right_vertical_scrollbar_rect.pos) /
+		                 right_vertical_scrollbar_rect.size;
 		offset.y = actual_content_rect.size.y * offset_percent.y;
 	}
 
@@ -62,7 +72,10 @@ Rect begin_scroll_area(Ui &ui, const Rect &content_rect, exo::float2 &offset)
 	push_clip_rect(ui, register_clip_rect(ui, content_rect));
 
 	painter_draw_color_rect(*ui.painter, content_rect, ui.state.i_clip_rect, ui.theme.scroll_area_bg_color);
-	painter_draw_color_rect(*ui.painter, right_vertical_scrollbar_rect, ui.state.i_clip_rect, ui.theme.scroll_bar_bg_color);
+	painter_draw_color_rect(*ui.painter,
+		right_vertical_scrollbar_rect,
+		ui.state.i_clip_rect,
+		ui.theme.scroll_bar_bg_color);
 	painter_draw_color_rect(*ui.painter, vertical_thumb, ui.state.i_clip_rect, ui.theme.scroll_thumb_bg_color);
 
 	return ui.state.scroll_starting_stack[ui.state.i_scroll_stack - 1];

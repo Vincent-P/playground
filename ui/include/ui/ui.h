@@ -1,6 +1,7 @@
 #pragma once
 #include <cross/buttons.h>
 #include <exo/maths/numerics.h>
+#include <exo/option.h>
 
 #include "painter/color.h"
 #include "painter/rect.h"
@@ -44,6 +45,7 @@ struct Inputs
 	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed            = {};
 	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed_last_frame = {};
 	int2                                   mouse_position                   = {0};
+	Option<int2>                           mouse_wheel                      = {};
 };
 
 struct Activation
