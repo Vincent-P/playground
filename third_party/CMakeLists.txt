@@ -153,7 +153,7 @@ target_compile_definitions(libspng PUBLIC SPNG_STATIC)
 add_library(tracy tracy/TracyClient.cpp)
 setup_thirdparty_target(tracy)
 target_include_directories(tracy SYSTEM PUBLIC tracy/)
-# target_compile_definitions(tracy PUBLIC TRACY_ENABLE)
+target_compile_definitions(tracy PRIVATE TRACY_ENABLE TRACY_HAS_CALLSTACK)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
 
 #parallel hashmap
