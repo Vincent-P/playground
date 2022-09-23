@@ -313,16 +313,21 @@ template <typename T> void Pool<T>::clear()
 	this->size          = 0;
 	this->freelist_head = 0;
 
-	for (u32 i = 0; i < this->capacity - 1; i += 1) {
+	for (u32 i = 0; i < this->capacity; i += 1) {
 		auto *metadata = metadata_ptr(*this, i);
-		metadata->raw  = 0;
+
+		if (metadata->bits.is_occupied) {
+			auto *p_element = element_ptr(*this, i);
+			p_element->~T();
+		}
+
+		metadata->raw = 0;
 
 		u32 *freelist_element = freelist_ptr(*this, i);
 		*freelist_element     = i + 1;
 	}
 
-	metadata_ptr(*this, capacity - 1)->raw = 0;
-	*freelist_ptr(*this, capacity - 1)     = u32_invalid;
+	*freelist_ptr(*this, this->capacity - 1) = u32_invalid;
 }
 
 template <typename T> PoolIterator<T> Pool<T>::begin()
