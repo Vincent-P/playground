@@ -1,14 +1,15 @@
-#include <cross/platform.h>
-#include <cross/window.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/profile.h>
+
+#include <cross/platform.h>
+#include <cross/window.h>
 
 #include <render/simple_renderer.h>
 #include <render/vulkan/commands.h>
 
 #define GPU_RENDER
 
-#include <Tracy.hpp>
 #include <cstdio>
 #if !defined(GPU_RENDER)
 #include <windows.h>
@@ -17,13 +18,13 @@
 void *operator new(std::size_t count)
 {
 	auto ptr = malloc(count);
-	TracyAlloc(ptr, count);
+	EXO_PROFILE_MALLOC(ptr, count);
 	return ptr;
 }
 
 void operator delete(void *ptr) noexcept
 {
-	TracyFree(ptr);
+	EXO_PROFILE_MFREE(ptr);
 	free(ptr);
 }
 
@@ -77,7 +78,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		ReleaseDC(Window, DC);
 #endif
 		i_frame += 1;
-		FrameMark
+		EXO_PROFILE_FRAMEMARK;
 	}
 
 	cross::platform::destroy();

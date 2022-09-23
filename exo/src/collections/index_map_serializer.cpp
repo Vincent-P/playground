@@ -1,5 +1,7 @@
 #include "exo/collections/index_map_serializer.h"
 
+#include "exo/profile.h"
+
 namespace exo
 {
 void serialize(Serializer &serializer, IndexMap &data)
@@ -8,8 +10,11 @@ void serialize(Serializer &serializer, IndexMap &data)
 	serialize(serializer, data.size);
 
 	if (!serializer.is_writing) {
-		data.keys   = reinterpret_cast<u64 *>(malloc(data.capacity * sizeof(u64)));
-		data.values = reinterpret_cast<u64 *>(malloc(data.capacity * sizeof(u64)));
+		usize alloc_size = data.capacity * sizeof(u64);
+		data.keys        = reinterpret_cast<u64 *>(malloc(alloc_size));
+		data.values      = reinterpret_cast<u64 *>(malloc(alloc_size));
+		EXO_PROFILE_MALLOC(data.keys, alloc_size);
+		EXO_PROFILE_MALLOC(data.values, alloc_size);
 	}
 
 	if (serializer.is_writing) {

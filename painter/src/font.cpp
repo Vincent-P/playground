@@ -2,6 +2,7 @@
 
 #include <exo/macros/assert.h>
 #include <exo/maths/vectors.h>
+#include <exo/profile.h>
 
 #include "painter/glyph_cache.h"
 
@@ -19,6 +20,8 @@ Font Font::from_file(const char *path, i32 size_in_pt, i32 face_index)
 		auto  error   = FT_Init_FreeType(library);
 		ASSERT(!error);
 		global_library = library;
+
+		EXO_PROFILE_MALLOC(global_library, sizeof(FT_Library));
 	}
 
 	Font res = {};
@@ -64,6 +67,7 @@ void freetype_rasterizer(Font &font, u32 glyph_id, GlyphImage &out_image, GlyphM
 	out_image.data_size = static_cast<u32>(data_size);
 
 	out_image.data = std::malloc(out_image.data_size);
+	EXO_PROFILE_MALLOC(out_image.data, sizeof(out_image.data_size));
 	std::memcpy(out_image.data, data, out_image.data_size);
 
 	out_image.image_size = bitmap_size;

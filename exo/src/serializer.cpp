@@ -10,7 +10,7 @@ namespace exo
 Serializer Serializer::create(ScopeStack *s, StringRepository *r)
 {
 	Serializer result  = {};
-	result.str_repo    = r ? r : &tls_string_repository;
+	result.str_repo    = r ? r : tls_string_repository;
 	result.scope       = s;
 	result.version     = 1;
 	result.is_writing  = false;

@@ -1,6 +1,7 @@
 #include "engine/render_world_system.h"
 
 #include <exo/logger.h>
+#include <exo/profile.h>
 
 #include <gameplay/components/camera_component.h>
 #include <gameplay/components/mesh_component.h>
@@ -18,6 +19,8 @@ void PrepareRenderWorld::shutdown() {}
 
 void PrepareRenderWorld::update(const UpdateContext &)
 {
+	EXO_PROFILE_SCOPE;
+
 	// -- Reset the render world
 	render_world.drawable_instances.clear();
 

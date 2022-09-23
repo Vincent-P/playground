@@ -1,6 +1,7 @@
 #include "assets/importers/png_importer.h"
 
 #include <exo/macros/defer.h>
+#include <exo/profile.h>
 
 #include <cross/mapped_file.h>
 
@@ -105,6 +106,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	}
 
 	u8 *buffer = reinterpret_cast<u8 *>(malloc(decoded_size));
+	EXO_PROFILE_MALLOC(buffer, decoded_size);
 	if (spng_decode_image(ctx, buffer, decoded_size, fmt, 0)) {
 		return Err<Asset *>(PNGErrors::CannotDecodeSize);
 	}

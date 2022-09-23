@@ -2,9 +2,10 @@
 
 #include <cross/window.h>
 #include <exo/maths/pointer.h>
+#include <exo/profile.h>
 
-#include "painter/painter.h"
-#include "painter/rect.h"
+#include <painter/painter.h>
+#include <painter/rect.h>
 
 namespace ui
 {
@@ -42,6 +43,8 @@ Ui create(Font *font, float font_size, Painter *painter)
 
 void new_frame(Ui &ui)
 {
+	EXO_PROFILE_SCOPE;
+
 	ui.activation.gen     = 0;
 	ui.activation.focused = u64_invalid;
 	ui.state.cursor       = static_cast<int>(cross::Cursor::Arrow);
@@ -49,6 +52,8 @@ void new_frame(Ui &ui)
 
 void end_frame(Ui &ui)
 {
+	EXO_PROFILE_SCOPE;
+
 	if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 		ui.activation.active = u64_invalid;
 	}
@@ -56,7 +61,9 @@ void end_frame(Ui &ui)
 
 u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 {
-	auto &painter                = *ui.painter;
+	EXO_PROFILE_SCOPE;
+
+	auto &painter = *ui.painter;
 	painter_draw_color_rect(painter, clip_rect, u32_invalid, ColorU32::from_uints(0, 0, 0xFF, 0x88));
 
 	auto i_first_rect_index                         = painter.index_offset - 6;
@@ -94,6 +101,8 @@ void pop_clip_rect(Ui &ui)
 
 bool button(Ui &ui, const Button &button)
 {
+	EXO_PROFILE_SCOPE;
+
 	bool result = false;
 	u64  id     = make_id(ui);
 
@@ -138,6 +147,8 @@ bool button(Ui &ui, const Button &button)
 
 void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
+	EXO_PROFILE_SCOPE;
+
 	u64 id = make_id(ui);
 
 	Rect right_rect = view_rect;
@@ -167,6 +178,8 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 
 void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
+	EXO_PROFILE_SCOPE;
+
 	u64 id = make_id(ui);
 
 	Rect bottom_rect = view_rect;
@@ -206,6 +219,8 @@ void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignm
 
 void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
+	EXO_PROFILE_SCOPE;
+
 	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
 	auto line_rect  = rectsplit.split(float(label_size.y));
 
@@ -218,6 +233,8 @@ void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 
 bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
+	EXO_PROFILE_SCOPE;
+
 	bool result = false;
 	u64  id     = make_id(ui);
 

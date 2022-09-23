@@ -2,6 +2,7 @@
 
 #include <exo/macros/packed.h>
 
+#include <exo/profile.h>
 #include <render/bindings.h>
 #include <render/shader_watcher.h>
 #include <render/vulkan/device.h>
@@ -60,6 +61,7 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 
 void Renderer::draw(const RenderWorld &world, Painter *painter)
 {
+	EXO_PROFILE_SCOPE;
 	base.start_frame();
 
 	register_upload_nodes(this->base.render_graph,

@@ -4,14 +4,19 @@
 #include "render/vulkan/framebuffer.h"
 #include "render/vulkan/image.h"
 
+#include <exo/profile.h>
+
 void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 {
+	EXO_PROFILE_SCOPE;
+
 	this->resources.begin_frame(api.device, this->i_frame);
 
 	auto ctx = api.device.get_graphics_work(work_pool);
 	ctx.begin();
 
 	for (auto &pass : this->passes) {
+		EXO_PROFILE_SCOPE_NAMED("render graph pass");
 		switch (pass.type) {
 		case PassType::Graphic: {
 			auto &graphic_pass = pass.pass.graphic;
@@ -73,7 +78,8 @@ RawPass &RenderGraph::raw_pass(RawCb execute)
 }
 
 Handle<TextureDesc> RenderGraph::output(TextureDesc desc) { return this->resources.texture_descs.add(std::move(desc)); }
-int3                RenderGraph::image_size(Handle<TextureDesc> desc_handle)
+
+int3 RenderGraph::image_size(Handle<TextureDesc> desc_handle)
 {
 	return int3(this->resources.texture_desc_handle_size(desc_handle), 1);
 }

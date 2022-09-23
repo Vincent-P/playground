@@ -3,12 +3,13 @@
 #include "painter/font.h"
 #include "painter/glyph_cache.h"
 
-#include <cstring> // for std::memset
 #include <exo/macros/assert.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/profile.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include <cstring> // for std::memset
 #include <hb.h>
 
 Painter *painter_allocate(
@@ -36,6 +37,8 @@ Painter *painter_allocate(
 
 void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture)
 {
+	EXO_PROFILE_SCOPE;
+
 	ASSERT(texture != u32_invalid);
 
 	auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
@@ -66,6 +69,8 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
 
 void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color)
 {
+	EXO_PROFILE_SCOPE;
+
 	// Don't draw invisible rects
 	if (color.comps.a == 0) {
 		return;
@@ -100,6 +105,8 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 
 int2 measure_label(Painter &painter, Font &font, std::string_view label)
 {
+	EXO_PROFILE_SCOPE;
+
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
 	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
@@ -124,6 +131,8 @@ int2 measure_label(Painter &painter, Font &font, std::string_view label)
 
 void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, std::string_view label)
 {
+	EXO_PROFILE_SCOPE;
+
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
 	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
@@ -174,6 +183,8 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 void painter_draw_color_round_rect(
 	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
+	EXO_PROFILE_SCOPE;
+
 	// Don't draw invisible rects
 	if (color.comps.a == 0 && border_color.comps.a == 0) {
 		return;
@@ -212,6 +223,8 @@ void painter_draw_color_round_rect(
 void painter_draw_color_circle(
 	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
+	EXO_PROFILE_SCOPE;
+
 	// Don't draw invisible rects
 	if (color.comps.a == 0 && border_color.comps.a == 0) {
 		return;

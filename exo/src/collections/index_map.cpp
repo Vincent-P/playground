@@ -1,6 +1,7 @@
 #include "exo/collections/index_map.h"
 
 #include "exo/macros/assert.h"
+#include "exo/profile.h"
 
 namespace exo
 {
@@ -60,8 +61,12 @@ IndexMap IndexMap::with_capacity(u64 _capacity)
 	map.capacity = _capacity;
 	map.size     = 0;
 
-	map.keys   = reinterpret_cast<u64 *>(malloc(_capacity * sizeof(u64)));
-	map.values = reinterpret_cast<u64 *>(malloc(_capacity * sizeof(u64)));
+	usize alloc_size = _capacity * sizeof(u64);
+	map.keys         = reinterpret_cast<u64 *>(malloc(alloc_size));
+	map.values       = reinterpret_cast<u64 *>(malloc(alloc_size));
+
+	EXO_PROFILE_MALLOC(map.keys, alloc_size);
+	EXO_PROFILE_MALLOC(map.values, alloc_size);
 
 	const u64 *keys_end = map.keys + map.capacity;
 	for (u64 *key = map.keys; key < keys_end; key += 1) {
@@ -129,11 +134,16 @@ void IndexMap::check_growth()
 	// denom * size > capacity * nom
 	if (MAX_LOAD_FACTOR_DENOMINATOR * this->size > this->capacity * MAX_LOAD_FACTOR_NUMERATOR) {
 		const auto new_capacity = this->capacity * GROWTH_FACTOR;
-
+		usize      alloc_size   = new_capacity * sizeof(u64);
 		// realloc
-		u64 *new_keys   = reinterpret_cast<u64 *>(malloc(new_capacity * sizeof(u64)));
-		u64 *new_values = reinterpret_cast<u64 *>(malloc(new_capacity * sizeof(u64)));
+		u64 *new_keys   = reinterpret_cast<u64 *>(malloc(alloc_size));
+		u64 *new_values = reinterpret_cast<u64 *>(malloc(alloc_size));
 		ASSERT(new_keys != nullptr && new_values != nullptr);
+
+		EXO_PROFILE_MALLOC(new_keys, alloc_size);
+		EXO_PROFILE_MALLOC(new_values, alloc_size);
+		EXO_PROFILE_MFREE(this->keys);
+		EXO_PROFILE_MFREE(this->values);
 
 		// init keys
 		const u64 *new_keys_end = new_keys + new_capacity;

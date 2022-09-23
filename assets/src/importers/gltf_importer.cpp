@@ -256,7 +256,7 @@ static void import_meshes(ImporterContext &ctx)
 		auto *new_mesh       = ctx.api.create_asset<Mesh>(mesh_uuid);
 
 		if (j_mesh.HasMember("name")) {
-			new_mesh->name = exo::tls_string_repository.intern(j_mesh["name"].GetString());
+			new_mesh->name = exo::tls_string_repository->intern(j_mesh["name"].GetString());
 		}
 
 		for (auto &j_primitive : j_mesh["primitives"].GetArray()) {
@@ -467,7 +467,7 @@ static void import_nodes(ImporterContext &ctx)
 
 		ctx.new_scene->names.emplace_back();
 		if (j_node.HasMember("name")) {
-			ctx.new_scene->names.back() = exo::tls_string_repository.intern(j_node["name"].GetString());
+			ctx.new_scene->names.back() = exo::tls_string_repository->intern(j_node["name"].GetString());
 		} else {
 			ctx.new_scene->names.back() = "No name";
 		}
@@ -508,7 +508,7 @@ static void import_materials(ImporterContext &ctx)
 		ctx.material_ids[i_material] = material_uuid;
 
 		if (j_material.HasMember("name")) {
-			new_material->name = exo::tls_string_repository.intern(j_material["name"].GetString());
+			new_material->name = exo::tls_string_repository->intern(j_material["name"].GetString());
 		}
 
 		auto load_texture = [&](auto &json_object, const char *texture_name) -> u32 {

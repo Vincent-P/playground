@@ -2,8 +2,9 @@
 // linux: inotify/select https://developer.ibm.com/tutorials/l-inotify/
 #include "cross/file_watcher.h"
 
-#include "exo/macros/assert.h"
-#include "exo/maths/pointer.h"
+#include <exo/macros/assert.h>
+#include <exo/maths/pointer.h>
+#include <exo/profile.h>
 
 #if defined(PLATFORM_LINUX)
 #include <fcntl.h>
@@ -13,7 +14,6 @@
 #include "utils_win32.h"
 #include <Windows.h>
 #endif
-#include <Tracy.hpp>
 #include <array>
 
 namespace cross
@@ -208,7 +208,7 @@ Watch FileWatcher::add_watch(const char *path) { return add_watch_internal(*this
 
 void FileWatcher::update(const FileEventF &cb)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 
 	fetch_events_internal(*this);
 

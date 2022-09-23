@@ -1,6 +1,8 @@
 #include "assets/texture.h"
 #include "assets/asset_constructors.h"
 
+#include <exo/profile.h>
+
 static int texture_ctor = global_asset_constructors().add_constructor(get_asset_id<Texture>(), &Texture::create);
 
 Asset *Texture::create() { return new Texture(); }
@@ -44,6 +46,7 @@ void Texture::serialize(exo::Serializer &serializer)
 		serializer.write_bytes(this->pixels_data, this->data_size);
 	} else {
 		this->impl_data = malloc(this->data_size);
+		EXO_PROFILE_MALLOC(this->impl_data, this->data_size);
 		serializer.read_bytes(this->impl_data, this->data_size);
 		this->pixels_data = this->impl_data;
 	}

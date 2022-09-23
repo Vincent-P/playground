@@ -37,5 +37,5 @@ private:
 	usize    buffer_size   = 0;
 };
 
-inline thread_local auto tls_string_repository = StringRepository::create();
+inline thread_local StringRepository *tls_string_repository = nullptr;
 } // namespace exo

@@ -11,10 +11,9 @@
 #include "render/vulkan/utils.h"
 
 #include <exo/collections/dynamic_array.h>
+#include <exo/profile.h>
 
 #include <volk.h>
-
-#define ZoneScoped
 
 namespace vulkan
 {
@@ -23,7 +22,7 @@ namespace vulkan
 
 void Work::begin()
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	binfo.flags                    = 0;
 	vkBeginCommandBuffer(command_buffer, &binfo);
@@ -71,7 +70,7 @@ void Work::bind_uniform_set(const DynamicBufferDescriptor &dynamic_descriptor, u
 
 void Work::end()
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vk_check(vkEndCommandBuffer(command_buffer));
 }
 
@@ -95,7 +94,7 @@ void Work::prepare_present(Surface &surface)
 
 void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &buffer = device->buffers.get(buffer_handle);
 
 	auto src_access = get_src_buffer_access(buffer.usage);
@@ -108,7 +107,7 @@ void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
 
 void Work::absolute_barrier(Handle<Image> image_handle)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &image = device->images.get(image_handle);
 
 	auto src_access = get_src_image_access(image.usage);
@@ -137,7 +136,7 @@ void Work::absolute_barrier(Handle<Image> image_handle)
 
 void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &image = device->images.get(image_handle);
 
 	auto src_access = get_src_image_access(image.usage);
@@ -163,7 +162,7 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images,
 	std::span<std::pair<Handle<Buffer>, BufferUsage>>               buffers)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	exo::DynamicArray<VkImageMemoryBarrier, 8>  image_barriers  = {};
 	exo::DynamicArray<VkBufferMemoryBarrier, 8> buffer_barriers = {};
 
@@ -207,25 +206,25 @@ void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images,
 // Queries
 void Work::reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdResetQueryPool(command_buffer, query_pool.vkhandle, first_query, count);
 }
 
 void Work::begin_query(QueryPool &query_pool, u32 index)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdBeginQuery(command_buffer, query_pool.vkhandle, index, 0);
 }
 
 void Work::end_query(QueryPool &query_pool, u32 index)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdEndQuery(command_buffer, query_pool.vkhandle, index);
 }
 
 void Work::timestamp_query(QueryPool &query_pool, u32 index)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, query_pool.vkhandle, index);
 }
 
@@ -247,7 +246,7 @@ void Work::end_debug_label() { vkCmdEndDebugUtilsLabelEXT(command_buffer); }
 void TransferWork::copy_buffer(
 	Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_buffer = device->buffers.get(dst);
 
@@ -270,7 +269,7 @@ void TransferWork::copy_buffer(
 
 void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_buffer = device->buffers.get(dst);
 
@@ -285,7 +284,7 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 
 void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &src_image = device->images.get(src);
 	auto &dst_image = device->images.get(dst);
 
@@ -315,7 +314,7 @@ void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
 
 void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &src_image = device->images.get(src);
 	auto &dst_image = device->images.get(dst);
 
@@ -350,7 +349,7 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 void TransferWork::copy_buffer_to_image(
 	Handle<Buffer> src, Handle<Image> dst, std::span<VkBufferImageCopy> buffer_copy_regions)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_image  = device->images.get(dst);
 
@@ -365,7 +364,7 @@ void TransferWork::copy_buffer_to_image(
 
 void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &buffer = device->buffers.get(buffer_handle);
 	vkCmdFillBuffer(command_buffer, buffer.vkhandle, 0, buffer.desc.size, data);
 }
@@ -373,20 +372,20 @@ void TransferWork::fill_buffer(Handle<Buffer> buffer_handle, u32 data)
 
 void ComputeWork::bind_pipeline(Handle<ComputeProgram> program_handle)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &program = device->compute_programs.get(program_handle);
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline);
 }
 
 void ComputeWork::dispatch(uint3 workgroups)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdDispatch(command_buffer, workgroups.x, workgroups.y, workgroups.z);
 }
 
 void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clear_color)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto image = device->images.get(image_handle);
 
 	vkCmdClearColorImage(command_buffer,
@@ -399,7 +398,7 @@ void ComputeWork::clear_image(Handle<Image> image_handle, VkClearColorValue clea
 
 void ComputeWork::push_constant(const void *data, usize len)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdPushConstants(command_buffer,
 		device->global_sets.pipeline_layout,
 		VK_SHADER_STAGE_ALL,
@@ -412,7 +411,7 @@ void ComputeWork::push_constant(const void *data, usize len)
 
 void GraphicsWork::draw_indexed(const DrawIndexedOptions &options)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdDrawIndexed(command_buffer,
 		options.vertex_count,
 		options.instance_count,
@@ -423,7 +422,7 @@ void GraphicsWork::draw_indexed(const DrawIndexedOptions &options)
 
 void GraphicsWork::draw(const DrawOptions &options)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdDraw(command_buffer,
 		options.vertex_count,
 		options.instance_count,
@@ -433,7 +432,7 @@ void GraphicsWork::draw(const DrawOptions &options)
 
 void GraphicsWork::draw_indexed_indirect_count(const DrawIndexedIndirectCountOptions &options)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &arguments = device->buffers.get(options.arguments_buffer);
 	auto &count     = device->buffers.get(options.count_buffer);
 	vkCmdDrawIndexedIndirectCount(command_buffer,
@@ -447,19 +446,19 @@ void GraphicsWork::draw_indexed_indirect_count(const DrawIndexedIndirectCountOpt
 
 void GraphicsWork::set_scissor(const VkRect2D &rect)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdSetScissor(command_buffer, 0, 1, &rect);
 }
 
 void GraphicsWork::set_viewport(const VkViewport &viewport)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
 void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<const LoadOp> load_ops)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &framebuffer = device->framebuffers.get(framebuffer_handle);
 	auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
 
@@ -483,7 +482,7 @@ void GraphicsWork::end_pass() { vkCmdEndRenderPass(command_buffer); }
 
 void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &program  = device->graphics_programs.get(program_handle);
 	auto  pipeline = program.pipelines[pipeline_index];
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -491,7 +490,7 @@ void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pi
 
 void GraphicsWork::bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType index_type, usize offset)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &buffer = device->buffers.get(buffer_handle);
 	vkCmdBindIndexBuffer(command_buffer, buffer.vkhandle, offset, index_type);
 }
@@ -501,7 +500,7 @@ void GraphicsWork::bind_index_buffer(Handle<Buffer> buffer_handle, VkIndexType i
 // WorkPool
 void Device::create_work_pool(WorkPool &work_pool)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	VkCommandPoolCreateInfo pool_info = {
 		.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags            = 0,
@@ -519,7 +518,7 @@ void Device::create_work_pool(WorkPool &work_pool)
 
 void Device::reset_work_pool(WorkPool &work_pool)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	// TODO: Validate that all command buffers are recorded?
 	for (auto &command_pool : work_pool.command_pools) {
 		for (auto &is_used : command_pool.command_buffers_is_used) {
@@ -532,7 +531,7 @@ void Device::reset_work_pool(WorkPool &work_pool)
 
 void Device::destroy_work_pool(WorkPool &work_pool)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	for (auto &command_pool : work_pool.command_pools) {
 		vkDestroyCommandPool(device, command_pool.vk_handle, nullptr);
 	}
@@ -541,7 +540,7 @@ void Device::destroy_work_pool(WorkPool &work_pool)
 // CommandPool
 void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	VkQueryPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
 	pool_info.queryType             = VK_QUERY_TYPE_TIMESTAMP;
 	pool_info.queryCount            = query_capacity;
@@ -553,20 +552,20 @@ void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
 
 void Device::reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkResetQueryPool(device, query_pool.vkhandle, first_query, count);
 }
 
 void Device::destroy_query_pool(QueryPool &query_pool)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkDestroyQueryPool(device, query_pool.vkhandle, nullptr);
 	query_pool.vkhandle = VK_NULL_HANDLE;
 }
 
 void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count, Vec<u64> &results)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	usize old_size = results.size();
 	results.resize(old_size + count);
 
@@ -585,7 +584,7 @@ void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count
 // Work
 static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_type)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	auto &command_pool = work_pool.command_pools[queue_type];
 
 	Work work           = {};
@@ -642,7 +641,7 @@ TransferWork Device::get_transfer_work(WorkPool &work_pool)
 // Fences
 Fence Device::create_fence(u64 initial_value)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	Fence                     fence         = {};
 	VkSemaphoreTypeCreateInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
 	timeline_info.semaphoreType             = VK_SEMAPHORE_TYPE_TIMELINE;
@@ -658,14 +657,14 @@ Fence Device::create_fence(u64 initial_value)
 
 u64 Device::get_fence_value(Fence &fence)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vk_check(vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
 	return fence.value;
 }
 
 void Device::set_fence_value(Fence &fence, u64 value)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	VkSemaphoreSignalInfo signal_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
 	signal_info.semaphore             = fence.timeline_semaphore;
 	signal_info.value                 = value;
@@ -675,7 +674,7 @@ void Device::set_fence_value(Fence &fence, u64 value)
 
 void Device::destroy_fence(Fence &fence)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vkDestroySemaphore(device, fence.timeline_semaphore, nullptr);
 	fence.timeline_semaphore = VK_NULL_HANDLE;
 }
@@ -683,7 +682,7 @@ void Device::destroy_fence(Fence &fence)
 // Submission
 void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<const u64> signal_values)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	// Creathe list of semaphores to wait
 	exo::DynamicArray<VkSemaphore, 4> signal_list         = {};
 	exo::DynamicArray<u64, 4>         local_signal_values = {signal_values};
@@ -734,7 +733,7 @@ void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<
 
 bool Device::present(Surface &surface, Work &work)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	VkPresentInfoKHR present_i   = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	present_i.waitSemaphoreCount = 1;
 	present_i.pWaitSemaphores    = &surface.can_present_semaphores[surface.current_image];
@@ -755,7 +754,7 @@ bool Device::present(Surface &surface, Work &work)
 
 void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	// 1 sec in nanoseconds
 	u64                 timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
@@ -767,7 +766,7 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 
 void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64> wait_values)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	ASSERT(wait_values.size() == fences.size());
 
 	exo::DynamicArray<VkSemaphore, 4> semaphores = {};
@@ -786,13 +785,13 @@ void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64>
 
 void Device::wait_idle()
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	vk_check(vkDeviceWaitIdle(device));
 }
 
 bool Device::acquire_next_swapchain(Surface &surface)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	bool error = false;
 
 	surface.previous_image = surface.current_image;

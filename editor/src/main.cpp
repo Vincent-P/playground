@@ -1,31 +1,30 @@
 #include "app.h"
 
-#include <Tracy.hpp>
+#include <exo/memory/string_repository.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
-
-#if defined(ENABLE_DOCTEST)
-#define DOCTEST_CONFIG_IMPLEMENT
-#include <doctest.h>
-#endif
+#include <exo/profile.h>
 
 u8 global_stack_mem[32 << 20];
 
 void *operator new(std::size_t count)
 {
 	auto ptr = malloc(count);
-	TracyAlloc(ptr, count);
+	EXO_PROFILE_MALLOC(ptr, count);
 	return ptr;
 }
 
 void operator delete(void *ptr) noexcept
 {
-	TracyFree(ptr);
+	EXO_PROFILE_MFREE(ptr);
 	free(ptr);
 }
 
 int main(int /*argc*/, char ** /*argv*/)
 {
+	exo::tls_string_repository = new exo::StringRepository;
+	*exo::tls_string_repository = exo::StringRepository::create();
+
 	exo::LinearAllocator global_allocator =
 		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);

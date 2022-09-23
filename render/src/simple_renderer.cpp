@@ -5,11 +5,12 @@
 #include "render/vulkan/shader.h"
 
 #include <exo/logger.h>
+#include <exo/profile.h>
 
 SimpleRenderer SimpleRenderer::create(u64 window_handle)
 {
 	SimpleRenderer renderer;
-	renderer.context = vulkan::Context::create({.enable_validation = true});
+	renderer.context = vulkan::Context::create({.enable_validation = false});
 
 	// Pick a GPU
 	auto &physical_devices = renderer.context.physical_devices;
@@ -100,14 +101,26 @@ void SimpleRenderer::destroy()
 
 void SimpleRenderer::start_frame()
 {
+	EXO_PROFILE_SCOPE;
+
 	this->uniform_buffer.start_frame();
 	this->dynamic_vertex_buffer.start_frame();
 	this->dynamic_index_buffer.start_frame();
 	this->upload_buffer.start_frame();
+
+	TracyPlot("Device: shaders", i64(this->device.shaders.size));
+	TracyPlot("Device: graphics programs", i64(this->device.graphics_programs.size));
+	TracyPlot("Device: compute programs", i64(this->device.compute_programs.size));
+	TracyPlot("Device: framebuffers", i64(this->device.framebuffers.size));
+	TracyPlot("Device: images", i64(this->device.images.size));
+	TracyPlot("Device: buffers", i64(this->device.buffers.size));
+	TracyPlot("Device: samplers", i64(this->device.samplers.size()));
 }
 
 void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 {
+	EXO_PROFILE_SCOPE;
+
 	auto i_frame          = this->swapchain_node.i_frame;
 	auto swapchain_output = builtins::acquire_next_image(this->render_graph, this->swapchain_node);
 
@@ -141,6 +154,8 @@ const vulkan::Surface &SimpleRenderer::surface() { return this->swapchain_node.s
 
 void SimpleRenderer::reload_shaders()
 {
+	EXO_PROFILE_SCOPE;
+
 	Vec<Handle<vulkan::Shader>> shaders_to_reload;
 	this->shader_watcher.update([&](const auto &watch, const auto &event) {
 		auto full_path = watch.path + event.name;

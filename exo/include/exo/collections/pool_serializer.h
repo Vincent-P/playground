@@ -1,6 +1,7 @@
 #pragma once
 
 #include "exo/collections/pool.h"
+#include "exo/profile.h"
 #include "exo/serializer.h"
 
 namespace exo
@@ -14,6 +15,7 @@ template <typename T> void serialize(Serializer &serializer, Pool<T> &data)
 	usize buffer_size = data.capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata));
 	if (!serializer.is_writing) {
 		data.buffer = malloc(buffer_size);
+		EXO_PROFILE_MALLOC(data.buffer, buffer_size);
 	}
 
 	u32 i_element = 0;
@@ -24,7 +26,8 @@ template <typename T> void serialize(Serializer &serializer, Pool<T> &data)
 		if (metadata->bits.is_occupied) {
 			auto *element = element_ptr(data, i_element);
 
-			// If we are loading elements, we need to default-construct them to avoid garbage values in copy/move constructors
+			// If we are loading elements, we need to default-construct them to avoid garbage values in copy/move
+			// constructors
 			if (!serializer.is_writing) {
 				new (element) T{};
 			}
@@ -36,4 +39,4 @@ template <typename T> void serialize(Serializer &serializer, Pool<T> &data)
 		}
 	}
 }
-}
+} // namespace exo

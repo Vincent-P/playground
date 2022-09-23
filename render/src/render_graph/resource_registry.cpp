@@ -1,8 +1,10 @@
 #include "render/render_graph/resource_registry.h"
 
-#include "render/vulkan/device.h"
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/handle_map.h>
+#include <exo/profile.h>
+
+#include "render/vulkan/device.h"
 #include <render/vulkan/framebuffer.h>
 #include <render/vulkan/image.h>
 #include <render/vulkan/utils.h>
@@ -52,6 +54,8 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 		device.destroy_image(handle_to_remove);
 		this->image_pool.remove(exo::to_u64(handle_to_remove));
 	}
+
+	TracyPlot("Graph: texture descs", i64(this->texture_descs.size));
 }
 
 void ResourceRegistry::end_frame()

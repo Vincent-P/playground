@@ -2,6 +2,7 @@
 
 #include <engine/scene.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/profile.h>
 
 #include <cross/file_watcher.h>
 #include <cross/platform.h>
@@ -12,8 +13,6 @@
 #include <assets/subscene.h>
 #include <engine/render_world_system.h>
 #include <painter/painter.h>
-
-#include <Tracy.hpp>
 
 #include <fmt/format.h>
 #include <string_view>
@@ -29,6 +28,8 @@ constexpr auto DEFAULT_HEIGHT = 1080;
 
 App *App::create(exo::ScopeStack &scope)
 {
+	EXO_PROFILE_SCOPE;
+
 	auto *app = scope.allocate<App>();
 
 	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
@@ -78,6 +79,8 @@ App::~App()
 
 void App::display_ui(double dt)
 {
+	EXO_PROFILE_SCOPE;
+
 	this->ui.painter->index_offset        = 0;
 	this->ui.painter->vertex_bytes_offset = 0;
 	ui::new_frame(this->ui);
@@ -87,15 +90,21 @@ void App::display_ui(double dt)
 
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
+	char label_buf[256] = {};
+
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "View 1"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Test 1");
 		ui::label_in_rect(ui, view_rect.value(), "test");
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "View 2"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Test 2");
 		ui::label_in_rect(ui, view_rect.value(), "test 2");
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Docking"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Docking");
+
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, view_rect.value()));
 		docking::inspector_ui(this->docking, this->ui, content_rect);
@@ -103,6 +112,8 @@ void App::display_ui(double dt)
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Scene"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Scene");
+
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 		scene_debug_ui(this->ui, this->scene, content_rect);
@@ -110,6 +121,8 @@ void App::display_ui(double dt)
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Inputs"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Inputs");
+
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 
@@ -138,6 +151,8 @@ void App::display_ui(double dt)
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Asset Manager"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Asset Manager");
+
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 
@@ -145,15 +160,18 @@ void App::display_ui(double dt)
 
 		// Resources
 		static auto scroll_offset = float2();
-		ui::label_split(this->ui, rectsplit, fmt::format("Resources (offset {}):", scroll_offset.y));
+		fmt::format_to(label_buf, "Resources (offset {}):", scroll_offset.y);
+		ui::label_split(this->ui, rectsplit, std::string_view{&label_buf[0]});
 		rectsplit.split(0.5f * em);
 
 		auto &scrollarea_rect    = content_rect;
 		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
 		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
-			ui::label_split(this->ui, scroll_rectsplit, fmt::format("name: \"{}\"", p_resource->asset_id.name));
-			ui::label_split(this->ui, scroll_rectsplit, fmt::format("path: \"{}\"", p_resource->resource_path.view()));
+			fmt::format_to(label_buf, "name: \"{}\"", p_resource->asset_id.name);
+			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0]});
+			fmt::format_to(label_buf, "path: \"{}\"", p_resource->resource_path.view());
+			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0]});
 			scroll_rectsplit.split(1.0f * em);
 		}
 		ui::end_scroll_area(this->ui, inner_content_rect);
@@ -188,6 +206,8 @@ void App::run()
 	u64 last = stm_now();
 
 	while (!window->should_close()) {
+		EXO_PROFILE_SCOPE_NAMED("loop");
+
 		window->poll_events();
 
 		for (auto &event : window->events) {
@@ -233,6 +253,6 @@ void App::run()
 			// this->asset_manager->on_file_change(watch, event);
 		});
 
-		FrameMark
+		EXO_PROFILE_FRAMEMARK;
 	}
 }

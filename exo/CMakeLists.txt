@@ -55,6 +55,8 @@ set(SOURCE_FILES
   include/exo/path.h
   src/path.cpp
 
+  include/exo/profile.h
+
   engine.natvis
   phmap.natvis
    "include/exo/string_serializer.h" "include/exo/serializer_helper.h" "src/macros/assert.cpp")
@@ -67,3 +69,6 @@ set(TEST_FILES
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo TESTS ${TEST_FILES})
 target_link_libraries(exo PUBLIC fmt parallel_hashmap tracy xxhash)
+
+# comment to disable tracy
+target_compile_definitions(exo PUBLIC TRACY_ENABLE)

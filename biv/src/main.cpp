@@ -10,6 +10,7 @@
 #include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
+#include <exo/profile.h>
 
 #include <render/bindings.h>
 #include <render/shader_watcher.h>
@@ -27,7 +28,6 @@
 
 #include "inputs.h"
 
-#include <Tracy.hpp>
 #include <filesystem>
 #include <spng.h>
 
@@ -36,13 +36,13 @@ inline constexpr int2 GLYPH_ATLAS_RESOLUTION = int2(1024, 1024);
 void *operator new(std::size_t count)
 {
 	auto ptr = malloc(count);
-	TracyAlloc(ptr, count);
+	EXO_PROFILE_MALLOC(ptr, count);
 	return ptr;
 }
 
 void operator delete(void *ptr) noexcept
 {
-	TracyFree(ptr);
+	EXO_PROFILE_MFREE(ptr);
 	free(ptr);
 }
 
@@ -117,7 +117,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path);
 // --- App
 RenderSample *render_sample_init(exo::ScopeStack &scope)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 
 	auto *app = scope.allocate<RenderSample>();
 
@@ -153,7 +153,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
 void render_sample_destroy(RenderSample * /*app*/)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 
 	cross::platform::destroy();
 }
@@ -311,7 +311,7 @@ static void display_ui(RenderSample *app)
 
 static void render(RenderSample *app)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 
 	auto &renderer = app->renderer;
 	auto &graph    = renderer.render_graph;
@@ -403,7 +403,7 @@ static VkFormat to_vk(PixelFormat pformat)
 
 static void open_file(RenderSample *app, const std::filesystem::path &path)
 {
-	ZoneScoped;
+	EXO_PROFILE_SCOPE;
 	// TODO: PNG importer
 	exo::logger::info("Opened file: {}\n", path);
 
