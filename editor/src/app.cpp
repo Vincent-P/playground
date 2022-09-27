@@ -160,18 +160,24 @@ void App::display_ui(double dt)
 
 		// Resources
 		static auto scroll_offset = float2();
-		fmt::format_to(label_buf, "Resources (offset {}):", scroll_offset.y);
-		ui::label_split(this->ui, rectsplit, std::string_view{&label_buf[0]});
+		auto        res           = fmt::format_to_n(label_buf, 256, "Resources (offset {}):", scroll_offset.y);
+		ui::label_split(this->ui, rectsplit, std::string_view{&label_buf[0], res.size});
 		rectsplit.split(0.5f * em);
 
 		auto &scrollarea_rect    = content_rect;
 		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
 		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
-			fmt::format_to(label_buf, "name: \"{}\"", p_resource->asset_id.name);
-			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0]});
-			fmt::format_to(label_buf, "path: \"{}\"", p_resource->resource_path.view());
-			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0]});
+			if (p_resource->asset_id.is_valid()) {
+				res = fmt::format_to_n(label_buf, 256, "name: \"{}\"", p_resource->asset_id.name);
+			} else {
+				res = fmt::format_to_n(label_buf, 256, "INVALID");
+			}
+			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0], res.size});
+
+			res = fmt::format_to_n(label_buf, 256, "path: \"{}\"", p_resource->resource_path.view());
+			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0], res.size});
+
 			scroll_rectsplit.split(1.0f * em);
 		}
 		ui::end_scroll_area(this->ui, inner_content_rect);
