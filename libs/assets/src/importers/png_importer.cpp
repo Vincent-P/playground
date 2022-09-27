@@ -121,8 +121,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	new_texture->levels    = 1;
 	new_texture->format    = pixel_format;
 	new_texture->mip_offsets.push_back(0);
-	new_texture->pixels_data = buffer;
-	new_texture->data_size   = decoded_size;
+	new_texture->pixels_data_size = decoded_size;
 
 	return Ok(ProcessResponse{.products = {asset_id}});
 }

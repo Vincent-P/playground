@@ -2,6 +2,7 @@
 #include "assets/asset_constructors.h"
 
 #include <exo/profile.h>
+#include <exo/u128_serializer.h>
 
 static int texture_ctor = global_asset_constructors().add_constructor(get_asset_id<Texture>(), &Texture::create);
 
@@ -40,14 +41,6 @@ void Texture::serialize(exo::Serializer &serializer)
 	exo::serialize(serializer, this->depth);
 	exo::serialize(serializer, this->levels);
 	exo::serialize(serializer, this->mip_offsets);
-
-	exo::serialize(serializer, this->data_size);
-	if (serializer.is_writing) {
-		serializer.write_bytes(this->pixels_data, this->data_size);
-	} else {
-		this->impl_data = malloc(this->data_size);
-		EXO_PROFILE_MALLOC(this->impl_data, this->data_size);
-		serializer.read_bytes(this->impl_data, this->data_size);
-		this->pixels_data = this->impl_data;
-	}
+	exo::serialize(serializer, this->pixels_hash);
+	exo::serialize(serializer, this->pixels_data_size);
 }

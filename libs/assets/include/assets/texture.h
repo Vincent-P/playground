@@ -1,7 +1,9 @@
 #pragma once
 #include <exo/collections/vector.h>
 #include <exo/maths/numerics.h>
+#include <exo/maths/u128.h>
 #include <exo/serializer.h>
+#include <exo/uuid.h>
 
 #include "assets/asset.h"
 #include "assets/asset_id.h"
@@ -45,9 +47,8 @@ struct Texture : Asset
 	i32            levels;
 	Vec<usize>     mip_offsets;
 
-	void       *impl_data; // ktxTexture* for libktx, u8* containing raw pixels for png
-	const void *pixels_data;
-	usize       data_size;
+	exo::u128 pixels_hash;
+	usize     pixels_data_size;
 };
 
 namespace exo
