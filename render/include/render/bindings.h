@@ -1,12 +1,14 @@
 #pragma once
 
+#include <exo/collections/span.h>
+
 #include "render/ring_buffer.h"
 #include "render/vulkan/commands.h"
 #include "render/vulkan/device.h"
 
 namespace bindings
 {
-inline void *bind_shader_options(
+inline std::span<u8> bind_shader_options(
 	vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_len)
 {
 	auto [p_options, offset] =
@@ -15,4 +17,13 @@ inline void *bind_shader_options(
 	cmd.bind_uniform_set(descriptor, offset);
 	return p_options;
 }
+
+template <typename Option>
+inline std::span<Option> bind_option_struct(
+	vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_count = 1)
+{
+	auto slice = bind_shader_options(device, ring_buffer, cmd, sizeof(Option) * options_count);
+	return exo::reinterpret_span<Option>(slice);
+}
+
 } // namespace bindings

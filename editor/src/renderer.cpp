@@ -47,10 +47,9 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 		dispatch_size.x          = (dispatch_size.x / 16) + (dispatch_size.x % 16 != 0);
 		dispatch_size.y          = (dispatch_size.y / 16) + (dispatch_size.y % 16 != 0);
 
-		auto *options = reinterpret_cast<Options *>(
-			bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(Options)));
-		options->linear_input_buffer_texture = api.device.get_image_sampled_index(input_image);
-		options->srgb_output_buffer_image    = api.device.get_image_storage_index(output_image);
+		auto options = bindings::bind_option_struct<Options>(api.device, api.uniform_buffer, cmd, sizeof(Options));
+		options[0].linear_input_buffer_texture = api.device.get_image_sampled_index(input_image);
+		options[0].srgb_output_buffer_image    = api.device.get_image_storage_index(output_image);
 
 		cmd.barrier(input_image, vulkan::ImageUsage::ComputeShaderRead);
 		cmd.barrier(output_image, vulkan::ImageUsage::ComputeShaderReadWrite);

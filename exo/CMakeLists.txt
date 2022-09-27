@@ -12,6 +12,7 @@ set(SOURCE_FILES
   include/exo/collections/pool_serializer.h
   include/exo/collections/set.h
   include/exo/collections/vector.h
+  include/exo/collections/span.h
   include/exo/hash.h
   include/exo/logger.h
   include/exo/macros/assert.h

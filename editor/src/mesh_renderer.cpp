@@ -1,6 +1,7 @@
 #include "mesh_renderer.h"
 
 #include <exo/collections/handle_map.h>
+#include <exo/collections/span.h>
 #include <exo/macros/packed.h>
 
 #include <assets/asset_id.h>
@@ -253,10 +254,10 @@ void register_upload_nodes(RenderGraph &graph,
 
 		auto [p_data, instance_bytes_offset] =
 			mesh_renderer.instances_buffer.allocate(sizeof(InstanceDescriptor), sizeof(InstanceDescriptor));
-		ASSERT(p_data);
-		auto *p_instance              = reinterpret_cast<InstanceDescriptor *>(p_data);
-		p_instance->i_mesh_descriptor = render_mesh_handle.get_index();
-		p_instance->transform         = instance.world_transform;
+		ASSERT(!p_data.empty());
+		auto p_instance                 = exo::reinterpret_span<InstanceDescriptor>(p_data);
+		p_instance[0].i_mesh_descriptor = render_mesh_handle.get_index();
+		p_instance[0].transform         = instance.world_transform;
 
 		ASSERT(instance_bytes_offset % sizeof(InstanceDescriptor) == 0);
 
@@ -278,23 +279,25 @@ void register_upload_nodes(RenderGraph &graph,
 		if (p_render_texture->frame_uploaded == u64_invalid) {
 
 			auto *texture                       = asset_manager->load_asset<Texture>(p_render_texture->texture_asset);
-			auto [p_upload_data, upload_offset] = upload_buffer.allocate(texture->data_size);
+			auto [p_upload_data, upload_offset] = upload_buffer.allocate(texture->pixels_data_size);
 
-			if (p_upload_data) {
-				fmt::print("[Renderer] Uploading texture asset {} at offset 0x{:x} frame #{}\n",
-					texture->uuid,
-					upload_offset,
-					upload_buffer.i_frame);
-
-				std::memcpy(p_upload_data, texture->pixels_data, texture->data_size);
-				mesh_renderer.image_uploads.push_back(RenderImageUpload{
-					.dst_image     = p_render_texture->image,
-					.upload_offset = upload_offset,
-					.upload_size   = texture->data_size,
-					.extent        = int3(texture->width, texture->height, texture->depth),
-				});
-				p_render_texture->frame_uploaded = graph.i_frame + 3;
+			if (p_upload_data.empty()) {
+				continue;
 			}
+
+			fmt::print("[Renderer] Uploading texture asset {} at offset 0x{:x} frame #{}\n",
+				texture->uuid,
+				upload_offset,
+				upload_buffer.i_frame);
+
+			texture->read_pixels(p_upload_data);
+			mesh_renderer.image_uploads.push_back(RenderImageUpload{
+				.dst_image     = p_render_texture->image,
+				.upload_offset = upload_offset,
+				.upload_size   = texture->pixels_data_size,
+				.extent        = int3(texture->width, texture->height, texture->depth),
+			});
+			p_render_texture->frame_uploaded = graph.i_frame + 3;
 		}
 	}
 
@@ -311,48 +314,49 @@ void register_upload_nodes(RenderGraph &graph,
 
 		if (!p_render_material->is_uploaded && textures_uploaded) {
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(sizeof(MaterialDescriptor));
-			if (p_upload_data) {
-
-				auto *material_asset    = asset_manager->load_asset<Material>(p_render_material->material_asset);
-				auto *p_upload_material = reinterpret_cast<MaterialDescriptor *>(p_upload_data);
-
-				fmt::print("[Renderer] Uploading material asset {} at offset 0x{:x} frame #{}\n",
-					material_asset->uuid,
-					upload_offset,
-					upload_buffer.i_frame);
-
-				*p_upload_material                   = MaterialDescriptor{};
-				p_upload_material->base_color_factor = material_asset->base_color_factor;
-				p_upload_material->emissive_factor   = material_asset->emissive_factor;
-				p_upload_material->metallic_factor   = material_asset->metallic_factor;
-				p_upload_material->roughness_factor  = material_asset->roughness_factor;
-				p_upload_material->rotation          = material_asset->uv_transform.rotation;
-				p_upload_material->offset            = material_asset->uv_transform.offset;
-				p_upload_material->scale             = material_asset->uv_transform.scale;
-
-				if (p_render_material->base_color_texture.is_valid()) {
-					auto image = mesh_renderer.render_textures.get(p_render_material->base_color_texture).image;
-					p_upload_material->base_color_texture = device.get_image_sampled_index(image);
-				}
-				if (p_render_material->normal_texture.is_valid()) {
-					auto image = mesh_renderer.render_textures.get(p_render_material->normal_texture).image;
-					p_upload_material->normal_texture = device.get_image_sampled_index(image);
-				}
-				if (p_render_material->metallic_roughness_texture.is_valid()) {
-					auto image = mesh_renderer.render_textures.get(p_render_material->metallic_roughness_texture).image;
-					p_upload_material->metallic_roughness_texture = device.get_image_sampled_index(image);
-				}
-
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = mesh_renderer.materials_buffer,
-					.dst_offset    = handle.get_index() * sizeof(MaterialDescriptor),
-					.upload_offset = upload_offset,
-					.upload_size   = sizeof(MaterialDescriptor),
-				});
-
-				p_render_material->is_uploaded = true;
-				break;
+			if (p_upload_data.empty()) {
+				continue;
 			}
+
+			auto *material_asset    = asset_manager->load_asset<Material>(p_render_material->material_asset);
+			auto  p_upload_material = exo::reinterpret_span<MaterialDescriptor>(p_upload_data);
+
+			fmt::print("[Renderer] Uploading material asset {} at offset 0x{:x} frame #{}\n",
+				material_asset->uuid,
+				upload_offset,
+				upload_buffer.i_frame);
+
+			p_upload_material[0]                   = MaterialDescriptor{};
+			p_upload_material[0].base_color_factor = material_asset->base_color_factor;
+			p_upload_material[0].emissive_factor   = material_asset->emissive_factor;
+			p_upload_material[0].metallic_factor   = material_asset->metallic_factor;
+			p_upload_material[0].roughness_factor  = material_asset->roughness_factor;
+			p_upload_material[0].rotation          = material_asset->uv_transform.rotation;
+			p_upload_material[0].offset            = material_asset->uv_transform.offset;
+			p_upload_material[0].scale             = material_asset->uv_transform.scale;
+
+			if (p_render_material->base_color_texture.is_valid()) {
+				auto image = mesh_renderer.render_textures.get(p_render_material->base_color_texture).image;
+				p_upload_material[0].base_color_texture = device.get_image_sampled_index(image);
+			}
+			if (p_render_material->normal_texture.is_valid()) {
+				auto image = mesh_renderer.render_textures.get(p_render_material->normal_texture).image;
+				p_upload_material[0].normal_texture = device.get_image_sampled_index(image);
+			}
+			if (p_render_material->metallic_roughness_texture.is_valid()) {
+				auto image = mesh_renderer.render_textures.get(p_render_material->metallic_roughness_texture).image;
+				p_upload_material[0].metallic_roughness_texture = device.get_image_sampled_index(image);
+			}
+
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = mesh_renderer.materials_buffer,
+				.dst_offset    = handle.get_index() * sizeof(MaterialDescriptor),
+				.upload_offset = upload_offset,
+				.upload_size   = sizeof(MaterialDescriptor),
+			});
+
+			p_render_material->is_uploaded = true;
+			break;
 		}
 	}
 
@@ -376,90 +380,90 @@ void register_upload_nodes(RenderGraph &graph,
 			auto total_size = indices_size + positions_size + uvs_size + submeshes_size + mesh_descriptor_size;
 
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(total_size);
-			if (p_upload_data) {
-
-				auto *mesh_asset = asset_manager->load_asset<Mesh>(p_render_mesh->mesh_asset);
-				fmt::print("[Renderer] Uploading mesh asset {} at offset 0x{:x} frame #{}\n",
-					mesh_asset->uuid,
-					upload_offset,
-					upload_buffer.i_frame);
-
-				auto p_indices   = mesh_asset->indices.data();
-				auto p_positions = mesh_asset->positions.data();
-				auto p_uvs       = mesh_asset->uvs.data();
-
-				auto *cursor = p_upload_data;
-				std::memcpy(cursor, p_indices, indices_size);
-				cursor = exo::ptr_offset(cursor, indices_size);
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = p_render_mesh->index_buffer,
-					.upload_offset = upload_offset,
-					.upload_size   = indices_size,
-				});
-
-				std::memcpy(cursor, p_positions, positions_size);
-				cursor = exo::ptr_offset(cursor, positions_size);
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = p_render_mesh->positions_buffer,
-					.upload_offset = upload_offset + indices_size,
-					.upload_size   = positions_size,
-				});
-
-				std::memcpy(cursor, p_uvs, uvs_size);
-				cursor = exo::ptr_offset(cursor, uvs_size);
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = p_render_mesh->uvs_buffer,
-					.upload_offset = upload_offset + indices_size + positions_size,
-					.upload_size   = uvs_size,
-				});
-
-				for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.size(); ++i_submesh) {
-					const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
-
-					auto *p_upload_submeshes                   = reinterpret_cast<SubmeshDescriptor *>(cursor);
-					p_upload_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
-					p_upload_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
-					p_upload_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
-					if (render_submesh.material.is_valid() &&
-						mesh_renderer.render_materials.get(render_submesh.material).is_uploaded) {
-						p_upload_submeshes[i_submesh].i_material = render_submesh.material.get_index();
-					} else {
-						p_upload_submeshes[i_submesh].i_material = u32_invalid;
-					}
-				}
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = p_render_mesh->submesh_buffer,
-					.upload_offset = upload_offset + indices_size + positions_size + uvs_size,
-					.upload_size   = submeshes_size,
-				});
-
-				cursor                    = exo::ptr_offset(cursor, submeshes_size);
-				auto *p_upload_descriptor = reinterpret_cast<MeshDescriptor *>(cursor);
-				p_upload_descriptor->index_buffer_descriptor =
-					device.get_buffer_storage_index(p_render_mesh->index_buffer);
-				p_upload_descriptor->positions_buffer_descriptor =
-					device.get_buffer_storage_index(p_render_mesh->positions_buffer);
-				p_upload_descriptor->uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
-				p_upload_descriptor->submesh_buffer_descriptor =
-					device.get_buffer_storage_index(p_render_mesh->submesh_buffer);
-				mesh_renderer.buffer_uploads.push_back(RenderUploads{
-					.dst_buffer    = mesh_renderer.meshes_buffer,
-					.dst_offset    = handle.get_index() * sizeof(MeshDescriptor),
-					.upload_offset = upload_offset + indices_size + positions_size + uvs_size + submeshes_size,
-					.upload_size   = sizeof(MeshDescriptor),
-				});
-
-				// free mesh memory, we dont need it anymroe
-				mesh_asset->indices.clear();
-				mesh_asset->indices.shrink_to_fit();
-				mesh_asset->positions.clear();
-				mesh_asset->positions.shrink_to_fit();
-				mesh_asset->uvs.clear();
-				mesh_asset->uvs.shrink_to_fit();
-
-				p_render_mesh->is_uploaded = true;
-				break;
+			if (p_upload_data.empty()) {
+				continue;
 			}
+
+			auto *mesh_asset = asset_manager->load_asset<Mesh>(p_render_mesh->mesh_asset);
+			fmt::print("[Renderer] Uploading mesh asset {} at offset 0x{:x} frame #{}\n",
+				mesh_asset->uuid,
+				upload_offset,
+				upload_buffer.i_frame);
+
+			auto p_indices   = mesh_asset->indices.data();
+			auto p_positions = mesh_asset->positions.data();
+			auto p_uvs       = mesh_asset->uvs.data();
+
+			auto *cursor = p_upload_data.data();
+			std::memcpy(cursor, p_indices, indices_size);
+			cursor = exo::ptr_offset(cursor, indices_size);
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = p_render_mesh->index_buffer,
+				.upload_offset = upload_offset,
+				.upload_size   = indices_size,
+			});
+
+			std::memcpy(cursor, p_positions, positions_size);
+			cursor = exo::ptr_offset(cursor, positions_size);
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = p_render_mesh->positions_buffer,
+				.upload_offset = upload_offset + indices_size,
+				.upload_size   = positions_size,
+			});
+
+			std::memcpy(cursor, p_uvs, uvs_size);
+			cursor = exo::ptr_offset(cursor, uvs_size);
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = p_render_mesh->uvs_buffer,
+				.upload_offset = upload_offset + indices_size + positions_size,
+				.upload_size   = uvs_size,
+			});
+
+			for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.size(); ++i_submesh) {
+				const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
+
+				auto *p_upload_submeshes                   = reinterpret_cast<SubmeshDescriptor *>(cursor);
+				p_upload_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
+				p_upload_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
+				p_upload_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
+				if (render_submesh.material.is_valid() &&
+					mesh_renderer.render_materials.get(render_submesh.material).is_uploaded) {
+					p_upload_submeshes[i_submesh].i_material = render_submesh.material.get_index();
+				} else {
+					p_upload_submeshes[i_submesh].i_material = u32_invalid;
+				}
+			}
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = p_render_mesh->submesh_buffer,
+				.upload_offset = upload_offset + indices_size + positions_size + uvs_size,
+				.upload_size   = submeshes_size,
+			});
+
+			cursor                                       = exo::ptr_offset(cursor, submeshes_size);
+			auto *p_upload_descriptor                    = reinterpret_cast<MeshDescriptor *>(cursor);
+			p_upload_descriptor->index_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->index_buffer);
+			p_upload_descriptor->positions_buffer_descriptor =
+				device.get_buffer_storage_index(p_render_mesh->positions_buffer);
+			p_upload_descriptor->uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
+			p_upload_descriptor->submesh_buffer_descriptor =
+				device.get_buffer_storage_index(p_render_mesh->submesh_buffer);
+			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+				.dst_buffer    = mesh_renderer.meshes_buffer,
+				.dst_offset    = handle.get_index() * sizeof(MeshDescriptor),
+				.upload_offset = upload_offset + indices_size + positions_size + uvs_size + submeshes_size,
+				.upload_size   = sizeof(MeshDescriptor),
+			});
+
+			// free mesh memory, we dont need it anymroe
+			mesh_asset->indices.clear();
+			mesh_asset->indices.shrink_to_fit();
+			mesh_asset->positions.clear();
+			mesh_asset->positions.shrink_to_fit();
+			mesh_asset->uvs.clear();
+			mesh_asset->uvs.shrink_to_fit();
+
+			p_render_mesh->is_uploaded = true;
+			break;
 		}
 	}
 
@@ -552,14 +556,14 @@ void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Ha
 					u32      materials_descriptor;
 				})
 
-				auto *options = reinterpret_cast<Options *>(
-					bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(Options)));
-				options->view                 = view;
-				options->projection           = projection;
-				options->instances_descriptor = instances_descriptor;
-				options->meshes_descriptor    = meshes_descriptor;
-				options->i_submesh            = drawcall.i_submesh;
-				options->materials_descriptor = materials_descriptor;
+				auto options =
+					bindings::bind_option_struct<Options>(api.device, api.uniform_buffer, cmd, sizeof(Options));
+				options[0].view                 = view;
+				options[0].projection           = projection;
+				options[0].instances_descriptor = instances_descriptor;
+				options[0].meshes_descriptor    = meshes_descriptor;
+				options[0].i_submesh            = drawcall.i_submesh;
+				options[0].materials_descriptor = materials_descriptor;
 
 				cmd.bind_pipeline(simple_program, 0);
 

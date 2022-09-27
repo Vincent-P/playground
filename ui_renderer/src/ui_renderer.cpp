@@ -38,11 +38,11 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 		painter->glyph_cache.process_events([&](const GlyphEvent &event, const GlyphImage *image, int2 pos) {
 			if (event.type == GlyphEvent::Type::New && image) {
 				auto [p_image, image_offset] = api.upload_buffer.allocate(image->data_size);
-				if (!p_image) {
+				if (p_image.empty()) {
 					return false;
 				}
 
-				std::memcpy(p_image, image->data, image->data_size);
+				std::memcpy(p_image.data(), image->data, image->data_size);
 				auto copy = VkBufferImageCopy{
 					.bufferOffset = image_offset,
 					.imageSubresource =
@@ -81,8 +81,8 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 		[painter, output, ui_program](RenderGraph &graph, PassApi &api, vulkan::GraphicsWork &cmd) {
 			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(painter->vertex_bytes_offset,
 				sizeof(TexturedRect) * sizeof(ColorRect));
-			ASSERT(p_vertices);
-			std::memcpy(p_vertices, painter->vertices, painter->vertex_bytes_offset);
+			ASSERT(!p_vertices.empty());
+			std::memcpy(p_vertices.data(), painter->vertices, painter->vertex_bytes_offset);
 
 			ASSERT(vert_offset % sizeof(TexturedRect) == 0);
 			ASSERT(vert_offset % sizeof(ColorRect) == 0);
@@ -91,7 +91,7 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 			auto [p_indices, ind_offset] =
 				api.dynamic_index_buffer.allocate(painter->index_offset * sizeof(PrimitiveIndex),
 					sizeof(PrimitiveIndex));
-			std::memcpy(p_indices, painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
+			std::memcpy(p_indices.data(), painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
 
 			PACKED(struct PainterOptions {
 				float2 scale;
@@ -100,13 +100,16 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 				u32    primitive_byte_offset;
 			})
 
-			auto  output_size = graph.image_size(output);
-			auto *options     = reinterpret_cast<PainterOptions *>(
-                bindings::bind_shader_options(api.device, api.uniform_buffer, cmd, sizeof(PainterOptions)));
-			options->scale                     = float2(2.0) / float2(int2(output_size.x, output_size.y));
-			options->translation               = float2(-1.0f, -1.0f);
-			options->vertices_descriptor_index = api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);
-			options->primitive_byte_offset     = static_cast<u32>(vert_offset);
+			auto output_size       = graph.image_size(output);
+			auto options           = bindings::bind_option_struct<PainterOptions>(api.device,
+                api.uniform_buffer,
+                cmd,
+                sizeof(PainterOptions));
+			options[0].scale       = float2(2.0) / float2(int2(output_size.x, output_size.y));
+			options[0].translation = float2(-1.0f, -1.0f);
+			options[0].vertices_descriptor_index =
+				api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);
+			options[0].primitive_byte_offset = static_cast<u32>(vert_offset);
 
 			cmd.bind_pipeline(ui_program, 0);
 			cmd.bind_index_buffer(api.dynamic_index_buffer.buffer, VK_INDEX_TYPE_UINT32, ind_offset);
