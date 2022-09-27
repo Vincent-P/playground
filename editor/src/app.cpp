@@ -206,9 +206,11 @@ void App::run()
 	u64 last = stm_now();
 
 	while (!window->should_close()) {
-		EXO_PROFILE_SCOPE_NAMED("loop");
-
+		EXO_PROFILE_SWITCH_TO_FIBER("poll");
 		window->poll_events();
+		EXO_PROFILE_LEAVE_FIBER;
+
+		EXO_PROFILE_SCOPE_NAMED("loop");
 
 		for (auto &event : window->events) {
 			if (event.type == exo::Event::MouseMoveType) {

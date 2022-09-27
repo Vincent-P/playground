@@ -55,7 +55,7 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 		this->image_pool.remove(exo::to_u64(handle_to_remove));
 	}
 
-	TracyPlot("Graph: texture descs", i64(this->texture_descs.size));
+	EXO_PROFILE_PLOT_VALUE("Graph: texture descs", i64(this->texture_descs.size));
 }
 
 void ResourceRegistry::end_frame()

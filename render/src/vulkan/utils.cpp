@@ -1,7 +1,7 @@
 #include "render/vulkan/utils.h"
 
+#include <cstdlib>
 #include <exo/logger.h>
-#include <stdexcept>
 
 namespace vulkan
 {
@@ -96,7 +96,7 @@ void vk_check(VkResult result)
 	if (result != VK_SUCCESS) {
 		const char *err_msg = vkres_to_str(result);
 		exo::logger::error("Vulkan function returned {}\n", err_msg);
-		throw std::runtime_error(err_msg);
+		abort();
 	}
 }
 } // namespace vulkan

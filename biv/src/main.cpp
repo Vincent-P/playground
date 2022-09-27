@@ -479,7 +479,7 @@ int main(int /*argc*/, char ** /*argv*/)
 
 		window->events.clear();
 
-		FrameMark
+		EXO_PROFILE_FRAMEMARK;
 	}
 	render_sample_destroy(app);
 	return 0;

@@ -2,11 +2,13 @@
 
 #include "exo/logger.h"
 #include "exo/memory/scope_stack.h"
+#include "exo/profile.h"
 
 #include "cross/platform.h"
 #include "utils_win32.h"
 
 // clang-format off
+#include <Tracy.hpp>
 #include <windows.h> // needed before imm.h
 #include <imm.h>
 #include <string>
