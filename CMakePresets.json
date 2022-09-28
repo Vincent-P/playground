@@ -23,8 +23,7 @@
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "intelliSenseMode": "windows-clang-x64"
         }
-      },
-      "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
+      }
     },
     {
       "name": "msvc",
@@ -39,8 +38,7 @@
       "cacheVariables": {
         "CMAKE_CXX_FLAGS_DEBUG": "/Zi /Ob0 /Od /Oi /RTC1",
         "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
-      },
-      "cmakeExecutable": "C:\\Program Files\\CMake\\bin\\cmake.exe"
+      }
     }
   ],
   "buildPresets": [

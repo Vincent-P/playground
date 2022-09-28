@@ -17,9 +17,9 @@ target_link_libraries(editor PUBLIC engine painter ui ui_renderer sokol)
 
 setup_shaders(editor
   SOURCES
-  simple_mesh.frag.glsl
-  simple_mesh.vert.glsl
-  srgb_pass.comp.glsl
+  shaders/simple_mesh.frag.glsl
+  shaders/simple_mesh.vert.glsl
+  shaders/srgb_pass.comp.glsl
   DEPENDENCIES
   engine
 )

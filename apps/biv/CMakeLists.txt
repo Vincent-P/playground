@@ -19,8 +19,8 @@ target_link_libraries(biv
 
 setup_shaders(biv
   SOURCES
-  viewer.frag.glsl
-  viewer.vert.glsl
+  shaders/viewer.frag.glsl
+  shaders/viewer.vert.glsl
   DEPENDENCIES
   engine
   ui_renderer

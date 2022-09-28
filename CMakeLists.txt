@@ -1,10 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(test-vulkan LANGUAGES C CXX)
 
-# External dependencies
-find_package(Threads)
-
-# Fetch test
+# Fetch Catch2
 Include(FetchContent)
 FetchContent_Declare(
   Catch2
@@ -16,8 +13,7 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 
-
-add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+# Enable folders in the Solution Explorer of Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # Global C++ flags
@@ -35,39 +31,22 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
 )
 
-# C++ flags for the project's code
-# https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#compilers
-set(APP_CXX_FLAGS
-  # zstd in ktx doesnt compile with this flag
-  $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
+# Global C++ macros
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
-  # Warning level
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Werror>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wshadow>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Woverloaded-virtual>
+# Function to setup 3rd party source code
+function(SETUP_THIRDPARTY_TARGET TARGET)
+  message(STATUS "Setting up third party target ${TARGET}")
+  set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 17)
+  set_target_properties(${TARGET} PROPERTIES FOLDER "third_party")
+  target_compile_options(${TARGET} PRIVATE
+      # Disable warnings for third-party libs
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
+      $<$<CXX_COMPILER_ID:MSVC>:/W0>
+  )
+endfunction()
 
-  $<$<CXX_COMPILER_ID:MSVC>:/WX>
-  $<$<CXX_COMPILER_ID:MSVC>:/W4>
-  $<$<CXX_COMPILER_ID:MSVC>:/permissive->
-
-  # utils
-  # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
-  # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-)
-
-# C++ flags for third party libraries
-set(THIRD_PARTY_CXX_FLAGS
-  # Disable warnings for third-party libs
-  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
-  $<$<CXX_COMPILER_ID:MSVC>:/W0>
-)
-
-
+# Function to setup our targets
 function(SETUP_APP_TARGET TARGET)
   # Parse arguments (<targetname> TESTS <test files>)
   # into args_TESTS
@@ -78,7 +57,30 @@ function(SETUP_APP_TARGET TARGET)
 
   message(STATUS "Setting up application target ${TARGET}")
   set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
-  target_compile_options(${TARGET} PRIVATE ${APP_CXX_FLAGS})
+  target_compile_options(${TARGET} PRIVATE
+      # zstd in ktx doesnt compile with this flag
+      $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
+
+      # Warning level
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Werror>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wshadow>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
+      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Woverloaded-virtual>
+
+      $<$<CXX_COMPILER_ID:MSVC>:/WX>
+      $<$<CXX_COMPILER_ID:MSVC>:/W4>
+      $<$<CXX_COMPILER_ID:MSVC>:/permissive->
+
+      # utils
+      # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
+      # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
+  )
+
+  # Setup include directories, public includes should be in <target>/include/<target>/public.h and private ones in <target>/src/private.h alongside .cpp files
   target_include_directories(${TARGET} SYSTEM PUBLIC include)
   target_include_directories(${TARGET} PRIVATE src)
 
@@ -91,13 +93,14 @@ function(SETUP_APP_TARGET TARGET)
   target_compile_definitions(${TARGET} PRIVATE
     OUT_DIR="${CMAKE_BINARY_DIR}"
     TARGET_NAME="${TARGET}"
-    $<$<BOOL:${WIN32}>:NOMINMAX>  # Disable min/max macros
-    $<$<BOOL:${WIN32}>:NOCOMM> # Disable serial communication API
-    $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN> # Disable some APIs
-    $<$<BOOL:${WIN32}>:VC_EXTRALEAN> # Disable even more APIs
-    $<$<BOOL:${WIN32}>:UNICODE> # Use unicode not ascii
+    $<$<BOOL:${WIN32}>:NOMINMAX>               # Disable min/max macros
+    $<$<BOOL:${WIN32}>:NOCOMM>                 # Disable serial communication API
+    $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN>    # Disable some APIs
+    $<$<BOOL:${WIN32}>:VC_EXTRALEAN>           # Disable even more APIs
+    $<$<BOOL:${WIN32}>:UNICODE>                # Use unicode not ascii
   )
 
+  # Add a test executable if the function was supplied test source files
   if (args_TESTS)
     add_executable(${TARGET}.tests ${args_TESTS})
     set_target_properties(${TARGET}.tests PROPERTIES CXX_STANDARD 20)
@@ -107,16 +110,8 @@ function(SETUP_APP_TARGET TARGET)
   endif()
 endfunction()
 
-function(SETUP_THIRDPARTY_TARGET TARGET)
-  message(STATUS "Setting up third party target ${TARGET}")
-  set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 17)
-  set_target_properties(${TARGET} PROPERTIES FOLDER "third_party")
-  target_compile_options(${TARGET} PRIVATE ${THIRD_PARTY_CXX_FLAGS})
-endfunction()
-
-
+# Add a shader target
 function(SETUP_SHADERS TARGET)
-
   # Parse arguments (<targetname> SOURCES <sources> DEPENDENCIES <deps>)
   # into args_SOURCES and args_DEPENDENCIES
   set(options )
@@ -130,16 +125,18 @@ function(SETUP_SHADERS TARGET)
   set(INCLUDE_ARGS )
   set(DEPENDS_PATHS )
   foreach(DEP IN LISTS args_DEPENDENCIES)
-    list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/${DEP}/shaders/include/")
-    list(APPEND DEPENDS_PATHS "${PROJECT_SOURCE_DIR}/${DEP}/shaders/include/")
+    list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/libs/${DEP}/shaders/include/")
+    list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/apps/${DEP}/shaders/include/")
+    list(APPEND DEPENDS_PATHS "${PROJECT_SOURCE_DIR}/libs/${DEP}/shaders/include/")
+    list(APPEND DEPENDS_PATHS "${PROJECT_SOURCE_DIR}/apps/${DEP}/shaders/include/")
   endforeach()
-  list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/${TARGET}/shaders/include/")
+  list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/libs/${TARGET}/shaders/include/")
+  list(APPEND INCLUDE_ARGS -I "${PROJECT_SOURCE_DIR}/apps/${TARGET}/shaders/include/")
 
   foreach(FILENAME IN LISTS args_SOURCES)
-    set(SHADER_INPUT_DIR "${PROJECT_SOURCE_DIR}/${TARGET}/shaders")
-    set(SHADER_OUTPUT_DIR "${PROJECT_BINARY_DIR}/${TARGET}/shaders")
-    set(GLSL_FILE "${SHADER_INPUT_DIR}/${FILENAME}")
-    set(SPIRV_FILE "${SHADER_OUTPUT_DIR}/${FILENAME}.spv")
+    set(GLSL_FILE ${FILENAME})
+    cmake_path(ABSOLUTE_PATH GLSL_FILE)
+    set(SPIRV_FILE "${PROJECT_BINARY_DIR}/${TARGET}/${FILENAME}.spv")
 
     add_custom_command(
       OUTPUT ${SPIRV_FILE}
@@ -154,16 +151,18 @@ function(SETUP_SHADERS TARGET)
 endfunction()
 
 add_subdirectory(third_party)
+
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,modernize-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-modernize-return-braced-init-list,bugprone-*,-bugprone-easily-swappable-parameters,misc-*,-misc-no-recursion,-misc-non-private-member-variables-in-classes,performance-*,-performance-no-int-to-ptr)
-add_subdirectory(exo)
-add_subdirectory(cross)
-add_subdirectory(render)
-add_subdirectory(assets)
-add_subdirectory(gameplay)
-add_subdirectory(painter)
-add_subdirectory(engine)
-add_subdirectory(ui)
-add_subdirectory(ui_renderer)
-add_subdirectory(editor)
-add_subdirectory(render_sample)
-add_subdirectory(biv)
+add_subdirectory(libs/exo)
+add_subdirectory(libs/cross)
+add_subdirectory(libs/render)
+add_subdirectory(libs/assets)
+add_subdirectory(libs/gameplay)
+add_subdirectory(libs/painter)
+add_subdirectory(libs/engine)
+add_subdirectory(libs/ui)
+add_subdirectory(libs/ui_renderer)
+
+add_subdirectory(apps/editor)
+add_subdirectory(apps/render_sample)
+add_subdirectory(apps/biv)

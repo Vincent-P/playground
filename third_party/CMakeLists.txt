@@ -1,3 +1,5 @@
+find_package(Threads REQUIRED)
+
 # {fmt}
 add_library(fmt fmt/src/format.cc fmt/src/os.cc)
 setup_thirdparty_target(fmt)

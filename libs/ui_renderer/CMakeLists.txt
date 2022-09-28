@@ -10,8 +10,8 @@ target_link_libraries(ui_renderer PUBLIC engine painter ui)
 
 setup_shaders(ui_renderer
   SOURCES
-  ui.frag.glsl
-  ui.vert.glsl
+  shaders/ui.frag.glsl
+  shaders/ui.vert.glsl
   DEPENDENCIES
   engine
 )
