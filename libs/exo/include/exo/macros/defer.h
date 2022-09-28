@@ -1,4 +1,5 @@
 #pragma once
+#include <utility> // for std::move
 
 // An indirection (CONCAT calling CONCAT_INNER) is needed to expand the macro __COUNTER__
 #define CONCAT(a, b) CONCAT_INNER(a, b)
