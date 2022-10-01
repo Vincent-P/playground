@@ -112,7 +112,7 @@ Window *Window::create(ScopeStack &scope, int2 size, const std::string_view titl
 	// Create the window instance
 	HWND &hwnd = impl(*window).wnd;
 
-	auto utf16_title = utf8_to_utf16(title);
+	auto utf16_title = utils::utf8_to_utf16(title);
 	hwnd             = CreateWindowEx(WS_EX_TRANSPARENT, // Optional window styles.
         wc.lpszClassName,                    // Window class
         utf16_title.c_str(),                 // Window text
@@ -149,7 +149,7 @@ float2 Window::get_dpi_scale() const
 void Window::set_title(std::string_view new_title)
 {
 	this->title      = std::string{new_title};
-	auto utf16_title = utf8_to_utf16(title);
+	auto utf16_title = utils::utf8_to_utf16(title);
 	auto res         = SetWindowTextW(impl(*this).wnd, utf16_title.c_str());
 	ASSERT(res != 0);
 }
@@ -336,7 +336,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			}
 
 			if (clear) {
-				auto utf8_buffer = utf16_to_utf8(buffer);
+				auto utf8_buffer = utils::utf16_to_utf8(buffer);
 				ASSERT(utf8_buffer.size() < sizeof(events::Character));
 				window.events.push_back({.type = Event::CharacterType, .character = {.sequence = {utf8_buffer[0]}}});
 				buffer[0] = 0;
@@ -362,7 +362,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				std::wstring result;
 				result.resize(size);
 				ImmGetCompositionStringW(himc, GCS_COMPSTR, reinterpret_cast<void *>(result.data()), size);
-				auto utf8_result = utf16_to_utf8(result);
+				auto utf8_result = utils::utf16_to_utf8(result);
 				window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {nullptr}});
 			}
 		} else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
@@ -374,7 +374,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				std::wstring result;
 				result.resize(size);
 				ImmGetCompositionStringW(himc, GCS_RESULTSTR, reinterpret_cast<void *>(result.data()), size);
-				auto utf8_result = utf16_to_utf8(result);
+				auto utf8_result = utils::utf16_to_utf8(result);
 				window.events.push_back({.type = Event::IMECompositionResultType, .ime_composition_result = {nullptr}});
 			}
 		}

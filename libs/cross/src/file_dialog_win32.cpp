@@ -17,9 +17,9 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
 	Vec<COMDLG_FILTERSPEC> filters(extensions.size());
 	for (uint i_filter = 0; i_filter < extensions.size(); i_filter++) {
 		usize i_name_str = string_holder.size();
-		string_holder.emplace_back(utf8_to_utf16(extensions[i_filter].first));
+		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].first));
 		usize i_filter_str = string_holder.size();
-		string_holder.emplace_back(utf8_to_utf16(extensions[i_filter].second));
+		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].second));
 
 		filters[i_filter].pszName = string_holder[i_name_str].c_str();
 		filters[i_filter].pszSpec = string_holder[i_filter_str].c_str();
@@ -75,6 +75,6 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
 	}
 	DEFER { CoTaskMemFree(pszFilePath); };
 
-	return utf16_to_utf8(pszFilePath);
+	return utils::utf16_to_utf8(pszFilePath);
 }
 } // namespace cross

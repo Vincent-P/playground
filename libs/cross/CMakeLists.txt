@@ -8,6 +8,12 @@ set(SOURCE_FILES
   include/cross/buttons.h
   include/cross/keyboard_keys.def
   src/file_watcher.cpp
+
+  include/cross/jobmanager.h
+  include/cross/jobs/job.h
+  include/cross/jobs/waitable.h
+  include/cross/jobs/foreach.h
+  include/cross/jobs/readfiles.h
   )
 
 if (WIN32)
@@ -18,7 +24,15 @@ if (WIN32)
 	src/mapped_file_win32.cpp
 	src/utils_win32.cpp
 	src/utils_win32.h
-	src/window_win32.cpp)
+	src/window_win32.cpp
+
+	src/jobmanager_win32.h
+	src/jobmanager_win32.cpp
+	src/jobs/job_win32.h
+	src/jobs/waitable_win32.cpp
+	src/jobs/foreach_win32.cpp
+	src/jobs/readfiles_win32.cpp
+      )
 
 elseif (UNIX)
   # Find X11 and xkbcommon

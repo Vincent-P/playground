@@ -1,5 +1,7 @@
 #pragma once
 
+#define EXO_PROFILE_USE_TRACY
+
 #if defined(EXO_PROFILE_USE_TRACY)
 
 #include <Tracy.hpp>

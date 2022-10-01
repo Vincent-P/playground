@@ -156,7 +156,7 @@ static void fetch_events_internal(FileWatcher &fw)
 			event.wd = watch.wd;
 
 			std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
-			event.name = utf16_to_utf8(wname);
+			event.name = utils::utf16_to_utf8(wname);
 			event.len  = p_event->FileNameLength / sizeof(wchar_t);
 
 			if (p_event->Action == FILE_ACTION_ADDED) {

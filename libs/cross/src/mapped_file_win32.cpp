@@ -24,10 +24,10 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 {
 	MappedFile file{};
 
-	auto utf16_path = utf8_to_utf16(path);
+	auto utf16_path = utils::utf8_to_utf16(path);
 
 	auto fd = CreateFile(utf16_path.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (!is_handle_valid(fd)) {
+	if (!utils::is_handle_valid(fd)) {
 		return {};
 	}
 	DEFER { CloseHandle(fd); };
@@ -37,7 +37,7 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 	file.size = ((u64)hi << 32) | (u64)lo;
 
 	auto mapping = CreateFileMapping(fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
-	if (!is_handle_valid(mapping)) {
+	if (!utils::is_handle_valid(mapping)) {
 		return {};
 	}
 	DEFER { CloseHandle(mapping); };
