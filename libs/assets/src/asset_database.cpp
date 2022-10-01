@@ -40,7 +40,7 @@ void AssetDatabase::track_resource_changes(const exo::Path &directory, Vec<Handl
 		u64         resource_hash = 0;
 		{
 			auto resource_file = cross::MappedFile::open(file_path.view()).value();
-			resource_hash      = assets::hash_file(resource_file.content());
+			resource_hash      = assets::hash_file64(resource_file.content());
 		}
 
 		Option<u64> content_map_entry = this->resource_content_map.at(resource_hash);

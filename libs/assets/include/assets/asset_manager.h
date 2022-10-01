@@ -1,5 +1,6 @@
 #pragma once
 #include <exo/collections/dynamic_array.h>
+#include <exo/maths/u128.h>
 #include <exo/path.h>
 
 #include "assets/asset_database.h"
@@ -63,6 +64,9 @@ struct AssetManager
 
 	void unload_asset(AssetId id);
 
+	usize     read_blob(exo::u128 blob_hash, std::span<u8> out_data);
+	exo::u128 save_blob(std::span<const u8> blob_data);
+
 private:
 	Asset *load_from_disk(const AssetId &id);
 	void   import_resources(std::span<const Handle<Resource>> records);
@@ -74,6 +78,8 @@ struct ImporterApi
 	template <typename T> T *create_asset(AssetId id) { return manager.create_asset<T>(id); }
 	// Used to retrieve an asset that was already processed
 	template <typename T> T *retrieve_asset(AssetId id) { return manager.load_asset<T>(id); }
+
+	inline exo::u128 save_blob(std::span<const u8> data) { return manager.save_blob(data); }
 
 	AssetManager &manager;
 };

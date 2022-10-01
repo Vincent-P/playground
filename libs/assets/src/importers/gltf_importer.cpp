@@ -1,6 +1,8 @@
 #include "assets/importers/gltf_importer.h"
 
 #include <assets/importers/importer.h>
+
+#include <exo/collections/span.h>
 #include <exo/maths/pointer.h>
 #include <exo/memory/string_repository.h>
 
@@ -171,6 +173,10 @@ struct ImporterContext
 	Vec<AssetId>               mesh_ids;
 	Vec<AssetId>               texture_ids;
 
+	Vec<uint>   indices;
+	Vec<float4> positions;
+	Vec<float2> uvs;
+
 	[[nodiscard]] exo::Path relative_to_absolute_path(std::string_view relative_path_str) const
 	{
 		auto dir = exo::Path::remove_filename(this->main_path);
@@ -254,6 +260,9 @@ static void import_meshes(ImporterContext &ctx)
 		auto mesh_uuid       = ctx.create_id<Mesh>(mesh_name);
 		ctx.mesh_ids[i_mesh] = mesh_uuid;
 		auto *new_mesh       = ctx.api.create_asset<Mesh>(mesh_uuid);
+		ctx.positions.clear();
+		ctx.uvs.clear();
+		ctx.indices.clear();
 
 		if (j_mesh.HasMember("name")) {
 			new_mesh->name = exo::tls_string_repository->intern(j_mesh["name"].GetString());
@@ -268,8 +277,8 @@ static void import_meshes(ImporterContext &ctx)
 			auto &new_submesh = new_mesh->submeshes.back();
 
 			new_submesh.index_count  = 0;
-			new_submesh.first_vertex = static_cast<u32>(new_mesh->positions.size());
-			new_submesh.first_index  = static_cast<u32>(new_mesh->indices.size());
+			new_submesh.first_vertex = static_cast<u32>(ctx.positions.size());
+			new_submesh.first_index  = static_cast<u32>(ctx.indices.size());
 			new_submesh.material     = {};
 
 			// -- Attributes
@@ -280,7 +289,7 @@ static void import_meshes(ImporterContext &ctx)
 				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
-				new_mesh->indices.reserve(accessor.count);
+				ctx.indices.reserve(accessor.count);
 				for (usize i_index = 0; i_index < usize(accessor.count); i_index += 1) {
 					u32 index = u32_invalid;
 					if (accessor.component_type == gltf::ComponentType::UnsignedShort) {
@@ -294,7 +303,7 @@ static void import_meshes(ImporterContext &ctx)
 					} else {
 						ASSERT(false);
 					}
-					new_mesh->indices.push_back(index);
+					ctx.indices.push_back(index);
 				}
 
 				new_submesh.index_count = accessor.count;
@@ -308,7 +317,7 @@ static void import_meshes(ImporterContext &ctx)
 				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
-				new_mesh->positions.reserve(accessor.count);
+				ctx.positions.reserve(accessor.count);
 				for (usize i_position = 0; i_position < usize(accessor.count); i_position += 1) {
 					float4 new_position = {1.0f};
 
@@ -324,7 +333,7 @@ static void import_meshes(ImporterContext &ctx)
 						ASSERT(false);
 					}
 
-					new_mesh->positions.push_back(new_position);
+					ctx.positions.push_back(new_position);
 				}
 			}
 
@@ -335,7 +344,7 @@ static void import_meshes(ImporterContext &ctx)
 				auto bufferview = gltf::get_bufferview(j_bufferviews[accessor.bufferview_index]);
 
 				// Copy the data from the binary buffer
-				new_mesh->uvs.reserve(accessor.count);
+				ctx.uvs.reserve(accessor.count);
 				for (usize i_uv = 0; i_uv < usize(accessor.count); i_uv += 1) {
 					float2 new_uv = {1.0f};
 
@@ -351,12 +360,12 @@ static void import_meshes(ImporterContext &ctx)
 						ASSERT(false);
 					}
 
-					new_mesh->uvs.push_back(new_uv);
+					ctx.uvs.push_back(new_uv);
 				}
 			} else {
-				new_mesh->uvs.reserve(vertex_count);
+				ctx.uvs.reserve(vertex_count);
 				for (usize i = 0; i < vertex_count; i += 1) {
-					new_mesh->uvs.push_back(float2(0.0f, 0.0f));
+					ctx.uvs.push_back(float2(0.0f, 0.0f));
 				}
 			}
 
@@ -366,6 +375,18 @@ static void import_meshes(ImporterContext &ctx)
 				new_mesh->add_dependency_checked(new_submesh.material);
 			}
 		}
+
+		auto positions_bytes          = exo::span_to_bytes<float4>(std::span(ctx.positions));
+		new_mesh->positions_hash      = ctx.api.save_blob(positions_bytes);
+		new_mesh->positions_byte_size = positions_bytes.size();
+
+		auto uvs_bytes          = exo::span_to_bytes<float2>(std::span(ctx.uvs));
+		new_mesh->uvs_hash      = ctx.api.save_blob(uvs_bytes);
+		new_mesh->uvs_byte_size = uvs_bytes.size();
+
+		auto indices_bytes          = exo::span_to_bytes<uint>(std::span(ctx.indices));
+		new_mesh->indices_hash      = ctx.api.save_blob(indices_bytes);
+		new_mesh->indices_byte_size = indices_bytes.size();
 
 		ctx.new_scene->add_dependency_checked(new_mesh->uuid);
 	}

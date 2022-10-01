@@ -122,6 +122,11 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	new_texture->format    = pixel_format;
 	new_texture->mip_offsets.push_back(0);
 	new_texture->pixels_data_size = decoded_size;
+	new_texture->pixels_hash      = request.importer_api.save_blob(std::span(buffer, decoded_size));
+	new_texture->pixels_data_size = decoded_size;
+
+	EXO_PROFILE_MFREE(buffer);
+	free(buffer);
 
 	return Ok(ProcessResponse{.products = {asset_id}});
 }

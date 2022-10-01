@@ -60,7 +60,7 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->scene.init(app->asset_manager, &app->inputs);
 
-#if 0
+#if 1
 	auto  scene_id    = AssetId::create<SubScene>("NewSponza_Main_Blender_glTF.gltf");
 	auto *scene_asset = app->asset_manager->load_asset<SubScene>(scene_id);
 	app->scene.import_subscene(scene_asset);

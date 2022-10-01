@@ -17,7 +17,7 @@ inline void serialize(Serializer &serializer, u128 &value)
 		u64 val1 = 0;
 		serialize(serializer, val0);
 		serialize(serializer, val1);
-		value = u128_from_u64(val0, val1);
+		value = u128_from_u64(val1, val0);
 	}
 }
 } // namespace exo

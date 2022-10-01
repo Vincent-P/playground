@@ -100,7 +100,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 
 	// Update the resource in the database
 	auto resource_file = cross::MappedFile::open(path.view()).value();
-	u64  resource_hash = assets::hash_file(resource_file.content());
+	u64  resource_hash = assets::hash_file64(resource_file.content());
 	resource_file.close();
 	auto &asset_record = manager.database.get_resource_from_content(resource_hash);
 	if (asset_record.asset_id != process_req.asset) {
@@ -125,7 +125,7 @@ void AssetManager::import_resources(std::span<const Handle<Resource>> records)
 		const auto &asset_path   = asset_record.resource_path;
 
 		auto resource_file = cross::MappedFile::open(asset_path.view()).value();
-		u64  resource_hash = assets::hash_file(resource_file.content());
+		u64  resource_hash = assets::hash_file64(resource_file.content());
 		resource_file.close();
 
 		if (asset_record.last_imported_hash != resource_hash) {
@@ -147,4 +147,40 @@ Asset *AssetManager::load_from_disk(const AssetId &id)
 	serializer.is_writing         = false;
 	new_asset->serialize(serializer);
 	return new_asset;
+}
+
+static exo::Path get_blob_path(exo::u128 blob_hash)
+{
+	char buffer[64] = {};
+
+	u64 blob_hash0 = 0;
+	u64 blob_hash1 = 0;
+	exo::u128_to_u64(blob_hash, &blob_hash0, &blob_hash1);
+	auto res = fmt::format_to_n(buffer, 64, "{:x}{:x}.bin", blob_hash0, blob_hash1);
+
+	auto blob_filename = std::string_view{buffer, res.size};
+	return exo::Path::join(CompiledAssetPath, blob_filename);
+}
+
+usize AssetManager::read_blob(exo::u128 blob_hash, std::span<u8> out_data)
+{
+	auto path         = get_blob_path(blob_hash);
+	auto blob_file    = cross::MappedFile::open(path.view()).value();
+	auto blob_content = blob_file.content();
+	ASSERT(out_data.size() >= blob_content.size());
+	std::memcpy(out_data.data(), blob_content.data(), blob_content.size());
+	return blob_content.size();
+}
+
+exo::u128 AssetManager::save_blob(std::span<const u8> blob_data)
+{
+	auto blob_hash = assets::hash_file128(blob_data);
+	auto path      = get_blob_path(blob_hash);
+
+	FILE *fp       = fopen(path.view().data(), "wb");
+	auto  bwritten = fwrite(blob_data.data(), 1, blob_data.size(), fp);
+	ASSERT(bwritten == blob_data.size());
+	fclose(fp);
+
+	return blob_hash;
 }

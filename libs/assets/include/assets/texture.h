@@ -37,8 +37,6 @@ struct Texture : Asset
 	const char   *type_name() const final { return "Texture"; }
 	void          serialize(exo::Serializer &serializer) final;
 
-	void read_pixels(std::span<u8> output);
-
 	PixelFormat    format;
 	ImageExtension extension;
 	i32            width;

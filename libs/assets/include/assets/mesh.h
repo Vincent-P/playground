@@ -1,6 +1,7 @@
 #pragma once
 #include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
+#include <exo/maths/u128.h>
 #include <exo/maths/vectors.h>
 
 #include "assets/asset.h"
@@ -26,16 +27,15 @@ struct Mesh : Asset
 	const char   *type_name() const final { return "Mesh"; }
 	void          serialize(exo::Serializer &serializer) final;
 
-	// doesn't check the name
-	bool is_similar(const Mesh &other) const
-	{
-		return indices == other.indices && positions == other.positions && submeshes == other.submeshes;
-	}
-	bool operator==(const Mesh &other) const = default;
-
 	// --
-	Vec<u32>     indices;
-	Vec<float4>  positions;
-	Vec<float2>  uvs;
+	exo::u128 indices_hash;
+	usize     indices_byte_size;
+
+	exo::u128 positions_hash;
+	usize     positions_byte_size;
+
+	exo::u128 uvs_hash;
+	usize     uvs_byte_size;
+
 	Vec<SubMesh> submeshes;
 };

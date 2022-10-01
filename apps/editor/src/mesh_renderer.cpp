@@ -195,19 +195,19 @@ static Handle<RenderMesh> get_or_create_mesh(
 	RenderMesh render_mesh       = {};
 	render_mesh.index_buffer     = device.create_buffer({
 			.name         = "Index buffer",
-			.size         = mesh->indices.size() * sizeof(u32),
+			.size         = mesh->indices_byte_size,
 			.usage        = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
 			.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
     });
 	render_mesh.positions_buffer = device.create_buffer({
 		.name         = "Positions buffer",
-		.size         = mesh->positions.size() * sizeof(float4),
+		.size         = mesh->positions_byte_size,
 		.usage        = vulkan::storage_buffer_usage,
 		.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
 	});
 	render_mesh.uvs_buffer       = device.create_buffer({
 			  .name         = "UV buffer",
-			  .size         = mesh->uvs.size() * sizeof(float2),
+			  .size         = mesh->uvs_byte_size,
 			  .usage        = vulkan::storage_buffer_usage,
 			  .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
     });
@@ -290,7 +290,7 @@ void register_upload_nodes(RenderGraph &graph,
 				upload_offset,
 				upload_buffer.i_frame);
 
-			texture->read_pixels(p_upload_data);
+			asset_manager->read_blob(texture->pixels_hash, p_upload_data);
 			mesh_renderer.image_uploads.push_back(RenderImageUpload{
 				.dst_image     = p_render_texture->image,
 				.upload_offset = upload_offset,
@@ -390,39 +390,31 @@ void register_upload_nodes(RenderGraph &graph,
 				upload_offset,
 				upload_buffer.i_frame);
 
-			auto p_indices   = mesh_asset->indices.data();
-			auto p_positions = mesh_asset->positions.data();
-			auto p_uvs       = mesh_asset->uvs.data();
-
-			auto *cursor = p_upload_data.data();
-			std::memcpy(cursor, p_indices, indices_size);
-			cursor = exo::ptr_offset(cursor, indices_size);
+			auto bread = asset_manager->read_blob(mesh_asset->indices_hash, p_upload_data);
 			mesh_renderer.buffer_uploads.push_back(RenderUploads{
 				.dst_buffer    = p_render_mesh->index_buffer,
 				.upload_offset = upload_offset,
 				.upload_size   = indices_size,
 			});
 
-			std::memcpy(cursor, p_positions, positions_size);
-			cursor = exo::ptr_offset(cursor, positions_size);
+			bread += asset_manager->read_blob(mesh_asset->positions_hash, p_upload_data.subspan(bread));
 			mesh_renderer.buffer_uploads.push_back(RenderUploads{
 				.dst_buffer    = p_render_mesh->positions_buffer,
 				.upload_offset = upload_offset + indices_size,
 				.upload_size   = positions_size,
 			});
 
-			std::memcpy(cursor, p_uvs, uvs_size);
-			cursor = exo::ptr_offset(cursor, uvs_size);
+			bread += asset_manager->read_blob(mesh_asset->uvs_hash, p_upload_data.subspan(bread));
 			mesh_renderer.buffer_uploads.push_back(RenderUploads{
 				.dst_buffer    = p_render_mesh->uvs_buffer,
 				.upload_offset = upload_offset + indices_size + positions_size,
 				.upload_size   = uvs_size,
 			});
 
+			auto p_upload_submeshes = exo::reinterpret_span<SubmeshDescriptor>(p_upload_data.subspan(bread));
 			for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.size(); ++i_submesh) {
 				const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
 
-				auto *p_upload_submeshes                   = reinterpret_cast<SubmeshDescriptor *>(cursor);
 				p_upload_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
 				p_upload_submeshes[i_submesh].first_vertex = mesh_asset->submeshes[i_submesh].first_vertex;
 				p_upload_submeshes[i_submesh].index_count  = mesh_asset->submeshes[i_submesh].index_count;
@@ -433,19 +425,20 @@ void register_upload_nodes(RenderGraph &graph,
 					p_upload_submeshes[i_submesh].i_material = u32_invalid;
 				}
 			}
+			bread += submeshes_size;
 			mesh_renderer.buffer_uploads.push_back(RenderUploads{
 				.dst_buffer    = p_render_mesh->submesh_buffer,
 				.upload_offset = upload_offset + indices_size + positions_size + uvs_size,
 				.upload_size   = submeshes_size,
 			});
 
-			cursor                                       = exo::ptr_offset(cursor, submeshes_size);
-			auto *p_upload_descriptor                    = reinterpret_cast<MeshDescriptor *>(cursor);
-			p_upload_descriptor->index_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->index_buffer);
-			p_upload_descriptor->positions_buffer_descriptor =
+			auto p_upload_descriptor = exo::reinterpret_span<MeshDescriptor>(p_upload_data.subspan(bread));
+			p_upload_descriptor[0].index_buffer_descriptor =
+				device.get_buffer_storage_index(p_render_mesh->index_buffer);
+			p_upload_descriptor[0].positions_buffer_descriptor =
 				device.get_buffer_storage_index(p_render_mesh->positions_buffer);
-			p_upload_descriptor->uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
-			p_upload_descriptor->submesh_buffer_descriptor =
+			p_upload_descriptor[0].uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
+			p_upload_descriptor[0].submesh_buffer_descriptor =
 				device.get_buffer_storage_index(p_render_mesh->submesh_buffer);
 			mesh_renderer.buffer_uploads.push_back(RenderUploads{
 				.dst_buffer    = mesh_renderer.meshes_buffer,
@@ -453,14 +446,6 @@ void register_upload_nodes(RenderGraph &graph,
 				.upload_offset = upload_offset + indices_size + positions_size + uvs_size + submeshes_size,
 				.upload_size   = sizeof(MeshDescriptor),
 			});
-
-			// free mesh memory, we dont need it anymroe
-			mesh_asset->indices.clear();
-			mesh_asset->indices.shrink_to_fit();
-			mesh_asset->positions.clear();
-			mesh_asset->positions.shrink_to_fit();
-			mesh_asset->uvs.clear();
-			mesh_asset->uvs.shrink_to_fit();
 
 			p_render_mesh->is_uploaded = true;
 			break;
