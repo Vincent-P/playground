@@ -1,8 +1,8 @@
 #pragma once
 #include "cross/buttons.h"
+#include "cross/events.h"
 #include "exo/collections/enum_array.h"
 #include "exo/collections/vector.h"
-#include "exo/events.h"
 #include "exo/maths/vectors.h"
 
 #include <string>
