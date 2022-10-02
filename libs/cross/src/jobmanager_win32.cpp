@@ -7,6 +7,8 @@
 #include "cross/jobs/readfiles.h"
 
 #include "jobmanager_win32.h" // for Impls
+#include "jobs/job_win32.h"
+#include "jobs/readfiles_win32.h"
 
 #include <cstdio>
 #include <windows.h>
@@ -58,6 +60,25 @@ void JobManager::destroy()
 	}
 }
 
+void worker_thread_read_file(ReadFileJob &job)
+{
+	auto &readjob_impl = job.readfilejob_impl.get();
+
+	auto *complete_job     = new ReadFileCompletedJob;
+	auto &completejob_impl = complete_job->job_impl.get();
+
+	complete_job->type         = ReadFileCompletedJob::TASK_TYPE;
+	complete_job->path         = job.path;
+	complete_job->read_size    = job.size;
+	complete_job->done_counter = job.done_counter;
+	completejob_impl.ovl       = job.job_impl.get().ovl;
+
+	auto res = ReadFile(readjob_impl.file_handle, job.dst.data(), DWORD(job.size), NULL, &completejob_impl.ovl);
+
+	auto last_error = GetLastError();
+	ASSERT(!res && last_error == ERROR_IO_PENDING);
+}
+
 DWORD worker_thread_proc(void *param)
 {
 	HANDLE completion_port = param;
@@ -82,10 +103,16 @@ DWORD worker_thread_proc(void *param)
 			foreachjob.callback(foreachjob);
 			InterlockedIncrement64(foreachjob.done_counter);
 		} else if (p_job->type == ReadFileJob::TASK_TYPE) {
-			auto &foreachjob = *reinterpret_cast<ReadFileJob *>(p_job);
-			ASSERT(foreachjob.size >= bytes_transferred);
-			// printf("Read file %.*s\n", int(foreachjob.path.size()), foreachjob.path.data());
-			InterlockedIncrement64(foreachjob.done_counter);
+			auto &readfile_job = *reinterpret_cast<ReadFileJob *>(p_job);
+			worker_thread_read_file(readfile_job);
+		} else if (p_job->type == ReadFileCompletedJob::TASK_TYPE) {
+			auto readcomplete_job = reinterpret_cast<ReadFileCompletedJob *>(p_job);
+			ASSERT(readcomplete_job->read_size >= bytes_transferred);
+			InterlockedIncrement64(readcomplete_job->done_counter);
+			delete readcomplete_job;
+
+			auto file_handle = (HANDLE)(completion_key);
+			CloseHandle(file_handle);
 		} else {
 			ASSERT(false);
 		}

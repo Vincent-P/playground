@@ -5,20 +5,16 @@
 
 #include "cross/jobs/waitable.h"
 
-#include "job_win32.h"
 #include "jobmanager_win32.h"
+#include "jobs/job_win32.h"
+#include "jobs/readfiles_win32.h"
+
 #include "utils_win32.h"
 
 #include <windows.h>
 
 namespace cross
 {
-
-struct ReadFileJob::Impl
-{
-	HANDLE file_handle;
-};
-
 std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<const ReadFileJobDesc> job_descs)
 {
 	auto &manager_impl = jobmanager.impl.get();
@@ -54,13 +50,17 @@ std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<con
 		}
 
 		{
-			EXO_PROFILE_SCOPE_NAMED("IOCP/ReadFile")
-			auto completion_port =
-				CreateIoCompletionPort(readjob_impl.file_handle, manager_impl.completion_port, NULL, 0);
+			EXO_PROFILE_SCOPE_NAMED("CreateIoCompletionPort")
+			auto completion_port = CreateIoCompletionPort(readjob_impl.file_handle,
+				manager_impl.completion_port,
+				(ULONG_PTR)readjob_impl.file_handle,
+				0);
 			ASSERT(completion_port != NULL);
-
-			auto res = ReadFile(readjob_impl.file_handle, job->dst.data(), DWORD(job->size), NULL, &job_impl.ovl);
-			ASSERT(!res && GetLastError() == ERROR_IO_PENDING);
+		}
+		{
+			EXO_PROFILE_SCOPE_NAMED("PostQueuedCompletionStatus")
+			auto res = PostQueuedCompletionStatus(manager_impl.completion_port, 0, NULL, &job_impl.ovl);
+			ASSERT(res);
 		}
 
 		waitable->jobs.push_back(std::move(job));
