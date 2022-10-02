@@ -541,10 +541,9 @@ void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Ha
 					u32      materials_descriptor;
 				})
 
-				auto options =
-					bindings::bind_option_struct<Options>(api.device, api.uniform_buffer, cmd, sizeof(Options));
-				options[0].view                 = view;
-				options[0].projection           = projection;
+				auto options          = bindings::bind_option_struct<Options>(api.device, api.uniform_buffer, cmd);
+				options[0].view       = view;
+				options[0].projection = projection;
 				options[0].instances_descriptor = instances_descriptor;
 				options[0].meshes_descriptor    = meshes_descriptor;
 				options[0].i_submesh            = drawcall.i_submesh;

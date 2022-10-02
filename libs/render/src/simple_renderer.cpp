@@ -102,6 +102,10 @@ void SimpleRenderer::destroy()
 void SimpleRenderer::start_frame()
 {
 	EXO_PROFILE_SCOPE;
+	
+	EXO_PROFILE_PLOT_VALUE("Uniforms last frame allocated",
+		i64(this->uniform_buffer.frame_size_allocated[this->uniform_buffer.i_frame %
+													  this->uniform_buffer.frame_size_allocated.size()]));
 
 	this->uniform_buffer.start_frame();
 	this->dynamic_vertex_buffer.start_frame();

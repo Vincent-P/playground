@@ -101,10 +101,7 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 			})
 
 			auto output_size       = graph.image_size(output);
-			auto options           = bindings::bind_option_struct<PainterOptions>(api.device,
-                api.uniform_buffer,
-                cmd,
-                sizeof(PainterOptions));
+			auto options           = bindings::bind_option_struct<PainterOptions>(api.device, api.uniform_buffer, cmd);
 			options[0].scale       = float2(2.0) / float2(int2(output_size.x, output_size.y));
 			options[0].translation = float2(-1.0f, -1.0f);
 			options[0].vertices_descriptor_index =
