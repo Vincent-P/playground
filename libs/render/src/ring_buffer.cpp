@@ -14,7 +14,7 @@ RingBuffer RingBuffer::create(gfx::Device &device, const RingBufferDescription &
 		.name         = buf.name,
 		.size         = desc.size,
 		.usage        = buf.usage,
-		.memory_usage = vulkan::MemoryUsage::CPU_TO_GPU,
+		.memory_usage = vulkan::MemoryUsage::PREFER_HOST,
 	});
 
 	buf.frame_size_allocated.resize(desc.frame_queue_length);

@@ -24,8 +24,11 @@ Handle<Buffer> Device::create_buffer(const BufferDescription &buffer_desc)
 	buffer_info.pQueueFamilyIndices   = nullptr;
 
 	VmaAllocationCreateInfo alloc_info{};
-	alloc_info.usage     = VmaMemoryUsage(new_buffer.memory_usage);
-	alloc_info.flags     = VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
+	alloc_info.usage = VmaMemoryUsage(new_buffer.memory_usage);
+	if (new_buffer.memory_usage == MemoryUsage::PREFER_HOST) {
+		alloc_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+	}
+	alloc_info.flags |= VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT;
 	alloc_info.pUserData = const_cast<void *>(reinterpret_cast<const void *>(new_buffer.name.c_str()));
 
 	VkBuffer      vkhandle   = VK_NULL_HANDLE;

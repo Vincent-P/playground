@@ -53,7 +53,7 @@ struct ImageDescription
 	VkFormat              format                                      = VK_FORMAT_R8G8B8A8_UNORM;
 	VkSampleCountFlagBits samples                                     = VK_SAMPLE_COUNT_1_BIT;
 	VkImageUsageFlags     usages                                      = sampled_image_usage;
-	MemoryUsage           memory_usage                                = MemoryUsage::GPU_ONLY;
+	MemoryUsage           memory_usage                                = MemoryUsage::PREFER_DEVICE;
 	bool                  operator==(const ImageDescription &b) const = default;
 };
 

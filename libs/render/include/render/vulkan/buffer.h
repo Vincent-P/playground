@@ -38,7 +38,7 @@ struct BufferAccess
 {
 	VkPipelineStageFlags stage  = 0;
 	VkAccessFlags        access = 0;
-	// q	ueue?
+	// queue?
 };
 
 struct BufferDescription
@@ -46,7 +46,7 @@ struct BufferDescription
 	std::string        name         = "No name";
 	usize              size         = 1;
 	VkBufferUsageFlags usage        = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	MemoryUsage        memory_usage = MemoryUsage::GPU_ONLY;
+	MemoryUsage        memory_usage = MemoryUsage::PREFER_DEVICE;
 
 	bool operator==(const BufferDescription &b) const = default;
 };
