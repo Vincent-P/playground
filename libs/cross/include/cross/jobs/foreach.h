@@ -21,7 +21,7 @@ struct ForeachJob : public Job
 
 	// The indirection trough this callback makes it possible to type user_data and user_lambda in the function creating
 	// the task.
-	void (*callback)(ForeachJob&) = nullptr;
+	void (*callback)(ForeachJob &) = nullptr;
 
 	volatile i64 *done_counter;
 };
@@ -47,7 +47,7 @@ std::unique_ptr<Waitable> parallel_foreach(
 		job->user_data   = std::bit_cast<std::span<u8>>(chunk);
 		job->user_lambda = (void *)lambda;
 
-		job->callback = [](ForeachJob& job) {
+		job->callback = [](ForeachJob &job) {
 			EXO_PROFILE_SCOPE_NAMED("User foreach job")
 			auto casted_lambda = (ForEachFn<ElementType>)(job.user_lambda);
 			auto casted_span   = std::bit_cast<std::span<ElementType>>(job.user_data);
@@ -63,5 +63,4 @@ std::unique_ptr<Waitable> parallel_foreach(
 
 	return waitable;
 }
-
 } // namespace cross

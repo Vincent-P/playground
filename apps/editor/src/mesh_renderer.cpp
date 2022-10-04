@@ -77,16 +77,14 @@ MeshRenderer MeshRenderer::create(vulkan::Device &device)
 			 .frame_queue_length = FRAME_QUEUE_LENGTH,
         });
 	renderer.meshes_buffer     = device.create_buffer({
-			.name         = "Meshes buffer",
-			.size         = sizeof(MeshDescriptor) * (1 << 15),
-			.usage        = vulkan::storage_buffer_usage,
-			.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+			.name  = "Meshes buffer",
+			.size  = sizeof(MeshDescriptor) * (1 << 15),
+			.usage = vulkan::storage_buffer_usage,
     });
 	renderer.materials_buffer  = device.create_buffer({
-		 .name         = "Materials buffer",
-		 .size         = sizeof(MaterialDescriptor) * (1 << 20),
-		 .usage        = vulkan::storage_buffer_usage,
-		 .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+		 .name  = "Materials buffer",
+		 .size  = sizeof(MaterialDescriptor) * (1 << 20),
+		 .usage = vulkan::storage_buffer_usage,
     });
 
 	vulkan::GraphicsState gui_state = {};
@@ -194,28 +192,24 @@ static Handle<RenderMesh> get_or_create_mesh(
 
 	RenderMesh render_mesh       = {};
 	render_mesh.index_buffer     = device.create_buffer({
-			.name         = "Index buffer",
-			.size         = mesh->indices_byte_size,
-			.usage        = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
-			.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+			.name  = "Index buffer",
+			.size  = mesh->indices_byte_size,
+			.usage = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
     });
 	render_mesh.positions_buffer = device.create_buffer({
-		.name         = "Positions buffer",
-		.size         = mesh->positions_byte_size,
-		.usage        = vulkan::storage_buffer_usage,
-		.memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+		.name  = "Positions buffer",
+		.size  = mesh->positions_byte_size,
+		.usage = vulkan::storage_buffer_usage,
 	});
 	render_mesh.uvs_buffer       = device.create_buffer({
-			  .name         = "UV buffer",
-			  .size         = mesh->uvs_byte_size,
-			  .usage        = vulkan::storage_buffer_usage,
-			  .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+			  .name  = "UV buffer",
+			  .size  = mesh->uvs_byte_size,
+			  .usage = vulkan::storage_buffer_usage,
     });
 	render_mesh.submesh_buffer   = device.create_buffer({
-		  .name         = "Submesh buffer",
-		  .size         = mesh->submeshes.size() * sizeof(SubmeshDescriptor),
-		  .usage        = vulkan::storage_buffer_usage,
-		  .memory_usage = vulkan::MemoryUsage::GPU_ONLY,
+		  .name  = "Submesh buffer",
+		  .size  = mesh->submeshes.size() * sizeof(SubmeshDescriptor),
+		  .usage = vulkan::storage_buffer_usage,
     });
 	render_mesh.mesh_asset       = mesh_uuid;
 

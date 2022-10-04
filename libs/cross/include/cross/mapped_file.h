@@ -2,6 +2,8 @@
 #include <exo/maths/numerics.h>
 #include <exo/option.h>
 
+#include <cross/prelude.h>
+
 #include <span>
 #include <string_view>
 
@@ -15,6 +17,7 @@ struct MappedFile
 #endif
 
 	const void *base_addr = nullptr;
+	void       *mapping   = nullptr;
 	usize       size      = 0;
 
 	MappedFile()                         = default;
@@ -25,7 +28,8 @@ struct MappedFile
 	MappedFile &operator=(const MappedFile &copied) = delete;
 	MappedFile &operator                            =(MappedFile &&moved) noexcept;
 
-	static Option<MappedFile>  open(const std::string_view &path);
+	static Option<MappedFile> open(const std::string_view &path);
+
 	inline std::span<const u8> content()
 	{
 		return std::span<u8 const>{reinterpret_cast<u8 const *>(this->base_addr), this->size};

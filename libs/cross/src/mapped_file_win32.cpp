@@ -14,8 +14,9 @@ MappedFile::~MappedFile() { this->close(); }
 MappedFile &MappedFile::operator=(MappedFile &&moved) noexcept
 {
 	if (this != &moved) {
-		base_addr = std::exchange(moved.base_addr, nullptr);
-		size      = std::exchange(moved.size, 0);
+		this->base_addr = std::exchange(moved.base_addr, nullptr);
+		this->mapping   = std::exchange(moved.mapping, nullptr);
+		this->size      = std::exchange(moved.size, 0);
 	}
 	return *this;
 }
@@ -36,13 +37,12 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 	DWORD lo  = GetFileSize(fd, &hi);
 	file.size = ((u64)hi << 32) | (u64)lo;
 
-	auto mapping = CreateFileMapping(fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
-	if (!utils::is_handle_valid(mapping)) {
+	file.mapping = CreateFileMapping(fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
+	if (!utils::is_handle_valid(file.mapping)) {
 		return {};
 	}
-	DEFER { CloseHandle(mapping); };
 
-	file.base_addr = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+	file.base_addr = MapViewOfFile(file.mapping, FILE_MAP_READ, 0, 0, 0);
 	if (!file.base_addr) {
 		return {};
 	}
@@ -53,8 +53,10 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 void MappedFile::close()
 {
 	if (base_addr) {
-		UnmapViewOfFile(base_addr);
-		base_addr = nullptr;
+		UnmapViewOfFile(this->base_addr);
+		CloseHandle(this->mapping);
+		this->base_addr = nullptr;
+		this->mapping   = NULL;
 	}
 }
 }; // namespace cross

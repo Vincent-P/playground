@@ -4,7 +4,7 @@
 
 namespace cross
 {
-inline constexpr usize THREAD_POOL_LENGTH = 8;
+inline constexpr usize THREAD_POOL_LENGTH = 24;
 
 struct Job;
 

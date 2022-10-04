@@ -69,7 +69,6 @@ struct GraphicsProgram
 
 	// pipeline
 	exo::DynamicArray<VkPipeline, MAX_RENDER_STATES> pipelines;
-	VkPipelineCache                                  cache;
 	VkRenderPass                                     renderpass;
 };
 

@@ -9,10 +9,6 @@ namespace vulkan
 {
 Handle<GraphicsProgram> Device::create_program(std::string_view name, const GraphicsState &graphics_state)
 {
-	VkPipelineCacheCreateInfo cache_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
-	VkPipelineCache           cache      = VK_NULL_HANDLE;
-	vk_check(vkCreatePipelineCache(device, &cache_info, nullptr, &cache));
-
 	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
 	auto renderpass =
@@ -21,7 +17,6 @@ Handle<GraphicsProgram> Device::create_program(std::string_view name, const Grap
 	return graphics_programs.add({
 		.name           = std::string{name},
 		.graphics_state = graphics_state,
-		.cache          = cache,
 		.renderpass     = renderpass.vkhandle,
 	});
 }
@@ -33,7 +28,6 @@ void Device::destroy_program(Handle<GraphicsProgram> program_handle)
 		vkDestroyPipeline(device, pipeline, nullptr);
 	}
 
-	vkDestroyPipelineCache(device, program.cache, nullptr);
 	vkDestroyRenderPass(device, program.renderpass, nullptr);
 
 	graphics_programs.remove(program_handle);

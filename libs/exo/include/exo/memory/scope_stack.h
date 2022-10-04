@@ -7,6 +7,7 @@
 
 namespace exo
 {
+
 struct Finalizer
 {
 	void (*fn)(void *ptr);

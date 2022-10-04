@@ -30,6 +30,6 @@ private:
 	u8 *end          = nullptr;
 };
 
-inline u8                tls_data[128 << 20];
-inline thread_local auto tls_allocator = LinearAllocator::with_external_memory(tls_data, sizeof(tls_data));
+inline u8                tls_data[256 << 10];
+inline auto tls_allocator = LinearAllocator::with_external_memory(tls_data, sizeof(tls_data));
 }; // namespace exo
