@@ -10,7 +10,7 @@
 SimpleRenderer SimpleRenderer::create(u64 window_handle)
 {
 	SimpleRenderer renderer;
-	renderer.context = vulkan::Context::create({.enable_validation = false});
+	renderer.context = vulkan::Context::create({.enable_validation = true});
 
 	// Pick a GPU
 	auto &physical_devices = renderer.context.physical_devices;
@@ -102,7 +102,7 @@ void SimpleRenderer::destroy()
 void SimpleRenderer::start_frame()
 {
 	EXO_PROFILE_SCOPE;
-	
+
 	EXO_PROFILE_PLOT_VALUE("Uniforms last frame allocated",
 		i64(this->uniform_buffer.frame_size_allocated[this->uniform_buffer.i_frame %
 													  this->uniform_buffer.frame_size_allocated.size()]));
@@ -124,6 +124,7 @@ void SimpleRenderer::start_frame()
 void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 {
 	EXO_PROFILE_SCOPE;
+	this->time += dt;
 
 	auto i_frame          = this->swapchain_node.i_frame;
 	auto swapchain_output = builtins::acquire_next_image(this->render_graph, this->swapchain_node);
@@ -150,8 +151,12 @@ void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 	};
 
 	this->render_graph.execute(pass_api, workpool);
+}
+
+void SimpleRenderer::end_frame()
+{
 	this->frame_count += 1;
-	this->time += dt;
+	this->render_graph.end_frame();
 }
 
 const vulkan::Surface &SimpleRenderer::surface() { return this->swapchain_node.surface; }

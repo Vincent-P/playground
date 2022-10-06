@@ -43,7 +43,7 @@ static void tree_view_entity(
 	}
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
-	auto line_rect         = content_rectsplit.split(1.0f * ui.theme.font_size);
+	auto line_rect         = content_rectsplit.split(2.0f * ui.theme.font_size);
 	auto line_rectsplit    = RectSplit{line_rect, SplitDirection::Left};
 
 	auto &entity_opened = scene_ui.entity_uis[entity].treeview_opened;

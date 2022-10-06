@@ -28,6 +28,7 @@ struct SimpleRenderer
 
 	void                   start_frame();
 	void                   render(Handle<TextureDesc> output, float dt);
+	void                   end_frame();
 	const vulkan::Surface &surface();
 
 private:

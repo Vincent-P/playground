@@ -13,6 +13,19 @@ struct SrgbPass
 	Handle<vulkan::ComputeProgram> program;
 };
 
+struct DrawInput
+{
+	const RenderWorld *world               = nullptr;
+	float2             world_viewport_size = float2(-1.0f);
+	Painter           *painter             = nullptr;
+};
+
+struct DrawResult
+{
+	u32 glyph_atlas_index;
+	u32 scene_viewport_index;
+};
+
 struct Renderer
 {
 	SimpleRenderer base;
@@ -23,6 +36,6 @@ struct Renderer
 	AssetManager *asset_manager = nullptr;
 
 	static Renderer create(u64 window_handle, AssetManager *asset_manager);
-	void            draw(const RenderWorld &world, Painter *painter);
-	u32             glyph_atlas_index() const;
+
+	DrawResult draw(DrawInput input);
 };

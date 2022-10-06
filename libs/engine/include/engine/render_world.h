@@ -21,6 +21,7 @@ struct RenderWorld
 	float4x4 main_camera_view_inverse;
 	float4x4 main_camera_projection;
 	float4x4 main_camera_projection_inverse;
+	float    main_camera_fov;
 
 	Vec<DrawableInstance> drawable_instances;
 };

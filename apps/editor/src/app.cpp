@@ -1,5 +1,6 @@
 #include "app.h"
 
+#include <engine/camera.h>
 #include <engine/scene.h>
 #include <exo/memory/scope_stack.h>
 #include <exo/profile.h>
@@ -51,7 +52,7 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
 	app->painter                      = painter_allocate(scope, 1_MiB, 1_MiB, int2(1024, 1024));
-	app->painter->glyph_atlas_gpu_idx = app->renderer.glyph_atlas_index();
+	app->painter->glyph_atlas_gpu_idx = 0; // null texture
 
 	app->ui      = ui::create(&app->ui_font, font_size_px, app->painter);
 	app->docking = docking::create();
@@ -114,9 +115,13 @@ void App::display_ui(double dt)
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Scene"); view_rect) {
 		EXO_PROFILE_SCOPE_NAMED("Scene");
 
+		static auto scene_scroll_offset = float2();
+
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
-		scene_debug_ui(this->ui, this->scene, content_rect);
+		auto inner_content_rect = ui::begin_scroll_area(this->ui, content_rect, scene_scroll_offset);
+		scene_debug_ui(this->ui, this->scene, inner_content_rect);
+		ui::end_scroll_area(this->ui, inner_content_rect);
 		ui::pop_clip_rect(this->ui);
 	}
 
@@ -183,6 +188,22 @@ void App::display_ui(double dt)
 		ui::end_scroll_area(this->ui, inner_content_rect);
 
 		ui::pop_clip_rect(this->ui);
+	}
+
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Viewport"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("3D viewport");
+		this->viewport_size = view_rect.value().size;
+
+		if (this->viewport_texture_index != u32_invalid) {
+			Rect uv = {.pos = float2(0.0f), .size = float2(1.0f)};
+			painter_draw_textured_rect(*this->painter,
+				view_rect.value(),
+				u32_invalid,
+				uv,
+				this->viewport_texture_index);
+		}
+	} else {
+		this->viewport_size = float2(-1.0f);
 	}
 
 	docking::end_docking(this->docking, this->ui);
@@ -254,7 +275,19 @@ void App::run()
 			this->scene.update(inputs);
 			this->render_world =
 				this->scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world;
-			this->renderer.draw(render_world, this->ui.painter);
+
+			this->render_world.main_camera_projection = camera::infinite_perspective(this->render_world.main_camera_fov,
+				this->viewport_size.x / this->viewport_size.y,
+				0.1f);
+
+			DrawInput draw_input           = {};
+			draw_input.world_viewport_size = this->viewport_size;
+			draw_input.world               = &this->render_world;
+			draw_input.painter             = this->painter;
+			auto draw_result               = this->renderer.draw(draw_input);
+
+			this->painter->glyph_atlas_gpu_idx = draw_result.glyph_atlas_index;
+			this->viewport_texture_index       = draw_result.scene_viewport_index;
 		}
 
 		watcher.update([&](const cross::Watch & /*watch*/, const cross::WatchEvent & /*event*/) {

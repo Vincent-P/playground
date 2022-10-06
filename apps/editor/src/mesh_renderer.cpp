@@ -11,6 +11,7 @@
 #include <assets/mesh.h>
 #include <assets/texture.h>
 
+#include <engine/camera.h>
 #include <engine/render_world.h>
 
 #include <render/bindings.h>
@@ -506,12 +507,13 @@ void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Ha
 	auto meshes_descriptor    = mesh_renderer.meshes_descriptor;
 	auto materials_descriptor = mesh_renderer.materials_descriptor;
 	auto simple_program       = mesh_renderer.simple_program;
-	auto projection           = mesh_renderer.projection;
 	auto view                 = mesh_renderer.view;
+	auto output_size          = graph.image_size(output);
+	auto projection           = mesh_renderer.projection;
 
 	auto depth_buffer = graph.output(TextureDesc{
 		.name   = "depth buffer desc",
-		.size   = TextureSize::screen_relative(float2(1.0, 1.0)),
+		.size   = TextureSize::absolute(output_size.xy()),
 		.format = VK_FORMAT_D32_SFLOAT,
 	});
 

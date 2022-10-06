@@ -2,8 +2,8 @@ set(SOURCE_FILES
   include/engine/render_world.h
   include/engine/render_world_system.h
   include/engine/scene.h
+  include/engine/camera.h
   src/camera.cpp
-  src/camera.h
   src/render_world_system.cpp
   src/scene.cpp
 )

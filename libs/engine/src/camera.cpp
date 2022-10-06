@@ -1,4 +1,4 @@
-#include "camera.h"
+#include "engine/camera.h"
 
 #include <exo/macros/assert.h>
 

@@ -77,8 +77,6 @@ void EditorCameraInputSystem::update(const UpdateContext &)
 		camera_input_component->scroll = {};
 	}
 	camera_input_component->mouse_delta  = inputs->get_mouse_delta();
-	f32 aspect_ratio                     = f32(inputs->main_window_size.x) / f32(inputs->main_window_size.y);
-	camera_input_component->aspect_ratio = aspect_ratio;
 }
 
 void EditorCameraTransformSystem::update(const UpdateContext &ctx)
@@ -203,5 +201,4 @@ void EditorCameraTransformSystem::update(const UpdateContext &ctx)
 	reinterpret_cast<SpatialComponent *>(camera_component)->set_local_transform(new_transform);
 
 	camera_component->look_at(position, editor_camera_component->target, up);
-	camera_component->set_perspective(camera_input_component->aspect_ratio);
 }

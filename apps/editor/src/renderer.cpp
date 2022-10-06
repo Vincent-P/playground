@@ -58,39 +58,60 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 	});
 }
 
-void Renderer::draw(const RenderWorld &world, Painter *painter)
+DrawResult Renderer::draw(DrawInput input)
 {
 	EXO_PROFILE_SCOPE;
 	base.start_frame();
 
-	register_upload_nodes(this->base.render_graph,
-		this->mesh_renderer,
-		this->base.device,
-		this->base.upload_buffer,
-		this->asset_manager,
-		world);
-
-	auto intermediate_buffer = base.render_graph.output(TextureDesc{
-		.name = "render buffer desc",
-		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
-	});
-	register_graphics_nodes(this->base.render_graph, this->mesh_renderer, intermediate_buffer);
-	if (painter) {
-		auto &pass = register_graph(this->base.render_graph, this->ui_renderer, painter, intermediate_buffer);
-		pass.clear = false;
+	if (input.world) {
+		register_upload_nodes(this->base.render_graph,
+			this->mesh_renderer,
+			this->base.device,
+			this->base.upload_buffer,
+			this->asset_manager,
+			*input.world);
 	}
 
-	auto srgb_buffer = base.render_graph.output(TextureDesc{
-		.name = "srgb buffer desc",
+	auto scene_rt = Handle<TextureDesc>::invalid();
+	bool has_world_viewport = input.world_viewport_size.x > 0 && input.world_viewport_size.y > 0;
+	if (has_world_viewport) {
+
+		scene_rt = base.render_graph.output(TextureDesc{
+			.name = "world viewport",
+			.size = TextureSize::absolute(exo::int2(input.world_viewport_size)),
+		});
+
+		register_graphics_nodes(this->base.render_graph, this->mesh_renderer, scene_rt);
+	}
+
+	auto screen_rt = base.render_graph.output(TextureDesc{
+		.name = "screen rt",
 		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
 	});
 
-	register_srgb_pass(*this, intermediate_buffer, srgb_buffer);
+	if (input.painter) {
+		register_graph(this->base.render_graph, this->ui_renderer, input.painter, screen_rt);
+	}
 
-	base.render(srgb_buffer, 1.0);
-}
+	auto srgb_screen_rt = base.render_graph.output(TextureDesc{
+		.name = "srgb screen rt",
+		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
+	});
 
-u32 Renderer::glyph_atlas_index() const
-{
-	return this->base.device.get_image_sampled_index(this->ui_renderer.glyph_atlas);
+	register_srgb_pass(*this, screen_rt, srgb_screen_rt);
+	base.render(srgb_screen_rt, 1.0);
+
+	// Prepare the result
+	DrawResult draw_result = {};
+
+	draw_result.glyph_atlas_index = this->base.device.get_image_sampled_index(this->ui_renderer.glyph_atlas);
+
+	if (scene_rt.is_valid()) {
+		auto scene_rt_handle             = this->base.render_graph.resources.resolve_image(this->base.device, scene_rt);
+		draw_result.scene_viewport_index = this->base.device.get_image_sampled_index(scene_rt_handle);
+	}
+
+	base.end_frame();
+
+	return draw_result;
 }

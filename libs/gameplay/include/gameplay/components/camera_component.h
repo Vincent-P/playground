@@ -10,7 +10,6 @@ struct CameraComponent : SpatialComponent
 	float fov        = 90.0f;
 
 	void look_at(float3 eye, float3 at, float3 up);
-	void set_perspective(float aspect_ratio);
 
 	// clang-format off
     float4x4 get_view() const { return view; }

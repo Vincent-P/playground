@@ -83,6 +83,8 @@ struct RenderGraph
 	u64              i_frame = 0;
 
 	void         execute(PassApi api, vulkan::WorkPool &work_pool);
+	void end_frame();
+
 	GraphicPass &graphic_pass(
 		Handle<TextureDesc> color_attachment, Handle<TextureDesc> depth_buffer, GraphicCb execute);
 	RawPass &raw_pass(RawCb execute);

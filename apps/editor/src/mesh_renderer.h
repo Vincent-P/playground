@@ -108,8 +108,8 @@ struct MeshRenderer
 	Vec<RenderUploads>     buffer_uploads;
 	Vec<RenderImageUpload> image_uploads;
 	Vec<SimpleDraw>        drawcalls;
-	float4x4               projection = {};
 	float4x4               view       = {};
+	float4x4               projection = {};
 
 	static MeshRenderer create(vulkan::Device &device);
 };

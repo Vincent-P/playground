@@ -39,6 +39,14 @@ struct TextureSize
 			.size = TextureSizeValue{.float2 = size},
 		};
 	}
+
+	static constexpr TextureSize absolute(int2 size)
+	{
+		return TextureSize{
+			.type = TextureSizeType::Absolute,
+			.size = TextureSizeValue{.int2 = size},
+		};
+	}
 };
 
 struct TextureDesc

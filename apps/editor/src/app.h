@@ -1,14 +1,15 @@
 #pragma once
-#include "renderer.h"
 #include <cross/file_watcher.h>
 #include <engine/render_world.h>
 #include <engine/scene.h>
+#include <exo/maths/vectors.h>
 #include <gameplay/inputs.h>
 #include <painter/font.h>
 #include <ui/docking.h>
 #include <ui/ui.h>
 
 #include "custom_ui.h"
+#include "renderer.h"
 
 struct ScopeStack;
 struct AssetManager;
@@ -33,14 +34,20 @@ public:
 private:
 	void display_ui(double dt);
 
-	cross::Window          *window;
-	AssetManager           *asset_manager;
-	Renderer                renderer;
+	cross::Window *window;
+	AssetManager  *asset_manager;
+	Renderer       renderer;
+
+	Font     ui_font;
+	Painter *painter;
+
+	// -- UI
 	ui::Ui                  ui;
-	Font                    ui_font;
-	Painter                *painter;
 	docking::Docking        docking;
 	custom_ui::FpsHistogram histogram;
+	// 3d viewport
+	float2 viewport_size;
+	u32    viewport_texture_index;
 
 	Inputs inputs;
 

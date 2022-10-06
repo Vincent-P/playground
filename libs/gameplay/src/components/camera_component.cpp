@@ -6,7 +6,7 @@
 
 #include <cmath> // std::tan
 
-namespace camera
+namespace details::camera
 {
 float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 {
@@ -37,87 +37,6 @@ float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 	return result;
 }
 
-float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_plane, float4x4 *inverse)
-{
-	auto n = near_plane;
-	auto f = far_plane;
-
-	float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
-	// aspect_ratio = width/height
-	float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
-	float y = -focal_length;               // -2n/height
-
-	ASSERT((n - f) != 0.0f);
-	float n_on_f_minus_n = n / (f - n);
-
-	float A = n_on_f_minus_n;
-	float B = f * A;
-
-	// bad things will happen in the inverse
-	ASSERT(B != 0.0f);
-	ASSERT(x != 0.0f);
-	ASSERT(y != 0.0f);
-
-	// clang-format off
-    float4x4 projection{{
-        x,    0.0f, 0.0f,  0.0f,
-        0.0f, y,    0.0f,  0.0f,
-        0.0f, 0.0f,    A,     B,
-        0.0f, 0.0f, -1.0f, 0.0f,
-    }};
-	// clang-format on
-
-	if (inverse) {
-		// clang-format off
-        *inverse = float4x4({
-            1/x,  0.0f, 0.0f, 0.0f,
-            0.0f, 1/y,  0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, -1.0f,
-            0.0f, 0.0f, 1/B, A/B,
-        });
-		// clang-format on
-	}
-
-	return projection;
-}
-
-float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, float4x4 *inverse)
-{
-	auto n = near_plane;
-
-	float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
-	// aspect_ratio = width/height
-	float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
-	float y = -focal_length;               // -2n/height
-
-	// bad things will happen in the inverse
-	ASSERT(x != 0.0f);
-	ASSERT(y != 0.0f);
-	ASSERT(n != 0.0f);
-
-	// clang-format off
-    float4x4 projection{{
-        x,    0.0f, 0.0f,  0.0f,
-        0.0f, y,    0.0f,  0.0f,
-        0.0f, 0.0f,    0,     n,
-        0.0f, 0.0f, -1.0f, 0.0f,
-    }};
-	// clang-format on
-
-	if (inverse) {
-		// clang-format off
-        *inverse = float4x4({
-            1/x,  0.0f, 0.0f, 0.0f,
-            0.0f, 1/y,  0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, -1.0f,
-            0.0f, 0.0f, 1/n,  0.0f,
-        });
-		// clang-format on
-	}
-
-	return projection;
-}
-
 float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 {
 	(void)(inverse);
@@ -142,11 +61,9 @@ float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 
 	return projection;
 }
-} // namespace camera
+} // namespace details::camera
 
-void CameraComponent::look_at(float3 eye, float3 at, float3 up) { view = camera::look_at(eye, at, up, &view_inverse); }
-
-void CameraComponent::set_perspective(float aspect_ratio)
+void CameraComponent::look_at(float3 eye, float3 at, float3 up)
 {
-	projection = camera::infinite_perspective(fov, aspect_ratio, near_plane, &projection_inverse);
+	view = details::camera::look_at(eye, at, up, &view_inverse);
 }

@@ -58,7 +58,10 @@ void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 		}
 		}
 	}
+}
 
+void RenderGraph::end_frame()
+{
 	this->resources.end_frame();
 	this->passes.clear();
 	this->i_frame += 1;

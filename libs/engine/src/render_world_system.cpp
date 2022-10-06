@@ -26,10 +26,9 @@ void PrepareRenderWorld::update(const UpdateContext &)
 
 	// -- Fill the render world with data from the scene
 	ASSERT(main_camera != nullptr);
-	render_world.main_camera_view               = main_camera->get_view();
-	render_world.main_camera_projection         = main_camera->get_projection();
-	render_world.main_camera_view_inverse       = main_camera->get_view_inverse();
-	render_world.main_camera_projection_inverse = main_camera->get_projection_inverse();
+	render_world.main_camera_view         = main_camera->get_view();
+	render_world.main_camera_fov          = main_camera->fov;
+	render_world.main_camera_view_inverse = main_camera->get_view_inverse();
 
 	for (auto &[p_entity, mesh_component] : entities) {
 		render_world.drawable_instances.emplace_back();
