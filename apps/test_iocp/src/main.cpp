@@ -25,8 +25,8 @@ void test_async(int argc, char *argv[])
 		{
 			EXO_PROFILE_SCOPE_NAMED("vector creating")
 			values.reserve(VECTOR_SIZE);
-			for (int i = 0; i < VECTOR_SIZE; ++i) {
-				values.push_back(i);
+			for (u32 i = 0; i < VECTOR_SIZE; ++i) {
+				values.push_back(i32(i));
 			}
 		}
 
@@ -104,8 +104,8 @@ void test_sync(int argc, char *argv[])
 		{
 			EXO_PROFILE_SCOPE_NAMED("vector creating")
 			values.reserve(VECTOR_SIZE);
-			for (int i = 0; i < VECTOR_SIZE; ++i) {
-				values.push_back(i);
+			for (u32 i = 0; i < VECTOR_SIZE; ++i) {
+				values.push_back(i32(i));
 			}
 		}
 
@@ -184,8 +184,8 @@ void test_std()
 		{
 			EXO_PROFILE_SCOPE_NAMED("vector creating")
 			values.reserve(VECTOR_SIZE);
-			for (int i = 0; i < VECTOR_SIZE; ++i) {
-				values.push_back(i);
+			for (u32 i = 0; i < VECTOR_SIZE; ++i) {
+				values.push_back(i32(i));
 			}
 		}
 
