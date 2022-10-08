@@ -46,6 +46,8 @@ set(SOURCE_FILES
   src/memory/string_repository.cpp
   include/exo/memory/virtual_allocator.h
   src/memory/virtual_allocator.cpp
+  include/exo/memory/dynamic_buffer.h
+  src/memory/dynamic_buffer.cpp
 
   include/exo/option.h
   include/exo/result.h
@@ -77,8 +79,8 @@ set(SOURCE_FILES
 )
 
 set(TEST_FILES
-  src/path.cpp
-  src/path.tests.cpp
+  tests/path.cpp
+  tests/pool.cpp
 )
 
 add_library(exo STATIC ${SOURCE_FILES})

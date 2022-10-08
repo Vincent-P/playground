@@ -4,7 +4,7 @@
 #include "exo/collections/iterator_facade.h"
 #include "exo/macros/assert.h"
 #include "exo/maths/pointer.h"
-#include "exo/profile.h"
+#include "exo/memory/dynamic_buffer.h"
 
 #include <iterator>
 
@@ -53,10 +53,10 @@ template <typename T> struct Pool
 
 	bool operator==(const Pool &rhs) const = default;
 
-	void *buffer        = nullptr;
-	u32   freelist_head = u32_invalid;
-	u32   size          = 0;
-	u32   capacity      = 0;
+	DynamicBuffer buffer        = {};
+	u32           freelist_head = u32_invalid;
+	u32           size          = 0;
+	u32           capacity      = 0;
 };
 
 // Helpers
@@ -76,13 +76,13 @@ union ElementMetadata
 template <typename T> T *element_ptr(Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<T *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
+		ptr_offset(pool.buffer.ptr, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
 }
 
 template <typename T> const T *element_ptr(const Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<const T *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
+		ptr_offset(pool.buffer.ptr, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata)) + sizeof(ElementMetadata)));
 }
 
 template <typename T> u32 *freelist_ptr(Pool<T> &pool, u32 i) { return reinterpret_cast<u32 *>(element_ptr(pool, i)); }
@@ -95,13 +95,13 @@ template <typename T> const u32 *freelist_ptr(const Pool<T> &pool, u32 i)
 template <typename T> ElementMetadata *metadata_ptr(Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<ElementMetadata *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
+		ptr_offset(pool.buffer.ptr, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
 }
 
 template <typename T> const ElementMetadata *metadata_ptr(const Pool<T> &pool, u32 i)
 {
 	return reinterpret_cast<const ElementMetadata *>(
-		ptr_offset(pool.buffer, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
+		ptr_offset(pool.buffer.ptr, i * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata))));
 }
 } // namespace
 
@@ -182,8 +182,7 @@ template <typename T> Pool<T>::Pool(u32 _capacity)
 	}
 
 	usize buffer_size = capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata));
-	buffer            = malloc(buffer_size);
-	EXO_PROFILE_MALLOC(buffer, buffer_size);
+	DynamicBuffer::init(this->buffer, buffer_size);
 
 	// Init the free list
 	freelist_head = 0;
@@ -199,13 +198,13 @@ template <typename T> Pool<T>::Pool(u32 _capacity)
 	*freelist_ptr(*this, capacity - 1)     = u32_invalid;
 }
 
-template <typename T> Pool<T>::~Pool() { free(this->buffer); }
+template <typename T> Pool<T>::~Pool() { this->buffer.destroy(); }
 
 template <typename T> Pool<T>::Pool(Pool &&other) { *this = std::move(other); }
 
 template <typename T> Pool<T> &Pool<T>::operator=(Pool &&other)
 {
-	this->buffer        = std::exchange(other.buffer, nullptr);
+	this->buffer        = std::exchange(other.buffer, {});
 	this->freelist_head = std::exchange(other.freelist_head, u32_invalid);
 	this->size          = std::exchange(other.size, 0);
 	this->capacity      = std::exchange(other.capacity, 0);
@@ -223,14 +222,8 @@ template <typename T> Handle<T> Pool<T>::add(T &&value)
 			new_capacity = 2;
 		}
 
-		usize new_size   = new_capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata));
-		void *new_buffer = realloc(buffer, new_size);
-		ASSERT(new_buffer != nullptr);
-
-		EXO_PROFILE_MFREE(buffer);
-		EXO_PROFILE_MALLOC(new_buffer, new_size);
-
-		buffer = new_buffer;
+		usize new_size = new_capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata));
+		this->buffer.resize(new_size);
 
 		// extend the freelist
 		freelist_head = capacity;
