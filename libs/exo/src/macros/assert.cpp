@@ -1,20 +1,15 @@
 #include "exo/macros/assert.h"
 
-#include <cstdio>
+#include <cstdio> // for fprintf and stderr
 
-#if !defined(__PRETTY_FUNCTION__)
-#define __PRETTY_FUNCTION__ __FUNCTION__
-#endif
-
-void internal_assert(bool condition, const char *condition_str)
+void internal_assert_trigger(const char *condition_str, const std::source_location location)
 {
-	if (!condition) {
-		fprintf(stderr,
-			"My custom assertion failed: (%s), function %s, file %s, line %d.\n",
-			condition_str,
-			__PRETTY_FUNCTION__,
-			__FILE__,
-			__LINE__);
-		__debugbreak();
-	}
+	fprintf(stderr,
+		"%s:%s:%u:%u Assertion failed: %s\n",
+		location.file_name(),
+		location.function_name(),
+		location.line(),
+		location.column(),
+		condition_str);
+	__debugbreak();
 }
