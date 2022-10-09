@@ -3,7 +3,7 @@
 #include "exo/macros/assert.h"
 #include "exo/profile.h"
 
-#include <cstdlib> // for malloc, realloc, free
+#include <cstdlib> // for calloc, realloc, free
 
 namespace exo
 {
@@ -13,7 +13,7 @@ void DynamicBuffer::init(DynamicBuffer &buffer, usize new_size)
 	ASSERT(buffer.ptr == nullptr);
 
 	buffer.size = new_size;
-	buffer.ptr  = malloc(new_size);
+	buffer.ptr  = calloc(1, new_size);
 	EXO_PROFILE_MALLOC(buffer.ptr, buffer.size);
 
 	ASSERT(buffer.size > 0);
@@ -22,9 +22,6 @@ void DynamicBuffer::init(DynamicBuffer &buffer, usize new_size)
 
 void DynamicBuffer::destroy()
 {
-	ASSERT(this->size > 0);
-	ASSERT(this->ptr != nullptr);
-
 	free(this->ptr);
 	EXO_PROFILE_MFREE(this->ptr);
 

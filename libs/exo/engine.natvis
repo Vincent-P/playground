@@ -39,4 +39,30 @@
     <Type Name="vulkan::Buffer">
         <DisplayString>{desc.name} - {desc.size}</DisplayString>
     </Type>
+
+    <Type Name="exo::Map&lt;*&gt;">
+		<DisplayString>{capacity}</DisplayString>
+		<Expand>
+			<Item Name="capacity">capacity</Item>
+			<Item Name="size">size</Item>
+			<Synthetic Name="values">
+				<DisplayString>[Key, Value]</DisplayString>
+				<Expand>
+					<ArrayItems>
+						<Size>capacity</Size>
+						<ValuePointer>(KeyValue*)(keyvalues_buffer.ptr)</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+			<Synthetic Name="slots">
+				<DisplayString>Slots</DisplayString>
+				<Expand>
+					<ArrayItems>
+						<Size>capacity</Size>
+						<ValuePointer>(exo::Slot*)(slots_buffer.ptr)</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+		</Expand>
+    </Type>
 </AutoVisualizer>

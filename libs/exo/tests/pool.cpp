@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("insertion", "pool")
+TEST_CASE("pool insertion")
 {
 	exo::Pool<int> pool;
 

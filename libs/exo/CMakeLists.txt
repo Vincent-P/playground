@@ -81,6 +81,7 @@ set(SOURCE_FILES
 set(TEST_FILES
   tests/path.cpp
   tests/pool.cpp
+  tests/map.cpp
 )
 
 add_library(exo STATIC ${SOURCE_FILES})
