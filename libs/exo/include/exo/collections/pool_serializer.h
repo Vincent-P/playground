@@ -13,9 +13,8 @@ template <typename T> void serialize(Serializer &serializer, Pool<T> &data)
 	serialize(serializer, data.capacity);
 
 	usize buffer_size = data.capacity * (Pool<T>::ELEMENT_SIZE() + sizeof(ElementMetadata));
-	if (!serializer.is_writing) {
-		data.buffer = malloc(buffer_size);
-		EXO_PROFILE_MALLOC(data.buffer, buffer_size);
+	if (!serializer.is_writing && buffer_size > 0) {
+		DynamicBuffer::init(data.buffer, buffer_size);
 	}
 
 	u32 i_element = 0;
