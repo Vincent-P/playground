@@ -116,26 +116,34 @@ u32 Map<Key, Value>::_insert_slot(Slot &slot_to_insert, KeyValue &value_to_inser
 	auto keyvalues = std::span<KeyValue>(reinterpret_cast<KeyValue *>(this->keyvalues_buffer.ptr), this->capacity);
 
 	u32 i_slot              = power_of_2_modulo(slot_to_insert.bits.hash, this->capacity);
+
+	// Because we may "insert" multiple slots to reoder them, we need to keep track of the first "insert"
 	u32 i_original_key_slot = u32_invalid;
 
 	// Start probing for an empty slot
 	for (u32 i = 0; i < this->capacity; ++i) {
 		i_slot = power_of_2_modulo((i_slot + i), this->capacity);
+		auto &current_slot = slots[i_slot];
 
 		// An empty slot if found
-		if (slots[i_slot].bits.is_filled == 0) {
+		if (current_slot.bits.is_filled == 0) {
 			if (i_original_key_slot == u32_invalid) {
 				i_original_key_slot = i_slot;
 			}
 			break;
 		}
 
+		// Detect hash colisions
+		ASSERT(current_slot.bits.hash != slot_to_insert.bits.hash);
+
 		// Whenever the PSL of the key to insert becomes higher than the PSL of the probed key,
 		// Swap them, the new key to insert becomes the probed key
-		if (slot_to_insert.bits.psl > slots[i_slot].bits.psl) {
-			i_original_key_slot = i_slot;
+		if (slot_to_insert.bits.psl > current_slot.bits.psl) {
+			if (i_original_key_slot == u32_invalid) {
+				i_original_key_slot = i_slot;
+			}
 			std::swap(keyvalues[i_slot], value_to_insert);
-			std::swap(slots[i_slot], slot_to_insert);
+			std::swap(current_slot, slot_to_insert);
 		}
 
 		slot_to_insert.bits.psl += 1;

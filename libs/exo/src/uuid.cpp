@@ -3,6 +3,7 @@
 #include "exo/uuid_formatter.h"
 
 #include "exo/collections/map.h"
+#include "exo/hash.h"
 #include "exo/macros/assert.h"
 
 #if defined(PLATFORM_WINDOWS)
@@ -83,6 +84,11 @@ namespace exo
 template <>
 usize hash_value(const exo::UUID &uuid)
 {
-	return phmap::HashState().combine(uuid.data[0], uuid.data[1], uuid.data[2], uuid.data[3]);
+	u64 hash = uuid.data[0];
+	hash     = hash_combine(hash, u64(uuid.data[1]));
+	hash     = hash_combine(hash, u64(uuid.data[2]));
+	hash     = hash_combine(hash, u64(uuid.data[3]));
+	hash     = hash_combine(hash, u64(uuid.data[4]));
+	return hash;
 }
 } // namespace exo

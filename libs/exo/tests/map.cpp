@@ -5,7 +5,7 @@ namespace exo
 u64 hash_value(int i)
 {
 	u64 hash = 0xdeadbeef;
-	hash     = exo::hash_combine(hash, u64(i));
+	hash = exo::hash_combine(hash, u64(i));
 	return hash;
 }
 } // namespace exo
