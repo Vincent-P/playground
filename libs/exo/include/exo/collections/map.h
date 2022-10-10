@@ -1,4 +1,5 @@
 #pragma once
+#include <exo/collections/iterator_facade.h>
 #include <exo/hash.h>
 #include <exo/macros/assert.h>
 #include <exo/maths/numerics.h>
@@ -23,6 +24,9 @@ union Slot
 	u64 raw;
 };
 
+template <typename K, typename V>
+struct MapIterator;
+
 /**
    The exo::Map is a "flat" hashmap, implemented with open addressing to have contigous memory allocation.
    It uses linear probing with robin-hood hashing.
@@ -43,6 +47,10 @@ struct Map
 
 	static Map with_capacity(u32 new_capacity);
 	~Map();
+
+	// iterators
+	MapIterator<Key, Value> begin() { return MapIterator<Key, Value>(this); }
+	MapIterator<Key, Value> end() { return MapIterator<Key, Value>(this, this->capacity); }
 
 	Value *at(const Key &key);
 	Value *insert(Key key, Value &&value);
@@ -115,14 +123,14 @@ u32 Map<Key, Value>::_insert_slot(Slot &slot_to_insert, KeyValue &value_to_inser
 	auto slots     = std::span<Slot>(reinterpret_cast<Slot *>(this->slots_buffer.ptr), this->capacity);
 	auto keyvalues = std::span<KeyValue>(reinterpret_cast<KeyValue *>(this->keyvalues_buffer.ptr), this->capacity);
 
-	u32 i_slot              = power_of_2_modulo(slot_to_insert.bits.hash, this->capacity);
+	u32 i_slot = power_of_2_modulo(slot_to_insert.bits.hash, this->capacity);
 
 	// Because we may "insert" multiple slots to reoder them, we need to keep track of the first "insert"
 	u32 i_original_key_slot = u32_invalid;
 
 	// Start probing for an empty slot
 	for (u32 i = 0; i < this->capacity; ++i) {
-		i_slot = power_of_2_modulo((i_slot + i), this->capacity);
+		i_slot             = power_of_2_modulo((i_slot + i), this->capacity);
 		auto &current_slot = slots[i_slot];
 
 		// An empty slot if found
@@ -257,4 +265,50 @@ void Map<Key, Value>::remove(const Key &key)
 
 	this->size -= 1;
 }
+
+// -- Iterators
+template <typename K, typename V>
+struct MapIterator : IteratorFacade<MapIterator<K, V>>
+{
+	using Map      = Map<K, V>;
+	using KeyValue = Map::KeyValue;
+
+	MapIterator() = default;
+	MapIterator(Map *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
+	{
+		auto slots = std::span<Slot>(reinterpret_cast<Slot *>(this->map->slots_buffer.ptr), this->map->capacity);
+		if (this->current_index < this->map->capacity && slots[this->current_index].bits.is_filled == 0) {
+			this->increment();
+		}
+	}
+
+	KeyValue &dereference() const
+	{
+		auto keyvalues =
+			std::span<KeyValue>(reinterpret_cast<KeyValue *>(this->map->keyvalues_buffer.ptr), this->map->capacity);
+		return keyvalues[this->current_index];
+	}
+
+	void increment()
+	{
+		auto slots = std::span<Slot>(reinterpret_cast<Slot *>(this->map->slots_buffer.ptr), this->map->capacity);
+		auto keyvalues =
+			std::span<KeyValue>(reinterpret_cast<KeyValue *>(this->map->keyvalues_buffer.ptr), this->map->capacity);
+
+		for (current_index = current_index + 1; current_index < this->map->capacity; current_index += 1) {
+			if (slots[current_index].bits.is_filled == 1) {
+				break;
+			}
+		}
+	}
+
+	bool equal_to(const MapIterator &other) const
+	{
+		return this->map == other.map && this->current_index == other.current_index;
+	}
+
+	Map *map           = nullptr;
+	u32  current_index = u32_invalid;
+};
+
 } // namespace exo
