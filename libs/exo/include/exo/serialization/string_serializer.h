@@ -1,6 +1,6 @@
 #pragma once
 
-#include "exo/serializer.h"
+#include "exo/serialization/serializer.h"
 #include <string>
 
 namespace exo
@@ -19,4 +19,4 @@ void serialize(Serializer &serializer, std::string &data)
 		serializer.read_bytes(data.data(), len);
 	}
 }
-}
+} // namespace exo

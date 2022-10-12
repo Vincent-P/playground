@@ -1,4 +1,4 @@
-#include "exo/collections/index_map_serializer.h"
+#include "exo/serialization/index_map_serializer.h"
 
 #include "exo/profile.h"
 

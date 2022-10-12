@@ -13,8 +13,8 @@
 #include <exo/collections/index_map.h>
 #include <exo/logger.h>
 #include <exo/memory/scope_stack.h>
-#include <exo/serializer.h>
-#include <exo/serializer_helper.h>
+#include <exo/serialization/serializer.h>
+#include <exo/serialization/serializer_helper.h>
 #include <exo/uuid_formatter.h>
 
 #include <cross/mapped_file.h>
@@ -138,7 +138,7 @@ Asset *AssetManager::load_from_disk(const AssetId &id)
 {
 	auto asset_path = AssetManager::get_asset_path(id);
 	ASSERT(std::filesystem::exists(asset_path.view()));
-	Asset		  *new_asset     = global_asset_constructors().create(id.type_id);
+	Asset          *new_asset     = global_asset_constructors().create(id.type_id);
 	exo::ScopeStack scope         = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	auto            resource_file = cross::MappedFile::open(asset_path.view()).value();
 	exo::Serializer serializer    = exo::Serializer::create(&scope);

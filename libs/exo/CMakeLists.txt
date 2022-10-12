@@ -7,15 +7,12 @@ set(SOURCE_FILES
 
   include/exo/collections/index_map.h
   src/collections/index_map.cpp
-  include/exo/collections/index_map_serializer.h
-  src/collections/index_map_serializer.cpp
 
   include/exo/collections/iterator_facade.h
   include/exo/collections/map.h
   include/exo/collections/pool.h
   src/collections/pool.cpp
-  include/exo/collections/pool_serializer.h
-  src/collections/pool_serializer.cpp
+
   include/exo/collections/set.h
   include/exo/collections/vector.h
   include/exo/collections/span.h
@@ -52,17 +49,20 @@ set(SOURCE_FILES
   include/exo/option.h
   include/exo/result.h
 
-  include/exo/serializer.h
-  src/serializer.cpp
-
-  include/exo/string_serializer.h
-  include/exo/serializer_helper.h
+  include/exo/serialization/serializer.h
+  src/serialization/serializer.cpp
+  include/exo/serialization/serializer_helper.h
+  include/exo/serialization/index_map_serializer.h
+  src/serialization/index_map_serializer.cpp
+  include/exo/serialization/pool_serializer.h
+  src/serialization/pool_serializer.cpp
+  include/exo/serialization/string_serializer.h
+  include/exo/serialization/uuid_serializer.h
+  src/serialization/uuid_serializer.cpp
 
   include/exo/uuid.h
   src/uuid.cpp
   include/exo/uuid_formatter.h
-  include/exo/uuid_serializer.h
-  src/uuid_serializer.cpp
 
   include/exo/path.h
   src/path.cpp

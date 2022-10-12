@@ -6,12 +6,12 @@
 #include <cross/mapped_file.h>
 
 #include <exo/collections/handle_map.h>
-#include <exo/collections/index_map_serializer.h>
-#include <exo/collections/pool_serializer.h>
 #include <exo/hash.h>
-#include <exo/serializer.h>
+#include <exo/serialization/index_map_serializer.h>
+#include <exo/serialization/pool_serializer.h>
+#include <exo/serialization/serializer.h>
+#include <exo/serialization/uuid_serializer.h>
 #include <exo/uuid.h>
-#include <exo/uuid_serializer.h>
 
 #include <filesystem>
 

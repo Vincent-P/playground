@@ -2,11 +2,12 @@
 
 #include "exo/collections/pool.h"
 #include "exo/profile.h"
-#include "exo/serializer.h"
+#include "exo/serialization/serializer.h"
 
 namespace exo
 {
-template <typename T> void serialize(Serializer &serializer, Pool<T> &data)
+template <typename T>
+void serialize(Serializer &serializer, Pool<T> &data)
 {
 	serialize(serializer, data.freelist_head);
 	serialize(serializer, data.size);

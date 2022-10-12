@@ -1,8 +1,8 @@
 #include "assets/asset.h"
 #include "assets/asset_constructors.h"
 
-#include <exo/serializer.h>
-#include <exo/string_serializer.h>
+#include <exo/serialization/serializer.h>
+#include <exo/serialization/string_serializer.h>
 
 #include "assets/asset_id.h"
 // https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use

@@ -1,7 +1,7 @@
 #include "assets/asset_id.h"
 
 #include <exo/hash.h>
-#include <exo/serializer.h>
+#include <exo/serialization/serializer.h>
 
 #include <xxhash.h>
 

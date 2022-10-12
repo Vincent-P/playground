@@ -2,7 +2,7 @@
 #include <exo/collections/vector.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/u128.h>
-#include <exo/serializer.h>
+#include <exo/serialization/serializer.h>
 #include <exo/uuid.h>
 
 #include "assets/asset.h"

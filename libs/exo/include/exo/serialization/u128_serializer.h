@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/maths/u128.h>
-#include <exo/serializer.h>
+#include <exo/serialization/serializer.h>
 
 namespace exo
 {

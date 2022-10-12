@@ -2,7 +2,7 @@
 #include "assets/asset_constructors.h"
 
 #include <exo/profile.h>
-#include <exo/u128_serializer.h>
+#include <exo/serialization/u128_serializer.h>
 
 static int texture_ctor = global_asset_constructors().add_constructor(get_asset_id<Texture>(), &Texture::create);
 

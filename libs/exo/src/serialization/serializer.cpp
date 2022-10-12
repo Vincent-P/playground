@@ -1,4 +1,4 @@
-#include "exo/serializer.h"
+#include "exo/serialization/serializer.h"
 
 #include "exo/maths/matrices.h"
 #include "exo/maths/vectors.h"
@@ -52,7 +52,8 @@ static void serializer_read_or_write(Serializer &serializer, void *data, usize l
 	}
 }
 
-template <typename T> void serialize_impl(Serializer &serializer, T &data)
+template <typename T>
+void serialize_impl(Serializer &serializer, T &data)
 {
 	serializer_read_or_write(serializer, &data, sizeof(T));
 }

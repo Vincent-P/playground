@@ -1,9 +1,9 @@
 #include "assets/mesh.h"
 #include "assets/asset_constructors.h"
 
-#include <exo/serializer.h>
-#include <exo/u128_serializer.h>
-#include <exo/uuid_serializer.h>
+#include <exo/serialization/serializer.h>
+#include <exo/serialization/u128_serializer.h>
+#include <exo/serialization/uuid_serializer.h>
 
 static int mesh_ctor = global_asset_constructors().add_constructor(get_asset_id<Mesh>(), &Mesh::create);
 

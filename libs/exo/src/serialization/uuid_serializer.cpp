@@ -1,4 +1,4 @@
-#include "exo/uuid_serializer.h"
+#include "exo/serialization/uuid_serializer.h"
 
 #include "exo/uuid_formatter.h"
 

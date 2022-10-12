@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/memory/scope_stack.h>
-#include <exo/serializer.h>
 #include <exo/profile.h>
+#include <exo/serialization/serializer.h>
 
 #include <cstdio>
 #include <span>
@@ -9,7 +9,8 @@
 
 namespace exo::serializer_helper
 {
-template <typename T> static void read_object(std::span<const u8> data, T &object)
+template <typename T>
+static void read_object(std::span<const u8> data, T &object)
 {
 	exo::ScopeStack scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 
@@ -21,9 +22,10 @@ template <typename T> static void read_object(std::span<const u8> data, T &objec
 	serialize(serializer, object);
 }
 
-template <typename T> static void write_object_to_file(std::string_view output_path, T &object)
+template <typename T>
+static void write_object_to_file(std::string_view output_path, T &object)
 {
-	exo::ScopeStack scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+	exo::ScopeStack scope      = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	exo::Serializer serializer = exo::Serializer::create(&scope);
 	serializer.buffer_size     = 96_MiB;
 	serializer.buffer          = malloc(serializer.buffer_size);
