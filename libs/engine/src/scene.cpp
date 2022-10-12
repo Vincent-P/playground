@@ -1,5 +1,6 @@
 #include "engine/scene.h"
 
+#include <exo/hash.h>
 #include <exo/logger.h>
 #include <exo/maths/quaternion.h>
 
@@ -46,7 +47,12 @@ static void tree_view_entity(
 	auto line_rect         = content_rectsplit.split(2.0f * ui.theme.font_size);
 	auto line_rectsplit    = RectSplit{line_rect, SplitDirection::Left};
 
-	auto &entity_opened = scene_ui.entity_uis[entity].treeview_opened;
+	auto *entity_scene_ui = scene_ui.entity_uis.at(entity);
+	if (!entity_scene_ui) {
+		entity_scene_ui = scene_ui.entity_uis.insert(entity, {});
+	}
+
+	auto &entity_opened = entity_scene_ui->treeview_opened;
 	if (!entity->attached_entities.empty() && ui::button_split(ui, line_rectsplit, "Toggle")) {
 		entity_opened = !entity_opened;
 	}
