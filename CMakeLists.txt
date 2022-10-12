@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
-project(test-vulkan LANGUAGES C CXX)
+project(playground LANGUAGES C CXX)
 
 # Fetch Catch2
 Include(FetchContent)
@@ -46,17 +46,7 @@ function(SETUP_THIRDPARTY_TARGET TARGET)
   )
 endfunction()
 
-# Function to setup our targets
-function(SETUP_APP_TARGET TARGET)
-  # Parse arguments (<targetname> TESTS <test files>)
-  # into args_TESTS
-  set(options )
-  set(oneValueArgs )
-  set(multiValueArgs TESTS)
-  cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
-
-  message(STATUS "Setting up application target ${TARGET}")
-  set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 20)
+function(setup_app_target_options TARGET)
   target_compile_options(${TARGET} PRIVATE
       # zstd in ktx doesnt compile with this flag
       $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
@@ -78,11 +68,9 @@ function(SETUP_APP_TARGET TARGET)
       # utils
       # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
       # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
+      $<$<CXX_COMPILER_ID:Clang>:-std=c++2b>
+      $<$<CXX_COMPILER_ID:MSVC>:/std:c++latest>
   )
-
-  # Setup include directories, public includes should be in <target>/include/<target>/public.h and private ones in <target>/src/private.h alongside .cpp files
-  target_include_directories(${TARGET} SYSTEM PUBLIC include)
-  target_include_directories(${TARGET} PRIVATE src)
 
   if (WIN32)
 	target_compile_definitions(${TARGET} PRIVATE PLATFORM_WINDOWS)
@@ -99,11 +87,29 @@ function(SETUP_APP_TARGET TARGET)
     $<$<BOOL:${WIN32}>:VC_EXTRALEAN>           # Disable even more APIs
     $<$<BOOL:${WIN32}>:UNICODE>                # Use unicode not ascii
   )
+endfunction()
+
+# Function to setup our targets
+function(setup_app_target TARGET)
+  # Parse arguments (<targetname> TESTS <test files>)
+  # into args_TESTS
+  set(options )
+  set(oneValueArgs )
+  set(multiValueArgs TESTS)
+  cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+  message(STATUS "Setting up application target ${TARGET}")
+
+  # Setup include directories, public includes should be in <target>/include/<target>/public.h and private ones in <target>/src/private.h alongside .cpp files
+  target_include_directories(${TARGET} SYSTEM PUBLIC include)
+  target_include_directories(${TARGET} PRIVATE src)
+
+  setup_app_target_options(${TARGET})
 
   # Add a test executable if the function was supplied test source files
   if (args_TESTS)
     add_executable(${TARGET}.tests ${args_TESTS})
-    set_target_properties(${TARGET}.tests PROPERTIES CXX_STANDARD 20)
+    setup_app_target_options(${TARGET}.tests)
     target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
     target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
     catch_discover_tests(${TARGET}.tests)

@@ -4,6 +4,7 @@ AccessModifierOffset: -4
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AllowAllArgumentsOnNextLine: false
+AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
 AlignAfterOpenBracket: DontAlign
@@ -21,9 +22,9 @@ BraceWrapping:
   BeforeCatch: false
   BeforeElse: false
   IndentBraces: false
-  SplitEmptyFunction: false
-  SplitEmptyRecord: false
-  SplitEmptyNamespace: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
   BeforeLambdaBody: false
   BeforeWhile: false
 BreakBeforeBraces: Custom
