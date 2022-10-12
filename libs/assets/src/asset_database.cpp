@@ -100,7 +100,7 @@ Resource &AssetDatabase::get_resource_from_content(u64 content_hash)
 // -- Assets
 Asset *AssetDatabase::get_asset(const AssetId &id)
 {
-	u64         id_hash = hash_value(id);
+	u64         id_hash = exo::hash_value(id);
 	Option<u64> ptr     = this->asset_id_map.at(id_hash);
 	if (ptr.has_value()) {
 		auto *asset = reinterpret_cast<Asset *>(ptr.value());
@@ -113,7 +113,7 @@ Asset *AssetDatabase::get_asset(const AssetId &id)
 void AssetDatabase::insert_asset(Asset *asset)
 {
 	ASSERT(asset);
-	u64 id_hash = hash_value(asset->uuid);
+	u64 id_hash = exo::hash_value(asset->uuid);
 	u64 ptr     = reinterpret_cast<u64>(asset);
 	this->asset_id_map.insert(id_hash, ptr);
 }

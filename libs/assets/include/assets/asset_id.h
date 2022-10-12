@@ -11,17 +11,25 @@ using AssetTypeId = u64;
 
 constexpr AssetTypeId create_asset_id(u32 val) { return (u64('BEAF') << 32) | u64(val); }
 
-template <typename T> struct AssetTypeToAssetIdMap
+template <typename T>
+struct AssetTypeToAssetIdMap
 {
 	static const AssetTypeId id;
 };
 
-template <AssetTypeId ID> struct AssetIdToAssetTypeMap
-{};
+template <AssetTypeId ID>
+struct AssetIdToAssetTypeMap
+{
+};
 
-template <typename AssetType> consteval AssetTypeId get_asset_id() { return AssetTypeToAssetIdMap<AssetType>::id; }
+template <typename AssetType>
+consteval AssetTypeId get_asset_id()
+{
+	return AssetTypeToAssetIdMap<AssetType>::id;
+}
 
-template <AssetTypeId ID> consteval auto *get_asset_type()
+template <AssetTypeId ID>
+consteval auto *get_asset_type()
 {
 	using AssetType = decltype(AssetIdToAssetTypeMap<ID>::ptr);
 	return static_cast<AssetType>(nullptr);
@@ -29,8 +37,10 @@ template <AssetTypeId ID> consteval auto *get_asset_type()
 
 #define REGISTER_ASSET_TYPE(_type, _id)                                                                                \
 	struct _type;                                                                                                      \
-	template <> const AssetTypeId AssetTypeToAssetIdMap<_type>::id = _id;                                              \
-	template <> struct AssetIdToAssetTypeMap<_id>                                                                      \
+	template <>                                                                                                        \
+	const AssetTypeId AssetTypeToAssetIdMap<_type>::id = _id;                                                          \
+	template <>                                                                                                        \
+	struct AssetIdToAssetTypeMap<_id>                                                                                  \
 	{                                                                                                                  \
 		_type *ptr;                                                                                                    \
 	};                                                                                                                 \
@@ -43,7 +53,8 @@ struct AssetId
 	std::string name      = "";
 	u64         name_hash = 0;
 
-	template <typename T> static AssetId create(std::string_view name)
+	template <typename T>
+	static AssetId create(std::string_view name)
 	{
 		return AssetId{
 			.type_id   = get_asset_id<T>(),
@@ -64,10 +75,9 @@ private:
 	static u64 hash_name(std::string_view name);
 };
 
-u64 hash_value(const AssetId &id);
-
 // Serialization
 namespace exo
 {
-void serialize(exo::Serializer &serializer, AssetId &asset_id);
-}
+[[nodiscard]] u64 hash_value(const AssetId &id);
+void              serialize(exo::Serializer &serializer, AssetId &asset_id);
+} // namespace exo

@@ -20,7 +20,6 @@ struct UUID
 	std::string_view as_string() const { return std::string_view{this->str, STR_LEN}; }
 };
 
-template <typename T> std::size_t hash_value(const T &v);
-template <> usize                 hash_value(const UUID &uuid);
+u64 hash_value(const UUID &uuid);
 
 } // namespace exo

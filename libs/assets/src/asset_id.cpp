@@ -7,10 +7,11 @@
 
 u64 AssetId::hash_name(std::string_view name) { return XXH3_64bits(name.data(), name.size()); }
 
-u64 hash_value(const AssetId &id) { return exo::hash_combine(id.type_id, id.name_hash); }
-
 namespace exo
 {
+
+[[nodiscard]] u64 hash_value(const AssetId &id) { return exo::hash_combine(id.type_id, id.name_hash); }
+
 void serialize(exo::Serializer &serializer, AssetId &asset_id)
 {
 	serialize(serializer, asset_id.type_id);

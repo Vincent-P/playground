@@ -81,8 +81,7 @@ UUID UUID::from_values(const u32 *values)
 
 namespace exo
 {
-template <>
-usize hash_value(const exo::UUID &uuid)
+u64 hash_value(const exo::UUID &uuid)
 {
 	u64 hash = uuid.data[0];
 	hash     = hash_combine(hash, u64(uuid.data[1]));

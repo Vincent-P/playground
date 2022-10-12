@@ -1,14 +1,10 @@
 #pragma once
 #include "exo/maths/numerics.h"
 
+#include <type_traits>
+
 namespace exo
 {
-template <typename T>
-[[nodiscard]] u64 hash_value(const T &v)
-{
-	return v.hash_value();
-}
-
 template <typename T>
 [[nodiscard]] inline u64 hash_combine(u64 seed, const T &v)
 {
@@ -22,4 +18,12 @@ template <>
 	seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 	return seed;
 }
+
+[[nodiscard]] inline u64 hash_value(void const *const ptr)
+{
+	u64 seed = 0;
+	seed     = hash_combine(seed, u64(ptr));
+	return seed;
+}
+
 } // namespace exo
