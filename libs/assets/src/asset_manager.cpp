@@ -9,8 +9,6 @@
 
 #include "hash_file.h"
 
-#include <exo/collections/handle_map.h>
-#include <exo/collections/index_map.h>
 #include <exo/logger.h>
 #include <exo/memory/scope_stack.h>
 #include <exo/serialization/serializer.h>
@@ -45,7 +43,7 @@ AssetManager *AssetManager::create(exo::ScopeStack &scope)
 	if (std::filesystem::exists(DatabasePath.view())) {
 		auto resource_file = cross::MappedFile::open(DatabasePath.view()).value();
 		exo::serializer_helper::read_object(resource_file.content(), asset_manager->database);
-		asset_manager->database.asset_id_map = exo::IndexMap::with_capacity(32);
+		asset_manager->database.asset_id_map = {};
 	} else {
 		asset_manager->database = AssetDatabase::create();
 	}
@@ -100,7 +98,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 
 	// Update the resource in the database
 	auto resource_file = cross::MappedFile::open(path.view()).value();
-	u64  resource_hash = assets::hash_file64(resource_file.content());
+	auto resource_hash = FileHash{assets::hash_file64(resource_file.content())};
 	resource_file.close();
 	auto &asset_record = manager.database.get_resource_from_content(resource_hash);
 	if (asset_record.asset_id != process_req.asset) {
@@ -125,7 +123,7 @@ void AssetManager::import_resources(std::span<const Handle<Resource>> records)
 		const auto &asset_path   = asset_record.resource_path;
 
 		auto resource_file = cross::MappedFile::open(asset_path.view()).value();
-		u64  resource_hash = assets::hash_file64(resource_file.content());
+		auto resource_hash = FileHash{assets::hash_file64(resource_file.content())};
 		resource_file.close();
 
 		if (asset_record.last_imported_hash != resource_hash) {

@@ -3,6 +3,8 @@
 
 namespace exo
 {
+struct Serializer;
+
 /// --- Handle type (Typed index that can be invalid)
 usize _hash_handle(u32 index, u32 gen);
 
@@ -30,7 +32,11 @@ private:
 	friend struct PoolIterator;
 	template <typename T>
 	friend struct ConstPoolIterator;
+
 	friend inline u64 hash_value(const Handle<T> &h) { return _hash_handle(h.index, h.gen); }
+
+	template <typename K>
+	friend void serialize(Serializer &serializer, Handle<K> &value);
 };
 
 } // namespace exo

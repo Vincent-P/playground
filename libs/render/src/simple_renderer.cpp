@@ -74,10 +74,6 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
 
-	// Create the render graph
-	renderer.render_graph.resources.image_pool       = exo::IndexMap::with_capacity(16);
-	renderer.render_graph.resources.framebuffer_pool = exo::IndexMap::with_capacity(16);
-
 	// Create the drawing surface
 	renderer.swapchain_node.surface = vulkan::Surface::create(renderer.context, device, window_handle);
 	renderer.swapchain_node.fence   = device.create_fence();

@@ -79,15 +79,12 @@ UUID UUID::from_values(const u32 *values)
 }
 } // namespace exo
 
-namespace exo
-{
 u64 hash_value(const exo::UUID &uuid)
 {
 	u64 hash = uuid.data[0];
-	hash     = hash_combine(hash, u64(uuid.data[1]));
-	hash     = hash_combine(hash, u64(uuid.data[2]));
-	hash     = hash_combine(hash, u64(uuid.data[3]));
-	hash     = hash_combine(hash, u64(uuid.data[4]));
+	hash     = exo::hash_combine(hash, u64(uuid.data[1]));
+	hash     = exo::hash_combine(hash, u64(uuid.data[2]));
+	hash     = exo::hash_combine(hash, u64(uuid.data[3]));
+	hash     = exo::hash_combine(hash, u64(uuid.data[4]));
 	return hash;
 }
-} // namespace exo

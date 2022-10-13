@@ -1,6 +1,6 @@
 #pragma once
 #include <exo/collections/handle.h>
-#include <exo/collections/index_map.h>
+#include <exo/collections/map.h>
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/matrices.h>
@@ -86,18 +86,18 @@ struct SimpleDraw
 
 struct MeshRenderer
 {
-	exo::IndexMap          mesh_uuid_map;
-	exo::Pool<RenderMesh>  render_meshes;
-	Handle<vulkan::Buffer> meshes_buffer;
-	u32                    meshes_descriptor = u32_invalid;
+	exo::Map<AssetId, Handle<RenderMesh>> mesh_uuid_map;
+	exo::Pool<RenderMesh>                 render_meshes;
+	Handle<vulkan::Buffer>                meshes_buffer;
+	u32                                   meshes_descriptor = u32_invalid;
 
-	exo::IndexMap             material_uuid_map;
-	exo::Pool<RenderMaterial> render_materials;
-	Handle<vulkan::Buffer>    materials_buffer;
-	u32                       materials_descriptor = u32_invalid;
+	exo::Map<AssetId, Handle<RenderMaterial>> material_uuid_map;
+	exo::Pool<RenderMaterial>                 render_materials;
+	Handle<vulkan::Buffer>                    materials_buffer;
+	u32                                       materials_descriptor = u32_invalid;
 
-	exo::IndexMap            texture_uuid_map;
-	exo::Pool<RenderTexture> render_textures;
+	exo::Map<AssetId, Handle<RenderTexture>> texture_uuid_map;
+	exo::Pool<RenderTexture>                 render_textures;
 
 	RingBuffer instances_buffer;
 	u32        instances_descriptor = u32_invalid;

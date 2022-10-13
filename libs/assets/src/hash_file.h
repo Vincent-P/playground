@@ -1,4 +1,5 @@
 #pragma once
+#include <assets/asset_database.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/u128.h>
 

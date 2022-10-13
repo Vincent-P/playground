@@ -1,6 +1,5 @@
 #include "mesh_renderer.h"
 
-#include <exo/collections/handle_map.h>
 #include <exo/collections/span.h>
 #include <exo/macros/packed.h>
 
@@ -67,9 +66,9 @@ static_assert(sizeof(MaterialDescriptor) == 5 * sizeof(float4));
 MeshRenderer MeshRenderer::create(vulkan::Device &device)
 {
 	MeshRenderer renderer      = {};
-	renderer.mesh_uuid_map     = exo::IndexMap::with_capacity(64);
-	renderer.material_uuid_map = exo::IndexMap::with_capacity(64);
-	renderer.texture_uuid_map  = exo::IndexMap::with_capacity(64);
+	renderer.mesh_uuid_map     = exo::Map<AssetId, Handle<RenderMesh>>::with_capacity(64);
+	renderer.material_uuid_map = exo::Map<AssetId, Handle<RenderMaterial>>::with_capacity(64);
+	renderer.texture_uuid_map  = exo::Map<AssetId, Handle<RenderTexture>>::with_capacity(64);
 	renderer.instances_buffer  = RingBuffer::create(device,
 		 {
 			 .name               = "Instances buffer",
@@ -110,9 +109,9 @@ static Handle<RenderTexture> get_or_create_texture(
 {
 	auto texture = asset_manager->load_asset<Texture>(texture_uuid);
 
-	auto render_texture_handle = renderer.texture_uuid_map.at(exo::hash_value(texture_uuid));
+	auto *render_texture_handle = renderer.texture_uuid_map.at(texture_uuid);
 	if (render_texture_handle) {
-		return exo::as_handle<RenderTexture>(render_texture_handle.value());
+		return *render_texture_handle;
 	}
 
 	RenderTexture render_texture = {};
@@ -146,7 +145,7 @@ static Handle<RenderTexture> get_or_create_texture(
 
 	// Add the texture to the map
 	auto handle = renderer.render_textures.add(std::move(render_texture));
-	renderer.texture_uuid_map.insert(exo::hash_value(texture_uuid), exo::to_u64(handle));
+	renderer.texture_uuid_map.insert(texture_uuid, handle);
 	return handle;
 }
 
@@ -155,9 +154,9 @@ static Handle<RenderMaterial> get_or_create_material(
 {
 	auto material = asset_manager->load_asset<Material>(material_uuid);
 
-	auto render_material_handle = renderer.material_uuid_map.at(exo::hash_value(material_uuid));
+	auto *render_material_handle = renderer.material_uuid_map.at(material_uuid);
 	if (render_material_handle) {
-		return exo::as_handle<RenderMaterial>(render_material_handle.value());
+		return *render_material_handle;
 	}
 
 	RenderMaterial render_material = {};
@@ -177,7 +176,7 @@ static Handle<RenderMaterial> get_or_create_material(
 
 	// Add the material to the map
 	auto handle = renderer.render_materials.add(std::move(render_material));
-	renderer.material_uuid_map.insert(exo::hash_value(material_uuid), exo::to_u64(handle));
+	renderer.material_uuid_map.insert(material_uuid, handle);
 	return handle;
 }
 
@@ -186,9 +185,9 @@ static Handle<RenderMesh> get_or_create_mesh(
 {
 	auto mesh = asset_manager->load_asset<Mesh>(mesh_uuid);
 
-	auto render_mesh_handle = renderer.mesh_uuid_map.at(exo::hash_value(mesh_uuid));
+	auto *render_mesh_handle = renderer.mesh_uuid_map.at(mesh_uuid);
 	if (render_mesh_handle) {
-		return exo::as_handle<RenderMesh>(render_mesh_handle.value());
+		return *render_mesh_handle;
 	}
 
 	RenderMesh render_mesh       = {};
@@ -225,7 +224,7 @@ static Handle<RenderMesh> get_or_create_mesh(
 	}
 
 	auto handle = renderer.render_meshes.add(std::move(render_mesh));
-	renderer.mesh_uuid_map.insert(exo::hash_value(mesh_uuid), exo::to_u64(handle));
+	renderer.mesh_uuid_map.insert(mesh_uuid, handle);
 	return handle;
 }
 

@@ -12,7 +12,7 @@ StringRepository StringRepository::create() { return StringRepository::with_capa
 StringRepository StringRepository::with_capacity(usize capacity)
 {
 	StringRepository repository = {};
-	repository.offsets          = IndexMap::with_capacity(64);
+	repository.offsets          = {};
 	repository.string_buffer    = reinterpret_cast<char *>(virtual_allocator::reserve(capacity));
 	return repository;
 }
@@ -23,7 +23,7 @@ StringRepository::StringRepository(StringRepository &&other) noexcept { *this = 
 
 StringRepository &StringRepository::operator=(StringRepository &&other) noexcept
 {
-	this->offsets       = std::exchange(other.offsets, {});
+	this->offsets       = std::move(other.offsets);
 	this->string_buffer = std::exchange(other.string_buffer, nullptr);
 	this->buffer_size   = std::exchange(other.buffer_size, 0);
 	return *this;
@@ -34,8 +34,8 @@ const char *StringRepository::intern(std::string_view s)
 	const u64 hash = XXH3_64bits(s.data(), s.size());
 
 	// If the string is already interned, return its offset
-	if (const auto offset = offsets.at(hash)) {
-		return this->string_buffer + offset.value();
+	if (const auto *offset = offsets.at(hash)) {
+		return this->string_buffer + *offset;
 	}
 
 	// Commit more memory if needed
@@ -59,6 +59,6 @@ const char *StringRepository::intern(std::string_view s)
 bool StringRepository::is_interned(std::string_view s)
 {
 	const u64 hash = XXH3_64bits(s.data(), s.size());
-	return offsets.at(hash).has_value();
+	return offsets.at(hash) != nullptr;
 }
 } // namespace exo

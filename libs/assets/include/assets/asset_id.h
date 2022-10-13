@@ -1,4 +1,5 @@
 #pragma once
+#include <exo/hash.h>
 #include <exo/maths/numerics.h>
 #include <string>
 
@@ -75,9 +76,11 @@ private:
 	static u64 hash_name(std::string_view name);
 };
 
+// hash
+[[nodiscard]] u64 hash_value(const AssetId &id);
+
 // Serialization
 namespace exo
 {
-[[nodiscard]] u64 hash_value(const AssetId &id);
-void              serialize(exo::Serializer &serializer, AssetId &asset_id);
+void serialize(exo::Serializer &serializer, AssetId &asset_id);
 } // namespace exo

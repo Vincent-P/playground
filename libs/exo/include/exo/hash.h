@@ -17,4 +17,6 @@ namespace exo
 	seed     = hash_combine(seed, u64(ptr));
 	return seed;
 }
+
+[[nodiscard]] inline u64 hash_value(u64 raw_hash) { return raw_hash; }
 } // namespace exo

@@ -1,5 +1,5 @@
 #pragma once
-#include "exo/collections/index_map.h"
+#include "exo/collections/map.h"
 #include "exo/maths/numerics.h"
 #include <string_view>
 
@@ -32,9 +32,9 @@ struct StringRepository
 	bool        is_interned(std::string_view s);
 
 private:
-	IndexMap offsets       = {};
-	char    *string_buffer = nullptr;
-	usize    buffer_size   = 0;
+	Map<u64, u64> offsets       = {};
+	char         *string_buffer = nullptr;
+	usize         buffer_size   = 0;
 };
 
 inline StringRepository *tls_string_repository = nullptr;

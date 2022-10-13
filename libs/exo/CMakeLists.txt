@@ -3,10 +3,6 @@ set(SOURCE_FILES
   include/exo/collections/dynamic_array.h
   include/exo/collections/enum_array.h
   include/exo/collections/handle.h
-  include/exo/collections/handle_map.h
-
-  include/exo/collections/index_map.h
-  src/collections/index_map.cpp
 
   include/exo/collections/iterator_facade.h
   include/exo/collections/map.h
@@ -52,13 +48,15 @@ set(SOURCE_FILES
   include/exo/serialization/serializer.h
   src/serialization/serializer.cpp
   include/exo/serialization/serializer_helper.h
-  include/exo/serialization/index_map_serializer.h
-  src/serialization/index_map_serializer.cpp
+  include/exo/serialization/map_serializer.h
+  src/serialization/map_serializer.cpp
   include/exo/serialization/pool_serializer.h
   src/serialization/pool_serializer.cpp
   include/exo/serialization/string_serializer.h
   include/exo/serialization/uuid_serializer.h
   src/serialization/uuid_serializer.cpp
+  include/exo/serialization/handle_serializer.h
+  include/exo/serialization/path_serializer.h
 
   include/exo/uuid.h
   src/uuid.cpp

@@ -19,7 +19,6 @@ struct UUID
 	bool             is_valid() const { return data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 0; }
 	std::string_view as_string() const { return std::string_view{this->str, STR_LEN}; }
 };
-
-u64 hash_value(const UUID &uuid);
-
 } // namespace exo
+
+u64 hash_value(const exo::UUID &uuid);

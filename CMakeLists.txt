@@ -68,7 +68,7 @@ function(setup_app_target_options TARGET)
       # utils
       # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
       # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-      $<$<CXX_COMPILER_ID:Clang>:-std=c++2b>
+      $<$<CXX_COMPILER_ID:Clang>:-std=c++20>
       $<$<CXX_COMPILER_ID:MSVC>:/std:c++latest>
   )
 

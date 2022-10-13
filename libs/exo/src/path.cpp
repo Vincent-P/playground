@@ -143,16 +143,11 @@ Path Path::remove_filename(exo::Path path)
 	return Path::from_string(path_except_filename);
 }
 
-[[nodiscard]] u64 hash_value(const Path &path)
+[[nodiscard]] u64 hash_value(const exo::Path &path)
 {
 	const auto view = path.view();
 	const u64  hash = XXH3_64bits(view.data(), view.size());
 	return hash;
 }
+
 } // namespace exo
-
-#if defined(RUN_TESTS)
-#include <catch2/catch_test_macros.hpp>
-
-TEST_CASE("Tests work", "[path]") { REQUIRE(1 == 1); }
-#endif

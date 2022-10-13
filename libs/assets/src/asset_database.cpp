@@ -5,9 +5,10 @@
 
 #include <cross/mapped_file.h>
 
-#include <exo/collections/handle_map.h>
 #include <exo/hash.h>
-#include <exo/serialization/index_map_serializer.h>
+#include <exo/serialization/handle_serializer.h>
+#include <exo/serialization/map_serializer.h>
+#include <exo/serialization/path_serializer.h>
 #include <exo/serialization/pool_serializer.h>
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/uuid_serializer.h>
@@ -17,10 +18,7 @@
 
 AssetDatabase AssetDatabase::create()
 {
-	AssetDatabase database        = {};
-	database.asset_id_map         = exo::IndexMap::with_capacity(32);
-	database.resource_path_map    = exo::IndexMap::with_capacity(64);
-	database.resource_content_map = exo::IndexMap::with_capacity(64);
+	AssetDatabase database = {};
 	return database;
 }
 
@@ -35,49 +33,46 @@ void AssetDatabase::track_resource_changes(const exo::Path &directory, Vec<Handl
 			continue;
 		}
 
-		const auto &file_path     = exo::Path::from_string(file_entry.path().string());
-		u64         path_hash     = hash_value(file_path);
-		u64         resource_hash = 0;
-		{
-			auto resource_file = cross::MappedFile::open(file_path.view()).value();
-			resource_hash      = assets::hash_file64(resource_file.content());
-		}
+		const auto &file_path = exo::Path::from_string(file_entry.path().string());
 
-		Option<u64> content_map_entry = this->resource_content_map.at(resource_hash);
-		Option<u64> path_map_entry    = this->resource_path_map.at(path_hash);
+		auto resource_file = cross::MappedFile::open(file_path.view()).value();
+		auto resource_hash = FileHash{assets::hash_file64(resource_file.content())};
+		resource_file.close();
 
-		if (path_map_entry.has_value() && content_map_entry.has_value()) {
+		auto *content_map_entry = this->resource_content_map.at(resource_hash);
+		auto *path_map_entry    = this->resource_path_map.at(file_path);
+
+		if (path_map_entry && content_map_entry) {
 			// The resource is known
-			auto resource_handle = exo::as_handle<Resource>(path_map_entry.value());
+			auto resource_handle = *path_map_entry;
 			if (!this->resource_records.get(resource_handle).asset_id.is_valid()) {
 				out_outdated_resources.push_back(resource_handle);
 			}
-		} else if (path_map_entry.has_value() && !content_map_entry.has_value()) {
+		} else if (path_map_entry && !content_map_entry) {
 			// Only the content changed
-			auto resource_handle = exo::as_handle<Resource>(path_map_entry.value());
+			auto resource_handle = *path_map_entry;
 
-			const u64 old_file_hash = this->resource_records.get(resource_handle).last_imported_hash;
+			const auto old_file_hash = this->resource_records.get(resource_handle).last_imported_hash;
 			this->resource_content_map.remove(old_file_hash);
-			this->resource_content_map.insert(resource_hash, path_map_entry.value());
+			this->resource_content_map.insert(resource_hash, resource_handle);
 
 			out_outdated_resources.push_back(resource_handle);
-		} else if (!path_map_entry.has_value() && content_map_entry.has_value()) {
+		} else if (!path_map_entry && content_map_entry) {
 			// Only the path changed
-			auto resource_handle = exo::as_handle<Resource>(content_map_entry.value());
+			auto resource_handle = *content_map_entry;
 
-			const auto &old_path      = this->resource_records.get(resource_handle).resource_path;
-			const u64   old_path_hash = hash_value(old_path);
-			this->resource_path_map.remove(old_path_hash);
-			this->resource_path_map.insert(path_hash, content_map_entry.value());
+			const auto &old_path = this->resource_records.get(resource_handle).resource_path;
+			this->resource_path_map.remove(old_path);
+			this->resource_path_map.insert(file_path, *content_map_entry);
 			this->resource_records.get(resource_handle).resource_path = file_path;
-		} else if (!path_map_entry.has_value() && !content_map_entry.has_value()) {
+		} else if (!path_map_entry && !content_map_entry) {
 			// It's a new resource
 			Resource new_record      = {};
 			new_record.asset_id      = AssetId::invalid();
 			new_record.resource_path = file_path;
 			auto new_record_handle   = this->resource_records.add(std::move(new_record));
-			this->resource_path_map.insert(path_hash, exo::to_u64(new_record_handle));
-			this->resource_content_map.insert(resource_hash, exo::to_u64(new_record_handle));
+			this->resource_path_map.insert(file_path, new_record_handle);
+			this->resource_content_map.insert(resource_hash, new_record_handle);
 
 			out_outdated_resources.push_back(new_record_handle);
 		}
@@ -86,26 +81,23 @@ void AssetDatabase::track_resource_changes(const exo::Path &directory, Vec<Handl
 
 Resource &AssetDatabase::get_resource_from_path(const exo::Path &path)
 {
-	u64  path_hash = hash_value(path);
-	auto handle    = exo::as_handle<Resource>(this->resource_path_map.at(path_hash).value());
+	auto handle = *this->resource_path_map.at(path);
 	return this->resource_records.get(handle);
 }
 
-Resource &AssetDatabase::get_resource_from_content(u64 content_hash)
+Resource &AssetDatabase::get_resource_from_content(FileHash content_hash)
 {
-	auto handle = exo::as_handle<Resource>(this->resource_content_map.at(content_hash).value());
+	auto handle = *this->resource_content_map.at(content_hash);
 	return this->resource_records.get(handle);
 }
 
 // -- Assets
 Asset *AssetDatabase::get_asset(const AssetId &id)
 {
-	u64         id_hash = exo::hash_value(id);
-	Option<u64> ptr     = this->asset_id_map.at(id_hash);
-	if (ptr.has_value()) {
-		auto *asset = reinterpret_cast<Asset *>(ptr.value());
-		ASSERT(asset);
-		return asset;
+	Asset **ptr = this->asset_id_map.at(id);
+	if (ptr) {
+		ASSERT(*ptr);
+		return *ptr;
 	}
 	return nullptr;
 }
@@ -113,9 +105,7 @@ Asset *AssetDatabase::get_asset(const AssetId &id)
 void AssetDatabase::insert_asset(Asset *asset)
 {
 	ASSERT(asset);
-	u64 id_hash = exo::hash_value(asset->uuid);
-	u64 ptr     = reinterpret_cast<u64>(asset);
-	this->asset_id_map.insert(id_hash, ptr);
+	this->asset_id_map.insert(asset->uuid, asset);
 }
 
 // -- Serialization
@@ -123,18 +113,8 @@ void AssetDatabase::insert_asset(Asset *asset)
 void serialize(exo::Serializer &serializer, Resource &data)
 {
 	exo::serialize(serializer, data.asset_id);
-
-	if (serializer.is_writing) {
-		auto path_string = data.resource_path.view();
-		auto path_c_str  = path_string.data();
-		exo::serialize(serializer, path_c_str);
-	} else {
-		const char *path_string = "";
-		exo::serialize(serializer, path_string);
-		data.resource_path = exo::Path::from_string(path_string);
-	}
-
-	exo::serialize(serializer, data.last_imported_hash);
+	exo::serialize(serializer, data.resource_path);
+	exo::serialize(serializer, data.last_imported_hash.hash);
 }
 
 void serialize(exo::Serializer &serializer, AssetDatabase &db)
@@ -143,3 +123,5 @@ void serialize(exo::Serializer &serializer, AssetDatabase &db)
 	exo::serialize(serializer, db.resource_content_map);
 	exo::serialize(serializer, db.resource_records);
 }
+
+void serialize(exo::Serializer &serializer, FileHash &hash) { exo::serialize(serializer, hash.hash); }
