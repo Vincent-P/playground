@@ -47,8 +47,8 @@ App *App::create(exo::ScopeStack &scope)
 	app->watcher  = cross::FileWatcher::create();
 	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
 
-	int   font_size_pt = 18;
-	float font_size_px = float(font_size_pt);
+	const int  font_size_pt = 18;
+	const auto font_size_px = float(font_size_pt);
 
 	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
 	app->painter                      = painter_allocate(scope, 1_MiB, 1_MiB, int2(1024, 1024));
@@ -195,7 +195,7 @@ void App::display_ui(double dt)
 		this->viewport_size = view_rect.value().size;
 
 		if (this->viewport_texture_index != u32_invalid) {
-			Rect uv = {.pos = float2(0.0f), .size = float2(1.0f)};
+			const Rect uv = {.pos = float2(0.0f), .size = float2(1.0f)};
 			painter_draw_textured_rect(*this->painter,
 				view_rect.value(),
 				u32_invalid,
@@ -266,9 +266,9 @@ void App::run()
 		}
 
 		if (!is_minimized) {
-			u64    now  = stm_now();
-			u64    diff = stm_diff(now, last);
-			double dt   = stm_sec(diff);
+			const u64    now  = stm_now();
+			const u64    diff = stm_diff(now, last);
+			const double dt   = stm_sec(diff);
 
 			last = now;
 			this->display_ui(dt);

@@ -49,9 +49,9 @@ static ImageView create_image_view(Device &device,
 
 Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<VkImage> proxy)
 {
-	bool is_sampled = image_desc.usages & VK_IMAGE_USAGE_SAMPLED_BIT;
-	bool is_storage = image_desc.usages & VK_IMAGE_USAGE_STORAGE_BIT;
-	bool is_depth   = is_depth_format(image_desc.format);
+	const bool is_sampled = image_desc.usages & VK_IMAGE_USAGE_SAMPLED_BIT;
+	const bool is_storage = image_desc.usages & VK_IMAGE_USAGE_STORAGE_BIT;
+	const bool is_depth   = is_depth_format(image_desc.format);
 
 	ASSERT(image_desc.size.x > 0);
 	ASSERT(image_desc.size.y > 0);
@@ -101,9 +101,9 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	full_range.levelCount              = image_info.mipLevels;
 	full_range.baseArrayLayer          = 0;
 	full_range.layerCount              = image_info.arrayLayers;
-	VkFormat format                    = image_desc.format;
+	const VkFormat format              = image_desc.format;
 
-	ImageView full_view = create_image_view(*this,
+	const ImageView full_view = create_image_view(*this,
 		vkhandle,
 		fmt::format("{} full view", image_desc.name),
 		full_range,
@@ -150,14 +150,14 @@ int3 Device::get_image_size(Handle<Image> image_handle) { return this->images.ge
 
 u32 Device::get_image_sampled_index(Handle<Image> image_handle) const
 {
-	u32 index = this->images.get(image_handle).full_view.sampled_idx;
+	const u32 index = this->images.get(image_handle).full_view.sampled_idx;
 	ASSERT(index != u32_invalid);
 	return index;
 }
 
 u32 Device::get_image_storage_index(Handle<Image> image_handle) const
 {
-	u32 index = this->images.get(image_handle).full_view.storage_idx;
+	const u32 index = this->images.get(image_handle).full_view.storage_idx;
 	ASSERT(index != u32_invalid);
 	return index;
 }

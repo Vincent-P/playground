@@ -80,7 +80,7 @@ std::wstring utf8_to_utf16(const std::string_view &str)
 		return {};
 	}
 
-	int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
 	ASSERT(res > 0);
 	auto size_needed = static_cast<usize>(res);
 	// TODO: Remove allocation
@@ -143,17 +143,17 @@ void test_sync(int argc, char *argv[])
 		}
 
 		for (const auto &job_desc : read_jobs) {
-			HANDLE file_handle = NULL;
+			HANDLE file_handle = nullptr;
 			{
 				EXO_PROFILE_SCOPE_NAMED("Open file")
 				auto filepath = utils::utf8_to_utf16(job_desc.path);
 				file_handle   = CreateFile(filepath.c_str(),
                     GENERIC_READ,
                     0,
-                    NULL,
+                    nullptr,
                     OPEN_EXISTING,
                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING,
-                    NULL);
+                    nullptr);
 
 				auto last_error = GetLastError();
 
@@ -166,7 +166,7 @@ void test_sync(int argc, char *argv[])
 				OVERLAPPED ovl = {};
 				ovl.Offset     = DWORD(job_desc.offset);
 				ovl.OffsetHigh = DWORD(job_desc.offset >> 32);
-				auto res       = ReadFile(file_handle, job_desc.dst.data(), DWORD(job_desc.size), NULL, &ovl);
+				auto res       = ReadFile(file_handle, job_desc.dst.data(), DWORD(job_desc.size), nullptr, &ovl);
 
 				auto last_error = GetLastError();
 				ASSERT(res && last_error != ERROR_IO_PENDING);

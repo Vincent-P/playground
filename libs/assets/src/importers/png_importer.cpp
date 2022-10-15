@@ -11,7 +11,7 @@
 
 #include <spng.h>
 
-bool PNGImporter::can_import_extension(std::span<std::string_view const> extensions)
+bool PNGImporter::can_import_extension(std::span<std::const string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".png"}) {
@@ -21,7 +21,7 @@ bool PNGImporter::can_import_extension(std::span<std::string_view const> extensi
 	return false;
 }
 
-bool PNGImporter::can_import_blob(std::span<u8 const> blob)
+bool PNGImporter::can_import_blob(std::span<const u8> blob)
 {
 	const u8 signature[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
@@ -70,14 +70,14 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 
 	ASSERT((decoded_size % ihdr.width) == 0);
 	ASSERT(((decoded_size / ihdr.width) % ihdr.height) == 0);
-	usize bytes_per_pixel = (decoded_size / usize(ihdr.width)) / usize(ihdr.height);
+	const usize bytes_per_pixel = (decoded_size / usize(ihdr.width)) / usize(ihdr.height);
 
 	// dont support 16 bits for now
 	ASSERT(ihdr.bit_depth == 8);
 
 	ASSERT(((8 * bytes_per_pixel) % ihdr.bit_depth) == 0);
-	u32  channel_count = u32((8 * bytes_per_pixel) / u32(ihdr.bit_depth));
-	auto pixel_format  = PixelFormat::R8G8B8A8_UNORM;
+	const u32 channel_count = u32((8 * bytes_per_pixel) / u32(ihdr.bit_depth));
+	auto      pixel_format  = PixelFormat::R8G8B8A8_UNORM;
 	switch (channel_count) {
 	case 1: {
 		pixel_format = PixelFormat::R8_UNORM;

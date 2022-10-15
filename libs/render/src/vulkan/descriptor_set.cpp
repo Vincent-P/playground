@@ -25,7 +25,7 @@ DynamicBufferDescriptor create_buffer_descriptor(Device &device, Handle<Buffer> 
 	VkDescriptorSet vkset = VK_NULL_HANDLE;
 	vk_check(vkAllocateDescriptorSets(device.device, &set_info, &vkset));
 
-	VkDescriptorBufferInfo buffer_infos[] = {
+	const VkDescriptorBufferInfo buffer_infos[] = {
 		{.buffer = buffer.vkhandle, .offset = 0, .range = range_size},
 	};
 	VkWriteDescriptorSet writes[] = {
@@ -105,7 +105,7 @@ BindlessSet create_bindless_set(const Device &device, u32 sampler_count, u32 ima
 		.pBindingFlags = flags,
 	};
 
-	VkDescriptorSetLayoutCreateInfo desc_layout_info = {
+	const VkDescriptorSetLayoutCreateInfo desc_layout_info = {
 		.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.pNext        = &flags_info,
 		.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
@@ -159,7 +159,7 @@ void destroy_bindless_set(const Device &device, BindlessSet &bindless)
 
 u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	u32 new_index = bindless.free_list[BindlessSet::PER_SAMPLER].back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_SAMPLER].back();
 	bindless.free_list[BindlessSet::PER_SAMPLER].pop_back();
 	bindless.sampler_images[new_index] = image_handle;
 	bindless.pending_bind[BindlessSet::PER_SAMPLER].push_back(new_index);
@@ -169,7 +169,7 @@ u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 
 u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	u32 new_index = bindless.free_list[BindlessSet::PER_IMAGE].back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_IMAGE].back();
 	bindless.free_list[BindlessSet::PER_IMAGE].pop_back();
 	bindless.storage_images[new_index] = image_handle;
 	bindless.pending_bind[BindlessSet::PER_IMAGE].push_back(new_index);
@@ -178,7 +178,7 @@ u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle)
 
 u32 bind_storage_buffer(BindlessSet &bindless, Handle<Buffer> buffer_handle)
 {
-	u32 new_index = bindless.free_list[BindlessSet::PER_BUFFER].back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_BUFFER].back();
 	bindless.free_list[BindlessSet::PER_BUFFER].pop_back();
 	bindless.storage_buffers[new_index] = buffer_handle;
 	bindless.pending_bind[BindlessSet::PER_BUFFER].push_back(new_index);
@@ -211,12 +211,12 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 	auto tmp_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 
 	// Allocate memory for descriptor writes and copies
-	usize total_bind_count = bindless.pending_bind[BindlessSet::PER_SAMPLER].size() +
-	                         bindless.pending_bind[BindlessSet::PER_IMAGE].size() +
-	                         bindless.pending_bind[BindlessSet::PER_BUFFER].size();
-	usize total_unbind_count = bindless.pending_unbind[BindlessSet::PER_SAMPLER].size() +
-	                           bindless.pending_unbind[BindlessSet::PER_IMAGE].size() +
-	                           bindless.pending_unbind[BindlessSet::PER_BUFFER].size();
+	const usize total_bind_count = bindless.pending_bind[BindlessSet::PER_SAMPLER].size() +
+	                               bindless.pending_bind[BindlessSet::PER_IMAGE].size() +
+	                               bindless.pending_bind[BindlessSet::PER_BUFFER].size();
+	const usize total_unbind_count = bindless.pending_unbind[BindlessSet::PER_SAMPLER].size() +
+	                                 bindless.pending_unbind[BindlessSet::PER_IMAGE].size() +
+	                                 bindless.pending_unbind[BindlessSet::PER_BUFFER].size();
 
 	auto *descriptor_writes       = tmp_scope.allocate<VkWriteDescriptorSet>(u32(total_bind_count));
 	auto *descriptor_copies       = tmp_scope.allocate<VkCopyDescriptorSet>(u32(total_unbind_count));
@@ -224,9 +224,9 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 	auto *descriptor_copies_begin = descriptor_copies;
 
 	// Allocate memory to hold image and buffer descriptor infos
-	usize total_image_info_count =
+	const usize total_image_info_count =
 		bindless.pending_bind[BindlessSet::PER_SAMPLER].size() + bindless.pending_bind[BindlessSet::PER_IMAGE].size();
-	usize total_buffer_info_count = bindless.pending_bind[BindlessSet::PER_BUFFER].size();
+	const usize total_buffer_info_count = bindless.pending_bind[BindlessSet::PER_BUFFER].size();
 
 	VkDescriptorImageInfo *image_infos =
 		total_image_info_count > 0 ? tmp_scope.allocate<VkDescriptorImageInfo>(u32(total_image_info_count)) : nullptr;
@@ -234,7 +234,7 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 		total_buffer_info_count > 0 ? tmp_scope.allocate<VkDescriptorBufferInfo>(u32(total_buffer_info_count))
 									: nullptr;
 
-	VkDescriptorType descriptor_types[] = {
+	const VkDescriptorType descriptor_types[] = {
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -244,9 +244,9 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 		auto &pending_binds   = bindless.pending_bind[i_set];
 		auto &pending_unbinds = bindless.pending_unbind[i_set];
 
-		VkImageLayout img_layout = descriptor_types[i_set] == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
-		                               ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		                               : VK_IMAGE_LAYOUT_GENERAL;
+		const VkImageLayout img_layout = descriptor_types[i_set] == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+		                                     ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		                                     : VK_IMAGE_LAYOUT_GENERAL;
 
 		for (auto to_bind : pending_binds) {
 			auto &write           = *descriptor_writes++;
@@ -325,8 +325,8 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 		pending_unbinds.clear();
 	}
 
-	u32 write_count = static_cast<u32>(descriptor_writes - descriptor_writes_begin);
-	u32 copy_count  = static_cast<u32>(descriptor_copies - descriptor_copies_begin);
+	const u32 write_count = static_cast<u32>(descriptor_writes - descriptor_writes_begin);
+	const u32 copy_count  = static_cast<u32>(descriptor_copies - descriptor_copies_begin);
 	vkUpdateDescriptorSets(device.device, write_count, descriptor_writes_begin, copy_count, descriptor_copies_begin);
 }
 

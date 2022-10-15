@@ -138,8 +138,8 @@ u64 Window::get_win32_hwnd() const { return (u64)impl(*this).wnd; }
 
 float2 Window::get_dpi_scale() const
 {
-	uint  dpi   = GetDpiForWindow(impl(*this).wnd);
-	float scale = static_cast<float>(dpi) / 96.0f;
+	const uint dpi   = GetDpiForWindow(impl(*this).wnd);
+	float      scale = static_cast<float>(dpi) / 96.0f;
 	if (scale <= 0.0f) {
 		scale = 1.0f;
 	}
@@ -168,8 +168,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		tmp            = reinterpret_cast<Window *>(p_create->lpCreateParams);
 		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)tmp);
 	} else {
-		LONG_PTR ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-		tmp          = reinterpret_cast<Window *>(ptr);
+		LONG_PTR const ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		tmp                = reinterpret_cast<Window *>(ptr);
 	}
 
 	Window &window = *tmp;
@@ -355,9 +355,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		HIMC himc = ImmGetContext(hwnd);
 		if (lParam & GCS_COMPSTR) // Retrieve or update the reading string of the current composition.
 		{
-			i32 res = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
+			const i32 res = ImmGetCompositionString(himc, GCS_COMPSTR, nullptr, 0);
 			ASSERT(res > 0);
-			u32 size = static_cast<u32>(res);
+			const u32 size = static_cast<u32>(res);
 			if (size) {
 				std::wstring result;
 				result.resize(size);
@@ -367,9 +367,9 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			}
 		} else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
 		{
-			i32 res = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
+			const i32 res = ImmGetCompositionString(himc, GCS_RESULTSTR, nullptr, 0);
 			ASSERT(res > 0);
-			u32 size = static_cast<u32>(res);
+			const u32 size = static_cast<u32>(res);
 			if (size) {
 				std::wstring result;
 				result.resize(size);
@@ -390,7 +390,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	case WM_MOUSEWHEEL: {
 		// fwKeys = GET_KEYSTATE_WPARAM(wParam);
-		int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+		const int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
 		window.events.push_back({.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -delta}});
 		return 0;
 	}

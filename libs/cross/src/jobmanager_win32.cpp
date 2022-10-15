@@ -23,15 +23,15 @@ JobManager JobManager::create()
 	JobManager jobmanager;
 	auto      &impl = jobmanager.impl.get();
 
-	impl.completion_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, THREAD_POOL_LENGTH);
+	impl.completion_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, NULL, THREAD_POOL_LENGTH);
 
 	// Initialize threads
-	for (usize i_thread = 0; i_thread < THREAD_POOL_LENGTH; ++i_thread) {
-		auto &thread_impl = jobmanager.threads[i_thread].impl.get();
+	for (auto &thread : jobmanager.threads) {
+		auto &thread_impl = thread.impl.get();
 
 		void *thread_param = impl.completion_port;
 		auto *thread_id    = &thread_impl.id;
-		thread_impl.handle = CreateThread(NULL, 0, worker_thread_proc, thread_param, 0, thread_id);
+		thread_impl.handle = CreateThread(nullptr, 0, worker_thread_proc, thread_param, 0, thread_id);
 		ASSERT(thread_impl.handle);
 	}
 	return jobmanager;
@@ -53,10 +53,10 @@ void JobManager::destroy()
 
 	WaitForMultipleObjects(THREAD_POOL_LENGTH, thread_handles, TRUE, INFINITE);
 
-	for (usize i_thread = 0; i_thread < THREAD_POOL_LENGTH; ++i_thread) {
-		auto &thread_impl = this->threads[i_thread].impl.get();
+	for (auto &thread : this->threads) {
+		auto &thread_impl = thread.impl.get();
 		CloseHandle(thread_impl.handle);
-		thread_impl.handle = NULL;
+		thread_impl.handle = nullptr;
 	}
 }
 
@@ -73,7 +73,7 @@ void worker_thread_read_file(ReadFileJob &job)
 	complete_job->done_counter = job.done_counter;
 	completejob_impl.ovl       = job.job_impl.get().ovl;
 
-	auto res = ReadFile(readjob_impl.file_handle, job.dst.data(), DWORD(job.size), NULL, &completejob_impl.ovl);
+	auto res = ReadFile(readjob_impl.file_handle, job.dst.data(), DWORD(job.size), nullptr, &completejob_impl.ovl);
 
 	auto last_error = GetLastError();
 	ASSERT(!res && last_error == ERROR_IO_PENDING);
@@ -86,7 +86,7 @@ DWORD worker_thread_proc(void *param)
 
 	unsigned long bytes_transferred = 0;
 	ULONG_PTR     completion_key    = NULL;
-	LPOVERLAPPED  overlapped        = NULL;
+	LPOVERLAPPED  overlapped        = nullptr;
 	BOOL          res;
 
 	while (true) {

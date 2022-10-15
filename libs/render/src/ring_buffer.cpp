@@ -46,7 +46,7 @@ std::pair<std::span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
 
 	// Align the offset to the desired alignment
 	if ((offset % alignment) != 0) {
-		u64 diff = alignment - (offset % alignment);
+		const u64 diff = alignment - (offset % alignment);
 		offset += diff;
 		allocated += diff;
 	}
@@ -95,7 +95,7 @@ void RingBuffer::start_frame()
 	this->i_frame += 1;
 
 	const usize frame_count            = this->frame_size_allocated.size();
-	u64         allocated_latest_frame = this->frame_size_allocated[this->i_frame % frame_count];
+	const u64   allocated_latest_frame = this->frame_size_allocated[this->i_frame % frame_count];
 	if (allocated_latest_frame > 0) {
 		this->tail = (this->tail + allocated_latest_frame) % this->capacity;
 		this->full = false;

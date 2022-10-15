@@ -76,7 +76,7 @@ void EditorCameraInputSystem::update(const UpdateContext &)
 	} else {
 		camera_input_component->scroll = {};
 	}
-	camera_input_component->mouse_delta  = inputs->get_mouse_delta();
+	camera_input_component->mouse_delta = inputs->get_mouse_delta();
 }
 
 void EditorCameraTransformSystem::update(const UpdateContext &ctx)
@@ -121,9 +121,9 @@ void EditorCameraTransformSystem::update(const UpdateContext &ctx)
 				auto mouse_up    = float(mouse_delta->y);
 				auto mouse_right = float(mouse_delta->x);
 
-				auto   camera_world = reinterpret_cast<SpatialComponent *>(camera_component)->get_local_transform();
-				float3 front        = -1.0 * normalize(camera_world.col(2).xyz());
-				float3 up           = normalize(camera_world.col(1).xyz());
+				auto camera_world  = reinterpret_cast<SpatialComponent *>(camera_component)->get_local_transform();
+				const float3 front = -1.0 * normalize(camera_world.col(2).xyz());
+				const float3 up    = normalize(camera_world.col(1).xyz());
 
 				auto camera_plane_forward = normalize(float3(front.x, 0.0f, front.z));
 				auto camera_right         = cross(up, front);

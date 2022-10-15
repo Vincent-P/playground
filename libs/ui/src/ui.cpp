@@ -74,7 +74,7 @@ u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
 
-	usize last_color_rect_offset = painter.vertex_bytes_offset - sizeof(ColorRect);
+	const usize last_color_rect_offset = painter.vertex_bytes_offset - sizeof(ColorRect);
 	ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
 	return static_cast<u32>(last_color_rect_offset / sizeof(Rect));
 }
@@ -103,8 +103,8 @@ bool button(Ui &ui, const Button &button)
 {
 	EXO_PROFILE_SCOPE;
 
-	bool result = false;
-	u64  id     = make_id(ui);
+	bool      result = false;
+	const u64 id     = make_id(ui);
 
 	push_clip_rect(ui, register_clip_rect(ui, button.rect));
 
@@ -149,7 +149,7 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
 	EXO_PROFILE_SCOPE;
 
-	u64 id = make_id(ui);
+	const u64 id = make_id(ui);
 
 	Rect right_rect = view_rect;
 	/*Rect left_rect =*/rect_split_left(right_rect, value * view_rect.size.x);
@@ -170,8 +170,8 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 
 	const auto color = ui.activation.focused == id ? ui.theme.splitter_hover_color : ui.theme.splitter_color;
 	if (ui.activation.focused == id) {
-		float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
-		splitter_rect              = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
+		const float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
+		splitter_rect                    = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
 	}
 	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
@@ -180,7 +180,7 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
 	EXO_PROFILE_SCOPE;
 
-	u64 id = make_id(ui);
+	const u64 id = make_id(ui);
 
 	Rect bottom_rect = view_rect;
 	/*Rect top_rect =*/rect_split_top(bottom_rect, value * view_rect.size.y);
@@ -201,8 +201,8 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 
 	const auto color = ui.activation.focused == id ? ui.theme.splitter_hover_color : ui.theme.splitter_color;
 	if (ui.activation.focused == id) {
-		float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
-		splitter_rect              = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
+		const float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
+		splitter_rect                    = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
 	}
 	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
@@ -235,8 +235,8 @@ bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
 	EXO_PROFILE_SCOPE;
 
-	bool result = false;
-	u64  id     = make_id(ui);
+	bool      result = false;
+	const u64 id     = make_id(ui);
 
 	// layout
 	auto label_size  = measure_label(*ui.painter, *ui.theme.main_font, label);

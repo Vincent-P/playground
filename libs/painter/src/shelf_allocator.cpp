@@ -52,7 +52,7 @@ AllocationId ShelfAllocator::alloc(int2 alloc_size)
 
 		ASSERT(alloc_size.y < freealloc.capacity.y);
 		ASSERT(alloc_size.x < freealloc.capacity.x);
-		i32 waste = (freealloc.capacity.x * freealloc.capacity.y) - (alloc_size.x * alloc_size.y);
+		const i32 waste = (freealloc.capacity.x * freealloc.capacity.y) - (alloc_size.x * alloc_size.y);
 		if (waste < area_waste) {
 			area_waste      = waste;
 			i_best_freelist = i_freelist;
@@ -77,7 +77,7 @@ AllocationId ShelfAllocator::alloc(int2 alloc_size)
 		}
 
 		ASSERT(alloc_size.y < shelf.size.y);
-		i32 waste = (shelf.size.y - alloc_size.y) * alloc_size.x;
+		const i32 waste = (shelf.size.y - alloc_size.y) * alloc_size.x;
 		if (waste < area_waste) {
 			area_waste      = waste;
 			i_best_shelf    = i_shelf;

@@ -43,9 +43,9 @@ static void register_srgb_pass(Renderer &renderer, Handle<TextureDesc> input, Ha
 		auto output_image = graph.resources.resolve_image(api.device, output);
 
 		ASSERT(graph.image_size(input) == graph.image_size(output));
-		exo::uint3 dispatch_size = exo::uint3(graph.image_size(input));
-		dispatch_size.x          = (dispatch_size.x / 16) + (dispatch_size.x % 16 != 0);
-		dispatch_size.y          = (dispatch_size.y / 16) + (dispatch_size.y % 16 != 0);
+		auto dispatch_size = exo::uint3(graph.image_size(input));
+		dispatch_size.x    = (dispatch_size.x / 16) + (dispatch_size.x % 16 != 0);
+		dispatch_size.y    = (dispatch_size.y / 16) + (dispatch_size.y % 16 != 0);
 
 		auto options = bindings::bind_option_struct<Options>(api.device, api.uniform_buffer, cmd);
 		options[0].linear_input_buffer_texture = api.device.get_image_sampled_index(input_image);
@@ -72,8 +72,8 @@ DrawResult Renderer::draw(DrawInput input)
 			*input.world);
 	}
 
-	auto scene_rt = Handle<TextureDesc>::invalid();
-	bool has_world_viewport = input.world_viewport_size.x > 0 && input.world_viewport_size.y > 0;
+	auto       scene_rt           = Handle<TextureDesc>::invalid();
+	const bool has_world_viewport = input.world_viewport_size.x > 0 && input.world_viewport_size.y > 0;
 	if (has_world_viewport) {
 
 		scene_rt = base.render_graph.output(TextureDesc{

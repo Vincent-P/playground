@@ -39,7 +39,7 @@ u32 Device::compile_graphics_state(Handle<GraphicsProgram> &program_handle, cons
 
 	program.render_states.push_back(render_state);
 
-	u32 i_pipeline = static_cast<u32>(program.pipelines.size());
+	const u32 i_pipeline = static_cast<u32>(program.pipelines.size());
 	program.pipelines.push_back(VK_NULL_HANDLE);
 	compile_graphics_pipeline(program_handle, i_pipeline);
 	return i_pipeline;
@@ -57,9 +57,10 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	dyn_i.dynamicStateCount                = static_cast<u32>(exo::Array::len(dynamic_states));
 	dyn_i.pDynamicStates                   = dynamic_states;
 
-	VkPipelineVertexInputStateCreateInfo vert_i = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+	const VkPipelineVertexInputStateCreateInfo vert_i = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-	VkPipelineInputAssemblyStateCreateInfo asm_i = {
+	const VkPipelineInputAssemblyStateCreateInfo asm_i = {
 		.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
 		.flags                  = 0,
 		.topology               = to_vk(render_state.input_assembly.topology),
@@ -72,7 +73,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 		.extraPrimitiveOverestimationSize = 0.1f, // in pixels
 	};
 
-	VkPipelineRasterizationStateCreateInfo rast_i = {
+	const VkPipelineRasterizationStateCreateInfo rast_i = {
 		.sType            = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 		.pNext            = render_state.rasterization.enable_conservative_rasterization ? &conservative : nullptr,
 		.flags            = 0,

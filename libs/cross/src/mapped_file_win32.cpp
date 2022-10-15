@@ -33,9 +33,9 @@ Option<MappedFile> MappedFile::open(const std::string_view &path)
 	}
 	DEFER { CloseHandle(fd); };
 
-	DWORD hi  = 0;
-	DWORD lo  = GetFileSize(fd, &hi);
-	file.size = ((u64)hi << 32) | (u64)lo;
+	DWORD       hi = 0;
+	const DWORD lo = GetFileSize(fd, &hi);
+	file.size      = ((u64)hi << 32) | (u64)lo;
 
 	file.mapping = CreateFileMapping(fd, nullptr, PAGE_READONLY, 0, 0, nullptr);
 	if (!utils::is_handle_valid(file.mapping)) {
@@ -56,7 +56,7 @@ void MappedFile::close()
 		UnmapViewOfFile(this->base_addr);
 		CloseHandle(this->mapping);
 		this->base_addr = nullptr;
-		this->mapping   = NULL;
+		this->mapping   = nullptr;
 	}
 }
 }; // namespace cross

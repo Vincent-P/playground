@@ -8,7 +8,8 @@
 
 namespace exo
 {
-template <typename V> auto max_impl(V lhs, V rhs)
+template <typename V>
+auto max_impl(V lhs, V rhs)
 {
 	V res;
 	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
@@ -17,7 +18,8 @@ template <typename V> auto max_impl(V lhs, V rhs)
 	return res;
 }
 
-template <typename V> auto min_impl(V lhs, V rhs)
+template <typename V>
+auto min_impl(V lhs, V rhs)
 {
 	V res;
 	for (usize i_component = 1; i_component < V::SIZE; i_component += 1) {
@@ -26,7 +28,8 @@ template <typename V> auto min_impl(V lhs, V rhs)
 	return res;
 }
 
-template <typename V> float dot_impl(V a, V b)
+template <typename V>
+float dot_impl(V a, V b)
 {
 	float res = 0.0f;
 	for (usize i_component = 0; i_component < V::SIZE; i_component += 1) {
@@ -35,21 +38,28 @@ template <typename V> float dot_impl(V a, V b)
 	return res;
 }
 
-template <typename V> float length_impl(V a)
+template <typename V>
+float length_impl(V a)
 {
-	float squared_length = dot_impl(a, a);
+	const float squared_length = dot_impl(a, a);
 	return std::sqrt(squared_length);
 }
 
-template <typename V> float distance_impl(V a, V b) { return length_impl(b - a); }
-
-template <typename V> V normalize_impl(V a)
+template <typename V>
+float distance_impl(V a, V b)
 {
-	float inverse_len = 1.0f / length_impl(a);
+	return length_impl(b - a);
+}
+
+template <typename V>
+V normalize_impl(V a)
+{
+	const float inverse_len = 1.0f / length_impl(a);
 	return inverse_len * a;
 }
 
-template <typename V> V round_impl(V a)
+template <typename V>
+V round_impl(V a)
 {
 	V res = V{0};
 	for (usize i_component = 0; i_component < V::SIZE; i_component += 1) {
@@ -58,7 +68,8 @@ template <typename V> V round_impl(V a)
 	return res;
 }
 
-template <typename V> V floor_impl(V a)
+template <typename V>
+V floor_impl(V a)
 {
 	V res = V{0};
 	for (usize i_component = 0; i_component < V::SIZE; i_component += 1) {
@@ -67,7 +78,8 @@ template <typename V> V floor_impl(V a)
 	return res;
 }
 
-template <typename V> V ceil_impl(V a)
+template <typename V>
+V ceil_impl(V a)
 {
 	V res = V{0};
 	for (usize i_component = 0; i_component < V::SIZE; i_component += 1) {

@@ -58,9 +58,9 @@ void freetype_rasterizer(Font &font, u32 glyph_id, GlyphImage &out_image, GlyphM
 	ASSERT(!error);
 
 	// Upload it to GPU
-	uint2 bitmap_size = uint2(slot->bitmap.width, slot->bitmap.rows);
-	void *data        = slot->bitmap.buffer;
-	i32   data_size   = slot->bitmap.pitch * static_cast<i32>(slot->bitmap.rows);
+	const uint2 bitmap_size = uint2(slot->bitmap.width, slot->bitmap.rows);
+	void       *data        = slot->bitmap.buffer;
+	const i32   data_size   = slot->bitmap.pitch * static_cast<i32>(slot->bitmap.rows);
 
 	ASSERT(data_size >= 0);
 

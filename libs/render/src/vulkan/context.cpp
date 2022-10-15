@@ -70,8 +70,9 @@ Context Context::create(const ContextDescription &desc)
 	uint layer_props_count = 0;
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
 
-	auto  allocator_scope  = exo::ScopeStack::with_allocator(&exo::tls_allocator);
-	auto *installed_layers = reinterpret_cast<VkLayerProperties *>(allocator_scope.allocate(layer_props_count * sizeof(VkLayerProperties)));
+	auto  allocator_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+	auto *installed_layers =
+		reinterpret_cast<VkLayerProperties *>(allocator_scope.allocate(layer_props_count * sizeof(VkLayerProperties)));
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
 
 	u32 i_validation = u32_invalid;
@@ -81,7 +82,7 @@ Context Context::create(const ContextDescription &desc)
 		}
 	}
 
-	bool enable_validation = desc.enable_validation && i_validation != u32_invalid;
+	const bool enable_validation = desc.enable_validation && i_validation != u32_invalid;
 	if (desc.enable_validation && i_validation == u32_invalid) {
 		exo::logger::info("Validation layers are enabled but the vulkan layer was not found.\n");
 	}

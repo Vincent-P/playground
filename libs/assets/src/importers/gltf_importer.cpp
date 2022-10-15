@@ -183,7 +183,8 @@ struct ImporterContext
 		return exo::Path::join(dir, relative_path_str);
 	}
 
-	template <typename T> AssetId create_id(std::string_view subname)
+	template <typename T>
+	AssetId create_id(std::string_view subname)
 	{
 		std::string copy = this->main_id.name;
 		copy += '_';
@@ -196,10 +197,10 @@ static std::span<const u8> get_binary_data(
 	ImporterContext &ctx, const gltf::BufferView &view, const gltf::Accessor &accessor, usize i_element = 0)
 
 {
-	usize byte_stride =
+	const usize byte_stride =
 		view.byte_stride > 0 ? view.byte_stride : gltf::size_of(accessor.component_type) * accessor.nb_component;
 
-	usize offset = view.byte_offset + accessor.byte_offset + i_element * byte_stride;
+	const usize offset = view.byte_offset + accessor.byte_offset + i_element * byte_stride;
 
 	const u8 *source = nullptr;
 	if (view.i_buffer == u32_invalid) {
@@ -370,7 +371,7 @@ static void import_meshes(ImporterContext &ctx)
 			}
 
 			if (j_primitive.HasMember("material")) {
-				u32 i_material       = j_primitive["material"].GetUint();
+				const u32 i_material = j_primitive["material"].GetUint();
 				new_submesh.material = ctx.material_ids[i_material];
 				new_mesh->add_dependency_checked(new_submesh.material);
 			}
@@ -398,8 +399,8 @@ static void import_nodes(ImporterContext &ctx)
 		float4x4 transform = float4x4::identity();
 
 		if (j_node.HasMember("matrix")) {
-			usize i      = 0;
-			auto  matrix = j_node["matrix"].GetArray();
+			usize const i      = 0;
+			auto        matrix = j_node["matrix"].GetArray();
 			ASSERT(matrix.Size() == 16);
 
 			for (u32 i_element = 0; i_element < matrix.Size(); i_element += 1) {
@@ -458,7 +459,7 @@ static void import_nodes(ImporterContext &ctx)
 		return transform;
 	};
 
-	u32         i_scene  = ctx.j_document.HasMember("scene") ? ctx.j_document["scene"].GetUint() : 0;
+	const u32   i_scene  = ctx.j_document.HasMember("scene") ? ctx.j_document["scene"].GetUint() : 0;
 	const auto &j_scenes = ctx.j_document["scenes"].GetArray();
 	const auto &j_scene  = j_scenes[i_scene].GetObj();
 	const auto &j_roots  = j_scene["nodes"].GetArray();
@@ -535,7 +536,7 @@ static void import_materials(ImporterContext &ctx)
 		auto load_texture = [&](auto &json_object, const char *texture_name) -> u32 {
 			if (json_object.HasMember(texture_name)) {
 				const auto &j_texture_desc  = json_object[texture_name];
-				u32         i_texture_index = j_texture_desc["index"].GetUint();
+				u32 const   i_texture_index = j_texture_desc["index"].GetUint();
 				const auto &j_texture       = j_document["textures"][i_texture_index];
 				u32         i_texture       = u32_invalid;
 
@@ -642,7 +643,7 @@ static void import_textures(ImporterContext &ctx)
 	}
 }
 
-bool GLTFImporter::can_import_extension(std::span<std::string_view const> extensions)
+bool GLTFImporter::can_import_extension(std::span<std::const string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".gltf"}) {
@@ -652,7 +653,7 @@ bool GLTFImporter::can_import_extension(std::span<std::string_view const> extens
 	return false;
 }
 
-bool GLTFImporter::can_import_blob(std::span<u8 const> data)
+bool GLTFImporter::can_import_blob(std::span<const u8> data)
 {
 	ASSERT(data.size() > 4);
 	return data[0] == 'g' && data[1] == 'l' && data[2] == 'T' && data[3] == 'F';

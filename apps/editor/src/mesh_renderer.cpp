@@ -302,9 +302,10 @@ void register_upload_nodes(RenderGraph &graph,
 			       (mesh_renderer.render_textures.get(texture_handle).frame_uploaded <= graph.i_frame);
 		};
 
-		bool textures_uploaded = is_texture_uploaded(mesh_renderer, p_render_material->base_color_texture) &&
-		                         is_texture_uploaded(mesh_renderer, p_render_material->normal_texture) &&
-		                         is_texture_uploaded(mesh_renderer, p_render_material->metallic_roughness_texture);
+		const bool textures_uploaded =
+			is_texture_uploaded(mesh_renderer, p_render_material->base_color_texture) &&
+			is_texture_uploaded(mesh_renderer, p_render_material->normal_texture) &&
+			is_texture_uploaded(mesh_renderer, p_render_material->metallic_roughness_texture);
 
 		if (!p_render_material->is_uploaded && textures_uploaded) {
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(sizeof(MaterialDescriptor));

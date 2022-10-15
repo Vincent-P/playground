@@ -93,7 +93,7 @@ static FileWatcher create_internal()
 static void destroy_internal(FileWatcher &fw)
 {
 	for (auto &watch : fw.watches) {
-		BOOL res = CloseHandle(watch.directory_handle);
+		const BOOL res = CloseHandle(watch.directory_handle);
 		ASSERT(res);
 	}
 }
@@ -120,7 +120,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 	notify_flags |= FILE_NOTIFY_CHANGE_LAST_WRITE; // timestamp changed
 	notify_flags |= FILE_NOTIFY_CHANGE_FILE_NAME;  // renaming, creating or deleting a file
 
-	BOOL res = ReadDirectoryChangesW(watch.directory_handle,
+	const BOOL res = ReadDirectoryChangesW(watch.directory_handle,
 		watch.buffer.data(),
 		static_cast<DWORD>(watch.buffer.size()),
 		true,
@@ -155,7 +155,7 @@ static void fetch_events_internal(FileWatcher &fw)
 			WatchEvent event;
 			event.wd = watch.wd;
 
-			std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
+			const std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
 			event.name = utils::utf16_to_utf8(wname);
 			event.len  = p_event->FileNameLength / sizeof(wchar_t);
 

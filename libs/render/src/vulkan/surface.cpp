@@ -138,7 +138,7 @@ void Surface::create_swapchain(Device &device)
 		image_count = capabilities.maxImageCount;
 	}
 
-	VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
+	const VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
 
 	VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 	ci.surface                  = this->surface;
@@ -179,13 +179,13 @@ void Surface::create_swapchain(Device &device)
 
 	this->can_present_semaphores.resize(images_count);
 	for (auto &semaphore : this->can_present_semaphores) {
-		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	this->image_acquired_semaphores.resize(images_count);
 	for (auto &semaphore : this->image_acquired_semaphores) {
-		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }
@@ -222,7 +222,7 @@ void Surface::recreate_swapchain(Device &device)
 	this->width  = static_cast<i32>(capabilities.currentExtent.width);
 	this->height = static_cast<i32>(capabilities.currentExtent.height);
 
-	VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
+	const VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
 
 	VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 	ci.surface                  = this->surface;
@@ -266,13 +266,13 @@ void Surface::recreate_swapchain(Device &device)
 
 	for (auto &semaphore : this->image_acquired_semaphores) {
 		vkDestroySemaphore(device.device, semaphore, nullptr);
-		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	for (auto &semaphore : this->can_present_semaphores) {
 		vkDestroySemaphore(device.device, semaphore, nullptr);
-		VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }

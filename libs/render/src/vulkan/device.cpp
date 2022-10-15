@@ -66,7 +66,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		queue_families.data());
 
 	Vec<VkDeviceQueueCreateInfo> queue_create_infos;
-	float                        priority = 0.0;
+	const float                  priority = 0.0;
 
 	for (uint32_t i = 0; i < queue_families.size(); i++) {
 		VkDeviceQueueCreateInfo queue_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
@@ -168,7 +168,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 			.stageFlags      = VK_SHADER_STAGE_ALL,
 		}};
 
-		VkDescriptorSetLayoutCreateInfo desc_layout_info = {
+		const VkDescriptorSetLayoutCreateInfo desc_layout_info = {
 			.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			.bindingCount = static_cast<u32>(exo::Array::len(bindings)),
 			.pBindings    = bindings,

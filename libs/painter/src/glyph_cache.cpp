@@ -40,7 +40,7 @@ static Handle<GlyphEntry> lru_cache_pop(exo::Pool<GlyphEntry> &cache, Handle<Gly
 		return {};
 	}
 
-	Handle<GlyphEntry> popped = head;
+	const Handle<GlyphEntry> popped = head;
 
 	auto head_next = cache.get(head).lru_next;
 

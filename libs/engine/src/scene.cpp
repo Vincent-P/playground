@@ -81,7 +81,7 @@ void scene_debug_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 
 void Scene::update(const Inputs &)
 {
-	double delta_t = 0.016;
+	const double delta_t = 0.016;
 	entity_world.update(delta_t);
 }
 

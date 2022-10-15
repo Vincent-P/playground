@@ -47,9 +47,9 @@ void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_r
 	}
 
 	ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
-	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(TexturedRect));
-	auto *vertices   = reinterpret_cast<TexturedRect *>(painter.vertices);
-	vertices[i_rect] = {.rect = rect, .uv = uv, .texture_descriptor = texture, .i_clip_rect = i_clip_rect};
+	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(TexturedRect));
+	auto     *vertices = reinterpret_cast<TexturedRect *>(painter.vertices);
+	vertices[i_rect]   = {.rect = rect, .uv = uv, .texture_descriptor = texture, .i_clip_rect = i_clip_rect};
 	painter.vertex_bytes_offset += sizeof(TexturedRect);
 
 	// 0 - 3
@@ -83,9 +83,9 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 
 	ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
 	ASSERT(painter.vertex_bytes_offset % sizeof(Rect) == 0);
-	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
-	auto *vertices   = reinterpret_cast<ColorRect *>(painter.vertices);
-	vertices[i_rect] = {.rect = rect, .color = color.raw, .i_clip_rect = i_clip_rect};
+	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
+	auto     *vertices = reinterpret_cast<ColorRect *>(painter.vertices);
+	vertices[i_rect]   = {.rect = rect, .color = color.raw, .i_clip_rect = i_clip_rect};
 	painter.vertex_bytes_offset += sizeof(ColorRect);
 
 	// 0 - 3
@@ -116,8 +116,8 @@ int2 measure_label(Painter &painter, Font &font, std::string_view label)
 
 	hb_shape(font.hb_font, buf, nullptr, 0);
 
-	u32 glyph_count;
-	i32 line_height = font.metrics.ascender - font.metrics.descender;
+	u32       glyph_count;
+	const i32 line_height = font.metrics.ascender - font.metrics.descender;
 	// hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
 	hb_glyph_position_t *glyph_pos = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
@@ -142,27 +142,27 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 	hb_shape(font.hb_font, buf, nullptr, 0);
 
 	u32                  glyph_count;
-	i32                  line_height     = font.metrics.height;
+	const i32            line_height     = font.metrics.height;
 	hb_glyph_info_t     *glyph_infos     = hb_buffer_get_glyph_infos(buf, &glyph_count);
 	hb_glyph_position_t *glyph_positions = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
 	i32 cursor_x = i32(view_rect.pos.x);
 	i32 cursor_y = i32(view_rect.pos.y) + font.metrics.ascender;
 	for (u32 i = 0; i < glyph_count; i++) {
-		u32 glyph_index = glyph_infos[i].codepoint;
-		i32 x_advance   = glyph_positions[i].x_advance;
-		i32 y_advance   = glyph_positions[i].y_advance;
+		const u32 glyph_index = glyph_infos[i].codepoint;
+		const i32 x_advance   = glyph_positions[i].x_advance;
+		const i32 y_advance   = glyph_positions[i].y_advance;
 
 		GlyphImage glyph_image = {};
 		auto       cache_entry = painter.glyph_cache.queue_glyph(font, glyph_index, &glyph_image);
 		if (cache_entry.has_value()) {
-			int2 glyph_pos = cache_entry.value();
+			const int2 glyph_pos = cache_entry.value();
 
-			Rect rect = {
+			const Rect rect = {
 				.pos  = float2(int2{cursor_x + glyph_image.top_left.x, cursor_y - glyph_image.top_left.y}),
 				.size = float2(glyph_image.image_size),
 			};
-			Rect uv = {
+			const Rect uv = {
 				.pos  = float2(glyph_pos) / float2(painter.glyph_cache.allocator.size),
 				.size = float2(glyph_image.image_size) / float2(painter.glyph_cache.allocator.size),
 			};
@@ -196,13 +196,13 @@ void painter_draw_color_round_rect(
 	}
 
 	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
-	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
-	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
-	vertices[i_rect] = {.rect = rect,
-		.color                = color.raw,
-		.i_clip_rect          = i_clip_rect,
-		.border_color         = border_color.raw,
-		.border_thickness     = border_thickness};
+	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
+	auto     *vertices = reinterpret_cast<SdfRect *>(painter.vertices);
+	vertices[i_rect]   = {.rect = rect,
+		  .color                = color.raw,
+		  .i_clip_rect          = i_clip_rect,
+		  .border_color         = border_color.raw,
+		  .border_thickness     = border_thickness};
 	painter.vertex_bytes_offset += sizeof(SdfRect);
 
 	// 0 - 3
@@ -236,13 +236,13 @@ void painter_draw_color_circle(
 	}
 
 	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
-	u32   i_rect     = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
-	auto *vertices   = reinterpret_cast<SdfRect *>(painter.vertices);
-	vertices[i_rect] = {.rect = rect,
-		.color                = color.raw,
-		.i_clip_rect          = i_clip_rect,
-		.border_color         = border_color.raw,
-		.border_thickness     = border_thickness};
+	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
+	auto     *vertices = reinterpret_cast<SdfRect *>(painter.vertices);
+	vertices[i_rect]   = {.rect = rect,
+		  .color                = color.raw,
+		  .i_clip_rect          = i_clip_rect,
+		  .border_color         = border_color.raw,
+		  .border_thickness     = border_thickness};
 	painter.vertex_bytes_offset += sizeof(SdfRect);
 
 	// 0 - 3

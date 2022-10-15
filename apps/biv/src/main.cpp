@@ -169,8 +169,8 @@ struct CharCheckbox
 
 bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 {
-	bool result = checkbox.value ? *checkbox.value : false;
-	u64  id     = make_id(ui);
+	bool      result = checkbox.value ? *checkbox.value : false;
+	const u64 id     = make_id(ui);
 
 	if (is_hovering(ui, checkbox.rect)) {
 		ui.activation.focused = id;
@@ -197,7 +197,7 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 		bg_color = ColorU32::from_uints(0x2D, 0xA8, 0xFB);
 	}
 
-	float border_thickness = 1.0f;
+	const float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
 	auto label_rect = rect_center(checkbox.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label_str)));
@@ -298,7 +298,7 @@ static void display_ui(RenderSample *app)
 		app->ui.state.i_clip_rect,
 		ColorU32::from_greyscale(u8(0xE5)));
 
-	u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
+	const u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
 	ui::push_clip_rect(app->ui, i_content_rect);
 
 	// image viewer
@@ -414,8 +414,8 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 
 	const u8 png_signature[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
-	bool is_signature_valid = mapped_file->size > sizeof(png_signature) &&
-	                          std::memcmp(mapped_file->base_addr, png_signature, sizeof(png_signature)) == 0;
+	const bool is_signature_valid = mapped_file->size > sizeof(png_signature) &&
+	                                std::memcmp(mapped_file->base_addr, png_signature, sizeof(png_signature)) == 0;
 	if (!is_signature_valid) {
 		return;
 	}

@@ -13,7 +13,7 @@
 #include <rapidjson/prettywriter.h>
 #include <volk.h>
 
-bool KTX2Importer::can_import_extension(std::span<std::string_view const> extensions)
+bool KTX2Importer::can_import_extension(std::span<std::const string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".ktx2"}) {
@@ -23,7 +23,7 @@ bool KTX2Importer::can_import_extension(std::span<std::string_view const> extens
 	return false;
 }
 
-bool KTX2Importer::can_import_blob(std::span<u8 const> blob)
+bool KTX2Importer::can_import_blob(std::span<const u8> blob)
 {
 	const u8 signature[] = {0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
 

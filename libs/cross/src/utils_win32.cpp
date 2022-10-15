@@ -12,7 +12,7 @@ std::wstring utf8_to_utf16(const std::string_view &str)
 		return {};
 	}
 
-	int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
 	ASSERT(res > 0);
 	auto size_needed = static_cast<usize>(res);
 	// TODO: Remove allocation
@@ -32,7 +32,7 @@ std::string utf16_to_utf8(const std::wstring_view &wstr)
 		return {};
 	}
 
-	int res = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+	const int res = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
 	ASSERT(res > 0);
 	auto        size_needed = static_cast<usize>(res);
 	std::string result(size_needed, 0);

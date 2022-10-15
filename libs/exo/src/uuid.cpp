@@ -60,7 +60,7 @@ UUID UUID::from_string(std::string_view str)
 	for (usize i_data = 0; i_data < 4; i_data += 1) {
 		// 0..8, 1..17, 18..26, 27..35
 		for (usize i = (i_data * 9); i < (i_data + 1) * 8 + i_data; i += 1) {
-			uint n                = static_cast<uint>(str[i] >= 'a' ? str[i] - 'a' + 10 : str[i] - '0');
+			const uint n          = static_cast<uint>(str[i] >= 'a' ? str[i] - 'a' + 10 : str[i] - '0');
 			new_uuid.data[i_data] = new_uuid.data[i_data] * 16 + n;
 		}
 	}

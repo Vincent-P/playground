@@ -273,7 +273,7 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_buffer = device->buffers.get(dst);
 
-	VkBufferCopy copy = {
+	const VkBufferCopy copy = {
 		.srcOffset = 0,
 		.dstOffset = 0,
 		.size      = std::min(src_buffer.desc.size, dst_buffer.desc.size),
@@ -353,7 +353,7 @@ void TransferWork::copy_buffer_to_image(
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_image  = device->images.get(dst);
 
-	u32 region_count = static_cast<u32>(buffer_copy_regions.size());
+	const u32 region_count = static_cast<u32>(buffer_copy_regions.size());
 	vkCmdCopyBufferToImage(command_buffer,
 		src_buffer.vkhandle,
 		dst_image.vkhandle,
@@ -566,7 +566,7 @@ void Device::destroy_query_pool(QueryPool &query_pool)
 void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count, Vec<u64> &results)
 {
 	EXO_PROFILE_SCOPE;
-	usize old_size = results.size();
+	const usize old_size = results.size();
 	results.resize(old_size + count);
 
 	ASSERT(first_query + count < query_pool.capacity);
@@ -610,10 +610,10 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
 		command_pool.command_buffers_is_used.push_back(true);
 	}
 
-	u32 queue_family_idx = queue_type == QueueType::Graphics   ? device.graphics_family_idx
-	                       : queue_type == QueueType::Compute  ? device.compute_family_idx
-	                       : queue_type == QueueType::Transfer ? device.transfer_family_idx
-	                                                           : u32_invalid;
+	const u32 queue_family_idx = queue_type == QueueType::Graphics   ? device.graphics_family_idx
+	                             : queue_type == QueueType::Compute  ? device.compute_family_idx
+	                             : queue_type == QueueType::Transfer ? device.transfer_family_idx
+	                                                                 : u32_invalid;
 
 	ASSERT(queue_family_idx != u32_invalid);
 	vkGetDeviceQueue(device.device, queue_family_idx, 0, &work.queue);
@@ -756,7 +756,7 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 {
 	EXO_PROFILE_SCOPE;
 	// 1 sec in nanoseconds
-	u64                 timeout   = 1llu * 1000llu * 1000llu * 1000llu;
+	const u64           timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
 	wait_info.semaphoreCount      = 1;
 	wait_info.pSemaphores         = &fence.timeline_semaphore;
@@ -775,7 +775,7 @@ void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64>
 	}
 
 	// 1 sec in nanoseconds
-	u64                 timeout   = 1llu * 1000llu * 1000llu * 1000llu;
+	const u64           timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
 	wait_info.semaphoreCount      = static_cast<u32>(fences.size());
 	wait_info.pSemaphores         = semaphores.data();

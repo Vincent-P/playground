@@ -8,9 +8,9 @@ namespace camera
 {
 float4x4 look_at(float3 eye, float3 at, float3 up, float4x4 *inverse)
 {
-	float3 z_axis = normalize(at - eye);
-	float3 x_axis = normalize(cross(z_axis, up));
-	float3 y_axis = cross(x_axis, z_axis);
+	const float3 z_axis = normalize(at - eye);
+	const float3 x_axis = normalize(cross(z_axis, up));
+	const float3 y_axis = cross(x_axis, z_axis);
 
 	// clang-format off
     float4x4 result = float4x4({
@@ -40,16 +40,16 @@ float4x4 perspective(float fov, float aspect_ratio, float near_plane, float far_
 	auto n = near_plane;
 	auto f = far_plane;
 
-	float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
+	const float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
 	// aspect_ratio = width/height
-	float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
-	float y = -focal_length;               // -2n/height
+	const float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
+	const float y = -focal_length;               // -2n/height
 
 	ASSERT((n - f) != 0.0f);
-	float n_on_f_minus_n = n / (f - n);
+	const float n_on_f_minus_n = n / (f - n);
 
-	float A = n_on_f_minus_n;
-	float B = f * A;
+	const float A = n_on_f_minus_n;
+	const float B = f * A;
 
 	// bad things will happen in the inverse
 	ASSERT(B != 0.0f);
@@ -83,10 +83,10 @@ float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, f
 {
 	auto n = near_plane;
 
-	float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
+	const float focal_length = 1.0f / std::tan(exo::to_radians(fov) / 2.0f); // = 2n / (height)
 	// aspect_ratio = width/height
-	float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
-	float y = -focal_length;               // -2n/height
+	const float x = focal_length / aspect_ratio; // (2n/height)*(height/width) => 2n/width
+	const float y = -focal_length;               // -2n/height
 
 	// bad things will happen in the inverse
 	ASSERT(x != 0.0f);
@@ -119,9 +119,9 @@ float4x4 infinite_perspective(float fov, float aspect_ratio, float near_plane, f
 float4x4 ortho(float3 min_clip, float3 max_clip, float4x4 *inverse)
 {
 	(void)(inverse);
-	float x_range = max_clip.x - min_clip.x;
-	float y_range = max_clip.y - min_clip.y;
-	float z_range = max_clip.z - min_clip.z;
+	const float x_range = max_clip.x - min_clip.x;
+	const float y_range = max_clip.y - min_clip.y;
+	const float z_range = max_clip.z - min_clip.z;
 
 	ASSERT(x_range != 0.0f);
 	ASSERT(y_range != 0.0f);

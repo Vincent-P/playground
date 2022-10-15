@@ -111,8 +111,8 @@ void EntityWorld::create_system_internal(GlobalSystem *system) { system_registry
 
 void EntityWorld::destroy_system_internal(GlobalSystem *system)
 {
-	usize i    = 0;
-	usize size = system_registry.global_systems.size();
+	usize       i    = 0;
+	const usize size = system_registry.global_systems.size();
 	for (; i < size; i += 1) {
 		if (system_registry.global_systems[i] == system) {
 			break;

@@ -16,9 +16,9 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
 	string_holder.reserve(2 * extensions.size());
 	Vec<COMDLG_FILTERSPEC> filters(extensions.size());
 	for (uint i_filter = 0; i_filter < extensions.size(); i_filter++) {
-		usize i_name_str = string_holder.size();
+		const usize i_name_str = string_holder.size();
 		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].first));
-		usize i_filter_str = string_holder.size();
+		const usize i_filter_str = string_holder.size();
 		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].second));
 
 		filters[i_filter].pszName = string_holder[i_name_str].c_str();

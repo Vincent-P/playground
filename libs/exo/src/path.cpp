@@ -28,7 +28,7 @@ static void append_path(std::string &storage, std::string_view to_append)
 	};
 	ParsingState state = Eating;
 
-	usize to_append_size = to_append.size();
+	const usize to_append_size = to_append.size();
 	for (u32 i = 0; i < to_append_size; ++i) {
 		auto current = to_append[i];
 		auto next    = i + 1 < to_append_size ? to_append[i + 1] : '\0';
@@ -74,8 +74,8 @@ Path Path::from_owned_string(std::string &&str) { return Path::from_string(str);
 
 std::string_view Path::extension() const
 {
-	u32 i_last_dot = u32_invalid;
-	u32 size       = u32(this->str.size());
+	u32       i_last_dot = u32_invalid;
+	const u32 size       = u32(this->str.size());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '.') {
 			i_last_dot = size - i - 1;
@@ -92,8 +92,8 @@ std::string_view Path::extension() const
 
 std::string_view Path::filename() const
 {
-	u32 i_last_sep = u32_invalid;
-	u32 size       = u32(this->str.size());
+	u32       i_last_sep = u32_invalid;
+	const u32 size       = u32(this->str.size());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;
@@ -104,8 +104,8 @@ std::string_view Path::filename() const
 	if (i_last_sep == u32_invalid) {
 		return std::string_view{this->str};
 	} else {
-		usize filename_length = size - (i_last_sep + 1);
-		auto  filename        = std::string_view{&this->str[i_last_sep + 1], filename_length};
+		const usize filename_length = size - (i_last_sep + 1);
+		auto        filename        = std::string_view{&this->str[i_last_sep + 1], filename_length};
 		return filename;
 	}
 }
@@ -130,8 +130,8 @@ Path Path::replace_filename(exo::Path path, std::string_view new_filename)
 
 Path Path::remove_filename(exo::Path path)
 {
-	u32 i_last_sep = 0;
-	u32 size       = u32(path.str.size());
+	u32       i_last_sep = 0;
+	const u32 size       = u32(path.str.size());
 	for (u32 i = 0; i < size; ++i) {
 		if (path.str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;

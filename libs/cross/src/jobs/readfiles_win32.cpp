@@ -43,10 +43,10 @@ std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<con
 			readjob_impl.file_handle = CreateFile(filepath.c_str(),
 				GENERIC_READ,
 				0,
-				NULL,
+				nullptr,
 				OPEN_EXISTING,
 				FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING,
-				NULL);
+				nullptr);
 		}
 
 		{
@@ -55,7 +55,7 @@ std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<con
 				manager_impl.completion_port,
 				(ULONG_PTR)readjob_impl.file_handle,
 				0);
-			ASSERT(completion_port != NULL);
+			ASSERT(completion_port != nullptr);
 		}
 		{
 			EXO_PROFILE_SCOPE_NAMED("PostQueuedCompletionStatus")

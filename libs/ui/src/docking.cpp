@@ -392,11 +392,12 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 	auto res = TabState::None;
 	auto id  = ui::make_id(ui);
 
-	bool is_hovering = ui::is_hovering(ui, title_rect);
+	const bool is_hovering = ui::is_hovering(ui, title_rect);
 	if (is_hovering) {
 		ui.activation.focused = id;
 
-		bool has_pressed = ui::has_pressed(ui, exo::MouseButton::Left) || ui::has_pressed(ui, exo::MouseButton::Right);
+		const bool has_pressed =
+			ui::has_pressed(ui, exo::MouseButton::Left) || ui::has_pressed(ui, exo::MouseButton::Right);
 		if (ui.activation.active == u64_invalid && has_pressed) {
 			ui.activation.active = id;
 		}
@@ -530,7 +531,8 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		}
 
 		if (ui.activation.active == id) {
-			floating_container.rect.size = mouse_pos - floating_container.rect.pos - ui.state.active_drag_offset + handle_rect.size;
+			floating_container.rect.size =
+				mouse_pos - floating_container.rect.pos - ui.state.active_drag_offset + handle_rect.size;
 		}
 
 		painter_draw_color_rect(*ui.painter,

@@ -1,6 +1,5 @@
 #include "custom_ui.h"
 
-
 #include <exo/collections/array.h>
 #include <painter/painter.h>
 #include <ui/ui.h>
@@ -20,9 +19,9 @@ static float3 turbo_colormap(float x)
 	const float2 kGreenFloat2 = float2(4.27729857f, 2.82956604f);
 	const float2 kBlueFloat2  = float2(-89.90310912f, 27.34824973f);
 
-	x         = std::clamp(x, 0.0f, 1.0f);
-	float4 v4 = float4(1.0, x, x * x, x * x * x);
-	float2 v2 = v4.zw() * v4.z;
+	x               = std::clamp(x, 0.0f, 1.0f);
+	const float4 v4 = float4(1.0, x, x * x, x * x * x);
+	const float2 v2 = v4.zw() * v4.z;
 	return float3(dot(v4, kRedFloat4) + dot(v2, kRedFloat2),
 		dot(v4, kGreenFloat4) + dot(v2, kGreenFloat2),
 		dot(v4, kBlueFloat4) + dot(v2, kBlueFloat2));
@@ -42,8 +41,8 @@ void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 		const auto target_fps     = 144.0f;
 		const auto max_frame_time = 1.0f / 15.0f; //  in seconds
 
-		float  rect_width = dt / (1.0f / target_fps);
-		double height_factor =
+		float        rect_width = dt / (1.0f / target_fps);
+		const double height_factor =
 			(std::log2(dt) - std::log2(1.0f / target_fps)) / (std::log2(max_frame_time) - std::log2(1.0 / target_fps));
 		float  rect_height  = std::clamp(float(height_factor), 0.1f, 1.0f) * widget.rect.size[1];
 		float3 rect_color   = turbo_colormap(dt / (1.0f / 120.0f));
