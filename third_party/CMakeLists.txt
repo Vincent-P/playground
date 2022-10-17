@@ -158,10 +158,6 @@ target_include_directories(tracy SYSTEM PUBLIC tracy/)
 target_compile_definitions(tracy PUBLIC TRACY_ENABLE TRACY_FIBERS TRACY_HAS_CALLSTACK)
 target_link_libraries(tracy ${CMAKE_DL_LIBS})
 
-#parallel hashmap
-add_library(parallel_hashmap INTERFACE)
-target_include_directories(parallel_hashmap SYSTEM INTERFACE parallel_hashmap/)
-
 #xxhash
 add_library(xxhash INTERFACE)
 target_compile_definitions(xxhash INTERFACE XXH_INLINE_ALL XXH_PRIVATE_API)

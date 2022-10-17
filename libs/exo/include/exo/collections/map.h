@@ -116,12 +116,12 @@ inline u32 probe_by_hash(const Span<const MapSlot> slots, const u64 hash)
 	return u32_invalid;
 }
 
-template <typename KeyValue>
-u32 insert_slot(Span<MapSlot> slots, Span<KeyValue> keyvalues, MapSlot &&slot, KeyValue &&value)
+template <typename T>
+u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&value)
 {
 	// We need to keep track of the slot and value to insert to be able to swap them when needed
-	MapSlot  slot_to_insert  = std::move(slot);
-	KeyValue value_to_insert = std::move(value);
+	MapSlot slot_to_insert  = std::move(slot);
+	T       value_to_insert = std::move(value);
 
 	const u32 slots_length = u32(slots.size());
 	const u32 i_hash_slot  = power_of_2_modulo(slot_to_insert.bits.hash, slots_length);
@@ -152,7 +152,7 @@ u32 insert_slot(Span<MapSlot> slots, Span<KeyValue> keyvalues, MapSlot &&slot, K
 			if (i_original_key_slot == u32_invalid) {
 				i_original_key_slot = i_slot;
 			}
-			std::swap(keyvalues[i_slot], value_to_insert);
+			std::swap(values[i_slot], value_to_insert);
 			std::swap(current_slot, slot_to_insert);
 		}
 
@@ -160,13 +160,13 @@ u32 insert_slot(Span<MapSlot> slots, Span<KeyValue> keyvalues, MapSlot &&slot, K
 	}
 
 	// Finally, insert the key at the empty slot
-	slots[i_slot]     = slot_to_insert;
-	keyvalues[i_slot] = std::move(value_to_insert);
+	slots[i_slot]  = slot_to_insert;
+	values[i_slot] = std::move(value_to_insert);
 
 	return i_original_key_slot;
 }
 
-template <typename KeyValue>
+template <typename T>
 void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buffer, u32 &capacity)
 {
 	auto new_capacity = capacity == 0 ? 2 : 2u * capacity;
@@ -175,7 +175,7 @@ void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buf
 	DynamicBuffer new_slots_buffer     = {};
 	DynamicBuffer new_keyvalues_buffer = {};
 	DynamicBuffer::init(new_slots_buffer, new_capacity * sizeof(MapSlot));
-	DynamicBuffer::init(new_keyvalues_buffer, new_capacity * sizeof(KeyValue));
+	DynamicBuffer::init(new_keyvalues_buffer, new_capacity * sizeof(T));
 
 	// Update the map to point to new buffers, keep the old alloc to rehash slots
 	auto          old_capacity         = capacity;
@@ -184,13 +184,13 @@ void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buf
 
 	// Rehash all filled values
 	const auto old_slots  = exo::reinterpret_span<MapSlot>(old_slots_buffer.content());
-	const auto old_values = exo::reinterpret_span<KeyValue>(old_keyvalues_buffer.content());
+	const auto old_values = exo::reinterpret_span<T>(old_keyvalues_buffer.content());
 	const auto new_slots  = exo::reinterpret_span<MapSlot>(new_slots_buffer.content());
-	const auto new_values = exo::reinterpret_span<KeyValue>(new_keyvalues_buffer.content());
+	const auto new_values = exo::reinterpret_span<T>(new_keyvalues_buffer.content());
 
 	for (u32 i = 0; i < old_capacity; ++i) {
 		if (old_slots[i].bits.is_filled) {
-			details::insert_slot<KeyValue>(new_slots, new_values, std::move(old_slots[i]), std::move(old_values[i]));
+			details::insert_slot<T>(new_slots, new_values, std::move(old_slots[i]), std::move(old_values[i]));
 		}
 	}
 
@@ -343,8 +343,7 @@ struct MapIterator : IteratorFacade<MapIterator<K, V>>
 
 	void increment()
 	{
-		const auto slots     = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
-		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->map->keyvalues_buffer.content());
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
 
 		for (current_index = current_index + 1; current_index < this->map->capacity; current_index += 1) {
 			if (slots[current_index].bits.is_filled == 1) {

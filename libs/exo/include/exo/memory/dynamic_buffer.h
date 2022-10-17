@@ -9,9 +9,10 @@ struct DynamicBuffer
 	void *ptr  = nullptr;
 	usize size = 0;
 
-	static void init(DynamicBuffer &buffer, usize new_size);
-	void        destroy();
-	Span<u8>    content() { return Span<u8>(static_cast<u8 *>(ptr), size); }
+	static void    init(DynamicBuffer &buffer, usize new_size);
+	void           destroy();
+	Span<u8>       content() { return Span<u8>(static_cast<u8 *>(ptr), size); }
+	Span<const u8> content() const { return Span<const u8>(static_cast<const u8 *>(ptr), size); }
 
 	DynamicBuffer() = default;
 

@@ -72,8 +72,7 @@ set(SOURCE_FILES
 
   include/exo/forward_container.h
 
-  engine.natvis
-  phmap.natvis
+  exo.natvis
 )
 
 set(TEST_FILES
@@ -84,4 +83,4 @@ set(TEST_FILES
 
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo TESTS ${TEST_FILES})
-target_link_libraries(exo PUBLIC fmt parallel_hashmap tracy xxhash)
+target_link_libraries(exo PUBLIC fmt tracy xxhash)

@@ -13,7 +13,7 @@
 #include <rapidjson/prettywriter.h>
 #include <volk.h>
 
-bool KTX2Importer::can_import_extension(std::span<std::const string_view> extensions)
+bool KTX2Importer::can_import_extension(std::span<const std::string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".ktx2"}) {

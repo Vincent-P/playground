@@ -32,14 +32,6 @@
         </Expand>
     </Type>
 
-    <Type Name="vulkan::Image">
-        <DisplayString>{desc.name} - {desc.size}</DisplayString>
-    </Type>
-
-    <Type Name="vulkan::Buffer">
-        <DisplayString>{desc.name} - {desc.size}</DisplayString>
-    </Type>
-
     <Type Name="exo::Map&lt;*&gt;">
 		<DisplayString>{capacity}</DisplayString>
 		<Expand>
@@ -59,7 +51,33 @@
 				<Expand>
 					<ArrayItems>
 						<Size>capacity</Size>
-						<ValuePointer>(exo::Slot*)(slots_buffer.ptr)</ValuePointer>
+						<ValuePointer>(exo::details::MapSlot*)(slots_buffer.ptr)</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+		</Expand>
+    </Type>
+
+    <Type Name="exo::Set&lt;*&gt;">
+		<DisplayString>{capacity}</DisplayString>
+		<Expand>
+			<Item Name="capacity">capacity</Item>
+			<Item Name="size">size</Item>
+			<Synthetic Name="values">
+				<DisplayString>[Value]</DisplayString>
+				<Expand>
+					<ArrayItems>
+						<Size>capacity</Size>
+						<ValuePointer>($T1*)(values_buffer.ptr)</ValuePointer>
+					</ArrayItems>
+				</Expand>
+			</Synthetic>
+			<Synthetic Name="slots">
+				<DisplayString>Slots</DisplayString>
+				<Expand>
+					<ArrayItems>
+						<Size>capacity</Size>
+						<ValuePointer>(exo::details::MapSlot*)(slots_buffer.ptr)</ValuePointer>
 					</ArrayItems>
 				</Expand>
 			</Synthetic>

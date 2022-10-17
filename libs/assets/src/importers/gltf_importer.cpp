@@ -643,7 +643,7 @@ static void import_textures(ImporterContext &ctx)
 	}
 }
 
-bool GLTFImporter::can_import_extension(std::span<std::const string_view> extensions)
+bool GLTFImporter::can_import_extension(std::span<const std::string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".gltf"}) {

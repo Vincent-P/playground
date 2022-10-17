@@ -69,10 +69,10 @@ static void tree_view_entity(
 
 void scene_debug_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 {
-	const auto &world = scene.entity_world;
+	auto &world = scene.entity_world;
 
 	auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
-	ui::label_split(ui, rectsplit, fmt::format("Entities: {}", world.entities.size()));
+	ui::label_split(ui, rectsplit, fmt::format("Entities: {}", world.entities.size));
 
 	for (auto *entity : world.root_entities) {
 		tree_view_entity(ui, scene.ui, content_rect, entity);

@@ -12,7 +12,7 @@ void LoadingContext::register_entity_update(Entity *entity)
 void LoadingContext::unregister_entity_update(Entity *entity)
 {
 	ASSERT(system_registry->entities_to_update.contains(entity) == true);
-	system_registry->entities_to_update.erase(entity);
+	system_registry->entities_to_update.remove(entity);
 }
 
 void LoadingContext::register_global_system(Entity *entity, BaseComponent *component)

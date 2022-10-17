@@ -10,6 +10,8 @@
 #include <exo/logger.h>
 #include <exo/profile.h>
 
+#include <algorithm> // for std::sort
+
 EntityWorld::EntityWorld() { this->str_repo = exo::StringRepository::create(); }
 
 void EntityWorld::update(double delta_t)
@@ -94,15 +96,15 @@ void EntityWorld::set_parent_entity(Entity *entity, Entity *parent)
 	parent->refresh_attachments();
 
 	if (root_entities.contains(entity)) {
-		root_entities.erase(entity);
+		root_entities.remove(entity);
 	}
 }
 
 void EntityWorld::destroy_entity(Entity *entity)
 {
-	entities.erase(entity);
+	entities.remove(entity);
 	if (root_entities.contains(entity)) {
-		root_entities.erase(entity);
+		root_entities.remove(entity);
 	}
 	delete entity;
 }
