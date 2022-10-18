@@ -118,4 +118,17 @@ struct RectSplit
 			return rect_split_right(this->rect, value);
 		}
 	}
+
+	Rect split(float2 non_uniform_value)
+	{
+		switch (this->direction) {
+		case SplitDirection::Top:
+		case SplitDirection::Bottom:
+			return this->split(non_uniform_value.y);
+		default:
+		case SplitDirection::Left:
+		case SplitDirection::Right:
+			return this->split(non_uniform_value.x);
+		}
+	}
 };

@@ -2,6 +2,7 @@
 
 #include <exo/hash.h>
 #include <exo/logger.h>
+#include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 
 #include <assets/asset_manager.h>
@@ -14,6 +15,7 @@
 #include <gameplay/entity.h>
 #include <gameplay/inputs.h>
 #include <gameplay/systems/editor_camera_systems.h>
+#include <painter/painter.h>
 #include <ui/ui.h>
 
 #include <fmt/format.h>
@@ -37,7 +39,7 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 void Scene::destroy() {}
 
 static void tree_view_entity(
-	ui::Ui &ui, SceneUi &scene_ui, Rect &content_rect, Entity *entity, float indentation = 0.0f)
+	ui::Ui &ui, SceneUi &scene_ui, Rect &content_rect, Entity *entity, float indentation = 1.0f)
 {
 	if (content_rect.size.y < ui.theme.font_size) {
 		return;
@@ -52,12 +54,26 @@ static void tree_view_entity(
 		entity_scene_ui = scene_ui.entity_uis.insert(entity, {});
 	}
 
-	auto &entity_opened = entity_scene_ui->treeview_opened;
-	if (!entity->attached_entities.empty() && ui::button_split(ui, line_rectsplit, "Toggle")) {
+	auto       &entity_opened = entity_scene_ui->treeview_opened;
+	const char *label         = entity_opened ? "_" : ">";
+	if (!entity->attached_entities.empty() && ui::button_split(ui, line_rectsplit, label)) {
 		entity_opened = !entity_opened;
 	}
-	/* auto margin_rect =*/line_rectsplit.split(indentation * 1.0f * ui.theme.font_size);
-	ui::label_split(ui, line_rectsplit, fmt::format("Name: {}", entity->name));
+	auto margin_rect = line_rectsplit.split(indentation * 1.0f * ui.theme.font_size);
+	if (scene_ui.selected_entity == entity) {
+		painter_draw_color_rect(*ui.painter, margin_rect, u32_invalid, ColorU32::from_floats(0.7f, 0.4f, 0.1f));
+	}
+
+	auto entity_label = fmt::format("Name: {}", entity->name);
+	auto label_rect   = ui::label_split(ui, line_rectsplit, entity_label);
+
+	if (ui::invisible_button(ui, label_rect)) {
+		if (scene_ui.selected_entity == entity) {
+			scene_ui.selected_entity = nullptr;
+		} else {
+			scene_ui.selected_entity = entity;
+		}
+	}
 
 	if (entity_opened) {
 		indentation += 1.0f;
@@ -67,16 +83,31 @@ static void tree_view_entity(
 	}
 }
 
-void scene_debug_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
+void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 {
 	auto &world = scene.entity_world;
 
 	auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 	ui::label_split(ui, rectsplit, fmt::format("Entities: {}", world.entities.size));
+	/*auto margin_rect =*/rectsplit.split(1.0f * ui.theme.font_size);
 
 	for (auto *entity : world.root_entities) {
 		tree_view_entity(ui, scene.ui, content_rect, entity);
 	}
+}
+
+void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
+{
+	if (scene.ui.selected_entity == nullptr) {
+		return;
+	}
+
+	auto *entity = scene.ui.selected_entity;
+
+	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+	auto entity_label = fmt::format("Selected: {}", entity->name);
+	ui::label_split(ui, content_rectsplit, entity_label);
 }
 
 void Scene::update(const Inputs &)

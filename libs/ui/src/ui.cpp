@@ -217,18 +217,19 @@ void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignm
 	pop_clip_rect(ui);
 }
 
-void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
+Rect label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 {
 	EXO_PROFILE_SCOPE;
 
 	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
-	auto line_rect  = rectsplit.split(float(label_size.y));
+	auto line_rect  = rectsplit.split(float2(label_size));
 
 	if (is_clipped(ui, line_rect)) {
-		return;
+		return line_rect;
 	}
 
 	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+	return line_rect;
 }
 
 bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
@@ -272,6 +273,28 @@ bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 		2);
 
 	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+
+	return result;
+}
+
+bool invisible_button(Ui &ui, const Rect &rect)
+{
+	EXO_PROFILE_SCOPE;
+
+	bool      result = false;
+	const u64 id     = make_id(ui);
+
+	// behavior
+	if (is_hovering(ui, rect)) {
+		ui.activation.focused = id;
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			ui.activation.active = id;
+		}
+	}
+
+	if (has_clicked(ui, id)) {
+		result = true;
+	}
 
 	return result;
 }

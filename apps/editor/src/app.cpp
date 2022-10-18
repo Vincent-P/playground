@@ -112,15 +112,28 @@ void App::display_ui(double dt)
 		ui::pop_clip_rect(this->ui);
 	}
 
-	if (auto view_rect = docking::tabview(this->ui, this->docking, "Scene"); view_rect) {
-		EXO_PROFILE_SCOPE_NAMED("Scene");
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Outliner"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Scene treeview");
 
 		static auto scene_scroll_offset = float2();
 
 		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
 		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
 		auto inner_content_rect = ui::begin_scroll_area(this->ui, content_rect, scene_scroll_offset);
-		scene_debug_ui(this->ui, this->scene, inner_content_rect);
+		scene_treeview_ui(this->ui, this->scene, inner_content_rect);
+		ui::end_scroll_area(this->ui, inner_content_rect);
+		ui::pop_clip_rect(this->ui);
+	}
+
+	if (auto view_rect = docking::tabview(this->ui, this->docking, "Inspector"); view_rect) {
+		EXO_PROFILE_SCOPE_NAMED("Scene inspector");
+
+		static auto scene_inspector_scroll_offset = float2();
+
+		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
+		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		auto inner_content_rect = ui::begin_scroll_area(this->ui, content_rect, scene_inspector_scroll_offset);
+		scene_inspector_ui(this->ui, this->scene, inner_content_rect);
 		ui::end_scroll_area(this->ui, inner_content_rect);
 		ui::pop_clip_rect(this->ui);
 	}

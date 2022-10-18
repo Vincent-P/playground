@@ -21,7 +21,8 @@ struct EntitySceneUi
 };
 struct SceneUi
 {
-	exo::Map<Entity *, EntitySceneUi> entity_uis;
+	Entity                           *selected_entity = nullptr;
+	exo::Map<Entity *, EntitySceneUi> entity_uis      = {};
 };
 
 struct Scene
@@ -38,7 +39,8 @@ struct Scene
 	EntityWorld   entity_world;
 	Entity       *main_camera_entity = nullptr;
 
-	SceneUi ui;
+	SceneUi ui = {};
 };
 
-void scene_debug_ui(ui::Ui &ui, Scene &scene, Rect &content_rect);
+void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect);
+void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect);

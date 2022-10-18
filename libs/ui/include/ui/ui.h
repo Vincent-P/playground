@@ -123,7 +123,9 @@ enum struct Alignment
 	Center
 };
 void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignment alignment = Alignment::Center);
-void label_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
+Rect label_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
 bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
+
+bool invisible_button(Ui &ui, const Rect &rect);
 
 } // namespace ui

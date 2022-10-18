@@ -16,9 +16,9 @@
 
             <Size>capacity</Size>
             <Loop>
-                <Exec>pMetadata = (uint32_t*)((char*)buffer + iElement * ElementSizeWithMeta)</Exec>
-                <Exec>pElement = ($T1*)((char*)buffer + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
-                <Exec>pFreelist = (uint32_t*)((char*)buffer + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+                <Exec>pMetadata = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta)</Exec>
+                <Exec>pElement = ($T1*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+                <Exec>pFreelist = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
                 <Exec>isOccupied = (*pMetadata) &amp; 0b00000000000000000000000000000001</Exec>
                 <Exec>Generation = (*pMetadata) &amp; 0b11111111111111111111111111111110</Exec>
 
