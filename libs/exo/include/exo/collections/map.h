@@ -190,6 +190,7 @@ void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buf
 
 	for (u32 i = 0; i < old_capacity; ++i) {
 		if (old_slots[i].bits.is_filled) {
+			old_slots[i].bits.psl = 0;
 			details::insert_slot<T>(new_slots, new_values, std::move(old_slots[i]), std::move(old_values[i]));
 		}
 	}
