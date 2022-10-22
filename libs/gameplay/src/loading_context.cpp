@@ -15,14 +15,14 @@ void LoadingContext::unregister_entity_update(Entity *entity)
 	system_registry->entities_to_update.remove(entity);
 }
 
-void LoadingContext::register_global_system(Entity *entity, BaseComponent *component)
+void LoadingContext::register_global_system(Entity *entity, refl::BasePtr<BaseComponent> component)
 {
 	for (auto *system : system_registry->global_systems) {
 		system->register_component(entity, component);
 	}
 }
 
-void LoadingContext::unregister_global_system(Entity *entity, BaseComponent *component)
+void LoadingContext::unregister_global_system(Entity *entity, refl::BasePtr<BaseComponent> component)
 {
 	for (auto *system : system_registry->global_systems) {
 		system->unregister_component(entity, component);

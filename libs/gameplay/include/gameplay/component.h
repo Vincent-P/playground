@@ -4,6 +4,8 @@
 #include <exo/maths/matrices.h>
 #include <exo/uuid.h>
 
+#include <reflection/reflection.h>
+
 #include <string>
 
 struct LoadingContext;
@@ -20,6 +22,9 @@ enum struct ComponentState
 
 struct BaseComponent
 {
+	using Self = BaseComponent;
+	REFL_REGISTER_TYPE("BaseComponent")
+
 	exo::UUID   uuid;
 	std::string name;
 
@@ -31,13 +36,11 @@ struct BaseComponent
 	virtual void shutdown(LoadingContext &) { state = ComponentState::Loaded; }
 	virtual void update_loading(LoadingContext &) {}
 
-	// clang-format off
-    constexpr bool is_unloaded() const        { return state == ComponentState::Unloaded; }
-    constexpr bool is_loading() const         { return state == ComponentState::Loading; }
-    constexpr bool is_loaded() const          { return state == ComponentState::Loaded; }
-    constexpr bool has_loading_failed() const { return state == ComponentState::LoadingFailed; }
-    constexpr bool is_initialized() const     { return state == ComponentState::Initialized; }
-	// clang-format on
+	constexpr bool is_unloaded() const { return state == ComponentState::Unloaded; }
+	constexpr bool is_loading() const { return state == ComponentState::Loading; }
+	constexpr bool is_loaded() const { return state == ComponentState::Loaded; }
+	constexpr bool has_loading_failed() const { return state == ComponentState::LoadingFailed; }
+	constexpr bool is_initialized() const { return state == ComponentState::Initialized; }
 
 protected:
 	ComponentState state;
@@ -45,15 +48,17 @@ protected:
 
 struct SpatialComponent : BaseComponent
 {
+	using Self  = SpatialComponent;
+	using Super = BaseComponent;
+	REFL_REGISTER_TYPE_WITH_SUPER("SpatialComponent")
+
 	void set_local_transform(const float4x4 &new_transform);
 	void set_local_bounds(const exo::AABB &new_bounds);
 
-	// clang-format off
-    inline const float4x4 &get_local_transform() const { return local_transform; }
-    inline const exo::AABB     &get_local_bounds() const    { return local_bounds; }
-    inline const float4x4 &get_world_transform() const { return world_transform; }
-    inline const exo::AABB     &get_world_bounds() const    { return world_bounds; }
-	// clang-format on
+	inline const float4x4  &get_local_transform() const { return local_transform; }
+	inline const exo::AABB &get_local_bounds() const { return local_bounds; }
+	inline const float4x4  &get_world_transform() const { return world_transform; }
+	inline const exo::AABB &get_world_bounds() const { return world_bounds; }
 
 private:
 	void update_world_transform();

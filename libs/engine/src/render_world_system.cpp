@@ -8,6 +8,7 @@
 #include <gameplay/components/mesh_component.h>
 #include <gameplay/entity.h>
 #include <gameplay/update_stages.h>
+#include <reflection/reflection.h>
 
 PrepareRenderWorld::PrepareRenderWorld()
 {
@@ -42,9 +43,9 @@ void PrepareRenderWorld::update(const UpdateContext &)
 	}
 }
 
-void PrepareRenderWorld::register_component(const Entity *entity, BaseComponent *component)
+void PrepareRenderWorld::register_component(const Entity *entity, refl::BasePtr<BaseComponent> component)
 {
-	if (auto mesh_component = dynamic_cast<MeshComponent *>(component)) {
+	if (auto mesh_component = component.as<MeshComponent>()) {
 		auto **entity_component = this->entities.at(entity);
 		if (entity_component == nullptr) {
 			this->entities.insert(entity, std::move(mesh_component));
@@ -52,14 +53,14 @@ void PrepareRenderWorld::register_component(const Entity *entity, BaseComponent 
 			*entity_component = mesh_component;
 		}
 	}
-	if (auto camera_component = dynamic_cast<CameraComponent *>(component)) {
+	if (auto camera_component = component.as<CameraComponent>()) {
 		main_camera = camera_component;
 	}
 }
 
-void PrepareRenderWorld::unregister_component(const Entity *entity, BaseComponent *component)
+void PrepareRenderWorld::unregister_component(const Entity *entity, refl::BasePtr<BaseComponent> component)
 {
-	if (dynamic_cast<MeshComponent *>(component)) {
+	if (component.as<MeshComponent>()) {
 		entities.remove(entity);
 	}
 }

@@ -5,6 +5,8 @@
 #include <exo/memory/string_repository.h>
 #include <exo/profile.h>
 
+#include <reflection/reflection.h>
+
 void *operator new(std::size_t count)
 {
 	auto ptr = malloc(count);
@@ -29,6 +31,8 @@ int main(int /*argc*/, char ** /*argv*/)
 	exo::LinearAllocator global_allocator =
 		exo::LinearAllocator::with_external_memory(global_stack_mem, global_stack_size);
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
+
+	refl::call_all_registers();
 
 	auto *app = App::create(global_scope);
 	app->run();

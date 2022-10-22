@@ -9,6 +9,7 @@
 #include <exo/maths/vectors.h>
 
 #include <algorithm>
+#include <reflection/reflection.h>
 
 EditorCameraInputSystem::EditorCameraInputSystem(const Inputs *_inputs) : inputs{_inputs}
 {
@@ -17,20 +18,20 @@ EditorCameraInputSystem::EditorCameraInputSystem(const Inputs *_inputs) : inputs
 	priority_per_stage[update_stage] = 1.0f;
 }
 
-void EditorCameraInputSystem::register_component(BaseComponent *component)
+void EditorCameraInputSystem::register_component(refl::BasePtr<BaseComponent> component)
 {
-	if (auto *ci = dynamic_cast<CameraInputComponent *>(component)) {
+	if (auto *ci = component.as<CameraInputComponent>()) {
 		camera_input_component = ci;
-	} else if (auto *ec = dynamic_cast<EditorCameraComponent *>(component)) {
+	} else if (auto *ec = component.as<EditorCameraComponent>()) {
 		editor_camera_component = ec;
 	}
 }
 
-void EditorCameraInputSystem::unregister_component(BaseComponent *component)
+void EditorCameraInputSystem::unregister_component(refl::BasePtr<BaseComponent> component)
 {
-	if (component == camera_input_component) {
+	if (component.as<CameraInputComponent>() == camera_input_component) {
 		camera_input_component = nullptr;
-	} else if (component == editor_camera_component) {
+	} else if (component.as<EditorCameraComponent>() == editor_camera_component) {
 		editor_camera_component = nullptr;
 	}
 }
@@ -41,24 +42,24 @@ EditorCameraTransformSystem::EditorCameraTransformSystem()
 	priority_per_stage[update_stage] = 1.0f;
 }
 
-void EditorCameraTransformSystem::register_component(BaseComponent *component)
+void EditorCameraTransformSystem::register_component(refl::BasePtr<BaseComponent> component)
 {
-	if (auto *ci = dynamic_cast<CameraInputComponent *>(component)) {
+	if (auto *ci = component.as<CameraInputComponent>()) {
 		camera_input_component = ci;
-	} else if (auto *ec = dynamic_cast<EditorCameraComponent *>(component)) {
+	} else if (auto *ec = component.as<EditorCameraComponent>()) {
 		editor_camera_component = ec;
-	} else if (auto *c = dynamic_cast<CameraComponent *>(component)) {
+	} else if (auto *c = component.as<CameraComponent>()) {
 		camera_component = c;
 	}
 }
 
-void EditorCameraTransformSystem::unregister_component(BaseComponent *component)
+void EditorCameraTransformSystem::unregister_component(refl::BasePtr<BaseComponent> component)
 {
-	if (component == camera_input_component) {
+	if (component.as<CameraInputComponent>() == camera_input_component) {
 		camera_input_component = nullptr;
-	} else if (component == editor_camera_component) {
+	} else if (component.as<EditorCameraComponent>() == editor_camera_component) {
 		editor_camera_component = nullptr;
-	} else if (component == camera_component) {
+	} else if (component.as<CameraComponent>() == camera_component) {
 		camera_component = nullptr;
 	}
 }

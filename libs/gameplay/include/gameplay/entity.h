@@ -7,6 +7,7 @@
 #include "gameplay/update_stages.h"
 
 #include <concepts>
+#include <reflection/reflection.h>
 
 struct BaseComponent;
 struct SpatialComponent;
@@ -39,18 +40,20 @@ struct Entity
 
 	void update_systems(const UpdateContext &ctx);
 
-	template <std::derived_from<LocalSystem> System, typename... Args> void create_system(Args &&...args)
+	template <std::derived_from<LocalSystem> System, typename... Args>
+	void create_system(Args &&...args)
 	{
 		System *new_system = new System(std::forward<Args>(args)...);
 		create_system_internal(reinterpret_cast<LocalSystem *>(new_system));
 	}
 
-	template <std::derived_from<BaseComponent> Component, typename... Args> void create_component(Args &&...args)
+	template <std::derived_from<BaseComponent> Component, typename... Args>
+	void create_component(Args &&...args)
 	{
 		Component *new_component = new Component(std::forward<Args>(args)...);
-		create_component_internal(reinterpret_cast<BaseComponent *>(new_component));
+		create_component_internal(refl::BasePtr<BaseComponent>(new_component));
 
-		if (auto *spatial_component = dynamic_cast<SpatialComponent *>(new_component)) {
+		if (auto *spatial_component = refl::upcast<SpatialComponent>(new_component)) {
 			if (root_component == nullptr) {
 				root_component = spatial_component;
 			}
@@ -61,10 +64,11 @@ struct Entity
 	bool is_loaded() const { return state == EntityState::Loaded; }
 	bool is_unloaded() const { return state == EntityState::Unloaded; }
 
-	template <std::derived_from<BaseComponent> Component> Component *get_first_component()
+	template <std::derived_from<BaseComponent> Component>
+	Component *get_first_component()
 	{
-		for (auto *component : components) {
-			auto *derived_component = dynamic_cast<Component *>(component);
+		for (auto component : components) {
+			auto *derived_component = component.as<Component>();
 			if (derived_component != nullptr) {
 				return derived_component;
 			}
@@ -76,8 +80,8 @@ struct Entity
 	void create_system_internal(LocalSystem *system);
 	void destroy_system_internal(LocalSystem *system);
 
-	void create_component_internal(BaseComponent *component);
-	void destroy_component_internal(BaseComponent *component);
+	void create_component_internal(refl::BasePtr<BaseComponent> component);
+	void destroy_component_internal(refl::BasePtr<BaseComponent> component);
 
 	void attach_to_parent();
 	void dettach_to_parent();
@@ -88,7 +92,7 @@ struct Entity
 	EntityState state = EntityState::Unloaded;
 
 	Vec<LocalSystem *>                               local_systems         = {};
-	Vec<BaseComponent *>                             components            = {};
+	Vec<refl::BasePtr<BaseComponent>>                components            = {};
 	exo::EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list = {};
 
 	SpatialComponent *root_component        = nullptr;

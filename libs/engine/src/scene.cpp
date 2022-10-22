@@ -4,7 +4,9 @@
 #include <exo/logger.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
+#include <exo/uuid_formatter.h>
 
+#include <assets/asset_id_formatter.h>
 #include <assets/asset_manager.h>
 #include <assets/mesh.h>
 #include <assets/subscene.h>
@@ -16,6 +18,7 @@
 #include <gameplay/inputs.h>
 #include <gameplay/systems/editor_camera_systems.h>
 #include <painter/painter.h>
+#include <reflection/reflection.h>
 #include <ui/ui.h>
 
 #include <fmt/format.h>
@@ -96,6 +99,86 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	}
 }
 
+void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rectsplit)
+{
+	char label_buf[256] = {};
+
+	auto res = fmt::format_to_n(label_buf,
+		256,
+		"{} {} {} {}",
+		matrix.at(0, 0),
+		matrix.at(0, 1),
+		matrix.at(0, 2),
+		matrix.at(0, 3));
+
+	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+
+	res = fmt::format_to_n(label_buf,
+		256,
+		"{} {} {} {}",
+		matrix.at(1, 0),
+		matrix.at(1, 1),
+		matrix.at(1, 2),
+		matrix.at(1, 3));
+
+	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+
+	res = fmt::format_to_n(label_buf,
+		256,
+		"{} {} {} {}",
+		matrix.at(2, 0),
+		matrix.at(2, 1),
+		matrix.at(2, 2),
+		matrix.at(2, 3));
+
+	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+
+	res = fmt::format_to_n(label_buf,
+		256,
+		"{} {} {} {}",
+		matrix.at(3, 0),
+		matrix.at(3, 1),
+		matrix.at(3, 2),
+		matrix.at(3, 3));
+
+	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+}
+
+void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, Rect &content_rect)
+{
+	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+	ui::label_split(ui, line_rectsplit, "Local transform:");
+	ui_matrix_label(ui, component->get_local_transform(), line_rectsplit);
+}
+
+void scene_inspector_component_ui(ui::Ui &ui, refl::BasePtr<BaseComponent> component, Rect &content_rect)
+{
+	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+	char label_buf[256] = {};
+
+	auto res = fmt::format_to_n(label_buf,
+		256,
+		"{} [{} ({} bytes)]",
+		component->name,
+		component.typeinfo().name,
+		component.typeinfo().size);
+
+	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+
+	res = fmt::format_to_n(label_buf, 256, "UUID: {}", component->uuid);
+	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+
+	if (auto *mesh_component = component.as<MeshComponent>()) {
+		res = fmt::format_to_n(label_buf, 256, "Mesh: {}", mesh_component->mesh_asset);
+		ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+		scene_inspector_spatial_component(ui, static_cast<SpatialComponent *>(mesh_component), line_rectsplit.rect);
+	} else if (auto *spatial_component = component.as<SpatialComponent>()) {
+		scene_inspector_spatial_component(ui, spatial_component, line_rectsplit.rect);
+	}
+}
+
 void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 {
 	if (scene.ui.selected_entity == nullptr) {
@@ -108,6 +191,10 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 
 	auto entity_label = fmt::format("Selected: {}", entity->name);
 	ui::label_split(ui, content_rectsplit, entity_label);
+
+	for (const auto component : entity->components) {
+		scene_inspector_component_ui(ui, component, content_rect);
+	}
 }
 
 void Scene::update(const Inputs &)

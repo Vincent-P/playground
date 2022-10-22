@@ -91,7 +91,10 @@ void ResourceRegistry::drop_image(Handle<vulkan::Image> image_handle)
 			this->texture_descs.get(handle).resolved_image = Handle<vulkan::Image>::invalid();
 		}
 	}
-	this->image_pool.remove(image_handle);
+
+	if (this->image_pool.at(image_handle)) {
+		this->image_pool.remove(image_handle);	
+	}
 }
 
 Handle<vulkan::Image> ResourceRegistry::resolve_image(vulkan::Device &device, Handle<TextureDesc> desc_handle)

@@ -11,7 +11,7 @@ void Entity::load(LoadingContext &ctx)
 {
 	ASSERT(state == EntityState::Unloaded);
 
-	for (auto *component : components) {
+	for (auto component : components) {
 		component->load(ctx);
 		ASSERT(component->is_loaded() || component->is_loading());
 		if (component->is_loaded()) {
@@ -26,7 +26,7 @@ void Entity::unload(LoadingContext &ctx)
 {
 	ASSERT(state == EntityState::Loaded);
 
-	for (auto *component : components) {
+	for (auto component : components) {
 		component->unload(ctx);
 		ASSERT(component->is_unloaded());
 	}
@@ -41,7 +41,7 @@ void Entity::activate(LoadingContext &ctx)
 
 	// if is spatial entity, update root
 
-	for (auto *component : components) {
+	for (auto component : components) {
 		if (component->is_initialized()) {
 			for (auto *system : local_systems) {
 				system->register_component(component);
@@ -78,8 +78,7 @@ void Entity::deactivate(LoadingContext &ctx)
 	ASSERT(state == EntityState::Activated);
 
 	// detach entities
-
-	for (auto *component : components) {
+	for (auto component : components) {
 		if (component->is_initialized()) {
 			for (auto *system : local_systems) {
 				system->unregister_component(component);
@@ -121,9 +120,9 @@ void Entity::destroy_system_internal(LocalSystem *system)
 	local_systems.pop_back();
 }
 
-void Entity::create_component_internal(BaseComponent *component) { components.push_back(component); }
+void Entity::create_component_internal(refl::BasePtr<BaseComponent> component) { components.push_back(component); }
 
-void Entity::destroy_component_internal(BaseComponent *component)
+void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 {
 	usize i = 0;
 	for (; i < components.size(); i += 1) {

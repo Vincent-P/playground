@@ -14,8 +14,8 @@ struct EditorCameraInputSystem : LocalSystem
 
 	void update(const UpdateContext &ctx) final;
 
-	void register_component(BaseComponent *component) final;
-	void unregister_component(BaseComponent *component) final;
+	void register_component(refl::BasePtr<BaseComponent> component) final;
+	void unregister_component(refl::BasePtr<BaseComponent> component) final;
 
 private:
 	CameraInputComponent  *camera_input_component  = {};
@@ -28,8 +28,8 @@ struct EditorCameraTransformSystem : LocalSystem
 	EditorCameraTransformSystem();
 	void update(const UpdateContext &ctx) final;
 
-	void register_component(BaseComponent *component) final;
-	void unregister_component(BaseComponent *component) final;
+	void register_component(refl::BasePtr<BaseComponent> component) final;
+	void unregister_component(refl::BasePtr<BaseComponent> component) final;
 
 private:
 	CameraInputComponent  *camera_input_component  = {};

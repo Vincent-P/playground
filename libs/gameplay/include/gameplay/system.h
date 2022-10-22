@@ -1,6 +1,7 @@
 #pragma once
 
 #include <exo/collections/enum_array.h>
+#include <reflection/reflection.h>
 
 #include "gameplay/update_stages.h"
 
@@ -14,16 +15,19 @@ struct UpdateContext;
 
 struct LocalSystem
 {
+	using Self = LocalSystem;
+	REFL_REGISTER_TYPE("LocalSystem")
+
 	friend struct Entity;
 
 	virtual ~LocalSystem() {}
 	virtual void update(const UpdateContext &ctx) = 0;
 
 	// Called when a new component is activated (added to world)
-	virtual void register_component(BaseComponent *component) = 0;
+	virtual void register_component(refl::BasePtr<BaseComponent> component) = 0;
 
 	// Called immediatly before a component is deactivated
-	virtual void unregister_component(BaseComponent *component) = 0;
+	virtual void unregister_component(refl::BasePtr<BaseComponent> component) = 0;
 
 	/**
 	   XXComponent *xx_component;
@@ -38,6 +42,9 @@ protected:
 
 struct GlobalSystem
 {
+	using Self = GlobalSystem;
+	REFL_REGISTER_TYPE("GlobalSystem")
+
 	friend struct EntityWorld;
 	friend struct LoadingContext;
 
@@ -49,10 +56,10 @@ protected:
 	virtual void update(const UpdateContext &) {}
 
 	// Called when a new component is activated (added to world)
-	virtual void register_component(const Entity *entity, BaseComponent *component) = 0;
+	virtual void register_component(const Entity *entity, refl::BasePtr<BaseComponent> component) = 0;
 
 	// Called immediatly before a component is deactivated
-	virtual void unregister_component(const Entity *entity, BaseComponent *component) = 0;
+	virtual void unregister_component(const Entity *entity, refl::BasePtr<BaseComponent> component) = 0;
 
 	/**
 	   struct Record

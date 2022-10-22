@@ -5,18 +5,20 @@
 
 struct CameraComponent : SpatialComponent
 {
+	using Self  = CameraComponent;
+	using Super = SpatialComponent;
+	REFL_REGISTER_TYPE_WITH_SUPER("MeshComponent")
+
 	float near_plane = 0.1f;
 	float far_plane  = 100000.0f;
 	float fov        = 90.0f;
 
 	void look_at(float3 eye, float3 at, float3 up);
 
-	// clang-format off
-    float4x4 get_view() const { return view; }
-    float4x4 get_view_inverse() const { return view_inverse; }
-    float4x4 get_projection() const { return projection; }
-    float4x4 get_projection_inverse() const { return projection_inverse; }
-	// clang-format on
+	float4x4 get_view() const { return view; }
+	float4x4 get_view_inverse() const { return view_inverse; }
+	float4x4 get_projection() const { return projection; }
+	float4x4 get_projection_inverse() const { return projection_inverse; }
 
 private:
 	float4x4 view;
@@ -36,6 +38,10 @@ enum struct EditorCameraState : uint
 
 struct EditorCameraComponent : BaseComponent
 {
+	using Self  = EditorCameraComponent;
+	using Super = BaseComponent;
+	REFL_REGISTER_TYPE_WITH_SUPER("EditorCameraComponent")
+
 	EditorCameraState state = EditorCameraState::Idle;
 
 	// spherical coordinates: radius r, azymuthal angle theta, polar angle phi
@@ -47,6 +53,10 @@ struct EditorCameraComponent : BaseComponent
 
 struct CameraInputComponent : BaseComponent
 {
+	using Self  = CameraInputComponent;
+	using Super = BaseComponent;
+	REFL_REGISTER_TYPE_WITH_SUPER("CameraInputComponent")
+
 	bool         camera_active = false;
 	bool         camera_move   = false;
 	bool         camera_orbit  = false;

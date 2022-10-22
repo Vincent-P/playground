@@ -31,7 +31,7 @@ set(SOURCE_FILES
 
 add_library(assets STATIC ${SOURCE_FILES})
 setup_app_target(assets)
-target_link_libraries(assets PUBLIC exo cross rapidjson)
+target_link_libraries(assets PUBLIC exo cross rapidjson reflection)
 target_link_libraries(assets PRIVATE libspng libktx meow_hash)
 target_compile_definitions(assets PUBLIC
   ASSET_PATH="${CMAKE_SOURCE_DIR}/data/assets"
