@@ -28,6 +28,7 @@ struct BaseComponent
 	exo::UUID   uuid;
 	std::string name;
 
+	BaseComponent() = default;
 	virtual ~BaseComponent() {}
 
 	virtual void load(LoadingContext &) { state = ComponentState::Loaded; }
@@ -43,7 +44,7 @@ struct BaseComponent
 	constexpr bool is_initialized() const { return state == ComponentState::Initialized; }
 
 protected:
-	ComponentState state;
+	ComponentState state = ComponentState::Unloaded;
 };
 
 struct SpatialComponent : BaseComponent

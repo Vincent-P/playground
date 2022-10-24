@@ -4,18 +4,42 @@
 
 namespace refl
 {
+
+using CtorFunc     = void *(*)(void *); // void* ctor(void *memory);
+using DtorFunc     = void (*)(void *);  // void dtor(void* ptr);
+using RegisterFunc = void (*)();        // void register();
+
+using ClassId = u64;
+
 struct TypeInfo
 {
-	u64         class_id = 0;
-	const char *name     = nullptr;
-	TypeInfo   *base     = nullptr;
-	usize       size     = 0;
+	ClassId     class_id       = 0;       // unique class id
+	const char *name           = nullptr; // name of the type
+	TypeInfo   *base           = nullptr; // ptr to base type for inheritance
+	usize       size           = 0;       // sizeof(T)
+	CtorFunc    placement_ctor = nullptr; // call placement new, nullptr for abstract classes
+	DtorFunc    dtor           = nullptr; // call destructor
 };
 
-inline static TypeInfo NULL_TYPE_INFO = {};
+// Global storage
+inline constinit TypeInfo     types_storage[128] = {};
+inline constinit RegisterFunc types_to_init[128] = {};
+inline constinit usize        types_length       = 0;
+
+template <typename T>
+inline void *default_placement_new(void *memory)
+{
+	return static_cast<void *>(new (memory)(T));
+}
+
+template <typename T>
+inline void dtor(void *ptr)
+{
+	static_cast<T *>(ptr)->~T();
+}
 
 // Hash the user-provided class name to create a class id
-constexpr u64 hash(const char *str)
+constexpr ClassId hash(const char *str)
 {
 	u64 hash = 5381;
 	for (const char *c = str; *c; ++c) {
@@ -25,28 +49,33 @@ constexpr u64 hash(const char *str)
 }
 
 // -- Global init
-using RegisterFunc = void (*)();
-inline RegisterFunc types_to_init[128];
-inline size_t       i_types_to_init = 0;
-
-inline TypeInfo defer_register(RegisterFunc func)
+inline TypeInfo *defer_register(RegisterFunc func)
 {
-	types_to_init[i_types_to_init++] = func;
-	return {};
+	types_to_init[types_length] = func;
+	auto &res                   = types_storage[types_length];
+	res.class_id                = types_length;
+	++types_length;
+	return &res;
 }
 
 template <typename T>
 void register_type(const char *name, TypeInfo *base = nullptr)
 {
-	T::TYPE_INFO.class_id = hash(name);
-	T::TYPE_INFO.name     = name;
-	T::TYPE_INFO.base     = base;
-	T::TYPE_INFO.size     = sizeof(T);
+	T::TYPE_INFO->class_id = hash(name);
+	T::TYPE_INFO->name     = name;
+	T::TYPE_INFO->base     = base;
+	T::TYPE_INFO->size     = sizeof(T);
+	if constexpr (std::is_constructible_v<T>) {
+		T::TYPE_INFO->placement_ctor = &default_placement_new<T>;
+	} else {
+		T::TYPE_INFO->placement_ctor = nullptr;
+	}
+	T::TYPE_INFO->dtor = &dtor<T>;
 }
 
 inline void call_all_registers()
 {
-	for (size_t i = 0; i < i_types_to_init; ++i) {
+	for (usize i = 0; i < types_length; ++i) {
 		types_to_init[i]();
 	}
 }
@@ -54,23 +83,29 @@ inline void call_all_registers()
 // -- Type-erased ptr
 struct TypedPtr
 {
-	void     *ptr;
-	TypeInfo *type_info;
+	union PtrTypeInfo
+	{
+		u64 lo : 48;
+		u64 hi : 16;
+
+		void     *ptr() const { return reinterpret_cast<void *>(lo); }
+		TypeInfo &type_info() const { return types_storage[hi]; }
+	} bits;
 
 	template <typename From>
 	static TypedPtr from(From *ptr)
 	{
 		TypedPtr typed_ptr;
-		typed_ptr.ptr       = ptr;
-		typed_ptr.type_info = &From::TYPE_INFO;
+		typed_ptr.bits.lo = reinterpret_cast<u64>(ptr);
+		typed_ptr.bits.hi = From::TYPE_INFO - &types_storage[0];
 		return typed_ptr;
 	}
 
 	template <typename To>
 	To *as()
 	{
-		if (this->type_info == &To::TYPE_INFO)
-			return static_cast<To *>(this->ptr);
+		if (&this->bits.type_info() == To::TYPE_INFO)
+			return static_cast<To *>(this->bits.ptr());
 		else
 			return nullptr;
 	}
@@ -78,17 +113,17 @@ struct TypedPtr
 	template <typename To>
 	To *upcast()
 	{
-		TypeInfo *cur_typeinfo = this->type_info;
+		const TypeInfo *cur_typeinfo = &this->bits.type_info();
 		while (cur_typeinfo) {
-			if (cur_typeinfo == &To::TYPE_INFO)
-				return static_cast<To *>(this->ptr);
+			if (cur_typeinfo == To::TYPE_INFO)
+				return static_cast<To *>(this->bits.ptr());
 
 			cur_typeinfo = cur_typeinfo->base;
 		}
 		return nullptr;
 	}
 
-	size_t get_size() const { return type_info->size; }
+	usize get_size() const { return this->bits.type_info().size; }
 };
 
 // Upcast class hierarchy without TypedPtr
@@ -98,9 +133,9 @@ Base *upcast(Derived *ptr)
 	if constexpr (!std::derived_from<Derived, Base>) {
 		return nullptr;
 	} else {
-		TypeInfo *cur_typeinfo = &Derived::TYPE_INFO;
+		TypeInfo *cur_typeinfo = Derived::TYPE_INFO;
 		while (cur_typeinfo) {
-			if (cur_typeinfo == &Base::TYPE_INFO)
+			if (cur_typeinfo == Base::TYPE_INFO)
 				return reinterpret_cast<Base *>(ptr);
 			cur_typeinfo = cur_typeinfo->base;
 		}
@@ -115,9 +150,9 @@ Derived *downcast(Base *ptr)
 	if constexpr (!std::derived_from<Derived, Base>) {
 		return nullptr;
 	} else {
-		TypeInfo *cur_typeinfo = &Derived::TYPE_INFO;
+		TypeInfo *cur_typeinfo = Derived::TYPE_INFO;
 		while (cur_typeinfo) {
-			if (cur_typeinfo == &Base::TYPE_INFO)
+			if (cur_typeinfo == Base::TYPE_INFO)
 				return reinterpret_cast<Derived *>(ptr);
 			cur_typeinfo = cur_typeinfo->base;
 		}
@@ -136,10 +171,10 @@ struct BasePtr
 		Base *p_base = upcast<Base>(p_derived);
 		if (p_base == nullptr) {
 			this->ptr       = nullptr;
-			this->type_info = &NULL_TYPE_INFO;
+			this->type_info = &types_storage[0];
 		} else {
 			this->ptr       = static_cast<Base *>(p_derived);
-			this->type_info = &Derived::TYPE_INFO;
+			this->type_info = Derived::TYPE_INFO;
 		}
 	}
 
@@ -148,7 +183,7 @@ struct BasePtr
 	template <typename Derived>
 	Derived *as()
 	{
-		if (this->type_info == &Derived::TYPE_INFO)
+		if (this->type_info == Derived::TYPE_INFO)
 			return static_cast<Derived *>(this->ptr);
 		else
 			return nullptr;
@@ -164,16 +199,26 @@ private:
 	TypeInfo *type_info;
 };
 
+TypeInfo *get_type_info(ClassId class_id)
+{
+	for (usize i_type = 0; i_type < types_length; ++i_type) {
+		if (types_storage[i_type].class_id == class_id) {
+			return &types_storage[i_type];
+		}
+	}
+	return nullptr;
+}
+
 template <typename T>
 const TypeInfo &typeinfo()
 {
-	return T::TYPE_INFO;
+	return *T::TYPE_INFO;
 }
 
 }; // namespace refl
 
 #define REFL_REGISTER_TYPE(_name)                                                                                      \
-	inline static auto TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name); });
+	inline static auto *TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name); });
 
 #define REFL_REGISTER_TYPE_WITH_SUPER(_name)                                                                           \
-	inline static auto TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name, &Super::TYPE_INFO); });
+	inline static auto *TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name, Super::TYPE_INFO); });
