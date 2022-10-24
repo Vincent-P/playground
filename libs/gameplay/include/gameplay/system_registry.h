@@ -11,8 +11,8 @@ struct SystemRegistry
 	template <std::derived_from<GlobalSystem> System>
 	const System *get_system() const
 	{
-		for (const GlobalSystem *global_system : global_systems) {
-			if (auto derived_system = refl::downcast<const System>(global_system)) {
+		for (const auto global_system : global_systems) {
+			if (auto *derived_system = global_system.as<System>()) {
 				return derived_system;
 			}
 		}
@@ -22,8 +22,8 @@ struct SystemRegistry
 	template <std::derived_from<GlobalSystem> System>
 	System *get_system()
 	{
-		for (GlobalSystem *global_system : global_systems) {
-			if (auto derived_system = refl::downcast<System>(global_system)) {
+		for (auto global_system : global_systems) {
+			if (auto *derived_system = global_system.as<System>()) {
 				return derived_system;
 			}
 		}
@@ -31,5 +31,5 @@ struct SystemRegistry
 	}
 
 	exo::Set<Entity *>  entities_to_update;
-	Vec<GlobalSystem *> global_systems;
+	Vec<refl::BasePtr<GlobalSystem>> global_systems;
 };

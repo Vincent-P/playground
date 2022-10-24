@@ -41,12 +41,12 @@ void EntityWorld::update(double delta_t)
 			update_list.clear();
 		}
 
-		for (auto *global_system : system_registry.global_systems) {
+		for (auto global_system : system_registry.global_systems) {
 			global_per_stage_update_list[global_system->update_stage].push_back(global_system);
 		}
 
 		for (auto &update_list : global_per_stage_update_list) {
-			std::sort(update_list.begin(), update_list.end(), [](GlobalSystem *a, GlobalSystem *b) {
+			std::sort(update_list.begin(), update_list.end(), [](auto a, auto b) {
 				return a->priority_per_stage[a->update_stage] > b->priority_per_stage[b->update_stage];
 			});
 		}
@@ -72,7 +72,7 @@ void EntityWorld::update(double delta_t)
 
 		{
 			EXO_PROFILE_SCOPE_NAMED("Global");
-			for (auto *system : global_per_stage_update_list[update_context.stage]) {
+			for (auto system : global_per_stage_update_list[update_context.stage]) {
 				system->update(update_context);
 			}
 		}
@@ -109,9 +109,12 @@ void EntityWorld::destroy_entity(Entity *entity)
 	delete entity;
 }
 
-void EntityWorld::create_system_internal(GlobalSystem *system) { system_registry.global_systems.push_back(system); }
+void EntityWorld::create_system_internal(refl::BasePtr<GlobalSystem> system)
+{
+	system_registry.global_systems.push_back(system);
+}
 
-void EntityWorld::destroy_system_internal(GlobalSystem *system)
+void EntityWorld::destroy_system_internal(refl::BasePtr<GlobalSystem> system)
 {
 	usize       i    = 0;
 	const usize size = system_registry.global_systems.size();

@@ -5,11 +5,11 @@
 namespace refl
 {
 
+using ClassId = u64;
+
 using CtorFunc     = void *(*)(void *); // void* ctor(void *memory);
 using DtorFunc     = void (*)(void *);  // void dtor(void* ptr);
 using RegisterFunc = void (*)();        // void register();
-
-using ClassId = u64;
 
 struct TypeInfo
 {
@@ -21,11 +21,15 @@ struct TypeInfo
 	DtorFunc    dtor           = nullptr; // call destructor
 };
 
-// Global storage
+namespace details
+{
+
+// Globals
 inline constinit TypeInfo     types_storage[128] = {};
 inline constinit RegisterFunc types_to_init[128] = {};
 inline constinit usize        types_length       = 0;
 
+// Helpers
 template <typename T>
 inline void *default_placement_new(void *memory)
 {
@@ -38,7 +42,6 @@ inline void dtor(void *ptr)
 	static_cast<T *>(ptr)->~T();
 }
 
-// Hash the user-provided class name to create a class id
 constexpr ClassId hash(const char *str)
 {
 	u64 hash = 5381;
@@ -48,7 +51,9 @@ constexpr ClassId hash(const char *str)
 	return hash;
 }
 
-// -- Global init
+// -- Type registering
+
+// Used to initialize static type_info ptr on classes.
 inline TypeInfo *defer_register(RegisterFunc func)
 {
 	types_to_init[types_length] = func;
@@ -58,6 +63,7 @@ inline TypeInfo *defer_register(RegisterFunc func)
 	return &res;
 }
 
+// Actual initialization of the type info, should be called from `call_all_registers()`
 template <typename T>
 void register_type(const char *name, TypeInfo *base = nullptr)
 {
@@ -73,6 +79,7 @@ void register_type(const char *name, TypeInfo *base = nullptr)
 	T::TYPE_INFO->dtor = &dtor<T>;
 }
 
+// Initialize all types
 inline void call_all_registers()
 {
 	for (usize i = 0; i < types_length; ++i) {
@@ -80,53 +87,72 @@ inline void call_all_registers()
 	}
 }
 
-// -- Type-erased ptr
+// -- Storage for reflection-based pointers
+union PtrWithTypeInfo
+{
+	struct
+	{
+		u64 lo : 48; // pointer to object
+		u64 hi : 16; // index into the types_storage array of the type_info corresponding to the pointed object
+
+	} bits;
+	u64 raw = 0;
+
+	void from(void *ptr, const TypeInfo *type_info)
+	{
+		this->bits.lo = reinterpret_cast<u64>(ptr);
+		this->bits.hi = type_info ? type_info - &types_storage[0] : 0;
+	}
+	void *ptr() const { return reinterpret_cast<void *>(bits.lo); }
+
+	TypeInfo &type_info() const { return types_storage[bits.hi]; }
+};
+static_assert(sizeof(PtrWithTypeInfo) == sizeof(void *));
+
+} // namespace details
+
+// void* pointer with typeinfo on the pointed object
 struct TypedPtr
 {
-	union PtrTypeInfo
-	{
-		u64 lo : 48;
-		u64 hi : 16;
-
-		void     *ptr() const { return reinterpret_cast<void *>(lo); }
-		TypeInfo &type_info() const { return types_storage[hi]; }
-	} bits;
-
 	template <typename From>
 	static TypedPtr from(From *ptr)
 	{
 		TypedPtr typed_ptr;
-		typed_ptr.bits.lo = reinterpret_cast<u64>(ptr);
-		typed_ptr.bits.hi = From::TYPE_INFO - &types_storage[0];
+		typed_ptr.storage.from(ptr, From::TYPE_INFO);
 		return typed_ptr;
 	}
 
+	// Query the type of the pointed object
 	template <typename To>
 	To *as()
 	{
-		if (&this->bits.type_info() == To::TYPE_INFO)
-			return static_cast<To *>(this->bits.ptr());
+		if (&this->storage.type_info() == To::TYPE_INFO)
+			return static_cast<To *>(this->storage.ptr());
 		else
 			return nullptr;
 	}
 
+	// Traverse the type hierarchy to upcast to parent class
 	template <typename To>
 	To *upcast()
 	{
-		const TypeInfo *cur_typeinfo = &this->bits.type_info();
+		const TypeInfo *cur_typeinfo = &this->storage.type_info();
 		while (cur_typeinfo) {
 			if (cur_typeinfo == To::TYPE_INFO)
-				return static_cast<To *>(this->bits.ptr());
+				return static_cast<To *>(this->storage.ptr());
 
 			cur_typeinfo = cur_typeinfo->base;
 		}
 		return nullptr;
 	}
 
-	usize get_size() const { return this->bits.type_info().size; }
+	usize get_size() const { return this->storage.type_info().size; }
+
+private:
+	details::PtrWithTypeInfo storage;
 };
 
-// Upcast class hierarchy without TypedPtr
+// Traverse the type hierarchy to upcast to parent class
 template <typename Base, typename Derived>
 Base *upcast(Derived *ptr)
 {
@@ -143,24 +169,7 @@ Base *upcast(Derived *ptr)
 	}
 }
 
-// Downcast cast hierarchy without TypedPtr
-template <typename Derived, typename Base>
-Derived *downcast(Base *ptr)
-{
-	if constexpr (!std::derived_from<Derived, Base>) {
-		return nullptr;
-	} else {
-		TypeInfo *cur_typeinfo = Derived::TYPE_INFO;
-		while (cur_typeinfo) {
-			if (cur_typeinfo == Base::TYPE_INFO)
-				return reinterpret_cast<Derived *>(ptr);
-			cur_typeinfo = cur_typeinfo->base;
-		}
-		return nullptr;
-	}
-}
-
-// -- Pointer restricted to a hierarchy
+// "virtual" pointer that can only points to one class hierarchy
 template <typename Base>
 struct BasePtr
 {
@@ -170,45 +179,44 @@ struct BasePtr
 		static_assert(std::derived_from<Derived, Base>);
 		Base *p_base = upcast<Base>(p_derived);
 		if (p_base == nullptr) {
-			this->ptr       = nullptr;
-			this->type_info = &types_storage[0];
+			this->storage.raw = 0;
 		} else {
-			this->ptr       = static_cast<Base *>(p_derived);
-			this->type_info = Derived::TYPE_INFO;
+			this->storage.from(p_derived, Derived::TYPE_INFO);
 		}
 	}
 
-	Base *get() { return this->ptr; }
+	Base *get() { return static_cast<Base*>(this->storage.ptr()); }
 
 	template <typename Derived>
 	Derived *as()
 	{
-		if (this->type_info == Derived::TYPE_INFO)
-			return static_cast<Derived *>(this->ptr);
+		if (&this->storage.type_info() == Derived::TYPE_INFO)
+			return static_cast<Derived *>(this->storage.ptr());
 		else
 			return nullptr;
 	}
 
-	const TypeInfo &typeinfo() { return *this->type_info; }
+	const TypeInfo &typeinfo() { return this->storage.type_info(); }
 
-	inline bool  operator==(const BasePtr &other) const { return this->ptr == other.ptr; }
-	inline Base *operator->() { return this->ptr; }
+	inline bool  operator==(const BasePtr &other) const { return this->storage.raw == other.storage.raw; }
+	inline Base *operator->() { return static_cast<Base *>(this->storage.ptr()); }
 
 private:
-	Base     *ptr;
-	TypeInfo *type_info;
+	details::PtrWithTypeInfo storage;
 };
 
-TypeInfo *get_type_info(ClassId class_id)
+// Iterate on all types to find a typeinfo that matches the given class id
+inline TypeInfo *get_type_info(ClassId class_id)
 {
-	for (usize i_type = 0; i_type < types_length; ++i_type) {
-		if (types_storage[i_type].class_id == class_id) {
-			return &types_storage[i_type];
+	for (usize i_type = 0; i_type < details::types_length; ++i_type) {
+		if (details::types_storage[i_type].class_id == class_id) {
+			return &details::types_storage[i_type];
 		}
 	}
 	return nullptr;
 }
 
+// Returns the typeinfo of a type
 template <typename T>
 const TypeInfo &typeinfo()
 {
@@ -218,7 +226,8 @@ const TypeInfo &typeinfo()
 }; // namespace refl
 
 #define REFL_REGISTER_TYPE(_name)                                                                                      \
-	inline static auto *TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name); });
+	inline static auto *TYPE_INFO = refl::details::defer_register([]() { refl::details::register_type<Self>(_name); });
 
 #define REFL_REGISTER_TYPE_WITH_SUPER(_name)                                                                           \
-	inline static auto *TYPE_INFO = refl::defer_register([]() { refl::register_type<Self>(_name, Super::TYPE_INFO); });
+	inline static auto *TYPE_INFO =                                                                                    \
+		refl::details::defer_register([]() { refl::details::register_type<Self>(_name, Super::TYPE_INFO); });

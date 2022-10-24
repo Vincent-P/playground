@@ -21,14 +21,14 @@ struct EntityWorld
 	template <std::derived_from<GlobalSystem> System, typename... Args> void create_system(Args &&...args)
 	{
 		System *new_system = new System(std::forward<Args>(args)...);
-		create_system_internal(static_cast<GlobalSystem *>(new_system));
+		create_system_internal(refl::BasePtr<GlobalSystem>{new_system});
 	}
 
 	const SystemRegistry &get_system_registry() const { return system_registry; }
 	SystemRegistry       &get_system_registry() { return system_registry; }
 
-	void create_system_internal(GlobalSystem *system);
-	void destroy_system_internal(GlobalSystem *system);
+	void create_system_internal(refl::BasePtr<GlobalSystem> system);
+	void destroy_system_internal(refl::BasePtr<GlobalSystem> system);
 
 	void display_entity_tree_rec(Entity *entity, Entity *&selected);
 
@@ -37,5 +37,5 @@ struct EntityWorld
 	exo::Set<Entity *>    root_entities   = {};
 	SystemRegistry        system_registry = {};
 
-	exo::EnumArray<Vec<GlobalSystem *>, UpdateStages> global_per_stage_update_list = {};
+	exo::EnumArray<Vec<refl::BasePtr<GlobalSystem>>, UpdateStages> global_per_stage_update_list = {};
 };

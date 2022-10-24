@@ -32,7 +32,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		exo::LinearAllocator::with_external_memory(global_stack_mem, global_stack_size);
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 
-	refl::call_all_registers();
+	refl::details::call_all_registers();
 
 	auto *app = App::create(global_scope);
 	app->run();
