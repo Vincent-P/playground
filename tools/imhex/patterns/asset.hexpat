@@ -6,7 +6,6 @@ fn round_up_to_alignment(u64 len, u64 align) {
 
 struct AssetId
 {
-	u64 type_id;
 	u64 name_len;
 	char name[round_up_to_alignment(name_len, 4)];
 	u64 name_hash;
@@ -20,4 +19,5 @@ struct Asset
 	u64 deps_len;
 	AssetId deps[deps_len];
 };
+
 

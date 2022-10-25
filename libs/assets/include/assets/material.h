@@ -1,10 +1,8 @@
 #pragma once
-#include <exo/collections/handle.h>
 #include <exo/maths/vectors.h>
-#include <exo/uuid.h>
 
 #include "assets/asset.h"
-#include "assets/asset_id.h"
+
 namespace exo
 {
 struct Serializer;
@@ -21,9 +19,12 @@ struct TextureTransform
 };
 
 // Dependencies: Textures
-REGISTER_ASSET_TYPE(Material, create_asset_id('MAT'))
 struct Material : Asset
 {
+	using Self  = Material;
+	using Super = Asset;
+	REFL_REGISTER_TYPE_WITH_SUPER("Material")
+
 	float4           base_color_factor          = float4(1.0f);
 	float4           emissive_factor            = float4(0.0f);
 	float            metallic_factor            = 1.0f;
@@ -33,9 +34,7 @@ struct Material : Asset
 	AssetId          metallic_roughness_texture = {};
 	TextureTransform uv_transform               = {};
 
-	static Asset *create();
-	const char   *type_name() const final { return "Material"; }
-	void          serialize(exo::Serializer &serializer) final;
+	void serialize(exo::Serializer &serializer) final;
 
 	bool operator==(const Material &other) const = default;
 };

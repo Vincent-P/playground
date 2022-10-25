@@ -81,7 +81,7 @@ template <> struct Result<void>
 
 	operator bool() const { return this->type == ResultType::Ok; }
 
-	Result(Result<void> &&moved)
+	Result(Result<void> &&moved) noexcept
 	{
 		this->type               = moved.type;
 		this->error_wrapper.code = moved.error_wrapper.code;

@@ -1,7 +1,6 @@
 #include "assets/asset_manager.h"
 
 #include "assets/asset.h"
-#include "assets/asset_constructors.h"
 #include "assets/asset_id_formatter.h"
 #include "assets/importers/gltf_importer.h"
 #include "assets/importers/ktx2_importer.h"
@@ -19,6 +18,7 @@
 
 #include <filesystem>
 #include <fmt/core.h>
+#include <reflection/reflection.h>
 #include <span>
 
 static const exo::Path AssetPath         = exo::Path::from_string(ASSET_PATH);
@@ -50,7 +50,7 @@ AssetManager *AssetManager::create(exo::ScopeStack &scope)
 
 	Vec<Handle<Resource>> outdated_resources;
 	asset_manager->database.track_resource_changes(AssetPath, outdated_resources);
-	asset_manager->import_resources(outdated_resources);
+	asset_manager->_import_resources(outdated_resources);
 
 	exo::serializer_helper::write_object_to_file(DatabasePath.view(), asset_manager->database);
 
@@ -109,14 +109,12 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 
 	// write the assets produced by this resource to disk
 	for (const auto &product : process_resp.products) {
-		Asset *asset      = manager.load_asset<Asset>(product);
-		auto   asset_path = AssetManager::get_asset_path(product);
-		exo::serializer_helper::write_object_to_file(asset_path.view(), *asset);
-		exo::logger::info("Saving {}\n", asset_path.view());
+		auto asset = manager.load_asset(product);
+		manager._save_to_disk(asset);
 	}
 }
 
-void AssetManager::import_resources(std::span<const Handle<Resource>> records)
+void AssetManager::_import_resources(std::span<const Handle<Resource>> records)
 {
 	for (auto handle : records) {
 		auto       &asset_record = this->database.resource_records.get(handle);
@@ -132,19 +130,62 @@ void AssetManager::import_resources(std::span<const Handle<Resource>> records)
 	}
 }
 
-Asset *AssetManager::load_from_disk(const AssetId &id)
+refl::BasePtr<Asset> AssetManager::_load_from_disk(const AssetId &id)
 {
 	auto asset_path = AssetManager::get_asset_path(id);
 	ASSERT(std::filesystem::exists(asset_path.view()));
-	Asset          *new_asset     = global_asset_constructors().create(id.type_id);
+
+	// open file and create serializer
 	exo::ScopeStack scope         = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	auto            resource_file = cross::MappedFile::open(asset_path.view()).value();
 	exo::Serializer serializer    = exo::Serializer::create(&scope);
 	serializer.buffer_size        = resource_file.size;
 	serializer.buffer             = const_cast<void *>(resource_file.base_addr);
 	serializer.is_writing         = false;
+
+	// Read the class id
+	u64 class_id = 0;
+	exo::serialize(serializer, class_id);
+
+	const auto *type_info = refl::get_type_info(class_id);
+	ASSERT(type_info);
+
+	void  *memory    = malloc(type_info->size);
+	void  *asset_ptr = type_info->placement_ctor(memory);
+	Asset *new_asset = static_cast<Asset *>(asset_ptr);
+	new_asset->uuid  = id;
 	new_asset->serialize(serializer);
-	return new_asset;
+
+	return refl::BasePtr<Asset>(new_asset, *type_info);
+}
+
+
+void AssetManager::_save_to_disk(refl::BasePtr<Asset> asset)
+{
+	auto asset_path = AssetManager::get_asset_path(asset->uuid);
+
+	exo::ScopeStack scope      = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+	exo::Serializer serializer = exo::Serializer::create(&scope);
+	serializer.buffer_size     = 96_MiB;
+	serializer.buffer          = malloc(serializer.buffer_size);
+	serializer.is_writing      = true;
+
+	EXO_PROFILE_MALLOC(serializer.buffer, serializer.buffer_size);
+
+	u64 class_id = asset.typeinfo().class_id;
+	exo::serialize(serializer, class_id);
+
+	asset->serialize(serializer);
+
+	FILE *fp       = fopen(asset_path.view().data(), "wb"); // non-Windows use "w"
+	auto  bwritten = fwrite(serializer.buffer, 1, serializer.offset, fp);
+	ASSERT(bwritten == serializer.offset);
+	fclose(fp);
+
+	EXO_PROFILE_MFREE(serializer.buffer);
+	free(serializer.buffer);
+
+	exo::logger::info("Saving {}\n", asset_path.view());
 }
 
 static exo::Path get_blob_path(exo::u128 blob_hash)

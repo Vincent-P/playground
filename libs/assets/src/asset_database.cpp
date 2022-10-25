@@ -92,19 +92,19 @@ Resource &AssetDatabase::get_resource_from_content(FileHash content_hash)
 }
 
 // -- Assets
-Asset *AssetDatabase::get_asset(const AssetId &id)
+refl::BasePtr<Asset> AssetDatabase::get_asset(const AssetId &id)
 {
-	Asset **ptr = this->asset_id_map.at(id);
+	refl::BasePtr<Asset> *ptr = this->asset_id_map.at(id);
 	if (ptr) {
-		ASSERT(*ptr);
+		ASSERT(ptr->get());
 		return *ptr;
 	}
-	return nullptr;
+	return refl::BasePtr<Asset>::invalid();
 }
 
-void AssetDatabase::insert_asset(Asset *asset)
+void AssetDatabase::insert_asset(refl::BasePtr<Asset> asset)
 {
-	ASSERT(asset);
+	ASSERT(asset.get());
 	this->asset_id_map.insert(asset->uuid, asset);
 }
 

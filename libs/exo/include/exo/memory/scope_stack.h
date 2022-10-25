@@ -50,7 +50,7 @@ template <typename T> T *ScopeStack::allocate(u32 element_count)
 		ASSERT(element_count == 1);
 
 		// Allocate enough space for the finalizer + the object itself
-		const usize total_size = sizeof(T) + round_up_to_alignment(sizeof(u32), sizeof(Finalizer));
+		constexpr usize total_size = sizeof(T) + round_up_to_alignment(sizeof(u32), sizeof(Finalizer));
 		auto       *f          = reinterpret_cast<Finalizer *>(allocator->allocate(total_size));
 
 		// Call the constructor with placement new

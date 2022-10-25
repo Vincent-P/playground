@@ -1,11 +1,9 @@
 #pragma once
-#include <exo/collections/handle.h>
 #include <exo/collections/vector.h>
 #include <exo/maths/u128.h>
 #include <exo/maths/vectors.h>
 
 #include "assets/asset.h"
-#include "assets/asset_id.h"
 
 struct Material;
 
@@ -20,14 +18,12 @@ struct SubMesh
 };
 void serialize(exo::Serializer &serializer, SubMesh &data);
 
-REGISTER_ASSET_TYPE(Mesh, create_asset_id('MESH'))
 struct Mesh : Asset
 {
-	static Asset *create();
-	const char   *type_name() const final { return "Mesh"; }
-	void          serialize(exo::Serializer &serializer) final;
+	using Self  = Mesh;
+	using Super = Asset;
+	REFL_REGISTER_TYPE_WITH_SUPER("Mesh")
 
-	// --
 	exo::u128 indices_hash;
 	usize     indices_byte_size;
 
@@ -38,4 +34,7 @@ struct Mesh : Asset
 	usize     uvs_byte_size;
 
 	Vec<SubMesh> submeshes;
+
+	// --
+	void serialize(exo::Serializer &serializer) final;
 };

@@ -18,16 +18,8 @@ enum PixelFormat : u32 {
 	BC7_SRGB,
 };
 
-
-struct TextureId
-{
-	u64 id_len;
-	char id[round_up_to_alignment(id_len, 4)];
-};
-
 struct Texture
 {
-	TextureId texture_uid;
 	Asset asset;
 	PixelFormat format;
 	ImageExtension extension;
@@ -43,3 +35,4 @@ struct Texture
 };
 
 
+Texture texture @ 0x00;

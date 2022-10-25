@@ -1,17 +1,10 @@
 #include "assets/subscene.h"
-#include "assets/asset_constructors.h"
 
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/uuid_serializer.h>
 
-static int subscene_ctor = global_asset_constructors().add_constructor(get_asset_id<SubScene>(), &SubScene::create);
-
-Asset *SubScene::create() { return new SubScene(); }
-
 void SubScene::serialize(exo::Serializer &serializer)
 {
-	const char *id = "SBSC";
-	exo::serialize(serializer, id);
 	Asset::serialize(serializer);
 	exo::serialize(serializer, this->roots);
 	exo::serialize(serializer, this->transforms);

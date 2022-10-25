@@ -185,7 +185,20 @@ struct BasePtr
 		}
 	}
 
-	Base *get() { return static_cast<Base*>(this->storage.ptr()); }
+	explicit BasePtr(Base *p_derived, const TypeInfo &typeinfo)
+	{
+		ASSERT(p_derived);
+		this->storage.from(p_derived, &typeinfo);
+	}
+
+	static BasePtr invalid()
+	{
+		BasePtr null;
+		null.storage.raw = 0;
+		return null;
+	}
+
+	Base *get() { return static_cast<Base *>(this->storage.ptr()); }
 
 	template <typename Derived>
 	Derived *as()
@@ -202,6 +215,7 @@ struct BasePtr
 	inline Base *operator->() { return static_cast<Base *>(this->storage.ptr()); }
 
 private:
+	BasePtr() = default;
 	details::PtrWithTypeInfo storage;
 };
 

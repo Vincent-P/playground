@@ -1,18 +1,11 @@
 #include "assets/mesh.h"
-#include "assets/asset_constructors.h"
 
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/u128_serializer.h>
 #include <exo/serialization/uuid_serializer.h>
 
-static int mesh_ctor = global_asset_constructors().add_constructor(get_asset_id<Mesh>(), &Mesh::create);
-
-Asset *Mesh::create() { return new Mesh(); }
-
 void Mesh::serialize(exo::Serializer &serializer)
 {
-	const char *id = "MESH";
-	exo::serialize(serializer, id);
 	Asset::serialize(serializer);
 
 	exo::serialize(serializer, this->indices_hash);

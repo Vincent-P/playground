@@ -1,12 +1,7 @@
 #include "assets/texture.h"
-#include "assets/asset_constructors.h"
 
 #include <exo/profile.h>
 #include <exo/serialization/u128_serializer.h>
-
-static int texture_ctor = global_asset_constructors().add_constructor(get_asset_id<Texture>(), &Texture::create);
-
-Asset *Texture::create() { return new Texture(); }
 
 namespace exo
 {
@@ -31,8 +26,6 @@ void serialize(Serializer &serializer, ImageExtension &data)
 
 void Texture::serialize(exo::Serializer &serializer)
 {
-	const char *id = "TXTR";
-	exo::serialize(serializer, id);
 	Asset::serialize(serializer);
 	exo::serialize(serializer, this->format);
 	exo::serialize(serializer, this->extension);

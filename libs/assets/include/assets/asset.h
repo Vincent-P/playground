@@ -4,9 +4,11 @@
 #include <exo/collections/vector.h>
 #include <exo/uuid.h>
 
-#include <string>
+#include <reflection/reflection.h>
 
 #include "assets/asset_id.h"
+
+#include <string>
 
 namespace exo
 {
@@ -33,10 +35,19 @@ inline constexpr const char *to_string(AssetState state) { return asset_state_to
 
 struct Asset
 {
+	using Self = Asset;
+	REFL_REGISTER_TYPE("Asset")
+
+	AssetId      uuid;
+	AssetState   state;
+	std::string  name;
+	std::string  path;
+	Vec<AssetId> dependencies;
+
+	// --
 	virtual ~Asset() {}
 
-	virtual const char *type_name() const                      = 0;
-	virtual void        serialize(exo::Serializer &serializer) = 0;
+	virtual void serialize(exo::Serializer &serializer) = 0;
 
 	bool operator==(const Asset &other) const = default;
 
@@ -52,14 +63,4 @@ struct Asset
 			dependencies.push_back(std::move(dependency));
 		}
 	}
-
-	// --
-	AssetId      uuid;
-	AssetState   state;
-	std::string  name;
-	std::string  path;
-	Vec<AssetId> dependencies;
 };
-
-// https://isocpp.org/wiki/faq/ctors#static-init-order-on-first-use
-struct AssetConstructors &global_asset_constructors();

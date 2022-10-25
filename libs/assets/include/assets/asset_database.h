@@ -4,6 +4,7 @@
 #include <exo/collections/pool.h>
 #include <exo/collections/vector.h>
 #include <exo/path.h>
+#include <reflection/reflection.h>
 
 #include <span>
 
@@ -39,7 +40,7 @@ struct AssetDatabase
 	exo::Map<exo::Path, Handle<Resource>> resource_path_map;
 	exo::Map<FileHash, Handle<Resource>>  resource_content_map;
 
-	exo::Map<AssetId, Asset *> asset_id_map; // AssetId -> Asset*
+	exo::Map<AssetId, refl::BasePtr<Asset>> asset_id_map; // AssetId -> Asset*
 
 	// Resources
 	void      track_resource_changes(const exo::Path &directory, Vec<Handle<Resource>> &out_outdated_resources);
@@ -47,8 +48,8 @@ struct AssetDatabase
 	Resource &get_resource_from_content(FileHash content_hash);
 
 	// Assets
-	Asset *get_asset(const AssetId &id);
-	void   insert_asset(Asset *asset);
+	refl::BasePtr<Asset> get_asset(const AssetId &id);
+	void   insert_asset(refl::BasePtr<Asset> asset);
 };
 
 void serialize(exo::Serializer &serializer, Resource &data);

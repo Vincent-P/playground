@@ -3,12 +3,9 @@
 #include <exo/maths/numerics.h>
 #include <exo/maths/u128.h>
 #include <exo/serialization/serializer.h>
-#include <exo/uuid.h>
+#include <reflection/reflection.h>
 
 #include "assets/asset.h"
-#include "assets/asset_id.h"
-
-#include <span>
 
 enum struct ImageExtension : u16
 {
@@ -30,12 +27,11 @@ enum struct PixelFormat : u16
 	BC7_SRGB,  // 4 channels
 };
 
-REGISTER_ASSET_TYPE(Texture, create_asset_id('TEX'))
 struct Texture : Asset
 {
-	static Asset *create();
-	const char   *type_name() const final { return "Texture"; }
-	void          serialize(exo::Serializer &serializer) final;
+	using Self  = Texture;
+	using Super = Asset;
+	REFL_REGISTER_TYPE_WITH_SUPER("Texture")
 
 	PixelFormat    format;
 	ImageExtension extension;
@@ -47,6 +43,8 @@ struct Texture : Asset
 
 	exo::u128 pixels_hash;
 	usize     pixels_data_size;
+
+	void serialize(exo::Serializer &serializer) final;
 };
 
 namespace exo

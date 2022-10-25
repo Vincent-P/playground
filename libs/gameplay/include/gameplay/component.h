@@ -64,13 +64,13 @@ struct SpatialComponent : BaseComponent
 private:
 	void update_world_transform();
 
-	float4x4  local_transform;
-	exo::AABB local_bounds;
-	float4x4  world_transform;
-	exo::AABB world_bounds;
+	float4x4  local_transform = {};
+	exo::AABB local_bounds    = {};
+	float4x4  world_transform = {};
+	exo::AABB world_bounds    = {};
 
-	SpatialComponent       *parent;
-	Vec<SpatialComponent *> children;
+	SpatialComponent       *parent   = nullptr;
+	Vec<SpatialComponent *> children = {};
 
 	friend Entity;
 };
