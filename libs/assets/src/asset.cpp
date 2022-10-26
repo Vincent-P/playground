@@ -11,4 +11,3 @@ void Asset::serialize(exo::Serializer &serializer)
 	exo::serialize(serializer, this->name);
 	exo::serialize(serializer, this->dependencies);
 }
-= {}

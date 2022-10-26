@@ -5,7 +5,6 @@ set(SOURCE_FILES
   src/hash_file.h
 
   include/assets/asset.h
-  include/assets/asset_constructors.h
   include/assets/asset_manager.h
   include/assets/asset_database.h
   src/asset_database.cpp

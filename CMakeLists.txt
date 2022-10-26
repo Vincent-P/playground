@@ -2,16 +2,16 @@ cmake_minimum_required(VERSION 3.23)
 project(playground LANGUAGES C CXX)
 
 # Fetch Catch2
-Include(FetchContent)
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.0.1 # or a later release
-)
-FetchContent_MakeAvailable(Catch2)
-list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-include(CTest)
-include(Catch)
+# Include(FetchContent)
+# FetchContent_Declare(
+#   Catch2
+#   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+#   GIT_TAG        v3.0.1 # or a later release
+# )
+# FetchContent_MakeAvailable(Catch2)
+# list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+# include(CTest)
+# include(Catch)
 
 # Enable folders in the Solution Explorer of Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -107,13 +107,13 @@ function(setup_app_target TARGET)
   setup_app_target_options(${TARGET})
 
   # Add a test executable if the function was supplied test source files
-  if (args_TESTS)
-    add_executable(${TARGET}.tests ${args_TESTS})
-    setup_app_target_options(${TARGET}.tests)
-    target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
-    target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
-    catch_discover_tests(${TARGET}.tests)
-  endif()
+  # if (args_TESTS)
+  #   add_executable(${TARGET}.tests ${args_TESTS})
+  #   setup_app_target_options(${TARGET}.tests)
+  #   target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
+  #   target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
+  #   catch_discover_tests(${TARGET}.tests)
+  # endif()
 endfunction()
 
 # Add a shader target

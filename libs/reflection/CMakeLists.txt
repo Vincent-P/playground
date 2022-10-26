@@ -1,5 +1,6 @@
 set(SOURCE_FILES
     include/reflection/reflection.h
+    include/reflection/reflection_serializer.h
     src/reflection.cpp
 )
 
