@@ -9,5 +9,7 @@ struct MeshComponent : SpatialComponent
 	using Super = SpatialComponent;
 	REFL_REGISTER_TYPE_WITH_SUPER("MeshComponent")
 
+	void serialize(exo::Serializer &serializer) final;
+
 	AssetId mesh_asset;
 };

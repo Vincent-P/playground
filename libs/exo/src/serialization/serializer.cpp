@@ -94,5 +94,6 @@ void serialize(Serializer &serializer, const char *&data)
 void serialize(Serializer &serializer, float4x4 &data) { return serialize_impl(serializer, data); }
 void serialize(Serializer &serializer, float4 &data) { return serialize_impl(serializer, data); }
 void serialize(Serializer &serializer, float2 &data) { return serialize_impl(serializer, data); }
+void serialize(Serializer &serializer, float3 &data) { return serialize_impl(serializer, data); }
 void serialize(Serializer &serializer, int2 &data) { return serialize_impl(serializer, data); }
 } // namespace exo

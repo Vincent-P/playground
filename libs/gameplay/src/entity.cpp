@@ -5,6 +5,10 @@
 #include "gameplay/system.h"
 #include "gameplay/update_context.h"
 
+#include <exo/serialization/serializer.h>
+#include <exo/serialization/uuid_serializer.h>
+#include <reflection/reflection_serializer.h>
+
 #include <algorithm>
 
 void Entity::load(LoadingContext &ctx)
@@ -137,4 +141,36 @@ void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 	}
 
 	components.pop_back();
+}
+
+void serialize(exo::Serializer &serializer, Entity &entity)
+{
+	exo::serialize(serializer, entity.uuid);
+	exo::serialize(serializer, entity.name);
+
+	int state = static_cast<int>(entity.state);
+	exo::serialize(serializer, state);
+
+	exo::serialize(serializer, entity.components);
+
+	exo::UUID root_component_id = entity.root_component.get() ? entity.root_component->uuid : exo::UUID{};
+	exo::serialize(serializer, root_component_id);
+
+	exo::serialize(serializer, entity.attached_entities);
+
+	exo::serialize(serializer, entity.parent);
+	exo::serialize(serializer, entity.is_attached_to_parent);
+
+	if (!serializer.is_writing) {
+		for (auto component : entity.components) {
+			if (component->uuid == root_component_id) {
+				auto *component_as_spatial = refl::upcast<SpatialComponent>(component.get(), &component.typeinfo());
+				ASSERT(component_as_spatial);
+				entity.root_component = refl::BasePtr<SpatialComponent>(component_as_spatial, component.typeinfo());
+				break;
+			}
+		}
+
+		entity.state = static_cast<EntityState>(state);
+	}
 }

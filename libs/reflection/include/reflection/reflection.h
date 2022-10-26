@@ -153,19 +153,24 @@ private:
 };
 
 // Traverse the type hierarchy to upcast to parent class
+template <typename Base>
+Base *upcast(void *ptr, const TypeInfo *type_info)
+{
+	const TypeInfo *cur_typeinfo = type_info;
+	while (cur_typeinfo) {
+		if (cur_typeinfo == Base::TYPE_INFO)
+			return static_cast<Base *>(ptr);
+		cur_typeinfo = cur_typeinfo->base;
+	}
+	return nullptr;
+}
 template <typename Base, typename Derived>
 Base *upcast(Derived *ptr)
 {
 	if constexpr (!std::derived_from<Derived, Base>) {
 		return nullptr;
 	} else {
-		TypeInfo *cur_typeinfo = Derived::TYPE_INFO;
-		while (cur_typeinfo) {
-			if (cur_typeinfo == Base::TYPE_INFO)
-				return reinterpret_cast<Base *>(ptr);
-			cur_typeinfo = cur_typeinfo->base;
-		}
-		return nullptr;
+		return upcast<Base>(static_cast<void *>(ptr), Derived::TYPE_INFO);
 	}
 }
 
@@ -173,16 +178,12 @@ Base *upcast(Derived *ptr)
 template <typename Base>
 struct BasePtr
 {
-	template <typename Derived>
+	BasePtr() = default;
+
+	template <std::derived_from<Base> Derived>
 	explicit BasePtr(Derived *p_derived)
 	{
-		static_assert(std::derived_from<Derived, Base>);
-		Base *p_base = upcast<Base>(p_derived);
-		if (p_base == nullptr) {
-			this->storage.raw = 0;
-		} else {
-			this->storage.from(p_derived, Derived::TYPE_INFO);
-		}
+		this->storage.from(p_derived, Derived::TYPE_INFO);
 	}
 
 	explicit BasePtr(Base *p_derived, const TypeInfo &typeinfo)
@@ -191,10 +192,23 @@ struct BasePtr
 		this->storage.from(p_derived, &typeinfo);
 	}
 
+	// Copy from a derived class
+	template <std::derived_from<Base> Derived>
+	BasePtr &operator=(BasePtr<Derived> other)
+	{
+		this->storage = other.storage;
+		return *this;
+	}
+	template <std::derived_from<Base> Derived>
+	BasePtr(BasePtr<Derived> other)
+	{
+		*this = other.storage;
+	}
+
 	static BasePtr invalid()
 	{
 		BasePtr null;
-		null.storage.raw = 0;
+		ASSERT(null.storage.raw == 0);
 		return null;
 	}
 
@@ -214,8 +228,6 @@ struct BasePtr
 	inline bool  operator==(const BasePtr &other) const { return this->storage.raw == other.storage.raw; }
 	inline Base *operator->() { return static_cast<Base *>(this->storage.ptr()); }
 
-private:
-	BasePtr() = default;
 	details::PtrWithTypeInfo storage;
 };
 

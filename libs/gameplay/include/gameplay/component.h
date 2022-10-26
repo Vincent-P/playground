@@ -9,6 +9,10 @@
 
 #include <string>
 
+namespace exo
+{
+struct Serializer;
+};
 struct LoadingContext;
 struct Entity;
 
@@ -26,9 +30,12 @@ struct BaseComponent
 	using Self = BaseComponent;
 	REFL_REGISTER_TYPE("BaseComponent")
 
+	ComponentState state = ComponentState::Unloaded;
+
 	exo::UUID   uuid;
 	std::string name;
 
+	// --
 	BaseComponent() = default;
 	virtual ~BaseComponent() {}
 
@@ -44,8 +51,7 @@ struct BaseComponent
 	constexpr bool has_loading_failed() const { return state == ComponentState::LoadingFailed; }
 	constexpr bool is_initialized() const { return state == ComponentState::Initialized; }
 
-protected:
-	ComponentState state = ComponentState::Unloaded;
+	virtual void serialize(exo::Serializer &serializer);
 };
 
 struct SpatialComponent : BaseComponent
@@ -53,14 +59,6 @@ struct SpatialComponent : BaseComponent
 	using Self  = SpatialComponent;
 	using Super = BaseComponent;
 	REFL_REGISTER_TYPE_WITH_SUPER("SpatialComponent")
-
-	void set_local_transform(const float4x4 &new_transform);
-	void set_local_bounds(const exo::AABB &new_bounds);
-
-	inline const float4x4  &get_local_transform() const { return local_transform; }
-	inline const exo::AABB &get_local_bounds() const { return local_bounds; }
-	inline const float4x4  &get_world_transform() const { return world_transform; }
-	inline const exo::AABB &get_world_bounds() const { return world_bounds; }
 
 private:
 	void update_world_transform();
@@ -70,8 +68,19 @@ private:
 	float4x4  world_transform = {};
 	exo::AABB world_bounds    = {};
 
-	SpatialComponent       *parent   = nullptr;
-	Vec<SpatialComponent *> children = {};
+	refl::BasePtr<SpatialComponent>      parent   = {};
+	Vec<refl::BasePtr<SpatialComponent>> children = {};
+
+public:
+	void set_local_transform(const float4x4 &new_transform);
+	void set_local_bounds(const exo::AABB &new_bounds);
+
+	inline const float4x4  &get_local_transform() const { return local_transform; }
+	inline const exo::AABB &get_local_bounds() const { return local_bounds; }
+	inline const float4x4  &get_world_transform() const { return world_transform; }
+	inline const exo::AABB &get_world_bounds() const { return world_bounds; }
+
+	void serialize(exo::Serializer &serializer) override;
 
 	friend EntityWorld;
 };

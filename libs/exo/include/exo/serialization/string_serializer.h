@@ -5,7 +5,7 @@
 
 namespace exo
 {
-void serialize(Serializer &serializer, std::string &data)
+inline void serialize(Serializer &serializer, std::string &data)
 {
 	usize len = 0;
 	if (serializer.is_writing) {

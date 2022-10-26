@@ -10,6 +10,7 @@
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 #include <exo/profile.h>
+#include <exo/serialization/serializer.h>
 #include <exo/uuid.h>
 
 #include <algorithm> // for std::sort
@@ -115,10 +116,10 @@ void EntityWorld::destroy_entity(Entity *entity)
 void EntityWorld::_attach_to_parent(Entity *entity)
 {
 	ASSERT(entity->is_attached_to_parent == false);
-	ASSERT(entity->parent.is_valid() && (*this->entities.at(entity->parent))->root_component != nullptr);
+	ASSERT(entity->parent.is_valid() && (*this->entities.at(entity->parent))->root_component.get() != nullptr);
 
-	Entity           *parent      = *this->entities.at(entity->parent);
-	SpatialComponent *parent_root = parent->root_component;
+	Entity *parent      = *this->entities.at(entity->parent);
+	auto    parent_root = parent->root_component;
 
 	entity->root_component->parent = parent_root;
 	entity->root_component->update_world_transform();
@@ -130,12 +131,12 @@ void EntityWorld::_attach_to_parent(Entity *entity)
 void EntityWorld::_dettach_to_parent(Entity *entity)
 {
 	ASSERT(entity->is_attached_to_parent == true);
-	ASSERT(entity->parent.is_valid() && (*this->entities.at(entity->parent))->root_component != nullptr);
+	ASSERT(entity->parent.is_valid() && (*this->entities.at(entity->parent))->root_component.get() != nullptr);
 
-	Entity           *parent      = *this->entities.at(entity->parent);
-	SpatialComponent *parent_root = parent->root_component;
+	Entity *parent      = *this->entities.at(entity->parent);
+	auto    parent_root = parent->root_component;
 
-	entity->root_component->parent = nullptr;
+	entity->root_component->parent = {};
 	entity->root_component->update_world_transform();
 
 	u32 i_parent_child = 0;
@@ -187,5 +188,29 @@ void EntityWorld::destroy_system_internal(refl::BasePtr<GlobalSystem> system)
 
 	if (i < size) {
 		system_registry.global_systems.pop_back();
+	}
+}
+
+// -- Serializer
+
+void serialize(exo::Serializer &serializer, EntityWorld &world)
+{
+	if (serializer.is_writing) {
+		usize entities_length = world.entities.size;
+		exo::serialize(serializer, entities_length);
+
+		for (auto &[uuid, entity] : world.entities) {
+			serialize(serializer, *entity);
+		}
+	} else {
+		ASSERT(world.entities.size == 0);
+		usize entities_length = 0;
+		exo::serialize(serializer, entities_length);
+
+		for (usize i = 0; i < entities_length; ++i) {
+			Entity *new_entity = new Entity;
+			serialize(serializer, *new_entity);
+			world.entities.insert(new_entity->uuid, new_entity);
+		}
 	}
 }

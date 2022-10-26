@@ -12,16 +12,16 @@ struct ScopeStack;
 struct float4x4;
 struct float4;
 struct float2;
+struct float3;
 struct int2;
 struct Serializer;
 
 template <typename T>
-concept MemberSerializable = requires(T &a)
-{
-	// clang-format off
+concept MemberSerializable = requires(T &a) {
+								 // clang-format off
 	{ a.serialize(*(Serializer *)nullptr) } -> std::same_as<void>;
-	// clang-format on
-};
+								 // clang-format on
+							 };
 
 struct Serializer
 {
@@ -39,9 +39,14 @@ struct Serializer
 	usize             buffer_size;
 };
 
-template <MemberSerializable T> void serialize(Serializer &serializer, T &data) { data.serialize(serializer); }
+template <MemberSerializable T>
+void serialize(Serializer &serializer, T &data)
+{
+	data.serialize(serializer);
+}
 
-template <typename T, usize n> void serialize(Serializer &serializer, T (&data)[n])
+template <typename T, usize n>
+void serialize(Serializer &serializer, T (&data)[n])
 {
 	usize size = n;
 	serialize(serializer, size);
@@ -52,7 +57,8 @@ template <typename T, usize n> void serialize(Serializer &serializer, T (&data)[
 	}
 }
 
-template <typename T> void serialize(Serializer &serializer, Vec<T> &data)
+template <typename T>
+void serialize(Serializer &serializer, Vec<T> &data)
 {
 	usize size = data.size();
 	serialize(serializer, size);
@@ -89,6 +95,7 @@ void serialize(Serializer &serializer, const char *&data);
 // vectors
 void serialize(Serializer &serializer, float4x4 &data);
 void serialize(Serializer &serializer, float4 &data);
+void serialize(Serializer &serializer, float3 &data);
 void serialize(Serializer &serializer, float2 &data);
 void serialize(Serializer &serializer, int2 &data);
 

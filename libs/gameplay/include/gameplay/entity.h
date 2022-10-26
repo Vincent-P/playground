@@ -37,10 +37,10 @@ struct Entity
 	Vec<refl::BasePtr<BaseComponent>>               components            = {};
 	exo::EnumArray<Vec<LocalSystem *>, UpdateStage> per_stage_update_list = {};
 
-	SpatialComponent *root_component        = nullptr;
-	Vec<exo::UUID>    attached_entities     = {};
-	exo::UUID         parent                = {};
-	bool              is_attached_to_parent = false;
+	refl::BasePtr<SpatialComponent> root_component        = {};
+	Vec<exo::UUID>                  attached_entities     = {};
+	exo::UUID                       parent                = {};
+	bool                            is_attached_to_parent = false;
 
 	// --
 	void load(LoadingContext &ctx);
@@ -65,13 +65,14 @@ struct Entity
 	template <std::derived_from<BaseComponent> Component, typename... Args>
 	void create_component(Args &&...args)
 	{
-		Component *new_component = new Component(std::forward<Args>(args)...);
-		create_component_internal(refl::BasePtr<BaseComponent>(new_component));
+		Component *new_component     = new Component(std::forward<Args>(args)...);
+		auto       new_component_ptr = refl::BasePtr<BaseComponent>(new_component);
+		create_component_internal(new_component_ptr);
 
 		// If the component is the first spatial component, it's the entity's root
 		if (auto *spatial_component = refl::upcast<SpatialComponent>(new_component)) {
-			if (root_component == nullptr) {
-				root_component = spatial_component;
+			if (root_component.get() == nullptr) {
+				root_component = refl::BasePtr<SpatialComponent>(spatial_component);
 			}
 		}
 	}
@@ -99,4 +100,4 @@ struct Entity
 	void destroy_component_internal(refl::BasePtr<BaseComponent> component);
 };
 
-void serialize(exo::Serializer &serializer, Entity &world);
+void serialize(exo::Serializer &serializer, Entity &entity);
