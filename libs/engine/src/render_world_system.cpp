@@ -12,8 +12,8 @@
 
 PrepareRenderWorld::PrepareRenderWorld()
 {
-	update_stage                     = UpdateStages::FrameEnd;
-	priority_per_stage[update_stage] = 1.0f;
+	update_stage = UpdateStage::FrameEnd;
+	priority     = 1.0f;
 }
 
 void PrepareRenderWorld::initialize(const SystemRegistry &) {}

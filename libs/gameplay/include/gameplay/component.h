@@ -4,6 +4,7 @@
 #include <exo/maths/matrices.h>
 #include <exo/uuid.h>
 
+#include <gameplay/entity_world.h>
 #include <reflection/reflection.h>
 
 #include <string>
@@ -72,7 +73,7 @@ private:
 	SpatialComponent       *parent   = nullptr;
 	Vec<SpatialComponent *> children = {};
 
-	friend Entity;
+	friend EntityWorld;
 };
 
 /**

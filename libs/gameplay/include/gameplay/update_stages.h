@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/collections/enum_array.h>
 
-enum struct UpdateStages
+enum struct UpdateStage
 {
 	FrameStart,
 	Input,
@@ -12,7 +12,7 @@ enum struct UpdateStages
 	Count
 };
 
-inline constexpr exo::EnumArray<const char *, UpdateStages> update_stages_to_string_array{
+inline constexpr exo::EnumArray<const char *, UpdateStage> update_stages_to_string_array{
 	"FrameStart", "Input", "PrePhysics", "Physics", "PostPhysics", "FrameEnd"};
 
-inline constexpr const char *to_string(UpdateStages stage) { return update_stages_to_string_array[stage]; }
+inline constexpr const char *to_string(UpdateStage stage) { return update_stages_to_string_array[stage]; }

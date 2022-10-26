@@ -51,21 +51,19 @@ void Entity::activate(LoadingContext &ctx)
 	}
 
 	// generate system update list
-	for (usize i_stage = 0; i_stage < static_cast<usize>(UpdateStages::Count); i_stage += 1) {
-		auto stage = static_cast<UpdateStages>(i_stage);
+	for (usize i_stage = 0; i_stage < static_cast<usize>(UpdateStage::Count); i_stage += 1) {
+		auto stage = static_cast<UpdateStage>(i_stage);
 		per_stage_update_list[stage].clear();
 
 		for (auto *system : local_systems) {
-			if (system->get_priority(stage) > 0.0) {
+			if (system->priority > 0.0) {
 				per_stage_update_list[stage].push_back(system);
 			}
 		}
 
-		auto comparator = [stage](const LocalSystem *lhs, const LocalSystem *rhs) {
-			return lhs->get_priority(stage) > rhs->get_priority(stage);
-		};
-
-		std::sort(per_stage_update_list[stage].begin(), per_stage_update_list[stage].end(), comparator);
+		std::sort(per_stage_update_list[stage].begin(),
+			per_stage_update_list[stage].end(),
+			[](const LocalSystem *lhs, const LocalSystem *rhs) { return lhs->priority > rhs->priority; });
 	}
 
 	// attach entities
@@ -139,56 +137,4 @@ void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 	}
 
 	components.pop_back();
-}
-
-void Entity::attach_to_parent()
-{
-	ASSERT(is_attached_to_parent == false);
-	ASSERT(this->parent != nullptr && this->parent->root_component != nullptr);
-
-	SpatialComponent *parent_root = parent->root_component;
-
-	root_component->parent = parent_root;
-	root_component->update_world_transform();
-	parent_root->children.push_back(this->root_component);
-
-	is_attached_to_parent = true;
-}
-
-void Entity::dettach_to_parent()
-{
-	ASSERT(is_attached_to_parent == true);
-	ASSERT(this->parent != nullptr && this->parent->root_component != nullptr);
-
-	SpatialComponent *parent_root = parent->root_component;
-
-	root_component->parent = nullptr;
-	root_component->update_world_transform();
-
-	u32 i_parent_child = 0;
-	for (; i_parent_child < parent_root->children.size(); i_parent_child += 1) {
-		if (parent_root->children[i_parent_child] == this->root_component) {
-			break;
-		}
-	}
-
-	// Assert hit: The parent doesn't contain this entity in its children
-	ASSERT(i_parent_child < parent_root->children.size());
-
-	if (i_parent_child < parent_root->children.size() - 1) {
-		std::swap(parent_root->children[i_parent_child], parent_root->children.back());
-	}
-	parent_root->children.pop_back();
-
-	is_attached_to_parent = false;
-}
-
-void Entity::refresh_attachments()
-{
-	for (auto *attached_entity : attached_entities) {
-		if (attached_entity->is_attached_to_parent) {
-			attached_entity->dettach_to_parent();
-			attached_entity->attach_to_parent();
-		}
-	}
 }

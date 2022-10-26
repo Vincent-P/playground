@@ -3,6 +3,6 @@
 
 struct UpdateContext
 {
-	double       delta_t;
-	UpdateStages stage;
+	double      delta_t;
+	UpdateStage stage;
 };

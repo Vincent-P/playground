@@ -14,8 +14,8 @@
 EditorCameraInputSystem::EditorCameraInputSystem(const Inputs *_inputs) : inputs{_inputs}
 {
 	ASSERT(inputs != nullptr);
-	update_stage                     = UpdateStages::Input;
-	priority_per_stage[update_stage] = 1.0f;
+	this->update_stage = UpdateStage::Input;
+	this->priority     = 1.0f;
 }
 
 void EditorCameraInputSystem::register_component(refl::BasePtr<BaseComponent> component)
@@ -38,8 +38,8 @@ void EditorCameraInputSystem::unregister_component(refl::BasePtr<BaseComponent> 
 
 EditorCameraTransformSystem::EditorCameraTransformSystem()
 {
-	update_stage                     = UpdateStages::PrePhysics;
-	priority_per_stage[update_stage] = 1.0f;
+	this->update_stage = UpdateStage::PrePhysics;
+	this->priority     = 1.0f;
 }
 
 void EditorCameraTransformSystem::register_component(refl::BasePtr<BaseComponent> component)

@@ -4,6 +4,7 @@
 #include <exo/logger.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
+#include <exo/uuid.h>
 #include <exo/uuid_formatter.h>
 
 #include <assets/asset_id_formatter.h>
@@ -41,12 +42,18 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 
 void Scene::destroy() {}
 
-static void tree_view_entity(
-	ui::Ui &ui, SceneUi &scene_ui, Rect &content_rect, Entity *entity, float indentation = 1.0f)
+static void tree_view_entity(ui::Ui &ui,
+	SceneUi                         &scene_ui,
+	Rect                            &content_rect,
+	EntityWorld                     &world,
+	exo::UUID                        entity_id,
+	float                            indentation = 1.0f)
 {
 	if (content_rect.size.y < ui.theme.font_size) {
 		return;
 	}
+
+	Entity *entity = *world.entities.at(entity_id);
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 	auto line_rect         = content_rectsplit.split(2.0f * ui.theme.font_size);
@@ -80,8 +87,8 @@ static void tree_view_entity(
 
 	if (entity_opened) {
 		indentation += 1.0f;
-		for (auto *child : entity->attached_entities) {
-			tree_view_entity(ui, scene_ui, content_rect, child, indentation);
+		for (auto child_id : entity->attached_entities) {
+			tree_view_entity(ui, scene_ui, content_rect, world, child_id, indentation);
 		}
 	}
 }
@@ -95,7 +102,7 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	/*auto margin_rect =*/rectsplit.split(1.0f * ui.theme.font_size);
 
 	for (auto *entity : world.root_entities) {
-		tree_view_entity(ui, scene.ui, content_rect, entity);
+		tree_view_entity(ui, scene.ui, content_rect, world, entity->uuid);
 	}
 }
 

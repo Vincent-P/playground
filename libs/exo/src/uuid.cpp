@@ -77,7 +77,6 @@ UUID UUID::from_values(const u32 *values)
 	write_uuid_string(new_uuid.data, new_uuid.str);
 	return new_uuid;
 }
-} // namespace exo
 
 u64 hash_value(const exo::UUID &uuid)
 {
@@ -88,3 +87,5 @@ u64 hash_value(const exo::UUID &uuid)
 	hash     = exo::hash_combine(hash, u64(uuid.data[4]));
 	return hash;
 }
+
+} // namespace exo

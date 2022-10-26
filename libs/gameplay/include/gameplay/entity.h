@@ -9,6 +9,10 @@
 #include <concepts>
 #include <reflection/reflection.h>
 
+namespace exo
+{
+struct Serializer;
+}
 struct BaseComponent;
 struct SpatialComponent;
 struct Entity;
@@ -25,21 +29,31 @@ enum struct EntityState
 
 struct Entity
 {
+	exo::UUID   uuid  = {};
+	const char *name  = {};
+	EntityState state = EntityState::Unloaded;
+
+	Vec<LocalSystem *>                              local_systems         = {};
+	Vec<refl::BasePtr<BaseComponent>>               components            = {};
+	exo::EnumArray<Vec<LocalSystem *>, UpdateStage> per_stage_update_list = {};
+
+	SpatialComponent *root_component        = nullptr;
+	Vec<exo::UUID>    attached_entities     = {};
+	exo::UUID         parent                = {};
+	bool              is_attached_to_parent = false;
+
+	// --
 	void load(LoadingContext &ctx);
 	void unload(LoadingContext &ctx);
-
 	// Called when an entity finished loading successfully
-	// Registers each component with all local systems
-	// Create per-stage local system update lists
-	// Registers each component with all global systems
-	// Create entity attachment (if required)
 	void activate(LoadingContext &ctx);
-
 	// Called just before an entity fully unloads
 	void deactivate(LoadingContext &ctx);
 
+	// Call update() on all systems
 	void update_systems(const UpdateContext &ctx);
 
+	// Create a local entity system
 	template <std::derived_from<LocalSystem> System, typename... Args>
 	void create_system(Args &&...args)
 	{
@@ -47,12 +61,14 @@ struct Entity
 		create_system_internal(reinterpret_cast<LocalSystem *>(new_system));
 	}
 
+	// Add a component to the entity
 	template <std::derived_from<BaseComponent> Component, typename... Args>
 	void create_component(Args &&...args)
 	{
 		Component *new_component = new Component(std::forward<Args>(args)...);
 		create_component_internal(refl::BasePtr<BaseComponent>(new_component));
 
+		// If the component is the first spatial component, it's the entity's root
 		if (auto *spatial_component = refl::upcast<SpatialComponent>(new_component)) {
 			if (root_component == nullptr) {
 				root_component = spatial_component;
@@ -76,29 +92,11 @@ struct Entity
 		return nullptr;
 	}
 
-	// create_system
 	void create_system_internal(LocalSystem *system);
 	void destroy_system_internal(LocalSystem *system);
 
 	void create_component_internal(refl::BasePtr<BaseComponent> component);
 	void destroy_component_internal(refl::BasePtr<BaseComponent> component);
-
-	void attach_to_parent();
-	void dettach_to_parent();
-	void refresh_attachments();
-
-	exo::UUID   uuid  = {};
-	const char *name  = {};
-	EntityState state = EntityState::Unloaded;
-
-	Vec<LocalSystem *>                               local_systems         = {};
-	Vec<refl::BasePtr<BaseComponent>>                components            = {};
-	exo::EnumArray<Vec<LocalSystem *>, UpdateStages> per_stage_update_list = {};
-
-	SpatialComponent *root_component        = nullptr;
-	Vec<Entity *>     attached_entities     = {};
-	Entity           *parent                = nullptr;
-	bool              is_attached_to_parent = false;
-
-	friend struct EntityWorld;
 };
+
+void serialize(exo::Serializer &serializer, Entity &world);

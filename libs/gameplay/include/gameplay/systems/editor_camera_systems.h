@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameplay/system.h"
+#include <reflection/reflection.h>
 
 class Inputs;
 
@@ -10,29 +11,34 @@ struct CameraInputComponent;
 
 struct EditorCameraInputSystem : LocalSystem
 {
-	EditorCameraInputSystem(const Inputs *_inputs);
+	using Self  = EditorCameraInputSystem;
+	using Super = LocalSystem;
+	REFL_REGISTER_TYPE_WITH_SUPER("EditorCameraInputSystem")
 
-	void update(const UpdateContext &ctx) final;
-
-	void register_component(refl::BasePtr<BaseComponent> component) final;
-	void unregister_component(refl::BasePtr<BaseComponent> component) final;
-
-private:
 	CameraInputComponent  *camera_input_component  = {};
 	EditorCameraComponent *editor_camera_component = {};
 	const Inputs          *inputs                  = {};
+
+	// --
+	EditorCameraInputSystem(const Inputs *_inputs);
+	void update(const UpdateContext &ctx) final;
+	void register_component(refl::BasePtr<BaseComponent> component) final;
+	void unregister_component(refl::BasePtr<BaseComponent> component) final;
 };
 
 struct EditorCameraTransformSystem : LocalSystem
 {
-	EditorCameraTransformSystem();
-	void update(const UpdateContext &ctx) final;
+	using Self  = EditorCameraTransformSystem;
+	using Super = LocalSystem;
+	REFL_REGISTER_TYPE_WITH_SUPER("EditorCameraTransformSystem")
 
-	void register_component(refl::BasePtr<BaseComponent> component) final;
-	void unregister_component(refl::BasePtr<BaseComponent> component) final;
-
-private:
 	CameraInputComponent  *camera_input_component  = {};
 	EditorCameraComponent *editor_camera_component = {};
 	CameraComponent       *camera_component        = {};
+
+	// --
+	EditorCameraTransformSystem();
+	void update(const UpdateContext &ctx) final;
+	void register_component(refl::BasePtr<BaseComponent> component) final;
+	void unregister_component(refl::BasePtr<BaseComponent> component) final;
 };
