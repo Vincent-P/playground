@@ -83,4 +83,12 @@
 			</Synthetic>
 		</Expand>
     </Type>
+
+	<Type Name="refl::BasePtr&lt;*&gt;">
+		<DisplayString>{refl::details::types_storage[storage.bits.hi].name}</DisplayString>
+		<Expand>
+			<Item Name="ptr">($T1*)storage.bits.lo</Item>
+			<Item Name="typeinfo">refl::details::types_storage[storage.bits.hi]</Item>
+		</Expand>
+	</Type>
 </AutoVisualizer>

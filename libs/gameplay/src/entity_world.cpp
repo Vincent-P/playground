@@ -86,6 +86,8 @@ Entity *EntityWorld::create_entity(std::string_view name)
 {
 	auto *new_entity = new Entity();
 	new_entity->name = this->str_repo.intern(name);
+	new_entity->uuid = exo::UUID::create();
+
 	this->entities.insert(new_entity->uuid, new_entity);
 	this->root_entities.insert(new_entity);
 	return new_entity;
@@ -211,6 +213,10 @@ void serialize(exo::Serializer &serializer, EntityWorld &world)
 			Entity *new_entity = new Entity;
 			serialize(serializer, *new_entity);
 			world.entities.insert(new_entity->uuid, new_entity);
+
+			if (!new_entity->parent.is_valid()) {
+				world.root_entities.insert(new_entity);
+			}
 		}
 	}
 }

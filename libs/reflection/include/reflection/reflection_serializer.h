@@ -7,7 +7,7 @@ template <exo::MemberSerializable T>
 void serialize(exo::Serializer &serializer, refl::BasePtr<T> &ptr)
 {
 	// Read the class id
-	u64 class_id = 0;
+	u64 class_id = ptr.typeinfo().class_id;
 	exo::serialize(serializer, class_id);
 
 	if (!serializer.is_writing) {

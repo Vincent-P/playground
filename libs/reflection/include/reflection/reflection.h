@@ -214,7 +214,7 @@ struct BasePtr
 
 	Base *get() { return static_cast<Base *>(this->storage.ptr()); }
 
-	template <typename Derived>
+	template <std::derived_from<Base> Derived>
 	Derived *as()
 	{
 		if (&this->storage.type_info() == Derived::TYPE_INFO)

@@ -23,24 +23,17 @@ Serializer Serializer::create(ScopeStack *s, StringRepository *r)
 void Serializer::read_bytes(void *dst, usize len)
 {
 	ASSERT(this->is_writing == false);
-	const usize aligned_len = round_up_to_alignment(sizeof(u32), len);
-	ASSERT(this->offset + aligned_len <= this->buffer_size);
+	ASSERT(this->offset + len <= this->buffer_size);
 	std::memcpy(dst, ptr_offset(this->buffer, this->offset), len);
-	offset += aligned_len;
+	this->offset += len;
 }
 
 void Serializer::write_bytes(const void *src, usize len)
 {
 	ASSERT(this->is_writing == true);
-	const usize aligned_len = round_up_to_alignment(sizeof(u32), len);
-	ASSERT(this->offset + aligned_len <= this->buffer_size);
+	ASSERT(this->offset + len <= this->buffer_size);
 	std::memcpy(ptr_offset(this->buffer, this->offset), src, len);
-
-	const usize remaining = aligned_len - len;
-	if (remaining) {
-		std::memset(ptr_offset(this->buffer, this->offset + len), 0, remaining);
-	}
-	offset += aligned_len;
+	this->offset += len;
 }
 
 static void serializer_read_or_write(Serializer &serializer, void *data, usize len)

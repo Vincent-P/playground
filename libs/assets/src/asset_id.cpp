@@ -2,6 +2,7 @@
 
 #include <exo/hash.h>
 #include <exo/serialization/serializer.h>
+#include <exo/serialization/string_serializer.h>
 
 #include <xxhash.h>
 
@@ -13,12 +14,7 @@ namespace exo
 {
 void serialize(exo::Serializer &serializer, AssetId &asset_id)
 {
-	const char *name = asset_id.name.c_str();
-	serialize(serializer, name);
-	if (!serializer.is_writing) {
-		asset_id.name = std::string{name};
-	}
-
+	serialize(serializer, asset_id.name);
 	serialize(serializer, asset_id.name_hash);
 }
 } // namespace exo

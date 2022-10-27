@@ -1,17 +1,17 @@
 #include "engine/scene.h"
 
-#include <exo/hash.h>
-#include <exo/logger.h>
-#include <exo/maths/numerics.h>
-#include <exo/maths/quaternion.h>
-#include <exo/uuid.h>
-#include <exo/uuid_formatter.h>
-
 #include <assets/asset_id_formatter.h>
 #include <assets/asset_manager.h>
 #include <assets/mesh.h>
 #include <assets/subscene.h>
 #include <engine/render_world_system.h>
+#include <exo/hash.h>
+#include <exo/logger.h>
+#include <exo/maths/numerics.h>
+#include <exo/maths/quaternion.h>
+#include <exo/serialization/serializer_helper.h>
+#include <exo/uuid.h>
+#include <exo/uuid_formatter.h>
 #include <gameplay/component.h>
 #include <gameplay/components/camera_component.h>
 #include <gameplay/components/mesh_component.h>
@@ -226,13 +226,11 @@ Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
 
 	SpatialComponent *entity_root = nullptr;
 	if (mesh_asset.is_valid()) {
-		new_entity->create_component<MeshComponent>();
-		auto *mesh_component       = new_entity->get_first_component<MeshComponent>();
+		auto *mesh_component       = new_entity->create_component<MeshComponent>().as<MeshComponent>();
 		mesh_component->mesh_asset = mesh_asset;
 		entity_root                = static_cast<SpatialComponent *>(mesh_component);
 	} else {
-		new_entity->create_component<SpatialComponent>();
-		entity_root = new_entity->get_first_component<SpatialComponent>();
+		entity_root = new_entity->create_component<SpatialComponent>().as<SpatialComponent>();
 	}
 
 	entity_root->set_local_transform(transform);
@@ -249,4 +247,6 @@ void Scene::import_subscene(SubScene *subscene)
 	for (auto i_root : subscene->roots) {
 		import_subscene_rec(subscene, i_root);
 	}
+
+	exo::serializer_helper::write_object_to_file(ASSET_PATH "/last_imported_scene.asset", this->entity_world);
 }

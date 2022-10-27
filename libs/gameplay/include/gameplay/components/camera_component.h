@@ -7,7 +7,7 @@ struct CameraComponent : SpatialComponent
 {
 	using Self  = CameraComponent;
 	using Super = SpatialComponent;
-	REFL_REGISTER_TYPE_WITH_SUPER("MeshComponent")
+	REFL_REGISTER_TYPE_WITH_SUPER("CameraComponent")
 
 	float near_plane = 0.1f;
 	float far_plane  = 100000.0f;

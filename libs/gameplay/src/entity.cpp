@@ -122,7 +122,11 @@ void Entity::destroy_system_internal(LocalSystem *system)
 	local_systems.pop_back();
 }
 
-void Entity::create_component_internal(refl::BasePtr<BaseComponent> component) { components.push_back(component); }
+void Entity::create_component_internal(refl::BasePtr<BaseComponent> component)
+{
+	component->uuid = exo::UUID::create();
+	components.push_back(component);
+}
 
 void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 {

@@ -40,20 +40,10 @@ void BaseComponent::serialize(exo::Serializer &serializer)
 void SpatialComponent::serialize(exo::Serializer &serializer)
 {
 	Super::serialize(serializer);
-	exo::serialize(serializer, this->uuid);
-	exo::serialize(serializer, this->name);
 
 	exo::serialize(serializer, this->local_transform);
 	exo::serialize(serializer, this->local_bounds.min);
 	exo::serialize(serializer, this->local_bounds.max);
 
-	usize children_length = this->children.size();
-	exo::serialize(serializer, children_length);
-
-	if (!serializer.is_writing) {
-		this->children.resize(children_length);
-	}
-	for (auto &child : this->children) {
-		::serialize(serializer, child);
-	}
+	exo::serialize(serializer, this->children);
 }

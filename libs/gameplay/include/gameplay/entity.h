@@ -63,7 +63,7 @@ struct Entity
 
 	// Add a component to the entity
 	template <std::derived_from<BaseComponent> Component, typename... Args>
-	void create_component(Args &&...args)
+	refl::BasePtr<BaseComponent> create_component(Args &&...args)
 	{
 		Component *new_component     = new Component(std::forward<Args>(args)...);
 		auto       new_component_ptr = refl::BasePtr<BaseComponent>(new_component);
@@ -72,9 +72,11 @@ struct Entity
 		// If the component is the first spatial component, it's the entity's root
 		if (auto *spatial_component = refl::upcast<SpatialComponent>(new_component)) {
 			if (root_component.get() == nullptr) {
-				root_component = refl::BasePtr<SpatialComponent>(spatial_component);
+				root_component = refl::BasePtr<SpatialComponent>(spatial_component, refl::typeinfo<Component>());
 			}
 		}
+
+		return new_component_ptr;
 	}
 
 	bool is_active() const { return state == EntityState::Activated; }
