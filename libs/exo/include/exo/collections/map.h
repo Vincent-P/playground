@@ -76,6 +76,7 @@ struct Map
 	MapIterator<Key, Value> end() { return MapIterator<Key, Value>(this, this->capacity); }
 
 	Value *at(const Key &key);
+	const Value *at(const Key &key) const;
 	Value *insert(Key key, Value &&value);
 	Value *insert(Key key, const Value &value);
 	void   remove(const Key &key);
@@ -218,6 +219,28 @@ Map<Key, Value> Map<Key, Value>::with_capacity(u32 new_capacity)
 
 template <typename Key, typename Value>
 Value *Map<Key, Value>::at(const Key &key)
+{
+	if (this->size == 0) {
+		return nullptr;
+	}
+
+	const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+	const auto hash  = hash_value(key);
+
+	u32 i_slot = details::probe_by_hash(slots, hash);
+
+	// key not found
+	if (i_slot == u32_invalid) {
+		return nullptr;
+	}
+
+	ASSERT(slots[i_slot].bits.is_filled);
+	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+	return &keyvalues[i_slot].value;
+}
+
+template <typename Key, typename Value>
+const Value *Map<Key, Value>::at(const Key &key) const
 {
 	if (this->size == 0) {
 		return nullptr;

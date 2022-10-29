@@ -4,6 +4,7 @@
 #include <assets/asset_manager.h>
 #include <assets/mesh.h>
 #include <assets/subscene.h>
+#include <cross/mapped_file.h>
 #include <engine/render_world_system.h>
 #include <exo/hash.h>
 #include <exo/logger.h>
@@ -28,12 +29,27 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {
 	asset_manager = _asset_manager;
 
+	auto last_imported_scene = cross::MappedFile::open(ASSET_PATH "/last_imported_scene.asset");
+	if (last_imported_scene) {
+		exo::serializer_helper::read_object(last_imported_scene.value().content(), this->entity_world);
+	}
+
 	entity_world.create_system<PrepareRenderWorld>();
 
-	Entity *camera_entity = entity_world.create_entity("Main Camera");
-	camera_entity->create_component<CameraComponent>();
-	camera_entity->create_component<EditorCameraComponent>();
-	camera_entity->create_component<CameraInputComponent>();
+
+	Entity *camera_entity = nullptr;
+	for (auto *entity : entity_world.root_entities) {
+		if (entity->name == std::string_view{"Main Camera"}) {
+			camera_entity = entity;
+			break;
+		}
+	}
+	if (!camera_entity) {
+		camera_entity = entity_world.create_entity("Main Camera");
+		camera_entity->create_component<CameraComponent>();
+		camera_entity->create_component<EditorCameraComponent>();
+		camera_entity->create_component<CameraInputComponent>();
+	}
 	camera_entity->create_system<EditorCameraInputSystem>(inputs);
 	camera_entity->create_system<EditorCameraTransformSystem>();
 

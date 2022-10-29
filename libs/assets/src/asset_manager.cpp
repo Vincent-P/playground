@@ -5,6 +5,7 @@
 #include "assets/importers/gltf_importer.h"
 #include "assets/importers/ktx2_importer.h"
 #include "assets/importers/png_importer.h"
+#include <cross/jobmanager.h>
 #include <cross/mapped_file.h>
 #include <exo/logger.h>
 #include <exo/memory/scope_stack.h>
@@ -31,7 +32,7 @@ exo::Path AssetManager::get_asset_path(AssetId id)
 	return exo::Path::join(CompiledAssetPath, filename);
 }
 
-AssetManager *AssetManager::create(exo::ScopeStack &scope)
+AssetManager *AssetManager::create(exo::ScopeStack &scope, cross::JobManager &jobmanager)
 {
 	auto *asset_manager = scope.allocate<AssetManager>();
 
@@ -48,7 +49,7 @@ AssetManager *AssetManager::create(exo::ScopeStack &scope)
 	}
 
 	Vec<Handle<Resource>> outdated_resources;
-	asset_manager->database.track_resource_changes(AssetPath, outdated_resources);
+	asset_manager->database.track_resource_changes(jobmanager, AssetPath, outdated_resources);
 	asset_manager->_import_resources(outdated_resources);
 
 	exo::serializer_helper::write_object_to_file(DatabasePath.view(), asset_manager->database);

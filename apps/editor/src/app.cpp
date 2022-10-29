@@ -36,8 +36,10 @@ App *App::create(exo::ScopeStack &scope)
 	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
 	cross::platform::create(platform);
 
+	app->jobmanager = cross::JobManager::create();
+
 	app->window        = cross::Window::create(scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
-	app->asset_manager = AssetManager::create(scope);
+	app->asset_manager = AssetManager::create(scope, app->jobmanager);
 
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 	app->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
@@ -61,7 +63,7 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->scene.init(app->asset_manager, &app->inputs);
 
-#if 1
+#if 0
 	auto  scene_id    = AssetId::create<SubScene>("NewSponza_Main_Blender_glTF.gltf");
 	auto *scene_asset = app->asset_manager->load_asset_t<SubScene>(scene_id);
 	app->scene.import_subscene(scene_asset);

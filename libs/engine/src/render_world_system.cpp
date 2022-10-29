@@ -37,6 +37,9 @@ void PrepareRenderWorld::update(const UpdateContext &)
 		render_world.drawable_instances.emplace_back();
 		auto &new_drawable = render_world.drawable_instances.back();
 
+		// HACK: update world transform here :D
+		mesh_component->set_local_transform(mesh_component->get_local_transform());
+
 		new_drawable.mesh_asset      = mesh_component->mesh_asset;
 		new_drawable.world_transform = mesh_component->get_world_transform();
 		new_drawable.world_bounds    = mesh_component->get_world_bounds();

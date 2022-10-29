@@ -14,6 +14,10 @@ namespace exo
 {
 struct Serializer;
 }
+namespace cross
+{
+struct JobManager;
+}
 struct Asset;
 
 struct FileHash
@@ -43,13 +47,13 @@ struct AssetDatabase
 	exo::Map<AssetId, refl::BasePtr<Asset>> asset_id_map; // AssetId -> Asset*
 
 	// Resources
-	void      track_resource_changes(const exo::Path &directory, Vec<Handle<Resource>> &out_outdated_resources);
+	void      track_resource_changes(cross::JobManager &jobmanager, const exo::Path &directory, Vec<Handle<Resource>> &out_outdated_resources);
 	Resource &get_resource_from_path(const exo::Path &path);
 	Resource &get_resource_from_content(FileHash content_hash);
 
 	// Assets
 	refl::BasePtr<Asset> get_asset(const AssetId &id);
-	void   insert_asset(refl::BasePtr<Asset> asset);
+	void                 insert_asset(refl::BasePtr<Asset> asset);
 };
 
 void serialize(exo::Serializer &serializer, Resource &data);

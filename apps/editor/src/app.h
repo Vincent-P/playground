@@ -1,5 +1,6 @@
 #pragma once
 #include <cross/file_watcher.h>
+#include <cross/jobmanager.h>
 #include <engine/render_world.h>
 #include <engine/scene.h>
 #include <exo/maths/vectors.h>
@@ -34,9 +35,10 @@ public:
 private:
 	void display_ui(double dt);
 
-	cross::Window *window;
-	AssetManager  *asset_manager;
-	Renderer       renderer;
+	cross::JobManager jobmanager;
+	cross::Window    *window;
+	AssetManager     *asset_manager;
+	Renderer          renderer;
 
 	Font     ui_font;
 	Painter *painter;

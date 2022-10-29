@@ -14,6 +14,7 @@ namespace cross
 struct FileWatcher;
 struct Watch;
 struct WatchEvent;
+struct JobManager;
 } // namespace cross
 namespace exo
 {
@@ -37,7 +38,7 @@ struct AssetManager
 	// -- 
 
 	static exo::Path     get_asset_path(AssetId id);
-	static AssetManager *create(exo::ScopeStack &scope);
+	static AssetManager *create(exo::ScopeStack &scope, cross::JobManager &jobmanager);
 
 	template <typename T>
 	T *create_asset(AssetId id)
