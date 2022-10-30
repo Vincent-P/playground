@@ -4,8 +4,9 @@
 struct Entity;
 struct BaseComponent;
 struct SystemRegistry;
+struct AssetManager;
 
-struct LoadingContext
+struct InitializationContext
 {
 	void register_entity_update(Entity *entity);
 	void unregister_entity_update(Entity *entity);
@@ -22,4 +23,9 @@ struct LoadingContext
 	 **/
 
 	SystemRegistry *system_registry;
+};
+
+struct LoadingContext
+{
+	AssetManager *asset_manager;
 };

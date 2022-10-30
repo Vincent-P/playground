@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <exo/macros/assert.h>
 #include <exo/maths/numerics.h>
 
 namespace refl
@@ -213,6 +214,7 @@ struct BasePtr
 	}
 
 	Base *get() { return static_cast<Base *>(this->storage.ptr()); }
+	bool  is_valid() const { return this->storage.raw != 0; }
 
 	template <std::derived_from<Base> Derived>
 	Derived *as()

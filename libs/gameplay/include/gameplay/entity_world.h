@@ -12,6 +12,7 @@ namespace exo
 {
 struct Serializer;
 }
+struct AssetManager;
 struct Entity;
 
 struct EntityWorld
@@ -25,7 +26,7 @@ struct EntityWorld
 
 	// --
 	EntityWorld();
-	void update(double delta_t);
+	void update(double delta_t, AssetManager *asset_manager);
 
 	// Entities
 	Entity *create_entity(std::string_view name = "Unnamed");

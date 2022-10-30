@@ -1,7 +1,7 @@
 #include "gameplay/entity.h"
 
 #include "gameplay/component.h"
-#include "gameplay/loading_context.h"
+#include "gameplay/contexts.h"
 #include "gameplay/system.h"
 #include "gameplay/update_context.h"
 
@@ -17,13 +17,9 @@ void Entity::load(LoadingContext &ctx)
 
 	for (auto component : components) {
 		component->load(ctx);
-		ASSERT(component->is_loaded() || component->is_loading());
-		if (component->is_loaded()) {
-			component->initialize(ctx);
-		}
 	}
 
-	state = EntityState::Loaded;
+	state = EntityState::Loading;
 }
 
 void Entity::unload(LoadingContext &ctx)
@@ -32,22 +28,43 @@ void Entity::unload(LoadingContext &ctx)
 
 	for (auto component : components) {
 		component->unload(ctx);
-		ASSERT(component->is_unloaded());
 	}
 
 	state = EntityState::Unloaded;
 }
 
-void Entity::activate(LoadingContext &ctx)
+void Entity::update_loading(LoadingContext& ctx)
+{
+	ASSERT(this->state == EntityState::Loading);
+
+	usize initialized_components = 0;
+	for (auto component : components) {
+
+		if (component->is_loading()) {
+			component->update_loading(ctx);
+		}
+		if (component->is_loaded()) {
+			component->initialize(ctx);
+		}
+		if (component->is_initialized()) {
+			initialized_components++;
+		}
+	}
+
+	if (initialized_components == components.size()) {
+		this->state = EntityState::Loaded;
+	}
+}
+
+void Entity::initialize(InitializationContext &ctx)
 {
 	ASSERT(state == EntityState::Loaded);
-	state = EntityState::Activated;
 
 	// if is spatial entity, update root
 
 	for (auto component : components) {
 		if (component->is_initialized()) {
-			for (auto *system : local_systems) {
+			for (auto system : local_systems) {
 				system->register_component(component);
 			}
 			ctx.register_global_system(this, component);
@@ -59,9 +76,9 @@ void Entity::activate(LoadingContext &ctx)
 		auto stage = static_cast<UpdateStage>(i_stage);
 		per_stage_update_list[stage].clear();
 
-		for (auto *system : local_systems) {
+		for (auto system : local_systems) {
 			if (system->priority > 0.0) {
-				per_stage_update_list[stage].push_back(system);
+				per_stage_update_list[stage].push_back(system.get());
 			}
 		}
 
@@ -73,16 +90,18 @@ void Entity::activate(LoadingContext &ctx)
 	// attach entities
 
 	ctx.register_entity_update(this);
+
+	state = EntityState::Initialized;
 }
 
-void Entity::deactivate(LoadingContext &ctx)
+void Entity::shutdown(InitializationContext &ctx)
 {
-	ASSERT(state == EntityState::Activated);
+	ASSERT(state == EntityState::Initialized);
 
 	// detach entities
 	for (auto component : components) {
 		if (component->is_initialized()) {
-			for (auto *system : local_systems) {
+			for (auto system : local_systems) {
 				system->unregister_component(component);
 			}
 			ctx.unregister_global_system(this, component);
@@ -101,9 +120,7 @@ void Entity::update_systems(const UpdateContext &ctx)
 	}
 }
 
-void Entity::create_system_internal(LocalSystem *system) { local_systems.push_back(system); }
-
-void Entity::destroy_system_internal(LocalSystem *system)
+void Entity::destroy_system(refl::BasePtr<LocalSystem> system)
 {
 	usize i = 0;
 	for (; i < local_systems.size(); i += 1) {
@@ -111,15 +128,9 @@ void Entity::destroy_system_internal(LocalSystem *system)
 			break;
 		}
 	}
-
 	// System not present in local sytems
 	ASSERT(i < local_systems.size());
-
-	if (i < local_systems.size() - 1) {
-		std::swap(local_systems[i], local_systems[local_systems.size() - 1]);
-	}
-
-	local_systems.pop_back();
+	exo::swap_remove(local_systems, i);
 }
 
 void Entity::create_component_internal(refl::BasePtr<BaseComponent> component)
@@ -136,15 +147,9 @@ void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 			break;
 		}
 	}
-
 	// Component not present in components
 	ASSERT(i < components.size());
-
-	if (i < components.size() - 1) {
-		std::swap(components[i], components[components.size() - 1]);
-	}
-
-	components.pop_back();
+	exo::swap_remove(components, i);
 }
 
 void serialize(exo::Serializer &serializer, Entity &entity)

@@ -69,7 +69,6 @@ struct AssetManager
 	refl::BasePtr<Asset> load_asset(AssetId id)
 	{
 		auto asset = this->database.get_asset(id);
-		ASSERT(asset.get());
 		return asset;
 	}
 

@@ -3,8 +3,6 @@
 #include <exo/maths/aabb.h>
 #include <exo/maths/matrices.h>
 #include <exo/uuid.h>
-
-#include <gameplay/entity_world.h>
 #include <reflection/reflection.h>
 
 #include <string>
@@ -25,25 +23,43 @@ enum struct ComponentState
 	Initialized    // Allows to allocate (dealocate at shutdown) transient data
 };
 
+inline constexpr const char *to_string(ComponentState state)
+{
+	switch (state) {
+	default:
+		ASSERT(false);
+		[[fallthrough]];
+	case ComponentState::Unloaded:
+		return "Unloaded";
+	case ComponentState::Loading:
+		return "Loading";
+	case ComponentState::Loaded:
+		return "Loaded";
+	case ComponentState::LoadingFailed:
+		return "LoadingFailed";
+	case ComponentState::Initialized:
+		return "Initialized";
+	}
+}
+
 struct BaseComponent
 {
 	using Self = BaseComponent;
 	REFL_REGISTER_TYPE("BaseComponent")
 
+	exo::UUID      uuid;
+	std::string    name;
 	ComponentState state = ComponentState::Unloaded;
-
-	exo::UUID   uuid;
-	std::string name;
 
 	// --
 	BaseComponent() = default;
 	virtual ~BaseComponent() {}
 
-	virtual void load(LoadingContext &) { state = ComponentState::Loaded; }
+	virtual void load(LoadingContext &) { state = ComponentState::Loading; }
 	virtual void unload(LoadingContext &) { state = ComponentState::Unloaded; }
 	virtual void initialize(LoadingContext &) { state = ComponentState::Initialized; }
 	virtual void shutdown(LoadingContext &) { state = ComponentState::Loaded; }
-	virtual void update_loading(LoadingContext &) {}
+	virtual void update_loading(LoadingContext &) { state = ComponentState::Loaded; }
 
 	constexpr bool is_unloaded() const { return state == ComponentState::Unloaded; }
 	constexpr bool is_loading() const { return state == ComponentState::Loading; }
@@ -61,11 +77,9 @@ struct SpatialComponent : BaseComponent
 	REFL_REGISTER_TYPE_WITH_SUPER("SpatialComponent")
 
 private:
-	void update_world_transform();
-
 	float4x4  local_transform = {};
-	exo::AABB local_bounds    = {};
 	float4x4  world_transform = {};
+	exo::AABB local_bounds    = {};
 	exo::AABB world_bounds    = {};
 
 	refl::BasePtr<SpatialComponent>      parent   = {};
@@ -82,7 +96,9 @@ public:
 
 	void serialize(exo::Serializer &serializer) override;
 
-	friend EntityWorld;
+private:
+	void update_world_transform();
+	friend struct EntityWorld;
 };
 
 /**

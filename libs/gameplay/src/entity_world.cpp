@@ -1,12 +1,13 @@
 #include "gameplay/entity_world.h"
 
 #include "gameplay/component.h"
+#include "gameplay/contexts.h"
 #include "gameplay/entity.h"
-#include "gameplay/loading_context.h"
 #include "gameplay/system.h"
 #include "gameplay/update_context.h"
 #include "gameplay/update_stages.h"
 
+#include <assets/asset_manager.h>
 #include <exo/collections/vector.h>
 #include <exo/logger.h>
 #include <exo/profile.h>
@@ -17,11 +18,12 @@
 
 EntityWorld::EntityWorld() { this->str_repo = exo::StringRepository::create(); }
 
-void EntityWorld::update(double delta_t)
+void EntityWorld::update(double delta_t, AssetManager *asset_manager)
 {
 	EXO_PROFILE_SCOPE;
 
-	LoadingContext loading_context = {&system_registry};
+	LoadingContext        loading_context        = {asset_manager};
+	InitializationContext initialization_context = {.system_registry = &this->system_registry};
 
 	// -- Prepare entities
 	{
@@ -30,9 +32,11 @@ void EntityWorld::update(double delta_t)
 			if (entity->is_unloaded()) {
 				entity->load(loading_context);
 			}
+			if (entity->is_loading()) {
+				entity->update_loading(loading_context);
+			}
 			if (entity->is_loaded()) {
-				// all components should be initialized
-				entity->activate(loading_context);
+				entity->initialize(initialization_context);
 			}
 		}
 	}

@@ -2,7 +2,7 @@
 
 #include <exo/macros/assert.h>
 
-#include "gameplay/loading_context.h"
+#include "gameplay/contexts.h"
 
 #include <cmath> // std::tan
 

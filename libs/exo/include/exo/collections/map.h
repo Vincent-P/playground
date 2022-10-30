@@ -85,8 +85,7 @@ struct Map
 namespace details
 {
 // "Fast" modulo, only works with power of 2 divisors
-template <typename Unsigned>
-inline constexpr Unsigned power_of_2_modulo(Unsigned a, Unsigned b)
+inline constexpr u32 power_of_2_modulo(u32 a, u32 b)
 {
 	ASSERT(std::has_single_bit(b));
 	return a & (b - 1);
@@ -96,7 +95,7 @@ inline u32 probe_by_hash(const Span<const MapSlot> slots, const u64 hash)
 {
 	// A temporary slot is created to trunc the hash to the same size as regular slots
 	MapSlot slot_to_find;
-	slot_to_find.bits.hash = hash;
+	slot_to_find.bits.hash = u32(hash);
 
 	const u32 i_hash_slot = power_of_2_modulo(slot_to_find.bits.hash, u32(slots.size()));
 
@@ -297,7 +296,7 @@ Value *Map<Key, Value>::insert(Key key, const Value &value)
 	details::MapSlot slot_to_insert;
 	slot_to_insert.bits.is_filled = 1;
 	slot_to_insert.bits.psl       = 0;
-	slot_to_insert.bits.hash      = hash_value(key);
+	slot_to_insert.bits.hash      = u32(hash_value(key));
 	u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, value});
 
 	ASSERT(i_slot < this->capacity);

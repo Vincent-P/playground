@@ -19,13 +19,31 @@ struct Entity;
 struct UpdateContext;
 struct LocalSystem;
 struct LoadingContext;
+struct InitializationContext;
 
 enum struct EntityState
 {
 	Unloaded, // all components are unloaded
-	Loaded,   // all components are loaded, possible that some are loading (dynamic add)
-	Activated // entity is turned on in the world, components have been registred with all systems
+	Loading,
+	Loaded,     // all components are loaded, possible that some are loading (dynamic add)
+	Initialized // entity is turned on in the world, components have been registred with all systems
 };
+inline constexpr const char *to_string(EntityState state)
+{
+	switch (state) {
+	default:
+		ASSERT(false);
+		[[fallthrough]];
+	case EntityState::Unloaded:
+		return "Unloaded";
+	case EntityState::Loading:
+		return "Loading";
+	case EntityState::Loaded:
+		return "Loaded";
+	case EntityState::Initialized:
+		return "Initialized";
+	}
+}
 
 struct Entity
 {
@@ -33,7 +51,7 @@ struct Entity
 	const char *name  = {};
 	EntityState state = EntityState::Unloaded;
 
-	Vec<LocalSystem *>                              local_systems         = {};
+	Vec<refl::BasePtr<LocalSystem>>                 local_systems         = {};
 	Vec<refl::BasePtr<BaseComponent>>               components            = {};
 	exo::EnumArray<Vec<LocalSystem *>, UpdateStage> per_stage_update_list = {};
 
@@ -45,10 +63,11 @@ struct Entity
 	// --
 	void load(LoadingContext &ctx);
 	void unload(LoadingContext &ctx);
+	void update_loading(LoadingContext &ctx);
 	// Called when an entity finished loading successfully
-	void activate(LoadingContext &ctx);
+	void initialize(InitializationContext &ctx);
 	// Called just before an entity fully unloads
-	void deactivate(LoadingContext &ctx);
+	void shutdown(InitializationContext &ctx);
 
 	// Call update() on all systems
 	void update_systems(const UpdateContext &ctx);
@@ -58,7 +77,7 @@ struct Entity
 	void create_system(Args &&...args)
 	{
 		System *new_system = new System(std::forward<Args>(args)...);
-		create_system_internal(reinterpret_cast<LocalSystem *>(new_system));
+		local_systems.push_back(refl::BasePtr<LocalSystem>(new_system));
 	}
 
 	// Add a component to the entity
@@ -79,9 +98,10 @@ struct Entity
 		return new_component_ptr;
 	}
 
-	bool is_active() const { return state == EntityState::Activated; }
+	bool is_active() const { return state == EntityState::Initialized; }
 	bool is_loaded() const { return state == EntityState::Loaded; }
 	bool is_unloaded() const { return state == EntityState::Unloaded; }
+	bool is_loading() const { return state == EntityState::Loading; }
 
 	template <std::derived_from<BaseComponent> Component>
 	Component *get_first_component()
@@ -95,8 +115,7 @@ struct Entity
 		return nullptr;
 	}
 
-	void create_system_internal(LocalSystem *system);
-	void destroy_system_internal(LocalSystem *system);
+	void destroy_system(refl::BasePtr<LocalSystem> system);
 
 	void create_component_internal(refl::BasePtr<BaseComponent> component);
 	void destroy_component_internal(refl::BasePtr<BaseComponent> component);

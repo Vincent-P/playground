@@ -36,7 +36,6 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 
 	entity_world.create_system<PrepareRenderWorld>();
 
-
 	Entity *camera_entity = nullptr;
 	for (auto *entity : entity_world.root_entities) {
 		if (entity->name == std::string_view{"Main Camera"}) {
@@ -190,6 +189,9 @@ void scene_inspector_component_ui(ui::Ui &ui, refl::BasePtr<BaseComponent> compo
 
 	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
 
+	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(component->state));
+	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+
 	res = fmt::format_to_n(label_buf, 256, "UUID: {}", component->uuid);
 	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
 
@@ -208,22 +210,40 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 		return;
 	}
 
+	char label_buf[256] = {};
+	auto em             = ui.theme.font_size;
+
 	auto *entity = scene.ui.selected_entity;
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	auto entity_label = fmt::format("Selected: {}", entity->name);
-	ui::label_split(ui, content_rectsplit, entity_label);
+	auto res = fmt::format_to_n(label_buf, 256, "Selected: {}", entity->name);
+	ui::label_split(ui, content_rectsplit, std::string_view{&label_buf[0], res.size});
 
+	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(entity->state));
+	ui::label_split(ui, content_rectsplit, std::string_view{&label_buf[0], res.size});
+
+	content_rectsplit.split(1.0f * em);
+
+	ui::label_split(ui, content_rectsplit, "Components:");
 	for (const auto component : entity->components) {
 		scene_inspector_component_ui(ui, component, content_rect);
 	}
+
+	content_rectsplit.split(1.0f * em);
+
+	ui::label_split(ui, content_rectsplit, "Local systems:");
+	for (auto system : entity->local_systems) {
+		ui::label_split(ui, content_rectsplit, system.typeinfo().name);
+	}
+
+	content_rectsplit.split(1.0f * em);
 }
 
 void Scene::update(const Inputs &)
 {
 	const double delta_t = 0.016;
-	entity_world.update(delta_t);
+	entity_world.update(delta_t, this->asset_manager);
 }
 
 void Scene::import_mesh(Mesh * /*mesh*/)

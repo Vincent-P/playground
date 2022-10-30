@@ -6,7 +6,7 @@ set(SOURCE_FILES
   include/gameplay/entity_world.h
   include/gameplay/input_bindings.def
   include/gameplay/inputs.h
-  include/gameplay/loading_context.h
+  include/gameplay/contexts.h
   include/gameplay/system.h
   include/gameplay/system_registry.h
   include/gameplay/systems/editor_camera_systems.h
@@ -18,7 +18,7 @@ set(SOURCE_FILES
   src/entity.cpp
   src/entity_world.cpp
   src/inputs.cpp
-  src/loading_context.cpp
+  src/contexts.cpp
   src/systems/editor_camera_systems.cpp
 )
 
