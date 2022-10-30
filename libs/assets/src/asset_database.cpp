@@ -36,9 +36,9 @@ struct ResourceTracker
 {
 	exo::Path             resource_path;
 	exo::Handle<Resource> resource;
-	bool                  is_resource_outdated = false;
 	FileHash              hash;
-	TrackerAction         action = TrackerAction::None;
+	TrackerAction         action               = TrackerAction::None;
+	bool                  is_resource_outdated = false;
 };
 
 void AssetDatabase::track_resource_changes(

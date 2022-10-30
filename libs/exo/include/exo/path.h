@@ -9,6 +9,8 @@ struct Path
 {
 	std::string str;
 
+	Path() noexcept = default;
+
 	static Path from_string(std::string_view path);
 	static Path from_owned_string(std::string &&str);
 

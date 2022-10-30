@@ -210,7 +210,7 @@ void serialize(exo::Serializer &serializer, EntityWorld &world)
 		exo::serialize(serializer, entities_length);
 
 		for (usize i = 0; i < entities_length; ++i) {
-			Entity *new_entity = new Entity;
+			auto *new_entity = new Entity;
 			serialize(serializer, *new_entity);
 			world.entities.insert(new_entity->uuid, new_entity);
 

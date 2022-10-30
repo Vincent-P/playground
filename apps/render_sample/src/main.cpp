@@ -38,7 +38,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto *platform = reinterpret_cast<cross::platform::Platform *>(global_scope.allocate(cross::platform::get_size()));
 	cross::platform::create(platform);
 
-	auto *window = cross::Window::create(global_scope, {1280, 720}, "Render sample");
+	auto window = cross::Window::create({1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
 	auto renderer = SimpleRenderer::create(window->get_win32_hwnd());

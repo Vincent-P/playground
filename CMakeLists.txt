@@ -158,7 +158,7 @@ endfunction()
 
 add_subdirectory(third_party)
 
-# set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,modernize-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-modernize-return-braced-init-list,bugprone-*,-bugprone-easily-swappable-parameters,misc-*,-misc-no-recursion,-misc-non-private-member-variables-in-classes,performance-*,-performance-no-int-to-ptr)
+# set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,modernize-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-modernize-return-braced-init-list,bugprone-*,-bugprone-easily-swappable-parameters,-bugprone-unchecked-optional-access,misc-*,-misc-no-recursion,-misc-non-private-member-variables-in-classes,performance-*,-performance-no-int-to-ptr)
 add_subdirectory(libs/exo)
 add_subdirectory(libs/cross)
 add_subdirectory(libs/reflection)

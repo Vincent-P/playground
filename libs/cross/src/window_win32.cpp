@@ -1,14 +1,13 @@
 #include "cross/window.h"
 
-#include "exo/logger.h"
-#include "exo/memory/scope_stack.h"
-#include "exo/profile.h"
+#include <exo/logger.h>
+#include <exo/memory/scope_stack.h>
+#include <exo/profile.h>
 
 #include "cross/platform.h"
 #include "utils_win32.h"
 
 // clang-format off
-#include <Tracy.hpp>
 #include <windows.h> // needed before imm.h
 #include <imm.h>
 #include <string>
@@ -24,17 +23,11 @@ using namespace exo;
 namespace cross
 {
 
-struct WindowWin32
+struct Window::Impl
 {
-	HWND  wnd           = nullptr;
+	HWND  hwnd          = nullptr;
 	void *polling_fiber = nullptr;
 };
-
-static WindowWin32       &impl(Window &window) { return *reinterpret_cast<WindowWin32 *>(window.native_data); }
-static const WindowWin32 &impl(const Window &window)
-{
-	return *reinterpret_cast<const WindowWin32 *>(window.native_data);
-}
 
 static bool is_high_surrogate(wchar_t c) { return 0xD800 <= c && c <= 0xDBFF; }
 static bool is_low_surrogate(wchar_t c) { return 0xDC00 <= c && c <= 0xDFFF; }
@@ -63,6 +56,7 @@ static void update_key_state(Window &window, VirtualKey key)
 	}
 }
 
+// The main event loop runs in this fiber
 static void poll_events_fiber(void *window)
 {
 	Window &self = *reinterpret_cast<Window *>(window);
@@ -77,7 +71,7 @@ static void poll_events_fiber(void *window)
 		update_key_state(self, VirtualKey::LAlt);
 		update_key_state(self, VirtualKey::RAlt);
 
-		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+		while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessageW(&msg);
 		}
@@ -89,16 +83,16 @@ static void poll_events_fiber(void *window)
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-Window *Window::create(ScopeStack &scope, int2 size, const std::string_view title)
+std::unique_ptr<Window> Window::create(int2 size, const std::string_view title)
 {
-	auto *window  = scope.allocate<Window>();
+	auto window  = std::make_unique<Window>();
 	window->title = std::string(title);
 	window->size  = size;
 	window->stop  = false;
 	window->events.reserve(5); // should be good enough
-	window->native_data = scope.allocate<WindowWin32>();
 
-	impl(*window).polling_fiber = CreateFiber(0, poll_events_fiber, window);
+	auto &window_impl         = window->impl.get();
+	window_impl.polling_fiber = CreateFiber(0, poll_events_fiber, window.get());
 
 	// Register the window class
 	HINSTANCE instance = GetModuleHandle(nullptr);
@@ -107,38 +101,37 @@ Window *Window::create(ScopeStack &scope, int2 size, const std::string_view titl
 	wc.hInstance       = instance;
 	wc.lpszClassName   = L"Cross window class";
 	wc.style           = CS_OWNDC;
-	RegisterClass(&wc);
+	RegisterClassW(&wc);
 
 	// Create the window instance
-	HWND &hwnd = impl(*window).wnd;
-
 	auto utf16_title = utils::utf8_to_utf16(title);
-	hwnd             = CreateWindowEx(WS_EX_TRANSPARENT, // Optional window styles.
-        wc.lpszClassName,                    // Window class
-        utf16_title.c_str(),                 // Window text
-        WS_BORDER | WS_OVERLAPPEDWINDOW,     // Window style
-        // Position and size
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        // Width height
-        window->size.x,
-        window->size.y,
-        nullptr,  // Parent window
-        nullptr,  // Menu
-        instance, // Instance handle
-        window    // Additional application data
-    );
 
-	ASSERT(hwnd);
-	ShowWindow(hwnd, SW_SHOW);
+	window_impl.hwnd = CreateWindowExW(WS_EX_TRANSPARENT, // Optional window styles.
+		wc.lpszClassName,                                // Window class
+		utf16_title.c_str(),                             // Window text
+		WS_BORDER | WS_OVERLAPPEDWINDOW,                 // Window style
+		// Position and size
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		// Width height
+		window->size.x,
+		window->size.y,
+		nullptr,  // Parent window
+		nullptr,  // Menu
+		instance, // Instance handle
+		window.get()   // Additional application data
+	);
+
+	ASSERT(window_impl.hwnd);
+	ShowWindow(window_impl.hwnd, SW_SHOW);
 	return window;
 }
 
-u64 Window::get_win32_hwnd() const { return (u64)impl(*this).wnd; }
+u64 Window::get_win32_hwnd() const { return reinterpret_cast<u64>(this->impl.get().hwnd); }
 
 float2 Window::get_dpi_scale() const
 {
-	const uint dpi   = GetDpiForWindow(impl(*this).wnd);
+	const uint dpi   = GetDpiForWindow(this->impl.get().hwnd);
 	float      scale = static_cast<float>(dpi) / 96.0f;
 	if (scale <= 0.0f) {
 		scale = 1.0f;
@@ -150,25 +143,29 @@ void Window::set_title(std::string_view new_title)
 {
 	this->title      = std::string{new_title};
 	auto utf16_title = utils::utf8_to_utf16(title);
-	auto res         = SetWindowTextW(impl(*this).wnd, utf16_title.c_str());
+	auto res         = SetWindowTextW(this->impl.get().hwnd, utf16_title.c_str());
 	ASSERT(res != 0);
 }
 
-void Window::poll_events() { SwitchToFiber(impl(*this).polling_fiber); }
+void Window::poll_events()
+{
+	auto fiber = this->impl.get().polling_fiber;
+	SwitchToFiber(fiber);
+}
 
 void Window::set_cursor(Cursor cursor) { current_cursor = cursor; }
 
-// Window callback function (handles window messages)
+// Window callback function (handles window messages), called by DispatchMessage
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	// Get the window from the user pointer
-	Window *tmp;
+	// Set or get the user dat aassociated to the window
+	Window *tmp = nullptr;
 	if (uMsg == WM_CREATE) {
 		auto *p_create = reinterpret_cast<CREATESTRUCT *>(lParam);
-		tmp            = reinterpret_cast<Window *>(p_create->lpCreateParams);
-		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)tmp);
+		tmp            = static_cast<Window *>(p_create->lpCreateParams);
+		SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(tmp));
 	} else {
-		LONG_PTR const ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+		LONG_PTR const ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
 		tmp                = reinterpret_cast<Window *>(ptr);
 	}
 
@@ -176,7 +173,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	switch (uMsg) {
 	case WM_CREATE: {
-		// no need to create gl context
 		return 0;
 	}
 
@@ -245,12 +241,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		window.maximized = wParam == SIZE_MAXIMIZED;
 
 		window.size = {LOWORD(lParam), HIWORD(lParam)};
-		// window.push_event<event::Resize>({.width = window.width, .height = window.height});
-		// logger::info("WM_SIZE: {}x{}\n", window.size.x, window.size.y);
 
+		// The event loop is "blocked" while a resize is ongoing.
+		// By using a fiber for the PeekTranslateDispatchMessage and for the user main loop, we can escape win32
+		// event loop :)
 		void *main_fiber = platform::win32_get_main_fiber();
 		SwitchToFiber(main_fiber);
-
 		return 0;
 	}
 
@@ -455,7 +451,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	}
 
 	// default message handling
-	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+	return DefWindowProcW(hwnd, uMsg, wParam, lParam);
 }
 
 } // namespace cross

@@ -48,10 +48,10 @@ void PrepareRenderWorld::update(const UpdateContext &)
 
 void PrepareRenderWorld::register_component(const Entity *entity, refl::BasePtr<BaseComponent> component)
 {
-	if (auto mesh_component = component.as<MeshComponent>()) {
+	if (auto *mesh_component = component.as<MeshComponent>()) {
 		auto **entity_component = this->entities.at(entity);
 		if (entity_component == nullptr) {
-			this->entities.insert(entity, std::move(mesh_component));
+			this->entities.insert(entity, mesh_component);
 		} else {
 			*entity_component = mesh_component;
 		}

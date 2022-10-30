@@ -1,17 +1,15 @@
 #pragma once
 #include "cross/buttons.h"
 #include "cross/events.h"
-#include "exo/collections/enum_array.h"
-#include "exo/collections/vector.h"
-#include "exo/maths/vectors.h"
+#include <exo/collections/enum_array.h>
+#include <exo/collections/vector.h>
+#include <exo/forward_container.h>
+#include <exo/maths/vectors.h>
 
 #include <string>
 #include <string_view>
+#include <memory>
 
-namespace exo
-{
-struct ScopeStack;
-}
 namespace cross
 {
 enum struct Cursor : int
@@ -30,7 +28,28 @@ enum struct Cursor : int
 
 struct Window
 {
-	static Window *create(exo::ScopeStack &scope, int2 size, const std::string_view title);
+	struct Impl;
+	exo::ForwardContainer<Impl, 128> impl;
+
+	exo::EnumArray<bool, exo::VirtualKey>  keys_pressed          = {};
+	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
+
+	Vec<exo::Event> events;
+
+	std::string title;
+	int2        size;
+
+	int2 mouse_position = int2{0, 0};
+
+	Cursor current_cursor = Cursor::Arrow;
+
+	bool has_focus{false};
+	bool minimized{false};
+	bool maximized{false};
+	bool stop{false};
+
+	// --
+	static std::unique_ptr<Window> create(int2 size, const std::string_view title);
 	~Window() = default;
 
 	void set_title(std::string_view new_title);
@@ -49,23 +68,6 @@ struct Window
 	}
 	[[nodiscard]] inline int2 get_mouse_position() const { return mouse_position; }
 	u64                       get_win32_hwnd() const;
-
-	std::string title;
-	int2        size;
-	bool        stop{false};
-	Cursor      current_cursor = Cursor::Arrow;
-
-	int2 mouse_position = int2{0, 0};
-
-	bool has_focus{false};
-	bool minimized{false};
-	bool maximized{false};
-
-	Vec<exo::Event> events;
-
-	exo::EnumArray<bool, exo::VirtualKey>  keys_pressed          = {};
-	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
-	void                                  *native_data;
 };
 
 } // namespace cross

@@ -38,7 +38,7 @@ App *App::create(exo::ScopeStack &scope)
 
 	app->jobmanager = cross::JobManager::create();
 
-	app->window        = cross::Window::create(scope, {DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
+	app->window        = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
 	app->asset_manager = AssetManager::create(scope, app->jobmanager);
 
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});

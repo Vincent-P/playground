@@ -86,7 +86,7 @@ struct Image
 
 struct RenderSample
 {
-	cross::Window *window = nullptr;
+	std::unique_ptr<cross::Window> window = nullptr;
 	Inputs         inputs = {};
 
 	SimpleRenderer                  renderer;
@@ -124,7 +124,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
 	cross::platform::create(platform);
 
-	app->window = cross::Window::create(scope, {1280, 720}, "Best Image Viewer");
+	app->window = cross::Window::create({1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
 	app->renderer  = SimpleRenderer::create(app->window->get_win32_hwnd());
@@ -463,7 +463,7 @@ int main(int /*argc*/, char ** /*argv*/)
 		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
 	auto           *app          = render_sample_init(global_scope);
-	auto           *window       = app->window;
+	auto           &window       = app->window;
 	auto           &inputs       = app->inputs;
 
 	while (!window->should_close()) {

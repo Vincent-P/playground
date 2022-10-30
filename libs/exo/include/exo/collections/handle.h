@@ -12,7 +12,7 @@ template <typename T>
 struct Handle
 {
 	static constexpr Handle invalid() { return Handle(); }
-	constexpr Handle() : Handle(u32_invalid, u32_invalid) {}
+	constexpr Handle() noexcept : Handle(u32_invalid, u32_invalid) {}
 
 	constexpr Handle &operator=(const Handle &other)        = default;
 	constexpr bool    operator==(const Handle &other) const = default;
@@ -21,7 +21,7 @@ struct Handle
 	[[nodiscard]] constexpr u32  get_index() const { return index; }
 
 private:
-	constexpr Handle(u32 _index, u32 _gen) : index(_index), gen(_gen) {}
+	constexpr Handle(u32 _index, u32 _gen) noexcept : index(_index), gen(_gen) {}
 
 	u32 index;
 	u32 gen;

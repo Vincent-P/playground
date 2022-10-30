@@ -7,6 +7,7 @@
 #include <gameplay/inputs.h>
 #include <painter/font.h>
 #include <ui/docking.h>
+#include <cross/window.h>
 #include <ui/ui.h>
 
 #include "custom_ui.h"
@@ -15,10 +16,6 @@
 struct ScopeStack;
 struct AssetManager;
 struct Renderer;
-namespace cross
-{
-struct Window;
-}
 namespace exo
 {
 struct ScopeStack;
@@ -36,7 +33,7 @@ private:
 	void display_ui(double dt);
 
 	cross::JobManager jobmanager;
-	cross::Window    *window;
+	std::unique_ptr<cross::Window>    window;
 	AssetManager     *asset_manager;
 	Renderer          renderer;
 

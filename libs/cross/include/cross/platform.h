@@ -4,7 +4,7 @@
 namespace cross::platform
 {
 struct Platform;
-static Platform *g_platform = nullptr;
+inline Platform *g_platform = nullptr;
 
 usize get_size();
 void  create(void *memory);

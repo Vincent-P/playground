@@ -72,6 +72,12 @@ struct RenderMesh
 	bool                   is_uploaded      = false;
 };
 
+struct BlobReadRequest
+{
+	exo::u128 blob_id;
+	std::span<u8> data;
+};
+
 // -- Draw
 
 struct SimpleDraw
@@ -107,6 +113,7 @@ struct MeshRenderer
 	// store intermediate result
 	Vec<RenderUploads>     buffer_uploads;
 	Vec<RenderImageUpload> image_uploads;
+	Vec<BlobReadRequest>   asset_reads;
 	Vec<SimpleDraw>        drawcalls;
 	float4x4               view       = {};
 	float4x4               projection = {};

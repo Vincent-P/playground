@@ -587,7 +587,7 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 
 			if (ui::is_hovering(ui, rect)) {
 				if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-					self.ui.events.push_back(std::move(event));
+					self.ui.events.push_back(event);
 				}
 				color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.50f * 255));
 			}
