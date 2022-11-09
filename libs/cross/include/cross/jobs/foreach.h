@@ -11,8 +11,6 @@ namespace cross
 {
 struct JobManager;
 
-void queue_parallel_foreach_job(const JobManager &manager, Job &job);
-
 struct ForeachJob : public Job
 {
 	static constexpr u32 TASK_TYPE   = 0;
@@ -59,7 +57,7 @@ std::unique_ptr<Waitable> parallel_foreach(
 			}
 		};
 
-		queue_parallel_foreach_job(jobmanager, *job);
+		jobmanager.queue_job(*job);
 		waitable->jobs.push_back(std::move(job));
 	}
 
@@ -112,7 +110,7 @@ std::unique_ptr<Waitable> parallel_foreach_userdata(const JobManager &jobmanager
 			}
 		};
 
-		queue_parallel_foreach_job(jobmanager, *job);
+		jobmanager.queue_job(*job);
 		waitable->jobs.push_back(std::move(job));
 	}
 

@@ -13,5 +13,6 @@ struct Waitable
 	volatile i64              jobs_finished = 0;
 
 	void wait();
+	bool is_done();
 };
 } // namespace cross

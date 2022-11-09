@@ -21,7 +21,9 @@ struct JobManager
 	struct Impl;
 	exo::ForwardContainer<Impl> impl;
 
+	// --
 	static JobManager create();
+	void              queue_job(Job &job) const;
 	void              destroy();
 };
 } // namespace cross

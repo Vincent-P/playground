@@ -12,6 +12,7 @@ set(SOURCE_FILES
   include/cross/jobmanager.h
   include/cross/jobs/job.h
   include/cross/jobs/waitable.h
+  include/cross/jobs/custom.h
   include/cross/jobs/foreach.h
   include/cross/jobs/readfiles.h
   )
@@ -30,7 +31,6 @@ if (WIN32)
 	src/jobmanager_win32.cpp
 	src/jobs/job_win32.h
 	src/jobs/waitable_win32.cpp
-	src/jobs/foreach_win32.cpp
 	src/jobs/readfiles_win32.cpp
       )
 

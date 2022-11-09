@@ -57,11 +57,8 @@ std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<con
 				0);
 			ASSERT(completion_port != nullptr);
 		}
-		{
-			EXO_PROFILE_SCOPE_NAMED("PostQueuedCompletionStatus")
-			auto res = PostQueuedCompletionStatus(manager_impl.completion_port, 0, NULL, &job_impl.ovl);
-			ASSERT(res);
-		}
+
+		jobmanager.queue_job(*job);
 
 		waitable->jobs.push_back(std::move(job));
 	}

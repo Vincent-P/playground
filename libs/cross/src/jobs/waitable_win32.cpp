@@ -19,4 +19,13 @@ void Waitable::wait()
 		}
 	}
 }
+
+bool Waitable::is_done()
+{
+	EXO_PROFILE_SCOPE
+	const int comperand = int(this->jobs.size());
+	const int done      = comperand + 1;
+	auto      res       = InterlockedCompareExchange64(&this->jobs_finished, done, comperand);
+	return res == done;
+}
 } // namespace cross

@@ -5,8 +5,10 @@
 
 #include "cross/jobs/foreach.h"
 #include "cross/jobs/readfiles.h"
+#include "cross/jobs/custom.h"
 
-#include "jobmanager_win32.h" // for Impls
+// for Impls
+#include "jobmanager_win32.h"
 #include "jobs/job_win32.h"
 #include "jobs/readfiles_win32.h"
 
@@ -35,6 +37,16 @@ JobManager JobManager::create()
 		ASSERT(thread_impl.handle);
 	}
 	return jobmanager;
+}
+
+void JobManager::queue_job(Job &job) const
+{
+	EXO_PROFILE_SCOPE_NAMED("PostQueuedCompletionStatus")
+	const auto &manager_impl = this->impl.get();
+	auto       &job_impl     = job.job_impl.get();
+
+	auto res = PostQueuedCompletionStatus(manager_impl.completion_port, 0, NULL, &job_impl.ovl);
+	ASSERT(res);
 }
 
 void JobManager::destroy()
@@ -113,6 +125,10 @@ DWORD worker_thread_proc(void *param)
 
 			auto file_handle = (HANDLE)(completion_key);
 			CloseHandle(file_handle);
+		} else if (p_job->type == CustomJob::TASK_TYPE) {
+			auto &custom_job = *reinterpret_cast<CustomJob *>(p_job);
+			custom_job.callback(custom_job);
+			InterlockedIncrement64(custom_job.done_counter);
 		} else {
 			ASSERT(false);
 		}
