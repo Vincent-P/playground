@@ -160,8 +160,8 @@ u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&value)
 	}
 
 	// Finally, insert the key at the empty slot
-	slots[i_slot]  = slot_to_insert;
-	values[i_slot] = std::move(value_to_insert);
+	std::swap(slots[i_slot], slot_to_insert);
+	std::swap(values[i_slot], value_to_insert);
 
 	return i_original_key_slot;
 }
@@ -321,7 +321,8 @@ void Map<Key, Value>::remove(const Key &key)
 	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
 
 	// The key was found at slot i_slot, remove it and backward shift all values to fill the hole
-	for (u32 i = 0; i < this->capacity; ++i) {
+	u32 i = 0;
+	for (; i < this->capacity; ++i) {
 		const auto current_slot = details::power_of_2_modulo((i_slot + i), this->capacity);
 		const auto next_slot    = details::power_of_2_modulo((i_slot + i + 1), this->capacity);
 
@@ -329,7 +330,7 @@ void Map<Key, Value>::remove(const Key &key)
 			// All elements are shifted towards 0, so whenever we break, the current_slot was already copied to the
 			// previous_slot
 			slots[current_slot] = {};
-			keyvalues[current_slot].~KeyValue();
+			keyvalues[current_slot] = {};
 			break;
 		}
 
