@@ -27,51 +27,47 @@
 constexpr auto DEFAULT_WIDTH  = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
-App *App::create(exo::ScopeStack &scope)
+App::App(exo::ScopeStack &scope)
 {
 	EXO_PROFILE_SCOPE;
-
-	auto *app = scope.allocate<App>();
 
 	auto *platform = reinterpret_cast<cross::platform::Platform *>(scope.allocate(cross::platform::get_size()));
 	cross::platform::create(platform);
 
-	app->jobmanager = cross::JobManager::create();
+	this->jobmanager = cross::JobManager::create();
 
-	app->window        = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
-	app->asset_manager = AssetManager::create(scope, app->jobmanager);
+	this->window        = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
+	this->asset_manager = AssetManager::create(this->jobmanager);
 
-	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
-	app->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
-	app->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
-	app->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
+	this->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
+	this->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
+	this->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
+	this->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
 
-	app->watcher  = cross::FileWatcher::create();
-	app->renderer = Renderer::create(app->window->get_win32_hwnd(), app->asset_manager);
+	this->watcher  = cross::FileWatcher::create();
+	this->renderer = Renderer::create(this->window->get_win32_hwnd(), &this->asset_manager);
 
 	const int  font_size_pt = 18;
 	const auto font_size_px = float(font_size_pt);
 
-	app->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
-	app->painter                      = painter_allocate(scope, 1_MiB, 1_MiB, int2(1024, 1024));
-	app->painter->glyph_atlas_gpu_idx = 0; // null texture
+	this->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
+	this->painter                      = painter_allocate(scope, 1_MiB, 1_MiB, int2(1024, 1024));
+	this->painter->glyph_atlas_gpu_idx = 0; // null texture
 
-	app->ui      = ui::create(&app->ui_font, font_size_px, app->painter);
-	app->docking = docking::create();
+	this->ui      = ui::create(&this->ui_font, font_size_px, this->painter);
+	this->docking = docking::create();
 
-	app->is_minimized = false;
+	this->is_minimized = false;
 
-	app->scene.init(app->asset_manager, &app->inputs);
+	this->scene.init(&this->asset_manager, &this->inputs);
 
 #if 0
 	auto  scene_id    = AssetId::create<SubScene>("NewSponza_Main_Blender_glTF.gltf");
-	auto *scene_asset = app->asset_manager->load_asset_t<SubScene>(scene_id);
-	app->scene.import_subscene(scene_asset);
+	auto *scene_asset = this->asset_manager->load_asset_t<SubScene>(scene_id);
+	this->scene.import_subscene(scene_asset);
 #endif
 
 	stm_setup();
-
-	return app;
 }
 
 App::~App()
@@ -187,7 +183,7 @@ void App::display_ui(double dt)
 		auto &scrollarea_rect    = content_rect;
 		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
 		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
-		for (auto [handle, p_resource] : this->asset_manager->database.resource_records) {
+		for (auto [handle, p_resource] : this->asset_manager.database.resource_records) {
 			if (p_resource->asset_id.is_valid()) {
 				res = fmt::format_to_n(label_buf, 256, "name: \"{}\"", p_resource->asset_id.name);
 			} else {
@@ -286,11 +282,19 @@ void App::run()
 			const double dt   = stm_sec(diff);
 
 			last = now;
+
+			// UI
 			this->display_ui(dt);
+
+			// Assets streaming
+			this->asset_manager.update_async();
+
+			// Gameplay
 			this->scene.update(inputs);
 			this->render_world =
 				this->scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world;
 
+			// Render
 			this->render_world.main_camera_projection = camera::infinite_perspective(this->render_world.main_camera_fov,
 				this->viewport_size.x / this->viewport_size.y,
 				0.1f);

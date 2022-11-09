@@ -1,13 +1,14 @@
 #pragma once
+#include <assets/asset_manager.h>
 #include <cross/file_watcher.h>
 #include <cross/jobmanager.h>
+#include <cross/window.h>
 #include <engine/render_world.h>
 #include <engine/scene.h>
 #include <exo/maths/vectors.h>
 #include <gameplay/inputs.h>
 #include <painter/font.h>
 #include <ui/docking.h>
-#include <cross/window.h>
 #include <ui/ui.h>
 
 #include "custom_ui.h"
@@ -24,7 +25,7 @@ struct ScopeStack;
 class App
 {
 public:
-	static App *create(exo::ScopeStack &scope);
+	App(exo::ScopeStack &scope);
 	~App();
 
 	void run();
@@ -32,10 +33,10 @@ public:
 private:
 	void display_ui(double dt);
 
-	cross::JobManager jobmanager;
-	std::unique_ptr<cross::Window>    window;
-	AssetManager     *asset_manager;
-	Renderer          renderer;
+	cross::JobManager              jobmanager;
+	std::unique_ptr<cross::Window> window;
+	AssetManager                   asset_manager;
+	Renderer                       renderer;
 
 	Font     ui_font;
 	Painter *painter;

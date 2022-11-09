@@ -34,8 +34,8 @@ int main(int /*argc*/, char ** /*argv*/)
 
 	refl::details::call_all_registers();
 
-	auto *app = App::create(global_scope);
-	app->run();
+	auto app = App(global_scope);
+	app.run();
 
 	return 0;
 }
