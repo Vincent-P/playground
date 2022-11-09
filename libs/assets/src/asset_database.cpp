@@ -17,12 +17,6 @@
 
 #include <filesystem>
 
-AssetDatabase AssetDatabase::create()
-{
-	AssetDatabase database = {};
-	return database;
-}
-
 // -- Resources
 enum struct TrackerAction
 {
@@ -58,7 +52,8 @@ void AssetDatabase::track_resource_changes(
 		tracker.resource_path = exo::Path::from_string(file_entry.path().string());
 	}
 
-	auto w = cross::parallel_foreach_userdata<ResourceTracker, const AssetDatabase, true>(jobmanager,
+	auto w = cross::parallel_foreach_userdata<ResourceTracker, const AssetDatabase, true>(
+		jobmanager,
 		std::span(trackers),
 		this,
 		[](ResourceTracker &tracker, const AssetDatabase *self) {
@@ -90,7 +85,8 @@ void AssetDatabase::track_resource_changes(
 				// New resource
 				tracker.action = TrackerAction::NewResource;
 			}
-		}, 8);
+		},
+		8);
 	w->wait();
 
 	for (auto &tracker : trackers) {
@@ -146,6 +142,7 @@ Resource &AssetDatabase::get_resource_from_content(FileHash content_hash)
 // -- Assets
 refl::BasePtr<Asset> AssetDatabase::get_asset(const AssetId &id)
 {
+	ASSERT(id.is_valid());
 	refl::BasePtr<Asset> *ptr = this->asset_id_map.at(id);
 	if (ptr) {
 		ASSERT(ptr->get());
@@ -153,6 +150,8 @@ refl::BasePtr<Asset> AssetDatabase::get_asset(const AssetId &id)
 	}
 	return refl::BasePtr<Asset>::invalid();
 }
+
+void AssetDatabase::remove_asset(const AssetId &id) { this->asset_id_map.remove(id); }
 
 void AssetDatabase::insert_asset(refl::BasePtr<Asset> asset)
 {

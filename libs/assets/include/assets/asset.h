@@ -17,16 +17,15 @@ struct Serializer;
 
 enum struct AssetState
 {
-	Unloaded,
-	Loading,
-	Loaded,
+	// The asset has been deserialized, but its dependencies may not exsit or be loaded yet
+	LoadedWaitingForDeps,
+	FullyLoaded,
 	Installed,
 	Count
 };
 
 inline constexpr exo::EnumArray<const char *, AssetState> asset_state_to_string{
-	"Unloaded",
-	"Loading",
+	"Waiting for dependencies",
 	"Loaded",
 	"Installed",
 };

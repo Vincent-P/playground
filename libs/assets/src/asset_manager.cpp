@@ -6,9 +6,9 @@
 #include "assets/importers/ktx2_importer.h"
 #include "assets/importers/png_importer.h"
 #include <cross/jobmanager.h>
+#include <cross/jobs/custom.h>
 #include <cross/mapped_file.h>
 #include <exo/logger.h>
-#include <exo/memory/scope_stack.h>
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/serializer_helper.h>
 #include <exo/uuid_formatter.h>
@@ -32,27 +32,25 @@ exo::Path AssetManager::get_asset_path(AssetId id)
 	return exo::Path::join(CompiledAssetPath, filename);
 }
 
-AssetManager *AssetManager::create(exo::ScopeStack &scope, cross::JobManager &jobmanager)
+AssetManager AssetManager::create(cross::JobManager &jobmanager)
 {
-	auto *asset_manager = scope.allocate<AssetManager>();
+	AssetManager asset_manager = {};
+	asset_manager.jobmanager   = &jobmanager;
 
-	asset_manager->importers.push_back(new GLTFImporter{});
-	asset_manager->importers.push_back(new PNGImporter{});
-	asset_manager->importers.push_back(new KTX2Importer{});
+	asset_manager.importers.push_back(new GLTFImporter{});
+	asset_manager.importers.push_back(new PNGImporter{});
+	asset_manager.importers.push_back(new KTX2Importer{});
 
 	if (std::filesystem::exists(DatabasePath.view())) {
 		auto resource_file = cross::MappedFile::open(DatabasePath.view()).value();
-		exo::serializer_helper::read_object(resource_file.content(), asset_manager->database);
-		asset_manager->database.asset_id_map = {};
-	} else {
-		asset_manager->database = AssetDatabase::create();
+		exo::serializer_helper::read_object(resource_file.content(), asset_manager.database);
 	}
 
 	Vec<Handle<Resource>> outdated_resources;
-	asset_manager->database.track_resource_changes(jobmanager, AssetPath, outdated_resources);
-	asset_manager->_import_resources(outdated_resources);
+	asset_manager.database.track_resource_changes(jobmanager, AssetPath, outdated_resources);
+	asset_manager._import_resources(outdated_resources);
 
-	exo::serializer_helper::write_object_to_file(DatabasePath.view(), asset_manager->database);
+	exo::serializer_helper::write_object_to_file(DatabasePath.view(), asset_manager.database);
 
 	return asset_manager;
 }
@@ -137,6 +135,7 @@ refl::BasePtr<Asset> AssetManager::_load_from_disk(const AssetId &id)
 	auto resource_file = cross::MappedFile::open(asset_path.view()).value();
 	auto new_asset     = refl::BasePtr<Asset>::invalid();
 	exo::serializer_helper::read_object(resource_file.content(), new_asset);
+	new_asset->state = AssetState::LoadedWaitingForDeps;
 	return new_asset;
 }
 
@@ -159,6 +158,62 @@ static exo::Path get_blob_path(exo::u128 blob_hash)
 	auto blob_filename = std::string_view{buffer, res.size};
 	return exo::Path::join(CompiledAssetPath, blob_filename);
 }
+
+void AssetManager::update_async()
+{
+	exo::Vec<AssetId> to_remove;
+	to_remove.reserve(this->database.asset_async_requests.size);
+
+	for (const auto &[asset_id, req] : this->database.asset_async_requests) {
+		if (req.waitable->is_done()) {
+			this->finish_loading_async(req.data->result);
+			to_remove.push_back(asset_id);
+		}
+	}
+
+	for (const auto &handle : to_remove) {
+		this->database.asset_async_requests.remove(handle);
+	}
+}
+
+void AssetManager::load_asset_async(const AssetId &id)
+{
+	ASSERT(!this->is_loaded(id));
+
+	// Avoid loading the same assets twice
+	if (this->database.asset_async_requests.at(id)) {
+		return;
+	}
+
+	fmt::print("[AssetManager] Loading {} asynchronously.\n", id.name);
+
+	auto *req           = this->database.asset_async_requests.insert(id, {});
+	req->data           = std::make_unique<AssetAsyncRequest::Data>();
+	req->data->asset_id = id;
+
+	req->waitable = cross::custom_job<AssetAsyncRequest::Data>(*this->jobmanager,
+		req->data.get(),
+		[](AssetAsyncRequest::Data *data) { data->result = AssetManager::_load_from_disk(data->asset_id); });
+}
+
+void AssetManager::finish_loading_async(refl::BasePtr<Asset> asset)
+{
+	fmt::print("[AssetManager] Finished loading [{}]({}) asynchronously.\n", asset.typeinfo().name, asset->uuid.name);
+
+	this->database.insert_asset(asset);
+
+	u32 deps_requests = 0;
+	for (const auto &dep : asset->dependencies) {
+		if (!this->is_loaded(dep)) {
+			this->load_asset_async(dep);
+			deps_requests += 1;
+		}
+	}
+
+	asset->state = deps_requests > 0 ? AssetState::LoadedWaitingForDeps : AssetState::FullyLoaded;
+}
+
+void AssetManager::unload_asset(AssetId id) { this->database.remove_asset(id); }
 
 usize AssetManager::read_blob(exo::u128 blob_hash, std::span<u8> out_data)
 {

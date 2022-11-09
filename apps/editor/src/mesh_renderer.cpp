@@ -183,6 +183,7 @@ static Handle<RenderMaterial> get_or_create_material(
 static Handle<RenderMesh> get_or_create_mesh(
 	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &mesh_uuid)
 {
+	ASSERT(asset_manager->is_loaded(mesh_uuid));
 	auto mesh = asset_manager->load_asset_t<Mesh>(mesh_uuid);
 
 	auto *render_mesh_handle = renderer.mesh_uuid_map.at(mesh_uuid);

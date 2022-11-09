@@ -121,7 +121,7 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	}
 }
 
-void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rectsplit)
+static void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rectsplit)
 {
 	char label_buf[256] = {};
 
@@ -166,7 +166,19 @@ void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rectsplit)
 	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
 }
 
-void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, Rect &content_rect)
+static void scene_inspector_asset(ui::Ui &ui, Asset *asset, Rect &content_rect) {
+
+	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+	char label_buf[256] = {};
+
+	auto res = fmt::format_to_n(label_buf, 256, "UUID: {}", asset->uuid.name);
+	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+
+	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(asset->state));
+	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+}
+
+static void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, Rect &content_rect)
 {
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
@@ -174,7 +186,19 @@ void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, 
 	ui_matrix_label(ui, component->get_local_transform(), line_rectsplit);
 }
 
-void scene_inspector_component_ui(ui::Ui &ui, refl::BasePtr<BaseComponent> component, Rect &content_rect)
+static void scene_inspector_mesh_component(ui::Ui& ui, AssetManager *asset_manager, MeshComponent* mesh_component, Rect& content_rect) {
+
+	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+	ui::label_split(ui, line_rectsplit, "Mesh:");
+	auto *mesh_asset = asset_manager->load_asset_t<Mesh>(mesh_component->mesh_asset);
+	scene_inspector_asset(ui, mesh_asset, content_rect);
+
+	scene_inspector_spatial_component(ui, mesh_component, content_rect);
+}
+
+static void scene_inspector_component_ui(
+	ui::Ui &ui, AssetManager *asset_manager, refl::BasePtr<BaseComponent> component, Rect &content_rect)
 {
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
@@ -196,9 +220,7 @@ void scene_inspector_component_ui(ui::Ui &ui, refl::BasePtr<BaseComponent> compo
 	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
 
 	if (auto *mesh_component = component.as<MeshComponent>()) {
-		res = fmt::format_to_n(label_buf, 256, "Mesh: {}", mesh_component->mesh_asset);
-		ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
-		scene_inspector_spatial_component(ui, static_cast<SpatialComponent *>(mesh_component), line_rectsplit.rect);
+		scene_inspector_mesh_component(ui, asset_manager, mesh_component, line_rectsplit.rect);
 	} else if (auto *spatial_component = component.as<SpatialComponent>()) {
 		scene_inspector_spatial_component(ui, spatial_component, line_rectsplit.rect);
 	}
@@ -227,7 +249,7 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 
 	ui::label_split(ui, content_rectsplit, "Components:");
 	for (const auto component : entity->components) {
-		scene_inspector_component_ui(ui, component, content_rect);
+		scene_inspector_component_ui(ui, scene.asset_manager, component, content_rect);
 	}
 
 	content_rectsplit.split(1.0f * em);

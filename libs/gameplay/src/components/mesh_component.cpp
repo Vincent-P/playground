@@ -7,20 +7,19 @@
 
 void MeshComponent::load(LoadingContext &ctx)
 {
-	//
-	Super::load(ctx);
+	ctx.asset_manager->load_asset_async(this->mesh_asset);
+	state = ComponentState::Loading;
 }
 
 void MeshComponent::unload(LoadingContext &ctx)
 {
-	//
-	Super::unload(ctx);
+	ctx.asset_manager->unload_asset(this->mesh_asset);
+	state = ComponentState::Unloaded;
 }
 
 void MeshComponent::update_loading(LoadingContext &ctx)
 {
-	auto asset = ctx.asset_manager->load_asset(this->mesh_asset);
-	if (asset.is_valid()) {
+	if (ctx.asset_manager->is_fully_loaded(this->mesh_asset)) {
 		this->state = ComponentState::Loaded;
 	}
 }
