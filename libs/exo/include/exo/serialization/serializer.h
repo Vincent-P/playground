@@ -39,6 +39,33 @@ struct Serializer
 	usize             buffer_size;
 };
 
+// builtin types
+void serialize(Serializer &serializer, i8 &data);
+void serialize(Serializer &serializer, i16 &data);
+void serialize(Serializer &serializer, i32 &data);
+void serialize(Serializer &serializer, i64 &data);
+void serialize(Serializer &serializer, u8 &data);
+void serialize(Serializer &serializer, u16 &data);
+void serialize(Serializer &serializer, u32 &data);
+void serialize(Serializer &serializer, u64 &data);
+
+void serialize(Serializer &serializer, f32 &data);
+void serialize(Serializer &serializer, f64 &data);
+
+void serialize(Serializer &serializer, char &data);
+void serialize(Serializer &serializer, bool &data);
+
+// interned string
+void serialize(Serializer &serializer, const char *&data);
+
+// vectors
+void serialize(Serializer &serializer, float4x4 &data);
+void serialize(Serializer &serializer, float4 &data);
+void serialize(Serializer &serializer, float3 &data);
+void serialize(Serializer &serializer, float2 &data);
+void serialize(Serializer &serializer, int2 &data);
+
+// templates last
 template <MemberSerializable T>
 void serialize(Serializer &serializer, T &data)
 {
@@ -72,31 +99,5 @@ void serialize(Serializer &serializer, Vec<T> &data)
 		serialize(serializer, data[i]);
 	}
 }
-
-// builtin types
-void serialize(Serializer &serializer, i8 &data);
-void serialize(Serializer &serializer, i16 &data);
-void serialize(Serializer &serializer, i32 &data);
-void serialize(Serializer &serializer, i64 &data);
-void serialize(Serializer &serializer, u8 &data);
-void serialize(Serializer &serializer, u16 &data);
-void serialize(Serializer &serializer, u32 &data);
-void serialize(Serializer &serializer, u64 &data);
-
-void serialize(Serializer &serializer, f32 &data);
-void serialize(Serializer &serializer, f64 &data);
-
-void serialize(Serializer &serializer, char &data);
-void serialize(Serializer &serializer, bool &data);
-
-// interned string
-void serialize(Serializer &serializer, const char *&data);
-
-// vectors
-void serialize(Serializer &serializer, float4x4 &data);
-void serialize(Serializer &serializer, float4 &data);
-void serialize(Serializer &serializer, float3 &data);
-void serialize(Serializer &serializer, float2 &data);
-void serialize(Serializer &serializer, int2 &data);
 
 } // namespace exo
