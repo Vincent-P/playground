@@ -5,6 +5,8 @@
 #include "exo/memory/scope_stack.h"
 #include "exo/memory/string_repository.h"
 
+#include <cstring>
+
 namespace exo
 {
 Serializer Serializer::create(ScopeStack *s, StringRepository *r)

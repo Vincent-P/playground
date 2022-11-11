@@ -46,9 +46,9 @@ elseif (UNIX)
 
   set(SOURCE_FILES
 	${SOURCE_FILES}
-	src/os/window_xcb.cpp
-	src/os/mapped_file_unix.cpp
-	src/os/file_dialog_linux.cpp)
+	src/window_xcb.cpp
+	src/mapped_file_unix.cpp
+	src/file_dialog_linux.cpp)
 
   set(OS_LIBS
 	${OS_LIBS}

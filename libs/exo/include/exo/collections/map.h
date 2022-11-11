@@ -198,8 +198,8 @@ struct Map
 
 	// -- Iterators
 
-	MapIterator<Key, Value> begin() { return MapIterator<Key, Value>(this); }
-	MapIterator<Key, Value> end() { return MapIterator<Key, Value>(this, this->capacity); }
+	MapIterator<Key, Value>      begin() { return MapIterator<Key, Value>(this); }
+	MapIterator<Key, Value>      end() { return MapIterator<Key, Value>(this, this->capacity); }
 	MapConstIterator<Key, Value> begin() const { return MapConstIterator<Key, Value>(this); }
 	MapConstIterator<Key, Value> end() const { return MapConstIterator<Key, Value>(this, this->capacity); }
 
@@ -275,7 +275,7 @@ struct Map
 			if (slots[next_slot].bits.is_filled == 0 || slots[next_slot].bits.psl == 0) {
 				// All elements are shifted towards 0, so whenever we break, the current_slot was already copied to the
 				// previous_slot
-				slots[current_slot]     = {};
+				slots[current_slot] = {};
 				keyvalues[current_slot].~KeyValue();
 				break;
 			}
@@ -353,11 +353,10 @@ struct Map
 template <typename K, typename V>
 struct MapIterator : IteratorFacade<MapIterator<K, V>>
 {
-	using Map      = typename Map<K, V>;
-	using KeyValue = typename Map::KeyValue;
+	using KeyValue = typename Map<K, V>::KeyValue;
 
 	MapIterator() = default;
-	MapIterator(Map *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
+	MapIterator(Map<K, V> *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
 	{
 		const auto slots = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
 		if (this->current_index < this->map->capacity && slots[this->current_index].bits.is_filled == 0) {
@@ -387,18 +386,17 @@ struct MapIterator : IteratorFacade<MapIterator<K, V>>
 		return this->map == other.map && this->current_index == other.current_index;
 	}
 
-	Map *map           = nullptr;
-	u32  current_index = u32_invalid;
+	Map<K, V> *map           = nullptr;
+	u32        current_index = u32_invalid;
 };
 
 template <typename K, typename V>
 struct MapConstIterator : IteratorFacade<MapConstIterator<K, V>>
 {
-	using Map      = typename Map<K, V>;
-	using KeyValue = typename Map::KeyValue;
+	using KeyValue = typename Map<K, V>::KeyValue;
 
 	MapConstIterator() = default;
-	MapConstIterator(const Map *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
+	MapConstIterator(const Map<K, V> *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
 	{
 		const auto slots = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
 		if (this->current_index < this->map->capacity && slots[this->current_index].bits.is_filled == 0) {
@@ -428,8 +426,8 @@ struct MapConstIterator : IteratorFacade<MapConstIterator<K, V>>
 		return this->map == other.map && this->current_index == other.current_index;
 	}
 
-	const Map *map           = nullptr;
-	u32        current_index = u32_invalid;
+	const Map<K, V> *map           = nullptr;
+	u32              current_index = u32_invalid;
 };
 
 } // namespace exo

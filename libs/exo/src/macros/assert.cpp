@@ -11,5 +11,10 @@ void internal_assert_trigger(const char *condition_str, const std::source_locati
 		location.line(),
 		location.column(),
 		condition_str);
+
+#if defined(_WIN32)
 	__debugbreak();
+#else
+	__asm__ volatile("int $0x03");
+#endif
 }

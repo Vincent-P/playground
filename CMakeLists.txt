@@ -44,7 +44,7 @@ function(SETUP_THIRDPARTY_TARGET TARGET)
   set_target_properties(${TARGET} PROPERTIES FOLDER "third_party")
   target_compile_options(${TARGET} PRIVATE
       # Disable warnings for third-party libs
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wno-everything>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-everything>
       $<$<CXX_COMPILER_ID:MSVC>:/W0>
   )
 endfunction()
@@ -52,17 +52,17 @@ endfunction()
 function(setup_app_target_options TARGET)
   target_compile_options(${TARGET} PRIVATE
       # zstd in ktx doesnt compile with this flag
-      $<$<CXX_COMPILER_ID:Clang,AppleClang>:-march=native>
+      $<$<CXX_COMPILER_ID:Clang>:-march=native>
 
       # Warning level
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Werror>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wextra>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wpedantic>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wshadow>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wconversion>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wnon-virtual-dtor>
-      $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Woverloaded-virtual>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
+      $<$<CXX_COMPILER_ID:Clang>:-Wall>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wextra>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wpedantic>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wshadow>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wconversion>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wnon-virtual-dtor>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Woverloaded-virtual>
 
       $<$<CXX_COMPILER_ID:MSVC>:/WX>
       $<$<CXX_COMPILER_ID:MSVC>:/W4>
@@ -70,16 +70,16 @@ function(setup_app_target_options TARGET)
       $<$<CXX_COMPILER_ID:MSVC>:/wd4324> # "structure was padded due to alignment specifier"
 
       # utils
-      # $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fsanitize=address>
+      # $<$<CXX_COMPILER_ID:Clang,GNU>:-fsanitize=address>
       # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
-      $<$<CXX_COMPILER_ID:Clang>:-std=c++20>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-std=c++20>
       $<$<CXX_COMPILER_ID:MSVC>:/std:c++latest>
   )
 
   if (WIN32)
 	target_compile_definitions(${TARGET} PRIVATE PLATFORM_WINDOWS)
   else()
-	message( FATAL_ERROR "Platform not supported." )
+	message(WARNING "Platform not supported." )
   endif()
 
   target_compile_definitions(${TARGET} PRIVATE

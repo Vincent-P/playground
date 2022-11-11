@@ -3,6 +3,7 @@
 #include "exo/maths/pointer.h"
 #include "exo/memory/virtual_allocator.h"
 
+#include <cstring>
 #include <xxhash.h>
 
 namespace exo

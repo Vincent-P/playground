@@ -1,7 +1,8 @@
 #pragma once
 #include "exo/macros/assert.h"
 
-#include <iterator>
+#include <type_traits>
+#include <utility>
 
 // Inspired by https://vector-of-bool.github.io/2020/06/13/cpp20-iter-facade.html
 
@@ -14,13 +15,14 @@ namespace exo
  * (including cv-qualifierd). For all other types, the `type` member is `T`
  * unmodified.
  */
-template <typename T> struct wrap_refs
+template <typename T>
+struct wrap_refs
 {
 	using type = T;
 };
 
 template <typename T>
-requires std::is_reference_v<T> //
+	requires std::is_reference_v<T> //
 struct wrap_refs<T>
 {
 	using type = std::reference_wrapper<std::remove_reference_t<T>>;
@@ -30,9 +32,11 @@ struct wrap_refs<T>
  * If the given `T` is a reference, becomes a `std::reference_wrapper<U>` where
  * `U` is the referred-to type. Otherwise, becomes `T` unmodified.
  */
-template <typename T> using wrap_refs_t = typename wrap_refs<T>::type;
+template <typename T>
+using wrap_refs_t = typename wrap_refs<T>::type;
 
-template <class Reference> struct arrow_proxy
+template <class Reference>
+struct arrow_proxy
 {
 	wrap_refs_t<Reference> _value;
 
@@ -41,14 +45,16 @@ template <class Reference> struct arrow_proxy
 	constexpr auto operator->() const noexcept { return std::addressof(**this); }
 };
 
-template <typename Reference> arrow_proxy(Reference &&) -> arrow_proxy<Reference>;
+template <typename Reference>
+arrow_proxy(Reference &&) -> arrow_proxy<Reference>;
 
 /**
    Contains the boilerplate needed to create a std-compatible iterator
  **/
 
 // The main iterator struct facade, it contains iterator functions
-template <typename Iterator> struct IteratorFacade
+template <typename Iterator>
+struct IteratorFacade
 {
 	// CRTP (Curiously recurring template pattern) helpers to use the "real" iterator impl class
 	Iterator &self() { return static_cast<Iterator &>(*this); }
@@ -115,8 +121,12 @@ template <typename Iterator> using infer_difference_type_t = typename infer_diff
 
 namespace std
 {
+template <typename T>
+struct iterator_traits;
+struct forward_iterator_tag;
+
 template <typename Iterator>
-requires std::is_base_of_v<exo::IteratorFacade<Iterator>, Iterator>
+	requires std::is_base_of_v<exo::IteratorFacade<Iterator>, Iterator>
 struct iterator_traits<Iterator>
 {
 	static const Iterator &_it;
