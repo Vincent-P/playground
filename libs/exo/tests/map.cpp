@@ -1,5 +1,6 @@
 #include <exo/hash.h>
 
+// Provide a hash function
 namespace exo
 {
 [[nodiscard]] u64 hash_value(int i)
@@ -14,47 +15,141 @@ namespace exo
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("map insertion")
+TEST_CASE("exo::Map at", "[map]")
+{
+	exo::Map<int, int> map;
+	const auto        &cmap = map;
+
+	REQUIRE(map.at(0) == nullptr);
+	REQUIRE(map.at(123) == nullptr);
+	REQUIRE(cmap.at(0) == nullptr);
+	REQUIRE(cmap.at(123) == nullptr);
+	REQUIRE(cmap.size == 0);
+
+	map.insert(123, 333);
+
+	REQUIRE(map.at(0) == nullptr);
+	REQUIRE(*map.at(123) == 333);
+	REQUIRE(cmap.at(0) == nullptr);
+	REQUIRE(*cmap.at(123) == 333);
+	REQUIRE(cmap.size == 1);
+}
+
+TEST_CASE("exo::Map foreach", "[map]")
+{
+	exo::Map<int, int> map;
+	const auto        &cmap = map;
+
+	constexpr int MAX_COUNT = 255;
+	int           seed      = 0;
+	for (int i = 0; i < MAX_COUNT; ++i) {
+		seed = (seed + 1) * 15485863;
+		map.insert(seed, i);
+	}
+
+	u32 iter = 0;
+	int sum  = 0;
+	for (const auto &[key, value] : cmap) {
+		sum += value;
+		++iter;
+	}
+
+	constexpr int MAX_COUNT_SUM = (MAX_COUNT * (MAX_COUNT - 1)) / 2;
+	REQUIRE(iter == map.size);
+	REQUIRE(iter == MAX_COUNT);
+	REQUIRE(sum == MAX_COUNT_SUM);
+
+	for (auto &[key, value] : map) {
+		value = 0;
+	}
+
+	sum = 0;
+	for (const auto &[key, value] : cmap) {
+		sum += value;
+	}
+	REQUIRE(sum == 0);
+}
+
+TEST_CASE("exo::Map remove", "[map]")
 {
 	exo::Map<int, int> map = {};
-	REQUIRE(map.size == 0);
+	map.insert(1, 2);
+	map.insert(3, 4);
+	map.insert(4, 5);
 
-	auto *inserted1 = map.insert(42, 37);
-	REQUIRE(map.size == 1);
-	REQUIRE(inserted1 != nullptr);
-	REQUIRE(*inserted1 == 37);
+	map.remove(3);
 
-	auto *inserted2 = map.insert(38, 41);
+	REQUIRE(*map.at(1) == 2);
+	REQUIRE(map.at(3) == nullptr);
+	REQUIRE(*map.at(4) == 5);
 	REQUIRE(map.size == 2);
-	REQUIRE(inserted2 != nullptr);
-	REQUIRE(*inserted2 == 41);
 
-	auto *value1 = map.at(42);
-	REQUIRE(value1 != nullptr);
-	REQUIRE(*value1 == 37);
+	map.insert(6, 7);
 
-	auto *value2 = map.at(38);
-	REQUIRE(value2 != nullptr);
-	REQUIRE(*value2 == 41);
+	REQUIRE(*map.at(1) == 2);
+	REQUIRE(map.at(3) == nullptr);
+	REQUIRE(*map.at(4) == 5);
+	REQUIRE(*map.at(6) == 7);
+	REQUIRE(map.size == 3);
 
-	int key_sum   = 0;
-	int value_sum = 0;
-	for (const auto &[key, value] : map) {
-		key_sum += key;
-		value_sum += value;
+	map.remove(1);
+
+	REQUIRE(map.at(1) == nullptr);
+	REQUIRE(map.at(3) == nullptr);
+	REQUIRE(*map.at(4) == 5);
+	REQUIRE(*map.at(6) == 7);
+	REQUIRE(map.size == 2);
+}
+
+struct DtorCalled
+{
+	~DtorCalled()
+	{
+		this->i           = int(0xdeadbeef);
+		this->dtor_called = true;
 	}
-	REQUIRE(key_sum == (38 + 42));
-	REQUIRE(value_sum == (37 + 41));
 
-	map.remove(12); // removing an invalid key does not do anything
-	REQUIRE(map.size == 2);
+	bool dtor_has_been_called() { return this->i == int(0xdeadbeef) && this->dtor_called; }
 
-	map.remove(38);
-	REQUIRE(map.size == 1);
+	int  i           = 42;
+	bool dtor_called = false;
+};
 
-	auto *removed_entry = map.at(38);
-	REQUIRE(removed_entry == nullptr);
+TEST_CASE("exo::Map removes non-trivial objects", "[map]")
+{
+	auto  map = exo::Map<int, DtorCalled>::with_capacity(16);
+	auto *e1  = map.insert(1, {});
+	auto *e3  = map.insert(3, {});
+	auto *e4  = map.insert(4, {});
 
-	map.remove(42);
-	REQUIRE(map.size == 0);
+	map.remove(3);
+
+	REQUIRE(!e1->dtor_has_been_called());
+	REQUIRE(e3->dtor_has_been_called());
+	REQUIRE(!e4->dtor_has_been_called());
+
+	map.clear();
+
+	REQUIRE(e1->dtor_has_been_called());
+	REQUIRE(e3->dtor_has_been_called());
+	REQUIRE(e4->dtor_has_been_called());
+}
+
+TEST_CASE("exo::Map move constructor", "[map]")
+{
+	exo::Map<int, int> map = {};
+	map.insert(10, 9);
+	map.insert(8, 7);
+	map.insert(6, 5);
+	map.insert(4, 3);
+
+	REQUIRE(map.keyvalues_buffer.ptr != nullptr);
+	REQUIRE(map.slots_buffer.ptr != nullptr);
+
+	auto new_map = std::move(map);
+
+	REQUIRE(map.keyvalues_buffer.ptr == nullptr);
+	REQUIRE(map.slots_buffer.ptr == nullptr);
+	REQUIRE(new_map.keyvalues_buffer.ptr != nullptr);
+	REQUIRE(new_map.slots_buffer.ptr != nullptr);
 }

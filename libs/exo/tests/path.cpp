@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("Path concatenation", "[path]")
+TEST_CASE("exo::Path concatenation", "[path]")
 {
 	auto path = exo::Path::from_string("a");
 
@@ -22,7 +22,7 @@ TEST_CASE("Path concatenation", "[path]")
 	REQUIRE(path.str == "/f");
 }
 
-TEST_CASE("Path from string", "[path]")
+TEST_CASE("exo::Path from string", "[path]")
 {
 	auto windows_path = exo::Path::from_string("C:/Windows\\System/Users\\test");
 	REQUIRE(windows_path.str == "C:/Windows/System/Users/test");
@@ -31,7 +31,7 @@ TEST_CASE("Path from string", "[path]")
 	REQUIRE(linux_path.str == "/root/system/windows/users");
 }
 
-TEST_CASE("Path filename", "[path]")
+TEST_CASE("exo::Path filename", "[path]")
 {
 	auto test_path     = exo::Path::from_string("test.txt");
 	auto test_filename = std::string{test_path.filename()}; // Catch2's REQUIRE wants a std::string
@@ -42,7 +42,7 @@ TEST_CASE("Path filename", "[path]")
 	REQUIRE(test_filename == "test.txt");
 }
 
-TEST_CASE("Path replace filename", "[path]")
+TEST_CASE("exo::Path replace filename", "[path]")
 {
 	auto test_path  = exo::Path::from_string("C:/Windows/System/Users/test");
 	auto other_path = exo::Path::replace_filename(test_path, "other");

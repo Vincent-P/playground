@@ -1,20 +1,23 @@
 cmake_minimum_required(VERSION 3.23)
 project(playground LANGUAGES C CXX)
 
-# Fetch Catch2
-# Include(FetchContent)
-# FetchContent_Declare(
-#   Catch2
-#   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-#   GIT_TAG        v3.0.1 # or a later release
-# )
-# FetchContent_MakeAvailable(Catch2)
-# list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-# include(CTest)
-# include(Catch)
-
 # Enable folders in the Solution Explorer of Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Fetch Catch2
+Include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.0.1 # or a later release
+)
+FetchContent_MakeAvailable(Catch2)
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(Catch)
+set_target_properties(Catch2 PROPERTIES FOLDER "third_party")
+set_target_properties(Catch2WithMain PROPERTIES FOLDER "third_party")
+
+enable_testing()
 
 # Global C++ flags
 add_compile_options(
@@ -108,13 +111,14 @@ function(setup_app_target TARGET)
   setup_app_target_options(${TARGET})
 
   # Add a test executable if the function was supplied test source files
-  # if (args_TESTS)
-  #   add_executable(${TARGET}.tests ${args_TESTS})
-  #   setup_app_target_options(${TARGET}.tests)
-  #   target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
-  #   target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
-  #   catch_discover_tests(${TARGET}.tests)
-  # endif()
+  if (args_TESTS)
+    add_executable(${TARGET}.tests ${args_TESTS})
+    setup_app_target_options(${TARGET}.tests)
+    target_link_libraries(${TARGET}.tests PRIVATE ${TARGET} Catch2::Catch2WithMain)
+    target_compile_definitions(${TARGET}.tests PRIVATE RUN_TESTS)
+    set_target_properties(${TARGET}.tests PROPERTIES FOLDER "tests")
+    catch_discover_tests(${TARGET}.tests)
+  endif()
 endfunction()
 
 # Add a shader target
@@ -126,7 +130,7 @@ function(SETUP_SHADERS TARGET)
   set(multiValueArgs SOURCES DEPENDENCIES)
   cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
-  message(STATUS "Adding target ${TARGET}.shaders")
+  message(STATUS "Setting up shader target ${TARGET}.shaders")
 
   # Generate a list of include paths
   set(INCLUDE_ARGS )
@@ -155,6 +159,7 @@ function(SETUP_SHADERS TARGET)
 
   add_custom_target(${TARGET}.shaders DEPENDS ${SPIRV_FILES})
   add_dependencies(${TARGET} ${TARGET}.shaders)
+  set_target_properties(${TARGET}.shaders PROPERTIES FOLDER "shaders")
 endfunction()
 
 add_subdirectory(third_party)

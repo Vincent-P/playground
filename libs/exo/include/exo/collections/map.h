@@ -26,64 +26,7 @@ union MapSlot
 	} bits;
 	u64 raw;
 };
-} // namespace details
 
-template <typename K, typename V>
-struct MapIterator;
-
-/**
-   The exo::Map is a "flat" hashmap, implemented with open addressing to have contigous memory allocation.
-   It uses linear probing with robin-hood hashing.
-**/
-template <typename Key, typename Value>
-struct Map
-{
-	struct KeyValue
-	{
-		Key   key;
-		Value value;
-	};
-
-	u32           capacity         = 0;
-	u32           size             = 0;
-	DynamicBuffer keyvalues_buffer = {};
-	DynamicBuffer slots_buffer     = {};
-
-	static Map with_capacity(u32 new_capacity);
-	inline ~Map()
-	{
-		this->keyvalues_buffer.destroy();
-		this->slots_buffer.destroy();
-	}
-
-	Map() = default;
-
-	Map(const Map &copy)            = delete;
-	Map &operator=(const Map &copy) = delete;
-
-	inline Map(Map &&moved) noexcept { *this = std::move(moved); }
-	inline Map &operator=(Map &&moved) noexcept
-	{
-		this->capacity         = moved.capacity;
-		this->size             = moved.size;
-		this->keyvalues_buffer = std::move(moved.keyvalues_buffer);
-		this->slots_buffer     = std::move(moved.slots_buffer);
-		return *this;
-	}
-
-	// iterators
-	MapIterator<Key, Value> begin() { return MapIterator<Key, Value>(this); }
-	MapIterator<Key, Value> end() { return MapIterator<Key, Value>(this, this->capacity); }
-
-	Value *at(const Key &key);
-	const Value *at(const Key &key) const;
-	Value *insert(Key key, Value &&value);
-	Value *insert(Key key, const Value &value);
-	void   remove(const Key &key);
-};
-
-namespace details
-{
 // "Fast" modulo, only works with power of 2 divisors
 inline constexpr u32 power_of_2_modulo(u32 a, u32 b)
 {
@@ -117,7 +60,7 @@ inline u32 probe_by_hash(const Span<const MapSlot> slots, const u64 hash)
 }
 
 template <typename T>
-u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&value)
+inline u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&value)
 {
 	// We need to keep track of the slot and value to insert to be able to swap them when needed
 	MapSlot slot_to_insert  = std::move(slot);
@@ -160,14 +103,14 @@ u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&value)
 	}
 
 	// Finally, insert the key at the empty slot
-	std::swap(slots[i_slot], slot_to_insert);
-	std::swap(values[i_slot], value_to_insert);
+	slots[i_slot] = slot_to_insert;
+	std::construct_at(&values[i_slot], std::move(value_to_insert));
 
 	return i_original_key_slot;
 }
 
 template <typename T>
-void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buffer, u32 &capacity)
+inline void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buffer, u32 &capacity)
 {
 	auto new_capacity = capacity == 0 ? 2 : 2u * capacity;
 
@@ -204,144 +147,207 @@ void resize_and_rehash(DynamicBuffer &slots_buffer, DynamicBuffer &keyvalues_buf
 }
 } // namespace details
 
+template <typename K, typename V>
+struct MapIterator;
+template <typename K, typename V>
+struct MapConstIterator;
+
+/**
+   The exo::Map is a "flat" hashmap, implemented with open addressing to have contigous memory allocation.
+   It uses linear probing with robin-hood hashing.
+**/
 template <typename Key, typename Value>
-Map<Key, Value> Map<Key, Value>::with_capacity(u32 new_capacity)
+struct Map
 {
-	ASSERT(std::has_single_bit(new_capacity));
+	struct KeyValue
+	{
+		Key   key;
+		Value value;
+	};
 
-	Map map      = {};
-	map.capacity = new_capacity;
-	DynamicBuffer::init(map.keyvalues_buffer, new_capacity * sizeof(Map::KeyValue));
-	DynamicBuffer::init(map.slots_buffer, new_capacity * sizeof(details::MapSlot));
-	return map;
-}
+	u32           capacity         = 0;
+	u32           size             = 0;
+	DynamicBuffer keyvalues_buffer = {};
+	DynamicBuffer slots_buffer     = {};
 
-template <typename Key, typename Value>
-Value *Map<Key, Value>::at(const Key &key)
-{
-	if (this->size == 0) {
-		return nullptr;
+	// --
+
+	Map() = default;
+	~Map()
+	{
+		this->keyvalues_buffer.destroy();
+		this->slots_buffer.destroy();
 	}
 
-	const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto hash  = hash_value(key);
+	Map(const Map &copy)            = delete;
+	Map &operator=(const Map &copy) = delete;
 
-	u32 i_slot = details::probe_by_hash(slots, hash);
+	Map(Map &&moved) noexcept   = default;
+	Map &operator=(Map &&moved) = default;
 
-	// key not found
-	if (i_slot == u32_invalid) {
-		return nullptr;
+	static Map with_capacity(u32 new_capacity)
+	{
+		ASSERT(std::has_single_bit(new_capacity));
+
+		Map map      = {};
+		map.capacity = new_capacity;
+		DynamicBuffer::init(map.keyvalues_buffer, new_capacity * sizeof(Map::KeyValue));
+		DynamicBuffer::init(map.slots_buffer, new_capacity * sizeof(details::MapSlot));
+		return map;
 	}
 
-	ASSERT(slots[i_slot].bits.is_filled);
-	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
-	return &keyvalues[i_slot].value;
-}
+	// -- Iterators
 
-template <typename Key, typename Value>
-const Value *Map<Key, Value>::at(const Key &key) const
-{
-	if (this->size == 0) {
-		return nullptr;
-	}
+	MapIterator<Key, Value> begin() { return MapIterator<Key, Value>(this); }
+	MapIterator<Key, Value> end() { return MapIterator<Key, Value>(this, this->capacity); }
+	MapConstIterator<Key, Value> begin() const { return MapConstIterator<Key, Value>(this); }
+	MapConstIterator<Key, Value> end() const { return MapConstIterator<Key, Value>(this, this->capacity); }
 
-	const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto hash  = hash_value(key);
+	// -- Capacity
 
-	u32 i_slot = details::probe_by_hash(slots, hash);
+	bool is_empty() const { return this->size > 0; }
 
-	// key not found
-	if (i_slot == u32_invalid) {
-		return nullptr;
-	}
+	// -- Modifiers
 
-	ASSERT(slots[i_slot].bits.is_filled);
-	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
-	return &keyvalues[i_slot].value;
-}
-
-template <typename Key, typename Value>
-Value *Map<Key, Value>::insert(Key key, Value &&value)
-{
-	auto max_load_size = (this->capacity * EXO_MAP_MAX_LOAD_FACTOR_NOM) / EXO_MAP_MAX_LOAD_FACTOR_DENOM;
-	if (this->size + 1 > max_load_size) [[unlikely]] {
-		details::resize_and_rehash<KeyValue>(this->slots_buffer, this->keyvalues_buffer, this->capacity);
-	}
-
-	const auto slots     = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
-
-	details::MapSlot slot_to_insert;
-	slot_to_insert.bits.is_filled = 1;
-	slot_to_insert.bits.psl       = 0;
-	slot_to_insert.bits.hash      = hash_value(key);
-	u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, std::move(value)});
-
-	ASSERT(i_slot < this->capacity);
-	this->size += 1;
-	return &keyvalues[i_slot].value;
-}
-
-template <typename Key, typename Value>
-Value *Map<Key, Value>::insert(Key key, const Value &value)
-{
-	auto max_load_size = (this->capacity * EXO_MAP_MAX_LOAD_FACTOR_NOM) / EXO_MAP_MAX_LOAD_FACTOR_DENOM;
-	if (this->size == 0 || this->size + 1 > max_load_size) [[unlikely]] {
-		details::resize_and_rehash<KeyValue>(this->slots_buffer, this->keyvalues_buffer, this->capacity);
-	}
-
-	const auto slots     = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
-
-	details::MapSlot slot_to_insert;
-	slot_to_insert.bits.is_filled = 1;
-	slot_to_insert.bits.psl       = 0;
-	slot_to_insert.bits.hash      = u32(hash_value(key));
-	u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, value});
-
-	ASSERT(i_slot < this->capacity);
-	this->size += 1;
-	return &keyvalues[i_slot].value;
-}
-
-template <typename Key, typename Value>
-void Map<Key, Value>::remove(const Key &key)
-{
-	const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto hash  = hash_value(key);
-
-	const u32 i_slot = details::probe_by_hash(slots, hash);
-
-	// Not found
-	if (i_slot == u32_invalid) {
-		ASSERT(false);
-		return;
-	}
-
-	const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
-
-	// The key was found at slot i_slot, remove it and backward shift all values to fill the hole
-	u32 i = 0;
-	for (; i < this->capacity; ++i) {
-		const auto current_slot = details::power_of_2_modulo((i_slot + i), this->capacity);
-		const auto next_slot    = details::power_of_2_modulo((i_slot + i + 1), this->capacity);
-
-		if (slots[next_slot].bits.is_filled == 0 || slots[next_slot].bits.psl == 0) {
-			// All elements are shifted towards 0, so whenever we break, the current_slot was already copied to the
-			// previous_slot
-			slots[current_slot] = {};
-			keyvalues[current_slot] = {};
-			break;
+	Value *insert(Key key, Value &&value)
+	{
+		auto max_load_size = (this->capacity * EXO_MAP_MAX_LOAD_FACTOR_NOM) / EXO_MAP_MAX_LOAD_FACTOR_DENOM;
+		if (this->size + 1 > max_load_size) [[unlikely]] {
+			details::resize_and_rehash<KeyValue>(this->slots_buffer, this->keyvalues_buffer, this->capacity);
 		}
 
-		slots[current_slot] = slots[next_slot];
-		ASSERT(slots[current_slot].bits.psl != 0);
-		slots[current_slot].bits.psl -= 1;
-		keyvalues[current_slot] = std::move(keyvalues[next_slot]);
+		const auto slots     = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+
+		details::MapSlot slot_to_insert;
+		slot_to_insert.bits.is_filled = 1;
+		slot_to_insert.bits.psl       = 0;
+		slot_to_insert.bits.hash      = hash_value(key);
+		u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, std::move(value)});
+
+		ASSERT(i_slot < this->capacity);
+		this->size += 1;
+		return &keyvalues[i_slot].value;
 	}
 
-	this->size -= 1;
-}
+	Value *insert(Key key, const Value &value)
+	{
+		auto max_load_size = (this->capacity * EXO_MAP_MAX_LOAD_FACTOR_NOM) / EXO_MAP_MAX_LOAD_FACTOR_DENOM;
+		if (this->size == 0 || this->size + 1 > max_load_size) [[unlikely]] {
+			details::resize_and_rehash<KeyValue>(this->slots_buffer, this->keyvalues_buffer, this->capacity);
+		}
+
+		const auto slots     = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+
+		details::MapSlot slot_to_insert;
+		slot_to_insert.bits.is_filled = 1;
+		slot_to_insert.bits.psl       = 0;
+		slot_to_insert.bits.hash      = u32(hash_value(key));
+		u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, value});
+
+		ASSERT(i_slot < this->capacity);
+		this->size += 1;
+		return &keyvalues[i_slot].value;
+	}
+
+	void remove(const Key &key)
+	{
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto hash  = hash_value(key);
+
+		const u32 i_slot = details::probe_by_hash(slots, hash);
+
+		// Not found
+		if (i_slot == u32_invalid) {
+			ASSERT(false);
+			return;
+		}
+
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+
+		// The key was found at slot i_slot, remove it and backward shift all values to fill the hole
+		u32 i = 0;
+		for (; i < this->capacity; ++i) {
+			const auto current_slot = details::power_of_2_modulo((i_slot + i), this->capacity);
+			const auto next_slot    = details::power_of_2_modulo((i_slot + i + 1), this->capacity);
+
+			if (slots[next_slot].bits.is_filled == 0 || slots[next_slot].bits.psl == 0) {
+				// All elements are shifted towards 0, so whenever we break, the current_slot was already copied to the
+				// previous_slot
+				slots[current_slot]     = {};
+				keyvalues[current_slot].~KeyValue();
+				break;
+			}
+
+			slots[current_slot] = slots[next_slot];
+			ASSERT(slots[current_slot].bits.psl != 0);
+			slots[current_slot].bits.psl -= 1;
+			keyvalues[current_slot] = std::move(keyvalues[next_slot]);
+		}
+
+		this->size -= 1;
+	}
+
+	void clear()
+	{
+		const auto slots     = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+
+		for (u32 i = 0; i < this->capacity; ++i) {
+			if (slots[i].bits.is_filled) {
+				keyvalues[i].~KeyValue();
+			}
+			slots[i] = {};
+		}
+
+		this->size = 0;
+	}
+
+	// -- Lookup
+
+	Value *at(const Key &key)
+	{
+		if (this->size == 0) {
+			return nullptr;
+		}
+
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto hash  = hash_value(key);
+
+		u32 i_slot = details::probe_by_hash(slots, hash);
+
+		// key not found
+		if (i_slot == u32_invalid) {
+			return nullptr;
+		}
+
+		ASSERT(slots[i_slot].bits.is_filled);
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+		return &keyvalues[i_slot].value;
+	}
+
+	const Value *at(const Key &key) const
+	{
+		if (this->size == 0) {
+			return nullptr;
+		}
+
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
+		const auto hash  = hash_value(key);
+
+		u32 i_slot = details::probe_by_hash(slots, hash);
+
+		// key not found
+		if (i_slot == u32_invalid) {
+			return nullptr;
+		}
+
+		ASSERT(slots[i_slot].bits.is_filled);
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->keyvalues_buffer.content());
+		return &keyvalues[i_slot].value;
+	}
+};
 
 // -- Iterators
 template <typename K, typename V>
@@ -383,6 +389,47 @@ struct MapIterator : IteratorFacade<MapIterator<K, V>>
 
 	Map *map           = nullptr;
 	u32  current_index = u32_invalid;
+};
+
+template <typename K, typename V>
+struct MapConstIterator : IteratorFacade<MapConstIterator<K, V>>
+{
+	using Map      = typename Map<K, V>;
+	using KeyValue = typename Map::KeyValue;
+
+	MapConstIterator() = default;
+	MapConstIterator(const Map *_Map, u32 _index = 0) : map{_Map}, current_index{_index}
+	{
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
+		if (this->current_index < this->map->capacity && slots[this->current_index].bits.is_filled == 0) {
+			this->increment();
+		}
+	}
+
+	const KeyValue &dereference() const
+	{
+		const auto keyvalues = exo::reinterpret_span<KeyValue>(this->map->keyvalues_buffer.content());
+		return keyvalues[this->current_index];
+	}
+
+	void increment()
+	{
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->map->slots_buffer.content());
+
+		for (current_index = current_index + 1; current_index < this->map->capacity; current_index += 1) {
+			if (slots[current_index].bits.is_filled == 1) {
+				break;
+			}
+		}
+	}
+
+	bool equal_to(const MapConstIterator &other) const
+	{
+		return this->map == other.map && this->current_index == other.current_index;
+	}
+
+	const Map *map           = nullptr;
+	u32        current_index = u32_invalid;
 };
 
 } // namespace exo
