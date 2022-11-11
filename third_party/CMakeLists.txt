@@ -175,24 +175,7 @@ target_include_directories(meow_hash SYSTEM INTERFACE meow_hash/)
 
 #freetype without harfbuzz
 # read ftconfig
-if (UNIX)
-  check_include_file("unistd.h" HAVE_UNISTD_H)
-  check_include_file("fcntl.h" HAVE_FCNTL_H)
-
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/freetype/builds/unix/ftconfig.h.in" FTCONFIG_H)
-  if (HAVE_UNISTD_H)
-    string(REGEX REPLACE
-      "#undef +(HAVE_UNISTD_H)" "#define \\1 1"
-      FTCONFIG_H "${FTCONFIG_H}")
-  endif ()
-  if (HAVE_FCNTL_H)
-    string(REGEX REPLACE
-      "#undef +(HAVE_FCNTL_H)" "#define \\1 1"
-      FTCONFIG_H "${FTCONFIG_H}")
-  endif ()
-else ()
-  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/freetype/include/freetype/config/ftconfig.h" FTCONFIG_H)
-endif ()
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/freetype/include/freetype/config/ftconfig.h" FTCONFIG_H)
 # set ftconfig build output
 set(FTCONFIG_H_NAME "${CMAKE_CURRENT_BINARY_DIR}/freetype_no_hb/include/freetype/config/ftconfig.h")
 #write if needed
