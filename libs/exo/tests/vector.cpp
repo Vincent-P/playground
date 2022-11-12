@@ -1,6 +1,6 @@
-#include <exo/collections/vector.h>
-#include <catch2/catch_test_macros.hpp>
+#include "exo/collections/vector.h"
 #include "helpers.h"
+#include <catch2/catch_test_macros.hpp>
 
 struct DefaultValue
 {
@@ -70,7 +70,7 @@ TEST_CASE("exo::Vec non-trivial objects", "[vector]")
 		REQUIRE(vector[2].i == 2);
 		REQUIRE(vector[3].i == 3);
 	}
-	
+
 	SECTION("swap remove")
 	{
 		vector.swap_remove(1);
@@ -108,4 +108,27 @@ TEST_CASE("exo::Vec move constructor", "[vector]")
 
 	REQUIRE(vector.buffer.ptr == nullptr);
 	REQUIRE(new_vector.buffer.ptr != nullptr);
+}
+
+TEST_CASE("exo::Vec lifetimes", "[vector]")
+{
+	int             alives = 0;
+	exo::Vec<Alive> vector;
+	vector.push(Alive{&alives});
+	vector.push(Alive{&alives});
+	vector.push(Alive{&alives});
+	vector.push(Alive{&alives});
+
+	CHECK(alives == 4);
+
+	vector.swap_remove(1);
+	CHECK(alives == 3);
+
+	{
+		auto tmp = vector.pop();
+	}
+	CHECK(alives == 2);
+
+	vector.clear();
+	CHECK(alives == 0);
 }

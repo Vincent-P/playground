@@ -91,4 +91,13 @@
 			<Item Name="typeinfo">refl::details::types_storage[storage.bits.hi]</Item>
 		</Expand>
 	</Type>
+	<Type Name="exo::Vec&lt;*&gt;">
+		<DisplayString>{length}</DisplayString>
+		<Expand>
+			<ArrayItems>
+				<Size>buffer.size / sizeof($T1)</Size>
+				<ValuePointer>($T1*)(buffer.ptr)</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
 </AutoVisualizer>

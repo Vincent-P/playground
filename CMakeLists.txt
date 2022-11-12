@@ -63,6 +63,8 @@ function(setup_app_target_options TARGET)
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wconversion>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wnon-virtual-dtor>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Woverloaded-virtual>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wpessimizing-move>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-Wredundant-move>
 
       $<$<CXX_COMPILER_ID:MSVC>:/WX>
       $<$<CXX_COMPILER_ID:MSVC>:/W4>

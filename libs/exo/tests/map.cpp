@@ -1,8 +1,7 @@
+#include "exo/collections/map.h"
+#include "exo/hash.h"
 #include "helpers.h"
 #include <catch2/catch_test_macros.hpp>
-#include <exo/collections/map.h>
-
-#include <exo/hash.h>
 
 // Provide a hash function
 namespace exo

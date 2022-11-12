@@ -65,8 +65,8 @@ struct Vec
 	T       &last() { return (*this)[this->length - 1]; }
 	const T &last() const { return (*this)[this->length - 1]; }
 
-	T       *data() { return &(*this)[0]; }
-	const T *data() const { return &(*this)[0]; }
+	T       *data() { return static_cast<T *>(this->buffer.ptr); }
+	const T *data() const { return static_cast<const T *>(this->buffer.ptr); }
 
 	// Iterators
 
@@ -78,7 +78,7 @@ struct Vec
 
 	// Capacity
 
-	bool is_empty() const { return this->length > 0; }
+	bool is_empty() const { return this->length == 0; }
 
 	usize len() const { return this->length; }
 
@@ -133,7 +133,7 @@ struct Vec
 	T &push(Args &&...args)
 	{
 		const auto capacity = this->capacity();
-		if (this->length + 1 >= capacity) [[unlikely]] {
+		if (this->length + 1 > capacity) [[unlikely]] {
 			const auto new_capacity = capacity > 0 ? 2 * capacity : 2;
 			this->reserve(new_capacity);
 		}
@@ -141,7 +141,7 @@ struct Vec
 		return this->_push_noreserve<Args...>(std::forward<Args>(args)...);
 	}
 
-	T&& pop()
+	T pop()
 	{
 		ASSERT(this->length > 0);
 		const auto values = exo::reinterpret_span<T>(this->buffer.content());
@@ -151,12 +151,14 @@ struct Vec
 
 	void resize(usize new_length)
 	{
-		const auto values = exo::reinterpret_span<T>(this->buffer.content());
 		if (new_length < this->length) {
+			const auto values = exo::reinterpret_span<T>(this->buffer.content());
 			for (usize i = new_length; i < this->length; ++i) {
 				values[i].~T();
 			}
 		} else if (new_length > this->length) {
+			this->reserve(new_length);
+			const auto values = exo::reinterpret_span<T>(this->buffer.content());
 			for (usize i = length; i < new_length; ++i) {
 				new (&values[i]) T();
 			}
@@ -166,12 +168,14 @@ struct Vec
 
 	void resize(usize new_length, const T &value)
 	{
-		const auto values = exo::reinterpret_span<T>(this->buffer.content());
 		if (new_length < this->length) {
+			const auto values = exo::reinterpret_span<T>(this->buffer.content());
 			for (usize i = new_length; i < this->length; ++i) {
 				values[i].~T();
 			}
 		} else if (new_length > this->length) {
+			this->reserve(new_length);
+			const auto values = exo::reinterpret_span<T>(this->buffer.content());
 			for (usize i = length; i < new_length; ++i) {
 				new (&values[i]) T(value);
 			}
@@ -186,7 +190,8 @@ struct Vec
 		if (this->length > 1 && i < this->length - 1) {
 			std::swap(values[i], values[this->length - 1]);
 		}
-		this->pop();
+		this->length -= 1;
+		values[this->length].~T();
 	}
 };
 } // namespace exo

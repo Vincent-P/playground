@@ -1,5 +1,4 @@
-#include <exo/collections/pool.h>
-
+#include "exo/collections/pool.h"
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("exo::Pool insertion")
