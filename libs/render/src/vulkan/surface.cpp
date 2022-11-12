@@ -162,7 +162,7 @@ void Surface::create_swapchain(Device &device)
 	uint images_count = 0;
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, nullptr));
 
-	Vec<VkImage> vkimages(images_count);
+	auto vkimages = Vec<VkImage>::with_length(images_count);
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	this->images.resize(images_count);
@@ -248,8 +248,8 @@ void Surface::recreate_swapchain(Device &device)
 	vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = new_swapchain;
 
-	u32          images_count = static_cast<u32>(this->images.size());
-	Vec<VkImage> vkimages(images_count);
+	u32  images_count = static_cast<u32>(this->images.size());
+	auto vkimages     = Vec<VkImage>::with_length(images_count);
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	for (uint i_image = 0; i_image < images_count; i_image++) {

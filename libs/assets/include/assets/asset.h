@@ -53,13 +53,13 @@ struct Asset
 	inline void add_dependency_checked(AssetId dependency)
 	{
 		usize i = 0;
-		for (; i < dependencies.size(); i += 1) {
+		for (; i < dependencies.len(); i += 1) {
 			if (dependencies[i] == dependency) {
 				break;
 			}
 		}
-		if (i >= dependencies.size()) {
-			dependencies.push_back(std::move(dependency));
+		if (i >= dependencies.len()) {
+			dependencies.push(std::move(dependency));
 		}
 	}
 };

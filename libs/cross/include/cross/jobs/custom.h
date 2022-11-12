@@ -43,7 +43,7 @@ std::unique_ptr<Waitable> custom_job(const JobManager &jobmanager, UserData *use
 	};
 
 	jobmanager.queue_job(*job);
-	waitable->jobs.push_back(std::move(job));
+	waitable->jobs.push(std::move(job));
 
 	return waitable;
 }

@@ -77,7 +77,7 @@ struct Entity
 	void create_system(Args &&...args)
 	{
 		System *new_system = new System(std::forward<Args>(args)...);
-		local_systems.push_back(refl::BasePtr<LocalSystem>(new_system));
+		local_systems.push(refl::BasePtr<LocalSystem>(new_system));
 	}
 
 	// Add a component to the entity

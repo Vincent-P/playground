@@ -91,7 +91,7 @@ struct GlyphCache
 			}
 
 			if (fn(event, image, position) == false) {
-				events_to_keep.push_back(event);
+				events_to_keep.push(event);
 			}
 		}
 

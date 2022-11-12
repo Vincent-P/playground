@@ -47,8 +47,7 @@ void AssetDatabase::track_resource_changes(
 			continue;
 		}
 
-		trackers.push_back({});
-		auto &tracker         = trackers.back();
+		auto &tracker         = trackers.push();
 		tracker.resource_path = exo::Path::from_string(file_entry.path().string());
 	}
 
@@ -122,7 +121,7 @@ void AssetDatabase::track_resource_changes(
 		}
 
 		if (tracker.is_resource_outdated) {
-			out_outdated_resources.push_back(tracker.resource);
+			out_outdated_resources.push(tracker.resource);
 		}
 	}
 }

@@ -228,11 +228,11 @@ static void import_buffers(ImporterContext &ctx)
 		auto absolute_path = ctx.relative_to_absolute_path(relative_path);
 		auto bytelength    = j_buffer["byteLength"].GetUint();
 
-		ctx.files.push_back(cross::MappedFile::open(absolute_path.view()).value());
+		ctx.files.push(cross::MappedFile::open(absolute_path.view()).value());
 
-		auto file_content = ctx.files.back().content();
+		auto file_content = ctx.files.last().content();
 		ASSERT(file_content.size() == bytelength);
-		ctx.buffers.push_back(file_content);
+		ctx.buffers.push(file_content);
 	}
 }
 
@@ -274,12 +274,12 @@ static void import_meshes(ImporterContext &ctx)
 			const auto &j_attributes = j_primitive["attributes"].GetObj();
 			ASSERT(j_attributes.HasMember("POSITION"));
 
-			new_mesh->submeshes.emplace_back();
-			auto &new_submesh = new_mesh->submeshes.back();
+			new_mesh->submeshes.push();
+			auto &new_submesh = new_mesh->submeshes.last();
 
 			new_submesh.index_count  = 0;
-			new_submesh.first_vertex = static_cast<u32>(ctx.positions.size());
-			new_submesh.first_index  = static_cast<u32>(ctx.indices.size());
+			new_submesh.first_vertex = static_cast<u32>(ctx.positions.len());
+			new_submesh.first_index  = static_cast<u32>(ctx.indices.len());
 			new_submesh.material     = {};
 
 			// -- Attributes
@@ -304,7 +304,7 @@ static void import_meshes(ImporterContext &ctx)
 					} else {
 						ASSERT(false);
 					}
-					ctx.indices.push_back(index);
+					ctx.indices.push(index);
 				}
 
 				new_submesh.index_count = accessor.count;
@@ -334,7 +334,7 @@ static void import_meshes(ImporterContext &ctx)
 						ASSERT(false);
 					}
 
-					ctx.positions.push_back(new_position);
+					ctx.positions.push(new_position);
 				}
 			}
 
@@ -361,12 +361,12 @@ static void import_meshes(ImporterContext &ctx)
 						ASSERT(false);
 					}
 
-					ctx.uvs.push_back(new_uv);
+					ctx.uvs.push(new_uv);
 				}
 			} else {
 				ctx.uvs.reserve(vertex_count);
 				for (usize i = 0; i < vertex_count; i += 1) {
-					ctx.uvs.push_back(float2(0.0f, 0.0f));
+					ctx.uvs.push(float2(0.0f, 0.0f));
 				}
 			}
 
@@ -465,7 +465,7 @@ static void import_nodes(ImporterContext &ctx)
 	const auto &j_roots  = j_scene["nodes"].GetArray();
 
 	for (const auto &j_root : j_roots) {
-		ctx.new_scene->roots.push_back(j_root.GetUint());
+		ctx.new_scene->roots.push(j_root.GetUint());
 	}
 
 	const auto &j_nodes = ctx.j_document["nodes"].GetArray();
@@ -478,28 +478,28 @@ static void import_nodes(ImporterContext &ctx)
 	for (const auto &j_node : j_nodes) {
 		const auto &j_node_obj = j_node.GetObj();
 
-		ctx.new_scene->transforms.push_back(get_transform(j_node_obj));
+		ctx.new_scene->transforms.push(get_transform(j_node_obj));
 
 		if (j_node.HasMember("mesh")) {
 			auto i_mesh = j_node["mesh"].GetUint();
-			ctx.new_scene->meshes.push_back(ctx.mesh_ids[i_mesh]);
+			ctx.new_scene->meshes.push(ctx.mesh_ids[i_mesh]);
 		} else {
-			ctx.new_scene->meshes.emplace_back();
+			ctx.new_scene->meshes.push();
 		}
 
-		ctx.new_scene->names.emplace_back();
+		ctx.new_scene->names.push();
 		if (j_node.HasMember("name")) {
-			ctx.new_scene->names.back() = exo::tls_string_repository->intern(j_node["name"].GetString());
+			ctx.new_scene->names.last() = exo::tls_string_repository->intern(j_node["name"].GetString());
 		} else {
-			ctx.new_scene->names.back() = "No name";
+			ctx.new_scene->names.last() = "No name";
 		}
 
-		ctx.new_scene->children.emplace_back();
+		ctx.new_scene->children.push();
 		if (j_node.HasMember("children")) {
 			const auto &j_children = j_node["children"].GetArray();
-			ctx.new_scene->children.back().reserve(j_children.Size());
+			ctx.new_scene->children.last().reserve(j_children.Size());
 			for (const auto &j_child : j_children) {
-				ctx.new_scene->children.back().push_back(j_child.GetUint());
+				ctx.new_scene->children.last().push(j_child.GetUint());
 			}
 		}
 	}
@@ -561,7 +561,7 @@ static void import_materials(ImporterContext &ctx)
 
 		if (auto i_normal_texture = load_texture(j_material, "normalTexture"); i_normal_texture != u32_invalid) {
 			new_material->normal_texture = ctx.texture_ids[i_normal_texture];
-			new_material->dependencies.push_back(new_material->normal_texture);
+			new_material->dependencies.push(new_material->normal_texture);
 		}
 
 		if (j_material.HasMember("pbrMetallicRoughness")) {
@@ -569,7 +569,7 @@ static void import_materials(ImporterContext &ctx)
 
 			if (auto i_base_color = load_texture(j_pbr, "baseColorTexture"); i_base_color != u32_invalid) {
 				new_material->base_color_texture = ctx.texture_ids[i_base_color];
-				new_material->dependencies.push_back(new_material->base_color_texture);
+				new_material->dependencies.push(new_material->base_color_texture);
 
 // TODO: implement KHR_texture_transform
 #if 0
@@ -594,7 +594,7 @@ static void import_materials(ImporterContext &ctx)
 			if (auto i_metallic_roughness = load_texture(j_pbr, "metallicRoughnessTexture");
 				i_metallic_roughness != u32_invalid) {
 				new_material->metallic_roughness_texture = ctx.texture_ids[i_metallic_roughness];
-				new_material->dependencies.push_back(new_material->metallic_roughness_texture);
+				new_material->dependencies.push(new_material->metallic_roughness_texture);
 			}
 
 			if (j_pbr.HasMember("baseColorFactor")) {
@@ -705,12 +705,12 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 			auto relative_path = j_image["uri"].GetString();
 			auto absolute_path = exo::Path::replace_filename(request.path, relative_path);
 
-			response.dependencies_id.push_back(texture_id);
-			response.dependencies_paths.push_back(absolute_path);
+			response.dependencies_id.push(texture_id);
+			response.dependencies_paths.push(absolute_path);
 		}
 	}
 
-	return Ok(response);
+	return Ok(std::move(response));
 }
 
 Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &request)
@@ -742,14 +742,14 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 	import_nodes(ctx);
 
 	ProcessResponse response{};
-	response.products.push_back(request.asset);
+	response.products.push(request.asset);
 	for (const auto &mesh : ctx.mesh_ids) {
-		response.products.push_back(mesh);
+		response.products.push(mesh);
 	}
 	for (const auto &material : ctx.material_ids) {
-		response.products.push_back(material);
+		response.products.push(material);
 	}
-	return Ok(response);
+	return Ok(std::move(response));
 }
 
 #if 0

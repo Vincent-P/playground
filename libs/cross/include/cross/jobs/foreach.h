@@ -58,7 +58,7 @@ std::unique_ptr<Waitable> parallel_foreach(
 		};
 
 		jobmanager.queue_job(*job);
-		waitable->jobs.push_back(std::move(job));
+		waitable->jobs.push(std::move(job));
 	}
 
 	return waitable;
@@ -111,7 +111,7 @@ std::unique_ptr<Waitable> parallel_foreach_userdata(const JobManager &jobmanager
 		};
 
 		jobmanager.queue_job(*job);
-		waitable->jobs.push_back(std::move(job));
+		waitable->jobs.push(std::move(job));
 	}
 
 	if constexpr (UseCurrentThread) {

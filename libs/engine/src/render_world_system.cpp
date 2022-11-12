@@ -34,8 +34,8 @@ void PrepareRenderWorld::update(const UpdateContext &)
 	render_world.main_camera_view_inverse = main_camera->get_view_inverse();
 
 	for (auto &[p_entity, mesh_component] : entities) {
-		render_world.drawable_instances.emplace_back();
-		auto &new_drawable = render_world.drawable_instances.back();
+		render_world.drawable_instances.push();
+		auto &new_drawable = render_world.drawable_instances.last();
 
 		// HACK: update world transform here :D
 		mesh_component->set_local_transform(mesh_component->get_local_transform());

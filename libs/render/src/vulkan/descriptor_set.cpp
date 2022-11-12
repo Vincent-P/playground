@@ -159,51 +159,48 @@ void destroy_bindless_set(const Device &device, BindlessSet &bindless)
 
 u32 bind_sampler_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	const u32 new_index = bindless.free_list[BindlessSet::PER_SAMPLER].back();
-	bindless.free_list[BindlessSet::PER_SAMPLER].pop_back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_SAMPLER].pop();
 	bindless.sampler_images[new_index] = image_handle;
-	bindless.pending_bind[BindlessSet::PER_SAMPLER].push_back(new_index);
+	bindless.pending_bind[BindlessSet::PER_SAMPLER].push(new_index);
 
 	return new_index;
 }
 
 u32 bind_storage_image(BindlessSet &bindless, Handle<Image> image_handle)
 {
-	const u32 new_index = bindless.free_list[BindlessSet::PER_IMAGE].back();
-	bindless.free_list[BindlessSet::PER_IMAGE].pop_back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_IMAGE].pop();
 	bindless.storage_images[new_index] = image_handle;
-	bindless.pending_bind[BindlessSet::PER_IMAGE].push_back(new_index);
+	bindless.pending_bind[BindlessSet::PER_IMAGE].push(new_index);
 	return new_index;
 }
 
 u32 bind_storage_buffer(BindlessSet &bindless, Handle<Buffer> buffer_handle)
 {
-	const u32 new_index = bindless.free_list[BindlessSet::PER_BUFFER].back();
-	bindless.free_list[BindlessSet::PER_BUFFER].pop_back();
+	const u32 new_index = bindless.free_list[BindlessSet::PER_BUFFER].pop();
 	bindless.storage_buffers[new_index] = buffer_handle;
-	bindless.pending_bind[BindlessSet::PER_BUFFER].push_back(new_index);
+	bindless.pending_bind[BindlessSet::PER_BUFFER].push(new_index);
 	return new_index;
 }
 
 void unbind_sampler_image(BindlessSet &set, u32 index)
 {
 	set.sampler_images[index] = {};
-	set.free_list[BindlessSet::PER_SAMPLER].push_back(index);
-	set.pending_unbind[BindlessSet::PER_SAMPLER].push_back(index);
+	set.free_list[BindlessSet::PER_SAMPLER].push(index);
+	set.pending_unbind[BindlessSet::PER_SAMPLER].push(index);
 }
 
 void unbind_storage_image(BindlessSet &set, u32 index)
 {
 	set.storage_images[index] = {};
-	set.free_list[BindlessSet::PER_IMAGE].push_back(index);
-	set.pending_unbind[BindlessSet::PER_IMAGE].push_back(index);
+	set.free_list[BindlessSet::PER_IMAGE].push(index);
+	set.pending_unbind[BindlessSet::PER_IMAGE].push(index);
 }
 
 void unbind_storage_buffer(BindlessSet &set, u32 index)
 {
 	set.storage_buffers[index] = {};
-	set.free_list[BindlessSet::PER_BUFFER].push_back(index);
-	set.pending_unbind[BindlessSet::PER_BUFFER].push_back(index);
+	set.free_list[BindlessSet::PER_BUFFER].push(index);
+	set.pending_unbind[BindlessSet::PER_BUFFER].push(index);
 }
 
 void update_bindless_set(Device &device, BindlessSet &bindless)
@@ -211,12 +208,12 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 	auto tmp_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 
 	// Allocate memory for descriptor writes and copies
-	const usize total_bind_count = bindless.pending_bind[BindlessSet::PER_SAMPLER].size() +
-	                               bindless.pending_bind[BindlessSet::PER_IMAGE].size() +
-	                               bindless.pending_bind[BindlessSet::PER_BUFFER].size();
-	const usize total_unbind_count = bindless.pending_unbind[BindlessSet::PER_SAMPLER].size() +
-	                                 bindless.pending_unbind[BindlessSet::PER_IMAGE].size() +
-	                                 bindless.pending_unbind[BindlessSet::PER_BUFFER].size();
+	const usize total_bind_count = bindless.pending_bind[BindlessSet::PER_SAMPLER].len() +
+	                               bindless.pending_bind[BindlessSet::PER_IMAGE].len() +
+	                               bindless.pending_bind[BindlessSet::PER_BUFFER].len();
+	const usize total_unbind_count = bindless.pending_unbind[BindlessSet::PER_SAMPLER].len() +
+	                                 bindless.pending_unbind[BindlessSet::PER_IMAGE].len() +
+	                                 bindless.pending_unbind[BindlessSet::PER_BUFFER].len();
 
 	auto *descriptor_writes       = tmp_scope.allocate<VkWriteDescriptorSet>(u32(total_bind_count));
 	auto *descriptor_copies       = tmp_scope.allocate<VkCopyDescriptorSet>(u32(total_unbind_count));
@@ -225,8 +222,8 @@ void update_bindless_set(Device &device, BindlessSet &bindless)
 
 	// Allocate memory to hold image and buffer descriptor infos
 	const usize total_image_info_count =
-		bindless.pending_bind[BindlessSet::PER_SAMPLER].size() + bindless.pending_bind[BindlessSet::PER_IMAGE].size();
-	const usize total_buffer_info_count = bindless.pending_bind[BindlessSet::PER_BUFFER].size();
+		bindless.pending_bind[BindlessSet::PER_SAMPLER].len() + bindless.pending_bind[BindlessSet::PER_IMAGE].len();
+	const usize total_buffer_info_count = bindless.pending_bind[BindlessSet::PER_BUFFER].len();
 
 	VkDescriptorImageInfo *image_infos =
 		total_image_info_count > 0 ? tmp_scope.allocate<VkDescriptorImageInfo>(u32(total_image_info_count)) : nullptr;

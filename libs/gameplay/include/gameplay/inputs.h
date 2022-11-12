@@ -36,7 +36,7 @@ struct KeyBinding
 class Inputs
 {
 public:
-	void bind(Action action, const KeyBinding &binding);
+	void bind(Action action, KeyBinding &&binding);
 
 	bool                     is_pressed(Action action) const;
 	bool                     is_pressed(exo::VirtualKey Key) const;

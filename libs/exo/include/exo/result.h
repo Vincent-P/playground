@@ -1,4 +1,5 @@
 #pragma once
+#include <concepts>
 #include <exo/macros/assert.h>
 #include <exo/maths/numerics.h>
 #include <utility>
@@ -17,7 +18,15 @@ struct ErrorWrapper
 	u64 code = u64_invalid;
 };
 
-template <typename T> struct Result
+template <typename T>
+struct Result;
+template <typename T>
+inline Result<T> Ok(T &&value);
+template <typename T, typename E>
+inline Result<T> Err(E error);
+
+template <std::default_initializable T>
+struct Result<T>
 {
 	ResultType   type          = ResultType::Default;
 	T            inner         = {};
@@ -32,7 +41,8 @@ template <typename T> struct Result
 	}
 	Result(Result<T> &&moved) { *this = std::move(moved); }
 
-	template <typename OtherValue> Result<T> &operator=(Result<OtherValue> &&moved) noexcept
+	template <typename OtherValue>
+	Result<T> &operator=(Result<OtherValue> &&moved) noexcept
 	{
 		ASSERT(this->type == ResultType::Default);
 		ASSERT(moved.type == ResultType::Err);
@@ -40,7 +50,11 @@ template <typename T> struct Result
 		this->error_wrapper.code = moved.error_wrapper.code;
 		return *this;
 	}
-	template <typename OtherValue> Result(Result<OtherValue> &&moved) { *this = std::move(moved); }
+	template <typename OtherValue>
+	Result(Result<OtherValue> &&moved)
+	{
+		*this = std::move(moved);
+	}
 
 	T &value()
 	{
@@ -57,7 +71,14 @@ template <typename T> struct Result
 	operator bool() const { return this->type == ResultType::Ok; }
 
 private:
-	Result(T inner, i32)
+	explicit Result(T &&inner)
+	{
+		this->type               = ResultType::Ok;
+		this->inner              = std::move(inner);
+		this->error_wrapper.code = u64_invalid;
+	}
+
+	explicit Result(const T &inner)
 	{
 		this->type               = ResultType::Ok;
 		this->inner              = inner;
@@ -70,11 +91,15 @@ private:
 		this->error_wrapper = error_wrapper;
 	}
 
-	template <typename T, typename E> friend Result<T> Err(E error);
-	template <typename T> friend Result<T>             Ok(const T &value);
+	template <typename Other, typename E>
+	friend inline Result<Other> Err(E error);
+
+	template <typename Other>
+	friend inline Result<Other> Ok(Other &&value);
 };
 
-template <> struct Result<void>
+template <>
+struct Result<void>
 {
 	ResultType   type          = ResultType::Default;
 	ErrorWrapper error_wrapper = {};
@@ -87,7 +112,8 @@ template <> struct Result<void>
 		this->error_wrapper.code = moved.error_wrapper.code;
 	}
 
-	template <typename OtherValue> Result(Result<OtherValue> &&moved)
+	template <typename OtherValue>
+	Result(Result<OtherValue> &&moved)
 	{
 		ASSERT(this->type == ResultType::Default);
 		ASSERT(moved.type == ResultType::Err);
@@ -102,31 +128,41 @@ template <> struct Result<void>
 	}
 
 private:
-	Result(int)
+	explicit Result()
 	{
 		this->type               = ResultType::Ok;
 		this->error_wrapper.code = u64_invalid;
 	}
 
-	Result(ErrorWrapper error)
+	explicit Result(ErrorWrapper error)
 	{
 		this->type          = ResultType::Err;
 		this->error_wrapper = error;
 	}
 
-	template <typename T, typename E> friend Result<T> Err(E error);
-	friend Result<void>                                Ok();
+	template <typename T, typename E>
+	friend Result<T>    Err(E error);
+	friend Result<void> Ok();
 };
 
-template <typename T, typename E> inline Result<T> Err(E error)
+template <typename T, typename E>
+inline Result<T> Err(E error)
 {
 	u64 code = static_cast<u64>(error);
 	return Result<T>(ErrorWrapper{code});
 }
 
-template <typename T> inline Result<T> Ok(const T &value) { return Result(value, 42); }
+// error C2641: cannot deduce template arguments for 'exo::Result'
+template <typename T>
+Result(T &&moved) -> Result<T>;
 
-inline Result<void> Ok() { return Result<void>(42); }
+template <typename T>
+inline Result<T> Ok(T &&value)
+{
+	return Result(std::forward<T>(value));
+}
+
+inline Result<void> Ok() { return Result<void>(); }
 
 } // namespace exo
 

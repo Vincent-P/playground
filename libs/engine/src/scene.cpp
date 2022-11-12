@@ -81,7 +81,7 @@ static void tree_view_entity(ui::Ui &ui,
 
 	auto       &entity_opened = entity_scene_ui->treeview_opened;
 	const char *label         = entity_opened ? "_" : ">";
-	if (!entity->attached_entities.empty() && ui::button_split(ui, line_rectsplit, label)) {
+	if (!entity->attached_entities.is_empty() && ui::button_split(ui, line_rectsplit, label)) {
 		entity_opened = !entity_opened;
 	}
 	auto margin_rect = line_rectsplit.split(indentation * 1.0f * ui.theme.font_size);

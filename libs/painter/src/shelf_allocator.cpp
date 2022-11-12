@@ -21,7 +21,7 @@ static AllocationId shelf_alloc(ShelfAllocator &allocator, Shelf &shelf, int2 al
 static AllocationId freelist_alloc(ShelfAllocator &allocator, u32 i_freelist, int2 alloc_size)
 {
 	auto new_alloc = allocator.freelist[i_freelist];
-	exo::swap_remove(allocator.freelist, i_freelist);
+	allocator.freelist.swap_remove(i_freelist);
 
 	ASSERT(new_alloc.capacity.x >= alloc_size.x);
 	ASSERT(new_alloc.capacity.y >= alloc_size.y);
@@ -40,7 +40,7 @@ AllocationId ShelfAllocator::alloc(int2 alloc_size)
 	i32 area_waste      = 99999;
 
 	// find freelist
-	for (u32 i_freelist = 0; i_freelist < this->freelist.size(); ++i_freelist) {
+	for (u32 i_freelist = 0; i_freelist < this->freelist.len(); ++i_freelist) {
 		const auto &freealloc = this->freelist[i_freelist];
 		if (alloc_size == freealloc.capacity) {
 			return freelist_alloc(*this, i_freelist, alloc_size);
@@ -60,7 +60,7 @@ AllocationId ShelfAllocator::alloc(int2 alloc_size)
 	}
 
 	// find shelf
-	for (u32 i_shelf = 0; i_shelf < this->shelves.size(); ++i_shelf) {
+	for (u32 i_shelf = 0; i_shelf < this->shelves.len(); ++i_shelf) {
 		auto &shelf = this->shelves[i_shelf];
 		y += shelf.size.y;
 
@@ -94,12 +94,12 @@ AllocationId ShelfAllocator::alloc(int2 alloc_size)
 	}
 
 	if (alloc_size.y < (this->size.y - y) && alloc_size.x < this->size.x) {
-		this->shelves.push_back({
+		this->shelves.push(Shelf{
 			.size = {this->size.x, alloc_size.y},
 			.y    = y,
 			.free = this->size.x,
 		});
-		return shelf_alloc(*this, this->shelves.back(), alloc_size);
+		return shelf_alloc(*this, this->shelves.last(), alloc_size);
 	}
 
 	return {};
@@ -118,7 +118,7 @@ bool ShelfAllocator::unref(AllocationId id)
 	auto &alloc = this->allocations.get(id);
 	alloc.refcount -= 1;
 	if (alloc.refcount <= 0) {
-		this->freelist.push_back({.alloc = alloc, .capacity = alloc.size});
+		this->freelist.push(FreeAllocation{.alloc = alloc, .capacity = alloc.size});
 		this->allocations.remove(id);
 		return true;
 	}

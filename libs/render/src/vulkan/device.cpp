@@ -43,24 +43,24 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		nullptr,
 		&installed_device_extensions_count,
 		nullptr));
-	Vec<VkExtensionProperties> installed_device_extensions(installed_device_extensions_count);
+	auto installed_device_extensions = Vec<VkExtensionProperties>::with_length(installed_device_extensions_count);
 	vk_check(vkEnumerateDeviceExtensionProperties(device.physical_device.vkdevice,
 		nullptr,
 		&installed_device_extensions_count,
 		installed_device_extensions.data()));
 
 	Vec<const char *> device_extensions;
-	device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+	device_extensions.push(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	device_extensions.push(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
 	// device_extensions.push_back(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
 	if (is_extension_installed(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME, installed_device_extensions)) {
-		device_extensions.push_back(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+		device_extensions.push(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
 	}
-	device_extensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
+	device_extensions.push(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
 
 	uint queue_families_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice, &queue_families_count, nullptr);
-	Vec<VkQueueFamilyProperties> queue_families(queue_families_count);
+	auto queue_families = Vec<VkQueueFamilyProperties>::with_length(queue_families_count);
 	vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.vkdevice,
 		&queue_families_count,
 		queue_families.data());
@@ -68,7 +68,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	Vec<VkDeviceQueueCreateInfo> queue_create_infos;
 	const float                  priority = 0.0;
 
-	for (uint32_t i = 0; i < queue_families.size(); i++) {
+	for (uint32_t i = 0; i < queue_families.len(); i++) {
 		VkDeviceQueueCreateInfo queue_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
 		queue_info.queueFamilyIndex        = i;
 		queue_info.queueCount              = 1;
@@ -76,17 +76,17 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 		if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			if (device.graphics_family_idx == u32_invalid) {
-				queue_create_infos.push_back(queue_info);
+				queue_create_infos.push(queue_info);
 				device.graphics_family_idx = i;
 			}
 		} else if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
 			if (device.compute_family_idx == u32_invalid && (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
-				queue_create_infos.push_back(queue_info);
+				queue_create_infos.push(queue_info);
 				device.compute_family_idx = i;
 			}
 		} else if (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
 			if (device.transfer_family_idx == u32_invalid && (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT)) {
-				queue_create_infos.push_back(queue_info);
+				queue_create_infos.push(queue_info);
 				device.transfer_family_idx = i;
 			}
 		}
@@ -108,11 +108,11 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	VkDeviceCreateInfo dci      = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	dci.pNext                   = &device.physical_device.features;
 	dci.flags                   = 0;
-	dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.size());
+	dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.len());
 	dci.pQueueCreateInfos       = queue_create_infos.data();
 	dci.enabledLayerCount       = 0;
 	dci.ppEnabledLayerNames     = nullptr;
-	dci.enabledExtensionCount   = static_cast<uint32_t>(device_extensions.size());
+	dci.enabledExtensionCount   = static_cast<uint32_t>(device_extensions.len());
 	dci.ppEnabledExtensionNames = device_extensions.data();
 	dci.pEnabledFeatures        = nullptr;
 
@@ -216,8 +216,8 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 	device.create_image(ImageDescription{.name = "empty image", .usages = storage_image_usage | sampled_image_usage});
 	for (u32 i_slot = 1; i_slot < 1024; ++i_slot) {
-		device.global_sets.bindless.pending_unbind[BindlessSet::PER_SAMPLER].push_back(i_slot);
-		device.global_sets.bindless.pending_unbind[BindlessSet::PER_IMAGE].push_back(i_slot);
+		device.global_sets.bindless.pending_unbind[BindlessSet::PER_SAMPLER].push(i_slot);
+		device.global_sets.bindless.pending_unbind[BindlessSet::PER_IMAGE].push(i_slot);
 	}
 
 	return device;
@@ -272,8 +272,8 @@ const DynamicBufferDescriptor &Device::find_or_create_uniform_descriptor(Handle<
 		}
 	}
 
-	global_sets.uniform_descriptors.push_back(create_buffer_descriptor(*this, buffer_handle, size));
-	return global_sets.uniform_descriptors.back();
+	global_sets.uniform_descriptors.push(create_buffer_descriptor(*this, buffer_handle, size));
+	return global_sets.uniform_descriptors.last();
 }
 
 } // namespace vulkan

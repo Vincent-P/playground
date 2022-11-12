@@ -62,15 +62,15 @@ static void area_replace_child(Area &area, Handle<Area> previous_child, Handle<A
 Option<Rect> tabview(ui::Ui &ui, Docking &self, std::string_view tabname)
 {
 	u32 i_tabview = u32_invalid;
-	for (u32 i = 0; i < self.tabviews.size(); ++i) {
+	for (u32 i = 0; i < self.tabviews.len(); ++i) {
 		if (self.tabviews[i].title == tabname) {
 			i_tabview = i;
 			break;
 		}
 	}
 	if (i_tabview == u32_invalid) {
-		self.tabviews.push_back(TabView{.title = std::string{tabname}, .area = self.default_area});
-		i_tabview = u32(self.tabviews.size() - 1);
+		self.tabviews.push(TabView{.title = std::string{tabname}, .area = self.default_area});
+		i_tabview = u32(self.tabviews.len() - 1);
 		insert_tabview(self, i_tabview, self.default_area);
 	}
 
@@ -106,7 +106,7 @@ void begin_docking(Docking &self, ui::Ui &ui, Rect rect)
 void end_docking(Docking &self, ui::Ui &ui)
 {
 	draw_area_rec(self, ui, self.root);
-	for (usize i = 0; i < self.floating_containers.size(); ++i) {
+	for (usize i = 0; i < self.floating_containers.len(); ++i) {
 		draw_floating_area(self, ui, i);
 	}
 
@@ -136,10 +136,12 @@ void end_docking(Docking &self, ui::Ui &ui)
 		} else if (auto *detachtab = std::get_if<events::DetachTab>(&element)) {
 			auto previous_area = self.tabviews[detachtab->i_tabview].area;
 			remove_tabview(self, detachtab->i_tabview);
-			auto new_rect      = Rect{.pos = float2(200.0f), .size = float2(500.0f)};
-			auto new_container = self.area_pool.add(AreaContainer{.tabviews = {detachtab->i_tabview}, .selected = 0});
+			auto       new_rect = Rect{.pos = float2(200.0f), .size = float2(500.0f)};
+			Vec<usize> tabviews;
+			tabviews.push(detachtab->i_tabview);
+			auto new_container = self.area_pool.add(AreaContainer{.tabviews = std::move(tabviews), .selected = 0});
 			self.tabviews[detachtab->i_tabview].area = new_container;
-			self.floating_containers.push_back(FloatingContainer{.area = new_container, .rect = new_rect});
+			self.floating_containers.push(FloatingContainer{.area = new_container, .rect = new_rect});
 			remove_empty_areas(self, previous_area);
 		} else if (auto *movefloating = std::get_if<events::MoveFloating>(&element)) {
 			auto &floating_container    = self.floating_containers[movefloating->i_floating];
@@ -148,13 +150,13 @@ void end_docking(Docking &self, ui::Ui &ui)
 	}
 	self.ui.events.clear();
 
-	for (u32 i_container = 0; i_container < self.floating_containers.size();) {
+	for (u32 i_container = 0; i_container < self.floating_containers.len();) {
 		const auto &floating_container = self.floating_containers[i_container];
 		auto       &area               = self.area_pool.get(floating_container.area);
 		if (auto *container = std::get_if<AreaContainer>(&area)) {
-			if (container->tabviews.empty()) {
+			if (container->tabviews.is_empty()) {
 				self.area_pool.remove(floating_container.area);
-				exo::swap_remove(self.floating_containers, i_container);
+				self.floating_containers.swap_remove(i_container);
 				continue;
 			}
 		}
@@ -192,17 +194,17 @@ static void remove_tabview(Docking &docking, usize i_tabview)
 	tabview.area = Handle<Area>::invalid();
 
 	auto &container = area_container(area);
-	ASSERT(!container.tabviews.empty());
+	ASSERT(!container.tabviews.is_empty());
 
 	u32 i_to_remove = u32_invalid;
-	for (u32 i = 0; i < container.tabviews.size(); ++i) {
+	for (u32 i = 0; i < container.tabviews.len(); ++i) {
 		if (container.tabviews[i] == i_tabview) {
 			i_to_remove = i;
 			break;
 		}
 	}
 	ASSERT(i_to_remove != u32_invalid);
-	exo::swap_remove(container.tabviews, i_to_remove);
+	container.tabviews.swap_remove(i_to_remove);
 }
 
 static void insert_tabview(Docking &docking, usize i_tabview, Handle<Area> area_handle)
@@ -211,7 +213,7 @@ static void insert_tabview(Docking &docking, usize i_tabview, Handle<Area> area_
 	auto &tabview = docking.tabviews[i_tabview];
 
 	auto &container = area_container(area);
-	container.tabviews.push_back(i_tabview);
+	container.tabviews.push(i_tabview);
 	tabview.area = area_handle;
 }
 
@@ -221,7 +223,7 @@ static Handle<Area> split_area(
 	Docking &docking, Handle<Area> previous_area_handle, SplitDirection direction, Handle<Area> new_child_handle)
 {
 	// Copy the previous area
-	auto previous_area       = docking.area_pool.get(previous_area_handle);
+	auto previous_area       = std::move(docking.area_pool.get(previous_area_handle));
 	auto previous_parent     = *area_parent(previous_area);
 	auto new_old_area_handle = docking.area_pool.add(std::move(previous_area));
 
@@ -300,7 +302,7 @@ static void remove_empty_areas(Docking &docking, Handle<Area> area_handle)
 				area_replace_child(docking.area_pool.get(parent_handle), area_handle, child_handle);
 			} else {
 				// We dont have a parent? We are probably the root.
-				auto child            = docking.area_pool.get(child_handle);
+				auto child            = std::move(docking.area_pool.get(child_handle));
 				auto child_new_handle = area_handle;
 
 				// Reparent the child's children to ourselves
@@ -317,13 +319,13 @@ static void remove_empty_areas(Docking &docking, Handle<Area> area_handle)
 				}
 
 				// Replace ourselves with the only child
-				docking.area_pool.get(child_new_handle) = child;
+				docking.area_pool.get(child_new_handle) = std::move(child);
 				// Finally remove the child that we moved
 				docking.area_pool.remove(child_handle);
 			}
 		}
 	} else if (auto *container = std::get_if<AreaContainer>(&area)) {
-		if (container->tabviews.empty() && parent_handle.is_valid()) {
+		if (container->tabviews.is_empty() && parent_handle.is_valid()) {
 			// Update the parent to have the child as child instead of the current node
 			area_replace_child(docking.area_pool.get(parent_handle), area_handle, Handle<Area>::invalid());
 
@@ -361,14 +363,14 @@ static void update_area_rect(Docking &docking, Handle<Area> area_handle, Rect re
 		container->rect = rect;
 		if (container->selected == u32_invalid) {
 			// Select first tab if none is selected
-			if (!container->tabviews.empty()) {
+			if (!container->tabviews.is_empty()) {
 				container->selected = 0;
 			}
 		} else {
-			if (container->tabviews.empty()) {
+			if (container->tabviews.is_empty()) {
 				// Remove selection if there is no tabs
 				container->selected = u32_invalid;
-			} else if (container->selected >= container->tabviews.size()) {
+			} else if (container->selected >= container->tabviews.len()) {
 				// Select the first one if selection is invalid
 				container->selected = 0;
 			}
@@ -451,7 +453,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		draw_area_rec(self, ui, splitter->right_child);
 
 	} else if (auto *container = std::get_if<AreaContainer>(&area)) {
-		if (container->tabviews.empty()) {
+		if (container->tabviews.is_empty()) {
 			return;
 		}
 		auto content_rect = container->rect;
@@ -460,7 +462,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		// Draw the tabwell background
 		painter_draw_color_rect(*ui.painter, tabwell_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x28)));
 
-		for (usize i = 0; i < container->tabviews.size(); ++i) {
+		for (usize i = 0; i < container->tabviews.len(); ++i) {
 			auto        i_tabview = container->tabviews[i];
 			const auto &tabview   = self.tabviews[i_tabview];
 
@@ -476,7 +478,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 				break;
 			}
 			case TabState::ClickedDetach: {
-				self.ui.events.push_back(events::DetachTab{.i_tabview = i_tabview});
+				self.ui.events.push(events::DetachTab{.i_tabview = i_tabview});
 				break;
 			}
 			case TabState::None: {
@@ -509,7 +511,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		}
 
 		if (ui.activation.active == id) {
-			self.ui.events.push_back(events::MoveFloating{.i_floating = i_floating, .position = float2(mouse_pos)});
+			self.ui.events.push(events::MoveFloating{.i_floating = i_floating, .position = float2(mouse_pos)});
 		}
 
 		painter_draw_color_rect(*ui.painter, titlebar_rect, ui.state.i_clip_rect, ColorU32::from_uints(0xFF, 0xFF, 0));
@@ -587,7 +589,7 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 
 			if (ui::is_hovering(ui, rect)) {
 				if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
-					self.ui.events.push_back(event);
+					self.ui.events.push(event);
 				}
 				color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.50f * 255));
 			}

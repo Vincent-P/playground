@@ -1,5 +1,6 @@
 #include "assets/importers/png_importer.h"
 
+#include <assets/asset_id.h>
 #include <exo/macros/defer.h>
 #include <exo/profile.h>
 
@@ -38,7 +39,7 @@ Result<CreateResponse> PNGImporter::create_asset(const CreateRequest &request)
 		response.new_id = AssetId::create<Texture>(request.path.filename());
 	}
 
-	return Ok(response);
+	return Ok(std::move(response));
 }
 
 Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request)
@@ -120,7 +121,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	new_texture->depth     = 1;
 	new_texture->levels    = 1;
 	new_texture->format    = pixel_format;
-	new_texture->mip_offsets.push_back(0);
+	new_texture->mip_offsets.push(0);
 	new_texture->pixels_data_size = decoded_size;
 	new_texture->pixels_hash      = request.importer_api.save_blob(std::span(buffer, decoded_size));
 	new_texture->pixels_data_size = decoded_size;
@@ -128,5 +129,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	EXO_PROFILE_MFREE(buffer);
 	free(buffer);
 
-	return Ok(ProcessResponse{.products = {asset_id}});
+	Vec<AssetId> products;
+	products.push(std::move(asset_id));
+	return Ok(ProcessResponse{.products = std::move(products)});
 }

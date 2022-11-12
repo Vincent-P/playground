@@ -128,7 +128,7 @@ static Handle<RenderTexture> get_or_create_texture(
 	}
 	}
 
-	ASSERT(texture->mip_offsets.size() == 1);
+	ASSERT(texture->mip_offsets.len() == 1);
 	ASSERT(texture->levels == 1);
 	ASSERT(texture->depth == 1);
 
@@ -209,7 +209,7 @@ static Handle<RenderMesh> get_or_create_mesh(
     });
 	render_mesh.submesh_buffer   = device.create_buffer({
 		  .name  = "Submesh buffer",
-		  .size  = mesh->submeshes.size() * sizeof(SubmeshDescriptor),
+		  .size  = mesh->submeshes.len() * sizeof(SubmeshDescriptor),
 		  .usage = vulkan::storage_buffer_usage,
     });
 	render_mesh.mesh_asset       = mesh_uuid;
@@ -217,7 +217,7 @@ static Handle<RenderMesh> get_or_create_mesh(
 	for (const auto &submesh : mesh->submeshes) {
 		auto render_material_handle = get_or_create_material(renderer, asset_manager, device, submesh.material);
 
-		render_mesh.render_submeshes.push_back(RenderSubmesh{
+		render_mesh.render_submeshes.push(RenderSubmesh{
 			.material    = render_material_handle,
 			.index_count = submesh.index_count,
 			.first_index = submesh.first_index,
@@ -256,9 +256,9 @@ void register_upload_nodes(RenderGraph &graph,
 
 		ASSERT(instance_bytes_offset % sizeof(InstanceDescriptor) == 0);
 
-		for (u32 i_submesh = 0; i_submesh < render_mesh.render_submeshes.size(); ++i_submesh) {
+		for (u32 i_submesh = 0; i_submesh < render_mesh.render_submeshes.len(); ++i_submesh) {
 			const auto &submesh = render_mesh.render_submeshes[i_submesh];
-			mesh_renderer.drawcalls.push_back(SimpleDraw{
+			mesh_renderer.drawcalls.push(SimpleDraw{
 				.instance_offset = static_cast<u32>(instance_bytes_offset / sizeof(InstanceDescriptor)),
 				.instance_count  = 1,
 				.index_count     = submesh.index_count,
@@ -286,7 +286,7 @@ void register_upload_nodes(RenderGraph &graph,
 				upload_buffer.i_frame);
 
 			asset_manager->read_blob(texture->pixels_hash, p_upload_data);
-			mesh_renderer.image_uploads.push_back(RenderImageUpload{
+			mesh_renderer.image_uploads.push(RenderImageUpload{
 				.dst_image     = p_render_texture->image,
 				.upload_offset = upload_offset,
 				.upload_size   = texture->pixels_data_size,
@@ -344,7 +344,7 @@ void register_upload_nodes(RenderGraph &graph,
 				p_upload_material[0].metallic_roughness_texture = device.get_image_sampled_index(image);
 			}
 
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = mesh_renderer.materials_buffer,
 				.dst_offset    = handle.get_index() * sizeof(MaterialDescriptor),
 				.upload_offset = upload_offset,
@@ -359,7 +359,7 @@ void register_upload_nodes(RenderGraph &graph,
 	// Upload new meshes
 	for (auto [handle, p_render_mesh] : mesh_renderer.render_meshes) {
 		bool materials_uploaded = true;
-		for (u32 i_submesh = 0; i_submesh < p_render_mesh->render_submeshes.size() && materials_uploaded; ++i_submesh) {
+		for (u32 i_submesh = 0; i_submesh < p_render_mesh->render_submeshes.len() && materials_uploaded; ++i_submesh) {
 			const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
 			if (render_submesh.material.is_valid()) {
 				materials_uploaded = mesh_renderer.render_materials.get(render_submesh.material).is_uploaded;
@@ -387,28 +387,28 @@ void register_upload_nodes(RenderGraph &graph,
 				upload_buffer.i_frame);
 
 			auto bread = asset_manager->read_blob(mesh_asset->indices_hash, p_upload_data);
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = p_render_mesh->index_buffer,
 				.upload_offset = upload_offset,
 				.upload_size   = indices_size,
 			});
 
 			bread += asset_manager->read_blob(mesh_asset->positions_hash, p_upload_data.subspan(bread));
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = p_render_mesh->positions_buffer,
 				.upload_offset = upload_offset + indices_size,
 				.upload_size   = positions_size,
 			});
 
 			bread += asset_manager->read_blob(mesh_asset->uvs_hash, p_upload_data.subspan(bread));
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = p_render_mesh->uvs_buffer,
 				.upload_offset = upload_offset + indices_size + positions_size,
 				.upload_size   = uvs_size,
 			});
 
 			auto p_upload_submeshes = exo::reinterpret_span<SubmeshDescriptor>(p_upload_data.subspan(bread));
-			for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.size(); ++i_submesh) {
+			for (usize i_submesh = 0; i_submesh < mesh_asset->submeshes.len(); ++i_submesh) {
 				const auto &render_submesh = p_render_mesh->render_submeshes[i_submesh];
 
 				p_upload_submeshes[i_submesh].first_index  = mesh_asset->submeshes[i_submesh].first_index;
@@ -422,7 +422,7 @@ void register_upload_nodes(RenderGraph &graph,
 				}
 			}
 			bread += submeshes_size;
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = p_render_mesh->submesh_buffer,
 				.upload_offset = upload_offset + indices_size + positions_size + uvs_size,
 				.upload_size   = submeshes_size,
@@ -436,7 +436,7 @@ void register_upload_nodes(RenderGraph &graph,
 			p_upload_descriptor[0].uvs_buffer_descriptor = device.get_buffer_storage_index(p_render_mesh->uvs_buffer);
 			p_upload_descriptor[0].submesh_buffer_descriptor =
 				device.get_buffer_storage_index(p_render_mesh->submesh_buffer);
-			mesh_renderer.buffer_uploads.push_back(RenderUploads{
+			mesh_renderer.buffer_uploads.push(RenderUploads{
 				.dst_buffer    = mesh_renderer.meshes_buffer,
 				.dst_offset    = handle.get_index() * sizeof(MeshDescriptor),
 				.upload_offset = upload_offset + indices_size + positions_size + uvs_size + submeshes_size,
@@ -449,7 +449,7 @@ void register_upload_nodes(RenderGraph &graph,
 	}
 
 	// Submit upload commands
-	if (!mesh_renderer.image_uploads.empty()) {
+	if (!mesh_renderer.image_uploads.is_empty()) {
 		auto uploads_span = std::span{mesh_renderer.image_uploads};
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {
@@ -481,7 +481,7 @@ void register_upload_nodes(RenderGraph &graph,
 		});
 		mesh_renderer.image_uploads.clear();
 	}
-	if (!mesh_renderer.buffer_uploads.empty()) {
+	if (!mesh_renderer.buffer_uploads.is_empty()) {
 		auto uploads_span = std::span{mesh_renderer.buffer_uploads};
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {

@@ -33,7 +33,7 @@ void Entity::unload(LoadingContext &ctx)
 	state = EntityState::Unloaded;
 }
 
-void Entity::update_loading(LoadingContext& ctx)
+void Entity::update_loading(LoadingContext &ctx)
 {
 	ASSERT(this->state == EntityState::Loading);
 
@@ -51,7 +51,7 @@ void Entity::update_loading(LoadingContext& ctx)
 		}
 	}
 
-	if (initialized_components == components.size()) {
+	if (initialized_components == components.len()) {
 		this->state = EntityState::Loaded;
 	}
 }
@@ -78,7 +78,7 @@ void Entity::initialize(InitializationContext &ctx)
 
 		for (auto system : local_systems) {
 			if (system->priority > 0.0) {
-				per_stage_update_list[stage].push_back(system.get());
+				per_stage_update_list[stage].push(system.get());
 			}
 		}
 
@@ -123,33 +123,33 @@ void Entity::update_systems(const UpdateContext &ctx)
 void Entity::destroy_system(refl::BasePtr<LocalSystem> system)
 {
 	usize i = 0;
-	for (; i < local_systems.size(); i += 1) {
+	for (; i < local_systems.len(); i += 1) {
 		if (system == local_systems[i]) {
 			break;
 		}
 	}
 	// System not present in local sytems
-	ASSERT(i < local_systems.size());
-	exo::swap_remove(local_systems, i);
+	ASSERT(i < local_systems.len());
+	local_systems.swap_remove(i);
 }
 
 void Entity::create_component_internal(refl::BasePtr<BaseComponent> component)
 {
 	component->uuid = exo::UUID::create();
-	components.push_back(component);
+	components.push(component);
 }
 
 void Entity::destroy_component_internal(refl::BasePtr<BaseComponent> component)
 {
 	usize i = 0;
-	for (; i < components.size(); i += 1) {
+	for (; i < components.len(); i += 1) {
 		if (component == components[i]) {
 			break;
 		}
 	}
 	// Component not present in components
-	ASSERT(i < components.size());
-	exo::swap_remove(components, i);
+	ASSERT(i < components.len());
+	components.swap_remove(i);
 }
 
 void serialize(exo::Serializer &serializer, Entity &entity)

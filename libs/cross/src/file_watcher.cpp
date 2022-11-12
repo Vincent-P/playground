@@ -50,7 +50,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 	watch.wd   = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
 	ASSERT(watch.wd > 0);
 	fw.watches.push_back(std::move(watch));
-	return fw.watches.back();
+	return fw.watches.last();
 }
 
 static void fetch_events_internal(FileWatcher &fw)
@@ -130,8 +130,8 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 		nullptr);
 	ASSERT(res);
 
-	fw.watches.push_back(std::move(watch));
-	return fw.watches.back();
+	fw.watches.push(std::move(watch));
+	return fw.watches.last();
 }
 
 static void fetch_events_internal(FileWatcher &fw)
@@ -171,7 +171,7 @@ static void fetch_events_internal(FileWatcher &fw)
 				break;
 			}
 
-			fw.current_events.push_back(std::move(event));
+			fw.current_events.push(std::move(event));
 
 			if (p_event->NextEntryOffset == 0) {
 				break;

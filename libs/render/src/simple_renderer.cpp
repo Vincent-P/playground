@@ -114,7 +114,7 @@ void SimpleRenderer::start_frame()
 	EXO_PROFILE_PLOT_VALUE("Device: framebuffers", i64(this->device.framebuffers.size));
 	EXO_PROFILE_PLOT_VALUE("Device: images", i64(this->device.images.size));
 	EXO_PROFILE_PLOT_VALUE("Device: buffers", i64(this->device.buffers.size));
-	EXO_PROFILE_PLOT_VALUE("Device: samplers", i64(this->device.samplers.size()));
+	EXO_PROFILE_PLOT_VALUE("Device: samplers", i64(this->device.samplers.len()));
 }
 
 void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
@@ -168,13 +168,13 @@ void SimpleRenderer::reload_shaders()
 		for (const auto [shader_handle, p_shader] : this->device.shaders) {
 			fmt::print("shader: {}\n", p_shader->filename);
 			if (p_shader->filename == full_path) {
-				shaders_to_reload.push_back(shader_handle);
+				shaders_to_reload.push(shader_handle);
 			}
 		}
 		fmt::print("\n");
 	});
 
-	if (shaders_to_reload.empty()) {
+	if (shaders_to_reload.is_empty()) {
 		return;
 	}
 

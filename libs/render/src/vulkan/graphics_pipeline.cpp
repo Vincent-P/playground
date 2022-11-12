@@ -11,8 +11,9 @@ Handle<GraphicsProgram> Device::create_program(std::string_view name, const Grap
 {
 	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
-	auto renderpass =
-		create_renderpass(*this, graphics_state.attachments_format, Vec<LoadOp>(attachments_count, LoadOp::ignore()));
+	auto renderpass = create_renderpass(*this,
+		graphics_state.attachments_format,
+		Vec<LoadOp>::with_values(attachments_count, LoadOp::ignore()));
 
 	return graphics_programs.add({
 		.name           = std::string{name},
@@ -93,8 +94,8 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	att_states.reserve(program.graphics_state.attachments_format.attachments_format.size());
 
 	for (usize i_color = 0; i_color < program.graphics_state.attachments_format.attachments_format.size(); ++i_color) {
-		att_states.emplace_back();
-		auto &state = att_states.back();
+		att_states.push();
+		auto &state = att_states.last();
 		state.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
@@ -115,7 +116,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	VkPipelineColorBlendStateCreateInfo colorblend_i = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 	colorblend_i.flags             = 0;
-	colorblend_i.attachmentCount   = static_cast<u32>(att_states.size());
+	colorblend_i.attachmentCount   = static_cast<u32>(att_states.len());
 	colorblend_i.pAttachments      = att_states.data();
 	colorblend_i.logicOpEnable     = VK_FALSE;
 	colorblend_i.logicOp           = VK_LOGIC_OP_COPY;

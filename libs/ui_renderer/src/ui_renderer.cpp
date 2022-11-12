@@ -63,11 +63,11 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 							.depth  = 1,
 						},
 				};
-				glyphs_to_upload.push_back(copy);
+				glyphs_to_upload.push(copy);
 			}
 			return true;
 		});
-		if (!glyphs_to_upload.empty()) {
+		if (!glyphs_to_upload.is_empty()) {
 			cmd.barrier(glyph_atlas, vulkan::ImageUsage::TransferDst);
 			cmd.copy_buffer_to_image(api.upload_buffer.buffer, glyph_atlas, glyphs_to_upload);
 			cmd.barrier(glyph_atlas, vulkan::ImageUsage::GraphicsShaderRead);

@@ -70,14 +70,14 @@ void RenderGraph::end_frame()
 GraphicPass &RenderGraph::graphic_pass(
 	Handle<TextureDesc> color_attachment, Handle<TextureDesc> depth_buffer, GraphicCb execute)
 {
-	passes.push_back(Pass::graphic(color_attachment, depth_buffer, std::move(execute)));
-	return passes.back().pass.graphic;
+	passes.push(Pass::graphic(color_attachment, depth_buffer, std::move(execute)));
+	return passes.last().pass.graphic;
 }
 
 RawPass &RenderGraph::raw_pass(RawCb execute)
 {
-	passes.push_back(Pass::raw(std::move(execute)));
-	return passes.back().pass.raw;
+	passes.push(Pass::raw(std::move(execute)));
+	return passes.last().pass.raw;
 }
 
 Handle<TextureDesc> RenderGraph::output(TextureDesc desc) { return this->resources.texture_descs.add(std::move(desc)); }

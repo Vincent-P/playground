@@ -22,8 +22,8 @@ static Vec<u8> read_file(const std::filesystem::path &path)
 	file.seekg(0, std::ios::end);
 	end = file.tellg();
 
-	Vec<u8> result(static_cast<usize>(end - begin));
-	if (result.empty()) {
+	auto result = Vec<u8>::with_length(static_cast<usize>(end - begin));
+	if (result.is_empty()) {
 		return {};
 	}
 
@@ -42,7 +42,7 @@ Handle<Shader> Device::create_shader(std::string_view path)
 	auto bytecode = read_file(path);
 
 	VkShaderModuleCreateInfo info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-	info.codeSize                 = bytecode.size();
+	info.codeSize                 = bytecode.len();
 	info.pCode                    = reinterpret_cast<const u32 *>(bytecode.data());
 
 	VkShaderModule vkhandle = VK_NULL_HANDLE;
@@ -63,7 +63,7 @@ void Device::reload_shader(Handle<Shader> shader_handle)
 	shader.bytecode = read_file(shader.filename);
 
 	VkShaderModuleCreateInfo info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-	info.codeSize                 = shader.bytecode.size();
+	info.codeSize                 = shader.bytecode.len();
 	info.pCode                    = reinterpret_cast<const u32 *>(shader.bytecode.data());
 
 	vk_check(vkCreateShaderModule(device, &info, nullptr, &shader.vkhandle));

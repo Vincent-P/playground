@@ -1,6 +1,7 @@
 #include "cross/file_dialog.h"
 
 #include "utils_win32.h"
+#include <exo/collections/vector.h>
 #include <exo/macros/defer.h>
 #include <exo/maths/numerics.h>
 
@@ -9,17 +10,17 @@
 
 namespace cross
 {
-Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string>> extensions)
+Option<std::filesystem::path> file_dialog(exo::Span<const std::pair<std::string, std::string>> extensions)
 {
 	// Convert the extensions list to windows' wonderful utf16 madness
 	Vec<std::wstring> string_holder;
 	string_holder.reserve(2 * extensions.size());
-	Vec<COMDLG_FILTERSPEC> filters(extensions.size());
+	auto filters = Vec<COMDLG_FILTERSPEC>::with_length(extensions.size());
 	for (uint i_filter = 0; i_filter < extensions.size(); i_filter++) {
-		const usize i_name_str = string_holder.size();
-		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].first));
-		const usize i_filter_str = string_holder.size();
-		string_holder.emplace_back(utils::utf8_to_utf16(extensions[i_filter].second));
+		const usize i_name_str = string_holder.len();
+		string_holder.push(utils::utf8_to_utf16(extensions[i_filter].first));
+		const usize i_filter_str = string_holder.len();
+		string_holder.push(utils::utf8_to_utf16(extensions[i_filter].second));
 
 		filters[i_filter].pszName = string_holder[i_name_str].c_str();
 		filters[i_filter].pszSpec = string_holder[i_filter_str].c_str();
@@ -46,7 +47,7 @@ Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string
 	DEFER { pFileOpen->Release(); };
 
 	// Set the file types
-	hr = pFileOpen->SetFileTypes(static_cast<UINT>(filters.size()), filters.data());
+	hr = pFileOpen->SetFileTypes(static_cast<UINT>(filters.len()), filters.data());
 	if (!SUCCEEDED(hr)) {
 		return {};
 	}

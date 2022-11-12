@@ -49,7 +49,7 @@ void EntityWorld::update(double delta_t, AssetManager *asset_manager)
 		}
 
 		for (auto global_system : system_registry.global_systems) {
-			global_per_stage_update_list[global_system->update_stage].push_back(global_system);
+			global_per_stage_update_list[global_system->update_stage].push(global_system);
 		}
 
 		for (auto &update_list : global_per_stage_update_list) {
@@ -100,7 +100,7 @@ Entity *EntityWorld::create_entity(std::string_view name)
 void EntityWorld::set_parent_entity(Entity *entity, Entity *parent)
 {
 	entity->parent = parent->uuid;
-	parent->attached_entities.push_back(entity->uuid);
+	parent->attached_entities.push(entity->uuid);
 
 	this->_attach_to_parent(entity);
 	this->_refresh_attachments(parent);
@@ -129,7 +129,7 @@ void EntityWorld::_attach_to_parent(Entity *entity)
 
 	entity->root_component->parent = parent_root;
 	entity->root_component->update_world_transform();
-	parent_root->children.push_back(entity->root_component);
+	parent_root->children.push(entity->root_component);
 
 	entity->is_attached_to_parent = true;
 }
@@ -146,16 +146,16 @@ void EntityWorld::_dettach_to_parent(Entity *entity)
 	entity->root_component->update_world_transform();
 
 	u32 i_parent_child = 0;
-	for (; i_parent_child < parent_root->children.size(); i_parent_child += 1) {
+	for (; i_parent_child < parent_root->children.len(); i_parent_child += 1) {
 		if (parent_root->children[i_parent_child] == entity->root_component) {
 			break;
 		}
 	}
 
 	// Assert hit: The parent doesn't contain this entity in its children
-	ASSERT(i_parent_child < parent_root->children.size());
+	ASSERT(i_parent_child < parent_root->children.len());
 
-	exo::swap_remove(parent_root->children, i_parent_child);
+	parent_root->children.swap_remove(i_parent_child);
 
 	entity->is_attached_to_parent = false;
 }
@@ -175,26 +175,20 @@ void EntityWorld::_refresh_attachments(Entity *entity)
 
 void EntityWorld::create_system_internal(refl::BasePtr<GlobalSystem> system)
 {
-	system_registry.global_systems.push_back(system);
+	system_registry.global_systems.push(system);
 }
 
 void EntityWorld::destroy_system_internal(refl::BasePtr<GlobalSystem> system)
 {
 	usize       i    = 0;
-	const usize size = system_registry.global_systems.size();
+	const usize size = system_registry.global_systems.len();
 	for (; i < size; i += 1) {
 		if (system_registry.global_systems[i] == system) {
 			break;
 		}
 	}
 
-	if (i < size - 1) {
-		std::swap(system_registry.global_systems[i], system_registry.global_systems.back());
-	}
-
-	if (i < size) {
-		system_registry.global_systems.pop_back();
-	}
+	system_registry.global_systems.swap_remove(i);
 }
 
 // -- Serializer

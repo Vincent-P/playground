@@ -566,7 +566,7 @@ void Device::destroy_query_pool(QueryPool &query_pool)
 void Device::get_query_results(QueryPool &query_pool, u32 first_query, u32 count, Vec<u64> &results)
 {
 	EXO_PROFILE_SCOPE;
-	const usize old_size = results.size();
+	const usize old_size = results.len();
 	results.resize(old_size + count);
 
 	ASSERT(first_query + count < query_pool.capacity);
@@ -591,7 +591,7 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
 	work.device         = &device;
 	work.command_buffer = VK_NULL_HANDLE;
 
-	for (u32 i_command_buffer = 0; i_command_buffer < command_pool.command_buffers.size(); i_command_buffer += 1) {
+	for (u32 i_command_buffer = 0; i_command_buffer < command_pool.command_buffers.len(); i_command_buffer += 1) {
 		if (command_pool.command_buffers_is_used[i_command_buffer] == false) {
 			command_pool.command_buffers_is_used[i_command_buffer] = true;
 			work.command_buffer                                    = command_pool.command_buffers[i_command_buffer];
@@ -606,8 +606,8 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
 		ai.commandBufferCount          = 1;
 		vk_check(vkAllocateCommandBuffers(device.device, &ai, &work.command_buffer));
 
-		command_pool.command_buffers.push_back(work.command_buffer);
-		command_pool.command_buffers_is_used.push_back(true);
+		command_pool.command_buffers.push(work.command_buffer);
+		command_pool.command_buffers_is_used.push(true);
 	}
 
 	const u32 queue_family_idx = queue_type == QueueType::Graphics   ? device.graphics_family_idx

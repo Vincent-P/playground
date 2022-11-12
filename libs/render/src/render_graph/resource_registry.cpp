@@ -23,7 +23,7 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 
 		// Destroy images unused for 19 frames
 		if ((metadata.last_frame_used + 19) < this->i_frame) {
-			img_to_remove.push_back(image_handle);
+			img_to_remove.push(image_handle);
 		}
 	}
 
@@ -31,16 +31,16 @@ void ResourceRegistry::begin_frame(vulkan::Device &device, u64 frame)
 	for (auto [fb_handle, metadata_handle] : this->framebuffer_pool) {
 		const auto &metadata = this->framebuffer_metadatas.get(metadata_handle);
 		if (metadata.last_frame_used + 3 < this->i_frame) {
-			fb_to_remove.push_back(fb_handle);
+			fb_to_remove.push(fb_handle);
 		}
 	}
 
 	for (const auto handle_to_remove : fb_to_remove) {
 		device.destroy_framebuffer(handle_to_remove);
 
-		for (usize i_fb = 0; i_fb < this->framebuffers.size(); ++i_fb) {
+		for (usize i_fb = 0; i_fb < this->framebuffers.len(); ++i_fb) {
 			if (this->framebuffers[i_fb] == handle_to_remove) {
-				exo::swap_remove(this->framebuffers, i_fb);
+				this->framebuffers.swap_remove(i_fb);
 				this->framebuffer_pool.remove(handle_to_remove);
 				break;
 			}
@@ -93,7 +93,7 @@ void ResourceRegistry::drop_image(Handle<vulkan::Image> image_handle)
 	}
 
 	if (this->image_pool.at(image_handle)) {
-		this->image_pool.remove(image_handle);	
+		this->image_pool.remove(image_handle);
 	}
 }
 
@@ -202,6 +202,6 @@ Handle<vulkan::Framebuffer> ResourceRegistry::resolve_framebuffer(vulkan::Device
 
 	auto new_handle = device.create_framebuffer(size, color_images, depth_image);
 	update_framebuffer_metadata(*this, new_handle);
-	this->framebuffers.push_back(new_handle);
+	this->framebuffers.push(new_handle);
 	return new_handle;
 }

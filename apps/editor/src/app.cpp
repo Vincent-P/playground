@@ -291,8 +291,8 @@ void App::run()
 
 			// Gameplay
 			this->scene.update(inputs);
-			this->render_world =
-				this->scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world;
+			this->render_world = std::move(
+				this->scene.entity_world.get_system_registry().get_system<PrepareRenderWorld>()->render_world);
 
 			// Render
 			this->render_world.main_camera_projection = camera::infinite_perspective(this->render_world.main_camera_fov,

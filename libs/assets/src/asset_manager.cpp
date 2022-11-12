@@ -78,11 +78,11 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	CreateRequest create_req{};
 	create_req.asset = std::move(id);
 	create_req.path  = path;
-	auto create_resp = importer.create_asset(create_req).value();
+	auto create_resp = std::move(importer.create_asset(create_req).value());
 	ASSERT(create_resp.new_id.is_valid());
 
 	// Create and process its dependencies
-	for (u32 i_dep = 0; i_dep < create_resp.dependencies_id.size(); ++i_dep) {
+	for (u32 i_dep = 0; i_dep < create_resp.dependencies_id.len(); ++i_dep) {
 		import_resource(manager, create_resp.dependencies_id[i_dep], create_resp.dependencies_paths[i_dep]);
 	}
 
@@ -91,8 +91,8 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	ProcessRequest process_req{.importer_api = api};
 	process_req.asset = create_resp.new_id;
 	process_req.path  = path;
-	auto process_resp = importer.process_asset(process_req).value();
-	ASSERT(!process_resp.products.empty());
+	auto process_resp = std::move(importer.process_asset(process_req).value());
+	ASSERT(!process_resp.products.is_empty());
 
 	// Update the resource in the database
 	auto resource_file = cross::MappedFile::open(path.view()).value();
@@ -167,7 +167,7 @@ void AssetManager::update_async()
 	for (const auto &[asset_id, req] : this->database.asset_async_requests) {
 		if (req.waitable->is_done()) {
 			this->finish_loading_async(req.data->result);
-			to_remove.push_back(asset_id);
+			to_remove.push(asset_id);
 		}
 	}
 

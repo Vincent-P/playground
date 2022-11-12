@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-void Inputs::bind(Action action, const KeyBinding &binding) { bindings[action] = binding; }
+void Inputs::bind(Action action, KeyBinding &&binding) { bindings[action] = std::move(binding); }
 
 bool Inputs::is_pressed(Action action) const
 {

@@ -60,7 +60,7 @@ std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<con
 
 		jobmanager.queue_job(*job);
 
-		waitable->jobs.push_back(std::move(job));
+		waitable->jobs.push(std::move(job));
 	}
 
 	return waitable;

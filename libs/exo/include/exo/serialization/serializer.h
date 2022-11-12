@@ -87,14 +87,14 @@ void serialize(Serializer &serializer, T (&data)[n])
 template <typename T>
 void serialize(Serializer &serializer, Vec<T> &data)
 {
-	usize size = data.size();
+	usize size = data.len();
 	serialize(serializer, size);
 
 	if (serializer.is_writing == false) {
 		data.resize(size);
 	}
 
-	ASSERT(size == data.size());
+	ASSERT(size == data.len());
 	for (usize i = 0; i < size; i += 1) {
 		serialize(serializer, data[i]);
 	}

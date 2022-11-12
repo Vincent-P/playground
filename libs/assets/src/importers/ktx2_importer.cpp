@@ -86,7 +86,7 @@ Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, 
 			i,
 			0,
 			0,
-			&new_texture->mip_offsets.back());
+			&new_texture->mip_offsets.last());
 		ASSERT(result == KTX_SUCCESS);
 	}
 

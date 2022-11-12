@@ -96,12 +96,12 @@ Option<int2> GlyphCache::queue_glyph(Font &font, GlyphId glyph_id, GlyphImage *i
 		.metrics      = glyph_metrics,
 	});
 	lru_cache_use(this->lru_cache, this->lru_head, new_glyph_handle);
-	face_cache.push_back(GlyphKey{
+	face_cache.push(GlyphKey{
 		.handle   = new_glyph_handle,
 		.glyph_id = glyph_id,
 	});
 
-	this->events.push_back(GlyphEvent{
+	this->events.push(GlyphEvent{
 		.type         = GlyphEvent::Type::New,
 		.glyph_handle = new_glyph_handle,
 	});
@@ -131,12 +131,12 @@ AllocationId GlyphCache::alloc_glyph(int2 alloc_size)
 		// Remove it from the face cache
 		auto &face_cache  = this->face_caches[0];
 		usize i_glyph_key = 0;
-		for (; i_glyph_key < face_cache.size(); ++i_glyph_key) {
+		for (; i_glyph_key < face_cache.len(); ++i_glyph_key) {
 			if (face_cache[i_glyph_key].handle == evicted_glyph_handle) {
 				break;
 			}
 		}
-		exo::swap_remove(face_cache, i_glyph_key);
+		face_cache.swap_remove(i_glyph_key);
 
 		// Deallocate it in the atlas
 		auto glyph_removed = this->allocator.unref(evicted_glyph_alloc_id);

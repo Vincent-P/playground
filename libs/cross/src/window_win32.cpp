@@ -52,7 +52,7 @@ static void update_key_state(Window &window, VirtualKey key)
 		if (old) {
 			state = ButtonState::Released;
 		}
-		window.events.push_back({Event::KeyType, {events::Key{.key = key, .state = state}}});
+		window.events.push(Event{Event::KeyType, {events::Key{.key = key, .state = state}}});
 	}
 }
 
@@ -85,7 +85,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 std::unique_ptr<Window> Window::create(int2 size, const std::string_view title)
 {
-	auto window  = std::make_unique<Window>();
+	auto window   = std::make_unique<Window>();
 	window->title = std::string(title);
 	window->size  = size;
 	window->stop  = false;
@@ -107,19 +107,19 @@ std::unique_ptr<Window> Window::create(int2 size, const std::string_view title)
 	auto utf16_title = utils::utf8_to_utf16(title);
 
 	window_impl.hwnd = CreateWindowExW(WS_EX_TRANSPARENT, // Optional window styles.
-		wc.lpszClassName,                                // Window class
-		utf16_title.c_str(),                             // Window text
-		WS_BORDER | WS_OVERLAPPEDWINDOW,                 // Window style
+		wc.lpszClassName,                                 // Window class
+		utf16_title.c_str(),                              // Window text
+		WS_BORDER | WS_OVERLAPPEDWINDOW,                  // Window style
 		// Position and size
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
 		// Width height
 		window->size.x,
 		window->size.y,
-		nullptr,  // Parent window
-		nullptr,  // Menu
-		instance, // Instance handle
-		window.get()   // Additional application data
+		nullptr,     // Parent window
+		nullptr,     // Menu
+		instance,    // Instance handle
+		window.get() // Additional application data
 	);
 
 	ASSERT(window_impl.hwnd);
@@ -277,7 +277,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				state = ButtonState::Released;
 			}
 
-			window.events.push_back({Event::KeyType, {events::Key{.key = key, .state = state}}});
+			window.events.push(Event{Event::KeyType, {events::Key{.key = key, .state = state}}});
 			window.keys_pressed[key] = state == ButtonState::Pressed;
 		}
 		return 0;
@@ -292,12 +292,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		switch (wParam) {
 		case 0x08: {
 			// Process a backspace.
-			window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\b"}});
+			window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = "\b"}});
 			break;
 		}
 		case 0x0A: {
 			// Process a linefeed.
-			window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\n"}});
+			window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = "\n"}});
 			break;
 		}
 		case 0x1B: {
@@ -306,12 +306,12 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		}
 		case 0x09: {
 			// Process a tab.
-			window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\t"}});
+			window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = "\t"}});
 			break;
 		}
 		case 0x0D: {
 			// Process a carriage return.
-			window.events.push_back({.type = Event::CharacterType, .character = {.sequence = "\n"}});
+			window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = "\n"}});
 			break;
 		}
 		default: {
@@ -334,7 +334,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			if (clear) {
 				auto utf8_buffer = utils::utf16_to_utf8(buffer);
 				ASSERT(utf8_buffer.size() < sizeof(events::Character));
-				window.events.push_back({.type = Event::CharacterType, .character = {.sequence = {utf8_buffer[0]}}});
+				window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = {utf8_buffer[0]}}});
 				buffer[0] = 0;
 				buffer[1] = 0;
 				buffer[2] = 0;
@@ -359,7 +359,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				result.resize(size);
 				ImmGetCompositionStringW(himc, GCS_COMPSTR, reinterpret_cast<void *>(result.data()), size);
 				auto utf8_result = utils::utf16_to_utf8(result);
-				window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {nullptr}});
+				window.events.push(Event{.type = Event::IMECompositionType, .ime_composition = {nullptr}});
 			}
 		} else if (lParam & GCS_RESULTSTR) // Retrieve or update the string of the composition result.
 		{
@@ -371,7 +371,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 				result.resize(size);
 				ImmGetCompositionStringW(himc, GCS_RESULTSTR, reinterpret_cast<void *>(result.data()), size);
 				auto utf8_result = utils::utf16_to_utf8(result);
-				window.events.push_back({.type = Event::IMECompositionResultType, .ime_composition_result = {nullptr}});
+				window.events.push(Event{.type = Event::IMECompositionResultType, .ime_composition_result = {nullptr}});
 			}
 		}
 
@@ -379,7 +379,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	}
 
 	case WM_IME_ENDCOMPOSITION: {
-		window.events.push_back({.type = Event::IMECompositionType, .ime_composition = {.composition = nullptr}});
+		window.events.push(Event{.type = Event::IMECompositionType, .ime_composition = {.composition = nullptr}});
 	}
 
 		/// --- Mouse inputs
@@ -387,14 +387,14 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	case WM_MOUSEWHEEL: {
 		// fwKeys = GET_KEYSTATE_WPARAM(wParam);
 		const int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
-		window.events.push_back({.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -delta}});
+		window.events.push(Event{.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -delta}});
 		return 0;
 	}
 
 	case WM_MOUSEMOVE: {
 		int x = GET_X_LPARAM(lParam);
 		int y = GET_Y_LPARAM(lParam);
-		window.events.push_back({.type = Event::MouseMoveType, .mouse_move = {x, y}});
+		window.events.push(Event{.type = Event::MouseMoveType, .mouse_move = {x, y}});
 		window.mouse_position = {x, y};
 		return 0;
 	}
@@ -420,8 +420,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONDBLCLK) {
 			button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
 		}
-		window.events.push_back(
-			{.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Pressed}});
+		window.events.push(
+			Event{.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Pressed}});
 		window.mouse_buttons_pressed[button] = true;
 		return 0;
 	}
@@ -443,8 +443,8 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		if (uMsg == WM_XBUTTONUP) {
 			button = (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) ? MouseButton::SideForward : MouseButton::SideBackward;
 		}
-		window.events.push_back(
-			{.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Released}});
+		window.events.push(
+			Event{.type = Event::MouseClickType, .mouse_click = {.button = button, .state = ButtonState::Released}});
 		window.mouse_buttons_pressed[button] = true;
 		return 0;
 	}

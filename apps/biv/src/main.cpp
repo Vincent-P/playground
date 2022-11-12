@@ -87,7 +87,7 @@ struct Image
 struct RenderSample
 {
 	std::unique_ptr<cross::Window> window = nullptr;
-	Inputs         inputs = {};
+	Inputs                         inputs = {};
 
 	SimpleRenderer                  renderer;
 	UiRenderer                      ui_renderer;
@@ -246,7 +246,8 @@ static void display_ui(RenderSample *app)
 	rect_split_left(menubar_rect, menu_item_margin);
 	file_rect = rect_center(file_rect, label_size);
 	if (ui::button(app->ui, {.label = "Open Image", .rect = file_rect})) {
-		if (auto path = cross::file_dialog({{"PNG Image", "*.png"}})) {
+		auto png_extension = std::make_pair(std::string{"PNG Image"}, std::string{"*.png"});
+		if (auto path = cross::file_dialog({&png_extension, 1})) {
 			open_file(app, path.value());
 		}
 	}
@@ -443,7 +444,7 @@ static void open_file(RenderSample *app, const std::filesystem::path &path)
 	new_image.depth     = 1;
 	new_image.levels    = 1;
 	new_image.format    = PixelFormat::R8G8B8A8_UNORM;
-	new_image.mip_offsets.push_back(0);
+	new_image.mip_offsets.push(0);
 
 	new_image.pixels_data = new_image.impl_data;
 	new_image.data_size   = decoded_size;
