@@ -1,3 +1,7 @@
+#include "helpers.h"
+#include <catch2/catch_test_macros.hpp>
+#include <exo/collections/map.h>
+
 #include <exo/hash.h>
 
 // Provide a hash function
@@ -10,10 +14,6 @@ namespace exo
 	return hash;
 }
 } // namespace exo
-
-#include <exo/collections/map.h>
-
-#include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("exo::Map at", "[map]")
 {
@@ -100,20 +100,6 @@ TEST_CASE("exo::Map remove", "[map]")
 	REQUIRE(*map.at(6) == 7);
 	REQUIRE(map.size == 2);
 }
-
-struct DtorCalled
-{
-	~DtorCalled()
-	{
-		this->i           = int(0xdeadbeef);
-		this->dtor_called = true;
-	}
-
-	bool dtor_has_been_called() { return this->i == int(0xdeadbeef) && this->dtor_called; }
-
-	int  i           = 42;
-	bool dtor_called = false;
-};
 
 TEST_CASE("exo::Map removes non-trivial objects", "[map]")
 {
