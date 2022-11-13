@@ -70,11 +70,11 @@ struct Vec
 
 	// Iterators
 
-	T *begin() { return &(*this)[0]; }
-	T *end() { return &this->last(); }
+	T *begin() { return &this->data()[0]; }
+	T *end() { return &this->data()[this->length]; }
 
-	const T *begin() const { return &(*this)[0]; }
-	const T *end() const { return &this->last(); }
+	const T *begin() const { return &this->data()[0]; }
+	const T *end() const { return &this->data()[this->length]; }
 
 	// Capacity
 

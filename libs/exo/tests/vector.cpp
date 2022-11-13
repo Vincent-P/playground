@@ -132,3 +132,46 @@ TEST_CASE("exo::Vec lifetimes", "[vector]")
 	vector.clear();
 	CHECK(alives == 0);
 }
+
+TEST_CASE("exo::Vec foreach", "[vector]")
+{
+	exo::Vec<int> vec;
+	const auto   &cvec = vec;
+
+	int sum = 0;
+
+	// foreach on empty vector
+	for (const auto &value : cvec) {
+		sum += value;
+	}
+
+	REQUIRE(sum == 0);
+
+	constexpr int MAX_COUNT = 255;
+	for (int i = 0; i < MAX_COUNT; ++i) {
+		vec.push(i);
+	}
+
+	u32 iter = 0;
+	// Sum all elements
+	for (const auto &value : cvec) {
+		sum += value;
+		++iter;
+	}
+
+	constexpr int MAX_COUNT_SUM = (MAX_COUNT * (MAX_COUNT - 1)) / 2;
+	REQUIRE(iter == vec.len());
+	REQUIRE(iter == MAX_COUNT);
+	REQUIRE(sum == MAX_COUNT_SUM);
+
+	// Set all elements to 0
+	for (auto &value : vec) {
+		value = 0;
+	}
+
+	sum = 0;
+	for (const auto &value : cvec) {
+		sum += value;
+	}
+	REQUIRE(sum == 0);
+}
