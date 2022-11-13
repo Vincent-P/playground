@@ -7,10 +7,10 @@
 
 namespace vulkan
 {
-RenderPass create_renderpass(Device &device, const FramebufferFormat &format, std::span<const LoadOp> load_ops)
+RenderPass create_renderpass(Device &device, const FramebufferFormat &format, exo::Span<const LoadOp> load_ops)
 {
 	auto attachments_count = format.attachments_format.size() + (format.depth_format.has_value() ? 1 : 0);
-	ASSERT(load_ops.size() == attachments_count);
+	ASSERT(load_ops.len() == attachments_count);
 
 	exo::DynamicArray<VkAttachmentReference, MAX_ATTACHMENTS>   color_refs;
 	exo::DynamicArray<VkAttachmentDescription, MAX_ATTACHMENTS> attachment_descriptions;
@@ -77,7 +77,7 @@ RenderPass create_renderpass(Device &device, const FramebufferFormat &format, st
 	return {.vkhandle = vk_renderpass, .load_ops = load_ops};
 }
 
-RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, std::span<const LoadOp> load_ops)
+RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, exo::Span<const LoadOp> load_ops)
 {
 	ASSERT(framebuffer.color_attachments.size() == framebuffer.format.attachments_format.size());
 	ASSERT(framebuffer.depth_attachment.is_valid() == framebuffer.format.depth_format.has_value());
@@ -93,7 +93,7 @@ RenderPass &Device::find_or_create_renderpass(Framebuffer &framebuffer, std::spa
 }
 
 Handle<Framebuffer> Device::create_framebuffer(
-	int3 size, std::span<const Handle<Image>> color_attachments, Handle<Image> depth_attachment)
+	int3 size, exo::Span<const Handle<Image>> color_attachments, Handle<Image> depth_attachment)
 {
 	Framebuffer fb       = {};
 	fb.format            = {.size = size};

@@ -4,13 +4,13 @@
 #include <exo/serialization/serializer.h>
 
 #include <cstdio>
-#include <span>
+#include "exo/collections/span.h"
 #include <string_view>
 
 namespace exo::serializer_helper
 {
 template <typename T>
-static void read_object(std::span<const u8> data, T &object)
+static void read_object(exo::Span<const u8> data, T &object)
 {
 	exo::ScopeStack scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 

@@ -14,9 +14,9 @@ Option<std::filesystem::path> file_dialog(exo::Span<const std::pair<std::string,
 {
 	// Convert the extensions list to windows' wonderful utf16 madness
 	Vec<std::wstring> string_holder;
-	string_holder.reserve(2 * extensions.size());
-	auto filters = Vec<COMDLG_FILTERSPEC>::with_length(extensions.size());
-	for (uint i_filter = 0; i_filter < extensions.size(); i_filter++) {
+	string_holder.reserve(2 * extensions.len());
+	auto filters = Vec<COMDLG_FILTERSPEC>::with_length(extensions.len());
+	for (uint i_filter = 0; i_filter < extensions.len(); i_filter++) {
 		const usize i_name_str = string_holder.len();
 		string_holder.push(utils::utf8_to_utf16(extensions[i_filter].first));
 		const usize i_filter_str = string_holder.len();

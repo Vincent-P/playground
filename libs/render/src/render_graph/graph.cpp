@@ -24,7 +24,7 @@ void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 			auto  output_image = this->resources.resolve_image(api.device, graphic_pass.color_attachment);
 
 			auto framebuffer = this->resources.resolve_framebuffer(api.device,
-				std::span{&graphic_pass.color_attachment, 1},
+				exo::Span{&graphic_pass.color_attachment, 1},
 				graphic_pass.depth_attachment);
 
 			ctx.barrier(output_image, vulkan::ImageUsage::ColorAttachment);

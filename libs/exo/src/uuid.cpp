@@ -12,7 +12,7 @@
 #endif
 #include <fmt/core.h>
 
-#include <span>
+#include "exo/collections/span.h"
 
 #pragma comment(lib, "rpcrt4.lib")
 

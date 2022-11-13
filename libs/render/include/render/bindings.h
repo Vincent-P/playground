@@ -8,7 +8,7 @@
 
 namespace bindings
 {
-inline std::span<u8> bind_shader_options(
+inline exo::Span<u8> bind_shader_options(
 	vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_len)
 {
 	auto [p_options, offset] =
@@ -19,7 +19,7 @@ inline std::span<u8> bind_shader_options(
 }
 
 template <typename Option>
-inline std::span<Option> bind_option_struct(
+inline exo::Span<Option> bind_option_struct(
 	vulkan::Device &device, RingBuffer &ring_buffer, vulkan::ComputeWork &cmd, usize options_count = 1)
 {
 	auto slice = bind_shader_options(device, ring_buffer, cmd, sizeof(Option) * options_count);

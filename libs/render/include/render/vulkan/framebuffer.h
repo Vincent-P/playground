@@ -97,6 +97,6 @@ struct Framebuffer
 	bool operator==(const Framebuffer &) const = default;
 };
 
-RenderPass create_renderpass(Device &device, const FramebufferFormat &format, std::span<const LoadOp> load_ops);
+RenderPass create_renderpass(Device &device, const FramebufferFormat &format, exo::Span<const LoadOp> load_ops);
 
 } // namespace vulkan

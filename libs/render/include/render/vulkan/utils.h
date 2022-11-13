@@ -3,7 +3,7 @@
 #include "render/vulkan/image.h"
 
 #include "exo/macros/assert.h"
-#include <span>
+#include "exo/collections/span.h"
 #include <volk.h>
 
 namespace vulkan
@@ -11,7 +11,7 @@ namespace vulkan
 
 void vk_check(VkResult result);
 
-inline bool is_extension_installed(const char *wanted, std::span<const VkExtensionProperties> installed)
+inline bool is_extension_installed(const char *wanted, exo::Span<const VkExtensionProperties> installed)
 {
 	for (const auto &extension : installed) {
 		if (!strcmp(wanted, extension.extensionName)) {

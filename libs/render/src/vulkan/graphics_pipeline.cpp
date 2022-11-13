@@ -11,9 +11,9 @@ Handle<GraphicsProgram> Device::create_program(std::string_view name, const Grap
 {
 	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
-	auto renderpass = create_renderpass(*this,
-		graphics_state.attachments_format,
-		Vec<LoadOp>::with_values(attachments_count, LoadOp::ignore()));
+
+	auto   load_ops   = Vec<LoadOp>::with_values(attachments_count, LoadOp::ignore());
+	auto renderpass = create_renderpass(*this, graphics_state.attachments_format, load_ops);
 
 	return graphics_programs.add({
 		.name           = std::string{name},

@@ -15,12 +15,12 @@
 
 namespace cross
 {
-std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, std::span<const ReadFileJobDesc> job_descs)
+std::unique_ptr<Waitable> read_files(const JobManager &jobmanager, exo::Span<const ReadFileJobDesc> job_descs)
 {
 	auto &manager_impl = jobmanager.impl.get();
 
 	auto waitable = std::make_unique<Waitable>();
-	waitable->jobs.reserve(job_descs.size());
+	waitable->jobs.reserve(job_descs.len());
 
 	for (const auto &job_desc : job_descs) {
 		EXO_PROFILE_SCOPE_NAMED("Prepare job")

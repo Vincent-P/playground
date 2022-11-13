@@ -75,8 +75,8 @@ struct RenderMesh
 
 struct BlobReadRequest
 {
-	exo::u128 blob_id;
-	std::span<u8> data;
+	exo::u128     blob_id;
+	exo::Span<u8> data;
 };
 
 // -- Draw

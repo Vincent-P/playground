@@ -5,7 +5,7 @@
 #include "cross/jobs/job.h"
 #include "cross/jobs/waitable.h"
 
-#include <span>
+#include "exo/collections/span.h"
 
 namespace cross
 {

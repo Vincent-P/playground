@@ -5,7 +5,7 @@
 #include <exo/collections/vector.h>
 #include <exo/maths/vectors.h>
 
-#include <span>
+#include "exo/collections/span.h"
 #include <string>
 #include <string_view>
 #include <volk.h>
@@ -92,6 +92,6 @@ struct ResourceRegistry
 	int2 texture_desc_handle_size(Handle<TextureDesc> desc_handle);
 
 	Handle<vulkan::Framebuffer> resolve_framebuffer(vulkan::Device &device,
-		std::span<const Handle<TextureDesc>>                        color_attachments,
+		exo::Span<const Handle<TextureDesc>>                        color_attachments,
 		Handle<TextureDesc>                                         depth_attachment);
 };

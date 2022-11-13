@@ -78,12 +78,12 @@ struct AssetManager
 
 	// -- Binary blobs
 	// Binary data in assets is serialized as 'blobs' and is addresed using content hash
-	usize     read_blob(exo::u128 blob_hash, std::span<u8> out_data);
-	exo::u128 save_blob(std::span<const u8> blob_data);
+	usize     read_blob(exo::u128 blob_hash, exo::Span<u8> out_data);
+	exo::u128 save_blob(exo::Span<const u8> blob_data);
 
 	static refl::BasePtr<Asset> _load_from_disk(const AssetId &id);
 	void                        _save_to_disk(refl::BasePtr<Asset> asset);
-	void                        _import_resources(std::span<const Handle<Resource>> records);
+	void                        _import_resources(exo::Span<const Handle<Resource>> records);
 	void                        _load_deps_async_if_needed(const AssetId &id);
 };
 
@@ -114,5 +114,5 @@ struct ImporterApi
 		return manager.load_asset_t<T>(id);
 	}
 
-	inline exo::u128 save_blob(std::span<const u8> data) { return manager.save_blob(data); }
+	inline exo::u128 save_blob(exo::Span<const u8> data) { return manager.save_blob(data); }
 };

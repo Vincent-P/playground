@@ -16,10 +16,10 @@
 
 #include "hash_file.h"
 
+#include "exo/collections/span.h"
 #include <filesystem>
 #include <fmt/core.h>
 #include <reflection/reflection.h>
-#include <span>
 
 static const exo::Path AssetPath         = exo::Path::from_string(ASSET_PATH);
 static const exo::Path DatabasePath      = exo::Path::from_string(DATABASE_PATH);
@@ -112,7 +112,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	}
 }
 
-void AssetManager::_import_resources(std::span<const Handle<Resource>> records)
+void AssetManager::_import_resources(exo::Span<const Handle<Resource>> records)
 {
 	for (auto handle : records) {
 		auto       &asset_record = this->database.resource_records.get(handle);
@@ -215,24 +215,24 @@ void AssetManager::finish_loading_async(refl::BasePtr<Asset> asset)
 
 void AssetManager::unload_asset(AssetId id) { this->database.remove_asset(id); }
 
-usize AssetManager::read_blob(exo::u128 blob_hash, std::span<u8> out_data)
+usize AssetManager::read_blob(exo::u128 blob_hash, exo::Span<u8> out_data)
 {
 	auto path         = get_blob_path(blob_hash);
 	auto blob_file    = cross::MappedFile::open(path.view()).value();
 	auto blob_content = blob_file.content();
-	ASSERT(out_data.size() >= blob_content.size());
-	std::memcpy(out_data.data(), blob_content.data(), blob_content.size());
-	return blob_content.size();
+	ASSERT(out_data.len() >= blob_content.len());
+	std::memcpy(out_data.data(), blob_content.data(), blob_content.len());
+	return blob_content.len();
 }
 
-exo::u128 AssetManager::save_blob(std::span<const u8> blob_data)
+exo::u128 AssetManager::save_blob(exo::Span<const u8> blob_data)
 {
 	auto blob_hash = assets::hash_file128(blob_data);
 	auto path      = get_blob_path(blob_hash);
 
 	FILE *fp       = fopen(path.view().data(), "wb");
-	auto  bwritten = fwrite(blob_data.data(), 1, blob_data.size(), fp);
-	ASSERT(bwritten == blob_data.size());
+	auto  bwritten = fwrite(blob_data.data(), 1, blob_data.len(), fp);
+	ASSERT(bwritten == blob_data.len());
 	fclose(fp);
 
 	return blob_hash;

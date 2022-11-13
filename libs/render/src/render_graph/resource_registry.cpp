@@ -170,7 +170,7 @@ static void update_framebuffer_metadata(ResourceRegistry &registry, Handle<vulka
 }
 
 Handle<vulkan::Framebuffer> ResourceRegistry::resolve_framebuffer(vulkan::Device &device,
-	std::span<const Handle<TextureDesc>>                                          color_attachments,
+	exo::Span<const Handle<TextureDesc>>                                          color_attachments,
 	Handle<TextureDesc>                                                           depth_attachment)
 {
 	exo::DynamicArray<Handle<vulkan::Image>, vulkan::MAX_ATTACHMENTS> color_images;

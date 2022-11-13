@@ -7,7 +7,7 @@
 #include <reflection/reflection.h>
 
 #include <memory>
-#include <span>
+#include "exo/collections/span.h"
 
 #include "assets/asset_id.h"
 

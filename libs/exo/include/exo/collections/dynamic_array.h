@@ -1,13 +1,14 @@
 #pragma once
+#include "exo/collections/span.h"
 #include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
 #include <initializer_list>
-#include <span>
 #include <type_traits>
 
 namespace exo
 {
-template <typename T, usize CAPACITY> struct DynamicArray
+template <typename T, usize CAPACITY>
+struct DynamicArray
 {
 	static_assert(std::is_default_constructible<T>());
 
@@ -15,16 +16,22 @@ template <typename T, usize CAPACITY> struct DynamicArray
 
 	constexpr DynamicArray() = default;
 
-	constexpr DynamicArray(std::span<const T> values)
+	constexpr DynamicArray(exo::Span<const T> values)
 	{
-		ASSERT(values.size() < CAPACITY);
-		array_size = values.size();
+		ASSERT(values.len() < CAPACITY);
+		array_size = values.len();
 		for (usize i = 0; i < array_size; i += 1) {
 			array[i] = values[i];
 		}
 	}
 
-	constexpr DynamicArray(std::initializer_list<T> list) : DynamicArray(std::span{list}) {}
+	constexpr DynamicArray(std::initializer_list<T> list)
+	{
+		ASSERT(list.size() < CAPACITY);
+		for (auto &val : list) {
+			this->array[this->array_size++] = val;
+		}
+	}
 
 	constexpr DynamicArray(const DynamicArray &other)            = default;
 	constexpr DynamicArray &operator=(const DynamicArray &other) = default;
@@ -67,32 +74,37 @@ template <typename T, usize CAPACITY> struct DynamicArray
 	T     array[CAPACITY] = {};
 };
 
-template <typename T, usize C> constexpr const T &DynamicArray<T, C>::operator[](usize i) const
+template <typename T, usize C>
+constexpr const T &DynamicArray<T, C>::operator[](usize i) const
 {
 	ASSERT(i < array_size);
 	return array[i];
 }
 
-template <typename T, usize C> constexpr T &DynamicArray<T, C>::operator[](usize i)
+template <typename T, usize C>
+constexpr T &DynamicArray<T, C>::operator[](usize i)
 {
 	return const_cast<T &>(static_cast<const Self &>(*this)[i]);
 }
 
-template <typename T, usize C> constexpr void DynamicArray<T, C>::push_back(T &&value) noexcept
+template <typename T, usize C>
+constexpr void DynamicArray<T, C>::push_back(T &&value) noexcept
 {
 	ASSERT(array_size + 1 <= C);
 	array[array_size] = std::move(value);
 	array_size += 1;
 }
 
-template <typename T, usize C> constexpr void DynamicArray<T, C>::push_back(const T &value) noexcept
+template <typename T, usize C>
+constexpr void DynamicArray<T, C>::push_back(const T &value) noexcept
 {
 	ASSERT(array_size + 1 <= C);
 	array[array_size] = value;
 	array_size += 1;
 }
 
-template <typename T, usize C> constexpr void DynamicArray<T, C>::clear() noexcept
+template <typename T, usize C>
+constexpr void DynamicArray<T, C>::clear() noexcept
 {
 	array_size = 0;
 
@@ -103,7 +115,8 @@ template <typename T, usize C> constexpr void DynamicArray<T, C>::clear() noexce
 	}
 }
 
-template <typename T, usize C> constexpr void DynamicArray<T, C>::resize(usize new_size) noexcept
+template <typename T, usize C>
+constexpr void DynamicArray<T, C>::resize(usize new_size) noexcept
 {
 	ASSERT(new_size <= C);
 
@@ -115,9 +128,14 @@ template <typename T, usize C> constexpr void DynamicArray<T, C>::resize(usize n
 	array_size = new_size;
 }
 
-template <typename T, usize C> constexpr T &DynamicArray<T, C>::back() noexcept { return array[array_size - 1]; }
+template <typename T, usize C>
+constexpr T &DynamicArray<T, C>::back() noexcept
+{
+	return array[array_size - 1];
+}
 
-template <typename T, usize C> constexpr const T &DynamicArray<T, C>::back() const noexcept
+template <typename T, usize C>
+constexpr const T &DynamicArray<T, C>::back() const noexcept
 {
 	return array[array_size - 1];
 }

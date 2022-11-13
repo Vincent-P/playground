@@ -34,7 +34,7 @@ void serialize(Serializer &serializer, Map<K, V> &map)
 		DynamicBuffer tmp_values = {};
 		DynamicBuffer::init(tmp_values, sizeof(KeyValue) * size);
 		const auto tmp_keyvalues = exo::reinterpret_span<KeyValue>(tmp_values.content());
-		ASSERT(tmp_keyvalues.size() == size);
+		ASSERT(tmp_keyvalues.len() == size);
 		for (auto &keyvalue : tmp_keyvalues) {
 			serialize(serializer, keyvalue.key);
 			serialize(serializer, keyvalue.value);

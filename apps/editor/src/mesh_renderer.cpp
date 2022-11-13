@@ -450,7 +450,7 @@ void register_upload_nodes(RenderGraph &graph,
 
 	// Submit upload commands
 	if (!mesh_renderer.image_uploads.is_empty()) {
-		auto uploads_span = std::span{mesh_renderer.image_uploads};
+		auto uploads_span = exo::Span{mesh_renderer.image_uploads};
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {
 				auto copy = VkBufferImageCopy{
@@ -475,20 +475,20 @@ void register_upload_nodes(RenderGraph &graph,
 				};
 
 				cmd.barrier(upload.dst_image, vulkan::ImageUsage::TransferDst);
-				cmd.copy_buffer_to_image(api.upload_buffer.buffer, upload.dst_image, std::span{&copy, 1});
+				cmd.copy_buffer_to_image(api.upload_buffer.buffer, upload.dst_image, exo::Span{&copy, 1});
 				cmd.barrier(upload.dst_image, vulkan::ImageUsage::GraphicsShaderRead);
 			}
 		});
 		mesh_renderer.image_uploads.clear();
 	}
 	if (!mesh_renderer.buffer_uploads.is_empty()) {
-		auto uploads_span = std::span{mesh_renderer.buffer_uploads};
+		auto uploads_span = exo::Span{mesh_renderer.buffer_uploads};
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {
 				std::tuple<usize, usize, usize> offsets_size = {upload.upload_offset,
 					upload.dst_offset,
 					upload.upload_size};
-				cmd.copy_buffer(api.upload_buffer.buffer, upload.dst_buffer, std::span{&offsets_size, 1});
+				cmd.copy_buffer(api.upload_buffer.buffer, upload.dst_buffer, exo::Span{&offsets_size, 1});
 			}
 		});
 		mesh_renderer.buffer_uploads.clear();
@@ -503,7 +503,7 @@ void register_upload_nodes(RenderGraph &graph,
 
 void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Handle<TextureDesc> output)
 {
-	auto drawcalls_span       = std::span{mesh_renderer.drawcalls};
+	auto drawcalls_span       = exo::Span{mesh_renderer.drawcalls};
 	auto instances_descriptor = mesh_renderer.instances_descriptor;
 	auto meshes_descriptor    = mesh_renderer.meshes_descriptor;
 	auto materials_descriptor = mesh_renderer.materials_descriptor;

@@ -159,8 +159,8 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 	image.usage = usage_destination;
 }
 
-void Work::barriers(std::span<std::pair<Handle<Image>, ImageUsage>> images,
-	std::span<std::pair<Handle<Buffer>, BufferUsage>>               buffers)
+void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
+	exo::Span<std::pair<Handle<Buffer>, BufferUsage>>               buffers)
 {
 	EXO_PROFILE_SCOPE;
 	exo::DynamicArray<VkImageMemoryBarrier, 8>  image_barriers  = {};
@@ -244,7 +244,7 @@ void Work::end_debug_label() { vkCmdEndDebugUtilsLabelEXT(command_buffer); }
 
 /// --- TransferWork
 void TransferWork::copy_buffer(
-	Handle<Buffer> src, Handle<Buffer> dst, std::span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
+	Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
 	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
@@ -252,7 +252,7 @@ void TransferWork::copy_buffer(
 
 	exo::DynamicArray<VkBufferCopy, 16> buffer_copies = {};
 
-	for (usize i_copy = 0; i_copy < offsets_src_dst_size.size(); i_copy += 1) {
+	for (usize i_copy = 0; i_copy < offsets_src_dst_size.len(); i_copy += 1) {
 		buffer_copies.push_back({
 			.srcOffset = std::get<0>(offsets_src_dst_size[i_copy]),
 			.dstOffset = std::get<1>(offsets_src_dst_size[i_copy]),
@@ -347,13 +347,13 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 }
 
 void TransferWork::copy_buffer_to_image(
-	Handle<Buffer> src, Handle<Image> dst, std::span<VkBufferImageCopy> buffer_copy_regions)
+	Handle<Buffer> src, Handle<Image> dst, exo::Span<VkBufferImageCopy> buffer_copy_regions)
 {
 	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
 	auto &dst_image  = device->images.get(dst);
 
-	const u32 region_count = static_cast<u32>(buffer_copy_regions.size());
+	const u32 region_count = static_cast<u32>(buffer_copy_regions.len());
 	vkCmdCopyBufferToImage(command_buffer,
 		src_buffer.vkhandle,
 		dst_image.vkhandle,
@@ -456,7 +456,7 @@ void GraphicsWork::set_viewport(const VkViewport &viewport)
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 }
 
-void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, std::span<const LoadOp> load_ops)
+void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, exo::Span<const LoadOp> load_ops)
 {
 	EXO_PROFILE_SCOPE;
 	auto &framebuffer = device->framebuffers.get(framebuffer_handle);
@@ -680,7 +680,7 @@ void Device::destroy_fence(Fence &fence)
 }
 
 // Submission
-void Device::submit(Work &work, std::span<const Fence> signal_fences, std::span<const u64> signal_values)
+void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<const u64> signal_values)
 {
 	EXO_PROFILE_SCOPE;
 	// Creathe list of semaphores to wait
@@ -764,20 +764,20 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 	vk_check(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
-void Device::wait_for_fences(std::span<const Fence> fences, std::span<const u64> wait_values)
+void Device::wait_for_fences(exo::Span<const Fence> fences, exo::Span<const u64> wait_values)
 {
 	EXO_PROFILE_SCOPE;
-	ASSERT(wait_values.size() == fences.size());
+	ASSERT(wait_values.len() == fences.len());
 
 	exo::DynamicArray<VkSemaphore, 4> semaphores = {};
-	for (usize i_fence = 0; i_fence < fences.size(); i_fence += 1) {
+	for (usize i_fence = 0; i_fence < fences.len(); i_fence += 1) {
 		semaphores.push_back(fences[i_fence].timeline_semaphore);
 	}
 
 	// 1 sec in nanoseconds
 	const u64           timeout   = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
-	wait_info.semaphoreCount      = static_cast<u32>(fences.size());
+	wait_info.semaphoreCount      = static_cast<u32>(fences.len());
 	wait_info.pSemaphores         = semaphores.data();
 	wait_info.pValues             = wait_values.data();
 	vk_check(vkWaitSemaphores(device, &wait_info, timeout));

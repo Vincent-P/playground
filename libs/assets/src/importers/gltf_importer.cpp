@@ -163,7 +163,7 @@ struct ImporterContext
 	SubScene                  *new_scene;
 	const rapidjson::Document &j_document;
 	Vec<cross::MappedFile>     files;
-	Vec<std::span<const u8>>   buffers;
+	Vec<exo::Span<const u8>>   buffers;
 	const void                *binary_chunk       = nullptr;
 	u32                        i_unnamed_mesh     = 0;
 	u32                        i_unnamed_material = 0;
@@ -193,7 +193,7 @@ struct ImporterContext
 	}
 };
 
-static std::span<const u8> get_binary_data(
+static exo::Span<const u8> get_binary_data(
 	ImporterContext &ctx, const gltf::BufferView &view, const gltf::Accessor &accessor, usize i_element = 0)
 
 {
@@ -207,11 +207,11 @@ static std::span<const u8> get_binary_data(
 		source = reinterpret_cast<const u8 *>(ctx.binary_chunk);
 	} else {
 		source = ctx.buffers[view.i_buffer].data();
-		ASSERT(ctx.buffers[view.i_buffer].size() >= view.byte_offset + view.byte_length);
+		ASSERT(ctx.buffers[view.i_buffer].len() >= view.byte_offset + view.byte_length);
 		ASSERT(offset < view.byte_offset + view.byte_length);
 	}
 	ASSERT(source != nullptr);
-	return std::span{exo::ptr_offset(source, offset), view.byte_length};
+	return exo::Span{exo::ptr_offset(source, offset), view.byte_length};
 }
 
 static void import_buffers(ImporterContext &ctx)
@@ -231,7 +231,7 @@ static void import_buffers(ImporterContext &ctx)
 		ctx.files.push(cross::MappedFile::open(absolute_path.view()).value());
 
 		auto file_content = ctx.files.last().content();
-		ASSERT(file_content.size() == bytelength);
+		ASSERT(file_content.len() == bytelength);
 		ctx.buffers.push(file_content);
 	}
 }
@@ -377,17 +377,17 @@ static void import_meshes(ImporterContext &ctx)
 			}
 		}
 
-		auto positions_bytes          = exo::span_to_bytes<float4>(std::span(ctx.positions));
+		auto positions_bytes          = exo::span_to_bytes<float4>(exo::Span(ctx.positions));
 		new_mesh->positions_hash      = ctx.api.save_blob(positions_bytes);
-		new_mesh->positions_byte_size = positions_bytes.size();
+		new_mesh->positions_byte_size = positions_bytes.len();
 
-		auto uvs_bytes          = exo::span_to_bytes<float2>(std::span(ctx.uvs));
+		auto uvs_bytes          = exo::span_to_bytes<float2>(exo::Span(ctx.uvs));
 		new_mesh->uvs_hash      = ctx.api.save_blob(uvs_bytes);
-		new_mesh->uvs_byte_size = uvs_bytes.size();
+		new_mesh->uvs_byte_size = uvs_bytes.len();
 
-		auto indices_bytes          = exo::span_to_bytes<uint>(std::span(ctx.indices));
+		auto indices_bytes          = exo::span_to_bytes<uint>(exo::Span(ctx.indices));
 		new_mesh->indices_hash      = ctx.api.save_blob(indices_bytes);
-		new_mesh->indices_byte_size = indices_bytes.size();
+		new_mesh->indices_byte_size = indices_bytes.len();
 
 		ctx.new_scene->add_dependency_checked(new_mesh->uuid);
 	}
@@ -643,7 +643,7 @@ static void import_textures(ImporterContext &ctx)
 	}
 }
 
-bool GLTFImporter::can_import_extension(std::span<const std::string_view> extensions)
+bool GLTFImporter::can_import_extension(exo::Span<const std::string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".gltf"}) {
@@ -653,9 +653,9 @@ bool GLTFImporter::can_import_extension(std::span<const std::string_view> extens
 	return false;
 }
 
-bool GLTFImporter::can_import_blob(std::span<const u8> data)
+bool GLTFImporter::can_import_blob(exo::Span<const u8> data)
 {
-	ASSERT(data.size() > 4);
+	ASSERT(data.len() > 4);
 	return data[0] == 'g' && data[1] == 'l' && data[2] == 'T' && data[3] == 'F';
 }
 
@@ -670,7 +670,7 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto file_content_str =
-		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().size()};
+		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
 	document.Parse(file_content_str.data(), file_content_str.size());
 
@@ -717,7 +717,7 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 {
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto file_content_str =
-		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().size()};
+		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
 	document.Parse(file_content_str.data(), file_content_str.size());
 
@@ -753,7 +753,7 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 }
 
 #if 0
-Result<Asset *> GLTFImporter::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> data)
+Result<Asset *> GLTFImporter::import(ImporterApi &api, exo::UUID resource_uuid, exo::Span<u8 const> data)
 {
 	const auto &header = *reinterpret_cast<const Header *>(data.data());
 	if (header.first_chunk.type != ChunkType::Json) {

@@ -4,7 +4,7 @@
 #include <exo/collections/handle.h>
 #include <exo/maths/numerics.h>
 
-#include <span>
+#include "exo/collections/span.h"
 #include <string_view>
 
 namespace vulkan
@@ -42,6 +42,6 @@ struct RingBuffer
 	// The alignment field is necessary to put different data structures inside the same buffer, and be able to index
 	// them from the returned offset The default value is 256 so that the returned offset can be used as a dynamic
 	// uniform buffer
-	std::pair<std::span<u8>, usize> allocate(usize len, usize subalignment = 256);
+	std::pair<exo::Span<u8>, usize> allocate(usize len, usize subalignment = 256);
 	void                            start_frame();
 };

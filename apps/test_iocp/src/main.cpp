@@ -30,7 +30,7 @@ void test_async(int argc, char *argv[])
 			}
 		}
 
-		auto w = cross::parallel_foreach<int>(manager, std::span(values), [](int &value) {
+		auto w = cross::parallel_foreach<int>(manager, exo::Span	(values), [](int &value) {
 			EXO_PROFILE_SCOPE_NAMED("Expensive int calculation")
 			double accum = 0;
 			for (int i = 0; i < value; ++i) {
@@ -49,11 +49,11 @@ void test_async(int argc, char *argv[])
 		EXO_PROFILE_SCOPE_NAMED("read files test")
 		std::vector<cross::ReadFileJobDesc> read_jobs;
 		void                               *gpu_buffer      = nullptr;
-		std::span<u8>                       gpu_upload_area = {};
+		exo::Span<u8>                       gpu_upload_area = {};
 		{
 			EXO_PROFILE_SCOPE_NAMED("prepare dst buffer")
 			gpu_buffer      = std::malloc(256 << 20);
-			gpu_upload_area = std::span<u8>((u8 *)gpu_buffer, 256 << 20);
+			gpu_upload_area = exo::Span<u8>((u8 *)gpu_buffer, 256 << 20);
 		}
 		{
 			EXO_PROFILE_SCOPE_NAMED("prepare read jobs")
@@ -126,11 +126,11 @@ void test_sync(int argc, char *argv[])
 		EXO_PROFILE_SCOPE_NAMED("read files test")
 		std::vector<cross::ReadFileJobDesc> read_jobs;
 		void                               *gpu_buffer      = nullptr;
-		std::span<u8>                       gpu_upload_area = {};
+		exo::Span<u8>                       gpu_upload_area = {};
 		{
 			EXO_PROFILE_SCOPE_NAMED("prepare dst buffer")
 			gpu_buffer      = std::malloc(256 << 20);
-			gpu_upload_area = std::span<u8>((u8 *)gpu_buffer, 256 << 20);
+			gpu_upload_area = exo::Span<u8>((u8 *)gpu_buffer, 256 << 20);
 		}
 		{
 			EXO_PROFILE_SCOPE_NAMED("prepare read jobs")
@@ -189,7 +189,7 @@ void test_std()
 			}
 		}
 
-		auto values_span = std::span(values);
+		auto values_span = exo::Span(values);
 
 		auto before_wait = __rdtsc();
 		std::for_each(std::execution::par, std::begin(values_span), std::end(values_span), [](int &value) {

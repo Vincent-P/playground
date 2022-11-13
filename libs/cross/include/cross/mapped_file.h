@@ -4,7 +4,7 @@
 
 #include <cross/prelude.h>
 
-#include <span>
+#include "exo/collections/span.h"
 #include <string_view>
 
 namespace cross
@@ -31,9 +31,9 @@ struct MappedFile
 
 	static Option<MappedFile> open(const std::string_view &path);
 
-	inline std::span<const u8> content()
+	inline exo::Span<const u8> content()
 	{
-		return std::span<const u8>{reinterpret_cast<const u8 *>(this->base_addr), this->size};
+		return exo::Span<const u8>{reinterpret_cast<const u8 *>(this->base_addr), this->size};
 	}
 
 	void close();

@@ -42,7 +42,7 @@ void present(RenderGraph &graph, SwapchainPass &pass, u64 signal_value)
 		cmd.end();
 		cmd.prepare_present(self->surface);
 
-		api.device.submit(cmd, std::span{&self->fence, 1}, std::span{&signal_value, 1});
+		api.device.submit(cmd, exo::Span{&self->fence, 1}, exo::Span{&signal_value, 1});
 		self->i_frame += 1;
 		api.device.present(self->surface, cmd);
 	});

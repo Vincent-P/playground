@@ -12,7 +12,7 @@
 
 #include <spng.h>
 
-bool PNGImporter::can_import_extension(std::span<const std::string_view> extensions)
+bool PNGImporter::can_import_extension(exo::Span<const std::string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".png"}) {
@@ -22,11 +22,11 @@ bool PNGImporter::can_import_extension(std::span<const std::string_view> extensi
 	return false;
 }
 
-bool PNGImporter::can_import_blob(std::span<const u8> blob)
+bool PNGImporter::can_import_blob(exo::Span<const u8> blob)
 {
 	const u8 signature[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
-	ASSERT(blob.size() > sizeof(signature));
+	ASSERT(blob.len() > sizeof(signature));
 	return std::memcmp(blob.data(), signature, sizeof(signature)) == 0;
 }
 
@@ -52,7 +52,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto blob = file.content();
 
-	spng_set_png_buffer(ctx, blob.data(), blob.size());
+	spng_set_png_buffer(ctx, blob.data(), blob.len());
 
 	spng_ihdr ihdr;
 	if (spng_get_ihdr(ctx, &ihdr)) {
@@ -123,7 +123,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	new_texture->format    = pixel_format;
 	new_texture->mip_offsets.push(0);
 	new_texture->pixels_data_size = decoded_size;
-	new_texture->pixels_hash      = request.importer_api.save_blob(std::span(buffer, decoded_size));
+	new_texture->pixels_hash      = request.importer_api.save_blob(exo::Span(buffer, decoded_size));
 	new_texture->pixels_data_size = decoded_size;
 
 	EXO_PROFILE_MFREE(buffer);

@@ -13,7 +13,7 @@
 #include <rapidjson/prettywriter.h>
 #include <volk.h>
 
-bool KTX2Importer::can_import_extension(std::span<const std::string_view> extensions)
+bool KTX2Importer::can_import_extension(exo::Span<const std::string_view> extensions)
 {
 	for (const auto extension : extensions) {
 		if (extension == std::string_view{".ktx2"}) {
@@ -23,11 +23,11 @@ bool KTX2Importer::can_import_extension(std::span<const std::string_view> extens
 	return false;
 }
 
-bool KTX2Importer::can_import_blob(std::span<const u8> blob)
+bool KTX2Importer::can_import_blob(exo::Span<const u8> blob)
 {
 	const u8 signature[] = {0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
 
-	ASSERT(blob.size() > sizeof(signature));
+	ASSERT(blob.len() > sizeof(signature));
 	return std::memcmp(blob.data(), signature, sizeof(signature)) == 0;
 }
 
@@ -39,11 +39,11 @@ Result<ProcessResponse> KTX2Importer::process_asset(const ProcessRequest & /*req
 }
 
 #if 0
-Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, std::span<u8 const> blob)
+Result<Asset *> KTX2Importer::import(ImporterApi &api, exo::UUID resource_uuid, exo::Span<u8 const> blob)
 {
 	ktxTexture2 *ktx_texture = nullptr;
 	auto         result =
-		ktxTexture2_CreateFromMemory(blob.data(), blob.size(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
+		ktxTexture2_CreateFromMemory(blob.data(), blob.len(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_texture);
 	if (result != KTX_SUCCESS) {
 		return Err<Asset *>(KTX2Errors::CreateFailed);
 	}

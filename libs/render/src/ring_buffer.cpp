@@ -39,7 +39,7 @@ static u64 ringbuffer_size_from(RingBuffer &ringbuffer, u64 from)
 	}
 }
 
-std::pair<std::span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
+std::pair<exo::Span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
 {
 	u64 offset    = cursor;
 	u64 allocated = 0;
@@ -54,7 +54,7 @@ std::pair<std::span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
 	const auto free_space = this->capacity - ringbuffer_size_from(*this, offset);
 
 	if (len >= free_space) {
-		return std::make_pair(std::span<u8>(), 0);
+		return std::make_pair(exo::Span<u8>(), 0);
 	}
 
 	if (offset + len < this->capacity) {
@@ -87,7 +87,7 @@ std::pair<std::span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
 	}
 
 	ASSERT(offset % alignment == 0);
-	return std::make_pair(std::span<u8>(this->start + offset, len), offset);
+	return std::make_pair(exo::Span<u8>(this->start + offset, len), offset);
 }
 
 void RingBuffer::start_frame()

@@ -3,7 +3,7 @@
 #include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
 
-#include <span>
+#include "exo/collections/span.h"
 
 namespace exo
 {
@@ -16,12 +16,12 @@ struct float3;
 struct int2;
 struct Serializer;
 
+// clang-format off
 template <typename T>
 concept MemberSerializable = requires(T &a) {
-								 // clang-format off
-	{ a.serialize(*(Serializer *)nullptr) } -> std::same_as<void>;
-								 // clang-format on
-							 };
+	{ a.serialize(*(Serializer *)nullptr) } -> exo::details::IsSame<void>;
+};
+// clang-format on
 
 struct Serializer
 {

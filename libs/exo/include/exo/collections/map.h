@@ -7,8 +7,8 @@
 #include <exo/maths/numerics.h>
 #include <exo/memory/dynamic_buffer.h>
 
+#include "exo/collections/span.h"
 #include <bit>
-#include <span>
 
 namespace exo
 {
@@ -41,10 +41,10 @@ inline u32 probe_by_hash(const Span<const MapSlot> slots, const u64 hash)
 	MapSlot slot_to_find;
 	slot_to_find.bits.hash = u32(hash);
 
-	const u32 i_hash_slot = power_of_2_modulo(slot_to_find.bits.hash, u32(slots.size()));
+	const u32 i_hash_slot = power_of_2_modulo(slot_to_find.bits.hash, u32(slots.len()));
 
 	// Start probing to find a slot with a matching hash
-	const u32 slots_length = u32(slots.size());
+	const u32 slots_length = u32(slots.len());
 	for (u32 i = 0; i < slots_length; ++i) {
 		const u32 i_slot = power_of_2_modulo((i_hash_slot + i), slots_length);
 
@@ -67,7 +67,7 @@ inline u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&
 	MapSlot slot_to_insert  = std::move(slot);
 	T       value_to_insert = std::move(value);
 
-	const u32 slots_length = u32(slots.size());
+	const u32 slots_length = u32(slots.len());
 	const u32 i_hash_slot  = power_of_2_modulo(slot_to_insert.bits.hash, slots_length);
 
 	// Because we may "insert" multiple slots to reoder them, we need to keep track of the first "insert"
