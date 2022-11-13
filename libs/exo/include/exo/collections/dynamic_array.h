@@ -2,8 +2,10 @@
 #include "exo/collections/span.h"
 #include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
+
 #include <initializer_list>
 #include <type_traits>
+#include <utility>
 
 namespace exo
 {
