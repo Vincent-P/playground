@@ -72,6 +72,9 @@ set(SOURCE_FILES
 
   include/exo/forward_container.h
 
+  include/exo/string.h
+  src/string.cpp
+
   exo.natvis
 )
 
@@ -81,6 +84,7 @@ set(TEST_FILES
   tests/map.cpp
   tests/vector.cpp
   tests/span.cpp
+  tests/string.cpp
 )
 
 add_library(exo STATIC ${SOURCE_FILES})
