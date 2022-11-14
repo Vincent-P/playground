@@ -6,8 +6,8 @@
 #include <exo/forward_container.h>
 #include <exo/maths/vectors.h>
 
-#include <string>
-#include <string_view>
+#include "exo/string.h"
+#include "exo/string_view.h"
 #include <memory>
 
 namespace cross
@@ -36,7 +36,7 @@ struct Window
 
 	Vec<exo::Event> events;
 
-	std::string title;
+	exo::String title;
 	int2        size;
 
 	int2 mouse_position = int2{0, 0};
@@ -49,10 +49,10 @@ struct Window
 	bool stop{false};
 
 	// --
-	static std::unique_ptr<Window> create(int2 size, const std::string_view title);
+	static std::unique_ptr<Window> create(int2 size, const exo::StringView title);
 	~Window() = default;
 
-	void set_title(std::string_view new_title);
+	void set_title(exo::StringView new_title);
 	void poll_events();
 
 	// cursor operations

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "cross/buttons.h"
-#include <string>
+#include "exo/string.h"
 
 namespace exo::events
 {

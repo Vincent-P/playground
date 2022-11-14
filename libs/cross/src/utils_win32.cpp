@@ -6,7 +6,7 @@
 
 namespace cross::utils
 {
-std::wstring utf8_to_utf16(const std::string_view &str)
+std::wstring utf8_to_utf16(const exo::StringView &str)
 {
 	if (str.empty()) {
 		return {};
@@ -26,7 +26,7 @@ std::wstring utf8_to_utf16(const std::string_view &str)
 	return result;
 }
 
-std::string utf16_to_utf8(const std::wstring_view &wstr)
+exo::String utf16_to_utf8(const std::wstring_view &wstr)
 {
 	if (wstr.empty()) {
 		return {};
@@ -35,7 +35,8 @@ std::string utf16_to_utf8(const std::wstring_view &wstr)
 	const int res = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
 	ASSERT(res > 0);
 	auto        size_needed = static_cast<usize>(res);
-	std::string result(size_needed, 0);
+	exo::String result;
+	result.resize(size_needed);
 	WideCharToMultiByte(CP_UTF8,
 		0,
 		wstr.data(),

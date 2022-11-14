@@ -12,10 +12,10 @@
 
 #include <spng.h>
 
-bool PNGImporter::can_import_extension(exo::Span<const std::string_view> extensions)
+bool PNGImporter::can_import_extension(exo::Span<const exo::StringView> extensions)
 {
-	for (const auto extension : extensions) {
-		if (extension == std::string_view{".png"}) {
+	for (const auto &extension : extensions) {
+		if (extension == exo::StringView{".png"}) {
 			return true;
 		}
 	}

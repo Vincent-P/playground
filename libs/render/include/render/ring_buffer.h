@@ -3,9 +3,9 @@
 #include <exo/collections/dynamic_array.h>
 #include <exo/collections/handle.h>
 #include <exo/maths/numerics.h>
-
 #include "exo/collections/span.h"
-#include <string_view>
+#include "exo/string.h"
+#include "exo/string_view.h"
 
 namespace vulkan
 {
@@ -16,7 +16,7 @@ namespace gfx = vulkan;
 
 struct RingBufferDescription
 {
-	std::string_view name;
+	exo::StringView name;
 	usize            size;
 	u32              gpu_usage;
 	u32              frame_queue_length;
@@ -24,7 +24,7 @@ struct RingBufferDescription
 
 struct RingBuffer
 {
-	std::string         name     = "unnamed";
+	exo::String         name     = "unnamed";
 	u32                 usage    = 0;
 	Handle<gfx::Buffer> buffer   = {};
 	usize               capacity = 0;

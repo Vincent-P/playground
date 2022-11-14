@@ -10,7 +10,7 @@
 
 namespace cross
 {
-Option<std::filesystem::path> file_dialog(exo::Span<const std::pair<std::string, std::string>> extensions)
+Option<exo::String> file_dialog(exo::Span<const std::pair<exo::String, exo::String>> extensions)
 {
 	// Convert the extensions list to windows' wonderful utf16 madness
 	Vec<std::wstring> string_holder;

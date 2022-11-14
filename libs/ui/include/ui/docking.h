@@ -7,7 +7,7 @@
 
 #include "painter/rect.h"
 
-#include <string>
+#include "exo/string.h"
 #include <variant>
 
 namespace ui
@@ -45,7 +45,7 @@ struct AreaSplitter
 
 struct TabView
 {
-	std::string  title;
+	exo::String  title;
 	Handle<Area> area;
 };
 
@@ -110,7 +110,7 @@ struct Docking
 
 Docking create();
 
-Option<Rect> tabview(ui::Ui &ui, Docking &self, std::string_view tabname);
+Option<Rect> tabview(ui::Ui &ui, Docking &self, exo::StringView tabname);
 void         begin_docking(Docking &self, ui::Ui &ui, Rect rect);
 void         end_docking(Docking &self, ui::Ui &ui);
 

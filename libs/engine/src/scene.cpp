@@ -6,10 +6,12 @@
 #include <assets/subscene.h>
 #include <cross/mapped_file.h>
 #include <engine/render_world_system.h>
+#include <exo/format.h>
 #include <exo/hash.h>
 #include <exo/logger.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
+#include <exo/memory/scope_stack.h>
 #include <exo/serialization/serializer_helper.h>
 #include <exo/uuid.h>
 #include <exo/uuid_formatter.h>
@@ -22,8 +24,6 @@
 #include <painter/painter.h>
 #include <reflection/reflection.h>
 #include <ui/ui.h>
-
-#include <fmt/format.h>
 
 void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {
@@ -38,7 +38,7 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 
 	Entity *camera_entity = nullptr;
 	for (auto *entity : entity_world.root_entities) {
-		if (entity->name == std::string_view{"Main Camera"}) {
+		if (exo::StringView{entity->name} == exo::StringView{"Main Camera"}) {
 			camera_entity = entity;
 			break;
 		}
@@ -89,8 +89,9 @@ static void tree_view_entity(ui::Ui &ui,
 		painter_draw_color_rect(*ui.painter, margin_rect, u32_invalid, ColorU32::from_floats(0.7f, 0.4f, 0.1f));
 	}
 
-	auto entity_label = fmt::format("Name: {}", entity->name);
-	auto label_rect   = ui::label_split(ui, line_rectsplit, entity_label);
+	exo::ScopeStack scope;
+	auto            entity_label = exo::format(scope, "Name: {}", entity->name);
+	auto            label_rect   = ui::label_split(ui, line_rectsplit, entity_label);
 
 	if (ui::invisible_button(ui, label_rect)) {
 		if (scene_ui.selected_entity == entity) {
@@ -113,7 +114,9 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	auto &world = scene.entity_world;
 
 	auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
-	ui::label_split(ui, rectsplit, fmt::format("Entities: {}", world.entities.size));
+
+	exo::ScopeStack scope;
+	ui::label_split(ui, rectsplit, exo::format(scope, "Entities: {}", world.entities.size));
 	/*auto margin_rect =*/rectsplit.split(1.0f * ui.theme.font_size);
 
 	for (auto *entity : world.root_entities) {
@@ -123,59 +126,33 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 
 static void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rectsplit)
 {
-	char label_buf[256] = {};
+	exo::ScopeStack scope;
 
-	auto res = fmt::format_to_n(label_buf,
-		256,
-		"{} {} {} {}",
-		matrix.at(0, 0),
-		matrix.at(0, 1),
-		matrix.at(0, 2),
-		matrix.at(0, 3));
+	auto label = exo::format(scope, "{} {} {} {}", matrix.at(0, 0), matrix.at(0, 1), matrix.at(0, 2), matrix.at(0, 3));
+	ui::label_split(ui, rectsplit, label);
 
-	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+	label = exo::format(scope, "{} {} {} {}", matrix.at(1, 0), matrix.at(1, 1), matrix.at(1, 2), matrix.at(1, 3));
 
-	res = fmt::format_to_n(label_buf,
-		256,
-		"{} {} {} {}",
-		matrix.at(1, 0),
-		matrix.at(1, 1),
-		matrix.at(1, 2),
-		matrix.at(1, 3));
+	ui::label_split(ui, rectsplit, label);
 
-	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+	label = exo::format(scope, "{} {} {} {}", matrix.at(2, 0), matrix.at(2, 1), matrix.at(2, 2), matrix.at(2, 3));
 
-	res = fmt::format_to_n(label_buf,
-		256,
-		"{} {} {} {}",
-		matrix.at(2, 0),
-		matrix.at(2, 1),
-		matrix.at(2, 2),
-		matrix.at(2, 3));
+	ui::label_split(ui, rectsplit, label);
 
-	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+	label = exo::format(scope, "{} {} {} {}", matrix.at(3, 0), matrix.at(3, 1), matrix.at(3, 2), matrix.at(3, 3));
 
-	res = fmt::format_to_n(label_buf,
-		256,
-		"{} {} {} {}",
-		matrix.at(3, 0),
-		matrix.at(3, 1),
-		matrix.at(3, 2),
-		matrix.at(3, 3));
-
-	ui::label_split(ui, rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, rectsplit, label);
 }
 
-static void scene_inspector_asset(ui::Ui &ui, Asset *asset, Rect &content_rect) {
+static void scene_inspector_asset(ui::Ui &ui, Asset *asset, Rect &content_rect)
+{
+	exo::ScopeStack scope;
 
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
-	char label_buf[256] = {};
 
-	auto res = fmt::format_to_n(label_buf, 256, "UUID: {}", asset->uuid.name);
-	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, line_rectsplit, exo::format(scope, "UUID: {}", asset->uuid.name));
 
-	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(asset->state));
-	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, line_rectsplit, exo::format(scope, "State: {}", to_string(asset->state)));
 }
 
 static void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, Rect &content_rect)
@@ -186,7 +163,9 @@ static void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *comp
 	ui_matrix_label(ui, component->get_local_transform(), line_rectsplit);
 }
 
-static void scene_inspector_mesh_component(ui::Ui& ui, AssetManager *asset_manager, MeshComponent* mesh_component, Rect& content_rect) {
+static void scene_inspector_mesh_component(
+	ui::Ui &ui, AssetManager *asset_manager, MeshComponent *mesh_component, Rect &content_rect)
+{
 
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
@@ -202,22 +181,19 @@ static void scene_inspector_component_ui(
 {
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	char label_buf[256] = {};
+	exo::ScopeStack scope;
 
-	auto res = fmt::format_to_n(label_buf,
-		256,
-		"{} [{} ({} bytes)]",
-		component->name,
-		component.typeinfo().name,
-		component.typeinfo().size);
+	ui::label_split(ui,
+		line_rectsplit,
+		exo::format(scope,
+			"{} [{} ({} bytes)]",
+			component->name,
+			component.typeinfo().name,
+			component.typeinfo().size));
 
-	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, line_rectsplit, exo::format(scope, "State: {}", to_string(component->state)));
 
-	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(component->state));
-	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
-
-	res = fmt::format_to_n(label_buf, 256, "UUID: {}", component->uuid);
-	ui::label_split(ui, line_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, line_rectsplit, exo::format(scope, "UUID: {}", component->uuid));
 
 	if (auto *mesh_component = component.as<MeshComponent>()) {
 		scene_inspector_mesh_component(ui, asset_manager, mesh_component, line_rectsplit.rect);
@@ -232,18 +208,16 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 		return;
 	}
 
-	char label_buf[256] = {};
-	auto em             = ui.theme.font_size;
+	exo::ScopeStack scope;
+	auto            em = ui.theme.font_size;
 
 	auto *entity = scene.ui.selected_entity;
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	auto res = fmt::format_to_n(label_buf, 256, "Selected: {}", entity->name);
-	ui::label_split(ui, content_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, content_rectsplit, exo::format(scope, "Selected: {}", entity->name));
 
-	res = fmt::format_to_n(label_buf, 256, "State: {}", to_string(entity->state));
-	ui::label_split(ui, content_rectsplit, std::string_view{&label_buf[0], res.size});
+	ui::label_split(ui, content_rectsplit, exo::format(scope, "State: {}", to_string(entity->state)));
 
 	content_rectsplit.split(1.0f * em);
 

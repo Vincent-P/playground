@@ -17,15 +17,16 @@ struct Finalizer
 struct ScopeStack
 {
 public:
+	ScopeStack();
 	static ScopeStack with_allocator(LinearAllocator *a);
 	~ScopeStack();
 
-	template <typename T> T *allocate(u32 element_count = 1);
+	template <typename T>
+	T *allocate(u32 element_count = 1);
 
 	inline void *allocate(usize size);
 
-	ScopeStack()                        = default;
-	ScopeStack(const ScopeStack &other) = delete;
+	ScopeStack(const ScopeStack &other)            = delete;
 	ScopeStack &operator=(const ScopeStack &other) = delete;
 	ScopeStack(ScopeStack &&other) noexcept;
 	ScopeStack &operator=(ScopeStack &&other) noexcept;
@@ -41,9 +42,14 @@ private:
 	Finalizer       *finalizer_head = nullptr;
 };
 
-template <typename T> void call_dtor(void *ptr) { static_cast<T *>(ptr)->~T(); }
+template <typename T>
+void call_dtor(void *ptr)
+{
+	static_cast<T *>(ptr)->~T();
+}
 
-template <typename T> T *ScopeStack::allocate(u32 element_count)
+template <typename T>
+T *ScopeStack::allocate(u32 element_count)
 {
 	if constexpr (!std::is_trivially_destructible_v<T>) {
 		// Not sure how to implement multiple elements
@@ -51,7 +57,7 @@ template <typename T> T *ScopeStack::allocate(u32 element_count)
 
 		// Allocate enough space for the finalizer + the object itself
 		constexpr usize total_size = sizeof(T) + round_up_to_alignment(sizeof(u32), sizeof(Finalizer));
-		auto       *f          = reinterpret_cast<Finalizer *>(allocator->allocate(total_size));
+		auto           *f          = reinterpret_cast<Finalizer *>(allocator->allocate(total_size));
 
 		// Call the constructor with placement new
 		T *result = new (object_from_finalizer(f)) T;

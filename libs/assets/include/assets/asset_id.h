@@ -1,7 +1,7 @@
 #pragma once
 #include <exo/hash.h>
 #include <exo/maths/numerics.h>
-#include <string>
+#include "exo/string.h"
 
 namespace exo
 {
@@ -10,14 +10,14 @@ struct Serializer;
 
 struct AssetId
 {
-	std::string name      = "";
+	exo::String name      = "";
 	u64         name_hash = 0;
 
 	template <typename T>
-	static AssetId create(std::string_view name)
+	static AssetId create(exo::StringView name)
 	{
 		return AssetId{
-			.name      = std::string(name),
+			.name      = exo::String(name),
 			.name_hash = AssetId::hash_name(name),
 		};
 	}
@@ -27,7 +27,7 @@ struct AssetId
 	static AssetId invalid() { return {}; }
 
 private:
-	static u64 hash_name(std::string_view name);
+	static u64 hash_name(exo::StringView name);
 };
 
 // hash

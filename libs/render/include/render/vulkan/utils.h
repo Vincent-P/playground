@@ -2,8 +2,9 @@
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/image.h"
 
-#include "exo/macros/assert.h"
 #include "exo/collections/span.h"
+#include "exo/macros/assert.h"
+#include <cstring>
 #include <volk.h>
 
 namespace vulkan

@@ -2,5 +2,5 @@
 
 namespace exo
 {
-Option<std::filesystem::path> file_dialog(Vec<std::pair<std::string, std::string>>) { return std::nullopt; }
+Option<std::filesystem::path> file_dialog(Vec<std::pair<exo::String, exo::String>>) { return std::nullopt; }
 } // namespace exo

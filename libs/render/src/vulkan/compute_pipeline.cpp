@@ -25,7 +25,7 @@ void Device::recreate_program_internal(ComputeProgram &program)
 	program.pipeline = pipeline;
 }
 
-Handle<ComputeProgram> Device::create_program(std::string_view name, const ComputeState &compute_state)
+Handle<ComputeProgram> Device::create_program(exo::StringView name, const ComputeState &compute_state)
 {
 	const auto &shader = shaders.get(compute_state.shader);
 
@@ -39,7 +39,7 @@ Handle<ComputeProgram> Device::create_program(std::string_view name, const Compu
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	vk_check(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline));
 
-	auto name_string = std::string{name};
+	auto name_string = exo::String{name};
 
 	if (vkSetDebugUtilsObjectNameEXT) {
 		VkDebugUtilsObjectNameInfoEXT ni = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};

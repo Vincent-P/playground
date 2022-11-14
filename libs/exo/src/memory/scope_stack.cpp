@@ -1,9 +1,16 @@
 #include "exo/memory/scope_stack.h"
-
+#include <exo/memory/linear_allocator.h>
 #include <utility>
 
 namespace exo
 {
+ScopeStack::ScopeStack()
+{
+	this->allocator      = &tls_allocator;
+	this->rewind_ptr     = tls_allocator.get_ptr();
+	this->finalizer_head = nullptr;
+}
+
 ScopeStack ScopeStack::with_allocator(LinearAllocator *a)
 {
 	ScopeStack result     = {};

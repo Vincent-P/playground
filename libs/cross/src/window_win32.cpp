@@ -10,7 +10,7 @@
 // clang-format off
 #include <windows.h> // needed before imm.h
 #include <imm.h>
-#include <string>
+#include "exo/string.h"
 #include <windowsx.h>
 #include <winuser.h>
 // clang-format on
@@ -83,10 +83,10 @@ static void poll_events_fiber(void *window)
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-std::unique_ptr<Window> Window::create(int2 size, const std::string_view title)
+std::unique_ptr<Window> Window::create(int2 size, const exo::StringView title)
 {
 	auto window   = std::make_unique<Window>();
-	window->title = std::string(title);
+	window->title = exo::String(title);
 	window->size  = size;
 	window->stop  = false;
 	window->events.reserve(5); // should be good enough
@@ -139,9 +139,9 @@ float2 Window::get_dpi_scale() const
 	return float2(scale, scale);
 }
 
-void Window::set_title(std::string_view new_title)
+void Window::set_title(exo::StringView new_title)
 {
-	this->title      = std::string{new_title};
+	this->title      = exo::String{new_title};
 	auto utf16_title = utils::utf8_to_utf16(title);
 	auto res         = SetWindowTextW(this->impl.get().hwnd, utf16_title.c_str());
 	ASSERT(res != 0);

@@ -7,7 +7,7 @@
 
 static bool is_separator(char c) { return c == '/' || c == '\\'; }
 
-static void append_path(std::string &storage, std::string_view to_append)
+static void append_path(exo::String &storage, exo::StringView to_append)
 {
 	// If the path to append starts with a separator, it is an absolute path
 	if (is_separator(to_append[0])) {
@@ -64,15 +64,15 @@ static void append_path(std::string &storage, std::string_view to_append)
 
 namespace exo
 {
-Path Path::from_string(std::string_view path)
+Path Path::from_string(exo::StringView path)
 {
 	Path res;
 	append_path(res.str, path);
 	return res;
 }
-Path Path::from_owned_string(std::string &&str) { return Path::from_string(str); }
+Path Path::from_owned_string(exo::String &&str) { return Path::from_string(str); }
 
-std::string_view Path::extension() const
+exo::StringView Path::extension() const
 {
 	u32       i_last_dot = u32_invalid;
 	const u32 size       = u32(this->str.size());
@@ -84,13 +84,13 @@ std::string_view Path::extension() const
 	}
 
 	if (i_last_dot == u32_invalid) {
-		return std::string_view{};
+		return exo::StringView{};
 	}
 
-	return std::string_view{&this->str[i_last_dot], size - i_last_dot};
+	return exo::StringView{&this->str[i_last_dot], size - i_last_dot};
 }
 
-std::string_view Path::filename() const
+exo::StringView Path::filename() const
 {
 	u32       i_last_sep = u32_invalid;
 	const u32 size       = u32(this->str.size());
@@ -102,16 +102,16 @@ std::string_view Path::filename() const
 	}
 
 	if (i_last_sep == u32_invalid) {
-		return std::string_view{this->str};
+		return exo::StringView{this->str};
 	} else {
 		const usize filename_length = size - (i_last_sep + 1);
-		auto        filename        = std::string_view{&this->str[i_last_sep + 1], filename_length};
+		auto        filename        = exo::StringView{&this->str[i_last_sep + 1], filename_length};
 		return filename;
 	}
 }
 
 // static helpers
-Path Path::join(exo::Path path, std::string_view str)
+Path Path::join(exo::Path path, exo::StringView str)
 {
 	append_path(path.str, str);
 	return path;
@@ -123,7 +123,7 @@ Path Path::join(exo::Path lhs, const exo::Path &rhs)
 	return lhs;
 }
 
-Path Path::replace_filename(exo::Path path, std::string_view new_filename)
+Path Path::replace_filename(exo::Path path, exo::StringView new_filename)
 {
 	return Path::join(Path::remove_filename(std::move(path)), new_filename);
 }
@@ -139,7 +139,7 @@ Path Path::remove_filename(exo::Path path)
 		}
 	}
 
-	auto path_except_filename = std::string_view{&path.str[0], i_last_sep + 1};
+	auto path_except_filename = exo::StringView{&path.str[0], i_last_sep + 1};
 	return Path::from_string(path_except_filename);
 }
 

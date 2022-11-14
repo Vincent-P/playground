@@ -2,6 +2,7 @@
 
 #include <engine/camera.h>
 #include <engine/scene.h>
+#include <exo/format.h>
 #include <exo/memory/scope_stack.h>
 #include <exo/profile.h>
 
@@ -15,8 +16,7 @@
 #include <engine/render_world_system.h>
 #include <painter/painter.h>
 
-#include <fmt/format.h>
-#include <string_view>
+#include "exo/string_view.h"
 #include <ui/docking.h>
 #include <ui/scroll.h>
 #include <ui/ui.h>
@@ -89,7 +89,7 @@ void App::display_ui(double dt)
 
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
-	char label_buf[256] = {};
+	exo::ScopeStack scope;
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "View 1"); view_rect) {
 		EXO_PROFILE_SCOPE_NAMED("Test 1");
@@ -144,13 +144,13 @@ void App::display_ui(double dt)
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-		ui::label_split(this->ui, rectsplit, fmt::format("Active: {}", this->ui.activation.active));
-		ui::label_split(this->ui, rectsplit, fmt::format("Focused: {}", this->ui.activation.focused));
+		ui::label_split(this->ui, rectsplit, exo::format(scope, "Active: {}", this->ui.activation.active));
+		ui::label_split(this->ui, rectsplit, exo::format(scope, "Focused: {}", this->ui.activation.focused));
 		rectsplit.split(1.0f * em);
 
 		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
 		for (auto pressed : this->inputs.mouse_buttons_pressed) {
-			ui::label_split(this->ui, rectsplit, fmt::format("  {}", pressed));
+			ui::label_split(this->ui, rectsplit, exo::format(scope, "  {}", pressed));
 		}
 		rectsplit.split(1.0f * em);
 
@@ -158,7 +158,10 @@ void App::display_ui(double dt)
 		if (this->ui.inputs.mouse_wheel) {
 			ui::label_split(this->ui,
 				rectsplit,
-				fmt::format("  {}x{}", this->ui.inputs.mouse_wheel.value().x, this->ui.inputs.mouse_wheel.value().y));
+				exo::format(scope,
+					"  {}x{}",
+					this->ui.inputs.mouse_wheel.value().x,
+					this->ui.inputs.mouse_wheel.value().y));
 		} else {
 			ui::label_split(this->ui, rectsplit, "  <none>");
 		}
@@ -176,23 +179,24 @@ void App::display_ui(double dt)
 
 		// Resources
 		static auto scroll_offset = float2();
-		auto        res           = fmt::format_to_n(label_buf, 256, "Resources (offset {}):", scroll_offset.y);
-		ui::label_split(this->ui, rectsplit, std::string_view{&label_buf[0], res.size});
+		ui::label_split(this->ui, rectsplit, exo::format(scope, "Resources (offset {}):", scroll_offset.y));
 		rectsplit.split(0.5f * em);
 
 		auto &scrollarea_rect    = content_rect;
 		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
 		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager.database.resource_records) {
-			if (p_resource->asset_id.is_valid()) {
-				res = fmt::format_to_n(label_buf, 256, "name: \"{}\"", p_resource->asset_id.name);
-			} else {
-				res = fmt::format_to_n(label_buf, 256, "INVALID");
-			}
-			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0], res.size});
 
-			res = fmt::format_to_n(label_buf, 256, "path: \"{}\"", p_resource->resource_path.view());
-			ui::label_split(this->ui, scroll_rectsplit, std::string_view{&label_buf[0], res.size});
+			exo::StringView label;
+			if (p_resource->asset_id.is_valid()) {
+				label = exo::format(scope, "name: \"{}\"", p_resource->asset_id.name);
+			} else {
+				label = exo::format(scope, "INVALID");
+			}
+			ui::label_split(this->ui, scroll_rectsplit, label);
+
+			label = exo::format(scope, "path: \"{}\"", p_resource->resource_path.view());
+			ui::label_split(this->ui, scroll_rectsplit, label);
 
 			scroll_rectsplit.split(1.0f * em);
 		}

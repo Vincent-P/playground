@@ -1,6 +1,5 @@
 #pragma once
-#include <filesystem>
-#include <string>
+#include "exo/string.h"
 #include <utility>
 
 #include <exo/collections/span.h>
@@ -9,5 +8,5 @@
 namespace cross
 {
 // Extensions filters are pair of (description, filter) like {"Image", "*.png"} for example
-Option<std::filesystem::path> file_dialog(exo::Span<const std::pair<std::string, std::string>> extensions = {});
+Option<exo::String> file_dialog(exo::Span<const std::pair<exo::String, exo::String>> extensions = {});
 }; // namespace cross

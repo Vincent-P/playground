@@ -6,7 +6,7 @@
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 
 namespace exo
 {
@@ -29,7 +29,7 @@ struct EntityWorld
 	void update(double delta_t, AssetManager *asset_manager);
 
 	// Entities
-	Entity *create_entity(std::string_view name = "Unnamed");
+	Entity *create_entity(exo::StringView name = "Unnamed");
 	void    destroy_entity(Entity *entity);
 	void    set_parent_entity(Entity *entity, Entity *parent);
 

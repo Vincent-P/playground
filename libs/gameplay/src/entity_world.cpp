@@ -86,7 +86,7 @@ void EntityWorld::update(double delta_t, AssetManager *asset_manager)
 
 // -- Entities
 
-Entity *EntityWorld::create_entity(std::string_view name)
+Entity *EntityWorld::create_entity(exo::StringView name)
 {
 	auto *new_entity = new Entity();
 	new_entity->name = this->str_repo.intern(name);

@@ -6,7 +6,7 @@
 #include "render/vulkan/framebuffer.h"
 #include "render/vulkan/shader.h"
 
-#include <string>
+#include "exo/string.h"
 #include <volk.h>
 
 namespace vulkan
@@ -62,7 +62,7 @@ struct GraphicsState
 
 struct GraphicsProgram
 {
-	std::string name;
+	exo::String name;
 	// state to compile the pipeline
 	GraphicsState                                     graphics_state;
 	exo::DynamicArray<RenderState, MAX_RENDER_STATES> render_states;
@@ -79,7 +79,7 @@ struct ComputeState
 
 struct ComputeProgram
 {
-	std::string  name;
+	exo::String  name;
 	ComputeState state;
 	VkPipeline   pipeline;
 };

@@ -9,7 +9,7 @@
 #include "render/vulkan/queues.h"
 #include "render/vulkan/synchronization.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 #include <volk.h>
 
 namespace vulkan
@@ -87,7 +87,7 @@ struct Work
 	void timestamp_query(QueryPool &query_pool, u32 index);
 
 	// debug utils
-	void begin_debug_label(std::string_view label, float4 color = float4(0.0f));
+	void begin_debug_label(exo::StringView label, float4 color = float4(0.0f));
 	void end_debug_label();
 };
 

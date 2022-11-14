@@ -228,7 +228,7 @@ void Work::timestamp_query(QueryPool &query_pool, u32 index)
 	vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, query_pool.vkhandle, index);
 }
 
-void Work::begin_debug_label(std::string_view label, float4 color)
+void Work::begin_debug_label(exo::StringView label, float4 color)
 {
 	VkDebugUtilsLabelEXT label_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
 	label_info.pLabelName           = label.data();

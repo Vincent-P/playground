@@ -5,7 +5,7 @@
 
 #include <memory>
 #include "exo/collections/span.h"
-#include <string_view>
+#include "exo/string_view.h"
 
 namespace cross
 {
@@ -20,7 +20,7 @@ struct ReadFileJob : public Job
 	struct Impl;
 	exo::ForwardContainer<Impl> readfilejob_impl;
 
-	std::string_view path;
+	exo::StringView path;
 	std::size_t      size;
 	exo::Span<u8>    dst;
 
@@ -29,7 +29,7 @@ struct ReadFileJob : public Job
 
 struct ReadFileJobDesc
 {
-	std::string_view path;
+	exo::StringView path;
 	exo::Span<u8>    dst;
 	std::size_t      offset = 0;
 	std::size_t      size   = 0;

@@ -5,7 +5,7 @@
 #include <exo/uuid.h>
 #include <reflection/reflection.h>
 
-#include <string>
+#include "exo/string.h"
 
 namespace exo
 {
@@ -48,7 +48,7 @@ struct BaseComponent
 	REFL_REGISTER_TYPE("BaseComponent")
 
 	exo::UUID      uuid;
-	std::string    name;
+	exo::String    name;
 	ComponentState state = ComponentState::Unloaded;
 
 	// --

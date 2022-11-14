@@ -7,7 +7,7 @@
 #include <volk.h>
 
 // TODO interned strings
-#include <string>
+#include "exo/string.h"
 
 namespace vulkan
 {
@@ -46,7 +46,7 @@ enum struct ImageUsage : u8
 
 struct ImageDescription
 {
-	std::string           name                                        = "No name";
+	exo::String           name                                        = "No name";
 	int3                  size                                        = {1, 1, 1};
 	u32                   mip_levels                                  = 1;
 	VkImageType           type                                        = VK_IMAGE_TYPE_2D;
@@ -64,7 +64,7 @@ struct ImageView
 	u32                     sampled_idx = u32_invalid;
 	u32                     storage_idx = u32_invalid;
 	VkFormat                format;
-	std::string             name;
+	exo::String             name;
 
 	bool operator==(const ImageView &b) const = default;
 };

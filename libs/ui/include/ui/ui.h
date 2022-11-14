@@ -6,7 +6,7 @@
 #include "painter/color.h"
 #include "painter/rect.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 
 struct Font;
 struct Painter;
@@ -122,9 +122,9 @@ enum struct Alignment
 {
 	Center
 };
-void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignment alignment = Alignment::Center);
-Rect label_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
-bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label);
+void label_in_rect(Ui &ui, const Rect &view_rect, exo::StringView label, Alignment alignment = Alignment::Center);
+Rect label_split(Ui &ui, RectSplit &rectsplit, exo::StringView label);
+bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label);
 
 bool invisible_button(Ui &ui, const Rect &rect);
 

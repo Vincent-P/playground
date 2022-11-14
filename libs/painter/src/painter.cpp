@@ -103,7 +103,7 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 	ASSERT((painter.vertex_bytes_offset - sizeof(ColorRect)) % sizeof(ColorRect) == 0);
 }
 
-int2 measure_label(Painter &painter, Font &font, std::string_view label)
+int2 measure_label(Painter &painter, Font &font, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -129,7 +129,7 @@ int2 measure_label(Painter &painter, Font &font, std::string_view label)
 	return {cursor_x, line_height};
 }
 
-void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, std::string_view label)
+void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 

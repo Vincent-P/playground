@@ -6,8 +6,8 @@
 #include <exo/maths/vectors.h>
 
 #include "exo/collections/span.h"
-#include <string>
-#include <string_view>
+#include "exo/string.h"
+#include "exo/string_view.h"
 #include <volk.h>
 
 namespace vulkan
@@ -51,7 +51,7 @@ struct TextureSize
 
 struct TextureDesc
 {
-	std::string           name           = "unnamed texture desc";
+	exo::String           name           = "unnamed texture desc";
 	TextureSize           size           = TextureSize::screen_relative(float2(1.0));
 	VkFormat              format         = VK_FORMAT_R8G8B8A8_UNORM;
 	VkImageType           image_type     = VK_IMAGE_TYPE_2D;

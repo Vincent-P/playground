@@ -2,12 +2,12 @@
 
 #include <cross/window.h>
 #include <exo/collections/dynamic_array.h>
+#include <exo/format.h>
+#include <exo/memory/scope_stack.h>
 
 #include "render/vulkan/context.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
-
-#include <fmt/format.h>
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 #include <windows.h>
@@ -165,11 +165,12 @@ void Surface::create_swapchain(Device &device)
 	auto vkimages = Vec<VkImage>::with_length(images_count);
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
+	exo::ScopeStack scope;
 	this->images.resize(images_count);
 	for (uint i_image = 0; i_image < images_count; i_image++) {
 		this->images[i_image] = device.create_image(
 			{
-				.name   = fmt::format("Swapchain #{}", i_image),
+				.name   = exo::format(scope, "Swapchain #{}", i_image),
 				.size   = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,
@@ -252,11 +253,12 @@ void Surface::recreate_swapchain(Device &device)
 	auto vkimages     = Vec<VkImage>::with_length(images_count);
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
+	exo::ScopeStack scope;
 	for (uint i_image = 0; i_image < images_count; i_image++) {
 		device.destroy_image(this->images[i_image]);
 		this->images[i_image] = device.create_image(
 			{
-				.name   = fmt::format("Swapchain #{}", i_image),
+				.name   = exo::format(scope, "Swapchain #{}", i_image),
 				.size   = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,

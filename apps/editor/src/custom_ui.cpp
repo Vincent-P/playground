@@ -1,12 +1,12 @@
 #include "custom_ui.h"
 
 #include <exo/collections/array.h>
+#include <exo/format.h>
 #include <painter/painter.h>
 #include <ui/ui.h>
 
 #include <algorithm>
 #include <cmath>
-#include <fmt/format.h>
 
 namespace custom_ui
 {

@@ -59,7 +59,7 @@ void test_async(int argc, char *argv[])
 			EXO_PROFILE_SCOPE_NAMED("prepare read jobs")
 			read_jobs.resize(std::size_t(argc) - 1);
 			for (std::size_t i = 0, end = std::size_t(argc) - 1; i < end; ++i) {
-				read_jobs[i].path = std::string_view(argv[i + 1]);
+				read_jobs[i].path = exo::StringView(argv[i + 1]);
 				read_jobs[i].dst  = gpu_upload_area;
 				read_jobs[i].size = 256u << 20;
 			}
@@ -74,7 +74,7 @@ void test_async(int argc, char *argv[])
 
 namespace utils
 {
-std::wstring utf8_to_utf16(const std::string_view &str)
+std::wstring utf8_to_utf16(const exo::StringView &str)
 {
 	if (str.empty()) {
 		return {};
@@ -136,7 +136,7 @@ void test_sync(int argc, char *argv[])
 			EXO_PROFILE_SCOPE_NAMED("prepare read jobs")
 			read_jobs.resize(std::size_t(argc) - 1);
 			for (std::size_t i = 0, end = std::size_t(argc) - 1; i < end; ++i) {
-				read_jobs[i].path = std::string_view(argv[i + 1]);
+				read_jobs[i].path = exo::StringView(argv[i + 1]);
 				read_jobs[i].dst  = gpu_upload_area;
 				read_jobs[i].size = 256u << 20;
 			}

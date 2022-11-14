@@ -1,10 +1,12 @@
 #include "render/vulkan/image.h"
 
+#include "exo/format.h"
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
 
-#include <fmt/format.h>
+#include <exo/memory/scope_stack.h>
+#include <exo/string_view.h>
 #include <vk_mem_alloc.h>
 
 namespace vulkan
@@ -12,7 +14,7 @@ namespace vulkan
 
 static ImageView create_image_view(Device &device,
 	VkImage                                vkhandle,
-	std::string                          &&name,
+	exo::StringView                        name,
 	VkImageSubresourceRange               &range,
 	VkFormat                               format,
 	VkImageViewType                        type)
@@ -20,7 +22,7 @@ static ImageView create_image_view(Device &device,
 	ImageView view = {};
 
 	view.vkhandle = VK_NULL_HANDLE;
-	view.name     = std::move(name);
+	view.name     = name;
 	view.range    = range;
 
 	VkImageViewCreateInfo vci = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -103,9 +105,10 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	full_range.layerCount              = image_info.arrayLayers;
 	const VkFormat format              = image_desc.format;
 
+	exo::ScopeStack scope;
 	const ImageView full_view = create_image_view(*this,
 		vkhandle,
-		fmt::format("{} full view", image_desc.name),
+		exo::format(scope, "{} full view", image_desc.name),
 		full_range,
 		format,
 		view_type_from_image(image_desc.type));

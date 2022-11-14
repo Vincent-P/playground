@@ -5,20 +5,20 @@
 #include <cross/window.h>
 
 #include <exo/collections/vector.h>
+#include <exo/format.h>
 #include <exo/logger.h>
 #include <exo/macros/defer.h>
 #include <exo/macros/packed.h>
 #include <exo/memory/linear_allocator.h>
 #include <exo/memory/scope_stack.h>
 #include <exo/profile.h>
-
+#include <exo/string_view.h>
 #include <render/bindings.h>
 #include <render/shader_watcher.h>
 #include <render/simple_renderer.h>
 #include <render/vulkan/commands.h>
 #include <render/vulkan/image.h>
 #include <render/vulkan/pipelines.h>
-
 #include <ui_renderer/ui_renderer.h>
 
 #include "painter/font.h"
@@ -112,7 +112,7 @@ const u32 BLUE_CHANNEL_MASK  = 0b00000000'00000000'00000000'00000010;
 const u32 ALPHA_CHANNEL_MASK = 0b00000000'00000000'00000000'00000001;
 
 // --- fwd
-static void open_file(RenderSample *app, const std::filesystem::path &path);
+static void open_file(RenderSample *app, const exo::StringView &path);
 
 // --- App
 RenderSample *render_sample_init(exo::ScopeStack &scope)
@@ -246,7 +246,7 @@ static void display_ui(RenderSample *app)
 	rect_split_left(menubar_rect, menu_item_margin);
 	file_rect = rect_center(file_rect, label_size);
 	if (ui::button(app->ui, {.label = "Open Image", .rect = file_rect})) {
-		auto png_extension = std::make_pair(std::string{"PNG Image"}, std::string{"*.png"});
+		auto png_extension = std::make_pair(exo::String{"PNG Image"}, exo::String{"*.png"});
 		if (auto path = cross::file_dialog({&png_extension, 1})) {
 			open_file(app, path.value());
 		}
@@ -402,13 +402,13 @@ static VkFormat to_vk(PixelFormat pformat)
 	}
 }
 
-static void open_file(RenderSample *app, const std::filesystem::path &path)
+static void open_file(RenderSample *app, const exo::StringView &path)
 {
 	EXO_PROFILE_SCOPE;
 	// TODO: PNG importer
 	exo::logger::info("Opened file: {}\n", path);
 
-	auto mapped_file = cross::MappedFile::open(path.string());
+	auto mapped_file = cross::MappedFile::open(path);
 	if (!mapped_file) {
 		return;
 	}

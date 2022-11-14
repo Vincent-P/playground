@@ -14,7 +14,7 @@ struct ReadFileJob::Impl
 struct ReadFileCompletedJob : Job
 {
 	static constexpr int TASK_TYPE = 2;
-	std::string_view     path;
+	exo::StringView     path;
 	std::size_t          read_size = 0;
 
 	volatile i64 *done_counter;

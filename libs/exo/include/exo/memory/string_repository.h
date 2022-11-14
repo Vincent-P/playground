@@ -2,7 +2,7 @@
 #include "exo/collections/map.h"
 #include "exo/maths/numerics.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 
 /**
    A StringRepository is a string interner, it contains immutable strings.
@@ -29,8 +29,8 @@ struct StringRepository
 	StringRepository(StringRepository &&other) noexcept;
 	StringRepository &operator=(StringRepository &&other) noexcept;
 
-	const char *intern(std::string_view s);
-	bool        is_interned(std::string_view s);
+	const char *intern(exo::StringView s);
+	bool        is_interned(exo::StringView s);
 
 private:
 	Map<u64, u64> offsets       = {};

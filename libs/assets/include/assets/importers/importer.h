@@ -6,7 +6,7 @@
 #include <exo/result.h>
 
 #include "exo/collections/span.h"
-#include <string_view>
+#include "exo/string_view.h"
 
 #include "assets/asset_id.h"
 
@@ -41,7 +41,7 @@ struct ProcessResponse
 
 struct Importer
 {
-	virtual bool can_import_extension(exo::Span<std::string_view const> extensions) = 0;
+	virtual bool can_import_extension(exo::Span<exo::StringView const> extensions) = 0;
 	virtual bool can_import_blob(exo::Span<u8 const> data)                          = 0;
 
 	virtual Result<CreateResponse>  create_asset(const CreateRequest &request)   = 0;

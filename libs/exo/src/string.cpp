@@ -1,5 +1,6 @@
 #include "exo/string.h"
 #include "exo/macros/assert.h"
+#include "exo/string_view.h"
 #include <cstring>
 #include <utility>
 
@@ -44,6 +45,8 @@ String::String(const char *c_string, usize length)
 		static_cast<char *>(this->storage.heap.buffer)[length] = '\0';
 	}
 }
+
+String::String(const StringView &string_view) : String{string_view.data(), string_view.size()} {}
 
 String::String(const String &other) { *this = other; }
 
@@ -121,6 +124,8 @@ char &String::back()
 	}
 }
 
+// -- Observers
+
 // -- Operations
 
 void String::push_back(char c)
@@ -161,4 +166,85 @@ void String::push_back(char c)
 	}
 }
 
+void String::clear()
+{
+	if (this->storage.stack.is_small) {
+		this->storage.stack.length    = 0;
+		this->storage.stack.buffer[0] = '\0';
+	} else {
+		this->storage.heap.length                         = 0;
+		static_cast<char *>(this->storage.heap.buffer)[0] = '\0';
+	}
+}
+
+void String::reserve(usize new_capacity)
+{
+	if (new_capacity <= this->capacity()) {
+		return;
+	}
+
+	ASSERT(new_capacity > SSBO_CAPACITY);
+
+	void *new_buffer = std::malloc(new_capacity);
+
+	if (this->storage.stack.is_small) {
+		std::memcpy(new_buffer, this->storage.stack.buffer, this->storage.stack.length);
+		static_cast<char *>(new_buffer)[this->storage.stack.length] = '\0';
+		this->storage.heap.length                                   = this->storage.stack.length;
+	} else {
+		std::memcpy(new_buffer, this->storage.heap.buffer, this->storage.heap.length);
+		static_cast<char *>(new_buffer)[this->storage.heap.length] = '\0';
+		std::free(this->storage.heap.buffer);
+	}
+
+	this->storage.heap.buffer   = new_buffer;
+	this->storage.heap.capacity = u32(new_capacity);
+}
+
+void String::resize(usize new_length)
+{
+	usize cur_len = this->size();
+	usize cur_cap = this->capacity();
+
+	if (new_length > cur_cap) {
+		this->reserve(new_length + 1);
+	}
+
+	if (new_length > cur_len) {
+		for (usize i = cur_len; i < new_length; ++i) {
+			this->push_back('\0');
+		}
+	} else {
+		if (this->storage.stack.is_small) {
+			this->storage.stack.length                             = (unsigned char)(new_length);
+			this->storage.stack.buffer[this->storage.stack.length] = '\0';
+		} else {
+			this->storage.heap.length                                                 = u32(new_length);
+			static_cast<char *>(this->storage.heap.buffer)[this->storage.heap.length] = '\0';
+		}
+	}
+}
+
+bool operator==(const String &lhs, const String &rhs)
+{
+	return lhs.size() == rhs.size() && std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
+}
+
+String operator+(const StringView &lhs, const StringView &rhs)
+{
+	auto lhs_size = lhs.size();
+	auto rhs_size = rhs.size();
+
+	const char *lhs_data = lhs.data();
+	const char *rhs_data = rhs.data();
+
+	String result;
+	result.reserve(lhs_size + rhs_size + 1);
+
+	char *res_data = result.data();
+	std::memcpy(res_data, lhs_data, lhs_size);
+	std::memcpy(res_data + lhs_size, rhs_data, rhs_size);
+	res_data[lhs_size + rhs_size] = '\0';
+	return result;
+}
 } // namespace exo

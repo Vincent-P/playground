@@ -7,7 +7,7 @@
 
 namespace vulkan
 {
-Handle<GraphicsProgram> Device::create_program(std::string_view name, const GraphicsState &graphics_state)
+Handle<GraphicsProgram> Device::create_program(exo::StringView name, const GraphicsState &graphics_state)
 {
 	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
@@ -16,7 +16,7 @@ Handle<GraphicsProgram> Device::create_program(std::string_view name, const Grap
 	auto renderpass = create_renderpass(*this, graphics_state.attachments_format, load_ops);
 
 	return graphics_programs.add({
-		.name           = std::string{name},
+		.name           = exo::String{name},
 		.graphics_state = graphics_state,
 		.renderpass     = renderpass.vkhandle,
 	});

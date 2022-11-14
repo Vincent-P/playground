@@ -13,6 +13,7 @@
 #include <exo/serialization/pool_serializer.h>
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/uuid_serializer.h>
+#include <exo/string_view.h>
 #include <exo/uuid.h>
 
 #include <filesystem>
@@ -41,14 +42,15 @@ void AssetDatabase::track_resource_changes(
 	Vec<ResourceTracker> trackers;
 
 	// Try to track moved/outdated resources from disk
-	auto fs_path = std::filesystem::path(directory.view());
+	auto fs_path = std::filesystem::path(directory.view().data());
 	for (const auto &file_entry : std::filesystem::recursive_directory_iterator{fs_path}) {
 		if (file_entry.is_regular_file() == false) {
 			continue;
 		}
 
 		auto &tracker         = trackers.push();
-		tracker.resource_path = exo::Path::from_string(file_entry.path().string());
+		auto  path_string     = file_entry.path().string();
+		tracker.resource_path = exo::Path::from_string(exo::StringView{path_string.c_str(), path_string.size()});
 	}
 
 	auto w = cross::parallel_foreach_userdata<ResourceTracker, const AssetDatabase, true>(

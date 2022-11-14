@@ -35,14 +35,14 @@ struct AssetManager
 
 	// --
 
-	static exo::Path    get_asset_path(AssetId id);
+	static exo::Path    get_asset_path(const AssetId &id);
 	static AssetManager create(cross::JobManager &jobmanager);
 
 	template <typename T>
 	T *load_asset_t(AssetId id)
 	{
-		refl::BasePtr<Asset> asset = this->database.get_asset(id);
-		auto *casted = asset.as<T>();
+		refl::BasePtr<Asset> asset  = this->database.get_asset(id);
+		auto                *casted = asset.as<T>();
 		ASSERT(casted != nullptr);
 		return casted;
 	}

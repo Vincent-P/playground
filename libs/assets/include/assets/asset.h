@@ -8,7 +8,7 @@
 
 #include "assets/asset_id.h"
 
-#include <string>
+#include "exo/string.h"
 
 namespace exo
 {
@@ -39,8 +39,8 @@ struct Asset
 
 	AssetId      uuid;
 	AssetState   state;
-	std::string  name;
-	std::string  path;
+	exo::String  name;
+	exo::String  path;
 	Vec<AssetId> dependencies;
 
 	// --

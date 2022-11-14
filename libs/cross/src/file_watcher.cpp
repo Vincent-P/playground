@@ -74,7 +74,7 @@ static void fetch_events_internal(FileWatcher &fw)
 		event.wd         = p_event->wd;
 		event.mask       = p_event->mask;
 		event.cookie     = p_event->cookie;
-		event.name       = std::string{p_event->name};
+		event.name       = exo::String{p_event->name};
 		fw.current_events.push_back(std::move(event));
 
 		offset += event_size;

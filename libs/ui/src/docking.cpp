@@ -5,10 +5,9 @@
 
 #include <cross/buttons.h>
 #include <exo/collections/vector.h>
+#include <exo/format.h>
 #include <exo/maths/numerics.h>
 #include <painter/rect.h>
-
-#include <fmt/format.h>
 
 namespace docking
 {
@@ -59,7 +58,7 @@ static void area_replace_child(Area &area, Handle<Area> previous_child, Handle<A
 	}
 }
 
-Option<Rect> tabview(ui::Ui &ui, Docking &self, std::string_view tabname)
+Option<Rect> tabview(ui::Ui &ui, Docking &self, exo::StringView tabname)
 {
 	u32 i_tabview = u32_invalid;
 	for (u32 i = 0; i < self.tabviews.len(); ++i) {
@@ -69,7 +68,7 @@ Option<Rect> tabview(ui::Ui &ui, Docking &self, std::string_view tabname)
 		}
 	}
 	if (i_tabview == u32_invalid) {
-		self.tabviews.push(TabView{.title = std::string{tabname}, .area = self.default_area});
+		self.tabviews.push(TabView{.title = exo::String{tabname}, .area = self.default_area});
 		i_tabview = u32(self.tabviews.len() - 1);
 		insert_tabview(self, i_tabview, self.default_area);
 	}
@@ -170,13 +169,13 @@ void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	auto mouse_pos = ui::mouse_position(ui);
-	ui::label_split(ui, content_rectsplit, fmt::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
+	ui::label_split(ui, content_rectsplit, exo::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
 
 	for (const auto &floating_container : self.floating_containers) {
 		ui::label_split(ui, content_rectsplit, "Floating window:");
 		ui::label_split(ui,
 			content_rectsplit,
-			fmt::format("  - pos: ({}, {}), size ({}, {}))",
+			exo::format("  - pos: ({}, {}), size ({}, {}))",
 				floating_container.rect.pos.x,
 				floating_container.rect.pos.y,
 				floating_container.rect.size.x,

@@ -3,10 +3,11 @@
 #include <exo/hash.h>
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/string_serializer.h>
+#include "exo/string_view.h"
 
 #include <xxhash.h>
 
-u64 AssetId::hash_name(std::string_view name) { return XXH3_64bits(name.data(), name.size()); }
+u64 AssetId::hash_name(exo::StringView name) { return XXH3_64bits(name.data(), name.size()); }
 
 [[nodiscard]] u64 hash_value(const AssetId &id) { return id.name_hash; }
 

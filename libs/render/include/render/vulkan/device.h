@@ -6,7 +6,7 @@
 #include "render/vulkan/physical_device.h"
 #include "render/vulkan/synchronization.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 #include <volk.h>
 
 VK_DEFINE_HANDLE(VmaAllocator);
@@ -108,12 +108,12 @@ struct Device
 	void submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<const u64> signal_values);
 
 	// Shaders
-	Handle<Shader> create_shader(std::string_view path);
+	Handle<Shader> create_shader(exo::StringView path);
 	void           reload_shader(Handle<Shader> shader_handle);
 	void           destroy_shader(Handle<Shader> shader_handle);
 
 	// Graphics Pipeline
-	Handle<GraphicsProgram> create_program(std::string_view name, const GraphicsState &graphics_state);
+	Handle<GraphicsProgram> create_program(exo::StringView name, const GraphicsState &graphics_state);
 	void                    destroy_program(Handle<GraphicsProgram> program_handle);
 	u32  compile_graphics_state(Handle<GraphicsProgram> &program_handle, const RenderState &render_state);
 	void compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, usize i_pipeline);
@@ -127,7 +127,7 @@ struct Device
 
 	// Compute pipeline
 	void                   recreate_program_internal(ComputeProgram &compute_program);
-	Handle<ComputeProgram> create_program(std::string_view name, const ComputeState &compute_state);
+	Handle<ComputeProgram> create_program(exo::StringView name, const ComputeState &compute_state);
 	void                   destroy_program(Handle<ComputeProgram> program_handle);
 
 	// Resources

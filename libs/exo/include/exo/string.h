@@ -3,6 +3,8 @@
 
 namespace exo
 {
+struct StringView;
+
 struct String
 {
 	struct HeapString
@@ -35,6 +37,7 @@ struct String
 
 	String(const char *c_string);
 	String(const char *c_string, usize length);
+	String(const StringView &string_view);
 
 	String(const String &other);
 	String &operator=(const String &other);
@@ -51,11 +54,7 @@ struct String
 
 	bool is_heap_allocated() const { return !this->storage.stack.is_small; }
 
-	const char *c_str() const
-	{
-		return this->storage.stack.is_small ? this->storage.stack.buffer
-		                                    : static_cast<const char *>(this->storage.heap.buffer);
-	}
+	const char *c_str() const { return this->data(); }
 
 	usize capacity() const
 	{
@@ -65,9 +64,51 @@ struct String
 	bool is_empty() const { return this->size() == 0; }
 
 	// -- STL compat
+
+	void clear();
+	void reserve(usize new_capacity);
+	void resize(usize new_length);
+
 	usize size() const { return this->storage.stack.is_small ? this->storage.stack.length : this->storage.heap.length; }
 	bool  empty() const { return this->size() == 0; }
 	char &back();
 	void  push_back(char c);
+	char *data()
+	{
+		return this->storage.stack.is_small ? this->storage.stack.buffer
+		                                    : static_cast<char *>(this->storage.heap.buffer);
+	}
+	const char *data() const
+	{
+		return this->storage.stack.is_small ? this->storage.stack.buffer
+		                                    : static_cast<const char *>(this->storage.heap.buffer);
+	}
 };
+
+bool   operator==(const String &lhs, const String &rhs);
+String operator+(const StringView &lhs, const StringView &rhs);
+
+template <usize N>
+inline bool operator==(const String &string, const char (&literal)[N])
+{
+	if (string.size() != N) {
+		return false;
+	}
+
+	const char *data = string.data();
+	for (usize i = 0; i < N; ++i) {
+		if (data[i] != literal[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+template <usize N>
+inline bool operator==(const char (&literal)[N], const String &view)
+{
+	return view == literal;
+}
+
 } // namespace exo

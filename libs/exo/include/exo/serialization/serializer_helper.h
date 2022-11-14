@@ -5,7 +5,7 @@
 
 #include <cstdio>
 #include "exo/collections/span.h"
-#include <string_view>
+#include "exo/string_view.h"
 
 namespace exo::serializer_helper
 {
@@ -23,7 +23,7 @@ static void read_object(exo::Span<const u8> data, T &object)
 }
 
 template <typename T>
-static void write_object_to_file(std::string_view output_path, T &object)
+static void write_object_to_file(exo::StringView output_path, T &object)
 {
 	exo::ScopeStack scope      = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	exo::Serializer serializer = exo::Serializer::create(&scope);

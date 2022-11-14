@@ -1,4 +1,5 @@
 #include "exo/string.h"
+#include "exo/string_view.h"
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 
@@ -29,6 +30,7 @@ TEST_CASE("exo::String push_back", "[string]")
 	}
 
 	REQUIRE(s.is_heap_allocated());
+	REQUIRE(exo::StringView{s} == exo::StringView{"Im a C string."});
 }
 
 TEST_CASE("exo::String move", "[string]")
@@ -68,4 +70,6 @@ TEST_CASE("exo::String copy", "[string]")
 
 	// Check that the buffer is not shared
 	REQUIRE(dyn.c_str() != stack.c_str());
+	
+	REQUIRE(exo::StringView{dyn} == exo::StringView{stack});
 }

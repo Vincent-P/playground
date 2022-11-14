@@ -3,7 +3,7 @@
 
 #include "render/vulkan/memory.h"
 
-#include <string>
+#include "exo/string.h"
 #include <volk.h>
 
 namespace vulkan
@@ -43,7 +43,7 @@ struct BufferAccess
 
 struct BufferDescription
 {
-	std::string        name         = "No name";
+	exo::String        name         = "No name";
 	usize              size         = 1;
 	VkBufferUsageFlags usage        = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 	MemoryUsage        memory_usage = MemoryUsage::PREFER_DEVICE;

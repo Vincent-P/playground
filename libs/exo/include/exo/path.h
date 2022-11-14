@@ -1,27 +1,27 @@
 #pragma once
 #include <exo/maths/numerics.h>
-#include <string>
-#include <string_view>
+#include "exo/string.h"
+#include "exo/string_view.h"
 
 namespace exo
 {
 struct Path
 {
-	std::string str;
+	exo::String str;
 
 	Path() noexcept = default;
 
-	static Path from_string(std::string_view path);
-	static Path from_owned_string(std::string &&str);
+	static Path from_string(exo::StringView path);
+	static Path from_owned_string(exo::String &&str);
 
-	std::string_view view() const { return std::string_view{this->str}; }
-	std::string_view extension() const;
-	std::string_view filename() const;
+	exo::StringView view() const { return exo::StringView{this->str}; }
+	exo::StringView extension() const;
+	exo::StringView filename() const;
 
 	// static helpers
-	static Path join(exo::Path path, std::string_view str);
+	static Path join(exo::Path path, exo::StringView str);
 	static Path join(exo::Path lhs, const exo::Path &rhs);
-	static Path replace_filename(exo::Path path, std::string_view new_filename);
+	static Path replace_filename(exo::Path path, exo::StringView new_filename);
 	static Path remove_filename(exo::Path path);
 };
 

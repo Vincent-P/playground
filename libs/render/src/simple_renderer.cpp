@@ -3,7 +3,7 @@
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/pipelines.h"
 #include "render/vulkan/shader.h"
-
+#include <exo/format.h>
 #include <exo/logger.h>
 #include <exo/profile.h>
 

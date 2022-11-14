@@ -6,7 +6,7 @@
 #include "painter/glyph_cache.h"
 #include "painter/rect.h"
 
-#include <string_view>
+#include "exo/string_view.h"
 
 namespace exo
 {
@@ -86,8 +86,8 @@ Painter *painter_allocate(
 	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size);
 void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture);
 void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color);
-int2 measure_label(Painter &painter, Font &font, std::string_view label);
-void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font &font, std::string_view label);
+int2 measure_label(Painter &painter, Font &font, exo::StringView label);
+void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font &font, exo::StringView label);
 void painter_draw_color_round_rect(
 	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness);
 void painter_draw_color_circle(

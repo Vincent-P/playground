@@ -8,27 +8,27 @@
 #include <cross/jobmanager.h>
 #include <cross/jobs/custom.h>
 #include <cross/mapped_file.h>
+#include <exo/collections/span.h>
+#include <exo/format.h>
 #include <exo/logger.h>
+#include <exo/memory/scope_stack.h>
 #include <exo/serialization/serializer.h>
 #include <exo/serialization/serializer_helper.h>
 #include <exo/uuid_formatter.h>
+#include <reflection/reflection.h>
 #include <reflection/reflection_serializer.h>
 
 #include "hash_file.h"
 
-#include "exo/collections/span.h"
 #include <filesystem>
-#include <fmt/core.h>
-#include <reflection/reflection.h>
 
 static const exo::Path AssetPath         = exo::Path::from_string(ASSET_PATH);
 static const exo::Path DatabasePath      = exo::Path::from_string(DATABASE_PATH);
 static const exo::Path CompiledAssetPath = exo::Path::from_string(COMPILED_ASSET_PATH);
 
-exo::Path AssetManager::get_asset_path(AssetId id)
+exo::Path AssetManager::get_asset_path(const AssetId &id)
 {
-	std::string filename = std::move(id.name);
-	filename += std::string_view{".asset"};
+	exo::String filename = id.name + exo::StringView{".asset"};
 	return exo::Path::join(CompiledAssetPath, filename);
 }
 
@@ -41,7 +41,8 @@ AssetManager AssetManager::create(cross::JobManager &jobmanager)
 	asset_manager.importers.push_back(new PNGImporter{});
 	asset_manager.importers.push_back(new KTX2Importer{});
 
-	if (std::filesystem::exists(DatabasePath.view())) {
+	const auto database_path = std::filesystem::path{DatabasePath.view().data()};
+	if (std::filesystem::exists(database_path)) {
 		auto resource_file = cross::MappedFile::open(DatabasePath.view()).value();
 		exo::serializer_helper::read_object(resource_file.content(), asset_manager.database);
 	}
@@ -130,8 +131,9 @@ void AssetManager::_import_resources(exo::Span<const Handle<Resource>> records)
 
 refl::BasePtr<Asset> AssetManager::_load_from_disk(const AssetId &id)
 {
-	auto asset_path = AssetManager::get_asset_path(id);
-	ASSERT(std::filesystem::exists(asset_path.view()));
+	auto       asset_path = AssetManager::get_asset_path(id);
+	const auto fs_path    = std::filesystem::path{asset_path.view().data()};
+	ASSERT(std::filesystem::exists(fs_path));
 	auto resource_file = cross::MappedFile::open(asset_path.view()).value();
 	auto new_asset     = refl::BasePtr<Asset>::invalid();
 	exo::serializer_helper::read_object(resource_file.content(), new_asset);
@@ -148,14 +150,13 @@ void AssetManager::_save_to_disk(refl::BasePtr<Asset> asset)
 
 static exo::Path get_blob_path(exo::u128 blob_hash)
 {
-	char buffer[64] = {};
+	exo::ScopeStack scope;
 
 	u64 blob_hash0 = 0;
 	u64 blob_hash1 = 0;
 	exo::u128_to_u64(blob_hash, &blob_hash0, &blob_hash1);
-	auto res = fmt::format_to_n(buffer, 64, "{:x}{:x}.bin", blob_hash0, blob_hash1);
+	auto blob_filename = exo::format(scope, "{:x}{:x}.bin", blob_hash0, blob_hash1);
 
-	auto blob_filename = std::string_view{buffer, res.size};
 	return exo::Path::join(CompiledAssetPath, blob_filename);
 }
 

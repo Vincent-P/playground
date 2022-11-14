@@ -28,7 +28,7 @@ MappedFile &MappedFile::operator=(MappedFile &&moved)
 	return *this;
 }
 
-Option<MappedFile> MappedFile::open(const std::string_view &path)
+Option<MappedFile> MappedFile::open(const exo::StringView &path)
 {
 	MappedFile file{};
 

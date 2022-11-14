@@ -30,7 +30,7 @@ StringRepository &StringRepository::operator=(StringRepository &&other) noexcept
 	return *this;
 }
 
-const char *StringRepository::intern(std::string_view s)
+const char *StringRepository::intern(exo::StringView s)
 {
 	const u64 hash = XXH3_64bits(s.data(), s.size());
 
@@ -57,7 +57,7 @@ const char *StringRepository::intern(std::string_view s)
 	return this->string_buffer + old_size;
 }
 
-bool StringRepository::is_interned(std::string_view s)
+bool StringRepository::is_interned(exo::StringView s)
 {
 	const u64 hash = XXH3_64bits(s.data(), s.size());
 	return offsets.at(hash) != nullptr;

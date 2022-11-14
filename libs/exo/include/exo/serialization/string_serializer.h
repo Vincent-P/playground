@@ -1,11 +1,11 @@
 #pragma once
 
 #include "exo/serialization/serializer.h"
-#include <string>
+#include "exo/string.h"
 
 namespace exo
 {
-inline void serialize(Serializer &serializer, std::string &data)
+inline void serialize(Serializer &serializer, exo::String &data)
 {
 	usize len = 0;
 	if (serializer.is_writing) {

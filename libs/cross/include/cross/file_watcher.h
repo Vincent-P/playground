@@ -3,7 +3,7 @@
 #include <exo/maths/numerics.h>
 
 #include <functional>
-#include <string>
+#include "exo/string.h"
 
 #if defined(PLATFORM_WINDOWS)
 #include <array>
@@ -25,7 +25,7 @@ struct Watch
 #endif
 
 	int         wd; /* Watch descriptor.  */
-	std::string path;
+	exo::String path;
 };
 
 enum struct WatchEventAction
@@ -47,7 +47,7 @@ struct WatchEvent
 #endif
 
 	int              wd;   /* Watch descriptor.  */
-	std::string      name; /* filename. */
+	exo::String      name; /* filename. */
 	usize            len;
 	WatchEventAction action;
 };

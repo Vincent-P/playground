@@ -207,7 +207,7 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
 }
 
-void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignment alignment)
+void label_in_rect(Ui &ui, const Rect &view_rect, exo::StringView label, Alignment alignment)
 {
 	ASSERT(alignment == Alignment::Center);
 	auto label_rect = rect_center(view_rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label)));
@@ -217,7 +217,7 @@ void label_in_rect(Ui &ui, const Rect &view_rect, std::string_view label, Alignm
 	pop_clip_rect(ui);
 }
 
-Rect label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
+Rect label_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -232,7 +232,7 @@ Rect label_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
 	return line_rect;
 }
 
-bool button_split(Ui &ui, RectSplit &rectsplit, std::string_view label)
+bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 

@@ -3,7 +3,9 @@
 #include <assets/importers/importer.h>
 
 #include <exo/collections/span.h>
+#include <exo/format.h>
 #include <exo/maths/pointer.h>
+#include <exo/memory/scope_stack.h>
 #include <exo/memory/string_repository.h>
 
 #include <cross/mapped_file.h>
@@ -19,8 +21,6 @@
 #include <rapidjson/error/en.h>
 #include <rapidjson/filewritestream.h>
 #include <rapidjson/prettywriter.h>
-
-#include <fmt/format.h>
 
 // -- glTF data utils
 
@@ -116,7 +116,7 @@ static Accessor get_accessor(const rapidjson::Value &object)
 
 	res.count = accessor["count"].GetUint();
 
-	auto type = std::string_view(accessor["type"].GetString());
+	auto type = exo::StringView(accessor["type"].GetString());
 	if (type == "SCALAR") {
 		res.nb_component = 1;
 	} else if (type == "VEC2") {
@@ -177,18 +177,16 @@ struct ImporterContext
 	Vec<float4> positions;
 	Vec<float2> uvs;
 
-	[[nodiscard]] exo::Path relative_to_absolute_path(std::string_view relative_path_str) const
+	[[nodiscard]] exo::Path relative_to_absolute_path(exo::StringView relative_path_str) const
 	{
 		auto dir = exo::Path::remove_filename(this->main_path);
 		return exo::Path::join(dir, relative_path_str);
 	}
 
 	template <typename T>
-	AssetId create_id(std::string_view subname)
+	AssetId create_id(exo::StringView subname)
 	{
-		std::string copy = this->main_id.name;
-		copy += '_';
-		copy += subname;
+		exo::String copy = this->main_id.name + exo::StringView{"_"} + subname;
 		return AssetId::create<T>(copy);
 	}
 };
@@ -224,7 +222,7 @@ static void import_buffers(ImporterContext &ctx)
 	for (u32 i_mesh = 0; i_mesh < j_buffers.Size(); i_mesh += 1) {
 		const auto &j_buffer = j_buffers[i_mesh];
 
-		auto relative_path = std::string_view{j_buffer["uri"].GetString()};
+		auto relative_path = exo::StringView{j_buffer["uri"].GetString()};
 		auto absolute_path = ctx.relative_to_absolute_path(relative_path);
 		auto bytelength    = j_buffer["byteLength"].GetUint();
 
@@ -245,17 +243,19 @@ static void import_meshes(ImporterContext &ctx)
 		return;
 	}
 
+	exo::ScopeStack scope;
+
 	const auto &j_meshes = ctx.j_document["meshes"].GetArray();
 	ctx.mesh_ids.resize(j_meshes.Size());
 	// Generate new UUID for the meshes if needed
 	for (u32 i_mesh = 0; i_mesh < j_meshes.Size(); i_mesh += 1) {
 		const auto &j_mesh = j_meshes[i_mesh];
 
-		std::string mesh_name;
+		exo::String mesh_name;
 		if (j_mesh.HasMember("name")) {
 			mesh_name = j_mesh["name"].GetString();
 		} else {
-			mesh_name = fmt::format("Mesh{}", ctx.i_unnamed_mesh);
+			mesh_name = exo::format(scope, "Mesh{}", ctx.i_unnamed_mesh);
 			ctx.i_unnamed_mesh += 1;
 		}
 		auto mesh_uuid       = ctx.create_id<Mesh>(mesh_name);
@@ -513,16 +513,17 @@ static void import_materials(ImporterContext &ctx)
 		return;
 	}
 
-	const auto &j_materials = ctx.j_document["materials"].GetArray();
+	exo::ScopeStack scope;
+	const auto     &j_materials = ctx.j_document["materials"].GetArray();
 	ctx.material_ids.resize(j_materials.Size());
 	for (u32 i_material = 0; i_material < j_materials.Size(); i_material += 1) {
 		const auto &j_material = j_materials[i_material];
 
-		std::string material_name;
+		exo::String material_name;
 		if (j_material.HasMember("name")) {
 			material_name = j_material["name"].GetString();
 		} else {
-			material_name = fmt::format("Material{}", ctx.i_unnamed_material);
+			material_name = exo::format(scope, "Material{}", ctx.i_unnamed_material);
 			ctx.i_unnamed_material += 1;
 		}
 		auto  material_uuid          = ctx.create_id<Material>(material_name);
@@ -542,7 +543,7 @@ static void import_materials(ImporterContext &ctx)
 
 				if (j_texture.HasMember("extensions")) {
 					for (const auto &j_extension : j_texture["extensions"].GetObj()) {
-						if (std::string_view(j_extension.name.GetString()) == std::string_view("KHR_texture_basisu")) {
+						if (exo::StringView(j_extension.name.GetString()) == exo::StringView("KHR_texture_basisu")) {
 							i_texture = j_extension.value["source"].GetUint();
 							break;
 						}
@@ -620,6 +621,7 @@ static void import_textures(ImporterContext &ctx)
 	if (!ctx.j_document.HasMember("images")) {
 		return;
 	}
+	exo::ScopeStack scope;
 
 	const auto &j_images = ctx.j_document["images"].GetArray();
 
@@ -627,11 +629,11 @@ static void import_textures(ImporterContext &ctx)
 	for (u32 i_image = 0; i_image < j_images.Size(); i_image += 1) {
 		const auto &j_image = j_images[i_image];
 
-		std::string texture_name;
+		exo::String texture_name;
 		if (j_image.HasMember("name")) {
 			texture_name = j_image["name"].GetString();
 		} else {
-			texture_name = fmt::format("Texture{}", ctx.i_unnamed_texture);
+			texture_name = exo::format(scope, "Texture{}", ctx.i_unnamed_texture);
 			ctx.i_unnamed_texture += 1;
 		}
 		ctx.texture_ids[i_image] = ctx.create_id<Texture>(texture_name);
@@ -643,10 +645,10 @@ static void import_textures(ImporterContext &ctx)
 	}
 }
 
-bool GLTFImporter::can_import_extension(exo::Span<const std::string_view> extensions)
+bool GLTFImporter::can_import_extension(exo::Span<const exo::StringView> extensions)
 {
-	for (const auto extension : extensions) {
-		if (extension == std::string_view{".gltf"}) {
+	for (const auto &extension : extensions) {
+		if (extension == exo::StringView{".gltf"}) {
 			return true;
 		}
 	}
@@ -670,13 +672,15 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto file_content_str =
-		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
+		exo::StringView{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
 	document.Parse(file_content_str.data(), file_content_str.size());
 
 	if (document.HasParseError()) {
 		return Err<Asset *>(AssetErrors::ParsingError);
 	}
+
+	exo::ScopeStack scope;
 
 	u32 i_unnamed_texture = 0;
 
@@ -690,20 +694,18 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 			// gltf images have an uri field pointing to the path
 
 			// Generate texture id
-			std::string texture_name;
+			exo::String texture_name;
 			if (j_image.HasMember("name")) {
 				texture_name = j_image["name"].GetString();
 			} else {
-				texture_name = fmt::format("Texture{}", i_unnamed_texture);
+				texture_name = exo::format(scope, "Texture{}", i_unnamed_texture);
 				i_unnamed_texture += 1;
 			}
 
-			std::string copy = response.new_id.name;
-			copy += '_';
-			copy += texture_name;
-			auto texture_id    = AssetId::create<Texture>(copy);
-			auto relative_path = j_image["uri"].GetString();
-			auto absolute_path = exo::Path::replace_filename(request.path, relative_path);
+			exo::String copy          = response.new_id.name + exo::StringView{"_"} + texture_name;
+			auto        texture_id    = AssetId::create<Texture>(copy);
+			auto        relative_path = j_image["uri"].GetString();
+			auto        absolute_path = exo::Path::replace_filename(request.path, relative_path);
 
 			response.dependencies_id.push(texture_id);
 			response.dependencies_paths.push(absolute_path);
@@ -717,7 +719,7 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 {
 	auto file = cross::MappedFile::open(request.path.view()).value();
 	auto file_content_str =
-		std::string_view{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
+		exo::StringView{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
 	document.Parse(file_content_str.data(), file_content_str.size());
 
@@ -762,7 +764,7 @@ Result<Asset *> GLTFImporter::import(ImporterApi &api, exo::UUID resource_uuid, 
 
 	const u8 *first_chunk_data = reinterpret_cast<const u8 *>(exo::ptr_offset(&header.first_chunk, sizeof(Chunk)));
 
-	std::string_view    json_content{reinterpret_cast<const char *>(first_chunk_data), header.first_chunk.length};
+	exo::StringView    json_content{reinterpret_cast<const char *>(first_chunk_data), header.first_chunk.length};
 	rapidjson::Document document;
 	document.Parse(json_content.data(), json_content.size());
 	if (document.HasParseError()) {

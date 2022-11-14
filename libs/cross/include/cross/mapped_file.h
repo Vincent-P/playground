@@ -5,7 +5,7 @@
 #include <cross/prelude.h>
 
 #include "exo/collections/span.h"
-#include <string_view>
+#include "exo/string_view.h"
 
 namespace cross
 {
@@ -29,7 +29,7 @@ struct MappedFile
 	MappedFile(MappedFile &&moved) noexcept;
 	MappedFile &operator=(MappedFile &&moved) noexcept;
 
-	static Option<MappedFile> open(const std::string_view &path);
+	static Option<MappedFile> open(const exo::StringView &path);
 
 	inline exo::Span<const u8> content()
 	{

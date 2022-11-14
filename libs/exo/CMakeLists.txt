@@ -75,6 +75,9 @@ set(SOURCE_FILES
   include/exo/string.h
   src/string.cpp
 
+  include/exo/string_view.h
+  src/string_view.cpp
+
   exo.natvis
 )
 

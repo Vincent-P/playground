@@ -17,9 +17,9 @@ EnumArray<uint, VirtualKey> native_to_virtual{
 
 namespace exo
 {
-void Window::create(Window &window, u32 width, u32 height, std::string_view title)
+void Window::create(Window &window, u32 width, u32 height, exo::StringView title)
 {
-	window.title  = std::string(title);
+	window.title  = exo::String(title);
 	window.width  = width;
 	window.height = height;
 	window.stop   = false;
@@ -120,7 +120,7 @@ void Window::create(Window &window, u32 width, u32 height, std::string_view titl
 	xcb_flush(window.xcb.connection);
 }
 
-void Window::set_title(std::string &&new_title)
+void Window::set_title(exo::String &&new_title)
 {
 	this->title = std::move(new_title);
 	xcb_change_property(xcb.connection,

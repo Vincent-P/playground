@@ -33,11 +33,11 @@ TEST_CASE("exo::Path from string", "[path]")
 TEST_CASE("exo::Path filename", "[path]")
 {
 	auto test_path     = exo::Path::from_string("test.txt");
-	auto test_filename = std::string{test_path.filename()}; // Catch2's REQUIRE wants a std::string
+	auto test_filename = exo::String{test_path.filename()}; // Catch2's REQUIRE wants a exo::String
 	REQUIRE(test_filename == "test.txt");
 
 	test_path     = exo::Path::from_string("chemin/test.txt");
-	test_filename = std::string{test_path.filename()}; // Catch2's REQUIRE wants a std::string
+	test_filename = exo::String{test_path.filename()}; // Catch2's REQUIRE wants a exo::String
 	REQUIRE(test_filename == "test.txt");
 }
 

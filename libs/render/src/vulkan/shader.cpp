@@ -2,42 +2,30 @@
 
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"
+#include <cross/mapped_file.h>
+#include <exo/string_view.h>
 
-#include <filesystem>
-#include <fstream>
 #include <volk.h>
 
 namespace
 {
-static Vec<u8> read_file(const std::filesystem::path &path)
+static Vec<u8> read_file(const exo::StringView &path)
 {
-	std::ifstream file{path, std::ios::binary};
-	if (file.fail()) {
-		return {};
+	auto mapped_file = cross::MappedFile::open(path);
+
+	if (mapped_file && mapped_file->size) {
+		auto res = Vec<u8>::with_length(mapped_file->size);
+		std::memcpy(res.data(), mapped_file->base_addr, mapped_file->size);
+		return res;
 	}
 
-	std::streampos begin;
-	std::streampos end;
-	begin = file.tellg();
-	file.seekg(0, std::ios::end);
-	end = file.tellg();
-
-	auto result = Vec<u8>::with_length(static_cast<usize>(end - begin));
-	if (result.is_empty()) {
-		return {};
-	}
-
-	file.seekg(0, std::ios::beg);
-	file.read(reinterpret_cast<char *>(result.data()), end - begin);
-	file.close();
-
-	return result;
+	return {};
 }
 } // namespace
 
 namespace vulkan
 {
-Handle<Shader> Device::create_shader(std::string_view path)
+Handle<Shader> Device::create_shader(exo::StringView path)
 {
 	auto bytecode = read_file(path);
 
@@ -49,7 +37,7 @@ Handle<Shader> Device::create_shader(std::string_view path)
 	vk_check(vkCreateShaderModule(device, &info, nullptr, &vkhandle));
 
 	return shaders.add({
-		.filename = std::string(path),
+		.filename = exo::String(path),
 		.vkhandle = vkhandle,
 		.bytecode = std::move(bytecode),
 	});
