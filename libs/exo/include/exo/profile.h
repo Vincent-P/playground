@@ -1,6 +1,6 @@
 #pragma once
 
-// #define EXO_PROFILE_USE_TRACY
+#define EXO_PROFILE_USE_TRACY
 
 #if defined(EXO_PROFILE_USE_TRACY)
 
@@ -8,7 +8,7 @@
 
 namespace exo::profile
 {
-inline constexpr unsigned MAX_CALLSTACK_DEPTH = 3;
+inline constexpr unsigned MAX_CALLSTACK_DEPTH = 8;
 }
 
 #define EXO_PROFILE_FRAMEMARK FrameMark

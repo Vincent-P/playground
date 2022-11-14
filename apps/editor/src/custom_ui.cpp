@@ -67,8 +67,8 @@ void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 	}
 	fps = float(std::min(exo::Array::len(widget.histogram->frame_times), FRAMES_FOR_FPS)) / fps;
 
-	auto fps_string = fmt::format("{}", fps);
-	painter_draw_label(*ui.painter, widget.rect, u32_invalid, *ui.theme.main_font, fps_string.c_str());
+	exo::ScopeStack scope;
+	painter_draw_label(*ui.painter, widget.rect, u32_invalid, *ui.theme.main_font, exo::format(scope, "{}", fps));
 }
 
 void FpsHistogram::push_time(float dt)

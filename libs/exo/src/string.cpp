@@ -12,6 +12,14 @@ static void default_construct(exo::String &string)
 	string.storage.stack.length   = 0;
 }
 
+static void destroy_heap_allocation(exo::String &string)
+{
+	ASSERT(string.storage.heap.buffer);
+	std::free(string.storage.heap.buffer);
+	EXO_PROFILE_MFREE(string.storage.heap.buffer);
+	string.storage.heap.buffer = nullptr;
+}
+
 namespace exo
 {
 // -- Constructors
@@ -21,9 +29,7 @@ String::String() { default_construct(*this); }
 String::~String()
 {
 	if (!this->storage.stack.is_small) {
-		ASSERT(this->storage.heap.buffer);
-		std::free(this->storage.heap.buffer);
-		EXO_PROFILE_MFREE(this->storage.heap.buffer);
+		destroy_heap_allocation(*this);
 	}
 
 	default_construct(*this);
@@ -42,8 +48,10 @@ String::String(const char *c_string, usize length)
 	} else {
 		this->storage.heap.length   = u32(length);
 		this->storage.heap.capacity = u32(length + 1);
+
 		this->storage.heap.buffer   = std::malloc(length + 1);
 		EXO_PROFILE_MALLOC(this->storage.heap.buffer, length + 1);
+
 		std::memcpy(this->storage.heap.buffer, c_string, length);
 		static_cast<char *>(this->storage.heap.buffer)[length] = '\0';
 	}
@@ -60,9 +68,7 @@ String &String::operator=(const String &other)
 	// - The other buffer has an allocation, but it has more content that our allocation can store
 	if (!this->storage.stack.is_small &&
 		(other.storage.stack.is_small || this->storage.heap.capacity < other.storage.heap.capacity)) {
-		ASSERT(this->storage.heap.buffer);
-		std::free(this->storage.heap.buffer);
-		EXO_PROFILE_MFREE(this->storage.heap.buffer);
+		destroy_heap_allocation(*this);
 	}
 
 	// When the other string is allocated, we need to allocate for ourselves in two cases:
@@ -140,16 +146,15 @@ void String::push_back(char c)
 			this->storage.stack.buffer[this->storage.stack.length++] = c;
 			this->storage.stack.buffer[this->storage.stack.length]   = '\0';
 		} else {
-			u32   new_capacity = String::SSBO_CAPACITY * 2;
-			auto *new_buffer   = std::malloc(new_capacity);
+			u32 new_capacity = String::SSBO_CAPACITY * 2;
+			u32 new_length   = this->storage.stack.length + 1;
+
+			auto *new_buffer = static_cast<char *>(std::malloc(new_capacity));
 			EXO_PROFILE_MALLOC(new_buffer, new_capacity);
-			u32 new_length = this->storage.stack.length + 1;
 
 			std::memcpy(new_buffer, this->storage.stack.buffer, this->storage.stack.length);
-
-			auto *chars           = static_cast<char *>(new_buffer);
-			chars[new_length - 1] = c;
-			chars[new_length]     = '\0';
+			new_buffer[new_length - 1] = c;
+			new_buffer[new_length]     = '\0';
 
 			this->storage.heap.capacity = new_capacity;
 			this->storage.heap.length   = new_length;
@@ -160,6 +165,8 @@ void String::push_back(char c)
 			auto new_capacity = 2 * this->storage.heap.capacity;
 			ASSERT(new_capacity);
 			auto *new_buffer = std::realloc(this->storage.heap.buffer, new_capacity);
+			EXO_PROFILE_MFREE(this->storage.heap.buffer);
+			EXO_PROFILE_MALLOC(new_buffer, new_capacity);
 
 			this->storage.heap.capacity = new_capacity;
 			this->storage.heap.buffer   = new_buffer;
@@ -201,8 +208,8 @@ void String::reserve(usize new_capacity)
 	} else {
 		std::memcpy(new_buffer, this->storage.heap.buffer, this->storage.heap.length);
 		static_cast<char *>(new_buffer)[this->storage.heap.length] = '\0';
-		std::free(this->storage.heap.buffer);
-		EXO_PROFILE_MFREE(this->storage.heap.buffer);
+
+		destroy_heap_allocation(*this);
 	}
 
 	this->storage.heap.buffer   = new_buffer;
