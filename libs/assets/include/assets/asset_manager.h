@@ -3,6 +3,7 @@
 #include <exo/collections/dynamic_array.h>
 #include <exo/maths/u128.h>
 #include <exo/path.h>
+#include <exo/profile.h>
 
 #include <reflection/reflection.h>
 
@@ -99,7 +100,8 @@ struct ImporterApi
 	{
 		const auto &type_info = refl::typeinfo<T>();
 		void       *memory    = malloc(type_info.size);
-		void       *asset_ptr = type_info.placement_ctor(memory);
+		EXO_PROFILE_MALLOC(memory, type_info.size);
+		void *asset_ptr = type_info.placement_ctor(memory);
 
 		T *new_asset    = static_cast<T *>(asset_ptr);
 		new_asset->uuid = id;

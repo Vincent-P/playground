@@ -1,5 +1,6 @@
 #include "exo/string.h"
 #include "exo/string_view.h"
+#include "helpers.h"
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 
@@ -72,4 +73,17 @@ TEST_CASE("exo::String copy", "[string]")
 	REQUIRE(dyn.c_str() != stack.c_str());
 	
 	REQUIRE(exo::StringView{dyn} == exo::StringView{stack});
+	REQUIRE(dyn == stack);
+}
+
+TEST_CASE("exo::String concat", "[string]")
+{
+	exo::String dyn{"Dynamically allocated because very long"};
+	exo::String stack{" short stack"};
+
+	auto concat = dyn + stack;
+
+	REQUIRE(concat.size() == exo::StringView{"Dynamically allocated because very long short stack"}.size());
+	REQUIRE(concat == exo::StringView{"Dynamically allocated because very long short stack"});
+	REQUIRE(concat == "Dynamically allocated because very long short stack");
 }

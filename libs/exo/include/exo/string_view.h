@@ -46,12 +46,13 @@ bool operator==(const StringView &lhs, const String &rhs);
 template <usize N>
 inline bool operator==(const StringView &view, const char (&literal)[N])
 {
-	if (view.length != N) {
+	// N includes the NULL terminator
+	if (view.length != N - 1) {
 		return false;
 	}
 
 	const char *data = view.data();
-	for (usize i = 0; i < N; ++i) {
+	for (usize i = 0; i < N - 1; ++i) {
 		if (data[i] != literal[i]) {
 			return false;
 		}

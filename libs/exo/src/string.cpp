@@ -1,5 +1,6 @@
 #include "exo/string.h"
 #include "exo/macros/assert.h"
+#include "exo/profile.h"
 #include "exo/string_view.h"
 #include <cstring>
 #include <utility>
@@ -22,6 +23,7 @@ String::~String()
 	if (!this->storage.stack.is_small) {
 		ASSERT(this->storage.heap.buffer);
 		std::free(this->storage.heap.buffer);
+		EXO_PROFILE_MFREE(this->storage.heap.buffer);
 	}
 
 	default_construct(*this);
@@ -41,6 +43,7 @@ String::String(const char *c_string, usize length)
 		this->storage.heap.length   = u32(length);
 		this->storage.heap.capacity = u32(length + 1);
 		this->storage.heap.buffer   = std::malloc(length + 1);
+		EXO_PROFILE_MALLOC(this->storage.heap.buffer, length + 1);
 		std::memcpy(this->storage.heap.buffer, c_string, length);
 		static_cast<char *>(this->storage.heap.buffer)[length] = '\0';
 	}
@@ -59,6 +62,7 @@ String &String::operator=(const String &other)
 		(other.storage.stack.is_small || this->storage.heap.capacity < other.storage.heap.capacity)) {
 		ASSERT(this->storage.heap.buffer);
 		std::free(this->storage.heap.buffer);
+		EXO_PROFILE_MFREE(this->storage.heap.buffer);
 	}
 
 	// When the other string is allocated, we need to allocate for ourselves in two cases:
@@ -67,6 +71,7 @@ String &String::operator=(const String &other)
 	if (!other.storage.stack.is_small &&
 		(this->storage.stack.is_small || this->storage.heap.capacity < other.storage.heap.capacity)) {
 		this->storage.heap.buffer = std::malloc(other.storage.heap.capacity);
+		EXO_PROFILE_MALLOC(this->storage.heap.buffer, other.storage.heap.capacity);
 	}
 
 	// Copy the other string into this
@@ -137,7 +142,8 @@ void String::push_back(char c)
 		} else {
 			u32   new_capacity = String::SSBO_CAPACITY * 2;
 			auto *new_buffer   = std::malloc(new_capacity);
-			u32   new_length   = this->storage.stack.length + 1;
+			EXO_PROFILE_MALLOC(new_buffer, new_capacity);
+			u32 new_length = this->storage.stack.length + 1;
 
 			std::memcpy(new_buffer, this->storage.stack.buffer, this->storage.stack.length);
 
@@ -186,6 +192,7 @@ void String::reserve(usize new_capacity)
 	ASSERT(new_capacity > SSBO_CAPACITY);
 
 	void *new_buffer = std::malloc(new_capacity);
+	EXO_PROFILE_MALLOC(new_buffer, new_capacity);
 
 	if (this->storage.stack.is_small) {
 		std::memcpy(new_buffer, this->storage.stack.buffer, this->storage.stack.length);
@@ -195,6 +202,7 @@ void String::reserve(usize new_capacity)
 		std::memcpy(new_buffer, this->storage.heap.buffer, this->storage.heap.length);
 		static_cast<char *>(new_buffer)[this->storage.heap.length] = '\0';
 		std::free(this->storage.heap.buffer);
+		EXO_PROFILE_MFREE(this->storage.heap.buffer);
 	}
 
 	this->storage.heap.buffer   = new_buffer;
@@ -245,6 +253,13 @@ String operator+(const StringView &lhs, const StringView &rhs)
 	std::memcpy(res_data, lhs_data, lhs_size);
 	std::memcpy(res_data + lhs_size, rhs_data, rhs_size);
 	res_data[lhs_size + rhs_size] = '\0';
+
+	if (result.storage.stack.is_small) {
+		result.storage.stack.length = (unsigned char)(lhs_size + rhs_size);
+	} else {
+		result.storage.heap.length = u32(lhs_size + rhs_size);
+	}
+
 	return result;
 }
 } // namespace exo

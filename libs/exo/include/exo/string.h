@@ -24,12 +24,13 @@ struct String
 	};
 
 	static_assert(sizeof(HeapString) == sizeof(StackString));
+	inline static constexpr StackString EMPTY_STACK_STRING = StackString{.buffer = {}, .is_small = 1, .length = 0};
 
 	union Storage
 	{
 		HeapString  heap;
 		StackString stack;
-	} storage;
+	} storage = {.stack = EMPTY_STACK_STRING};
 	// --
 
 	String();
@@ -91,12 +92,13 @@ String operator+(const StringView &lhs, const StringView &rhs);
 template <usize N>
 inline bool operator==(const String &string, const char (&literal)[N])
 {
-	if (string.size() != N) {
+	// N includes the NULL terminator
+	if (string.size() != N - 1) {
 		return false;
 	}
 
 	const char *data = string.data();
-	for (usize i = 0; i < N; ++i) {
+	for (usize i = 0; i < N - 1; ++i) {
 		if (data[i] != literal[i]) {
 			return false;
 		}

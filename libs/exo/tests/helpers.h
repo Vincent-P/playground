@@ -1,5 +1,9 @@
 #pragma once
+#include <exo/string.h>
+#include <exo/string_view.h>
+#include <string>
 #include <utility>
+#include <catch2/catch_tostring.hpp>
 
 struct DtorCalled
 {
@@ -59,3 +63,18 @@ private:
 
 	int *count = nullptr;
 };
+
+namespace Catch
+{
+template <>
+struct StringMaker<exo::String>
+{
+	static std::string convert(const exo::String &string) { return std::string{string.c_str(), string.size()}; }
+};
+
+template <>
+struct StringMaker<exo::StringView>
+{
+	static std::string convert(const exo::StringView &view) { return std::string{view.data(), view.size()}; }
+};
+} // namespace Catch

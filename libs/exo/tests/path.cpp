@@ -1,4 +1,5 @@
 #include "exo/path.h"
+#include "helpers.h"
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("exo::Path concatenation", "[path]")
