@@ -55,7 +55,7 @@ function(setup_app_target_options TARGET)
       $<$<CXX_COMPILER_ID:Clang>:-march=native>
 
       # Warning level
-      $<$<CXX_COMPILER_ID:Clang,GNU>:-Werror>
+      $<$<CXX_COMPILER_ID:Clang>:-Werror> # No GNU here :)
       $<$<CXX_COMPILER_ID:Clang>:-Wall>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wextra>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wpedantic>

@@ -1,6 +1,8 @@
 #pragma once
 
+#if !defined(__GNUG__)
 #define EXO_PROFILE_USE_TRACY
+#endif
 
 #if defined(EXO_PROFILE_USE_TRACY)
 

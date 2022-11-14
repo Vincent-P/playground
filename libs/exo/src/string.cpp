@@ -2,6 +2,7 @@
 #include "exo/macros/assert.h"
 #include "exo/profile.h"
 #include "exo/string_view.h"
+#include <cstdlib>
 #include <cstring>
 #include <utility>
 
@@ -49,7 +50,7 @@ String::String(const char *c_string, usize length)
 		this->storage.heap.length   = u32(length);
 		this->storage.heap.capacity = u32(length + 1);
 
-		this->storage.heap.buffer   = std::malloc(length + 1);
+		this->storage.heap.buffer = std::malloc(length + 1);
 		EXO_PROFILE_MALLOC(this->storage.heap.buffer, length + 1);
 
 		std::memcpy(this->storage.heap.buffer, c_string, length);
@@ -127,11 +128,11 @@ const char &String::operator[](usize i) const
 char &String::back()
 {
 	if (this->storage.stack.is_small) {
-		ASSERT(this->storage.stack.length - 1 < String::SSBO_CAPACITY);
-		return this->storage.stack.buffer[this->storage.stack.length - 1];
+		ASSERT(this->storage.stack.length - 1u < String::SSBO_CAPACITY);
+		return this->storage.stack.buffer[this->storage.stack.length - 1u];
 	} else {
 		ASSERT(this->storage.heap.length < this->storage.heap.capacity);
-		return static_cast<char *>(this->storage.heap.buffer)[this->storage.heap.length - 1];
+		return static_cast<char *>(this->storage.heap.buffer)[this->storage.heap.length - 1u];
 	}
 }
 
@@ -142,7 +143,7 @@ char &String::back()
 void String::push_back(char c)
 {
 	if (this->storage.stack.is_small) {
-		if (this->storage.stack.length + 2 < String::SSBO_CAPACITY) {
+		if (this->storage.stack.length + 2u < String::SSBO_CAPACITY) {
 			this->storage.stack.buffer[this->storage.stack.length++] = c;
 			this->storage.stack.buffer[this->storage.stack.length]   = '\0';
 		} else {
@@ -153,16 +154,16 @@ void String::push_back(char c)
 			EXO_PROFILE_MALLOC(new_buffer, new_capacity);
 
 			std::memcpy(new_buffer, this->storage.stack.buffer, this->storage.stack.length);
-			new_buffer[new_length - 1] = c;
-			new_buffer[new_length]     = '\0';
+			new_buffer[new_length - 1u] = c;
+			new_buffer[new_length]      = '\0';
 
 			this->storage.heap.capacity = new_capacity;
 			this->storage.heap.length   = new_length;
 			this->storage.heap.buffer   = new_buffer;
 		}
 	} else {
-		if (this->storage.heap.length + 2 >= this->storage.heap.capacity) {
-			auto new_capacity = 2 * this->storage.heap.capacity;
+		if (this->storage.heap.length + 2u >= this->storage.heap.capacity) {
+			auto new_capacity = 2u * this->storage.heap.capacity;
 			ASSERT(new_capacity);
 			auto *new_buffer = std::realloc(this->storage.heap.buffer, new_capacity);
 			EXO_PROFILE_MFREE(this->storage.heap.buffer);

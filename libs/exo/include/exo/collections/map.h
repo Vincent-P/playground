@@ -105,7 +105,12 @@ inline u32 insert_slot(Span<MapSlot> slots, Span<T> values, MapSlot &&slot, T &&
 
 	// Finally, insert the key at the empty slot
 	slots[i_slot] = slot_to_insert;
-	new (&values[i_slot]) T(std::move(value_to_insert));
+
+	if constexpr (std::is_trivially_constructible_v<T>) {
+		values[i_slot] = value_to_insert;
+	} else {
+		new (&values[i_slot]) T(std::move(value_to_insert));
+	}
 
 	return i_original_key_slot;
 }
