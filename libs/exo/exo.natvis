@@ -1,38 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="exo::Pool&lt;*&gt;">
-        <DisplayString>{{ size={size} capacity={capacity} freelist_head={freelist_head} }}</DisplayString>
-        <Expand>
-            <CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
+	<Type Name="exo::Pool&lt;*&gt;">
+		<DisplayString>{{ size={size} capacity={capacity} freelist_head={freelist_head} }}</DisplayString>
+		<Expand>
+			<CustomListItems MaxItemsPerView="5000" ExcludeView="Test">
 
-            <Variable Name="ElementSize" InitialValue="sizeof($T1) > sizeof(uint32_t) ? sizeof($T1) : sizeof(uint32_t)" />
-            <Variable Name="ElementSizeWithMeta" InitialValue="ElementSize + sizeof(uint32_t)" />
-            <Variable Name="iElement" InitialValue="0" />
-            <Variable Name="isOccupied" InitialValue="false" />
-            <Variable Name="Generation" InitialValue="0" />
-            <Variable Name="pMetadata" InitialValue="(uint32_t*)0" />
-            <Variable Name="pElement" InitialValue="($T1*)0 " />
-            <Variable Name="pFreelist" InitialValue="(uint32_t*)0 " />
+				<Variable Name="ElementSize" InitialValue="sizeof($T1) > sizeof(uint32_t) ? sizeof($T1) : sizeof(uint32_t)" />
+				<Variable Name="ElementSizeWithMeta" InitialValue="ElementSize + sizeof(uint32_t)" />
+				<Variable Name="iElement" InitialValue="0" />
+				<Variable Name="isOccupied" InitialValue="false" />
+				<Variable Name="Generation" InitialValue="0" />
+				<Variable Name="pMetadata" InitialValue="(uint32_t*)0" />
+				<Variable Name="pElement" InitialValue="($T1*)0 " />
+				<Variable Name="pFreelist" InitialValue="(uint32_t*)0 " />
 
-            <Size>capacity</Size>
-            <Loop>
-                <Exec>pMetadata = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta)</Exec>
-                <Exec>pElement = ($T1*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
-                <Exec>pFreelist = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
-                <Exec>isOccupied = (*pMetadata) &amp; 0b00000000000000000000000000000001</Exec>
-                <Exec>Generation = (*pMetadata) &amp; 0b11111111111111111111111111111110</Exec>
+				<Size>capacity</Size>
+				<Loop>
+					<Exec>pMetadata = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta)</Exec>
+					<Exec>pElement = ($T1*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+					<Exec>pFreelist = (uint32_t*)((char*)buffer.ptr + iElement * ElementSizeWithMeta + sizeof(uint32_t))</Exec>
+					<Exec>isOccupied = (*pMetadata) &amp; 0b00000000000000000000000000000001</Exec>
+					<Exec>Generation = (*pMetadata) &amp; 0b11111111111111111111111111111110</Exec>
 
-                <Item Condition="isOccupied" Name="[{iElement}] Gen {Generation}">*pElement</Item>
-                <Item Condition="!isOccupied" Name="[{iElement}] Gen {Generation}">*pFreelist</Item>
+					<Item Condition="isOccupied" Name="[{iElement}] Gen {Generation}">*pElement</Item>
+					<Item Condition="!isOccupied" Name="[{iElement}] Gen {Generation}">*pFreelist</Item>
 
-                <Exec>iElement += 1</Exec>
-            </Loop>
+					<Exec>iElement += 1</Exec>
+				</Loop>
 
-            </CustomListItems>
-        </Expand>
-    </Type>
+			</CustomListItems>
+		</Expand>
+	</Type>
 
-    <Type Name="exo::Map&lt;*&gt;">
+	<Type Name="exo::Map&lt;*&gt;">
 		<DisplayString>{capacity}</DisplayString>
 		<Expand>
 			<Item Name="capacity">capacity</Item>
@@ -56,9 +56,9 @@
 				</Expand>
 			</Synthetic>
 		</Expand>
-    </Type>
+	</Type>
 
-    <Type Name="exo::Set&lt;*&gt;">
+	<Type Name="exo::Set&lt;*&gt;">
 		<DisplayString>{capacity}</DisplayString>
 		<Expand>
 			<Item Name="capacity">capacity</Item>
@@ -82,8 +82,7 @@
 				</Expand>
 			</Synthetic>
 		</Expand>
-    </Type>
-
+	</Type>
 	<Type Name="refl::BasePtr&lt;*&gt;">
 		<DisplayString>{refl::details::types_storage[storage.bits.hi].name}</DisplayString>
 		<Expand>
@@ -99,5 +98,23 @@
 				<ValuePointer>($T1*)(buffer.ptr)</ValuePointer>
 			</ArrayItems>
 		</Expand>
+	</Type>
+	<Type Name="exo::String">
+		<DisplayString Condition="storage.stack.is_small">{storage.stack.buffer,na}</DisplayString>
+		<DisplayString Condition="!storage.stack.is_small">{(char*)storage.heap.buffer,na}</DisplayString>
+		<StringView Condition="storage.stack.is_small">storage.stack.buffer,na</StringView>
+		<StringView Condition="!storage.stack.is_small">(char*)storage.heap.buffer,na</StringView>
+		<Expand>
+			<Item Condition="storage.stack.is_small" Name="buffer">storage.stack.buffer</Item>
+			<Item Condition="storage.stack.is_small" Name="length">storage.stack.length</Item>
+			<Item Condition="storage.stack.is_small" Name="capacity">SSBO_CAPACITY</Item>
+			<Item Condition="!storage.stack.is_small" Name="buffer">(char*)storage.heap.buffer</Item>
+			<Item Condition="!storage.stack.is_small" Name="length">storage.heap.length</Item>
+			<Item Condition="!storage.stack.is_small" Name="capacity">storage.heap.capacity</Item>
+		</Expand>
+	</Type>
+	<Type Name="exo::StringView">
+		<DisplayString>{ptr,na}</DisplayString>
+		<StringView>ptr,na</StringView>
 	</Type>
 </AutoVisualizer>

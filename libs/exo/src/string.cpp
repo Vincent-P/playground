@@ -162,7 +162,7 @@ void String::push_back(char c)
 			this->storage.heap.buffer   = new_buffer;
 		}
 	} else {
-		if (this->storage.heap.length + 2u >= this->storage.heap.capacity) {
+		if (this->storage.heap.length + 2u > this->storage.heap.capacity) {
 			auto new_capacity = 2u * this->storage.heap.capacity;
 			ASSERT(new_capacity);
 			auto *new_buffer = std::realloc(this->storage.heap.buffer, new_capacity);
