@@ -2,6 +2,7 @@
 
 #include <exo/collections/array.h>
 #include <exo/format.h>
+#include <exo/memory/scope_stack.h>
 #include <painter/painter.h>
 #include <ui/ui.h>
 
@@ -68,7 +69,7 @@ void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 	fps = float(std::min(exo::Array::len(widget.histogram->frame_times), FRAMES_FOR_FPS)) / fps;
 
 	exo::ScopeStack scope;
-	painter_draw_label(*ui.painter, widget.rect, u32_invalid, *ui.theme.main_font, exo::format(scope, "{}", fps));
+	painter_draw_label(*ui.painter, widget.rect, u32_invalid, *ui.theme.main_font, exo::formatf(scope, "%f", fps));
 }
 
 void FpsHistogram::push_time(float dt)

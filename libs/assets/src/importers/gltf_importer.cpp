@@ -255,7 +255,7 @@ static void import_meshes(ImporterContext &ctx)
 		if (j_mesh.HasMember("name")) {
 			mesh_name = j_mesh["name"].GetString();
 		} else {
-			mesh_name = exo::format(scope, "Mesh{}", ctx.i_unnamed_mesh);
+			mesh_name = exo::formatf(scope, "Mesh%u", ctx.i_unnamed_mesh);
 			ctx.i_unnamed_mesh += 1;
 		}
 		auto mesh_uuid       = ctx.create_id<Mesh>(mesh_name);
@@ -523,7 +523,7 @@ static void import_materials(ImporterContext &ctx)
 		if (j_material.HasMember("name")) {
 			material_name = j_material["name"].GetString();
 		} else {
-			material_name = exo::format(scope, "Material{}", ctx.i_unnamed_material);
+			material_name = exo::formatf(scope, "Material%u", ctx.i_unnamed_material);
 			ctx.i_unnamed_material += 1;
 		}
 		auto  material_uuid          = ctx.create_id<Material>(material_name);
@@ -633,7 +633,7 @@ static void import_textures(ImporterContext &ctx)
 		if (j_image.HasMember("name")) {
 			texture_name = j_image["name"].GetString();
 		} else {
-			texture_name = exo::format(scope, "Texture{}", ctx.i_unnamed_texture);
+			texture_name = exo::formatf(scope, "Texture%u", ctx.i_unnamed_texture);
 			ctx.i_unnamed_texture += 1;
 		}
 		ctx.texture_ids[i_image] = ctx.create_id<Texture>(texture_name);
@@ -698,7 +698,7 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 			if (j_image.HasMember("name")) {
 				texture_name = j_image["name"].GetString();
 			} else {
-				texture_name = exo::format(scope, "Texture{}", i_unnamed_texture);
+				texture_name = exo::formatf(scope, "Texture%u", i_unnamed_texture);
 				i_unnamed_texture += 1;
 			}
 

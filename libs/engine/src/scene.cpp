@@ -8,7 +8,6 @@
 #include <engine/render_world_system.h>
 #include <exo/format.h>
 #include <exo/hash.h>
-#include <exo/logger.h>
 #include <exo/maths/numerics.h>
 #include <exo/maths/quaternion.h>
 #include <exo/memory/scope_stack.h>
@@ -90,7 +89,7 @@ static void tree_view_entity(ui::Ui &ui,
 	}
 
 	exo::ScopeStack scope;
-	auto            entity_label = exo::format(scope, "Name: {}", entity->name);
+	auto            entity_label = exo::formatf(scope, "Name: %s", entity->name);
 	auto            label_rect   = ui::label_split(ui, line_rectsplit, entity_label);
 
 	if (ui::invisible_button(ui, label_rect)) {
@@ -116,7 +115,7 @@ void scene_treeview_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	exo::ScopeStack scope;
-	ui::label_split(ui, rectsplit, exo::format(scope, "Entities: {}", world.entities.size));
+	ui::label_split(ui, rectsplit, exo::formatf(scope, "Entities: %zu", world.entities.size));
 	/*auto margin_rect =*/rectsplit.split(1.0f * ui.theme.font_size);
 
 	for (auto *entity : world.root_entities) {
@@ -128,20 +127,19 @@ static void ui_matrix_label(ui::Ui &ui, const float4x4 &matrix, RectSplit &rects
 {
 	exo::ScopeStack scope;
 
-	auto label = exo::format(scope, "{} {} {} {}", matrix.at(0, 0), matrix.at(0, 1), matrix.at(0, 2), matrix.at(0, 3));
-	ui::label_split(ui, rectsplit, label);
+	auto format_mat_row = [](exo::ScopeStack &scope, const float4x4 mat, usize i_row) -> exo::StringView {
+		return exo::formatf(scope,
+			"%f %f %f %f",
+			mat.at(i_row, 0),
+			mat.at(i_row, 1),
+			mat.at(i_row, 2),
+			mat.at(i_row, 3));
+	};
 
-	label = exo::format(scope, "{} {} {} {}", matrix.at(1, 0), matrix.at(1, 1), matrix.at(1, 2), matrix.at(1, 3));
-
-	ui::label_split(ui, rectsplit, label);
-
-	label = exo::format(scope, "{} {} {} {}", matrix.at(2, 0), matrix.at(2, 1), matrix.at(2, 2), matrix.at(2, 3));
-
-	ui::label_split(ui, rectsplit, label);
-
-	label = exo::format(scope, "{} {} {} {}", matrix.at(3, 0), matrix.at(3, 1), matrix.at(3, 2), matrix.at(3, 3));
-
-	ui::label_split(ui, rectsplit, label);
+	ui::label_split(ui, rectsplit, format_mat_row(scope, matrix, 0));
+	ui::label_split(ui, rectsplit, format_mat_row(scope, matrix, 1));
+	ui::label_split(ui, rectsplit, format_mat_row(scope, matrix, 2));
+	ui::label_split(ui, rectsplit, format_mat_row(scope, matrix, 3));
 }
 
 static void scene_inspector_asset(ui::Ui &ui, Asset *asset, Rect &content_rect)
@@ -150,9 +148,9 @@ static void scene_inspector_asset(ui::Ui &ui, Asset *asset, Rect &content_rect)
 
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	ui::label_split(ui, line_rectsplit, exo::format(scope, "UUID: {}", asset->uuid.name));
+	ui::label_split(ui, line_rectsplit, exo::formatf(scope, "UUID: %s", asset->uuid.name.c_str()));
 
-	ui::label_split(ui, line_rectsplit, exo::format(scope, "State: {}", to_string(asset->state)));
+	ui::label_split(ui, line_rectsplit, exo::formatf(scope, "State: %s", to_string(asset->state)));
 }
 
 static void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *component, Rect &content_rect)
@@ -185,15 +183,15 @@ static void scene_inspector_component_ui(
 
 	ui::label_split(ui,
 		line_rectsplit,
-		exo::format(scope,
-			"{} [{} ({} bytes)]",
-			component->name,
+		exo::formatf(scope,
+			"%s [%s (%zu bytes)]",
+			component->name.c_str(),
 			component.typeinfo().name,
 			component.typeinfo().size));
 
-	ui::label_split(ui, line_rectsplit, exo::format(scope, "State: {}", to_string(component->state)));
+	ui::label_split(ui, line_rectsplit, exo::formatf(scope, "State: %s", to_string(component->state)));
 
-	ui::label_split(ui, line_rectsplit, exo::format(scope, "UUID: {}", component->uuid));
+	ui::label_split(ui, line_rectsplit, exo::formatf(scope, "UUID: %s", component->uuid.as_string().data()));
 
 	if (auto *mesh_component = component.as<MeshComponent>()) {
 		scene_inspector_mesh_component(ui, asset_manager, mesh_component, line_rectsplit.rect);
@@ -215,9 +213,9 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	ui::label_split(ui, content_rectsplit, exo::format(scope, "Selected: {}", entity->name));
+	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "Selected: %s", entity->name));
 
-	ui::label_split(ui, content_rectsplit, exo::format(scope, "State: {}", to_string(entity->state)));
+	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "State: %s", to_string(entity->state)));
 
 	content_rectsplit.split(1.0f * em);
 

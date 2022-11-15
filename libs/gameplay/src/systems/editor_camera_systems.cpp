@@ -4,12 +4,11 @@
 #include "gameplay/components/camera_component.h"
 #include "gameplay/inputs.h"
 #include "gameplay/update_context.h"
-
-#include <exo/logger.h>
 #include <exo/maths/vectors.h>
+#include <reflection/reflection.h>
 
 #include <algorithm>
-#include <reflection/reflection.h>
+#include <cmath>
 
 EditorCameraInputSystem::EditorCameraInputSystem(const Inputs *_inputs) : inputs{_inputs}
 {

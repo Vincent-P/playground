@@ -7,6 +7,7 @@
 #include <exo/collections/vector.h>
 #include <exo/format.h>
 #include <exo/maths/numerics.h>
+#include <exo/memory/scope_stack.h>
 #include <painter/rect.h>
 
 namespace docking
@@ -168,14 +169,16 @@ void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 	auto content_rect      = rect;
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-	auto mouse_pos = ui::mouse_position(ui);
-	ui::label_split(ui, content_rectsplit, exo::format("mouse pos ({}, {}))", mouse_pos.x, mouse_pos.y));
+	exo::ScopeStack scope;
+	auto            mouse_pos = ui::mouse_position(ui);
+	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "mouse pos (%d, %d))", mouse_pos.x, mouse_pos.y));
 
 	for (const auto &floating_container : self.floating_containers) {
 		ui::label_split(ui, content_rectsplit, "Floating window:");
 		ui::label_split(ui,
 			content_rectsplit,
-			exo::format("  - pos: ({}, {}), size ({}, {}))",
+			exo::formatf(scope,
+				"  - pos: (%f, %f), size (%f, %f))",
 				floating_container.rect.pos.x,
 				floating_container.rect.pos.y,
 				floating_container.rect.size.x,

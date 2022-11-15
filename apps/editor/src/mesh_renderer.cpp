@@ -280,8 +280,8 @@ void register_upload_nodes(RenderGraph &graph,
 				continue;
 			}
 
-			fmt::print("[Renderer] Uploading texture asset {} at offset 0x{:x} frame #{}\n",
-				texture->uuid,
+			printf("[Renderer] Uploading texture asset %s at offset 0x%zx frame #%u\n",
+				texture->uuid.name.c_str(),
 				upload_offset,
 				upload_buffer.i_frame);
 
@@ -317,8 +317,8 @@ void register_upload_nodes(RenderGraph &graph,
 			auto *material_asset    = asset_manager->load_asset_t<Material>(p_render_material->material_asset);
 			auto  p_upload_material = exo::reinterpret_span<MaterialDescriptor>(p_upload_data);
 
-			fmt::print("[Renderer] Uploading material asset {} at offset 0x{:x} frame #{}\n",
-				material_asset->uuid,
+			printf("[Renderer] Uploading material asset %s at offset 0x%zx frame #%u\n",
+				material_asset->uuid.name.c_str(),
 				upload_offset,
 				upload_buffer.i_frame);
 
@@ -381,8 +381,8 @@ void register_upload_nodes(RenderGraph &graph,
 			}
 
 			auto *mesh_asset = asset_manager->load_asset_t<Mesh>(p_render_mesh->mesh_asset);
-			fmt::print("[Renderer] Uploading mesh asset {} at offset 0x{:x} frame #{}\n",
-				mesh_asset->uuid,
+			printf("[Renderer] Uploading mesh asset %s at offset 0x%zx frame #%u\n",
+				mesh_asset->uuid.name.c_str(),
 				upload_offset,
 				upload_buffer.i_frame);
 

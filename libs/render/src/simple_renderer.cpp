@@ -17,9 +17,9 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	u32   i_selected       = u32_invalid;
 	u32   i_device         = 0;
 	for (auto &physical_device : physical_devices) {
-		exo::logger::info("Found device: {}\n", physical_device.properties.deviceName);
+		exo::logger::info("Found device: %s\n", physical_device.properties.deviceName);
 		if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-			exo::logger::info("Prioritizing device {} because it is a discrete GPU.\n",
+			exo::logger::info("Prioritizing device %s because it is a discrete GPU.\n",
 				physical_device.properties.deviceName);
 			i_selected = i_device;
 		}
@@ -27,7 +27,7 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	}
 	if (i_selected == u32_invalid) {
 		i_selected = 0;
-		exo::logger::info("No discrete GPU found, defaulting to device #0: {}.\n",
+		exo::logger::info("No discrete GPU found, defaulting to device #0: %s.\n",
 			physical_devices[0].properties.deviceName);
 	}
 
@@ -164,14 +164,14 @@ void SimpleRenderer::reload_shaders()
 	Vec<Handle<vulkan::Shader>> shaders_to_reload;
 	this->shader_watcher.update([&](const auto &watch, const auto &event) {
 		auto full_path = watch.path + event.name;
-		fmt::print("event: {}\n", full_path);
+		printf("event: %s\n", full_path.c_str());
 		for (const auto [shader_handle, p_shader] : this->device.shaders) {
-			fmt::print("shader: {}\n", p_shader->filename);
+			printf("shader: %s\n", p_shader->filename.c_str());
 			if (p_shader->filename == full_path) {
 				shaders_to_reload.push(shader_handle);
 			}
 		}
-		fmt::print("\n");
+		printf("\n");
 	});
 
 	if (shaders_to_reload.is_empty()) {

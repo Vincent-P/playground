@@ -128,8 +128,6 @@ void Surface::create_swapchain(Device &device)
 	this->width  = static_cast<i32>(capabilities.currentExtent.width);
 	this->height = static_cast<i32>(capabilities.currentExtent.height);
 
-	// exo::logger::info("Creating swapchain {}x{}\n", width, height);
-
 	auto image_count = capabilities.minImageCount;
 	if (image_count < 3) {
 		image_count = image_count + 1u;
@@ -170,7 +168,7 @@ void Surface::create_swapchain(Device &device)
 	for (uint i_image = 0; i_image < images_count; i_image++) {
 		this->images[i_image] = device.create_image(
 			{
-				.name   = exo::format(scope, "Swapchain #{}", i_image),
+				.name   = exo::formatf(scope, "Swapchain #%u", i_image),
 				.size   = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,
@@ -258,7 +256,7 @@ void Surface::recreate_swapchain(Device &device)
 		device.destroy_image(this->images[i_image]);
 		this->images[i_image] = device.create_image(
 			{
-				.name   = exo::format(scope, "Swapchain #{}", i_image),
+				.name   = exo::formatf(scope, "Swapchain #%u", i_image),
 				.size   = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,

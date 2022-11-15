@@ -24,6 +24,7 @@ int main(int /*argc*/, char ** /*argv*/)
 {
 	constexpr usize global_stack_size = 4_MiB;
 	u8             *global_stack_mem  = (u8 *)calloc(1, global_stack_size);
+	EXO_PROFILE_MALLOC(global_stack_mem, global_stack_size);
 
 	exo::tls_string_repository  = new exo::StringRepository;
 	*exo::tls_string_repository = exo::StringRepository::create();

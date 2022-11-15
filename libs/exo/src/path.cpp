@@ -1,8 +1,7 @@
 #include "exo/path.h"
-
-#include "exo/logger.h"
 #include "exo/macros/assert.h"
 
+#include <utility>
 #include <xxhash.h>
 
 static bool is_separator(char c) { return c == '/' || c == '\\'; }

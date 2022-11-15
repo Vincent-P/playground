@@ -58,6 +58,9 @@ set(SOURCE_FILES
   include/exo/serialization/handle_serializer.h
   include/exo/serialization/path_serializer.h
 
+  include/exo/format.h
+  src/format.cpp
+
   include/exo/uuid.h
   src/uuid.cpp
   include/exo/uuid_formatter.h
@@ -92,4 +95,4 @@ set(TEST_FILES
 
 add_library(exo STATIC ${SOURCE_FILES})
 setup_app_target(exo TESTS ${TEST_FILES})
-target_link_libraries(exo PUBLIC fmt tracy xxhash)
+target_link_libraries(exo PUBLIC tracy xxhash)

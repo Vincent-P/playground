@@ -69,7 +69,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 		}
 	}
 	if (i_found_importer == u32_invalid) {
-		exo::logger::error("Importer not found. {}\n", path.view());
+		exo::logger::error("Importer not found. %s\n", path.view().data());
 		return;
 	}
 
@@ -145,7 +145,7 @@ void AssetManager::_save_to_disk(refl::BasePtr<Asset> asset)
 {
 	auto asset_path = AssetManager::get_asset_path(asset->uuid);
 	exo::serializer_helper::write_object_to_file(asset_path.view(), asset);
-	exo::logger::info("Saving {}\n", asset_path.view());
+	exo::logger::info("Saving %s\n", asset_path.view().data());
 }
 
 static exo::Path get_blob_path(exo::u128 blob_hash)
@@ -155,7 +155,7 @@ static exo::Path get_blob_path(exo::u128 blob_hash)
 	u64 blob_hash0 = 0;
 	u64 blob_hash1 = 0;
 	exo::u128_to_u64(blob_hash, &blob_hash0, &blob_hash1);
-	auto blob_filename = exo::format(scope, "{:x}{:x}.bin", blob_hash0, blob_hash1);
+	auto blob_filename = exo::formatf(scope, "%x%x.bin", blob_hash0, blob_hash1);
 
 	return exo::Path::join(CompiledAssetPath, blob_filename);
 }
@@ -186,7 +186,7 @@ void AssetManager::load_asset_async(const AssetId &id)
 		return;
 	}
 
-	fmt::print("[AssetManager] Loading {} asynchronously.\n", id.name);
+	printf("[AssetManager] Loading %s asynchronously.\n", id.name.c_str());
 
 	auto *req           = this->database.asset_async_requests.insert(id, {});
 	req->data           = std::make_unique<AssetAsyncRequest::Data>();
@@ -199,7 +199,9 @@ void AssetManager::load_asset_async(const AssetId &id)
 
 void AssetManager::finish_loading_async(refl::BasePtr<Asset> asset)
 {
-	fmt::print("[AssetManager] Finished loading [{}]({}) asynchronously.\n", asset.typeinfo().name, asset->uuid.name);
+	printf("[AssetManager] Finished loading [%s](%s) asynchronously.\n",
+		asset.typeinfo().name,
+		asset->uuid.name.c_str());
 
 	this->database.insert_asset(asset);
 

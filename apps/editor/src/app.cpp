@@ -144,13 +144,17 @@ void App::display_ui(double dt)
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-		ui::label_split(this->ui, rectsplit, exo::format(scope, "Active: {}", this->ui.activation.active));
-		ui::label_split(this->ui, rectsplit, exo::format(scope, "Focused: {}", this->ui.activation.focused));
+		ui::label_split(this->ui,
+			rectsplit,
+			exo::formatf(scope, "Active: %s", exo::bool_fmt(this->ui.activation.active)));
+		ui::label_split(this->ui,
+			rectsplit,
+			exo::formatf(scope, "Focused: %s", exo::bool_fmt(this->ui.activation.focused)));
 		rectsplit.split(1.0f * em);
 
 		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
 		for (auto pressed : this->inputs.mouse_buttons_pressed) {
-			ui::label_split(this->ui, rectsplit, exo::format(scope, "  {}", pressed));
+			ui::label_split(this->ui, rectsplit, exo::formatf(scope, "  %s", exo::bool_fmt(pressed)));
 		}
 		rectsplit.split(1.0f * em);
 
@@ -158,8 +162,8 @@ void App::display_ui(double dt)
 		if (this->ui.inputs.mouse_wheel) {
 			ui::label_split(this->ui,
 				rectsplit,
-				exo::format(scope,
-					"  {}x{}",
+				exo::formatf(scope,
+					"  %dx%d",
 					this->ui.inputs.mouse_wheel.value().x,
 					this->ui.inputs.mouse_wheel.value().y));
 		} else {
@@ -179,7 +183,7 @@ void App::display_ui(double dt)
 
 		// Resources
 		static auto scroll_offset = float2();
-		ui::label_split(this->ui, rectsplit, exo::format(scope, "Resources (offset {}):", scroll_offset.y));
+		ui::label_split(this->ui, rectsplit, exo::formatf(scope, "Resources (offset %f):", scroll_offset.y));
 		rectsplit.split(0.5f * em);
 
 		auto &scrollarea_rect    = content_rect;
@@ -189,13 +193,16 @@ void App::display_ui(double dt)
 
 			exo::StringView label;
 			if (p_resource->asset_id.is_valid()) {
-				label = exo::format(scope, "name: \"{}\"", p_resource->asset_id.name);
+				label = exo::formatf(scope,
+					"name: \"%.*s\"",
+					p_resource->asset_id.name.size(),
+					p_resource->asset_id.name.data());
 			} else {
-				label = exo::format(scope, "INVALID");
+				label = exo::formatf(scope, "INVALID");
 			}
 			ui::label_split(this->ui, scroll_rectsplit, label);
 
-			label = exo::format(scope, "path: \"{}\"", p_resource->resource_path.view());
+			label = exo::formatf(scope, "path: \"%s\"", p_resource->resource_path.view().data());
 			ui::label_split(this->ui, scroll_rectsplit, label);
 
 			scroll_rectsplit.split(1.0f * em);

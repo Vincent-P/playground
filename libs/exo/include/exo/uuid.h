@@ -16,10 +16,11 @@ struct UUID
 
 	bool operator==(const UUID &other) const = default;
 
-	bool             is_valid() const { return data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 0; }
+	bool            is_valid() const { return data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 0; }
 	exo::StringView as_string() const { return exo::StringView{this->str, STR_LEN}; }
 };
 
 [[nodiscard]] u64 hash_value(const exo::UUID &uuid);
 
 } // namespace exo
+void write_uuid_string(u32 (&data)[4], char (&str)[exo::UUID::STR_LEN]);

@@ -3,23 +3,22 @@
 #include "exo/uuid_formatter.h"
 
 #include "exo/collections/map.h"
+#include "exo/collections/span.h"
 #include "exo/hash.h"
 #include "exo/macros/assert.h"
 
+#include <cstring>
 #if defined(PLATFORM_WINDOWS)
 #include <rpc.h>
 #include <windows.h>
 #endif
-#include <fmt/core.h>
-
-#include "exo/collections/span.h"
 
 #pragma comment(lib, "rpcrt4.lib")
 
-static void write_uuid_string(u32 (&data)[4], char (&str)[exo::UUID::STR_LEN])
+void write_uuid_string(u32 (&data)[4], char (&str)[exo::UUID::STR_LEN])
 {
 	std::memset(str, 0, exo::UUID::STR_LEN);
-	fmt::format_to(str, "{:08x}-{:08x}-{:08x}-{:08x}", data[0], data[1], data[2], data[3]);
+	std::snprintf(str, exo::UUID::STR_LEN, "%08x-%08x-%08x-%08x", data[0], data[1], data[2], data[3]);
 }
 
 namespace exo

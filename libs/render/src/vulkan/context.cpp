@@ -26,13 +26,13 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 		return VK_FALSE;
 	}
 
-	exo::logger::error("{}\n", pCallbackData->pMessage);
+	exo::logger::error("%s\n", pCallbackData->pMessage);
 
 	if (pCallbackData->objectCount) {
 		exo::logger::error("Objects:\n");
 		for (size_t i = 0; i < pCallbackData->objectCount; i++) {
 			const auto &object = pCallbackData->pObjects[i];
-			exo::logger::error("\t [{}] {}\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
+			exo::logger::error("\t [%zu] %s\n", i, (object.pObjectName ? object.pObjectName : "NoName"));
 		}
 	}
 
@@ -130,7 +130,7 @@ Context Context::create(const ContextDescription &desc)
 	uint physical_devices_count = 0;
 	vk_check(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
 	if (physical_devices_count > ctx.physical_devices.capacity()) {
-		exo::logger::info("There are {} physical devices, only the first {} are enabled.\n",
+		exo::logger::info("There are %u physical devices, only the first %zu are enabled.\n",
 			physical_devices_count,
 			ctx.physical_devices.capacity());
 	}

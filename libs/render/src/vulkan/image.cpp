@@ -108,7 +108,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	exo::ScopeStack scope;
 	const ImageView full_view = create_image_view(*this,
 		vkhandle,
-		exo::format(scope, "{} full view", image_desc.name),
+		exo::formatf(scope, "%.*s full view", image_desc.name.size(), image_desc.name.data()),
 		full_range,
 		format,
 		view_type_from_image(image_desc.type));
@@ -121,8 +121,6 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 		.is_proxy   = proxy.has_value(),
 		.full_view  = full_view,
 	});
-
-	// exo::logger::info("Creating image \"{}\" at index #{}\n", image_desc.name, handle.value());
 
 	// Bindless (bind everything)
 	if (is_sampled) {

@@ -9,7 +9,6 @@
 
 #include <assets/asset_manager.h>
 #include <exo/collections/vector.h>
-#include <exo/logger.h>
 #include <exo/profile.h>
 #include <exo/serialization/serializer.h>
 #include <exo/uuid.h>

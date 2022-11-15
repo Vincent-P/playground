@@ -140,7 +140,7 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	renderer.device.compile_graphics_state(app->viewer_program,
 		{.rasterization = {.culling = false}, .alpha_blending = true});
 
-	exo::logger::info("DPI at creation: {}x{}\n", app->window->get_dpi_scale().x, app->window->get_dpi_scale().y);
+	exo::logger::info("DPI at creation: %dx%d\n", app->window->get_dpi_scale().x, app->window->get_dpi_scale().y);
 
 	app->ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
 	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
@@ -406,7 +406,7 @@ static void open_file(RenderSample *app, const exo::StringView &path)
 {
 	EXO_PROFILE_SCOPE;
 	// TODO: PNG importer
-	exo::logger::info("Opened file: {}\n", path);
+	exo::logger::info("Opened file: %.*s\n", path.size(), path.data());
 
 	auto mapped_file = cross::MappedFile::open(path);
 	if (!mapped_file) {

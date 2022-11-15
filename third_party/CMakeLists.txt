@@ -1,10 +1,5 @@
 find_package(Threads REQUIRED)
 
-# {fmt}
-add_library(fmt fmt/src/format.cc fmt/src/os.cc)
-setup_thirdparty_target(fmt)
-target_include_directories(fmt SYSTEM PUBLIC fmt/include)
-
 # meshoptimizer
 add_library(meshopt
   meshoptimizer/allocator.cpp

@@ -1,21 +1,23 @@
 #pragma once
+#include <cstdarg>
 #include <cstdio>
-#include <fmt/color.h>
-#include <fmt/core.h>
 
 namespace exo::logger
 {
-template <typename S, typename... Args>
-inline void info(const S &format_str, Args &&...args)
+inline void info(const char *fmt...)
 {
-	fmt::print(format_str, args...);
+	va_list args;
+	va_start(args, fmt);
+	std::printf(fmt, args);
+	va_end(args);
 }
 
-template <typename S, typename... Args>
-inline void error(const S &format_str, Args &&...args)
+inline void error(const char *fmt...)
 {
-	auto style = fg(fmt::color::crimson) | fmt::emphasis::bold;
-	fmt::print(stderr, style, format_str, args...);
+	va_list args;
+	va_start(args, fmt);
+	std::fprintf(stderr, fmt, args);
+	va_end(args);
 }
 
 } // namespace exo::logger

@@ -1,7 +1,6 @@
 #include "engine/render_world_system.h"
 
 #include <exo/hash.h>
-#include <exo/logger.h>
 #include <exo/profile.h>
 
 #include <gameplay/components/camera_component.h>

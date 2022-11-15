@@ -1,5 +1,4 @@
 #pragma once
-#include <cstring>
 #include <exo/maths/numerics.h>
 
 namespace exo
