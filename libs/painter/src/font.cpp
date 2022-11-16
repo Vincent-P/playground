@@ -1,8 +1,8 @@
 #include "painter/font.h"
 
-#include <exo/macros/assert.h>
-#include <exo/maths/vectors.h>
-#include <exo/profile.h>
+#include "exo/macros/assert.h"
+#include "exo/maths/vectors.h"
+#include "exo/profile.h"
 
 #include "painter/glyph_cache.h"
 

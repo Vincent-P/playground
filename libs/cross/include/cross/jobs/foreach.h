@@ -1,6 +1,6 @@
 #pragma once
-#include <exo/maths/numerics.h>
-#include <exo/profile.h>
+#include "exo/maths/numerics.h"
+#include "exo/profile.h"
 
 #include "cross/jobs/job.h"
 #include "cross/jobs/waitable.h"
@@ -89,9 +89,9 @@ std::unique_ptr<Waitable> parallel_foreach_userdata(const JobManager &jobmanager
 	for (; i_chunk < chunks; ++i_chunk) {
 		EXO_PROFILE_SCOPE_NAMED("Prepare chunk")
 
-		usize end   = (i_chunk + 1) * grain_size;
-		auto  chunk = exo::Span(values.begin() + i_chunk * grain_size,
-            values.begin() + (end > values.len() ? values.len() : end));
+		auto end   = (i_chunk + 1) * grain_size;
+		auto chunk = exo::Span(values.begin() + i_chunk * grain_size,
+			values.begin() + (end > i32(values.len()) ? i32(values.len()) : end));
 
 		auto job         = std::make_shared<ForeachJob>(ForeachJob{.done_counter = &waitable->jobs_finished});
 		job->type        = ForeachJob::TASK_TYPE;
@@ -116,8 +116,8 @@ std::unique_ptr<Waitable> parallel_foreach_userdata(const JobManager &jobmanager
 
 	if constexpr (UseCurrentThread) {
 		EXO_PROFILE_SCOPE_NAMED("User foreach job")
-		auto chunk0 =
-			exo::Span(values.begin(), values.begin() + (grain_size > values.len() ? values.len() : grain_size));
+		auto chunk0 = exo::Span(values.begin(),
+			values.begin() + (grain_size > i32(values.len()) ? i32(values.len()) : grain_size));
 
 		for (auto &element : chunk0) {
 			lambda(element, user_data);

@@ -2,9 +2,9 @@
 // linux: inotify/select https://developer.ibm.com/tutorials/l-inotify/
 #include "cross/file_watcher.h"
 
-#include <exo/macros/assert.h>
-#include <exo/maths/pointer.h>
-#include <exo/profile.h>
+#include "exo/macros/assert.h"
+#include "exo/maths/pointer.h"
+#include "exo/profile.h"
 
 #if defined(PLATFORM_LINUX)
 #include <fcntl.h>

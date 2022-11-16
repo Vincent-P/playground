@@ -1,6 +1,6 @@
 #pragma once
-#include <exo/collections/span.h>
-#include <exo/maths/numerics.h>
+#include "exo/collections/span.h"
+#include "exo/maths/numerics.h"
 
 namespace exo
 {

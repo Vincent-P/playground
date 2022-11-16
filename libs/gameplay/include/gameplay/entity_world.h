@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/collections/set.h>
-#include <exo/memory/string_repository.h>
-#include <exo/uuid.h>
+#include "exo/collections/set.h"
+#include "exo/memory/string_repository.h"
+#include "exo/uuid.h"
 
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"

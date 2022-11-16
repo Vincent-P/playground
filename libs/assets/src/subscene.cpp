@@ -1,7 +1,7 @@
 #include "assets/subscene.h"
 
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/uuid_serializer.h>
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/uuid_serializer.h"
 
 void SubScene::serialize(exo::Serializer &serializer)
 {

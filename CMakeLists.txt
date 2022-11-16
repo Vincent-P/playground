@@ -107,7 +107,7 @@ function(setup_app_target TARGET)
   message(STATUS "Setting up application target ${TARGET}")
 
   # Setup include directories, public includes should be in <target>/include/<target>/public.h and private ones in <target>/src/private.h alongside .cpp files
-  target_include_directories(${TARGET} SYSTEM PUBLIC include)
+  target_include_directories(${TARGET} PUBLIC include)
   target_include_directories(${TARGET} PRIVATE src)
 
   setup_app_target_options(${TARGET})

@@ -1,7 +1,7 @@
 #include "assets/texture.h"
 
-#include <exo/profile.h>
-#include <exo/serialization/u128_serializer.h>
+#include "exo/profile.h"
+#include "exo/serialization/u128_serializer.h"
 
 namespace exo
 {

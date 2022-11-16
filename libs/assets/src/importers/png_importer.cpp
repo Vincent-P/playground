@@ -1,10 +1,10 @@
 #include "assets/importers/png_importer.h"
 
-#include <assets/asset_id.h>
-#include <exo/macros/defer.h>
-#include <exo/profile.h>
+#include "assets/asset_id.h"
+#include "exo/macros/defer.h"
+#include "exo/profile.h"
 
-#include <cross/mapped_file.h>
+#include "cross/mapped_file.h"
 
 #include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
@@ -121,7 +121,7 @@ Result<ProcessResponse> PNGImporter::process_asset(const ProcessRequest &request
 	new_texture->depth     = 1;
 	new_texture->levels    = 1;
 	new_texture->format    = pixel_format;
-	new_texture->mip_offsets.push(0);
+	new_texture->mip_offsets.push(0u);
 	new_texture->pixels_data_size = decoded_size;
 	new_texture->pixels_hash      = request.importer_api.save_blob(exo::Span(buffer, decoded_size));
 	new_texture->pixels_data_size = decoded_size;

@@ -3,18 +3,18 @@
 #include "assets/asset.h"
 #include "hash_file.h"
 
-#include <cross/jobmanager.h>
-#include <cross/jobs/foreach.h>
-#include <cross/mapped_file.h>
-#include <exo/hash.h>
-#include <exo/serialization/handle_serializer.h>
-#include <exo/serialization/map_serializer.h>
-#include <exo/serialization/path_serializer.h>
-#include <exo/serialization/pool_serializer.h>
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/uuid_serializer.h>
-#include <exo/string_view.h>
-#include <exo/uuid.h>
+#include "cross/jobmanager.h"
+#include "cross/jobs/foreach.h"
+#include "cross/mapped_file.h"
+#include "exo/hash.h"
+#include "exo/serialization/handle_serializer.h"
+#include "exo/serialization/map_serializer.h"
+#include "exo/serialization/path_serializer.h"
+#include "exo/serialization/pool_serializer.h"
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/uuid_serializer.h"
+#include "exo/string_view.h"
+#include "exo/uuid.h"
 
 #include <filesystem>
 

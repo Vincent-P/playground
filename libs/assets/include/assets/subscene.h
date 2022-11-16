@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/maths/matrices.h>
+#include "exo/maths/matrices.h"
 
 #include "assets/asset.h"
 

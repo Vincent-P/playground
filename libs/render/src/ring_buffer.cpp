@@ -1,6 +1,6 @@
 #include "render/ring_buffer.h"
 
-#include <exo/maths/pointer.h>
+#include "exo/maths/pointer.h"
 
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/device.h"

@@ -1,7 +1,8 @@
 #pragma once
-#include <exo/maths/vectors.h>
+#include "exo/maths/vectors.h"
 
 #include "render/vulkan/memory.h"
+#include "render/vulkan/operators.h"
 #include "render/vulkan/queues.h"
 
 #include <volk.h>

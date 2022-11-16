@@ -1,6 +1,6 @@
 #include "gameplay/components/camera_component.h"
 
-#include <exo/macros/assert.h>
+#include "exo/macros/assert.h"
 
 #include "gameplay/contexts.h"
 

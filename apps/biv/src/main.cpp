@@ -1,25 +1,25 @@
-#include <cross/buttons.h>
-#include <cross/file_dialog.h>
-#include <cross/mapped_file.h>
-#include <cross/platform.h>
-#include <cross/window.h>
+#include "cross/buttons.h"
+#include "cross/file_dialog.h"
+#include "cross/mapped_file.h"
+#include "cross/platform.h"
+#include "cross/window.h"
 
-#include <exo/collections/vector.h>
-#include <exo/format.h>
-#include <exo/logger.h>
-#include <exo/macros/defer.h>
-#include <exo/macros/packed.h>
-#include <exo/memory/linear_allocator.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/profile.h>
-#include <exo/string_view.h>
-#include <render/bindings.h>
-#include <render/shader_watcher.h>
-#include <render/simple_renderer.h>
-#include <render/vulkan/commands.h>
-#include <render/vulkan/image.h>
-#include <render/vulkan/pipelines.h>
-#include <ui_renderer/ui_renderer.h>
+#include "exo/collections/vector.h"
+#include "exo/format.h"
+#include "exo/logger.h"
+#include "exo/macros/defer.h"
+#include "exo/macros/packed.h"
+#include "exo/memory/linear_allocator.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/profile.h"
+#include "exo/string_view.h"
+#include "render/bindings.h"
+#include "render/shader_watcher.h"
+#include "render/simple_renderer.h"
+#include "render/vulkan/commands.h"
+#include "render/vulkan/image.h"
+#include "render/vulkan/pipelines.h"
+#include "ui_renderer/ui_renderer.h"
 
 #include "painter/font.h"
 #include "painter/glyph_cache.h"
@@ -444,7 +444,7 @@ static void open_file(RenderSample *app, const exo::StringView &path)
 	new_image.depth     = 1;
 	new_image.levels    = 1;
 	new_image.format    = PixelFormat::R8G8B8A8_UNORM;
-	new_image.mip_offsets.push(0);
+	new_image.mip_offsets.push(0u);
 
 	new_image.pixels_data = new_image.impl_data;
 	new_image.data_size   = decoded_size;

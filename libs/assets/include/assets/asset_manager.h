@@ -1,11 +1,11 @@
 #pragma once
-#include <assets/asset.h>
-#include <exo/collections/dynamic_array.h>
-#include <exo/maths/u128.h>
-#include <exo/path.h>
-#include <exo/profile.h>
+#include "assets/asset.h"
+#include "exo/collections/dynamic_array.h"
+#include "exo/maths/u128.h"
+#include "exo/path.h"
+#include "exo/profile.h"
 
-#include <reflection/reflection.h>
+#include "reflection/reflection.h"
 
 #include "assets/asset_database.h"
 #include "assets/asset_id.h"
@@ -54,7 +54,7 @@ struct AssetManager
 		return asset;
 	}
 
-	void unload_asset(AssetId id);
+	void unload_asset(const AssetId &id);
 
 	// -- Async loading
 	bool is_loaded(const AssetId &id)

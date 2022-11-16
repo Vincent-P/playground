@@ -1,11 +1,11 @@
 
 #pragma once
-#include <exo/collections/iterator_facade.h>
-#include <exo/collections/span.h>
-#include <exo/hash.h>
-#include <exo/macros/assert.h>
-#include <exo/maths/numerics.h>
-#include <exo/memory/dynamic_buffer.h>
+#include "exo/collections/iterator_facade.h"
+#include "exo/collections/span.h"
+#include "exo/hash.h"
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
+#include "exo/memory/dynamic_buffer.h"
 
 #include "exo/collections/span.h"
 #include <bit>
@@ -228,7 +228,7 @@ struct Map
 		details::MapSlot slot_to_insert;
 		slot_to_insert.bits.is_filled = 1;
 		slot_to_insert.bits.psl       = 0;
-		slot_to_insert.bits.hash      = hash_value(key);
+		slot_to_insert.bits.hash      = u32(hash_value(key));
 		u32 i_slot = details::insert_slot(slots, keyvalues, std::move(slot_to_insert), KeyValue{key, std::move(value)});
 
 		ASSERT(i_slot < this->capacity);

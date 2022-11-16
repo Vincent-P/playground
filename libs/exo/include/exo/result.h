@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
-#include <exo/macros/assert.h>
-#include <exo/maths/numerics.h>
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
 #include <utility>
 
 namespace exo

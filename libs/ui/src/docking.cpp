@@ -3,12 +3,12 @@
 #include "painter/painter.h"
 #include "ui/ui.h"
 
-#include <cross/buttons.h>
-#include <exo/collections/vector.h>
-#include <exo/format.h>
-#include <exo/maths/numerics.h>
-#include <exo/memory/scope_stack.h>
-#include <painter/rect.h>
+#include "cross/buttons.h"
+#include "exo/collections/vector.h"
+#include "exo/format.h"
+#include "exo/maths/numerics.h"
+#include "exo/memory/scope_stack.h"
+#include "painter/rect.h"
 
 namespace docking
 {

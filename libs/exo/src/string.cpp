@@ -93,8 +93,8 @@ String &String::operator=(const String &other)
 	return *this;
 }
 
-String::String(String &&other) { *this = std::move(other); }
-String &String::operator=(String &&other)
+String::String(String &&other) noexcept { *this = std::move(other); }
+String &String::operator=(String &&other) noexcept
 {
 	std::memcpy(this, &other, sizeof(String));
 	default_construct(other);
@@ -147,8 +147,8 @@ void String::push_back(char c)
 			this->storage.stack.buffer[this->storage.stack.length++] = c;
 			this->storage.stack.buffer[this->storage.stack.length]   = '\0';
 		} else {
-			u32 new_capacity = String::SSBO_CAPACITY * 2;
-			u32 new_length   = this->storage.stack.length + 1;
+			const u32 new_capacity = String::SSBO_CAPACITY * 2;
+			const u32 new_length   = this->storage.stack.length + 1;
 
 			auto *new_buffer = static_cast<char *>(std::malloc(new_capacity));
 			EXO_PROFILE_MALLOC(new_buffer, new_capacity);
@@ -219,8 +219,8 @@ void String::reserve(usize new_capacity)
 
 void String::resize(usize new_length)
 {
-	usize cur_len = this->size();
-	usize cur_cap = this->capacity();
+	const usize cur_len = this->size();
+	const usize cur_cap = this->capacity();
 
 	if (new_length > cur_cap) {
 		this->reserve(new_length + 1);

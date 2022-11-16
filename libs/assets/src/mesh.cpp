@@ -1,8 +1,8 @@
 #include "assets/mesh.h"
 
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/u128_serializer.h>
-#include <exo/serialization/uuid_serializer.h>
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/u128_serializer.h"
+#include "exo/serialization/uuid_serializer.h"
 
 void Mesh::serialize(exo::Serializer &serializer)
 {

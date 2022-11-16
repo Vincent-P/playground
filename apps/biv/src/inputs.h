@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cross/buttons.h>
-#include <cross/events.h>
-#include <exo/collections/vector.h>
-#include <exo/maths/vectors.h>
-#include <exo/option.h>
+#include "exo/collections/vector.h"
+#include "exo/maths/vectors.h"
+#include "exo/option.h"
+#include "cross/buttons.h"
+#include "cross/events.h"
 
 // clang-format off
 namespace exo { struct Event; }

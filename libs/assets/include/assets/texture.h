@@ -1,9 +1,9 @@
 #pragma once
-#include <exo/collections/vector.h>
-#include <exo/maths/numerics.h>
-#include <exo/maths/u128.h>
-#include <exo/serialization/serializer.h>
-#include <reflection/reflection.h>
+#include "exo/collections/vector.h"
+#include "exo/maths/numerics.h"
+#include "exo/maths/u128.h"
+#include "exo/serialization/serializer.h"
+#include "reflection/reflection.h"
 
 #include "assets/asset.h"
 

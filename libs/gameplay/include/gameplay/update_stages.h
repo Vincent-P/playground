@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/collections/enum_array.h>
+#include "exo/collections/enum_array.h"
 
 enum struct UpdateStage
 {

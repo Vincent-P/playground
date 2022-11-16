@@ -1,7 +1,7 @@
 #pragma once
 
-#include <exo/path.h>
-#include <exo/serialization/serializer.h>
+#include "exo/path.h"
+#include "exo/serialization/serializer.h"
 
 namespace exo
 {

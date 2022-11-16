@@ -1,6 +1,6 @@
 #pragma once
-#include <exo/collections/enum_array.h>
-#include <reflection/reflection.h>
+#include "exo/collections/enum_array.h"
+#include "reflection/reflection.h"
 
 #include "gameplay/update_stages.h"
 

@@ -4,7 +4,7 @@
 #include "render/vulkan/framebuffer.h"
 #include "render/vulkan/image.h"
 
-#include <exo/profile.h>
+#include "exo/profile.h"
 
 void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 {

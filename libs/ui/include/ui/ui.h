@@ -1,7 +1,7 @@
 #pragma once
-#include <cross/buttons.h>
-#include <exo/maths/numerics.h>
-#include <exo/option.h>
+#include "cross/buttons.h"
+#include "exo/maths/numerics.h"
+#include "exo/option.h"
 
 #include "painter/color.h"
 #include "painter/rect.h"

@@ -43,8 +43,8 @@ struct String
 	String(const String &other);
 	String &operator=(const String &other);
 
-	String(String &&other);
-	String &operator=(String &&other);
+	String(String &&other) noexcept;
+	String &operator=(String &&other) noexcept;
 
 	// -- Element access
 

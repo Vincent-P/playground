@@ -1,9 +1,8 @@
-#include <exo/collections/span.h>
-#include <exo/profile.h>
-
-#include <cross/jobmanager.h>
-#include <cross/jobs/foreach.h>
-#include <cross/jobs/readfiles.h>
+#include "cross/jobmanager.h"
+#include "cross/jobs/foreach.h"
+#include "cross/jobs/readfiles.h"
+#include "exo/collections/span.h"
+#include "exo/profile.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -30,7 +29,7 @@ void test_async(int argc, char *argv[])
 			}
 		}
 
-		auto w = cross::parallel_foreach<int>(manager, exo::Span	(values), [](int &value) {
+		auto w = cross::parallel_foreach<int>(manager, exo::Span(values), [](int &value) {
 			EXO_PROFILE_SCOPE_NAMED("Expensive int calculation")
 			double accum = 0;
 			for (int i = 0; i < value; ++i) {

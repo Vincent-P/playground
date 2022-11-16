@@ -1,6 +1,6 @@
 #include "assets/importers/ktx2_importer.h"
 
-#include <exo/macros/defer.h>
+#include "exo/macros/defer.h"
 
 #include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"

@@ -1,6 +1,6 @@
 #pragma once
-#include <exo/macros/packed.h>
-#include <exo/maths/vectors.h>
+#include "exo/macros/packed.h"
+#include "exo/maths/vectors.h"
 
 #include "painter/color.h"
 #include "painter/glyph_cache.h"

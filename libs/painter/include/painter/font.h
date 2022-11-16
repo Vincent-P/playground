@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/maths/numerics.h>
+#include "exo/maths/numerics.h"
 struct hb_font_t;
 struct GlyphImage;
 struct GlyphMetrics;

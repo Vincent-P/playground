@@ -1,8 +1,8 @@
 #pragma once
-#include <exo/collections/span.h>
-#include <exo/macros/assert.h>
-#include <exo/maths/numerics.h>
-#include <exo/memory/dynamic_buffer.h>
+#include "exo/collections/span.h"
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
+#include "exo/memory/dynamic_buffer.h"
 
 #include <initializer_list>
 #include <type_traits>
@@ -45,6 +45,24 @@ struct Vec
 		Vec result = {};
 		result.resize(length, value);
 		return result;
+	}
+
+	bool operator==(const Vec &other) const
+	{
+		if (this->length != other.length) {
+			return false;
+		}
+
+		const auto values       = exo::reinterpret_span<T>(this->buffer.content());
+		const auto other_values = exo::reinterpret_span<T>(other.buffer.content());
+
+		for (usize i = 0; i < this->length; ++i) {
+			if (values[i] != other_values[i]) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	// Element access

@@ -1,15 +1,15 @@
 #pragma once
-#include <assets/asset_manager.h>
-#include <cross/file_watcher.h>
-#include <cross/jobmanager.h>
-#include <cross/window.h>
-#include <engine/render_world.h>
-#include <engine/scene.h>
-#include <exo/maths/vectors.h>
-#include <gameplay/inputs.h>
-#include <painter/font.h>
-#include <ui/docking.h>
-#include <ui/ui.h>
+#include "exo/maths/vectors.h"
+#include "assets/asset_manager.h"
+#include "cross/file_watcher.h"
+#include "cross/jobmanager.h"
+#include "cross/window.h"
+#include "engine/render_world.h"
+#include "engine/scene.h"
+#include "gameplay/inputs.h"
+#include "painter/font.h"
+#include "ui/docking.h"
+#include "ui/ui.h"
 
 #include "custom_ui.h"
 #include "renderer.h"

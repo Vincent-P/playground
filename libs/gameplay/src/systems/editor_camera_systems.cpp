@@ -4,8 +4,8 @@
 #include "gameplay/components/camera_component.h"
 #include "gameplay/inputs.h"
 #include "gameplay/update_context.h"
-#include <exo/maths/vectors.h>
-#include <reflection/reflection.h>
+#include "exo/maths/vectors.h"
+#include "reflection/reflection.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,6 +1,6 @@
 #pragma once
-#include <exo/macros/assert.h>
-#include <exo/maths/numerics.h>
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
 #include <initializer_list>
 
 namespace exo
@@ -92,7 +92,7 @@ struct Span
 
 	Span() = default;
 	Span(T *data, usize len) : ptr{data}, length{len} {}
-	Span(T *begin, T *end) : ptr{begin}, length(end - begin) {}
+	Span(T *begin, T *end) : ptr{begin}, length(usize(end - begin)) {}
 
 	// Constructor from other span without const T (mutable -> const span of same type)
 	template <details::IsSame<details::RemoveConst<T>> Other>

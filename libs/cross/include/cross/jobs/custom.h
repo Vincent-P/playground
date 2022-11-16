@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/maths/numerics.h>
+#include "exo/maths/numerics.h"
 
 #include "cross/jobmanager.h"
 #include "cross/jobs/job.h"

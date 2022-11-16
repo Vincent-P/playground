@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/macros/assert.h>
-#include <exo/macros/packed.h>
-#include <exo/maths/vectors.h>
+#include "exo/macros/assert.h"
+#include "exo/macros/packed.h"
+#include "exo/maths/vectors.h"
 
 enum struct SplitDirection : u8
 {

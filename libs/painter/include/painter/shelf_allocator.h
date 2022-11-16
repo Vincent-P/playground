@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/collections/pool.h>
-#include <exo/collections/vector.h>
-#include <exo/maths/vectors.h>
+#include "exo/collections/pool.h"
+#include "exo/collections/vector.h"
+#include "exo/maths/vectors.h"
 
 // Simple implementation in JS: https://github.com/mapbox/shelf-pack
 

@@ -1,12 +1,12 @@
 #include "ui_renderer/ui_renderer.h"
 
-#include <painter/painter.h>
-#include <render/bindings.h>
-#include <render/render_graph/graph.h>
-#include <render/shader_watcher.h>
-#include <render/vulkan/device.h>
-#include <render/vulkan/image.h>
-#include <render/vulkan/pipelines.h>
+#include "painter/painter.h"
+#include "render/bindings.h"
+#include "render/render_graph/graph.h"
+#include "render/shader_watcher.h"
+#include "render/vulkan/device.h"
+#include "render/vulkan/image.h"
+#include "render/vulkan/pipelines.h"
 
 UiRenderer UiRenderer::create(vulkan::Device &device, int2 atlas_resolution)
 {

@@ -1,15 +1,15 @@
 #pragma once
-#include <exo/maths/matrices.h>
+#include "exo/maths/matrices.h"
 
 namespace exo
 {
 // https://fabiensanglard.net/doom3_documentation/37726-293748.pdf
 inline float4x4 float4x4_from_quaternion(float4 q)
 {
-	float x2  = q.x + q.x;
-	float y2  = q.y + q.y;
-	float z2  = q.z + q.z;
-	float w2  = q.w + q.w;
+	float x2 = q.x + q.x;
+	float y2 = q.y + q.y;
+	float z2 = q.z + q.z;
+	// float w2  = q.w + q.w;
 	float yy2 = q.y * y2;
 	float xy2 = q.x * y2;
 	float xz2 = q.x * z2;

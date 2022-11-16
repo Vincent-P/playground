@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
-#include <exo/macros/assert.h>
-#include <exo/maths/numerics.h>
+#include "exo/macros/assert.h"
+#include "exo/maths/numerics.h"
 
 namespace refl
 {
@@ -102,7 +102,7 @@ union PtrWithTypeInfo
 	void from(void *ptr, const TypeInfo *type_info)
 	{
 		this->bits.lo = reinterpret_cast<u64>(ptr);
-		this->bits.hi = type_info ? type_info - &types_storage[0] : 0;
+		this->bits.hi = type_info ? u64(type_info - &types_storage[0]) : 0;
 	}
 	void *ptr() const { return reinterpret_cast<void *>(bits.lo); }
 

@@ -1,6 +1,6 @@
 #include "cross/platform.h"
 
-#include <exo/macros/assert.h>
+#include "exo/macros/assert.h"
 
 #include <shellscalingapi.h> // for dpi awareness
 #include <windows.h>

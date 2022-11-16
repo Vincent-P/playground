@@ -1,9 +1,9 @@
 #pragma once
-#include <exo/collections/pool.h>
-#include <exo/collections/vector.h>
-#include <exo/maths/numerics.h>
-#include <exo/maths/vectors.h>
-#include <exo/option.h>
+#include "exo/collections/pool.h"
+#include "exo/collections/vector.h"
+#include "exo/maths/numerics.h"
+#include "exo/maths/vectors.h"
+#include "exo/option.h"
 
 #include "painter/rect.h"
 

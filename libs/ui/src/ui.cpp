@@ -1,11 +1,11 @@
 #include "ui/ui.h"
 
-#include <cross/window.h>
-#include <exo/maths/pointer.h>
-#include <exo/profile.h>
+#include "cross/window.h"
+#include "exo/maths/pointer.h"
+#include "exo/profile.h"
 
-#include <painter/painter.h>
-#include <painter/rect.h>
+#include "painter/painter.h"
+#include "painter/rect.h"
 
 namespace ui
 {

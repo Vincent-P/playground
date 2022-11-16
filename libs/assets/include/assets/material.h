@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/maths/vectors.h>
+#include "exo/maths/vectors.h"
 
 #include "assets/asset.h"
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "reflection/reflection.h"
-#include <exo/serialization/serializer.h>
+#include "exo/serialization/serializer.h"
 
 // Serialize an object from a reflection-based pointer
 template <exo::MemberSerializable T>

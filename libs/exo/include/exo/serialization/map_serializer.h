@@ -8,7 +8,7 @@ namespace exo
 template <typename K, typename V>
 void serialize(Serializer &serializer, Map<K, V> &map)
 {
-	using KeyValue = Map<K, V>::KeyValue;
+	using KeyValue = typename Map<K, V>::KeyValue;
 
 	if (serializer.is_writing) {
 		serialize(serializer, map.capacity);
@@ -48,7 +48,7 @@ void serialize(Serializer &serializer, Map<K, V> &map)
 			details::MapSlot slot_to_insert;
 			slot_to_insert.bits.is_filled = 1;
 			slot_to_insert.bits.psl       = 0;
-			slot_to_insert.bits.hash      = hash_value(keyvalue.key);
+			slot_to_insert.bits.hash      = u32(hash_value(keyvalue.key));
 			exo::details::insert_slot<KeyValue>(slots, keyvalues, std::move(slot_to_insert), std::move(keyvalue));
 		}
 		map.size = size;

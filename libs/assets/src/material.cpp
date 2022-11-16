@@ -1,7 +1,7 @@
 #include "assets/material.h"
 
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/uuid_serializer.h>
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/uuid_serializer.h"
 
 void Material::serialize(exo::Serializer &serializer)
 {

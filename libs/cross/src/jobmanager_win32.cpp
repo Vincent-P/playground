@@ -1,7 +1,7 @@
 #include "cross/jobmanager.h"
 
-#include <exo/macros/assert.h>
-#include <exo/profile.h>
+#include "exo/macros/assert.h"
+#include "exo/profile.h"
 
 #include "cross/jobs/foreach.h"
 #include "cross/jobs/readfiles.h"

@@ -1,6 +1,6 @@
 #pragma once
-#include <render/simple_renderer.h>
-#include <ui_renderer/ui_renderer.h>
+#include "render/simple_renderer.h"
+#include "ui_renderer/ui_renderer.h"
 
 #include "mesh_renderer.h"
 

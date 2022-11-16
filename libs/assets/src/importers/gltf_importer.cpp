@@ -1,14 +1,14 @@
 #include "assets/importers/gltf_importer.h"
 
-#include <assets/importers/importer.h>
+#include "assets/importers/importer.h"
 
-#include <exo/collections/span.h>
-#include <exo/format.h>
-#include <exo/maths/pointer.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/memory/string_repository.h>
+#include "exo/collections/span.h"
+#include "exo/format.h"
+#include "exo/maths/pointer.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/memory/string_repository.h"
 
-#include <cross/mapped_file.h>
+#include "cross/mapped_file.h"
 
 #include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
@@ -186,7 +186,7 @@ struct ImporterContext
 	template <typename T>
 	AssetId create_id(exo::StringView subname)
 	{
-		exo::String copy = this->main_id.name + exo::StringView{"_"} + subname;
+		const exo::String copy = this->main_id.name + exo::StringView{"_"} + subname;
 		return AssetId::create<T>(copy);
 	}
 };
@@ -702,10 +702,10 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 				i_unnamed_texture += 1;
 			}
 
-			exo::String copy          = response.new_id.name + exo::StringView{"_"} + texture_name;
-			auto        texture_id    = AssetId::create<Texture>(copy);
-			auto        relative_path = j_image["uri"].GetString();
-			auto        absolute_path = exo::Path::replace_filename(request.path, relative_path);
+			const exo::String copy          = response.new_id.name + exo::StringView{"_"} + texture_name;
+			auto              texture_id    = AssetId::create<Texture>(copy);
+			auto              relative_path = j_image["uri"].GetString();
+			auto              absolute_path = exo::Path::replace_filename(request.path, relative_path);
 
 			response.dependencies_id.push(texture_id);
 			response.dependencies_paths.push(absolute_path);

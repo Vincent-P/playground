@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/memory/scope_stack.h>
-#include <exo/profile.h>
-#include <exo/serialization/serializer.h>
+#include "exo/memory/scope_stack.h"
+#include "exo/profile.h"
+#include "exo/serialization/serializer.h"
 
 #include <cstdio>
 #include "exo/collections/span.h"

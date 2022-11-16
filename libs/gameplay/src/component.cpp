@@ -1,9 +1,9 @@
 #include "gameplay/component.h"
 
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/string_serializer.h>
-#include <exo/serialization/uuid_serializer.h>
-#include <reflection/reflection_serializer.h>
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/string_serializer.h"
+#include "exo/serialization/uuid_serializer.h"
+#include "reflection/reflection_serializer.h"
 
 void SpatialComponent::set_local_transform(const float4x4 &new_transform)
 {

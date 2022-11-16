@@ -1,5 +1,5 @@
 #pragma once
-#include <exo/collections/map.h>
+#include "exo/collections/map.h"
 
 namespace exo
 {
@@ -79,7 +79,7 @@ bool Set<T>::contains(const T &value)
 	}
 
 	const auto slots  = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto hash   = hash_value(value);
+	const auto hash   = u32(hash_value(value));
 	u32        i_slot = details::probe_by_hash(slots, hash);
 
 	return i_slot != u32_invalid;
@@ -99,7 +99,7 @@ T *Set<T>::insert(T &&value)
 	details::MapSlot slot_to_insert;
 	slot_to_insert.bits.is_filled = 1;
 	slot_to_insert.bits.psl       = 0;
-	slot_to_insert.bits.hash      = hash_value(value);
+	slot_to_insert.bits.hash      = u32(hash_value(value));
 	u32 i_slot                    = details::insert_slot(slots, values, std::move(slot_to_insert), std::move(value));
 
 	ASSERT(i_slot < this->capacity);
@@ -121,7 +121,7 @@ T *Set<T>::insert(const T &value)
 	details::MapSlot slot_to_insert;
 	slot_to_insert.bits.is_filled = 1;
 	slot_to_insert.bits.psl       = 0;
-	slot_to_insert.bits.hash      = hash_value(value);
+	slot_to_insert.bits.hash      = u32(hash_value(value));
 	u32 i_slot                    = details::insert_slot(slots, values, std::move(slot_to_insert), T{value});
 
 	ASSERT(i_slot < this->capacity);
@@ -133,7 +133,7 @@ template <typename T>
 void Set<T>::remove(const T &value)
 {
 	const auto slots = exo::reinterpret_span<details::MapSlot>(this->slots_buffer.content());
-	const auto hash  = hash_value(value);
+	const auto hash  = u32(hash_value(value));
 
 	const u32 i_slot = details::probe_by_hash(slots, hash);
 
@@ -188,8 +188,7 @@ struct SetIterator : IteratorFacade<SetIterator<T>>
 
 	void increment()
 	{
-		const auto slots  = exo::reinterpret_span<details::MapSlot>(this->set->slots_buffer.content());
-		const auto values = exo::reinterpret_span<T>(this->set->values_buffer.content());
+		const auto slots = exo::reinterpret_span<details::MapSlot>(this->set->slots_buffer.content());
 
 		for (current_index = current_index + 1; current_index < this->set->capacity; current_index += 1) {
 			if (slots[current_index].bits.is_filled == 1) {

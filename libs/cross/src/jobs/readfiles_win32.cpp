@@ -1,7 +1,7 @@
 #include "cross/jobs/readfiles.h"
 
-#include <exo/macros/assert.h>
-#include <exo/profile.h>
+#include "exo/macros/assert.h"
+#include "exo/profile.h"
 
 #include "cross/jobs/waitable.h"
 

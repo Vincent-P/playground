@@ -1,28 +1,28 @@
 #include "engine/scene.h"
 
-#include <assets/asset_id_formatter.h>
-#include <assets/asset_manager.h>
-#include <assets/mesh.h>
-#include <assets/subscene.h>
-#include <cross/mapped_file.h>
-#include <engine/render_world_system.h>
-#include <exo/format.h>
-#include <exo/hash.h>
-#include <exo/maths/numerics.h>
-#include <exo/maths/quaternion.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/serialization/serializer_helper.h>
-#include <exo/uuid.h>
-#include <exo/uuid_formatter.h>
-#include <gameplay/component.h>
-#include <gameplay/components/camera_component.h>
-#include <gameplay/components/mesh_component.h>
-#include <gameplay/entity.h>
-#include <gameplay/inputs.h>
-#include <gameplay/systems/editor_camera_systems.h>
-#include <painter/painter.h>
-#include <reflection/reflection.h>
-#include <ui/ui.h>
+#include "assets/asset_id_formatter.h"
+#include "assets/asset_manager.h"
+#include "assets/mesh.h"
+#include "assets/subscene.h"
+#include "cross/mapped_file.h"
+#include "engine/render_world_system.h"
+#include "exo/format.h"
+#include "exo/hash.h"
+#include "exo/maths/numerics.h"
+#include "exo/maths/quaternion.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/serialization/serializer_helper.h"
+#include "exo/uuid.h"
+#include "exo/uuid_formatter.h"
+#include "gameplay/component.h"
+#include "gameplay/components/camera_component.h"
+#include "gameplay/components/mesh_component.h"
+#include "gameplay/entity.h"
+#include "gameplay/inputs.h"
+#include "gameplay/systems/editor_camera_systems.h"
+#include "painter/painter.h"
+#include "reflection/reflection.h"
+#include "ui/ui.h"
 
 void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 {

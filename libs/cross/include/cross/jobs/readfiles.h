@@ -1,7 +1,7 @@
 #pragma once
 #include "cross/jobs/job.h"
-#include <exo/forward_container.h>
-#include <exo/maths/numerics.h>
+#include "exo/forward_container.h"
+#include "exo/maths/numerics.h"
 
 #include <memory>
 #include "exo/collections/span.h"

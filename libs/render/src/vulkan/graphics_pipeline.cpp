@@ -1,6 +1,6 @@
 #include "render/vulkan/pipelines.h"
 
-#include <exo/collections/array.h>
+#include "exo/collections/array.h"
 
 #include "render/vulkan/device.h"
 #include "render/vulkan/utils.h"

@@ -3,9 +3,9 @@
 #include "painter/font.h"
 #include "painter/glyph_cache.h"
 
-#include <exo/macros/assert.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/profile.h>
+#include "exo/macros/assert.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/profile.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

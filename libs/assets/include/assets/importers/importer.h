@@ -1,9 +1,9 @@
 #pragma once
 
-#include <exo/collections/vector.h>
-#include <exo/maths/numerics.h>
-#include <exo/path.h>
-#include <exo/result.h>
+#include "exo/collections/vector.h"
+#include "exo/maths/numerics.h"
+#include "exo/path.h"
+#include "exo/result.h"
 
 #include "exo/collections/span.h"
 #include "exo/string_view.h"
@@ -41,8 +41,10 @@ struct ProcessResponse
 
 struct Importer
 {
-	virtual bool can_import_extension(exo::Span<exo::StringView const> extensions) = 0;
-	virtual bool can_import_blob(exo::Span<u8 const> data)                          = 0;
+	virtual ~Importer() = default;
+
+	virtual bool can_import_extension(exo::Span<const exo::StringView> extensions) = 0;
+	virtual bool can_import_blob(exo::Span<const u8> data)                         = 0;
 
 	virtual Result<CreateResponse>  create_asset(const CreateRequest &request)   = 0;
 	virtual Result<ProcessResponse> process_asset(const ProcessRequest &request) = 0;

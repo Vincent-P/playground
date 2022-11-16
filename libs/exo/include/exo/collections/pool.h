@@ -138,7 +138,6 @@ struct PoolIterator : IteratorFacade<PoolIterator<T>>
 	{
 		for (current_index = current_index + 1; current_index < pool->capacity; current_index += 1) {
 			auto *metadata = metadata_ptr(*pool, current_index);
-			auto *element  = element_ptr(*pool, current_index);
 			if (metadata->bits.is_occupied == 1) {
 				break;
 			}
@@ -275,7 +274,7 @@ Handle<T> Pool<T>::add(T &&value)
 	freelist_head = *freelist_ptr(*this, i_element);
 
 	// Construct the new element
-	T    *element  = new (element_ptr(*this, i_element)) T{std::forward<T>(value)};
+	new (element_ptr(*this, i_element)) T{std::forward<T>(value)};
 	auto *metadata = metadata_ptr(*this, i_element);
 	ASSERT(metadata->bits.is_occupied == 0);
 	metadata->bits.is_occupied = 1;

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <exo/collections/enum_array.h>
-#include <exo/collections/vector.h>
-#include <exo/uuid.h>
+#include "exo/collections/enum_array.h"
+#include "exo/collections/vector.h"
+#include "exo/uuid.h"
 
-#include <reflection/reflection.h>
+#include "reflection/reflection.h"
 
 #include "assets/asset_id.h"
 

@@ -2,8 +2,8 @@
 
 #include "gameplay/contexts.h"
 
-#include <assets/asset_id.h>
-#include <assets/asset_manager.h>
+#include "assets/asset_id.h"
+#include "assets/asset_manager.h"
 
 void MeshComponent::load(LoadingContext &ctx)
 {

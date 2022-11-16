@@ -1,11 +1,11 @@
 #include "app.h"
 
-#include <exo/memory/linear_allocator.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/memory/string_repository.h>
-#include <exo/profile.h>
+#include "exo/memory/linear_allocator.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/memory/string_repository.h"
+#include "exo/profile.h"
 
-#include <reflection/reflection.h>
+#include "reflection/reflection.h"
 
 void *operator new(std::size_t count)
 {

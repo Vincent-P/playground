@@ -1,6 +1,6 @@
 #include "painter/shelf_allocator.h"
 
-#include <exo/macros/assert.h>
+#include "exo/macros/assert.h"
 
 static AllocationId shelf_alloc(ShelfAllocator &allocator, Shelf &shelf, int2 alloc_size)
 {

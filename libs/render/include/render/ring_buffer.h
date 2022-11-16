@@ -1,8 +1,8 @@
 #pragma once
 
-#include <exo/collections/dynamic_array.h>
-#include <exo/collections/handle.h>
-#include <exo/maths/numerics.h>
+#include "exo/collections/dynamic_array.h"
+#include "exo/collections/handle.h"
+#include "exo/maths/numerics.h"
 #include "exo/collections/span.h"
 #include "exo/string.h"
 #include "exo/string_view.h"

@@ -5,18 +5,18 @@
 #include "assets/importers/gltf_importer.h"
 #include "assets/importers/ktx2_importer.h"
 #include "assets/importers/png_importer.h"
-#include <cross/jobmanager.h>
-#include <cross/jobs/custom.h>
-#include <cross/mapped_file.h>
-#include <exo/collections/span.h>
-#include <exo/format.h>
-#include <exo/logger.h>
-#include <exo/memory/scope_stack.h>
-#include <exo/serialization/serializer.h>
-#include <exo/serialization/serializer_helper.h>
-#include <exo/uuid_formatter.h>
-#include <reflection/reflection.h>
-#include <reflection/reflection_serializer.h>
+#include "cross/jobmanager.h"
+#include "cross/jobs/custom.h"
+#include "cross/mapped_file.h"
+#include "exo/collections/span.h"
+#include "exo/format.h"
+#include "exo/logger.h"
+#include "exo/memory/scope_stack.h"
+#include "exo/serialization/serializer.h"
+#include "exo/serialization/serializer_helper.h"
+#include "exo/uuid_formatter.h"
+#include "reflection/reflection.h"
+#include "reflection/reflection_serializer.h"
 
 #include "hash_file.h"
 
@@ -28,7 +28,7 @@ static const exo::Path CompiledAssetPath = exo::Path::from_string(COMPILED_ASSET
 
 exo::Path AssetManager::get_asset_path(const AssetId &id)
 {
-	exo::String filename = id.name + exo::StringView{".asset"};
+	const exo::String filename = id.name + exo::StringView{".asset"};
 	return exo::Path::join(CompiledAssetPath, filename);
 }
 
@@ -216,7 +216,7 @@ void AssetManager::finish_loading_async(refl::BasePtr<Asset> asset)
 	asset->state = deps_requests > 0 ? AssetState::LoadedWaitingForDeps : AssetState::FullyLoaded;
 }
 
-void AssetManager::unload_asset(AssetId id) { this->database.remove_asset(id); }
+void AssetManager::unload_asset(const AssetId &id) { this->database.remove_asset(id); }
 
 usize AssetManager::read_blob(exo::u128 blob_hash, exo::Span<u8> out_data)
 {

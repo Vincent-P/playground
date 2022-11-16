@@ -1,6 +1,6 @@
 #include "cross/jobs/waitable.h"
 
-#include <exo/profile.h>
+#include "exo/profile.h"
 
 #include <windows.h>
 

@@ -1,6 +1,6 @@
 #include "engine/camera.h"
 
-#include <exo/macros/assert.h>
+#include "exo/macros/assert.h"
 
 #include <cmath> // std::tan
 

@@ -1,7 +1,7 @@
 #pragma once
-#include <exo/collections/set.h>
-#include <exo/collections/vector.h>
-#include <reflection/reflection.h>
+#include "exo/collections/set.h"
+#include "exo/collections/vector.h"
+#include "reflection/reflection.h"
 
 struct Entity;
 struct GlobalSystem;

@@ -16,7 +16,7 @@ StringView formatf(ScopeStack &scope, const char *fmt...)
 
 	auto formatted_size = std::vsnprintf(nullptr, 0, fmt, args1);
 	ASSERT(formatted_size > 0);
-	usize buffer_size = usize(formatted_size);
+	const auto buffer_size = usize(formatted_size);
 
 	va_end(args1);
 
