@@ -106,8 +106,10 @@ TEST_CASE("exo::Vec move constructor", "[vector]")
 
 	auto new_vector = std::move(vector);
 
+	REQUIRE(vector.length == 0);
 	REQUIRE(vector.buffer.ptr == nullptr);
 	REQUIRE(new_vector.buffer.ptr != nullptr);
+	REQUIRE(new_vector.length == 4);
 }
 
 TEST_CASE("exo::Vec lifetimes", "[vector]")

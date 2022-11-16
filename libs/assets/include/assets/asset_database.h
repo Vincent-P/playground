@@ -1,15 +1,14 @@
 #pragma once
 #include "assets/asset_database.h"
+#include "assets/asset_id.h"
 #include "cross/jobs/waitable.h"
 #include "exo/collections/map.h"
 #include "exo/collections/pool.h"
+#include "exo/collections/set.h"
+#include "exo/collections/span.h"
 #include "exo/path.h"
 #include "reflection/reflection.h"
-
 #include <memory>
-#include "exo/collections/span.h"
-
-#include "assets/asset_id.h"
 
 namespace exo
 {
@@ -62,6 +61,7 @@ struct AssetDatabase
 
 	// Async loading
 	exo::Map<AssetId, AssetAsyncRequest> asset_async_requests;
+	exo::Set<AssetId>                    asset_async_waiting_for_deps;
 
 	// --
 	// Resources

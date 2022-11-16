@@ -1,8 +1,5 @@
 #include "assets/asset_database.h"
-
 #include "assets/asset.h"
-#include "hash_file.h"
-
 #include "cross/jobmanager.h"
 #include "cross/jobs/foreach.h"
 #include "cross/mapped_file.h"
@@ -15,7 +12,7 @@
 #include "exo/serialization/uuid_serializer.h"
 #include "exo/string_view.h"
 #include "exo/uuid.h"
-
+#include "hash_file.h"
 #include <filesystem>
 
 // -- Resources
@@ -112,12 +109,13 @@ void AssetDatabase::track_resource_changes(
 			break;
 		}
 		case TrackerAction::NewResource: {
-			Resource new_record      = {};
-			new_record.asset_id      = AssetId::invalid();
-			new_record.resource_path = tracker.resource_path;
-			auto new_record_handle   = this->resource_records.add(std::move(new_record));
-			this->resource_path_map.insert(tracker.resource_path, new_record_handle);
-			this->resource_content_map.insert(tracker.hash, new_record_handle);
+			Resource new_record          = {};
+			new_record.asset_id          = AssetId::invalid();
+			new_record.resource_path     = tracker.resource_path;
+			tracker.resource             = this->resource_records.add(std::move(new_record));
+			tracker.is_resource_outdated = true;
+			this->resource_path_map.insert(tracker.resource_path, tracker.resource);
+			this->resource_content_map.insert(tracker.hash, tracker.resource);
 			break;
 		}
 		}

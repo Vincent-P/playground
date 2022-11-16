@@ -26,6 +26,15 @@ struct Vec
 		}
 	}
 
+	Vec(Vec &&other) { *this = std::move(other); }
+	Vec &operator=(Vec &&other)
+	{
+		this->buffer = std::move(other.buffer);
+		this->length = other.length;
+		other.length = 0;
+		return *this;
+	}
+
 	static Vec with_capacity(usize capacity)
 	{
 		Vec result = {};

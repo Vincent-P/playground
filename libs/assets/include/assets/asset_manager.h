@@ -1,15 +1,13 @@
 #pragma once
 #include "assets/asset.h"
+#include "assets/asset_database.h"
+#include "assets/asset_id.h"
+#include "assets/importers/importer.h"
 #include "exo/collections/dynamic_array.h"
 #include "exo/maths/u128.h"
 #include "exo/path.h"
 #include "exo/profile.h"
-
 #include "reflection/reflection.h"
-
-#include "assets/asset_database.h"
-#include "assets/asset_id.h"
-#include "assets/importers/importer.h"
 
 namespace cross
 {

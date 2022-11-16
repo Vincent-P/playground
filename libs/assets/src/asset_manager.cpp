@@ -1,5 +1,4 @@
 #include "assets/asset_manager.h"
-
 #include "assets/asset.h"
 #include "assets/asset_id_formatter.h"
 #include "assets/importers/gltf_importer.h"
@@ -15,11 +14,9 @@
 #include "exo/serialization/serializer.h"
 #include "exo/serialization/serializer_helper.h"
 #include "exo/uuid_formatter.h"
+#include "hash_file.h"
 #include "reflection/reflection.h"
 #include "reflection/reflection_serializer.h"
-
-#include "hash_file.h"
-
 #include <filesystem>
 
 static const exo::Path AssetPath         = exo::Path::from_string(ASSET_PATH);
@@ -162,18 +159,39 @@ static exo::Path get_blob_path(exo::u128 blob_hash)
 
 void AssetManager::update_async()
 {
-	exo::Vec<AssetId> to_remove;
-	to_remove.reserve(this->database.asset_async_requests.size);
+	auto to_remove = exo::Vec<AssetId>::with_capacity(this->database.asset_async_waiting_for_deps.size);
 
+	// Update the state of assets waiting for their dependencies to load.
+	for (const auto &asset_id : this->database.asset_async_waiting_for_deps) {
+		auto asset = this->database.get_asset(asset_id);
+		ASSERT(asset->state == AssetState::LoadedWaitingForDeps);
+
+		u32 loaded_deps = 0;
+		for (const auto &dep : asset->dependencies) {
+			if (this->is_fully_loaded(dep)) {
+				loaded_deps += 1;
+			}
+		}
+		if (loaded_deps == asset->dependencies.len()) {
+			asset->state = AssetState::FullyLoaded;
+			to_remove.push(asset_id);
+		}
+	}
+	for (const auto &asset_id : to_remove) {
+		this->database.asset_async_waiting_for_deps.remove(asset_id);
+	}
+
+	// Update the state of assets that finished loading asynchronously
+	to_remove.clear();
+	to_remove.reserve(this->database.asset_async_requests.size);
 	for (const auto &[asset_id, req] : this->database.asset_async_requests) {
 		if (req.waitable->is_done()) {
 			this->finish_loading_async(req.data->result);
 			to_remove.push(asset_id);
 		}
 	}
-
-	for (const auto &handle : to_remove) {
-		this->database.asset_async_requests.remove(handle);
+	for (const auto &asset_id : to_remove) {
+		this->database.asset_async_requests.remove(asset_id);
 	}
 }
 
@@ -213,7 +231,12 @@ void AssetManager::finish_loading_async(refl::BasePtr<Asset> asset)
 		}
 	}
 
-	asset->state = deps_requests > 0 ? AssetState::LoadedWaitingForDeps : AssetState::FullyLoaded;
+	if (deps_requests > 0) {
+		asset->state = AssetState::LoadedWaitingForDeps;
+		this->database.asset_async_waiting_for_deps.insert(asset->uuid);
+	} else {
+		asset->state = AssetState::FullyLoaded;
+	}
 }
 
 void AssetManager::unload_asset(const AssetId &id) { this->database.remove_asset(id); }
