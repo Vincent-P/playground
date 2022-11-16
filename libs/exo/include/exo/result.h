@@ -85,7 +85,7 @@ private:
 		this->error_wrapper.code = u64_invalid;
 	}
 
-	Result(ErrorWrapper error)
+	Result(ErrorWrapper)
 	{
 		this->type          = ResultType::Err;
 		this->error_wrapper = error_wrapper;

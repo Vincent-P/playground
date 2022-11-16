@@ -3,7 +3,6 @@
 #include "cross/mapped_file.h"
 #include "cross/platform.h"
 #include "cross/window.h"
-
 #include "exo/collections/vector.h"
 #include "exo/format.h"
 #include "exo/logger.h"
@@ -13,22 +12,18 @@
 #include "exo/memory/scope_stack.h"
 #include "exo/profile.h"
 #include "exo/string_view.h"
+#include "inputs.h"
+#include "painter/font.h"
+#include "painter/glyph_cache.h"
+#include "painter/painter.h"
 #include "render/bindings.h"
 #include "render/shader_watcher.h"
 #include "render/simple_renderer.h"
 #include "render/vulkan/commands.h"
 #include "render/vulkan/image.h"
 #include "render/vulkan/pipelines.h"
-#include "ui_renderer/ui_renderer.h"
-
-#include "painter/font.h"
-#include "painter/glyph_cache.h"
-#include "painter/painter.h"
 #include "ui/ui.h"
-
-#include "inputs.h"
-
-#include <filesystem>
+#include "ui_renderer/ui_renderer.h"
 #include <spng.h>
 
 inline constexpr int2 GLYPH_ATLAS_RESOLUTION = int2(1024, 1024);
