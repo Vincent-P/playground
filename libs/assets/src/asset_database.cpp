@@ -52,7 +52,7 @@ void AssetDatabase::track_resource_changes(
 
 	auto w = cross::parallel_foreach_userdata<ResourceTracker, const AssetDatabase, true>(
 		jobmanager,
-		exo::Span(trackers),
+		trackers,
 		this,
 		[](ResourceTracker &tracker, const AssetDatabase *self) {
 			auto resource_file = cross::MappedFile::open(tracker.resource_path.view()).value();

@@ -377,15 +377,15 @@ static void import_meshes(ImporterContext &ctx)
 			}
 		}
 
-		auto positions_bytes          = exo::span_to_bytes<float4>(exo::Span(ctx.positions));
+		auto positions_bytes          = exo::span_to_bytes<float4>(ctx.positions);
 		new_mesh->positions_hash      = ctx.api.save_blob(positions_bytes);
 		new_mesh->positions_byte_size = positions_bytes.len();
 
-		auto uvs_bytes          = exo::span_to_bytes<float2>(exo::Span(ctx.uvs));
+		auto uvs_bytes          = exo::span_to_bytes<float2>(ctx.uvs);
 		new_mesh->uvs_hash      = ctx.api.save_blob(uvs_bytes);
 		new_mesh->uvs_byte_size = uvs_bytes.len();
 
-		auto indices_bytes          = exo::span_to_bytes<uint>(exo::Span(ctx.indices));
+		auto indices_bytes          = exo::span_to_bytes<uint>(ctx.indices);
 		new_mesh->indices_hash      = ctx.api.save_blob(indices_bytes);
 		new_mesh->indices_byte_size = indices_bytes.len();
 

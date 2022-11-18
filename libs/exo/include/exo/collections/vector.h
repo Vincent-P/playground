@@ -74,6 +74,9 @@ struct Vec
 		return true;
 	}
 
+	operator Span<T>() { return Span<T>(static_cast<T *>(this->buffer.ptr), this->length); }
+	operator Span<const T>() const { return Span<const T>(static_cast<const T*>(this->buffer.ptr), this->length); }
+
 	// Element access
 
 	T &operator[](usize i)

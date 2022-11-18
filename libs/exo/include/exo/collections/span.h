@@ -16,70 +16,6 @@ inline constexpr bool IsSameV<A, A> = true;
 
 template <typename A, typename B>
 concept IsSame = IsSameV<A, B>;
-
-template <typename T>
-struct RemoveConstS
-{
-	using Type = T;
-};
-
-template <typename T>
-struct RemoveConstS<const T>
-{
-	using Type = T;
-};
-
-template <typename T>
-using RemoveConst = typename RemoveConstS<T>::Type;
-
-template <typename T>
-struct RemovePtrS
-{
-	using Type = T;
-};
-
-template <typename T>
-struct RemovePtrS<T *>
-{
-	using Type = T;
-};
-
-template <typename T>
-using RemovePtr = typename RemovePtrS<T>::Type;
-
-// clang-format off
-template<typename Collection>
-concept HasDataMemberFunc = requires(const Collection& collection) {
-	collection.data();
-};
-
-template<typename Collection>
-concept HasLenMemberFunc = requires(const Collection& collection) {
-	{ collection.len() } -> IsSame<usize>;
-};
-
-template<typename Collection>
-concept HasSizeMemberFunc = requires(const Collection& collection) {
-	{ collection.size() } -> IsSame<usize>;
-};
-
-template<typename Collection>
-concept HasDataAndLenMemberFunc = HasDataMemberFunc<Collection> && HasLenMemberFunc<Collection>;
-
-template<typename Collection>
-concept HasDataAndSizeMemberFunc = HasDataMemberFunc<Collection> && HasSizeMemberFunc<Collection>;
-
-template<HasDataMemberFunc Collection>
-using CollectionElementType = RemovePtr<decltype(((Collection*)nullptr)->data())>;
-
-template<typename Collection, typename T>
-concept IsCollectionSpanConvertible = HasDataAndLenMemberFunc<Collection> && (IsSame<CollectionElementType<Collection>, RemoveConst<T>> || IsSame<CollectionElementType<Collection>, T>);
-
-template<typename Collection, typename T>
-concept IsCollectionSpanConvertibleSize = HasDataAndSizeMemberFunc<Collection> && (IsSame<CollectionElementType<Collection>, RemoveConst<T>> || IsSame<CollectionElementType<Collection>, T>);
-
-// clang-format on
-
 }; // namespace details
 
 template <typename T>
@@ -94,44 +30,9 @@ struct Span
 	Span(T *data, usize len) : ptr{data}, length{len} {}
 	Span(T *begin, T *end) : ptr{begin}, length(usize(end - begin)) {}
 
-	// Constructor from other span without const T (mutable -> const span of same type)
-	template <details::IsSame<details::RemoveConst<T>> Other>
-	Span(const Span<Other> &other) : Span{other.ptr, other.length}
-	{
-	}
+	Span(const Span &other) : Span{other.ptr, other.length} {}
 
-	template <details::IsSame<details::RemoveConst<T>> Other>
-	Span(Span<Other> &&other) : Span{other.ptr, other.length}
-	{
-	}
-
-	// Constructor from other collections
-	template <details::IsCollectionSpanConvertible<T> Collection>
-	Span(Collection &collection) : Span{collection.data(), collection.len()}
-	{
-	}
-
-	template <details::IsCollectionSpanConvertibleSize<T> Collection>
-	Span(Collection &collection) : Span{collection.data(), collection.size()}
-	{
-	}
-
-	template <details::IsCollectionSpanConvertible<T> Collection>
-	Span(const Collection &collection) : Span{collection.data(), collection.len()}
-	{
-	}
-
-	template <details::IsCollectionSpanConvertibleSize<T> Collection>
-	Span(const Collection &collection) : Span{collection.data(), collection.size()}
-	{
-	}
-
-	// Delete rvalue reference constructors
-	template <details::IsCollectionSpanConvertible<T> Collection>
-	Span(Collection &&collection) = delete;
-
-	template <details::IsCollectionSpanConvertibleSize<T> Collection>
-	Span(Collection &&collection) = delete;
+	operator Span<const T>() const { return Span<const T>(this->ptr, this->length); }
 
 	// -- Iterators
 
@@ -169,12 +70,11 @@ struct Span
 	usize size_bytes() const { return length * sizeof(T); }
 };
 
-// error C2641: cannot deduce template arguments for 'exo::Span'
-template <details::HasDataAndLenMemberFunc Collection>
-Span(Collection &) -> Span<details::CollectionElementType<Collection>>;
+template<typename T>
+Span(T *, T *) -> Span<T>;
 
-template <details::HasDataAndSizeMemberFunc Collection>
-Span(Collection &) -> Span<details::CollectionElementType<Collection>>;
+template <typename T>
+Span(T *, usize) -> Span<T>;
 
 template <typename T>
 Span<T> reinterpret_span(Span<u8> bytes)

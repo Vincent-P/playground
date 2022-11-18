@@ -51,6 +51,9 @@ struct DynamicArray
 		array_size = 0;
 	}
 
+	operator Span<T>() { return Span<T>(this->array, this->array_size); }
+	operator Span<const T>() const { return Span<const T>(this->array, this->array_size); }
+
 	constexpr const T &operator[](usize i) const;
 	constexpr T       &operator[](usize i);
 

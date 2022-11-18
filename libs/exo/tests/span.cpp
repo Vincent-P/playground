@@ -11,6 +11,9 @@ struct FakeCollection
 
 	size_t len() const { return 42; }
 
+	operator exo::Span<int>() { return exo::Span<int>(this->data(), this->len()); }
+	operator exo::Span<const int>() const { return exo::Span<const int>(this->data(), this->len()); }
+
 	int i[42];
 };
 
@@ -23,7 +26,7 @@ TEST_CASE("exo::Span from collection", "[span]")
 		auto s = exo::Span<int>(collection_mut);
 		REQUIRE(s.len() == collection_mut.len());
 
-		REQUIRE(exo::Span(collection_mut).len() == collection_mut.len());
+		REQUIRE(exo::Span<int>(collection_mut).len() == collection_mut.len());
 
 		auto cs = exo::Span<const int>(collection_mut);
 		REQUIRE(cs.len() == collection_mut.len());
@@ -37,7 +40,7 @@ TEST_CASE("exo::Span from collection", "[span]")
 		// auto s = exo::Span<int>(collection_const);
 		// REQUIRE(s.len() == collection_const.len());
 
-		REQUIRE(exo::Span(collection_const).len() == collection_const.len());
+		REQUIRE(exo::Span<const int>(collection_const).len() == collection_const.len());
 	}
 }
 

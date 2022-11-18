@@ -83,7 +83,6 @@ struct AssetManager
 	static refl::BasePtr<Asset> _load_from_disk(const AssetId &id);
 	void                        _save_to_disk(refl::BasePtr<Asset> asset);
 	void                        _import_resources(exo::Span<const Handle<Resource>> records);
-	void                        _load_deps_async_if_needed(const AssetId &id);
 };
 
 struct ImporterApi
