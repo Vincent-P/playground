@@ -1,13 +1,10 @@
 #include "exo/uuid.h"
-
-#include "exo/uuid_formatter.h"
-
 #include "exo/collections/map.h"
 #include "exo/collections/span.h"
 #include "exo/hash.h"
 #include "exo/macros/assert.h"
-
-#include <cstring>
+#include <cstdio>  // for snprintf
+#include <cstring> // for memset
 #if defined(PLATFORM_WINDOWS)
 #include <rpc.h>
 #include <windows.h>

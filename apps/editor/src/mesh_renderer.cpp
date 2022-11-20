@@ -1,25 +1,19 @@
 #include "mesh_renderer.h"
-
-#include "exo/collections/span.h"
-#include "exo/macros/packed.h"
-
 #include "assets/asset_id.h"
-#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/material.h"
 #include "assets/mesh.h"
 #include "assets/texture.h"
-
 #include "engine/camera.h"
 #include "engine/render_world.h"
-
+#include "exo/collections/span.h"
+#include "exo/macros/packed.h"
 #include "render/bindings.h"
 #include "render/shader_watcher.h"
 #include "render/simple_renderer.h" // for FRAME_QUEUE_LENGTH...
 #include "render/vulkan/device.h"
-
-#include <bit>
 #include "render/vulkan/image.h"
+#include <bit>
 
 struct SubmeshDescriptor
 {
@@ -504,13 +498,13 @@ void register_upload_nodes(RenderGraph &graph,
 void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Handle<TextureDesc> output)
 {
 	exo::Span<SimpleDraw> drawcalls_span       = mesh_renderer.drawcalls;
-	auto instances_descriptor = mesh_renderer.instances_descriptor;
-	auto meshes_descriptor    = mesh_renderer.meshes_descriptor;
-	auto materials_descriptor = mesh_renderer.materials_descriptor;
-	auto simple_program       = mesh_renderer.simple_program;
-	auto view                 = mesh_renderer.view;
-	auto output_size          = graph.image_size(output);
-	auto projection           = mesh_renderer.projection;
+	auto                  instances_descriptor = mesh_renderer.instances_descriptor;
+	auto                  meshes_descriptor    = mesh_renderer.meshes_descriptor;
+	auto                  materials_descriptor = mesh_renderer.materials_descriptor;
+	auto                  simple_program       = mesh_renderer.simple_program;
+	auto                  view                 = mesh_renderer.view;
+	auto                  output_size          = graph.image_size(output);
+	auto                  projection           = mesh_renderer.projection;
 
 	auto depth_buffer = graph.output(TextureDesc{
 		.name   = "depth buffer desc",

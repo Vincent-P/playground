@@ -63,7 +63,6 @@ set(SOURCE_FILES
 
   include/exo/uuid.h
   src/uuid.cpp
-  include/exo/uuid_formatter.h
 
   include/exo/path.h
   src/path.cpp

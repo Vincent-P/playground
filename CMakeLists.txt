@@ -66,6 +66,8 @@ function(setup_app_target_options TARGET)
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wpessimizing-move>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-Wredundant-move>
 
+      $<$<CXX_COMPILER_ID:GNU>:-Wno-missing-field-initializers>
+
       $<$<CXX_COMPILER_ID:MSVC>:/WX>
       $<$<CXX_COMPILER_ID:MSVC>:/W4>
       $<$<CXX_COMPILER_ID:MSVC>:/permissive->

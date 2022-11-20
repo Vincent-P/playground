@@ -1,11 +1,7 @@
 #include "assets/importers/ktx2_importer.h"
-
-#include "exo/macros/defer.h"
-
-#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
-
+#include "exo/macros/defer.h"
 #include <ktx.h>
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>

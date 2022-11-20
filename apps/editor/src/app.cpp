@@ -1,6 +1,4 @@
 #include "app.h"
-
-#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/subscene.h"
 #include "cross/file_watcher.h"
@@ -17,7 +15,6 @@
 #include "ui/docking.h"
 #include "ui/scroll.h"
 #include "ui/ui.h"
-
 #define SOKOL_TIME_IMPL
 #include <sokol_time.h>
 

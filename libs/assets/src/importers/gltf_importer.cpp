@@ -1,22 +1,16 @@
 #include "assets/importers/gltf_importer.h"
-
+#include "assets/asset_manager.h"
 #include "assets/importers/importer.h"
-
+#include "assets/material.h"
+#include "assets/mesh.h"
+#include "assets/subscene.h"
+#include "assets/texture.h"
+#include "cross/mapped_file.h"
 #include "exo/collections/span.h"
 #include "exo/format.h"
 #include "exo/maths/pointer.h"
 #include "exo/memory/scope_stack.h"
 #include "exo/memory/string_repository.h"
-
-#include "cross/mapped_file.h"
-
-#include "assets/asset_id_formatter.h"
-#include "assets/asset_manager.h"
-#include "assets/material.h"
-#include "assets/mesh.h"
-#include "assets/subscene.h"
-#include "assets/texture.h"
-
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/filewritestream.h>

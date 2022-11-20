@@ -1,15 +1,10 @@
 #include "assets/importers/png_importer.h"
-
 #include "assets/asset_id.h"
 #include "exo/macros/defer.h"
 #include "exo/profile.h"
-
 #include "cross/mapped_file.h"
-
-#include "assets/asset_id_formatter.h"
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
-
 #include <spng.h>
 
 bool PNGImporter::can_import_extension(exo::Span<const exo::StringView> extensions)
