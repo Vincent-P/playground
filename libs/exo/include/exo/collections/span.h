@@ -30,7 +30,7 @@ struct Span
 	Span(T *data, usize len) : ptr{data}, length{len} {}
 	Span(T *begin, T *end) : ptr{begin}, length(usize(end - begin)) {}
 
-	Span(const Span &other) : Span{other.ptr, other.length} {}
+	Span(const Span &other) = default;
 
 	operator Span<const T>() const { return Span<const T>(this->ptr, this->length); }
 
@@ -50,6 +50,7 @@ struct Span
 	T *data() const { return this->ptr; }
 
 	T &back() const { return (*this)[this->length - 1]; }
+	T &last() const { return (*this)[this->length - 1]; }
 
 	// -- Observers
 
@@ -70,7 +71,7 @@ struct Span
 	usize size_bytes() const { return length * sizeof(T); }
 };
 
-template<typename T>
+template <typename T>
 Span(T *, T *) -> Span<T>;
 
 template <typename T>

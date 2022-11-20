@@ -8,11 +8,11 @@ namespace cross::utils
 {
 std::wstring utf8_to_utf16(const exo::StringView &str)
 {
-	if (str.empty()) {
+	if (str.is_empty()) {
 		return {};
 	}
 
-	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.len(), nullptr, 0);
 	ASSERT(res > 0);
 	auto size_needed = static_cast<usize>(res);
 	// TODO: Remove allocation
@@ -20,7 +20,7 @@ std::wstring utf8_to_utf16(const exo::StringView &str)
 	MultiByteToWideChar(CP_UTF8,
 		0,
 		str.data(),
-		static_cast<int>(str.size()),
+		static_cast<int>(str.len()),
 		result.data(),
 		static_cast<int>(result.size()));
 	return result;
@@ -42,7 +42,7 @@ exo::String utf16_to_utf8(const std::wstring_view &wstr)
 		wstr.data(),
 		static_cast<int>(wstr.size()),
 		result.data(),
-		static_cast<int>(result.size()),
+		static_cast<int>(result.len()),
 		nullptr,
 		nullptr);
 	return result;

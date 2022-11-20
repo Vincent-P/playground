@@ -34,9 +34,9 @@ AssetManager AssetManager::create(cross::JobManager &jobmanager)
 	AssetManager asset_manager = {};
 	asset_manager.jobmanager   = &jobmanager;
 
-	asset_manager.importers.push_back(new GLTFImporter{});
-	asset_manager.importers.push_back(new PNGImporter{});
-	asset_manager.importers.push_back(new KTX2Importer{});
+	asset_manager.importers.push(new GLTFImporter{});
+	asset_manager.importers.push(new PNGImporter{});
+	asset_manager.importers.push(new KTX2Importer{});
 
 	const auto database_path = std::filesystem::path{DatabasePath.view().data()};
 	if (std::filesystem::exists(database_path)) {
@@ -59,7 +59,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 
 	// Find an importer for this resource
 	u32 i_found_importer = u32_invalid;
-	for (u32 i_importer = 0; i_importer < manager.importers.size(); ++i_importer) {
+	for (u32 i_importer = 0; i_importer < manager.importers.len(); ++i_importer) {
 		if (manager.importers[i_importer]->can_import_extension({&file_extension, 1})) {
 			i_found_importer = i_importer;
 			break;

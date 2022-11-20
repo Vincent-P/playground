@@ -40,7 +40,8 @@ std::unique_ptr<Waitable> parallel_foreach(
 	for (int i_chunk = 0; i_chunk < chunks; ++i_chunk) {
 		EXO_PROFILE_SCOPE_NAMED("Prepare chunk")
 
-		auto chunk = exo::Span(values.begin() + i_chunk * grain_size, values.begin() + (i_chunk + 1) * grain_size);
+		exo::Span<ElementType> chunk =
+			exo::Span(values.begin() + i_chunk * grain_size, values.begin() + (i_chunk + 1) * grain_size);
 
 		auto job         = std::make_shared<ForeachJob>(ForeachJob{.done_counter = &waitable->jobs_finished});
 		job->type        = ForeachJob::TASK_TYPE;

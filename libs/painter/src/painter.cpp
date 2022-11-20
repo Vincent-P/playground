@@ -109,7 +109,7 @@ int2 measure_label(Painter &painter, Font &font, exo::StringView label)
 
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
+	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
 	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
 	hb_buffer_set_language(buf, hb_language_from_string("en", -1));
@@ -135,7 +135,7 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 
 	auto *buf = painter.shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label.data(), int(label.size()), 0, -1);
+	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
 	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
 	hb_buffer_set_language(buf, hb_language_from_string("en", -1));

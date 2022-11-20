@@ -31,12 +31,12 @@ void RenderGraph::execute(PassApi api, vulkan::WorkPool &work_pool)
 
 			exo::DynamicArray<vulkan::LoadOp, vulkan::MAX_ATTACHMENTS> load_ops;
 			if (graphic_pass.clear) {
-				load_ops.push_back(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
+				load_ops.push(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
 			} else {
-				load_ops.push_back(vulkan::LoadOp::ignore());
+				load_ops.push(vulkan::LoadOp::ignore());
 			}
 			if (graphic_pass.depth_attachment.is_valid()) {
-				load_ops.push_back(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
+				load_ops.push(vulkan::LoadOp::clear({.color = {.float32 = {0.0f, 0.0f, 0.0f, 1.0f}}}));
 			}
 			ctx.begin_pass(framebuffer, load_ops);
 

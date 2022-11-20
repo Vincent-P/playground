@@ -401,7 +401,7 @@ static void open_file(RenderSample *app, const exo::StringView &path)
 {
 	EXO_PROFILE_SCOPE;
 	// TODO: PNG importer
-	exo::logger::info("Opened file: %.*s\n", path.size(), path.data());
+	exo::logger::info("Opened file: %.*s\n", path.len(), path.data());
 
 	auto mapped_file = cross::MappedFile::open(path);
 	if (!mapped_file) {

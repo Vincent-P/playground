@@ -13,11 +13,11 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 		storage.clear();
 	}
 
-	storage.reserve(storage.size() + to_append.size() + 1);
+	storage.reserve(storage.len() + to_append.len() + 1);
 
 	// If the left part doesn't have a separator, add one
-	if (!storage.empty() && storage.back() != '/') {
-		storage.push_back('/');
+	if (!storage.is_empty() && storage.back() != '/') {
+		storage.push('/');
 	}
 
 	enum ParsingState
@@ -27,7 +27,7 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 	};
 	ParsingState state = Eating;
 
-	const usize to_append_size = to_append.size();
+	const usize to_append_size = to_append.len();
 	for (u32 i = 0; i < to_append_size; ++i) {
 		auto current = to_append[i];
 		auto next    = i + 1 < to_append_size ? to_append[i + 1] : '\0';
@@ -38,7 +38,7 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 				state = SkippingSeparator;
 			} else {
 				state = Eating;
-				storage.push_back(current);
+				storage.push(current);
 			}
 		} else if (is_separator(current)) {
 			// Skip empty separators '///' or '\\\\'
@@ -47,7 +47,7 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 			}
 
 			if (state == Eating) {
-				storage.push_back('/');
+				storage.push('/');
 			} else if (state == SkippingSeparator) {
 				// skip
 			}
@@ -56,7 +56,7 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 			if (state == SkippingSeparator) {
 				state = Eating;
 			}
-			storage.push_back(current);
+			storage.push(current);
 		}
 	}
 }
@@ -74,7 +74,7 @@ Path Path::from_owned_string(exo::String &&str) { return Path::from_string(str);
 exo::StringView Path::extension() const
 {
 	u32       i_last_dot = u32_invalid;
-	const u32 size       = u32(this->str.size());
+	const u32 size       = u32(this->str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '.') {
 			i_last_dot = size - i - 1;
@@ -92,7 +92,7 @@ exo::StringView Path::extension() const
 exo::StringView Path::filename() const
 {
 	u32       i_last_sep = u32_invalid;
-	const u32 size       = u32(this->str.size());
+	const u32 size       = u32(this->str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;
@@ -130,7 +130,7 @@ Path Path::replace_filename(exo::Path path, exo::StringView new_filename)
 Path Path::remove_filename(exo::Path path)
 {
 	u32       i_last_sep = 0;
-	const u32 size       = u32(path.str.size());
+	const u32 size       = u32(path.str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (path.str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;
@@ -145,7 +145,7 @@ Path Path::remove_filename(exo::Path path)
 [[nodiscard]] u64 hash_value(const exo::Path &path)
 {
 	const auto view = path.view();
-	const u64  hash = XXH3_64bits(view.data(), view.size());
+	const u64  hash = XXH3_64bits(view.data(), view.len());
 	return hash;
 }
 

@@ -76,9 +76,9 @@ void Work::end()
 
 void Work::wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst)
 {
-	wait_fence_list.push_back(fence);
-	wait_value_list.push_back(wait_value);
-	wait_stage_list.push_back(stage_dst);
+	wait_fence_list.push(fence);
+	wait_value_list.push(wait_value);
+	wait_stage_list.push(stage_dst);
 }
 
 void Work::wait_for_acquired(Surface &surface, VkPipelineStageFlags stage_dst)
@@ -173,7 +173,7 @@ void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
 		auto &image      = device->images.get(image_handle);
 		auto  src_access = get_src_image_access(image.usage);
 		auto  dst_access = get_dst_image_access(usage_dst);
-		image_barriers.push_back(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range));
+		image_barriers.push(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range));
 		src_stage |= src_access.stage;
 		dst_stage |= dst_access.stage;
 
@@ -184,7 +184,7 @@ void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
 		auto &buffer     = device->buffers.get(buffer_handle);
 		auto  src_access = get_src_buffer_access(buffer.usage);
 		auto  dst_access = get_dst_buffer_access(usage_dst);
-		buffer_barriers.push_back(get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size));
+		buffer_barriers.push(get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size));
 		src_stage |= src_access.stage;
 		dst_stage |= dst_access.stage;
 
@@ -197,9 +197,9 @@ void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
 		0,
 		0,
 		nullptr,
-		static_cast<u32>(buffer_barriers.size()),
+		static_cast<u32>(buffer_barriers.len()),
 		buffer_barriers.data(),
-		static_cast<u32>(image_barriers.size()),
+		static_cast<u32>(image_barriers.len()),
 		image_barriers.data());
 }
 
@@ -253,7 +253,7 @@ void TransferWork::copy_buffer(
 	exo::DynamicArray<VkBufferCopy, 16> buffer_copies = {};
 
 	for (usize i_copy = 0; i_copy < offsets_src_dst_size.len(); i_copy += 1) {
-		buffer_copies.push_back({
+		buffer_copies.push(VkBufferCopy{
 			.srcOffset = std::get<0>(offsets_src_dst_size[i_copy]),
 			.dstOffset = std::get<1>(offsets_src_dst_size[i_copy]),
 			.size      = std::get<2>(offsets_src_dst_size[i_copy]),
@@ -263,7 +263,7 @@ void TransferWork::copy_buffer(
 	vkCmdCopyBuffer(command_buffer,
 		src_buffer.vkhandle,
 		dst_buffer.vkhandle,
-		static_cast<u32>(buffer_copies.size()),
+		static_cast<u32>(buffer_copies.len()),
 		buffer_copies.data());
 }
 
@@ -464,7 +464,7 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, exo::Span<
 
 	exo::DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
 	for (auto &load_op : load_ops) {
-		clear_colors.push_back(load_op.color);
+		clear_colors.push(load_op.color);
 	}
 
 	VkRenderPassBeginInfo begin_info    = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -472,7 +472,7 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, exo::Span<
 	begin_info.framebuffer              = framebuffer.vkhandle;
 	begin_info.renderArea.extent.width  = static_cast<u32>(framebuffer.format.size[0]);
 	begin_info.renderArea.extent.height = static_cast<u32>(framebuffer.format.size[1]);
-	begin_info.clearValueCount          = static_cast<u32>(clear_colors.size());
+	begin_info.clearValueCount          = static_cast<u32>(clear_colors.len());
 	begin_info.pClearValues             = clear_colors.data();
 
 	vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -687,45 +687,45 @@ void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<
 	exo::DynamicArray<VkSemaphore, 4> signal_list         = {};
 	exo::DynamicArray<u64, 4>         local_signal_values = {signal_values};
 	for (const auto &fence : signal_fences) {
-		signal_list.push_back(fence.timeline_semaphore);
+		signal_list.push(fence.timeline_semaphore);
 	}
 
 	if (work.signal_present_semaphore) {
-		signal_list.push_back(work.signal_present_semaphore.value());
-		local_signal_values.push_back(0);
+		signal_list.push(work.signal_present_semaphore.value());
+		local_signal_values.push(0u);
 	}
 
 	exo::DynamicArray<VkSemaphore, MAX_SEMAPHORES + 1>          semaphore_list = {};
 	exo::DynamicArray<u64, MAX_SEMAPHORES + 1>                  value_list     = {};
 	exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES + 1> stage_list     = {};
 
-	for (usize i = 0; i < work.wait_fence_list.size(); i++) {
-		semaphore_list.push_back(work.wait_fence_list[i].timeline_semaphore);
-		value_list.push_back(work.wait_value_list[i]);
-		stage_list.push_back(work.wait_stage_list[i]);
+	for (usize i = 0; i < work.wait_fence_list.len(); i++) {
+		semaphore_list.push(work.wait_fence_list[i].timeline_semaphore);
+		value_list.push(work.wait_value_list[i]);
+		stage_list.push(work.wait_stage_list[i]);
 	}
 
 	// vulkan hacks
 	if (work.image_acquired_semaphore) {
-		semaphore_list.push_back(work.image_acquired_semaphore.value());
-		value_list.push_back(0);
-		stage_list.push_back(work.image_acquired_stage.value());
+		semaphore_list.push(work.image_acquired_semaphore.value());
+		value_list.push(0u);
+		stage_list.push(work.image_acquired_stage.value());
 	}
 
 	VkTimelineSemaphoreSubmitInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO};
-	timeline_info.waitSemaphoreValueCount       = static_cast<u32>(value_list.size());
+	timeline_info.waitSemaphoreValueCount       = static_cast<u32>(value_list.len());
 	timeline_info.pWaitSemaphoreValues          = value_list.data();
-	timeline_info.signalSemaphoreValueCount     = static_cast<u32>(local_signal_values.size());
+	timeline_info.signalSemaphoreValueCount     = static_cast<u32>(local_signal_values.len());
 	timeline_info.pSignalSemaphoreValues        = local_signal_values.data();
 
 	VkSubmitInfo submit_info         = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submit_info.pNext                = &timeline_info;
-	submit_info.waitSemaphoreCount   = static_cast<u32>(semaphore_list.size());
+	submit_info.waitSemaphoreCount   = static_cast<u32>(semaphore_list.len());
 	submit_info.pWaitSemaphores      = semaphore_list.data();
 	submit_info.pWaitDstStageMask    = stage_list.data();
 	submit_info.commandBufferCount   = 1;
 	submit_info.pCommandBuffers      = &work.command_buffer;
-	submit_info.signalSemaphoreCount = static_cast<u32>(signal_list.size());
+	submit_info.signalSemaphoreCount = static_cast<u32>(signal_list.len());
 	submit_info.pSignalSemaphores    = signal_list.data();
 
 	vk_check(vkQueueSubmit(work.queue, 1, &submit_info, VK_NULL_HANDLE));
@@ -771,7 +771,7 @@ void Device::wait_for_fences(exo::Span<const Fence> fences, exo::Span<const u64>
 
 	exo::DynamicArray<VkSemaphore, 4> semaphores = {};
 	for (usize i_fence = 0; i_fence < fences.len(); i_fence += 1) {
-		semaphores.push_back(fences[i_fence].timeline_semaphore);
+		semaphores.push(fences[i_fence].timeline_semaphore);
 	}
 
 	// 1 sec in nanoseconds

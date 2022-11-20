@@ -192,7 +192,7 @@ void App::display_ui(double dt)
 			if (p_resource->asset_id.is_valid()) {
 				label = exo::formatf(scope,
 					"name: \"%.*s\"",
-					p_resource->asset_id.name.size(),
+					p_resource->asset_id.name.len(),
 					p_resource->asset_id.name.data());
 			} else {
 				label = exo::formatf(scope, "INVALID");

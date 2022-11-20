@@ -674,7 +674,7 @@ Result<CreateResponse> GLTFImporter::create_asset(const CreateRequest &request)
 	auto file_content_str =
 		exo::StringView{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
-	document.Parse(file_content_str.data(), file_content_str.size());
+	document.Parse(file_content_str.data(), file_content_str.len());
 
 	if (document.HasParseError()) {
 		return Err<Asset *>(AssetErrors::ParsingError);
@@ -721,7 +721,7 @@ Result<ProcessResponse> GLTFImporter::process_asset(const ProcessRequest &reques
 	auto file_content_str =
 		exo::StringView{reinterpret_cast<const char *>(file.content().data()), file.content().len()};
 	rapidjson::Document document;
-	document.Parse(file_content_str.data(), file_content_str.size());
+	document.Parse(file_content_str.data(), file_content_str.len());
 
 	if (document.HasParseError()) {
 		return Err<Asset *>(AssetErrors::ParsingError);

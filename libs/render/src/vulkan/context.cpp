@@ -54,18 +54,18 @@ Context Context::create(const ContextDescription &desc)
 	exo::DynamicArray<const char *, 8> instance_extensions;
 
 	if (desc.enable_graphic_windows) {
-		instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		instance_extensions.push(VK_KHR_SURFACE_EXTENSION_NAME);
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-		instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+		instance_extensions.push(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
-		instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+		instance_extensions.push(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #else
 		ASSERT(false);
 #endif
 	}
 
-	instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	instance_extensions.push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
 	uint layer_props_count = 0;
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
@@ -89,7 +89,7 @@ Context Context::create(const ContextDescription &desc)
 
 	exo::DynamicArray<const char *, 8> instance_layers;
 	if (desc.enable_validation && i_validation != u32_invalid) {
-		instance_layers.push_back("VK_LAYER_KHRONOS_validation");
+		instance_layers.push("VK_LAYER_KHRONOS_validation");
 	}
 
 	VkApplicationInfo app_info  = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
@@ -103,9 +103,9 @@ Context Context::create(const ContextDescription &desc)
 	create_info.pNext                   = nullptr;
 	create_info.flags                   = 0;
 	create_info.pApplicationInfo        = &app_info;
-	create_info.enabledLayerCount       = static_cast<uint32_t>(instance_layers.size());
+	create_info.enabledLayerCount       = static_cast<uint32_t>(instance_layers.len());
 	create_info.ppEnabledLayerNames     = instance_layers.data();
-	create_info.enabledExtensionCount   = static_cast<uint32_t>(instance_extensions.size());
+	create_info.enabledExtensionCount   = static_cast<uint32_t>(instance_extensions.len());
 	create_info.ppEnabledExtensionNames = instance_extensions.data();
 
 	vk_check(vkCreateInstance(&create_info, nullptr, &ctx.instance));

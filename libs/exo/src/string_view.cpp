@@ -12,7 +12,7 @@ namespace exo
 StringView::StringView(const char *c_string) : StringView{c_string, strlen(c_string)} {}
 StringView::StringView(const char *c_string, usize len) : ptr{c_string}, length{len} {}
 
-StringView::StringView(const String &string) : ptr{string.c_str()}, length{string.size()} {}
+StringView::StringView(const String &string) : ptr{string.c_str()}, length{string.len()} {}
 
 StringView::StringView(StringView &&other) noexcept { *this = std::move(other); }
 StringView &StringView::operator=(StringView &&other) noexcept
@@ -41,12 +41,12 @@ bool operator==(const StringView &lhs, const StringView &rhs)
 
 bool operator==(const String &lhs, const StringView &rhs)
 {
-	return lhs.size() == rhs.length && std::memcmp(lhs.data(), rhs.ptr, rhs.length) == 0;
+	return lhs.len() == rhs.length && std::memcmp(lhs.data(), rhs.ptr, rhs.length) == 0;
 }
 
 bool operator==(const StringView &lhs, const String &rhs)
 {
-	return lhs.length == rhs.size() && std::memcmp(lhs.ptr, rhs.data(), lhs.length) == 0;
+	return lhs.length == rhs.len() && std::memcmp(lhs.ptr, rhs.data(), lhs.length) == 0;
 }
 
 }; // namespace exo

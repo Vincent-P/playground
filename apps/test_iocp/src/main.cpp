@@ -29,7 +29,7 @@ void test_async(int argc, char *argv[])
 			}
 		}
 
-		auto w = cross::parallel_foreach<int>(manager, exo::Span(values), [](int &value) {
+		auto w = cross::parallel_foreach<int>(manager, exo::Span<int>(values.data(), values.size()), [](int &value) {
 			EXO_PROFILE_SCOPE_NAMED("Expensive int calculation")
 			double accum = 0;
 			for (int i = 0; i < value; ++i) {
@@ -64,7 +64,7 @@ void test_async(int argc, char *argv[])
 			}
 		}
 
-		auto waitable_files = cross::read_files(manager, read_jobs);
+		auto waitable_files = cross::read_files(manager, exo::Span(read_jobs.data(), read_jobs.size()));
 		waitable_files->wait();
 	}
 
@@ -75,11 +75,11 @@ namespace utils
 {
 std::wstring utf8_to_utf16(const exo::StringView &str)
 {
-	if (str.empty()) {
+	if (str.is_empty()) {
 		return {};
 	}
 
-	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), nullptr, 0);
+	const int res = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.len(), nullptr, 0);
 	ASSERT(res > 0);
 	auto size_needed = static_cast<usize>(res);
 	// TODO: Remove allocation
@@ -87,7 +87,7 @@ std::wstring utf8_to_utf16(const exo::StringView &str)
 	MultiByteToWideChar(CP_UTF8,
 		0,
 		str.data(),
-		static_cast<int>(str.size()),
+		static_cast<int>(str.len()),
 		result.data(),
 		static_cast<int>(result.size()));
 	return result;
@@ -188,7 +188,7 @@ void test_std()
 			}
 		}
 
-		auto values_span = exo::Span(values);
+		auto values_span = exo::Span(values.data(), values.size());
 
 		auto before_wait = __rdtsc();
 		std::for_each(std::execution::par, std::begin(values_span), std::end(values_span), [](int &value) {

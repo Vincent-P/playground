@@ -70,7 +70,7 @@ std::pair<exo::Span<u8>, usize> RingBuffer::allocate(usize len, usize alignment)
 
 	allocated += len;
 
-	const usize frame_count = this->frame_size_allocated.size();
+	const usize frame_count = this->frame_size_allocated.len();
 
 	this->frame_size_allocated[this->i_frame % frame_count] += allocated;
 
@@ -94,7 +94,7 @@ void RingBuffer::start_frame()
 {
 	this->i_frame += 1;
 
-	const usize frame_count            = this->frame_size_allocated.size();
+	const usize frame_count            = this->frame_size_allocated.len();
 	const u64   allocated_latest_frame = this->frame_size_allocated[this->i_frame % frame_count];
 	if (allocated_latest_frame > 0) {
 		this->tail = (this->tail + allocated_latest_frame) % this->capacity;

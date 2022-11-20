@@ -58,7 +58,7 @@ String::String(const char *c_string, usize length)
 	}
 }
 
-String::String(const StringView &string_view) : String{string_view.data(), string_view.size()} {}
+String::String(const StringView &string_view) : String{string_view.data(), string_view.len()} {}
 
 String::String(const String &other) { *this = other; }
 
@@ -140,7 +140,7 @@ char &String::back()
 
 // -- Operations
 
-void String::push_back(char c)
+void String::push(char c)
 {
 	if (this->storage.stack.is_small) {
 		if (this->storage.stack.length + 2u < String::SSBO_CAPACITY) {
@@ -219,7 +219,7 @@ void String::reserve(usize new_capacity)
 
 void String::resize(usize new_length)
 {
-	const usize cur_len = this->size();
+	const usize cur_len = this->len();
 	const usize cur_cap = this->capacity();
 
 	if (new_length > cur_cap) {
@@ -228,7 +228,7 @@ void String::resize(usize new_length)
 
 	if (new_length > cur_len) {
 		for (usize i = cur_len; i < new_length; ++i) {
-			this->push_back('\0');
+			this->push('\0');
 		}
 	} else {
 		if (this->storage.stack.is_small) {
@@ -243,13 +243,13 @@ void String::resize(usize new_length)
 
 bool operator==(const String &lhs, const String &rhs)
 {
-	return lhs.size() == rhs.size() && std::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
+	return lhs.len() == rhs.len() && std::memcmp(lhs.data(), rhs.data(), lhs.len()) == 0;
 }
 
 String operator+(const StringView &lhs, const StringView &rhs)
 {
-	auto lhs_size = lhs.size();
-	auto rhs_size = rhs.size();
+	auto lhs_size = lhs.len();
+	auto rhs_size = rhs.len();
 
 	const char *lhs_data = lhs.data();
 	const char *rhs_data = rhs.data();

@@ -175,7 +175,7 @@ Handle<vulkan::Framebuffer> ResourceRegistry::resolve_framebuffer(vulkan::Device
 {
 	exo::DynamicArray<Handle<vulkan::Image>, vulkan::MAX_ATTACHMENTS> color_images;
 	for (auto desc_handle : color_attachments) {
-		color_images.push_back(this->texture_descs.get(desc_handle).resolved_image);
+		color_images.push(this->texture_descs.get(desc_handle).resolved_image);
 	}
 
 	Handle<vulkan::Image> depth_image = {};
@@ -184,7 +184,7 @@ Handle<vulkan::Framebuffer> ResourceRegistry::resolve_framebuffer(vulkan::Device
 	}
 
 	int3 size;
-	if (!color_images.empty()) {
+	if (!color_images.is_empty()) {
 		size = device.images.get(color_images[0]).desc.size;
 	} else {
 		ASSERT(depth_image.is_valid());

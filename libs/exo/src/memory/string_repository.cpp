@@ -32,7 +32,7 @@ StringRepository &StringRepository::operator=(StringRepository &&other) noexcept
 
 const char *StringRepository::intern(exo::StringView s)
 {
-	const u64 hash = XXH3_64bits(s.data(), s.size());
+	const u64 hash = XXH3_64bits(s.data(), s.len());
 
 	// If the string is already interned, return its offset
 	if (const auto *offset = offsets.at(hash)) {
@@ -42,7 +42,7 @@ const char *StringRepository::intern(exo::StringView s)
 	// Commit more memory if needed
 	const usize page_size      = virtual_allocator::get_page_size();
 	const usize old_size       = this->buffer_size;
-	const usize new_size       = this->buffer_size + s.size() + 1;
+	const usize new_size       = this->buffer_size + s.len() + 1;
 	const usize page_count     = round_up_to_alignment(page_size, old_size);
 	const usize new_page_count = round_up_to_alignment(page_size, new_size);
 	if (new_page_count != page_count) {
@@ -50,7 +50,7 @@ const char *StringRepository::intern(exo::StringView s)
 			(new_page_count - page_count) * page_size);
 	}
 
-	std::memcpy(string_buffer + this->buffer_size, s.data(), s.size() + 1);
+	std::memcpy(string_buffer + this->buffer_size, s.data(), s.len() + 1);
 	offsets.insert(hash, this->buffer_size);
 	this->buffer_size = new_size;
 
@@ -59,7 +59,7 @@ const char *StringRepository::intern(exo::StringView s)
 
 bool StringRepository::is_interned(exo::StringView s)
 {
-	const u64 hash = XXH3_64bits(s.data(), s.size());
+	const u64 hash = XXH3_64bits(s.data(), s.len());
 	return offsets.at(hash) != nullptr;
 }
 } // namespace exo

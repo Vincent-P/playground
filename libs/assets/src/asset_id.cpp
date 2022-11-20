@@ -7,7 +7,7 @@
 
 #include <xxhash.h>
 
-u64 AssetId::hash_name(exo::StringView name) { return XXH3_64bits(name.data(), name.size()); }
+u64 AssetId::hash_name(exo::StringView name) { return XXH3_64bits(name.data(), name.len()); }
 
 [[nodiscard]] u64 hash_value(const AssetId &id) { return id.name_hash; }
 

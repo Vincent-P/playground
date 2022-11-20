@@ -9,7 +9,7 @@ namespace vulkan
 {
 Handle<GraphicsProgram> Device::create_program(exo::StringView name, const GraphicsState &graphics_state)
 {
-	auto attachments_count = graphics_state.attachments_format.attachments_format.size() +
+	auto attachments_count = graphics_state.attachments_format.attachments_format.len() +
 	                         (graphics_state.attachments_format.depth_format.has_value() ? 1 : 0);
 
 	auto   load_ops   = Vec<LoadOp>::with_values(attachments_count, LoadOp::ignore());
@@ -38,10 +38,10 @@ u32 Device::compile_graphics_state(Handle<GraphicsProgram> &program_handle, cons
 {
 	auto &program = graphics_programs.get(program_handle);
 
-	program.render_states.push_back(render_state);
+	program.render_states.push(render_state);
 
-	const u32 i_pipeline = static_cast<u32>(program.pipelines.size());
-	program.pipelines.push_back(VK_NULL_HANDLE);
+	const u32 i_pipeline = static_cast<u32>(program.pipelines.len());
+	program.pipelines.push(VK_NULL_HANDLE);
 	compile_graphics_pipeline(program_handle, i_pipeline);
 	return i_pipeline;
 }
@@ -91,9 +91,9 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	};
 
 	Vec<VkPipelineColorBlendAttachmentState> att_states;
-	att_states.reserve(program.graphics_state.attachments_format.attachments_format.size());
+	att_states.reserve(program.graphics_state.attachments_format.attachments_format.len());
 
-	for (usize i_color = 0; i_color < program.graphics_state.attachments_format.attachments_format.size(); ++i_color) {
+	for (usize i_color = 0; i_color < program.graphics_state.attachments_format.attachments_format.len(); ++i_color) {
 		att_states.push();
 		auto &state = att_states.last();
 		state.colorWriteMask =
@@ -167,7 +167,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 		create_info.stage                           = VK_SHADER_STAGE_VERTEX_BIT;
 		create_info.module                          = shader.vkhandle;
 		create_info.pName                           = "main";
-		shader_stages.push_back(create_info);
+		shader_stages.push(create_info);
 	}
 
 	if (program.graphics_state.fragment_shader.is_valid()) {
@@ -176,7 +176,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 		create_info.stage                           = VK_SHADER_STAGE_FRAGMENT_BIT;
 		create_info.module                          = shader.vkhandle;
 		create_info.pName                           = "main";
-		shader_stages.push_back(create_info);
+		shader_stages.push(create_info);
 	}
 
 	VkGraphicsPipelineCreateInfo pipe_i = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
@@ -193,7 +193,7 @@ void Device::compile_graphics_pipeline(Handle<GraphicsProgram> &program_handle, 
 	pipe_i.pViewportState               = &vp_i;
 	pipe_i.pDepthStencilState           = &ds_i;
 	pipe_i.pStages                      = shader_stages.data();
-	pipe_i.stageCount                   = static_cast<u32>(shader_stages.size());
+	pipe_i.stageCount                   = static_cast<u32>(shader_stages.len());
 	pipe_i.renderPass                   = program.renderpass;
 	pipe_i.subpass                      = 0;
 

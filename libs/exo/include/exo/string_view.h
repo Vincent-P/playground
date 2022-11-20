@@ -29,12 +29,11 @@ struct StringView
 
 	// -- Observers
 
-	usize size() const { return this->length; }
+	usize len() const { return this->length; }
 	bool  is_empty() const { return this->length == 0; }
 
 	// -- STL compat
 
-	bool        empty() const { return this->is_empty(); }
 	const char *data() const { return this->ptr; }
 };
 

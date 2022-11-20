@@ -333,7 +333,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 			if (clear) {
 				auto utf8_buffer = utils::utf16_to_utf8(buffer);
-				ASSERT(utf8_buffer.size() < sizeof(events::Character));
+				ASSERT(utf8_buffer.len() < sizeof(events::Character));
 				window.events.push(Event{.type = Event::CharacterType, .character = {.sequence = {utf8_buffer[0]}}});
 				buffer[0] = 0;
 				buffer[1] = 0;

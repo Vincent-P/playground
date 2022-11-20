@@ -9,16 +9,16 @@ TEST_CASE("exo::String from c_string", "[string]")
 	const char *c_s = "Im a C string.";
 	auto        s   = exo::String{c_s};
 
-	REQUIRE(s.size() == strlen(c_s));
+	REQUIRE(s.len() == strlen(c_s));
 	REQUIRE(s[0] == 'I');
 	REQUIRE(s[4] == ' ');
 	REQUIRE(s[5] == 'C');
-	REQUIRE(s[s.size()] == '\0');
+	REQUIRE(s[s.len()] == '\0');
 	REQUIRE(!s.is_heap_allocated());
 
 	auto s2 = exo::String{c_s, 2};
 
-	REQUIRE(s2.size() == 2);
+	REQUIRE(s2.len() == 2);
 	REQUIRE(s2[0] == 'I');
 	REQUIRE(s2[1] == 'm');
 	REQUIRE(s2[2] == '\0');
@@ -30,14 +30,14 @@ TEST_CASE("exo::StringView from c_string", "[string]")
 	const char *c_s = "Im a C string.";
 	auto        s   = exo::StringView{c_s};
 
-	REQUIRE(s.size() == strlen(c_s));
+	REQUIRE(s.len() == strlen(c_s));
 	REQUIRE(s[0] == 'I');
 	REQUIRE(s[4] == ' ');
 	REQUIRE(s[5] == 'C');
 
 	auto s2 = exo::StringView{c_s, 2};
 
-	REQUIRE(s2.size() == 2);
+	REQUIRE(s2.len() == 2);
 	REQUIRE(s2[0] == 'I');
 	REQUIRE(s2[1] == 'm');
 }
@@ -53,7 +53,7 @@ TEST_CASE("exo::String copy", "[string]")
 
 	stack = dyn;
 
-	REQUIRE(dyn.size() == stack.size());
+	REQUIRE(dyn.len() == stack.len());
 	REQUIRE(dyn.is_heap_allocated() == stack.is_heap_allocated());
 
 	// Check that the buffer is not shared
@@ -66,7 +66,7 @@ TEST_CASE("exo::String copy", "[string]")
 TEST_CASE("exo::String move", "[string]")
 {
 	exo::String dyn{"Dynamically allocated because very long"};
-	auto        dyn_size = dyn.size();
+	auto        dyn_size = dyn.len();
 
 	REQUIRE(dyn.is_heap_allocated());
 
@@ -76,12 +76,12 @@ TEST_CASE("exo::String move", "[string]")
 	stack = std::move(dyn);
 
 	// dyn was cleared because of the move
-	REQUIRE(dyn.empty());
+	REQUIRE(dyn.is_empty());
 	REQUIRE(!dyn.is_heap_allocated());
 
 	// stack stole dyn's buffer
 	REQUIRE(stack.is_heap_allocated());
-	REQUIRE(stack.size() == dyn_size);
+	REQUIRE(stack.len() == dyn_size);
 }
 
 TEST_CASE("exo::String clear", "[string]")
@@ -99,7 +99,7 @@ TEST_CASE("exo::String clear", "[string]")
 	REQUIRE(short_str.capacity() == exo::String::SSBO_CAPACITY);
 
 	REQUIRE(long_str.is_empty());
-	REQUIRE(long_str.capacity() == long_str_view.size() + 1);
+	REQUIRE(long_str.capacity() == long_str_view.len() + 1);
 }
 
 TEST_CASE("exo::String resize", "[string]")
@@ -108,22 +108,22 @@ TEST_CASE("exo::String resize", "[string]")
 
 	// Resizing less than SSBO_CAPACITY does not allocate
 	exo::StringView short_str = "short string";
-	s.resize(short_str.size());
-	std::memcpy(s.data(), short_str.data(), short_str.size());
+	s.resize(short_str.len());
+	std::memcpy(s.data(), short_str.data(), short_str.len());
 
-	REQUIRE(short_str.size() < exo::String::SSBO_CAPACITY);
-	REQUIRE(s.size() == short_str.size());
+	REQUIRE(short_str.len() < exo::String::SSBO_CAPACITY);
+	REQUIRE(s.len() == short_str.len());
 	REQUIRE(s.capacity() == exo::String::SSBO_CAPACITY);
 	REQUIRE(s == short_str);
 
 	// Resizing more than SSBO_CAPACITY will allocate
 	exo::StringView long_str = "short string string very long";
-	s.resize(long_str.size());
-	std::memcpy(s.data(), long_str.data(), long_str.size());
+	s.resize(long_str.len());
+	std::memcpy(s.data(), long_str.data(), long_str.len());
 
-	REQUIRE(long_str.size() > exo::String::SSBO_CAPACITY);
-	REQUIRE(s.size() == long_str.size());
-	REQUIRE(s.capacity() == long_str.size() + 1);
+	REQUIRE(long_str.len() > exo::String::SSBO_CAPACITY);
+	REQUIRE(s.len() == long_str.len());
+	REQUIRE(s.capacity() == long_str.len() + 1);
 	REQUIRE(s == long_str);
 }
 
@@ -135,13 +135,13 @@ TEST_CASE("exo::String reserve", "[string]")
 
 	// Reserving less than the SSBO_CAPACITY does not change the capacity.
 	s.reserve(4);
-	REQUIRE(s.size() == 0);
+	REQUIRE(s.len() == 0);
 	REQUIRE(s.capacity() == exo::String::SSBO_CAPACITY);
 
 	// Reserving more than the SSBO_CAPACITY will allocate and use the capacity
-	s.reserve(long_str.size() + 1);
-	REQUIRE(s.size() == 0);
-	REQUIRE(s.capacity() == long_str.size() + 1);
+	s.reserve(long_str.len() + 1);
+	REQUIRE(s.len() == 0);
+	REQUIRE(s.capacity() == long_str.len() + 1);
 }
 
 TEST_CASE("exo::String push_back", "[string]")
@@ -150,9 +150,9 @@ TEST_CASE("exo::String push_back", "[string]")
 	exo::String s;
 
 	for (const char *it = c_s; *it;) {
-		s.push_back(*it);
+		s.push(*it);
 		++it; // increment before checking size
-		REQUIRE(s.size() == usize(it - c_s));
+		REQUIRE(s.len() == usize(it - c_s));
 	}
 
 	REQUIRE(s.is_heap_allocated());
@@ -167,7 +167,7 @@ TEST_CASE("exo::String concat", "[string]")
 
 	auto concat = dyn + stack;
 
-	REQUIRE(concat.size() == exo::StringView{"Dynamically allocated because very long short stack"}.size());
+	REQUIRE(concat.len() == exo::StringView{"Dynamically allocated because very long short stack"}.len());
 	REQUIRE(concat == exo::StringView{"Dynamically allocated because very long short stack"});
 	REQUIRE(concat == "Dynamically allocated because very long short stack");
 }

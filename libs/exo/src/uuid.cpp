@@ -43,7 +43,7 @@ UUID UUID::from_string(exo::StringView str)
 {
 	UUID new_uuid;
 
-	ASSERT(str.size() == UUID::STR_LEN);
+	ASSERT(str.len() == UUID::STR_LEN);
 
 	// 83ce0c20-4bb21feb-e6957dbb-5fcc54d5
 	for (usize i = 0; i < UUID::STR_LEN; i += 1) {

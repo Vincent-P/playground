@@ -108,7 +108,7 @@ Handle<Image> Device::create_image(const ImageDescription &image_desc, Option<Vk
 	exo::ScopeStack scope;
 	const ImageView full_view = create_image_view(*this,
 		vkhandle,
-		exo::formatf(scope, "%.*s full view", image_desc.name.size(), image_desc.name.data()),
+		exo::formatf(scope, "%.*s full view", image_desc.name.len(), image_desc.name.data()),
 		full_range,
 		format,
 		view_type_from_image(image_desc.type));

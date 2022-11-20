@@ -9,7 +9,7 @@ inline void serialize(Serializer &serializer, exo::String &data)
 {
 	usize len = 0;
 	if (serializer.is_writing) {
-		len = data.size();
+		len = data.len();
 		serialize(serializer, len);
 		serializer.write_bytes(data.data(), len);
 	} else {

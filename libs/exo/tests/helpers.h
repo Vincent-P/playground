@@ -69,12 +69,12 @@ namespace Catch
 template <>
 struct StringMaker<exo::String>
 {
-	static std::string convert(const exo::String &string) { return std::string{string.c_str(), string.size()}; }
+	static std::string convert(const exo::String &string) { return std::string{string.c_str(), string.len()}; }
 };
 
 template <>
 struct StringMaker<exo::StringView>
 {
-	static std::string convert(const exo::StringView &view) { return std::string{view.data(), view.size()}; }
+	static std::string convert(const exo::StringView &view) { return std::string{view.data(), view.len()}; }
 };
 } // namespace Catch

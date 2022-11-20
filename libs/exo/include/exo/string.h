@@ -51,39 +51,46 @@ struct String
 	char       &operator[](usize i);
 	const char &operator[](usize i) const;
 
+	char &back();
+
 	// -- Observers
+
+	char *data()
+	{
+		return this->storage.stack.is_small ? this->storage.stack.buffer
+		                                    : static_cast<char *>(this->storage.heap.buffer);
+	}
+
+	const char *data() const
+	{
+		return this->storage.stack.is_small ? this->storage.stack.buffer
+		                                    : static_cast<const char *>(this->storage.heap.buffer);
+	}
+
+	const char *c_str() const { return this->data(); }
+
+	// Capacity
 
 	bool is_heap_allocated() const { return !this->storage.stack.is_small; }
 
-	const char *c_str() const { return this->data(); }
+	usize len() const { return this->storage.stack.is_small ? this->storage.stack.length : this->storage.heap.length; }
+
+	bool is_empty() const { return this->len() == 0; }
 
 	usize capacity() const
 	{
 		return this->storage.stack.is_small ? sizeof(this->storage.stack.buffer) : this->storage.heap.capacity;
 	}
 
-	bool is_empty() const { return this->size() == 0; }
-
-	// -- STL compat
-
-	void clear();
 	void reserve(usize new_capacity);
+
 	void resize(usize new_length);
 
-	usize size() const { return this->storage.stack.is_small ? this->storage.stack.length : this->storage.heap.length; }
-	bool  empty() const { return this->size() == 0; }
-	char &back();
-	void  push_back(char c);
-	char *data()
-	{
-		return this->storage.stack.is_small ? this->storage.stack.buffer
-		                                    : static_cast<char *>(this->storage.heap.buffer);
-	}
-	const char *data() const
-	{
-		return this->storage.stack.is_small ? this->storage.stack.buffer
-		                                    : static_cast<const char *>(this->storage.heap.buffer);
-	}
+	// Operations
+
+	void clear();
+
+	void push(char c);
 };
 
 bool   operator==(const String &lhs, const String &rhs);
@@ -93,7 +100,7 @@ template <usize N>
 inline bool operator==(const String &string, const char (&literal)[N])
 {
 	// N includes the NULL terminator
-	if (string.size() != N - 1) {
+	if (string.len() != N - 1) {
 		return false;
 	}
 

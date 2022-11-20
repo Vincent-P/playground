@@ -450,7 +450,7 @@ void register_upload_nodes(RenderGraph &graph,
 
 	// Submit upload commands
 	if (!mesh_renderer.image_uploads.is_empty()) {
-		auto uploads_span = exo::Span{mesh_renderer.image_uploads};
+		exo::Span<RenderImageUpload> uploads_span = mesh_renderer.image_uploads;
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {
 				auto copy = VkBufferImageCopy{
@@ -482,7 +482,7 @@ void register_upload_nodes(RenderGraph &graph,
 		mesh_renderer.image_uploads.clear();
 	}
 	if (!mesh_renderer.buffer_uploads.is_empty()) {
-		auto uploads_span = exo::Span{mesh_renderer.buffer_uploads};
+		exo::Span<RenderUploads> uploads_span = mesh_renderer.buffer_uploads;
 		graph.raw_pass([uploads_span](RenderGraph & /*graph*/, PassApi &api, vulkan::ComputeWork &cmd) {
 			for (const auto &upload : uploads_span) {
 				std::tuple<usize, usize, usize> offsets_size = {upload.upload_offset,
@@ -503,7 +503,7 @@ void register_upload_nodes(RenderGraph &graph,
 
 void register_graphics_nodes(RenderGraph &graph, MeshRenderer &mesh_renderer, Handle<TextureDesc> output)
 {
-	auto drawcalls_span       = exo::Span{mesh_renderer.drawcalls};
+	exo::Span<SimpleDraw> drawcalls_span       = mesh_renderer.drawcalls;
 	auto instances_descriptor = mesh_renderer.instances_descriptor;
 	auto meshes_descriptor    = mesh_renderer.meshes_descriptor;
 	auto materials_descriptor = mesh_renderer.materials_descriptor;

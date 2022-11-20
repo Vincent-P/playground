@@ -47,13 +47,13 @@ TEST_CASE("exo::Span from collection", "[span]")
 TEST_CASE("exo::Span from dynamic array", "[span]")
 {
 	exo::DynamicArray<DtorCalled, 8> darray;
-	darray.push_back({});
+	darray.push();
 
 	exo::Span<const DtorCalled> cs = darray;
-	REQUIRE(cs.len() == darray.size());
+	REQUIRE(cs.len() == darray.len());
 
 	exo::Span<DtorCalled> s = darray;
-	REQUIRE(s.len() == darray.size());
+	REQUIRE(s.len() == darray.len());
 }
 
 TEST_CASE("exo::Span from vector", "[span]")

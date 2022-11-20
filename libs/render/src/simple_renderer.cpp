@@ -186,7 +186,7 @@ void SimpleRenderer::reload_shaders()
 		for (auto [program_handle, p_program] : this->device.graphics_programs) {
 			if (p_program->graphics_state.vertex_shader == reloaded_shader ||
 				p_program->graphics_state.fragment_shader == reloaded_shader) {
-				for (u32 i_pipeline = 0; i_pipeline < p_program->pipelines.size(); ++i_pipeline) {
+				for (u32 i_pipeline = 0; i_pipeline < p_program->pipelines.len(); ++i_pipeline) {
 					this->device.compile_graphics_pipeline(program_handle, i_pipeline);
 				}
 			}
