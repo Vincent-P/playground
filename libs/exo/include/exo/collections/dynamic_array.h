@@ -38,7 +38,7 @@ struct DynamicArray
 	constexpr DynamicArray(const DynamicArray &other) { *this = other; }
 	constexpr DynamicArray &operator=(const DynamicArray &other)
 	{
-		for (u32 i = 0; i < this->length; ++i) {
+		for (u32 i = 0; i < other.length; ++i) {
 			this->values[i] = other.values[i];
 		}
 		this->length = other.length;
@@ -48,7 +48,7 @@ struct DynamicArray
 	constexpr DynamicArray(DynamicArray &&other) { *this = std::move(other); }
 	constexpr DynamicArray &operator=(DynamicArray &&other)
 	{
-		for (u32 i = 0; i < this->length; ++i) {
+		for (u32 i = 0; i < other.length; ++i) {
 			this->values[i] = std::move(other.values[i]);
 		}
 		this->length = other.length;

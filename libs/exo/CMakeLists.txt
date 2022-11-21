@@ -90,6 +90,7 @@ set(TEST_FILES
   tests/vector.cpp
   tests/span.cpp
   tests/string.cpp
+  tests/dynamic_array.cpp
 )
 
 add_library(exo STATIC ${SOURCE_FILES})
