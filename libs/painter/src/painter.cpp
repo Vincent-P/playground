@@ -39,7 +39,7 @@ void Painter::draw_textured_rect(const Rect &r, u32 i_clip_rect, const Rect &uv,
 	ASSERT(this->vertex_bytes_offset % sizeof(TexturedRect) == 0);
 	const u32 i_rect = static_cast<u32>(this->vertex_bytes_offset / sizeof(TexturedRect));
 
-	auto vertices    = exo::reinterpret_span<TexturedRect>(this->vertex_buffer);
+	auto vertices    = exo::reinterpret_span<TexturedRect>(this->vertex_buffer.subspan(this->vertex_bytes_offset));
 	vertices[i_rect] = {.rect = r, .uv = uv, .texture_descriptor = texture_id, .i_clip_rect = i_clip_rect};
 
 	this->vertex_bytes_offset += sizeof(TexturedRect);

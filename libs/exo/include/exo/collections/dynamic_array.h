@@ -107,7 +107,7 @@ struct DynamicArray
 	template <typename... Args>
 	T &push(Args &&...args)
 	{
-		ASSERT(this->length + 1 < CAPACITY);
+		ASSERT(this->length + 1 <= CAPACITY);
 		auto *pushed_value = new (&this->values[this->length]) T(std::forward<Args>(args)...);
 		this->length += 1;
 		return *pushed_value;
