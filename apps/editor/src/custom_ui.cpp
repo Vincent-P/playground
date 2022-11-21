@@ -1,11 +1,9 @@
 #include "custom_ui.h"
-
 #include "exo/collections/array.h"
 #include "exo/format.h"
 #include "exo/memory/scope_stack.h"
 #include "painter/painter.h"
 #include "ui/ui.h"
-
 #include <algorithm>
 #include <cmath>
 
@@ -31,7 +29,7 @@ static float3 turbo_colormap(float x)
 void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 {
 	auto cursor = widget.rect.pos + widget.rect.size;
-	painter_draw_color_rect(*ui.painter, widget.rect, u32_invalid, ColorU32::from_floats(0.0, 0.0, 0.0, 0.5));
+	ui.painter->draw_color_rect(widget.rect, u32_invalid, ColorU32::from_floats(0.0, 0.0, 0.0, 0.5));
 
 	for (u32 i_time = 0; i_time < exo::Array::len(widget.histogram->frame_times); ++i_time) {
 		auto dt = widget.histogram->frame_times[i_time];
@@ -58,7 +56,7 @@ void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 			.pos  = {std::ceil(cursor.x), std::ceil(cursor.y - rect_height)},
 			.size = {rect_width, rect_height},
 		};
-		painter_draw_color_rect(*ui.painter, rect, u32_invalid, rect_color_u);
+		ui.painter->draw_color_rect(rect, u32_invalid, rect_color_u);
 	}
 
 	const usize FRAMES_FOR_FPS = 30;
@@ -69,7 +67,7 @@ void histogram(ui::Ui &ui, FpsHistogramWidget widget)
 	fps = float(std::min(exo::Array::len(widget.histogram->frame_times), FRAMES_FOR_FPS)) / fps;
 
 	exo::ScopeStack scope;
-	painter_draw_label(*ui.painter, widget.rect, u32_invalid, *ui.theme.main_font, exo::formatf(scope, "%f", fps));
+	ui.painter->draw_label(widget.rect, u32_invalid, *ui.theme.main_font, exo::formatf(scope, "%f", fps));
 }
 
 void FpsHistogram::push_time(float dt)

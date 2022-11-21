@@ -1,6 +1,7 @@
 #include "ui/ui.h"
 
 #include "cross/window.h"
+#include "exo/collections/span.h"
 #include "exo/maths/pointer.h"
 #include "exo/profile.h"
 
@@ -25,7 +26,7 @@ bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button)
 
 const Rect &current_clip_rect(const Ui &ui)
 {
-	return reinterpret_cast<const Rect *>(ui.painter->vertices)[ui.state.i_clip_rect];
+	return exo::reinterpret_span<Rect>(ui.painter->vertex_buffer)[ui.state.i_clip_rect];
 }
 
 bool is_clipped(const Ui &ui, const Rect &rect) { return !rect_intersects(rect, current_clip_rect(ui)); }
@@ -64,15 +65,15 @@ u32 register_clip_rect(Ui &ui, const Rect &clip_rect)
 	EXO_PROFILE_SCOPE;
 
 	auto &painter = *ui.painter;
-	painter_draw_color_rect(painter, clip_rect, u32_invalid, ColorU32::from_uints(0, 0, 0xFF, 0x88));
+	painter.draw_color_rect(clip_rect, u32_invalid, ColorU32::from_uints(0, 0, 0xFF, 0x88));
 
-	auto i_first_rect_index                         = painter.index_offset - 6;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
-	painter.indices[i_first_rect_index++].bits.type = RectType_Clip;
+	auto i_first_rect_index                              = painter.index_offset - 6;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
+	painter.index_buffer[i_first_rect_index++].bits.type = RectType_Clip;
 
 	const usize last_color_rect_offset = painter.vertex_bytes_offset - sizeof(ColorRect);
 	ASSERT(last_color_rect_offset % sizeof(Rect) == 0);
@@ -129,16 +130,15 @@ bool button(Ui &ui, const Button &button)
 			bg_color = ui.theme.button_hover_bg_color;
 		}
 	}
-	painter_draw_color_round_rect(*ui.painter,
-		button.rect,
+	ui.painter->draw_color_round_rect(button.rect,
 		ui.state.i_clip_rect,
 		bg_color,
 		ColorU32::from_uints(0, 0, 0, 0x0F),
 		2);
 
-	auto label_rect = rect_center(button.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, button.label)));
+	auto label_rect = rect_center(button.rect, float2(ui.painter->measure_label(*ui.theme.main_font, button.label)));
 
-	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, button.label);
+	ui.painter->draw_label(label_rect, ui.state.i_clip_rect, *ui.theme.main_font, button.label);
 
 	pop_clip_rect(ui);
 
@@ -173,7 +173,7 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 		const float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
 		splitter_rect                    = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
 	}
-	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
+	ui.painter->draw_color_rect(splitter_rect, ui.state.i_clip_rect, color);
 }
 
 void splitter_y(Ui &ui, const Rect &view_rect, float &value)
@@ -204,16 +204,16 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 		const float thickness_difference = ui.theme.splitter_hover_thickness - ui.theme.splitter_thickness;
 		splitter_rect                    = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
 	}
-	painter_draw_color_rect(*ui.painter, splitter_rect, ui.state.i_clip_rect, color);
+	ui.painter->draw_color_rect(splitter_rect, ui.state.i_clip_rect, color);
 }
 
 void label_in_rect(Ui &ui, const Rect &view_rect, exo::StringView label, Alignment alignment)
 {
 	ASSERT(alignment == Alignment::Center);
-	auto label_rect = rect_center(view_rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label)));
+	auto label_rect = rect_center(view_rect, float2(ui.painter->measure_label(*ui.theme.main_font, label)));
 
 	push_clip_rect(ui, register_clip_rect(ui, view_rect));
-	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+	ui.painter->draw_label(label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 	pop_clip_rect(ui);
 }
 
@@ -221,14 +221,14 @@ Rect label_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
-	auto label_size = measure_label(*ui.painter, *ui.theme.main_font, label);
+	auto label_size = ui.painter->measure_label(*ui.theme.main_font, label);
 	auto line_rect  = rectsplit.split(float2(label_size));
 
 	if (is_clipped(ui, line_rect)) {
 		return line_rect;
 	}
 
-	painter_draw_label(*ui.painter, line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+	ui.painter->draw_label(line_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 	return line_rect;
 }
 
@@ -240,9 +240,9 @@ bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 	const u64 id     = make_id(ui);
 
 	// layout
-	auto label_size  = measure_label(*ui.painter, *ui.theme.main_font, label);
+	auto label_size  = ui.painter->measure_label(*ui.theme.main_font, label);
 	auto button_rect = rectsplit.split(float(label_size.x) + 0.5f * ui.theme.font_size);
-	auto label_rect  = rect_center(button_rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label)));
+	auto label_rect  = rect_center(button_rect, float2(ui.painter->measure_label(*ui.theme.main_font, label)));
 
 	// behavior
 	if (is_hovering(ui, button_rect)) {
@@ -265,14 +265,13 @@ bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 			bg_color = ui.theme.button_hover_bg_color;
 		}
 	}
-	painter_draw_color_round_rect(*ui.painter,
-		button_rect,
+	ui.painter->draw_color_round_rect(button_rect,
 		ui.state.i_clip_rect,
 		bg_color,
 		ColorU32::from_uints(0, 0, 0, 0x0F),
 		2);
 
-	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
+	ui.painter->draw_label(label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label);
 
 	return result;
 }

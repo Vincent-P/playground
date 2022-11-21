@@ -13,7 +13,7 @@ template <typename T, usize CAPACITY>
 struct DynamicArray
 {
 	T     values[CAPACITY] = {};
-	usize length      = {0};
+	usize length           = {0};
 
 	// --
 	constexpr DynamicArray() = default;
@@ -35,8 +35,15 @@ struct DynamicArray
 		}
 	}
 
-	constexpr DynamicArray(const DynamicArray &other)            = default;
-	constexpr DynamicArray &operator=(const DynamicArray &other) = default;
+	constexpr DynamicArray(const DynamicArray &other) { *this = other; }
+	constexpr DynamicArray &operator=(const DynamicArray &other)
+	{
+		for (u32 i = 0; i < this->length; ++i) {
+			this->values[i] = other.values[i];
+		}
+		this->length = other.length;
+		return *this;
+	}
 
 	constexpr DynamicArray(DynamicArray &&other) { *this = std::move(other); }
 	constexpr DynamicArray &operator=(DynamicArray &&other)

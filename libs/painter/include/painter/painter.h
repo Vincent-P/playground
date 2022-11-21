@@ -1,18 +1,19 @@
 #pragma once
+#include "exo/collections/span.h"
 #include "exo/macros/packed.h"
 #include "exo/maths/vectors.h"
-
+#include "exo/string_view.h"
 #include "painter/color.h"
 #include "painter/glyph_cache.h"
 #include "painter/rect.h"
-
-#include "exo/string_view.h"
 
 namespace exo
 {
 struct ScopeStack;
 }
 struct Font;
+struct hb_font_t;
+struct hb_buffer_t;
 
 PACKED(struct ColorRect {
 	Rect rect;
@@ -43,8 +44,8 @@ enum RectType : u32
 	RectType_Color              = 0,
 	RectType_Textured           = 1,
 	RectType_Clip               = 2,
-	RectType_Sdf_RoundRectangle = (0b100000 + 0),
-	RectType_Sdf_Circle         = (0b100000 + 1)
+	RectType_Sdf_RoundRectangle = (0b100000),
+	RectType_Sdf_Circle         = (0b100001)
 };
 
 union PrimitiveIndex
@@ -59,8 +60,6 @@ union PrimitiveIndex
 };
 static_assert(sizeof(PrimitiveIndex) == sizeof(u32));
 
-struct hb_font_t;
-struct hb_buffer_t;
 struct ShapeContext
 {
 	hb_buffer_t *hb_buf = nullptr;
@@ -68,27 +67,24 @@ struct ShapeContext
 
 struct Painter
 {
-	u8   *vertices      = nullptr;
-	usize vertices_size = 0;
+	GlyphCache                glyph_cache         = {};
+	ShapeContext              shaper              = {};
+	exo::Span<u8>             vertex_buffer       = {};
+	exo::Span<PrimitiveIndex> index_buffer        = {};
+	usize                     vertex_bytes_offset = 0;
+	u32                       index_offset        = 0;
+	u32                       glyph_atlas_gpu_idx = u32_invalid;
 
-	PrimitiveIndex *indices      = nullptr;
-	usize           indices_size = 0;
+	// --
 
-	usize vertex_bytes_offset = 0;
-	u32   index_offset        = 0;
+	static Painter create(exo::Span<u8> vbuffer, exo::Span<PrimitiveIndex> ibuffer, int2 glyph_cache_size);
 
-	GlyphCache   glyph_cache         = {};
-	u32          glyph_atlas_gpu_idx = u32_invalid;
-	ShapeContext shaper              = {};
+	void draw_textured_rect(const Rect &r, u32 i_clip_rect, const Rect &uv, u32 texture_id);
+	void draw_color_rect(const Rect &r, u32 i_clip_rect, ColorU32 c);
+
+	int2 measure_label(Font &r, exo::StringView label);
+	void draw_label(const Rect &r, u32 i_clip_rect, Font &font, exo::StringView label);
+
+	void draw_color_round_rect(const Rect &r, u32 i_clip_rect, ColorU32 c, ColorU32 border_c, u32 border_thickness);
+	void draw_color_circle(const Rect &r, u32 i_clip_rect, ColorU32 c, ColorU32 border_c, u32 border_thickness);
 };
-
-Painter *painter_allocate(
-	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size);
-void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture);
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color);
-int2 measure_label(Painter &painter, Font &font, exo::StringView label);
-void painter_draw_label(Painter &painter, const Rect &rect, u32 i_clip_rect, Font &font, exo::StringView label);
-void painter_draw_color_round_rect(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness);
-void painter_draw_color_circle(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness);

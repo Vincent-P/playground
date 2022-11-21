@@ -1,18 +1,18 @@
 #pragma once
-#include "exo/maths/vectors.h"
 #include "assets/asset_manager.h"
 #include "cross/file_watcher.h"
 #include "cross/jobmanager.h"
 #include "cross/window.h"
+#include "custom_ui.h"
 #include "engine/render_world.h"
 #include "engine/scene.h"
+#include "exo/maths/vectors.h"
 #include "gameplay/inputs.h"
 #include "painter/font.h"
+#include "painter/painter.h"
+#include "renderer.h"
 #include "ui/docking.h"
 #include "ui/ui.h"
-
-#include "custom_ui.h"
-#include "renderer.h"
 
 struct ScopeStack;
 struct AssetManager;
@@ -38,10 +38,9 @@ private:
 	AssetManager                   asset_manager;
 	Renderer                       renderer;
 
-	Font     ui_font;
-	Painter *painter;
-
 	// -- UI
+	Font                    ui_font;
+	Painter                 painter;
 	ui::Ui                  ui;
 	docking::Docking        docking;
 	custom_ui::FpsHistogram histogram;

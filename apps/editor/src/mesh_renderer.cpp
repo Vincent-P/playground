@@ -185,28 +185,32 @@ static Handle<RenderMesh> get_or_create_mesh(
 		return *render_mesh_handle;
 	}
 
-	RenderMesh render_mesh       = {};
-	render_mesh.index_buffer     = device.create_buffer({
-			.name  = "Index buffer",
-			.size  = mesh->indices_byte_size,
-			.usage = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
-    });
+	RenderMesh render_mesh   = {};
+	render_mesh.index_buffer = device.create_buffer({
+		.name  = "Index buffer",
+		.size  = mesh->indices_byte_size,
+		.usage = vulkan::index_buffer_usage | vulkan::storage_buffer_usage,
+	});
+
 	render_mesh.positions_buffer = device.create_buffer({
 		.name  = "Positions buffer",
 		.size  = mesh->positions_byte_size,
 		.usage = vulkan::storage_buffer_usage,
 	});
-	render_mesh.uvs_buffer       = device.create_buffer({
-			  .name  = "UV buffer",
-			  .size  = mesh->uvs_byte_size,
-			  .usage = vulkan::storage_buffer_usage,
-    });
-	render_mesh.submesh_buffer   = device.create_buffer({
-		  .name  = "Submesh buffer",
-		  .size  = mesh->submeshes.len() * sizeof(SubmeshDescriptor),
-		  .usage = vulkan::storage_buffer_usage,
-    });
-	render_mesh.mesh_asset       = mesh_uuid;
+
+	render_mesh.uvs_buffer = device.create_buffer({
+		.name  = "UV buffer",
+		.size  = mesh->uvs_byte_size,
+		.usage = vulkan::storage_buffer_usage,
+	});
+
+	render_mesh.submesh_buffer = device.create_buffer({
+		.name  = "Submesh buffer",
+		.size  = mesh->submeshes.len() * sizeof(SubmeshDescriptor),
+		.usage = vulkan::storage_buffer_usage,
+	});
+
+	render_mesh.mesh_asset = mesh_uuid;
 
 	for (const auto &submesh : mesh->submeshes) {
 		auto render_material_handle = get_or_create_material(renderer, asset_manager, device, submesh.material);

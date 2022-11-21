@@ -22,11 +22,11 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 	// Features warnings!
 	if (!device.physical_device.vulkan12_features.timelineSemaphore) {
-		exo::logger::error("This device does not support timeline semaphores from Vulkan 1.2");
+		exo::logger::error("This device does not support timeline semaphores from Vulkan 1.2\n");
 	}
 
 	if (!device.physical_device.vulkan12_features.bufferDeviceAddress) {
-		exo::logger::error("This device does not support buffer device address from Vulkan 1.2");
+		exo::logger::error("This device does not support buffer device address from Vulkan 1.2\n");
 	}
 
 	if (desc.buffer_device_address == false &&

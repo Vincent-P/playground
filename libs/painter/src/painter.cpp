@@ -1,73 +1,61 @@
 #include "painter/painter.h"
-
-#include "painter/font.h"
-#include "painter/glyph_cache.h"
-
+#include "exo/collections/span.h"
 #include "exo/macros/assert.h"
 #include "exo/memory/scope_stack.h"
 #include "exo/profile.h"
+#include "painter/font.h"
+#include "painter/glyph_cache.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <cstring> // for std::memset
 #include <hb.h>
 
-Painter *painter_allocate(
-	exo::ScopeStack &scope, usize vertex_buffer_size, usize index_buffer_size, int2 glyph_cache_size)
+Painter Painter::create(exo::Span<u8> vbuffer, exo::Span<PrimitiveIndex> ibuffer, int2 glyph_cache_size)
 {
-	auto *painter     = scope.allocate<Painter>();
-	painter->vertices = reinterpret_cast<u8 *>(scope.allocate(vertex_buffer_size));
-	painter->indices  = reinterpret_cast<PrimitiveIndex *>(scope.allocate(index_buffer_size));
+	Painter painter                    = {};
+	painter.vertex_buffer              = vbuffer;
+	painter.index_buffer               = ibuffer;
+	painter.glyph_cache.allocator.size = glyph_cache_size;
+	painter.glyph_cache.rasterizer     = freetype_rasterizer;
 
-	painter->vertices_size = vertex_buffer_size;
-	painter->indices_size  = index_buffer_size;
+	std::memset(painter.vertex_buffer.data(), 0, painter.vertex_buffer.size_bytes());
+	std::memset(painter.index_buffer.data(), 0, painter.index_buffer.size_bytes());
 
-	std::memset(painter->vertices, 0, vertex_buffer_size);
-	std::memset(painter->indices, 0, index_buffer_size);
-
-	painter->vertex_bytes_offset = 0;
-	painter->index_offset        = 0;
-
-	painter->glyph_cache.allocator.size = glyph_cache_size;
-	painter->glyph_cache.rasterizer     = freetype_rasterizer;
-
-	painter->shaper.hb_buf = hb_buffer_create();
+	painter.shaper.hb_buf = hb_buffer_create();
 	return painter;
 }
 
-void painter_draw_textured_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, const Rect &uv, u32 texture)
+void Painter::draw_textured_rect(const Rect &r, u32 i_clip_rect, const Rect &uv, u32 texture_id)
 {
 	EXO_PROFILE_SCOPE;
+	ASSERT(texture_id != u32_invalid);
 
-	ASSERT(texture != u32_invalid);
-
-	auto misalignment = painter.vertex_bytes_offset % sizeof(TexturedRect);
+	auto misalignment = this->vertex_bytes_offset % sizeof(TexturedRect);
 	if (misalignment != 0) {
-		painter.vertex_bytes_offset += sizeof(TexturedRect) - misalignment;
+		this->vertex_bytes_offset += sizeof(TexturedRect) - misalignment;
 	}
 
-	ASSERT(painter.vertex_bytes_offset % sizeof(TexturedRect) == 0);
-	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(TexturedRect));
-	auto     *vertices = reinterpret_cast<TexturedRect *>(painter.vertices);
-	vertices[i_rect]   = {.rect = rect, .uv = uv, .texture_descriptor = texture, .i_clip_rect = i_clip_rect};
-	painter.vertex_bytes_offset += sizeof(TexturedRect);
+	ASSERT(this->vertex_bytes_offset % sizeof(TexturedRect) == 0);
+	const u32 i_rect = static_cast<u32>(this->vertex_bytes_offset / sizeof(TexturedRect));
+
+	auto vertices    = exo::reinterpret_span<TexturedRect>(this->vertex_buffer);
+	vertices[i_rect] = {.rect = r, .uv = uv, .texture_descriptor = texture_id, .i_clip_rect = i_clip_rect};
+
+	this->vertex_bytes_offset += sizeof(TexturedRect);
 
 	// 0 - 3
 	// |   |
 	// 1 - 2
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Textured}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Textured}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
-
-	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Textured}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Textured}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Textured}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Textured}};
 }
 
-void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color)
+void Painter::draw_color_rect(const Rect &r, u32 i_clip_rect, ColorU32 color)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -76,38 +64,32 @@ void painter_draw_color_rect(Painter &painter, const Rect &rect, u32 i_clip_rect
 		return;
 	}
 
-	auto misalignment = painter.vertex_bytes_offset % sizeof(ColorRect);
+	auto misalignment = this->vertex_bytes_offset % sizeof(ColorRect);
 	if (misalignment != 0) {
-		painter.vertex_bytes_offset += sizeof(ColorRect) - misalignment;
+		this->vertex_bytes_offset += sizeof(ColorRect) - misalignment;
 	}
 
-	ASSERT(painter.vertex_bytes_offset % sizeof(ColorRect) == 0);
-	ASSERT(painter.vertex_bytes_offset % sizeof(Rect) == 0);
-	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(ColorRect));
-	auto     *vertices = reinterpret_cast<ColorRect *>(painter.vertices);
-	vertices[i_rect]   = {.rect = rect, .color = color.raw, .i_clip_rect = i_clip_rect};
-	painter.vertex_bytes_offset += sizeof(ColorRect);
+	auto vertices = exo::reinterpret_span<ColorRect>(this->vertex_buffer.subspan(this->vertex_bytes_offset));
+	vertices[0]   = {.rect = r, .color = color.raw, .i_clip_rect = i_clip_rect};
+	this->vertex_bytes_offset += sizeof(ColorRect);
 
 	// 0 - 3
 	// |   |
 	// 1 - 2
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Color}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Color}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
-
-	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-	ASSERT((painter.vertex_bytes_offset - sizeof(ColorRect)) % sizeof(ColorRect) == 0);
+	u32 i_rect                               = u32(this->vertex_bytes_offset / sizeof(ColorRect));
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Color}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Color}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Color}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Color}};
 }
 
-int2 measure_label(Painter &painter, Font &font, exo::StringView label)
+int2 Painter::measure_label(Font &font, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
-	auto *buf = painter.shaper.hb_buf;
+	auto *buf = this->shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
 	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
@@ -129,11 +111,11 @@ int2 measure_label(Painter &painter, Font &font, exo::StringView label)
 	return {cursor_x, line_height};
 }
 
-void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect, Font &font, exo::StringView label)
+void Painter::draw_label(const Rect &view_rect, u32 i_clip_rect, Font &font, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
-	auto *buf = painter.shaper.hb_buf;
+	auto *buf = this->shaper.hb_buf;
 	hb_buffer_clear_contents(buf);
 	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
 	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
@@ -154,7 +136,7 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 		const i32 y_advance   = glyph_positions[i].y_advance;
 
 		GlyphImage glyph_image = {};
-		auto       cache_entry = painter.glyph_cache.queue_glyph(font, glyph_index, &glyph_image);
+		auto       cache_entry = this->glyph_cache.queue_glyph(font, glyph_index, &glyph_image);
 		if (cache_entry.has_value()) {
 			const int2 glyph_pos = cache_entry.value();
 
@@ -163,11 +145,11 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 				.size = float2(glyph_image.image_size),
 			};
 			const Rect uv = {
-				.pos  = float2(glyph_pos) / float2(painter.glyph_cache.allocator.size),
-				.size = float2(glyph_image.image_size) / float2(painter.glyph_cache.allocator.size),
+				.pos  = float2(glyph_pos) / float2(this->glyph_cache.allocator.size),
+				.size = float2(glyph_image.image_size) / float2(this->glyph_cache.allocator.size),
 			};
 
-			painter_draw_textured_rect(painter, rect, i_clip_rect, uv, painter.glyph_atlas_gpu_idx);
+			this->draw_textured_rect(rect, i_clip_rect, uv, this->glyph_atlas_gpu_idx);
 		}
 
 		cursor_x += x_advance >> 6;
@@ -180,8 +162,8 @@ void painter_draw_label(Painter &painter, const Rect &view_rect, u32 i_clip_rect
 	}
 }
 
-void painter_draw_color_round_rect(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
+void Painter::draw_color_round_rect(
+	const Rect &r, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -190,38 +172,36 @@ void painter_draw_color_round_rect(
 		return;
 	}
 
-	auto misalignment = painter.vertex_bytes_offset % sizeof(SdfRect);
+	auto misalignment = this->vertex_bytes_offset % sizeof(SdfRect);
 	if (misalignment != 0) {
-		painter.vertex_bytes_offset += sizeof(SdfRect) - misalignment;
+		this->vertex_bytes_offset += sizeof(SdfRect) - misalignment;
 	}
 
-	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
-	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
-	auto     *vertices = reinterpret_cast<SdfRect *>(painter.vertices);
-	vertices[i_rect]   = {.rect = rect,
-		  .color                = color.raw,
-		  .i_clip_rect          = i_clip_rect,
-		  .border_color         = border_color.raw,
-		  .border_thickness     = border_thickness};
-	painter.vertex_bytes_offset += sizeof(SdfRect);
+	auto vertices = exo::reinterpret_span<SdfRect>(this->vertex_buffer.subspan(this->vertex_bytes_offset));
+
+	vertices[0] = {
+		.rect             = r,
+		.color            = color.raw,
+		.i_clip_rect      = i_clip_rect,
+		.border_color     = border_color.raw,
+		.border_thickness = border_thickness,
+	};
+	this->vertex_bytes_offset += sizeof(SdfRect);
 
 	// 0 - 3
 	// |   |
 	// 1 - 2
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_RoundRectangle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_RoundRectangle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
-
-	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
+	const u32 i_rect                         = u32(this->vertex_bytes_offset / sizeof(SdfRect));
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_RoundRectangle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_RoundRectangle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_RoundRectangle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_RoundRectangle}};
 }
 
-void painter_draw_color_circle(
-	Painter &painter, const Rect &rect, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
+void Painter::draw_color_circle(
+	const Rect &r, u32 i_clip_rect, ColorU32 color, ColorU32 border_color, u32 border_thickness)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -230,32 +210,30 @@ void painter_draw_color_circle(
 		return;
 	}
 
-	auto misalignment = painter.vertex_bytes_offset % sizeof(SdfRect);
+	auto misalignment = this->vertex_bytes_offset % sizeof(SdfRect);
 	if (misalignment != 0) {
-		painter.vertex_bytes_offset += sizeof(SdfRect) - misalignment;
+		this->vertex_bytes_offset += sizeof(SdfRect) - misalignment;
 	}
 
-	ASSERT(painter.vertex_bytes_offset % sizeof(SdfRect) == 0);
-	const u32 i_rect   = static_cast<u32>(painter.vertex_bytes_offset / sizeof(SdfRect));
-	auto     *vertices = reinterpret_cast<SdfRect *>(painter.vertices);
-	vertices[i_rect]   = {.rect = rect,
-		  .color                = color.raw,
-		  .i_clip_rect          = i_clip_rect,
-		  .border_color         = border_color.raw,
-		  .border_thickness     = border_thickness};
-	painter.vertex_bytes_offset += sizeof(SdfRect);
+	auto vertices = exo::reinterpret_span<SdfRect>(this->vertex_buffer.subspan(this->vertex_bytes_offset));
+
+	vertices[0] = {
+		.rect             = r,
+		.color            = color.raw,
+		.i_clip_rect      = i_clip_rect,
+		.border_color     = border_color.raw,
+		.border_thickness = border_thickness,
+	};
+	this->vertex_bytes_offset += sizeof(SdfRect);
 
 	// 0 - 3
 	// |   |
 	// 1 - 2
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_Circle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_Circle}};
-	painter.indices[painter.index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
-
-	ASSERT(painter.index_offset * sizeof(PrimitiveIndex) < painter.indices_size);
-	ASSERT(painter.vertex_bytes_offset < painter.vertices_size);
-	ASSERT((painter.vertex_bytes_offset % sizeof(Rect)) == 0);
+	const u32 i_rect                         = u32(this->vertex_bytes_offset / sizeof(SdfRect));
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 1, .type = RectType_Sdf_Circle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 2, .type = RectType_Sdf_Circle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 3, .type = RectType_Sdf_Circle}};
+	this->index_buffer[this->index_offset++] = {{.index = i_rect, .corner = 0, .type = RectType_Sdf_Circle}};
 }

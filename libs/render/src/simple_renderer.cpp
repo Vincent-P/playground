@@ -9,7 +9,7 @@
 
 SimpleRenderer SimpleRenderer::create(u64 window_handle)
 {
-	SimpleRenderer renderer;
+	SimpleRenderer renderer = {};
 	renderer.context = vulkan::Context::create({.enable_validation = true});
 
 	// Pick a GPU

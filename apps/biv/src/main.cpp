@@ -81,24 +81,20 @@ struct Image
 
 struct RenderSample
 {
-	std::unique_ptr<cross::Window> window = nullptr;
-	Inputs                         inputs = {};
-
+	std::unique_ptr<cross::Window>  window = nullptr;
+	Inputs                          inputs = {};
 	SimpleRenderer                  renderer;
 	UiRenderer                      ui_renderer;
 	Handle<vulkan::GraphicsProgram> viewer_program;
 	Handle<vulkan::Image>           viewer_gpu_image_upload;
 	Handle<vulkan::Image>           viewer_gpu_image_current;
-
-	Painter *painter = nullptr;
-
-	ui::Ui ui;
-	Font   ui_font;
-	Rect   viewer_clip_rect = {};
-
-	Image image;
-	bool  display_channels[4] = {true, true, true, false};
-	u32   viewer_flags        = 0b00000000'00000000'00000000'00001110;
+	Painter                         painter;
+	ui::Ui                          ui;
+	Font                            ui_font;
+	Rect                            viewer_clip_rect = {};
+	Image                           image;
+	bool                            display_channels[4] = {true, true, true, false};
+	u32                             viewer_flags        = 0b00000000'00000000'00000000'00001110;
 };
 
 const u32 RED_CHANNEL_MASK   = 0b00000000'00000000'00000000'00001000;
@@ -137,11 +133,14 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 
 	exo::logger::info("DPI at creation: %dx%d\n", app->window->get_dpi_scale().x, app->window->get_dpi_scale().y);
 
-	app->ui_font                      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
-	app->painter                      = painter_allocate(scope, 8_MiB, 8_MiB, GLYPH_ATLAS_RESOLUTION);
-	app->painter->glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->ui_renderer.glyph_atlas);
+	app->ui_font      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
+	auto *vertex_data = static_cast<u8 *>(scope.allocate(8_MiB));
+	auto *index_data  = static_cast<PrimitiveIndex *>(scope.allocate(8_MiB));
+	app->painter =
+		Painter::create({vertex_data, 8_MiB}, {index_data, 8_MiB / sizeof(PrimitiveIndex)}, GLYPH_ATLAS_RESOLUTION);
+	app->painter.glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->ui_renderer.glyph_atlas);
 
-	app->ui = ui::create(&app->ui_font, 14.0f, app->painter);
+	app->ui = ui::create(&app->ui_font, 14.0f, &app->painter);
 
 	return app;
 }
@@ -195,12 +194,12 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 	const float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
-	auto label_rect = rect_center(checkbox.rect, float2(measure_label(*ui.painter, *ui.theme.main_font, label_str)));
+	auto label_rect = rect_center(checkbox.rect, float2(ui.painter->measure_label(*ui.theme.main_font, label_str)));
 
 	push_clip_rect(ui, register_clip_rect(ui, checkbox.rect));
-	painter_draw_color_rect(*ui.painter, checkbox.rect, ui.state.i_clip_rect, border_color);
-	painter_draw_color_rect(*ui.painter, rect_inset(checkbox.rect, border_thickness), ui.state.i_clip_rect, bg_color);
-	painter_draw_label(*ui.painter, label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label_str);
+	ui.painter->draw_color_rect(checkbox.rect, ui.state.i_clip_rect, border_color);
+	ui.painter->draw_color_rect(rect_inset(checkbox.rect, border_thickness), ui.state.i_clip_rect, bg_color);
+	ui.painter->draw_label(label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label_str);
 	pop_clip_rect(ui);
 
 	if (checkbox.value && *checkbox.value != result) {
@@ -212,8 +211,8 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 
 static void display_ui(RenderSample *app)
 {
-	app->painter->index_offset        = 0;
-	app->painter->vertex_bytes_offset = 0;
+	app->painter.index_offset        = 0;
+	app->painter.vertex_bytes_offset = 0;
 	ui::new_frame(app->ui);
 
 	auto content_rect = Rect{.pos = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
@@ -225,7 +224,7 @@ static void display_ui(RenderSample *app)
 
 	/* Menu bar */
 	const auto menubar_bg_color = ColorU32::from_greyscale(u8(0xF3));
-	painter_draw_color_rect(*app->ui.painter, menubar_rect, app->ui.state.i_clip_rect, menubar_bg_color);
+	app->painter.draw_color_rect(menubar_rect, app->ui.state.i_clip_rect, menubar_bg_color);
 
 	// add first margin on the left
 	rect_split_left(menubar_rect, menu_item_margin);
@@ -234,8 +233,7 @@ static void display_ui(RenderSample *app)
 	menubar_theme.button_hover_bg_color   = ColorU32::from_uints(0, 0, 0, 0x06);
 	menubar_theme.button_pressed_bg_color = ColorU32::from_uints(0, 0, 0, 0x09);
 
-	auto label_size =
-		float2(measure_label(*app->ui.painter, *app->ui.theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
+	auto label_size = float2(app->painter.measure_label(*app->ui.theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
 
 	Rect file_rect = rect_split_left(menubar_rect, label_size.x);
 	rect_split_left(menubar_rect, menu_item_margin);
@@ -247,7 +245,7 @@ static void display_ui(RenderSample *app)
 		}
 	}
 
-	label_size     = float2(measure_label(*app->ui.painter, *app->ui.theme.main_font, "Help")) + float2{8.0f, 0.0f};
+	label_size     = float2(app->painter.measure_label(*app->ui.theme.main_font, "Help")) + float2{8.0f, 0.0f};
 	Rect help_rect = rect_split_left(menubar_rect, label_size.x);
 	rect_split_left(menubar_rect, menu_item_margin);
 
@@ -289,10 +287,7 @@ static void display_ui(RenderSample *app)
 
 	/* Content */
 	auto separator_rect = rect_split_top(content_rect, 1.0f);
-	painter_draw_color_rect(*app->ui.painter,
-		separator_rect,
-		app->ui.state.i_clip_rect,
-		ColorU32::from_greyscale(u8(0xE5)));
+	app->ui.painter->draw_color_rect(separator_rect, app->ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0xE5)));
 
 	const u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
 	ui::push_clip_rect(app->ui, i_content_rect);
@@ -317,7 +312,7 @@ static void render(RenderSample *app)
 		.size = TextureSize::screen_relative(float2(1.0, 1.0)),
 	});
 
-	register_graph(graph, app->ui_renderer, app->painter, intermediate_buffer);
+	register_graph(graph, app->ui_renderer, &app->painter, intermediate_buffer);
 
 #if 0
 	if (app->viewer_gpu_image_current.is_valid()) {

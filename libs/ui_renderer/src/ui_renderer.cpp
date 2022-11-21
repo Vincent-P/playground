@@ -82,7 +82,7 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 			auto [p_vertices, vert_offset] = api.dynamic_vertex_buffer.allocate(painter->vertex_bytes_offset,
 				sizeof(TexturedRect) * sizeof(ColorRect));
 			ASSERT(!p_vertices.empty());
-			std::memcpy(p_vertices.data(), painter->vertices, painter->vertex_bytes_offset);
+			std::memcpy(p_vertices.data(), painter->vertex_buffer.data(), painter->vertex_bytes_offset);
 
 			ASSERT(vert_offset % sizeof(TexturedRect) == 0);
 			ASSERT(vert_offset % sizeof(ColorRect) == 0);
@@ -91,7 +91,7 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 			auto [p_indices, ind_offset] =
 				api.dynamic_index_buffer.allocate(painter->index_offset * sizeof(PrimitiveIndex),
 					sizeof(PrimitiveIndex));
-			std::memcpy(p_indices.data(), painter->indices, painter->index_offset * sizeof(PrimitiveIndex));
+			std::memcpy(p_indices.data(), painter->index_buffer.data(), painter->index_offset * sizeof(PrimitiveIndex));
 
 			PACKED(struct PainterOptions {
 				float2 scale;

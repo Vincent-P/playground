@@ -44,11 +44,15 @@ App::App(exo::ScopeStack &scope)
 	const int  font_size_pt = 18;
 	const auto font_size_px = float(font_size_pt);
 
-	this->ui_font                      = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
-	this->painter                      = painter_allocate(scope, 1_MiB, 1_MiB, int2(1024, 1024));
-	this->painter->glyph_atlas_gpu_idx = 0; // null texture
+	this->ui_font = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
 
-	this->ui      = ui::create(&this->ui_font, font_size_px, this->painter);
+	auto *vertex_data = static_cast<u8 *>(scope.allocate(1_MiB));
+	auto *index_data  = static_cast<PrimitiveIndex *>(scope.allocate(1_MiB));
+	this->painter =
+		Painter::create({vertex_data, 1_MiB}, {index_data, 1_MiB / sizeof(PrimitiveIndex)}, int2(1024, 1024));
+	this->painter.glyph_atlas_gpu_idx = 0; // null texture
+
+	this->ui      = ui::create(&this->ui_font, font_size_px, &this->painter);
 	this->docking = docking::create();
 
 	this->is_minimized = false;
@@ -212,11 +216,7 @@ void App::display_ui(double dt)
 
 		if (this->viewport_texture_index != u32_invalid) {
 			const Rect uv = {.pos = float2(0.0f), .size = float2(1.0f)};
-			painter_draw_textured_rect(*this->painter,
-				view_rect.value(),
-				u32_invalid,
-				uv,
-				this->viewport_texture_index);
+			this->painter.draw_textured_rect(view_rect.value(), u32_invalid, uv, this->viewport_texture_index);
 		}
 	} else {
 		this->viewport_size = float2(-1.0f);
@@ -307,11 +307,11 @@ void App::run()
 			DrawInput draw_input           = {};
 			draw_input.world_viewport_size = this->viewport_size;
 			draw_input.world               = &this->render_world;
-			draw_input.painter             = this->painter;
+			draw_input.painter             = &this->painter;
 			auto draw_result               = this->renderer.draw(draw_input);
 
-			this->painter->glyph_atlas_gpu_idx = draw_result.glyph_atlas_index;
-			this->viewport_texture_index       = draw_result.scene_viewport_index;
+			this->painter.glyph_atlas_gpu_idx = draw_result.glyph_atlas_index;
+			this->viewport_texture_index      = draw_result.scene_viewport_index;
 		}
 
 		watcher.update([&](const cross::Watch & /*watch*/, const cross::WatchEvent & /*event*/) {

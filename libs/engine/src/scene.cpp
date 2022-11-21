@@ -82,7 +82,7 @@ static void tree_view_entity(ui::Ui &ui,
 	}
 	auto margin_rect = line_rectsplit.split(indentation * 1.0f * ui.theme.font_size);
 	if (scene_ui.selected_entity == entity) {
-		painter_draw_color_rect(*ui.painter, margin_rect, u32_invalid, ColorU32::from_floats(0.7f, 0.4f, 0.1f));
+		ui.painter->draw_color_rect(margin_rect, u32_invalid, ColorU32::from_floats(0.7f, 0.4f, 0.1f));
 	}
 
 	exo::ScopeStack scope;

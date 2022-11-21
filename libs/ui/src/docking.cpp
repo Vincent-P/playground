@@ -1,14 +1,12 @@
 #include "ui/docking.h"
-
-#include "painter/painter.h"
-#include "ui/ui.h"
-
 #include "cross/buttons.h"
 #include "exo/collections/vector.h"
 #include "exo/format.h"
 #include "exo/maths/numerics.h"
 #include "exo/memory/scope_stack.h"
+#include "painter/painter.h"
 #include "painter/rect.h"
+#include "ui/ui.h"
 
 namespace docking
 {
@@ -81,7 +79,7 @@ Option<Rect> tabview(ui::Ui &ui, Docking &self, exo::StringView tabname)
 	if (container.selected != u32_invalid && container.tabviews[container.selected] == i_tabview) {
 		auto content_rect = container.rect;
 		/*auto tabwell_rect =*/rect_split_top(content_rect, 2.0f * self.ui.em_size);
-		painter_draw_color_rect(*ui.painter, content_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x1A)));
+		ui.painter->draw_color_rect(content_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x1A)));
 		return Some(content_rect);
 	} else {
 		return None;
@@ -384,7 +382,7 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 {
 	// Layout
 	auto em          = docking.em_size;
-	auto label_width = float(measure_label(*ui.painter, *ui.theme.main_font, tabview.title).x);
+	auto label_width = float(ui.painter->measure_label(*ui.theme.main_font, tabview.title).x);
 
 	auto rectsplit  = RectSplit{rect, SplitDirection::Left};
 	auto title_rect = rectsplit.split(label_width + 1.0f * em);
@@ -424,11 +422,11 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 	} else if (ui.activation.focused == id) {
 		color = ColorU32::from_greyscale(u8(0x42));
 	}
-	painter_draw_color_rect(*ui.painter, title_rect, ui.state.i_clip_rect, color);
+	ui.painter->draw_color_rect(title_rect, ui.state.i_clip_rect, color);
 	ui::label_in_rect(ui, title_rect, tabview.title);
 
 	if (is_active) {
-		painter_draw_color_rect(*ui.painter, bottom_border_rect, u32_invalid, ui.theme.accent_color);
+		ui.painter->draw_color_rect(bottom_border_rect, u32_invalid, ui.theme.accent_color);
 	}
 
 	/* auto margin =*/rectsplit.split(0.1f * em);
@@ -462,7 +460,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		auto tabwell_rect = rect_split_top(content_rect, 2.0f * em);
 
 		// Draw the tabwell background
-		painter_draw_color_rect(*ui.painter, tabwell_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x28)));
+		ui.painter->draw_color_rect(tabwell_rect, ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0x28)));
 
 		for (usize i = 0; i < container->tabviews.len(); ++i) {
 			auto        i_tabview = container->tabviews[i];
@@ -516,7 +514,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 			self.ui.events.push(events::MoveFloating{.i_floating = i_floating, .position = float2(mouse_pos)});
 		}
 
-		painter_draw_color_rect(*ui.painter, titlebar_rect, ui.state.i_clip_rect, ColorU32::from_uints(0xFF, 0xFF, 0));
+		ui.painter->draw_color_rect(titlebar_rect, ui.state.i_clip_rect, ColorU32::from_uints(0xFF, 0xFF, 0));
 	}
 
 	draw_area_rec(self, ui, floating_container.area);
@@ -539,10 +537,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 				mouse_pos - floating_container.rect.pos - ui.state.active_drag_offset + handle_rect.size;
 		}
 
-		painter_draw_color_rect(*ui.painter,
-			handle_rect,
-			ui.state.i_clip_rect,
-			ColorU32::from_uints(0xFF, 0, 0xFF, 0xBB));
+		ui.painter->draw_color_rect(handle_rect, ui.state.i_clip_rect, ColorU32::from_uints(0xFF, 0, 0xFF, 0xBB));
 	}
 }
 
@@ -556,12 +551,12 @@ static void draw_docking(Docking &self, ui::Ui &ui)
 
 		auto titlebar_height = 1.5f * em;
 
-		auto label_size = float2(measure_label(*ui.painter, *ui.theme.main_font, tabview.title));
+		auto label_size = float2(ui.painter->measure_label(*ui.theme.main_font, tabview.title));
 		label_size.x += 1.0f * em;
 		label_size.y = titlebar_height;
 
 		auto rect = Rect{.pos = float2(ui.inputs.mouse_position), .size = float2(10.0f * em, 1.5f * em)};
-		painter_draw_color_rect(*ui.painter, rect, ui.state.i_clip_rect, ColorU32::from_floats(0.0f, 0.0f, 0.0f, 0.5f));
+		ui.painter->draw_color_rect(rect, ui.state.i_clip_rect, ColorU32::from_floats(0.0f, 0.0f, 0.0f, 0.5f));
 
 		ui::label_in_rect(ui, rect, tabview.title);
 	}
@@ -596,7 +591,7 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 				color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.50f * 255));
 			}
 
-			painter_draw_color_rect(*ui.painter, rect, ui.state.i_clip_rect, color);
+			ui.painter->draw_color_rect(rect, ui.state.i_clip_rect, color);
 		};
 
 		draw_rect(drop_rect,
