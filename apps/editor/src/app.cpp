@@ -18,7 +18,7 @@
 #define SOKOL_TIME_IMPL
 #include <sokol_time.h>
 
-constexpr auto DEFAULT_WIDTH  = 1920;
+constexpr auto DEFAULT_WIDTH = 1920;
 constexpr auto DEFAULT_HEIGHT = 1080;
 
 App::App(exo::ScopeStack &scope)
@@ -30,7 +30,7 @@ App::App(exo::ScopeStack &scope)
 
 	this->jobmanager = cross::JobManager::create();
 
-	this->window        = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
+	this->window = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
 	this->asset_manager = AssetManager::create(this->jobmanager);
 
 	this->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
@@ -38,21 +38,21 @@ App::App(exo::ScopeStack &scope)
 	this->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
 	this->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
 
-	this->watcher  = cross::FileWatcher::create();
+	this->watcher = cross::FileWatcher::create();
 	this->renderer = Renderer::create(this->window->get_win32_hwnd(), &this->asset_manager);
 
-	const int  font_size_pt = 18;
+	const int font_size_pt = 18;
 	const auto font_size_px = float(font_size_pt);
 
 	this->ui_font = Font::from_file(ASSET_PATH "/SpaceGrotesk.otf", font_size_pt);
 
 	auto *vertex_data = static_cast<u8 *>(scope.allocate(1_MiB));
-	auto *index_data  = static_cast<PrimitiveIndex *>(scope.allocate(1_MiB));
+	auto *index_data = static_cast<PrimitiveIndex *>(scope.allocate(1_MiB));
 	this->painter =
 		Painter::create({vertex_data, 1_MiB}, {index_data, 1_MiB / sizeof(PrimitiveIndex)}, int2(1024, 1024));
 	this->painter.glyph_atlas_gpu_idx = 0; // null texture
 
-	this->ui      = ui::create(&this->ui_font, font_size_px, &this->painter);
+	this->ui = ui::create(&this->ui_font, font_size_px, &this->painter);
 	this->docking = docking::create();
 
 	this->is_minimized = false;
@@ -77,13 +77,14 @@ App::~App()
 void App::display_ui(double dt)
 {
 	EXO_PROFILE_SCOPE;
+	static ui::Activation s_last_frame_activation = {};
 
-	this->ui.painter->index_offset        = 0;
+	this->ui.painter->index_offset = 0;
 	this->ui.painter->vertex_bytes_offset = 0;
 	ui::new_frame(this->ui);
 
 	auto fullscreen_rect = Rect{.pos = {0, 0}, .size = float2(int2(this->window->size.x, this->window->size.y))};
-	auto em              = this->ui.theme.font_size;
+	auto em = this->ui.theme.font_size;
 
 	docking::begin_docking(this->docking, this->ui, fullscreen_rect);
 
@@ -142,12 +143,8 @@ void App::display_ui(double dt)
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
-		ui::label_split(this->ui,
-			rectsplit,
-			exo::formatf(scope, "Active: %s", exo::bool_fmt(this->ui.activation.active)));
-		ui::label_split(this->ui,
-			rectsplit,
-			exo::formatf(scope, "Focused: %s", exo::bool_fmt(this->ui.activation.focused)));
+		ui::label_split(this->ui, rectsplit, exo::formatf(scope, "Active: %zu", s_last_frame_activation.active));
+		ui::label_split(this->ui, rectsplit, exo::formatf(scope, "Focused: %zu", s_last_frame_activation.focused));
 		rectsplit.split(1.0f * em);
 
 		ui::label_split(this->ui, rectsplit, "Mouse buttons pressed:");
@@ -184,9 +181,9 @@ void App::display_ui(double dt)
 		ui::label_split(this->ui, rectsplit, exo::formatf(scope, "Resources (offset %f):", scroll_offset.y));
 		rectsplit.split(0.5f * em);
 
-		auto &scrollarea_rect    = content_rect;
-		auto  inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
-		auto  scroll_rectsplit   = RectSplit{inner_content_rect, SplitDirection::Top};
+		auto &scrollarea_rect = content_rect;
+		auto inner_content_rect = ui::begin_scroll_area(this->ui, scrollarea_rect, scroll_offset);
+		auto scroll_rectsplit = RectSplit{inner_content_rect, SplitDirection::Top};
 		for (auto [handle, p_resource] : this->asset_manager.database.resource_records) {
 
 			exo::StringView label;
@@ -236,11 +233,12 @@ void App::display_ui(double dt)
 
 	custom_ui::histogram(this->ui,
 		custom_ui::FpsHistogramWidget{
-			.rect      = histogram_rect,
+			.rect = histogram_rect,
 			.histogram = &this->histogram,
 		});
 
 	ui::end_frame(this->ui);
+	s_last_frame_activation = this->ui.activation;
 	this->window->set_cursor(static_cast<cross::Cursor>(this->ui.state.cursor));
 }
 
@@ -262,11 +260,11 @@ void App::run()
 		}
 
 		inputs.process(window->events);
-		inputs.main_window_size                          = window->size;
-		this->ui.inputs.mouse_position                   = inputs.mouse_position;
+		inputs.main_window_size = window->size;
+		this->ui.inputs.mouse_position = inputs.mouse_position;
 		this->ui.inputs.mouse_buttons_pressed_last_frame = this->ui.inputs.mouse_buttons_pressed;
-		this->ui.inputs.mouse_buttons_pressed            = this->inputs.mouse_buttons_pressed;
-		this->ui.inputs.mouse_wheel                      = this->inputs.scroll_this_frame;
+		this->ui.inputs.mouse_buttons_pressed = this->inputs.mouse_buttons_pressed;
+		this->ui.inputs.mouse_wheel = this->inputs.scroll_this_frame;
 
 		if (inputs.is_pressed(Action::QuitApp)) {
 			window->stop = true;
@@ -282,9 +280,9 @@ void App::run()
 		}
 
 		if (!is_minimized) {
-			const u64    now  = stm_now();
-			const u64    diff = stm_diff(now, last);
-			const double dt   = stm_sec(diff);
+			const u64 now = stm_now();
+			const u64 diff = stm_diff(now, last);
+			const double dt = stm_sec(diff);
 
 			last = now;
 
@@ -304,14 +302,14 @@ void App::run()
 				this->viewport_size.x / this->viewport_size.y,
 				0.1f);
 
-			DrawInput draw_input           = {};
+			DrawInput draw_input = {};
 			draw_input.world_viewport_size = this->viewport_size;
-			draw_input.world               = &this->render_world;
-			draw_input.painter             = &this->painter;
-			auto draw_result               = this->renderer.draw(draw_input);
+			draw_input.world = &this->render_world;
+			draw_input.painter = &this->painter;
+			auto draw_result = this->renderer.draw(draw_input);
 
 			this->painter.glyph_atlas_gpu_idx = draw_result.glyph_atlas_index;
-			this->viewport_texture_index      = draw_result.scene_viewport_index;
+			this->viewport_texture_index = draw_result.scene_viewport_index;
 		}
 
 		watcher.update([&](const cross::Watch & /*watch*/, const cross::WatchEvent & /*event*/) {

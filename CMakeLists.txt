@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.23)
 project(playground LANGUAGES C CXX)
 
+
 # Enable folders in the Solution Explorer of Visual Studio
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 
 # Fetch Catch2
 Include(FetchContent)
@@ -19,6 +21,7 @@ set_target_properties(Catch2WithMain PROPERTIES FOLDER "third_party")
 
 enable_testing()
 
+
 # Global C++ flags
 add_compile_options(
   # colored output when using ninja generator
@@ -34,8 +37,10 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
 )
 
+
 # Global C++ macros
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+
 
 # Function to setup 3rd party source code
 function(SETUP_THIRDPARTY_TARGET TARGET)
@@ -48,6 +53,7 @@ function(SETUP_THIRDPARTY_TARGET TARGET)
       $<$<CXX_COMPILER_ID:MSVC>:/W0>
   )
 endfunction()
+
 
 function(setup_app_target_options TARGET)
   target_compile_options(${TARGET} PRIVATE
@@ -97,6 +103,7 @@ function(setup_app_target_options TARGET)
   )
 endfunction()
 
+
 # Function to setup our targets
 function(setup_app_target TARGET)
   # Parse arguments (<targetname> TESTS <test files>)
@@ -124,6 +131,7 @@ function(setup_app_target TARGET)
     catch_discover_tests(${TARGET}.tests)
   endif()
 endfunction()
+
 
 # Add a shader target
 function(SETUP_SHADERS TARGET)
@@ -165,6 +173,9 @@ function(SETUP_SHADERS TARGET)
   add_dependencies(${TARGET} ${TARGET}.shaders)
   set_target_properties(${TARGET}.shaders PROPERTIES FOLDER "shaders")
 endfunction()
+
+
+
 
 add_subdirectory(third_party)
 

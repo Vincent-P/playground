@@ -16,15 +16,13 @@ struct Ui;
 }
 namespace docking
 {
-
-using Area = std::variant<struct AreaContainer, struct AreaSplitter>;
+struct Area;
 
 struct AreaContainer
 {
-	Vec<usize>   tabviews;
-	usize        selected = usize_invalid;
+	Vec<usize> tabviews;
+	usize selected = usize_invalid;
 	Handle<Area> parent;
-	Rect         rect;
 };
 
 enum struct Direction
@@ -35,17 +33,93 @@ enum struct Direction
 
 struct AreaSplitter
 {
-	Direction    direction;
 	Handle<Area> left_child;
 	Handle<Area> right_child;
-	float        split;
+	float split;
+	Direction direction;
+};
+
+struct Area
+{
+	Rect rect;
 	Handle<Area> parent;
-	Rect         rect;
+	union ContainerOrSplitter
+	{
+		AreaContainer container;
+		AreaSplitter splitter;
+
+		ContainerOrSplitter() {}
+		ContainerOrSplitter(AreaContainer &&c) : container{std::move(c)} {}
+		ContainerOrSplitter(AreaSplitter &&s) : splitter{std::move(s)} {}
+		~ContainerOrSplitter() {}
+	} value;
+	bool is_container;
+
+	Area(AreaContainer &&c) : rect{}, parent{}, value{std::move(c)}, is_container{true} {}
+	Area(AreaSplitter &&s) : rect{}, parent{}, value{std::move(s)}, is_container{false} {}
+
+	Area(Area &&other)
+	{
+		if (other.is_container) {
+			new (&this->value.container) AreaContainer(std::move(other.value.container));
+		} else {
+			new (&this->value.splitter) AreaSplitter(std::move(other.value.splitter));
+		}
+		this->rect = other.rect;
+		this->parent = other.parent;
+		this->is_container = other.is_container;
+	}
+
+	Area &operator=(Area &&other)
+	{
+		if (other.is_container) {
+			this->value.container = std::move(other.value.container);
+		} else {
+			this->value.splitter = std::move(other.value.splitter);
+		}
+		this->rect = other.rect;
+		this->parent = other.parent;
+		this->is_container = other.is_container;
+		return *this;
+	}
+
+	~Area()
+	{
+		if (this->is_container) {
+			this->value.container.~AreaContainer();
+		} else {
+			this->value.splitter.~AreaSplitter();
+		}
+	}
+
+	AreaContainer &container()
+	{
+		ASSERT(this->is_container);
+		return this->value.container;
+	}
+
+	const AreaContainer &container() const
+	{
+		ASSERT(this->is_container);
+		return this->value.container;
+	}
+
+	AreaSplitter &splitter()
+	{
+		ASSERT(!this->is_container);
+		return this->value.splitter;
+	}
+
+	const AreaSplitter &splitter() const
+	{
+		ASSERT(!this->is_container);
+		return this->value.splitter;
+	}
 };
 
 struct TabView
 {
-	exo::String  title;
+	exo::String title;
 	Handle<Area> area;
 };
 
@@ -53,7 +127,7 @@ namespace events
 {
 struct DropTab
 {
-	usize        i_tabview;
+	usize i_tabview;
 	Handle<Area> in_container;
 };
 
@@ -65,13 +139,13 @@ struct DetachTab
 struct Split
 {
 	SplitDirection direction;
-	usize          i_tabview;
-	Handle<Area>   container;
+	usize i_tabview;
+	Handle<Area> container;
 };
 
 struct MoveFloating
 {
-	usize  i_floating;
+	usize i_floating;
 	float2 position;
 };
 } // namespace events
@@ -79,8 +153,8 @@ using DockingEvent = std::variant<events::DropTab, events::DetachTab, events::Sp
 
 struct DockingUi
 {
-	float             em_size;
-	usize             active_tab;
+	float em_size;
+	usize active_tab;
 	Vec<DockingEvent> events;
 };
 
@@ -95,24 +169,24 @@ enum struct TabState
 struct FloatingContainer
 {
 	Handle<Area> area;
-	Rect         rect;
+	Rect rect;
 };
 
 struct Docking
 {
-	exo::Pool<Area>        area_pool;
-	Handle<Area>           root;
-	Handle<Area>           default_area;
-	Vec<TabView>           tabviews;
+	exo::Pool<Area> area_pool;
+	Handle<Area> root;
+	Handle<Area> default_area;
+	Vec<TabView> tabviews;
 	Vec<FloatingContainer> floating_containers;
-	DockingUi              ui;
+	DockingUi ui;
 };
 
 Docking create();
 
 Option<Rect> tabview(ui::Ui &ui, Docking &self, exo::StringView tabname);
-void         begin_docking(Docking &self, ui::Ui &ui, Rect rect);
-void         end_docking(Docking &self, ui::Ui &ui);
+void begin_docking(Docking &self, ui::Ui &ui, Rect rect);
+void end_docking(Docking &self, ui::Ui &ui);
 
 void inspector_ui(Docking &self, ui::Ui &ui, Rect rect);
 } // namespace docking

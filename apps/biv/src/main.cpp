@@ -197,9 +197,9 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 	auto label_rect = rect_center(checkbox.rect, float2(ui.painter->measure_label(*ui.theme.main_font, label_str)));
 
 	push_clip_rect(ui, register_clip_rect(ui, checkbox.rect));
-	ui.painter->draw_color_rect(checkbox.rect, ui.state.i_clip_rect, border_color);
-	ui.painter->draw_color_rect(rect_inset(checkbox.rect, border_thickness), ui.state.i_clip_rect, bg_color);
-	ui.painter->draw_label(label_rect, ui.state.i_clip_rect, *ui.theme.main_font, label_str);
+	ui.painter->draw_color_rect(checkbox.rect, ui.state.current_clip_rect, border_color);
+	ui.painter->draw_color_rect(rect_inset(checkbox.rect, border_thickness), ui.state.current_clip_rect, bg_color);
+	ui.painter->draw_label(label_rect, ui.state.current_clip_rect, *ui.theme.main_font, label_str);
 	pop_clip_rect(ui);
 
 	if (checkbox.value && *checkbox.value != result) {
@@ -224,7 +224,7 @@ static void display_ui(RenderSample *app)
 
 	/* Menu bar */
 	const auto menubar_bg_color = ColorU32::from_greyscale(u8(0xF3));
-	app->painter.draw_color_rect(menubar_rect, app->ui.state.i_clip_rect, menubar_bg_color);
+	app->painter.draw_color_rect(menubar_rect, app->ui.state.current_clip_rect, menubar_bg_color);
 
 	// add first margin on the left
 	rect_split_left(menubar_rect, menu_item_margin);
@@ -287,7 +287,7 @@ static void display_ui(RenderSample *app)
 
 	/* Content */
 	auto separator_rect = rect_split_top(content_rect, 1.0f);
-	app->ui.painter->draw_color_rect(separator_rect, app->ui.state.i_clip_rect, ColorU32::from_greyscale(u8(0xE5)));
+	app->ui.painter->draw_color_rect(separator_rect, app->ui.state.current_clip_rect, ColorU32::from_greyscale(u8(0xE5)));
 
 	const u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
 	ui::push_clip_rect(app->ui, i_content_rect);
