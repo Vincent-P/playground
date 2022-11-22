@@ -112,8 +112,14 @@ void push_clip_rect(Ui &ui, u32 i_clip_rect);
 void pop_clip_rect(Ui &ui);
 
 bool button(Ui &ui, const Button &button);
-void splitter_x(Ui &ui, const Rect &view_rect, float &value);
-void splitter_y(Ui &ui, const Rect &view_rect, float &value);
+
+struct RectPair
+{
+	Rect first;
+	Rect second;
+};
+RectPair splitter_x(Ui &ui, const Rect &view_rect, float &value);
+RectPair splitter_y(Ui &ui, const Rect &view_rect, float &value);
 void rect(Ui &ui, const Rect &rect);
 
 enum struct Alignment

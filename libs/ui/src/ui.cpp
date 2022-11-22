@@ -142,7 +142,7 @@ bool button(Ui &ui, const Button &button)
 	return result;
 }
 
-void splitter_x(Ui &ui, const Rect &view_rect, float &value)
+RectPair splitter_x(Ui &ui, const Rect &view_rect, float &value)
 {
 	EXO_PROFILE_SCOPE;
 
@@ -161,7 +161,7 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 	}
 
 	if (ui.activation.focused == id || ui.activation.active == id) {
-		ui.state.cursor = static_cast<int>(cross::Cursor::ResizeEW);	
+		ui.state.cursor = static_cast<int>(cross::Cursor::ResizeEW);
 	}
 
 	if (ui.activation.active == id) {
@@ -175,16 +175,18 @@ void splitter_x(Ui &ui, const Rect &view_rect, float &value)
 		splitter_rect = rect_outset(splitter_rect, float2(thickness_difference, 0.0f));
 	}
 	ui.painter->draw_color_rect(splitter_rect, ui.state.current_clip_rect, color);
+
+	return {left_rect, right_rect};
 }
 
-void splitter_y(Ui &ui, const Rect &view_rect, float &value)
+RectPair splitter_y(Ui &ui, const Rect &view_rect, float &value)
 {
 	EXO_PROFILE_SCOPE;
 
 	const u64 id = make_id(ui);
 
 	Rect bottom_rect = view_rect;
-	/*Rect top_rect =*/rect_split_top(bottom_rect, value * view_rect.size.y);
+	Rect top_rect = rect_split_top(bottom_rect, value * view_rect.size.y);
 	Rect splitter_rect = rect_split_top(bottom_rect, ui.theme.splitter_thickness);
 
 	// behavior
@@ -210,6 +212,8 @@ void splitter_y(Ui &ui, const Rect &view_rect, float &value)
 		splitter_rect = rect_outset(splitter_rect, float2(0.0f, thickness_difference));
 	}
 	ui.painter->draw_color_rect(splitter_rect, ui.state.current_clip_rect, color);
+
+	return {top_rect, bottom_rect};
 }
 
 void label_in_rect(Ui &ui, const Rect &view_rect, exo::StringView label, Alignment alignment)

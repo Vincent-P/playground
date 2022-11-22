@@ -26,7 +26,7 @@ static Handle<Area> split_area(
 	Docking &docking, Handle<Area> previous_area, SplitDirection direction, Handle<Area> new_child_handle);
 
 // Drawing and update logic
-static void update_area_rect(Docking &docking, Handle<Area> area, Rect rect);
+static void update_area_rec(Docking &docking, Handle<Area> area);
 static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle);
 static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating);
 static void draw_docking(Docking &self, ui::Ui &ui);
@@ -78,11 +78,15 @@ void begin_docking(Docking &self, ui::Ui &ui, Rect rect)
 
 	const auto em = self.ui.em_size;
 
-	update_area_rect(self, self.root, rect);
+	update_area_rec(self, self.root);
+	self.area_pool.get(self.root).rect = rect;
+
 	for (const auto &floating : self.floating_containers) {
 		auto copy = floating.rect;
 		/*auto titlebar_rect =*/rect_split_top(copy, 0.25f * em);
-		update_area_rect(self, floating.area, copy);
+		self.area_pool.get(floating.area).rect = copy;
+
+		update_area_rec(self, floating.area);
 	}
 }
 
@@ -322,27 +326,17 @@ static void remove_empty_areas(Docking &docking, Handle<Area> area_handle)
 }
 
 // Propagate a rect down an area, and will update the selected tabs of the traversed containers.
-static void update_area_rect(Docking &docking, Handle<Area> area_handle, Rect rect)
+static void update_area_rec(Docking &docking, Handle<Area> area_handle)
 {
 	if (!area_handle.is_valid()) {
 		return;
 	}
 
 	auto &area = docking.area_pool.get(area_handle);
-	area.rect = rect;
 
 	if (!area.is_container) {
-		Rect left_child_rect = rect;
-		Rect right_child_rect = rect;
-		if (area.splitter().direction == Direction::Horizontal) {
-			right_child_rect = rect_split_top(left_child_rect, area.splitter().split * rect.size.y);
-		} else if (area.splitter().direction == Direction::Vertical) {
-			right_child_rect = rect_split_left(left_child_rect, area.splitter().split * rect.size.x);
-		}
-
-		update_area_rect(docking, area.splitter().left_child, left_child_rect);
-		update_area_rect(docking, area.splitter().right_child, right_child_rect);
-
+		update_area_rec(docking, area.splitter().left_child);
+		update_area_rec(docking, area.splitter().right_child);
 	} else {
 		auto &container = area.container();
 		if (container.selected == u32_invalid) {
@@ -429,11 +423,26 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 
 	if (!area.is_container) {
 		auto &splitter = area.splitter();
+
+		Rect left_rect = {};
+		Rect right_rect = {};
 		if (splitter.direction == Direction::Horizontal) {
-			ui::splitter_y(ui, area.rect, splitter.split);
+			auto [split_left, split_right] = ui::splitter_y(ui, area.rect, splitter.split);
+			left_rect = split_left;
+			right_rect = split_right;
 		} else {
-			ui::splitter_x(ui, area.rect, splitter.split);
+			auto [split_top, split_bottom] = ui::splitter_x(ui, area.rect, splitter.split);
+			left_rect = split_top;
+			right_rect = split_bottom;
 		}
+
+		if (splitter.left_child.is_valid()) {
+			self.area_pool.get(splitter.left_child).rect = left_rect;
+		}
+		if (splitter.right_child.is_valid()) {
+			self.area_pool.get(splitter.right_child).rect = right_rect;
+		}
+
 		draw_area_rec(self, ui, splitter.left_child);
 		draw_area_rec(self, ui, splitter.right_child);
 
@@ -442,7 +451,9 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		if (container.tabviews.is_empty()) {
 			return;
 		}
-		auto tabwell_rect = rect_split_top(area.rect, 2.0f * em);
+
+		auto area_rect = area.rect;
+		auto tabwell_rect = rect_split_top(area_rect, 2.0f * em);
 
 		// Draw the tabwell background
 		ui.painter->draw_color_rect(tabwell_rect, ui.state.current_clip_rect, ColorU32::from_greyscale(u8(0x28)));
@@ -586,28 +597,28 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 
 		draw_rect(split_top_rect,
 			events::Split{
-				.direction = SplitDirection::Bottom,
+				.direction = SplitDirection::Top,
 				.i_tabview = self.ui.active_tab,
 				.container = area_handle,
 			});
 
 		draw_rect(split_right_rect,
 			events::Split{
-				.direction = SplitDirection::Left,
+				.direction = SplitDirection::Right,
 				.i_tabview = self.ui.active_tab,
 				.container = area_handle,
 			});
 
 		draw_rect(split_bottom_rect,
 			events::Split{
-				.direction = SplitDirection::Top,
+				.direction = SplitDirection::Bottom,
 				.i_tabview = self.ui.active_tab,
 				.container = area_handle,
 			});
 
 		draw_rect(split_left_rect,
 			events::Split{
-				.direction = SplitDirection::Right,
+				.direction = SplitDirection::Left,
 				.i_tabview = self.ui.active_tab,
 				.container = area_handle,
 			});
