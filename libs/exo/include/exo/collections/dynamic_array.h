@@ -122,17 +122,22 @@ struct DynamicArray
 
 	constexpr void clear() noexcept
 	{
-		this->length = 0;
-
 		if constexpr (std::is_trivially_destructible<T>() == false) {
 			for (usize i = 0; i < this->length; i += 1) {
 				this->values[i].~T();
 			}
 		}
+		this->length = 0;
 	}
+
 	constexpr void resize(usize new_size) noexcept
 	{
 		ASSERT(new_size <= CAPACITY);
+
+		// Delete elements if new_size < old_size
+		for (usize i = new_size; i < this->length; i += 1) {
+			this->values[i].~T();
+		}
 
 		// Default-initialize new elements if new_size > old_size
 		for (usize i = this->length; i < new_size; i += 1) {

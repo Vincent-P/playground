@@ -25,26 +25,81 @@ TEST_CASE("exo::DynamicArray from list", "[dynamic_array]")
 	REQUIRE(array[1] == 1);
 }
 
-TEST_CASE("exo::DynamicArray copy", "[dynamic_array]")
+TEST_CASE("exo::DynamicArray move and copy constructors")
 {
-	exo::DynamicArray<int, 4> array = {0, 1, 2};
+	exo::DynamicArray<int, 8> int_array;
+	int_array.push(42);
 
-	auto                      copy  = array;
+	CHECK(int_array.len() == 1);
+	CHECK(int_array[0] == 42);
 
+	SECTION("Move ctor steals buffer")
+	{
+		auto new_array = std::move(int_array);
 
-	REQUIRE(!copy.is_empty());
-	REQUIRE(copy.len() == 3);
-	REQUIRE(copy[1] == 1);
+		CHECK(int_array.len() == 0);
+
+		CHECK(new_array.len() == 1);
+		CHECK(new_array[0] == 42);
+	}
+
+	SECTION("Copy ctor copy elements")
+	{
+		auto new_array = int_array;
+
+		CHECK(int_array.len() == 1);
+		CHECK(int_array[0] == 42);
+
+		CHECK(new_array.len() == 1);
+		CHECK(new_array[0] == 42);
+	}
 }
 
-TEST_CASE("exo::DynamicArray move", "[dynamic_array]")
+TEST_CASE("exo::DynamicArray Foreach")
 {
-	exo::DynamicArray<int, 4> array = {0, 1, 2};
+	exo::DynamicArray<int, 8> int_array = {42, 38, 7};
 
-	auto                      copy  = array;
+	constexpr int EXPECTED_SUM = 42 + 38 + 7;
 
+	SECTION("Const foreach")
+	{
+		const auto &const_array = int_array;
+		int         sum         = 0;
+		for (const auto &rValue : const_array)
+			sum += rValue;
 
-	REQUIRE(array.is_empty());
-	REQUIRE(copy.len() == 3);
-	REQUIRE(copy[1] == 1);
+		CHECK(sum == EXPECTED_SUM);
+	}
+
+	SECTION("Non-const foreach")
+	{
+		auto &rNonConstVector = int_array;
+		int   sum             = 0;
+		for (int &rValue : rNonConstVector)
+			sum += rValue;
+
+		CHECK(sum == EXPECTED_SUM);
+	}
+}
+
+TEST_CASE("exo::DynamicArray elements life-cycle")
+{
+	exo::DynamicArray<Alive, 8> objects;
+
+	int counter = 0;
+
+	objects.push(&counter);
+	CHECK(counter == 1);
+
+	objects.push(&counter);
+	CHECK(counter == 2);
+
+	objects.push(&counter);
+	CHECK(counter == 3);
+
+	objects.push(&counter);
+	CHECK(counter == 4);
+
+	objects.clear();
+	CHECK(counter == 0);
 }

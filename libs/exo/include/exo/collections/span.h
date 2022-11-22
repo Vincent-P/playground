@@ -80,14 +80,12 @@ Span(T *, usize) -> Span<T>;
 template <typename T>
 Span<T> reinterpret_span(Span<u8> bytes)
 {
-	ASSERT(bytes.size_bytes() % sizeof(T) == 0);
 	return Span(reinterpret_cast<T *>(bytes.data()), bytes.size_bytes() / sizeof(T));
 }
 
 template <typename T>
 Span<const T> reinterpret_span(Span<const u8> bytes)
 {
-	ASSERT(bytes.size_bytes() % sizeof(T) == 0);
 	return Span(reinterpret_cast<const T *>(bytes.data()), bytes.size_bytes() / sizeof(T));
 }
 
