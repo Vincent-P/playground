@@ -1,6 +1,7 @@
 #pragma once
 #include "cross/buttons.h"
 #include "exo/collections/dynamic_array.h"
+#include "exo/collections/map.h"
 #include "exo/maths/numerics.h"
 #include "exo/option.h"
 #include "exo/string_view.h"
@@ -10,7 +11,7 @@
 struct Font;
 struct Painter;
 
-inline constexpr u32 UI_MAX_DEPTH = 128;
+inline constexpr u32 UI_MAX_DEPTH = 32;
 
 namespace ui
 {
@@ -59,14 +60,9 @@ struct State
 	exo::DynamicArray<u32, UI_MAX_DEPTH> clip_stack;
 	u32 current_clip_rect = u32_invalid;
 
-	// Stack containing the "starting" rect for each scroll area, the "starting" rect is the inner content position with
-	// a max size
-	Rect scroll_starting_stack[UI_MAX_DEPTH] = {};
-	// Stack containing the "ending" rect for each scroll area, the "ending" rect is the "starting" rect split by the
-	// user content Substracting the pos from the "ending" rect to the "starting" rect gives the actual content size
-	Rect scroll_ending_stack[UI_MAX_DEPTH] = {};
-	// Index of the top of the stack
-	u32 i_scroll_stack = 0;
+	exo::DynamicArray<u64, UI_MAX_DEPTH> scroll_id_stack;
+	exo::Map<u64, Rect> scroll_starting_rects;
+	exo::Map<u64, Rect> scroll_ending_rects;
 
 	// custom mouse cursor
 	int cursor = 0;

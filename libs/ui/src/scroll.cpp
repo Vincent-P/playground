@@ -9,22 +9,30 @@ inline constexpr float2 MAX_SCROLL_SIZE = float2(65536.0f);
 
 Rect begin_scroll_area(Ui &ui, const Rect &scrollview_rect, exo::float2 &offset)
 {
+	auto area_id = ui.make_id();
+	auto id = ui.make_id();
+
 	auto em = ui.theme.font_size;
 
 	// layout
-	ASSERT(ui.state.i_scroll_stack < UI_MAX_DEPTH);
-	auto &starting_rect = ui.state.scroll_starting_stack[ui.state.i_scroll_stack];
-	const auto &ending_rect = ui.state.scroll_ending_stack[ui.state.i_scroll_stack];
-	ui.state.i_scroll_stack += 1;
+	ui.state.scroll_id_stack.push(id);
+	auto *starting_rect = ui.state.scroll_starting_rects.at(id);
+	if (!starting_rect) {
+		starting_rect = ui.state.scroll_starting_rects.insert(id, {});
+	}
+	auto *ending_rect = ui.state.scroll_ending_rects.at(id);
+	if (!ending_rect) {
+		ending_rect = ui.state.scroll_ending_rects.insert(id, {});
+	}
 
-	starting_rect = Rect{
+	*starting_rect = Rect{
 		.pos = scrollview_rect.pos - offset,
 		.size = MAX_SCROLL_SIZE,
 	};
 
 	auto actual_content_rect = Rect{
-		.pos = starting_rect.pos,
-		.size = ending_rect.pos - starting_rect.pos,
+		.pos = starting_rect->pos,
+		.size = ending_rect->pos - starting_rect->pos,
 	};
 
 	auto scroll_area_rect = scrollview_rect;
@@ -38,9 +46,6 @@ Rect begin_scroll_area(Ui &ui, const Rect &scrollview_rect, exo::float2 &offset)
 		(scrollview_rect.size.y / actual_content_rect.size.y) * right_vertical_scrollbar_rect.size.y};
 
 	// interaction
-	auto area_id = ui.make_id();
-	auto id = ui.make_id();
-
 	if (ui.is_hovering(scroll_area_rect)) {
 		ui.activation.focused = area_id;
 	}
@@ -76,14 +81,17 @@ Rect begin_scroll_area(Ui &ui, const Rect &scrollview_rect, exo::float2 &offset)
 		ui.theme.scroll_bar_bg_color);
 	ui.painter->draw_color_rect(vertical_thumb, ui.state.current_clip_rect, ui.theme.scroll_thumb_bg_color);
 
-	return ui.state.scroll_starting_stack[ui.state.i_scroll_stack - 1];
+	return *starting_rect;
 }
 
-void end_scroll_area(Ui &ui, const Rect &ending_rect)
+void end_scroll_area(Ui &ui, const Rect &new_ending_rect)
 {
-	ASSERT(ui.state.i_scroll_stack > 0);
-	ui.state.scroll_ending_stack[ui.state.i_scroll_stack - 1] = ending_rect;
-	ui.state.i_scroll_stack -= 1;
+	auto id = ui.state.scroll_id_stack.pop();
+	auto *ending_rect = ui.state.scroll_ending_rects.at(id);
+	if (!ending_rect) {
+		ending_rect = ui.state.scroll_ending_rects.insert(id, {});
+	}
+	*ending_rect = new_ending_rect;
 
 	ui.pop_clip_rect();
 }
