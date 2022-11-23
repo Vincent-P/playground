@@ -18,7 +18,7 @@ namespace ui
 struct Theme
 {
 	// Color scheme
-	ColorU32 accent_color = ColorU32::from_uints(0x10, 0x75, 0xB2);
+	ColorU32 accent_color = ColorU32::from_uints(0x10, 0x75, 0xFF);
 
 	// Widget colors
 	ColorU32 button_bg_color = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.3f);
@@ -33,7 +33,7 @@ struct Theme
 	ColorU32 splitter_hover_color = ColorU32::from_greyscale(u8(0xD1));
 
 	ColorU32 scroll_area_bg_color = ColorU32::from_uints(0, 0, 0, 0x44);
-	ColorU32 scroll_bar_bg_color = ColorU32::from_uints(0xDD, 0xDD, 0xFF, 0x22);
+	ColorU32 scroll_bar_bg_color = ColorU32::from_uints(0xDD, 0xDD, 0xFF, 0xFF);
 	ColorU32 scroll_thumb_bg_color = accent_color;
 
 	Font *main_font = nullptr;

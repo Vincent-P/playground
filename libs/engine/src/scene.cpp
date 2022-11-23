@@ -54,11 +54,11 @@ void Scene::init(AssetManager *_asset_manager, const Inputs *inputs)
 void Scene::destroy() {}
 
 static void tree_view_entity(ui::Ui &ui,
-	SceneUi                         &scene_ui,
-	Rect                            &content_rect,
-	EntityWorld                     &world,
-	exo::UUID                        entity_id,
-	float                            indentation = 1.0f)
+	SceneUi &scene_ui,
+	Rect &content_rect,
+	EntityWorld &world,
+	exo::UUID entity_id,
+	float indentation = 1.0f)
 {
 	if (content_rect.size.y < ui.theme.font_size) {
 		return;
@@ -67,16 +67,16 @@ static void tree_view_entity(ui::Ui &ui,
 	Entity *entity = *world.entities.at(entity_id);
 
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
-	auto line_rect         = content_rectsplit.split(2.0f * ui.theme.font_size);
-	auto line_rectsplit    = RectSplit{line_rect, SplitDirection::Left};
+	auto line_rect = content_rectsplit.split(2.0f * ui.theme.font_size);
+	auto line_rectsplit = RectSplit{line_rect, SplitDirection::Left};
 
 	auto *entity_scene_ui = scene_ui.entity_uis.at(entity);
 	if (!entity_scene_ui) {
 		entity_scene_ui = scene_ui.entity_uis.insert(entity, {});
 	}
 
-	auto       &entity_opened = entity_scene_ui->treeview_opened;
-	const char *label         = entity_opened ? "_" : ">";
+	auto &entity_opened = entity_scene_ui->treeview_opened;
+	const char *label = entity_opened ? "_" : ">";
 	if (!entity->attached_entities.is_empty() && ui::button_split(ui, line_rectsplit, label)) {
 		entity_opened = !entity_opened;
 	}
@@ -86,8 +86,8 @@ static void tree_view_entity(ui::Ui &ui,
 	}
 
 	exo::ScopeStack scope;
-	auto            entity_label = exo::formatf(scope, "Name: %s", entity->name);
-	auto            label_rect   = ui::label_split(ui, line_rectsplit, entity_label);
+	auto entity_label = exo::formatf(scope, "Name: %s", entity->name);
+	auto label_rect = ui::label_split(ui, line_rectsplit, entity_label);
 
 	if (ui::invisible_button(ui, label_rect)) {
 		if (scene_ui.selected_entity == entity) {
@@ -171,6 +171,23 @@ static void scene_inspector_mesh_component(
 	scene_inspector_spatial_component(ui, mesh_component, content_rect);
 }
 
+namespace custom_ui
+{
+static void inspector_header(ui::Ui &ui, RectSplit &rectsplit, exo::StringView label)
+{
+	auto em = ui.theme.font_size;
+	auto label_rect = rectsplit.split(2.0f * em);
+
+	auto const transparent_white = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.1f);
+	ui.painter->draw_color_rect(label_rect, ui.state.current_clip_rect, transparent_white);
+	ui.painter->draw_label(label_rect, ui.state.current_clip_rect, *ui.theme.main_font, label);
+
+	auto bottom_border = rectsplit.split(0.1f * em);
+	const auto bottom_border_color = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.05f);
+	ui.painter->draw_color_rect(bottom_border, ui.state.current_clip_rect, bottom_border_color);
+}
+} // namespace custom_ui
+
 static void scene_inspector_component_ui(
 	ui::Ui &ui, AssetManager *asset_manager, refl::BasePtr<BaseComponent> component, Rect &content_rect)
 {
@@ -178,7 +195,7 @@ static void scene_inspector_component_ui(
 
 	exo::ScopeStack scope;
 
-	ui::label_split(ui,
+	custom_ui::inspector_header(ui,
 		line_rectsplit,
 		exo::formatf(scope,
 			"%s [%s (%zu bytes)]",
@@ -204,30 +221,22 @@ void scene_inspector_ui(ui::Ui &ui, Scene &scene, Rect &content_rect)
 	}
 
 	exo::ScopeStack scope;
-	auto            em = ui.theme.font_size;
-
+	auto em = ui.theme.font_size;
 	auto *entity = scene.ui.selected_entity;
-
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "Selected: %s", entity->name));
-
 	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "State: %s", to_string(entity->state)));
-
 	content_rectsplit.split(1.0f * em);
-
 	ui::label_split(ui, content_rectsplit, "Components:");
 	for (const auto component : entity->components) {
 		scene_inspector_component_ui(ui, scene.asset_manager, component, content_rect);
 	}
-
 	content_rectsplit.split(1.0f * em);
-
 	ui::label_split(ui, content_rectsplit, "Local systems:");
 	for (auto system : entity->local_systems) {
-		ui::label_split(ui, content_rectsplit, system.typeinfo().name);
+		custom_ui::inspector_header(ui, content_rectsplit, system.typeinfo().name);
 	}
-
 	content_rectsplit.split(1.0f * em);
 }
 
@@ -244,18 +253,18 @@ void Scene::import_mesh(Mesh * /*mesh*/)
 
 Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)
 {
-	const auto &transform  = subscene->transforms[i_node];
+	const auto &transform = subscene->transforms[i_node];
 	const auto &mesh_asset = subscene->meshes[i_node];
-	const auto &children   = subscene->children[i_node];
-	const auto &name       = subscene->names[i_node];
+	const auto &children = subscene->children[i_node];
+	const auto &name = subscene->names[i_node];
 
 	Entity *new_entity = entity_world.create_entity(name);
 
 	SpatialComponent *entity_root = nullptr;
 	if (mesh_asset.is_valid()) {
-		auto *mesh_component       = new_entity->create_component<MeshComponent>().as<MeshComponent>();
+		auto *mesh_component = new_entity->create_component<MeshComponent>().as<MeshComponent>();
 		mesh_component->mesh_asset = mesh_asset;
-		entity_root                = static_cast<SpatialComponent *>(mesh_component);
+		entity_root = static_cast<SpatialComponent *>(mesh_component);
 	} else {
 		entity_root = new_entity->create_component<SpatialComponent>().as<SpatialComponent>();
 	}
