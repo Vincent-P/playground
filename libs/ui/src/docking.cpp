@@ -63,7 +63,7 @@ Option<Rect> tabview(ui::Ui &ui, Docking &self, exo::StringView tabname)
 
 	if (container.selected != u32_invalid && container.tabviews[container.selected] == i_tabview) {
 		auto content_rect = area.rect;
-		/*auto tabwell_rect =*/rect_split_top(content_rect, 2.0f * self.ui.em_size);
+		/*auto tabwell_rect =*/content_rect.split_top(2.0f * self.ui.em_size);
 		ui.painter->draw_color_rect(content_rect, ui.state.current_clip_rect, ColorU32::from_greyscale(u8(0x1A)));
 		return Some(content_rect);
 	} else {
@@ -83,7 +83,7 @@ void begin_docking(Docking &self, ui::Ui &ui, Rect rect)
 
 	for (const auto &floating : self.floating_containers) {
 		auto copy = floating.rect;
-		/*auto titlebar_rect =*/rect_split_top(copy, 0.25f * em);
+		/*auto titlebar_rect =*/copy.split_top(0.25f * em);
 		self.area_pool.get(floating.area).rect = copy;
 
 		update_area_rec(self, floating.area);
@@ -157,7 +157,7 @@ void inspector_ui(Docking &self, ui::Ui &ui, Rect rect)
 	auto content_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	exo::ScopeStack scope;
-	auto mouse_pos = ui::mouse_position(ui);
+	auto mouse_pos = ui.mouse_position();
 	ui::label_split(ui, content_rectsplit, exo::formatf(scope, "mouse pos (%d, %d))", mouse_pos.x, mouse_pos.y));
 
 	for (const auto &floating_container : self.floating_containers) {
@@ -366,18 +366,18 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 	auto title_rect = rectsplit.split(label_width + 1.0f * em);
 
 	auto copy = title_rect;
-	auto bottom_border_rect = rect_split_bottom(copy, 0.1f * em);
+	auto bottom_border_rect = copy.split_bottom(0.1f * em);
 
 	// Interaction
 	auto res = TabState::None;
-	auto id = ui::make_id(ui);
+	auto id = ui.make_id();
 
-	const bool is_hovering = ui::is_hovering(ui, title_rect);
+	const bool is_hovering = ui.is_hovering(title_rect);
 	if (is_hovering) {
 		ui.activation.focused = id;
 
 		const bool has_pressed =
-			ui::has_pressed(ui, exo::MouseButton::Left) || ui::has_pressed(ui, exo::MouseButton::Right);
+			ui.has_pressed(exo::MouseButton::Left) || ui.has_pressed(exo::MouseButton::Right);
 		if (ui.activation.active == u64_invalid && has_pressed) {
 			ui.activation.active = id;
 		}
@@ -385,11 +385,11 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 		res = TabState::Dragging;
 	}
 
-	if (is_hovering && ui::has_clicked(ui, id)) {
+	if (is_hovering && ui.has_clicked(id)) {
 		res = TabState::ClickedTitle;
 	}
 
-	if (is_hovering && ui::has_clicked(ui, id, exo::MouseButton::Right)) {
+	if (is_hovering && ui.has_clicked(id, exo::MouseButton::Right)) {
 		res = TabState::ClickedDetach;
 	}
 
@@ -453,7 +453,7 @@ static void draw_area_rec(Docking &self, ui::Ui &ui, Handle<Area> area_handle)
 		}
 
 		auto area_rect = area.rect;
-		auto tabwell_rect = rect_split_top(area_rect, 2.0f * em);
+		auto tabwell_rect = area_rect.split_top(2.0f * em);
 
 		// Draw the tabwell background
 		ui.painter->draw_color_rect(tabwell_rect, ui.state.current_clip_rect, ColorU32::from_greyscale(u8(0x28)));
@@ -491,17 +491,17 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 	auto em = self.ui.em_size;
 
 	auto rect = floating_container.rect;
-	auto titlebar_rect = rect_split_top(rect, 0.25f * em);
+	auto titlebar_rect = rect.split_top(0.25f * em);
 
 	// Draw titlebar to move window
-	auto mouse_pos = ui::mouse_position(ui);
+	auto mouse_pos = ui.mouse_position();
 	{
-		auto id = ui::make_id(ui);
-		if (ui::is_hovering(ui, titlebar_rect)) {
+		auto id = ui.make_id();
+		if (ui.is_hovering(titlebar_rect)) {
 			ui.activation.focused = id;
 			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 				ui.activation.active = id;
-				ui.state.active_drag_offset = ui::mouse_position(ui) - floating_container.rect.pos;
+				ui.state.active_drag_offset = ui.mouse_position() - floating_container.rect.pos;
 			}
 		}
 
@@ -515,11 +515,11 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 	draw_area_rec(self, ui, floating_container.area);
 
 	// Draw the resize handle
-	auto bottom_rect = rect_split_bottom(rect, 0.5f * em);
-	auto handle_rect = rect_split_right(bottom_rect, 0.5f * em);
+	auto bottom_rect = rect.split_bottom(0.5f * em);
+	auto handle_rect = bottom_rect.split_right(0.5f * em);
 	{
-		auto id = ui::make_id(ui);
-		if (ui::is_hovering(ui, handle_rect)) {
+		auto id = ui.make_id();
+		if (ui.is_hovering(handle_rect)) {
 			ui.activation.focused = id;
 			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 				ui.activation.active = id;
@@ -570,16 +570,16 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 		constexpr float HANDLE_SIZE = 3.0f;
 		constexpr float HANDLE_OFFSET = HANDLE_SIZE + 0.5f;
 
-		auto drop_rect = rect_center(area.rect, float2(HANDLE_SIZE * em, HANDLE_SIZE * em));
-		auto split_top_rect = rect_offset(drop_rect, float2(0.0f, -HANDLE_OFFSET * em));
-		auto split_right_rect = rect_offset(drop_rect, float2(HANDLE_OFFSET * em, 0.0f));
-		auto split_bottom_rect = rect_offset(drop_rect, float2(0.0f, HANDLE_OFFSET * em));
-		auto split_left_rect = rect_offset(drop_rect, float2(-HANDLE_OFFSET * em, 0.0f));
+		auto drop_rect = area.rect.center(float2(HANDLE_SIZE * em, HANDLE_SIZE * em));
+		auto split_top_rect = drop_rect.offset(float2(0.0f, -HANDLE_OFFSET * em));
+		auto split_right_rect = drop_rect.offset(float2(HANDLE_OFFSET * em, 0.0f));
+		auto split_bottom_rect = drop_rect.offset(float2(0.0f, HANDLE_OFFSET * em));
+		auto split_left_rect = drop_rect.offset(float2(-HANDLE_OFFSET * em, 0.0f));
 
 		auto draw_rect = [&](const Rect &rect, DockingEvent event) {
 			auto color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.25f * 255));
 
-			if (ui::is_hovering(ui, rect)) {
+			if (ui.is_hovering(rect)) {
 				if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 					self.ui.events.push(event);
 				}

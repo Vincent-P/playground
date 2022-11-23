@@ -52,7 +52,7 @@ App::App(exo::ScopeStack &scope)
 		Painter::create({vertex_data, 1_MiB}, {index_data, 1_MiB / sizeof(PrimitiveIndex)}, int2(1024, 1024));
 	this->painter.glyph_atlas_gpu_idx = 0; // null texture
 
-	this->ui = ui::create(&this->ui_font, font_size_px, &this->painter);
+	this->ui = ui::Ui::create(&this->ui_font, font_size_px, &this->painter);
 	this->docking = docking::create();
 
 	this->is_minimized = false;
@@ -81,7 +81,7 @@ void App::display_ui(double dt)
 
 	this->ui.painter->index_offset = 0;
 	this->ui.painter->vertex_bytes_offset = 0;
-	ui::new_frame(this->ui);
+	this->ui.new_frame();
 
 	auto fullscreen_rect = Rect{.pos = {0, 0}, .size = float2(int2(this->window->size.x, this->window->size.y))};
 	auto em = this->ui.theme.font_size;
@@ -103,10 +103,10 @@ void App::display_ui(double dt)
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Docking"); view_rect) {
 		EXO_PROFILE_SCOPE_NAMED("Docking");
 
-		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
-		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, view_rect.value()));
+		auto content_rect = view_rect.value().inset(float2(1.0f * em));
+		this->ui.push_clip_rect(this->ui.register_clip_rect(view_rect.value()));
 		docking::inspector_ui(this->docking, this->ui, content_rect);
-		ui::pop_clip_rect(this->ui);
+		this->ui.pop_clip_rect();
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Outliner"); view_rect) {
@@ -114,12 +114,12 @@ void App::display_ui(double dt)
 
 		static auto scene_scroll_offset = float2();
 
-		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
-		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		auto content_rect = view_rect.value().inset(float2(1.0f * em));
+		this->ui.push_clip_rect(this->ui.register_clip_rect(content_rect));
 		auto inner_content_rect = ui::begin_scroll_area(this->ui, content_rect, scene_scroll_offset);
 		scene_treeview_ui(this->ui, this->scene, inner_content_rect);
 		ui::end_scroll_area(this->ui, inner_content_rect);
-		ui::pop_clip_rect(this->ui);
+		this->ui.pop_clip_rect();
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Inspector"); view_rect) {
@@ -127,19 +127,19 @@ void App::display_ui(double dt)
 
 		static auto scene_inspector_scroll_offset = float2();
 
-		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
-		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		auto content_rect = view_rect.value().inset(float2(1.0f * em));
+		this->ui.push_clip_rect(this->ui.register_clip_rect(content_rect));
 		auto inner_content_rect = ui::begin_scroll_area(this->ui, content_rect, scene_inspector_scroll_offset);
 		scene_inspector_ui(this->ui, this->scene, inner_content_rect);
 		ui::end_scroll_area(this->ui, inner_content_rect);
-		ui::pop_clip_rect(this->ui);
+		this->ui.pop_clip_rect();
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Inputs"); view_rect) {
 		EXO_PROFILE_SCOPE_NAMED("Inputs");
 
-		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
-		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		auto content_rect = view_rect.value().inset(float2(1.0f * em));
+		this->ui.push_clip_rect(this->ui.register_clip_rect(content_rect));
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
@@ -165,14 +165,14 @@ void App::display_ui(double dt)
 			ui::label_split(this->ui, rectsplit, "  <none>");
 		}
 
-		ui::pop_clip_rect(this->ui);
+		this->ui.pop_clip_rect();
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Asset Manager"); view_rect) {
 		EXO_PROFILE_SCOPE_NAMED("Asset Manager");
 
-		auto content_rect = rect_inset(view_rect.value(), float2(1.0f * em));
-		ui::push_clip_rect(this->ui, ui::register_clip_rect(this->ui, content_rect));
+		auto content_rect = view_rect.value().inset(float2(1.0f * em));
+		this->ui.push_clip_rect(this->ui.register_clip_rect(content_rect));
 
 		auto rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
@@ -204,7 +204,7 @@ void App::display_ui(double dt)
 		}
 		ui::end_scroll_area(this->ui, inner_content_rect);
 
-		ui::pop_clip_rect(this->ui);
+		this->ui.pop_clip_rect();
 	}
 
 	if (auto view_rect = docking::tabview(this->ui, this->docking, "Viewport"); view_rect) {
@@ -237,7 +237,7 @@ void App::display_ui(double dt)
 			.histogram = &this->histogram,
 		});
 
-	ui::end_frame(this->ui);
+	this->ui.end_frame();
 	s_last_frame_activation = this->ui.activation;
 	this->window->set_cursor(static_cast<cross::Cursor>(this->ui.state.cursor));
 }

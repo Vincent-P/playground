@@ -81,6 +81,28 @@ struct Ui
 	Activation activation;
 	State state;
 	Painter *painter;
+	// --
+
+	static Ui create(Font *font, float font_size, Painter *painter);
+	void new_frame();
+	void end_frame();
+
+	// helpers
+	inline float2 mouse_position() const { return float2(this->inputs.mouse_position); }
+	bool is_hovering(const Rect &rect) const;
+	u64 make_id();
+
+	// widget api
+	bool has_pressed(exo::MouseButton button = exo::MouseButton::Left) const;
+	bool has_pressed_and_released(exo::MouseButton button = exo::MouseButton::Left) const;
+	bool has_clicked(u64 id, exo::MouseButton button = exo::MouseButton::Left) const;
+
+	const Rect &current_clip_rect() const;
+	bool is_clipped(const Rect &rect) const;
+
+	u32 register_clip_rect(const Rect &clip_rect);
+	void push_clip_rect(u32 i_clip_rect);
+	void pop_clip_rect();
 };
 
 struct Button
@@ -88,28 +110,6 @@ struct Button
 	const char *label;
 	Rect rect;
 };
-
-Ui create(Font *font, float font_size, Painter *painter);
-void new_frame(Ui &ui);
-void end_frame(Ui &ui);
-
-// helpers
-inline float2 mouse_position(const Ui &ui) { return float2(ui.inputs.mouse_position); }
-bool is_hovering(const Ui &ui, const Rect &rect);
-u64 make_id(Ui &ui);
-float em(const Ui &ui);
-
-// widget api
-bool has_pressed(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
-bool has_pressed_and_released(const Ui &ui, exo::MouseButton button = exo::MouseButton::Left);
-bool has_clicked(const Ui &ui, u64 id, exo::MouseButton button = exo::MouseButton::Left);
-
-const Rect &current_clip_rect(const Ui &ui);
-bool is_clipped(const Ui &ui, const Rect &rect);
-
-u32 register_clip_rect(Ui &ui, const Rect &clip_rect);
-void push_clip_rect(Ui &ui, u32 i_clip_rect);
-void pop_clip_rect(Ui &ui);
 
 bool button(Ui &ui, const Button &button);
 

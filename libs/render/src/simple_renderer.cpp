@@ -10,7 +10,7 @@
 SimpleRenderer SimpleRenderer::create(u64 window_handle)
 {
 	SimpleRenderer renderer = {};
-	renderer.context = vulkan::Context::create({.enable_validation = true});
+	renderer.context = vulkan::Context::create({.enable_validation = false});
 
 	// Pick a GPU
 	auto &physical_devices = renderer.context.physical_devices;

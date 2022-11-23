@@ -44,7 +44,7 @@ void operator delete(void *ptr) noexcept
 // --- Structs
 
 PACKED(struct PushConstants {
-	u32 draw_id        = u32_invalid;
+	u32 draw_id = u32_invalid;
 	u32 gui_texture_id = u32_invalid;
 })
 
@@ -66,40 +66,40 @@ enum struct ImageExtension
 
 struct Image
 {
-	PixelFormat    format      = PixelFormat::R8G8B8A8_SRGB;
-	ImageExtension extension   = ImageExtension::PNG;
-	i32            width       = 0;
-	i32            height      = 0;
-	i32            depth       = 0;
-	i32            levels      = 0;
-	Vec<usize>     mip_offsets = {};
+	PixelFormat format = PixelFormat::R8G8B8A8_SRGB;
+	ImageExtension extension = ImageExtension::PNG;
+	i32 width = 0;
+	i32 height = 0;
+	i32 depth = 0;
+	i32 levels = 0;
+	Vec<usize> mip_offsets = {};
 
-	void       *impl_data   = nullptr; // ktxTexture* for libktx, u8* containing raw pixels for png
+	void *impl_data = nullptr; // ktxTexture* for libktx, u8* containing raw pixels for png
 	const void *pixels_data = nullptr;
-	usize       data_size   = 0;
+	usize data_size = 0;
 };
 
 struct RenderSample
 {
-	std::unique_ptr<cross::Window>  window = nullptr;
-	Inputs                          inputs = {};
-	SimpleRenderer                  renderer;
-	UiRenderer                      ui_renderer;
+	std::unique_ptr<cross::Window> window = nullptr;
+	Inputs inputs = {};
+	SimpleRenderer renderer;
+	UiRenderer ui_renderer;
 	Handle<vulkan::GraphicsProgram> viewer_program;
-	Handle<vulkan::Image>           viewer_gpu_image_upload;
-	Handle<vulkan::Image>           viewer_gpu_image_current;
-	Painter                         painter;
-	ui::Ui                          ui;
-	Font                            ui_font;
-	Rect                            viewer_clip_rect = {};
-	Image                           image;
-	bool                            display_channels[4] = {true, true, true, false};
-	u32                             viewer_flags        = 0b00000000'00000000'00000000'00001110;
+	Handle<vulkan::Image> viewer_gpu_image_upload;
+	Handle<vulkan::Image> viewer_gpu_image_current;
+	Painter painter;
+	ui::Ui ui;
+	Font ui_font;
+	Rect viewer_clip_rect = {};
+	Image image;
+	bool display_channels[4] = {true, true, true, false};
+	u32 viewer_flags = 0b00000000'00000000'00000000'00001110;
 };
 
-const u32 RED_CHANNEL_MASK   = 0b00000000'00000000'00000000'00001000;
+const u32 RED_CHANNEL_MASK = 0b00000000'00000000'00000000'00001000;
 const u32 GREEN_CHANNEL_MASK = 0b00000000'00000000'00000000'00000100;
-const u32 BLUE_CHANNEL_MASK  = 0b00000000'00000000'00000000'00000010;
+const u32 BLUE_CHANNEL_MASK = 0b00000000'00000000'00000000'00000010;
 const u32 ALPHA_CHANNEL_MASK = 0b00000000'00000000'00000000'00000001;
 
 // --- fwd
@@ -118,29 +118,29 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	app->window = cross::Window::create({1280, 720}, "Best Image Viewer");
 	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
 
-	app->renderer  = SimpleRenderer::create(app->window->get_win32_hwnd());
+	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd());
 	auto &renderer = app->renderer;
 
 	app->ui_renderer = UiRenderer::create(renderer.device, GLYPH_ATLAS_RESOLUTION);
 
 	vulkan::GraphicsState viewer_state = {};
-	viewer_state.vertex_shader         = renderer.device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
-	viewer_state.fragment_shader       = renderer.device.create_shader(SHADER_PATH("viewer.frag.glsl.spv"));
-	viewer_state.attachments_format    = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
-	app->viewer_program                = renderer.device.create_program("viewer", viewer_state);
+	viewer_state.vertex_shader = renderer.device.create_shader(SHADER_PATH("viewer.vert.glsl.spv"));
+	viewer_state.fragment_shader = renderer.device.create_shader(SHADER_PATH("viewer.frag.glsl.spv"));
+	viewer_state.attachments_format = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
+	app->viewer_program = renderer.device.create_program("viewer", viewer_state);
 	renderer.device.compile_graphics_state(app->viewer_program,
 		{.rasterization = {.culling = false}, .alpha_blending = true});
 
 	exo::logger::info("DPI at creation: %dx%d\n", app->window->get_dpi_scale().x, app->window->get_dpi_scale().y);
 
-	app->ui_font      = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
+	app->ui_font = Font::from_file(R"(C:\Windows\Fonts\segoeui.ttf)", 13);
 	auto *vertex_data = static_cast<u8 *>(scope.allocate(8_MiB));
-	auto *index_data  = static_cast<PrimitiveIndex *>(scope.allocate(8_MiB));
+	auto *index_data = static_cast<PrimitiveIndex *>(scope.allocate(8_MiB));
 	app->painter =
 		Painter::create({vertex_data, 8_MiB}, {index_data, 8_MiB / sizeof(PrimitiveIndex)}, GLYPH_ATLAS_RESOLUTION);
 	app->painter.glyph_atlas_gpu_idx = renderer.device.get_image_sampled_index(app->ui_renderer.glyph_atlas);
 
-	app->ui = ui::create(&app->ui_font, 14.0f, &app->painter);
+	app->ui = ui::Ui::create(&app->ui_font, 14.0f, &app->painter);
 
 	return app;
 }
@@ -156,17 +156,17 @@ namespace ui
 {
 struct CharCheckbox
 {
-	char  label;
-	Rect  rect;
+	char label;
+	Rect rect;
 	bool *value;
 };
 
 bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 {
-	bool      result = checkbox.value ? *checkbox.value : false;
-	const u64 id     = make_id(ui);
+	bool result = checkbox.value ? *checkbox.value : false;
+	const u64 id = ui.make_id();
 
-	if (is_hovering(ui, checkbox.rect)) {
+	if (ui.is_hovering(checkbox.rect)) {
 		ui.activation.focused = id;
 		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
 			ui.activation.active = id;
@@ -194,13 +194,13 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 	const float border_thickness = 1.0f;
 
 	const char label_str[] = {checkbox.label, '\0'};
-	auto label_rect = rect_center(checkbox.rect, float2(ui.painter->measure_label(*ui.theme.main_font, label_str)));
+	auto label_rect = checkbox.rect.center(float2(ui.painter->measure_label(*ui.theme.main_font, label_str)));
 
-	push_clip_rect(ui, register_clip_rect(ui, checkbox.rect));
+	ui.push_clip_rect(ui.register_clip_rect(checkbox.rect));
 	ui.painter->draw_color_rect(checkbox.rect, ui.state.current_clip_rect, border_color);
-	ui.painter->draw_color_rect(rect_inset(checkbox.rect, border_thickness), ui.state.current_clip_rect, bg_color);
+	ui.painter->draw_color_rect(checkbox.rect.inset(border_thickness), ui.state.current_clip_rect, bg_color);
 	ui.painter->draw_label(label_rect, ui.state.current_clip_rect, *ui.theme.main_font, label_str);
-	pop_clip_rect(ui);
+	ui.pop_clip_rect();
 
 	if (checkbox.value && *checkbox.value != result) {
 		*checkbox.value = result;
@@ -211,33 +211,33 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 
 static void display_ui(RenderSample *app)
 {
-	app->painter.index_offset        = 0;
+	app->painter.index_offset = 0;
 	app->painter.vertex_bytes_offset = 0;
-	ui::new_frame(app->ui);
+	app->ui.new_frame();
 
 	auto content_rect = Rect{.pos = {0, 0}, .size = float2(int2(app->window->size.x, app->window->size.y))};
 
 	const float menubar_height_margin = 8.0f;
-	const float menu_item_margin      = 12.0f;
-	const float menubar_height        = float(app->ui.theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
-	Rect        menubar_rect          = rect_split_top(content_rect, menubar_height);
+	const float menu_item_margin = 12.0f;
+	const float menubar_height = float(app->ui.theme.main_font->metrics.height) + 2.0f * menubar_height_margin;
+	Rect menubar_rect = content_rect.split_top(menubar_height);
 
 	/* Menu bar */
 	const auto menubar_bg_color = ColorU32::from_greyscale(u8(0xF3));
 	app->painter.draw_color_rect(menubar_rect, app->ui.state.current_clip_rect, menubar_bg_color);
 
 	// add first margin on the left
-	rect_split_left(menubar_rect, menu_item_margin);
-	auto menubar_theme                    = app->ui.theme;
-	menubar_theme.button_bg_color         = ColorU32::from_uints(0, 0, 0, 0x00);
-	menubar_theme.button_hover_bg_color   = ColorU32::from_uints(0, 0, 0, 0x06);
+	menubar_rect.split_left(menu_item_margin);
+	auto menubar_theme = app->ui.theme;
+	menubar_theme.button_bg_color = ColorU32::from_uints(0, 0, 0, 0x00);
+	menubar_theme.button_hover_bg_color = ColorU32::from_uints(0, 0, 0, 0x06);
 	menubar_theme.button_pressed_bg_color = ColorU32::from_uints(0, 0, 0, 0x09);
 
 	auto label_size = float2(app->painter.measure_label(*app->ui.theme.main_font, "Open Image")) + float2{8.0f, 0.0f};
 
-	Rect file_rect = rect_split_left(menubar_rect, label_size.x);
-	rect_split_left(menubar_rect, menu_item_margin);
-	file_rect = rect_center(file_rect, label_size);
+	Rect file_rect = menubar_rect.split_left(label_size.x);
+	menubar_rect.split_left(menu_item_margin);
+	file_rect = file_rect.center(label_size);
 	if (ui::button(app->ui, {.label = "Open Image", .rect = file_rect})) {
 		auto png_extension = std::make_pair(exo::String{"PNG Image"}, exo::String{"*.png"});
 		if (auto path = cross::file_dialog({&png_extension, 1})) {
@@ -245,58 +245,60 @@ static void display_ui(RenderSample *app)
 		}
 	}
 
-	label_size     = float2(app->painter.measure_label(*app->ui.theme.main_font, "Help")) + float2{8.0f, 0.0f};
-	Rect help_rect = rect_split_left(menubar_rect, label_size.x);
-	rect_split_left(menubar_rect, menu_item_margin);
+	label_size = float2(app->painter.measure_label(*app->ui.theme.main_font, "Help")) + float2{8.0f, 0.0f};
+	Rect help_rect = menubar_rect.split_left(label_size.x);
+	menubar_rect.split_left(menu_item_margin);
 
-	help_rect = rect_center(help_rect, label_size);
+	help_rect = help_rect.center(label_size);
 	if (ui::button(app->ui, {.label = "Help", .rect = help_rect})) {
 	}
 
 	const auto check_margin = 4.0f;
-	const auto check_size   = float2{20.0f};
-	Rect       check_rect   = rect_split_left(menubar_rect, check_size.x);
-	rect_split_left(menubar_rect, check_margin);
+	const auto check_size = float2{20.0f};
+	Rect check_rect = menubar_rect.split_left(check_size.x);
+	menubar_rect.split_left(check_margin);
 
-	check_rect = rect_center(check_rect, check_size);
+	check_rect = check_rect.center(check_size);
 	ui::char_checkbox(app->ui, {.label = 'R', .rect = check_rect, .value = &app->display_channels[0]});
 	app->viewer_flags =
 		app->display_channels[0] ? (app->viewer_flags | RED_CHANNEL_MASK) : (app->viewer_flags & ~RED_CHANNEL_MASK);
 
-	check_rect = rect_split_left(menubar_rect, check_size.x);
-	rect_split_left(menubar_rect, check_margin);
-	check_rect = rect_center(check_rect, check_size);
+	check_rect = menubar_rect.split_left(check_size.x);
+	menubar_rect.split_left(check_margin);
+	check_rect = check_rect.center(check_size);
 	ui::char_checkbox(app->ui, {.label = 'G', .rect = check_rect, .value = &app->display_channels[1]});
 	app->viewer_flags =
 		app->display_channels[1] ? (app->viewer_flags | GREEN_CHANNEL_MASK) : (app->viewer_flags & ~GREEN_CHANNEL_MASK);
 
-	check_rect = rect_split_left(menubar_rect, check_size.x);
-	rect_split_left(menubar_rect, check_margin);
-	check_rect = rect_center(check_rect, check_size);
+	check_rect = menubar_rect.split_left(check_size.x);
+	menubar_rect.split_left(check_margin);
+	check_rect = check_rect.center(check_size);
 	ui::char_checkbox(app->ui, {.label = 'B', .rect = check_rect, .value = &app->display_channels[2]});
 	app->viewer_flags =
 		app->display_channels[2] ? (app->viewer_flags | BLUE_CHANNEL_MASK) : (app->viewer_flags & ~BLUE_CHANNEL_MASK);
 
-	check_rect = rect_split_left(menubar_rect, check_size.x);
-	rect_split_left(menubar_rect, menu_item_margin);
+	check_rect = menubar_rect.split_left(check_size.x);
+	menubar_rect.split_left(menu_item_margin);
 
-	check_rect = rect_center(check_rect, check_size);
+	check_rect = check_rect.center(check_size);
 	ui::char_checkbox(app->ui, {.label = 'A', .rect = check_rect, .value = &app->display_channels[3]});
 	app->viewer_flags =
 		app->display_channels[3] ? (app->viewer_flags | ALPHA_CHANNEL_MASK) : (app->viewer_flags & ~ALPHA_CHANNEL_MASK);
 
 	/* Content */
-	auto separator_rect = rect_split_top(content_rect, 1.0f);
-	app->ui.painter->draw_color_rect(separator_rect, app->ui.state.current_clip_rect, ColorU32::from_greyscale(u8(0xE5)));
+	auto separator_rect = content_rect.split_top(1.0f);
+	app->ui.painter->draw_color_rect(separator_rect,
+		app->ui.state.current_clip_rect,
+		ColorU32::from_greyscale(u8(0xE5)));
 
-	const u32 i_content_rect = ui::register_clip_rect(app->ui, content_rect);
-	ui::push_clip_rect(app->ui, i_content_rect);
+	const u32 i_content_rect = app->ui.register_clip_rect(content_rect);
+	app->ui.push_clip_rect(i_content_rect);
 
 	// image viewer
 	app->viewer_clip_rect = content_rect;
 
-	ui::pop_clip_rect(app->ui);
-	ui::end_frame(app->ui);
+	app->ui.pop_clip_rect();
+	app->ui.end_frame();
 	app->window->set_cursor(static_cast<cross::Cursor>(app->ui.state.cursor));
 }
 
@@ -305,7 +307,7 @@ static void render(RenderSample *app)
 	EXO_PROFILE_SCOPE;
 
 	auto &renderer = app->renderer;
-	auto &graph    = renderer.render_graph;
+	auto &graph = renderer.render_graph;
 
 	auto intermediate_buffer = renderer.render_graph.output(TextureDesc{
 		.name = "render buffer desc",
@@ -424,38 +426,38 @@ static void open_file(RenderSample *app, const exo::StringView &path)
 	usize decoded_size = 0;
 	spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &decoded_size);
 
-	Image &new_image    = app->image;
+	Image &new_image = app->image;
 	new_image.impl_data = reinterpret_cast<u8 *>(malloc(decoded_size));
 	spng_decode_image(ctx, new_image.impl_data, decoded_size, SPNG_FMT_RGBA8, 0);
 
 	new_image.extension = ImageExtension::PNG;
-	new_image.width     = static_cast<int>(ihdr.width);
-	new_image.height    = static_cast<int>(ihdr.height);
-	new_image.depth     = 1;
-	new_image.levels    = 1;
-	new_image.format    = PixelFormat::R8G8B8A8_UNORM;
+	new_image.width = static_cast<int>(ihdr.width);
+	new_image.height = static_cast<int>(ihdr.height);
+	new_image.depth = 1;
+	new_image.levels = 1;
+	new_image.format = PixelFormat::R8G8B8A8_UNORM;
 	new_image.mip_offsets.push(0u);
 
 	new_image.pixels_data = new_image.impl_data;
-	new_image.data_size   = decoded_size;
+	new_image.data_size = decoded_size;
 
 	app->viewer_gpu_image_upload = app->renderer.device.create_image({
-		.name       = "Viewer image",
-		.size       = int3(new_image.width, new_image.height, new_image.depth),
+		.name = "Viewer image",
+		.size = int3(new_image.width, new_image.height, new_image.depth),
 		.mip_levels = static_cast<u32>(new_image.levels),
-		.format     = to_vk(new_image.format),
+		.format = to_vk(new_image.format),
 	});
 }
 
-u8  global_stack_mem[64 << 20];
+u8 global_stack_mem[64 << 20];
 int main(int /*argc*/, char ** /*argv*/)
 {
 	exo::LinearAllocator global_allocator =
 		exo::LinearAllocator::with_external_memory(global_stack_mem, sizeof(global_stack_mem));
 	exo::ScopeStack global_scope = exo::ScopeStack::with_allocator(&global_allocator);
-	auto           *app          = render_sample_init(global_scope);
-	auto           &window       = app->window;
-	auto           &inputs       = app->inputs;
+	auto *app = render_sample_init(global_scope);
+	auto &window = app->window;
+	auto &inputs = app->inputs;
 
 	while (!window->should_close()) {
 		window->poll_events();
