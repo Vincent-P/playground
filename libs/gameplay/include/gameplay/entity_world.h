@@ -1,12 +1,10 @@
 #pragma once
 #include "exo/collections/set.h"
 #include "exo/memory/string_repository.h"
+#include "exo/string_view.h"
 #include "exo/uuid.h"
-
 #include "gameplay/system.h"
 #include "gameplay/system_registry.h"
-
-#include "exo/string_view.h"
 
 namespace exo
 {
@@ -17,10 +15,10 @@ struct Entity;
 
 struct EntityWorld
 {
-	exo::StringRepository         str_repo        = {};
-	exo::Map<exo::UUID, Entity *> entities        = {};
-	exo::Set<Entity *>            root_entities   = {};
-	SystemRegistry                system_registry = {};
+	exo::StringRepository str_repo = {};
+	exo::Map<exo::UUID, Entity *> entities = {};
+	exo::Set<Entity *> root_entities = {};
+	SystemRegistry system_registry = {};
 
 	exo::EnumArray<Vec<refl::BasePtr<GlobalSystem>>, UpdateStage> global_per_stage_update_list = {};
 
@@ -30,8 +28,8 @@ struct EntityWorld
 
 	// Entities
 	Entity *create_entity(exo::StringView name = "Unnamed");
-	void    destroy_entity(Entity *entity);
-	void    set_parent_entity(Entity *entity, Entity *parent);
+	void destroy_entity(Entity *entity);
+	void set_parent_entity(Entity *entity, Entity *parent);
 
 	void _attach_to_parent(Entity *entity);
 	void _dettach_to_parent(Entity *entity);
@@ -48,7 +46,7 @@ struct EntityWorld
 	void destroy_system_internal(refl::BasePtr<GlobalSystem> system);
 
 	const SystemRegistry &get_system_registry() const { return system_registry; }
-	SystemRegistry       &get_system_registry() { return system_registry; }
+	SystemRegistry &get_system_registry() { return system_registry; }
 };
 
 void serialize(exo::Serializer &serializer, EntityWorld &world);

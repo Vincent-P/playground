@@ -23,19 +23,19 @@ struct StringRepository
 	~StringRepository();
 
 	// Move-only struct
-	StringRepository()                                         = default;
-	StringRepository(const StringRepository &other)            = delete;
+	StringRepository() = default;
+	StringRepository(const StringRepository &other) = delete;
 	StringRepository &operator=(const StringRepository &other) = delete;
 	StringRepository(StringRepository &&other) noexcept;
 	StringRepository &operator=(StringRepository &&other) noexcept;
 
 	const char *intern(exo::StringView s);
-	bool        is_interned(exo::StringView s);
+	bool is_interned(exo::StringView s);
 
 private:
-	Map<u64, u64> offsets       = {};
-	char         *string_buffer = nullptr;
-	usize         buffer_size   = 0;
+	Map<exo::RawHash, u64> offsets = {};
+	char *string_buffer = nullptr;
+	usize buffer_size = 0;
 };
 
 inline StringRepository *tls_string_repository = nullptr;

@@ -15,6 +15,7 @@ struct float2;
 struct float3;
 struct int2;
 struct Serializer;
+struct RawHash;
 
 // clang-format off
 template <typename T>
@@ -31,12 +32,12 @@ struct Serializer
 	void write_bytes(const void *src, usize len);
 
 	StringRepository *str_repo;
-	ScopeStack       *scope;
-	i32               version;
-	bool              is_writing;
-	void             *buffer;
-	usize             offset;
-	usize             buffer_size;
+	ScopeStack *scope;
+	i32 version;
+	bool is_writing;
+	void *buffer;
+	usize offset;
+	usize buffer_size;
 };
 
 // builtin types
@@ -64,6 +65,9 @@ void serialize(Serializer &serializer, float4 &data);
 void serialize(Serializer &serializer, float3 &data);
 void serialize(Serializer &serializer, float2 &data);
 void serialize(Serializer &serializer, int2 &data);
+
+// exo types
+void serialize(Serializer &serializer, RawHash &data);
 
 // templates last
 template <MemberSerializable T>

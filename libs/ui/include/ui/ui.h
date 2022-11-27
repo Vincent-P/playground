@@ -61,8 +61,8 @@ struct State
 	u32 current_clip_rect = u32_invalid;
 
 	exo::DynamicArray<u64, UI_MAX_DEPTH> scroll_id_stack;
-	exo::Map<u64, Rect> scroll_starting_rects;
-	exo::Map<u64, Rect> scroll_ending_rects;
+	exo::Map<exo::RawHash, Rect> scroll_starting_rects;
+	exo::Map<exo::RawHash, Rect> scroll_ending_rects;
 
 	// custom mouse cursor
 	int cursor = 0;

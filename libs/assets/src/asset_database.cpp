@@ -26,11 +26,11 @@ enum struct TrackerAction
 
 struct ResourceTracker
 {
-	exo::Path             resource_path;
+	exo::Path resource_path;
 	exo::Handle<Resource> resource;
-	FileHash              hash;
-	TrackerAction         action               = TrackerAction::None;
-	bool                  is_resource_outdated = false;
+	exo::RawHash hash;
+	TrackerAction action = TrackerAction::None;
+	bool is_resource_outdated = false;
 };
 
 void AssetDatabase::track_resource_changes(
@@ -45,8 +45,8 @@ void AssetDatabase::track_resource_changes(
 			continue;
 		}
 
-		auto &tracker         = trackers.push();
-		auto  path_string     = file_entry.path().string();
+		auto &tracker = trackers.push();
+		auto path_string = file_entry.path().string();
 		tracker.resource_path = exo::Path::from_string(exo::StringView{path_string.c_str(), path_string.size()});
 	}
 
@@ -56,11 +56,11 @@ void AssetDatabase::track_resource_changes(
 		this,
 		[](ResourceTracker &tracker, const AssetDatabase *self) {
 			auto resource_file = cross::MappedFile::open(tracker.resource_path.view()).value();
-			tracker.hash       = FileHash{assets::hash_file64(resource_file.content())};
+			tracker.hash = exo::RawHash{assets::hash_file64(resource_file.content())};
 			resource_file.close();
 
 			const auto *content_map_entry = self->resource_content_map.at(tracker.hash);
-			const auto *path_map_entry    = self->resource_path_map.at(tracker.resource_path);
+			const auto *path_map_entry = self->resource_path_map.at(tracker.resource_path);
 
 			if (path_map_entry && content_map_entry) {
 				// The resource is known
@@ -72,12 +72,12 @@ void AssetDatabase::track_resource_changes(
 				}
 			} else if (path_map_entry && !content_map_entry) {
 				// Only the content changed
-				tracker.resource             = *path_map_entry;
+				tracker.resource = *path_map_entry;
 				tracker.is_resource_outdated = true;
-				tracker.action               = TrackerAction::UpdateContentMap;
+				tracker.action = TrackerAction::UpdateContentMap;
 			} else if (!path_map_entry && content_map_entry) {
 				// Only the path changed
-				tracker.action   = TrackerAction::UpdatePathMap;
+				tracker.action = TrackerAction::UpdatePathMap;
 				tracker.resource = *content_map_entry;
 			} else if (!path_map_entry && !content_map_entry) {
 				// New resource
@@ -95,7 +95,7 @@ void AssetDatabase::track_resource_changes(
 		}
 		case TrackerAction::UpdateContentMap: {
 			const auto old_file_hash = this->resource_records.get(tracker.resource).last_imported_hash;
-			if (old_file_hash.hash != 0) {
+			if (old_file_hash.value != 0) {
 				this->resource_content_map.remove(old_file_hash);
 			}
 			this->resource_content_map.insert(tracker.hash, tracker.resource);
@@ -109,10 +109,10 @@ void AssetDatabase::track_resource_changes(
 			break;
 		}
 		case TrackerAction::NewResource: {
-			Resource new_record          = {};
-			new_record.asset_id          = AssetId::invalid();
-			new_record.resource_path     = tracker.resource_path;
-			tracker.resource             = this->resource_records.add(std::move(new_record));
+			Resource new_record = {};
+			new_record.asset_id = AssetId::invalid();
+			new_record.resource_path = tracker.resource_path;
+			tracker.resource = this->resource_records.add(std::move(new_record));
 			tracker.is_resource_outdated = true;
 			this->resource_path_map.insert(tracker.resource_path, tracker.resource);
 			this->resource_content_map.insert(tracker.hash, tracker.resource);
@@ -132,7 +132,7 @@ Resource &AssetDatabase::get_resource_from_path(const exo::Path &path)
 	return this->resource_records.get(handle);
 }
 
-Resource &AssetDatabase::get_resource_from_content(FileHash content_hash)
+Resource &AssetDatabase::get_resource_from_content(exo::RawHash content_hash)
 {
 	auto handle = *this->resource_content_map.at(content_hash);
 	return this->resource_records.get(handle);
@@ -164,7 +164,7 @@ void serialize(exo::Serializer &serializer, Resource &data)
 {
 	exo::serialize(serializer, data.asset_id);
 	exo::serialize(serializer, data.resource_path);
-	exo::serialize(serializer, data.last_imported_hash.hash);
+	exo::serialize(serializer, data.last_imported_hash);
 }
 
 void serialize(exo::Serializer &serializer, AssetDatabase &db)
@@ -173,5 +173,3 @@ void serialize(exo::Serializer &serializer, AssetDatabase &db)
 	exo::serialize(serializer, db.resource_content_map);
 	exo::serialize(serializer, db.resource_records);
 }
-
-void serialize(exo::Serializer &serializer, FileHash &hash) { exo::serialize(serializer, hash.hash); }

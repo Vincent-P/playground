@@ -11,13 +11,13 @@ namespace exo
 {
 Serializer Serializer::create(ScopeStack *s, StringRepository *r)
 {
-	Serializer result  = {};
-	result.str_repo    = r ? r : tls_string_repository;
-	result.scope       = s;
-	result.version     = 1;
-	result.is_writing  = false;
-	result.buffer      = nullptr;
-	result.offset      = 0;
+	Serializer result = {};
+	result.str_repo = r ? r : tls_string_repository;
+	result.scope = s;
+	result.version = 1;
+	result.is_writing = false;
+	result.buffer = nullptr;
+	result.offset = 0;
 	result.buffer_size = 0;
 	return result;
 }
@@ -91,4 +91,5 @@ void serialize(Serializer &serializer, float4 &data) { return serialize_impl(ser
 void serialize(Serializer &serializer, float2 &data) { return serialize_impl(serializer, data); }
 void serialize(Serializer &serializer, float3 &data) { return serialize_impl(serializer, data); }
 void serialize(Serializer &serializer, int2 &data) { return serialize_impl(serializer, data); }
+void serialize(Serializer &serializer, RawHash &data) { return serialize_impl(serializer, data); }
 } // namespace exo

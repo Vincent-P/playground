@@ -8,6 +8,7 @@
 #include "cross/mapped_file.h"
 #include "exo/collections/span.h"
 #include "exo/format.h"
+#include "exo/hash.h"
 #include "exo/logger.h"
 #include "exo/memory/scope_stack.h"
 #include "exo/serialization/serializer.h"
@@ -17,8 +18,8 @@
 #include "reflection/reflection_serializer.h"
 #include <filesystem>
 
-static const exo::Path AssetPath         = exo::Path::from_string(ASSET_PATH);
-static const exo::Path DatabasePath      = exo::Path::from_string(DATABASE_PATH);
+static const exo::Path AssetPath = exo::Path::from_string(ASSET_PATH);
+static const exo::Path DatabasePath = exo::Path::from_string(DATABASE_PATH);
 static const exo::Path CompiledAssetPath = exo::Path::from_string(COMPILED_ASSET_PATH);
 
 exo::Path AssetManager::get_asset_path(const AssetId &id)
@@ -30,7 +31,7 @@ exo::Path AssetManager::get_asset_path(const AssetId &id)
 AssetManager AssetManager::create(cross::JobManager &jobmanager)
 {
 	AssetManager asset_manager = {};
-	asset_manager.jobmanager   = &jobmanager;
+	asset_manager.jobmanager = &jobmanager;
 
 	asset_manager.importers.push(new GLTFImporter{});
 	asset_manager.importers.push(new PNGImporter{});
@@ -73,7 +74,7 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	// Create a new asset for this resource
 	CreateRequest create_req{};
 	create_req.asset = std::move(id);
-	create_req.path  = path;
+	create_req.path = path;
 	auto create_resp = std::move(importer.create_asset(create_req).value());
 	ASSERT(create_resp.new_id.is_valid());
 
@@ -83,16 +84,16 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 	}
 
 	// Process this new asset
-	ImporterApi    api{manager};
+	ImporterApi api{manager};
 	ProcessRequest process_req{.importer_api = api};
 	process_req.asset = create_resp.new_id;
-	process_req.path  = path;
+	process_req.path = path;
 	auto process_resp = std::move(importer.process_asset(process_req).value());
 	ASSERT(!process_resp.products.is_empty());
 
 	// Update the resource in the database
 	auto resource_file = cross::MappedFile::open(path.view()).value();
-	auto resource_hash = FileHash{assets::hash_file64(resource_file.content())};
+	auto resource_hash = exo::RawHash{assets::hash_file64(resource_file.content())};
 	resource_file.close();
 	auto &asset_record = manager.database.get_resource_from_content(resource_hash);
 	if (asset_record.asset_id != process_req.asset) {
@@ -111,11 +112,11 @@ static void import_resource(AssetManager &manager, AssetId id, const exo::Path &
 void AssetManager::_import_resources(exo::Span<const Handle<Resource>> records)
 {
 	for (auto handle : records) {
-		auto       &asset_record = this->database.resource_records.get(handle);
-		const auto &asset_path   = asset_record.resource_path;
+		auto &asset_record = this->database.resource_records.get(handle);
+		const auto &asset_path = asset_record.resource_path;
 
 		auto resource_file = cross::MappedFile::open(asset_path.view()).value();
-		auto resource_hash = FileHash{assets::hash_file64(resource_file.content())};
+		auto resource_hash = exo::RawHash{assets::hash_file64(resource_file.content())};
 		resource_file.close();
 
 		if (asset_record.last_imported_hash != resource_hash) {
@@ -126,11 +127,11 @@ void AssetManager::_import_resources(exo::Span<const Handle<Resource>> records)
 
 refl::BasePtr<Asset> AssetManager::_load_from_disk(const AssetId &id)
 {
-	auto       asset_path = AssetManager::get_asset_path(id);
-	const auto fs_path    = std::filesystem::path{asset_path.view().data()};
+	auto asset_path = AssetManager::get_asset_path(id);
+	const auto fs_path = std::filesystem::path{asset_path.view().data()};
 	ASSERT(std::filesystem::exists(fs_path));
 	auto resource_file = cross::MappedFile::open(asset_path.view()).value();
-	auto new_asset     = refl::BasePtr<Asset>::invalid();
+	auto new_asset = refl::BasePtr<Asset>::invalid();
 	exo::serializer_helper::read_object(resource_file.content(), new_asset);
 	new_asset->state = AssetState::LoadedWaitingForDeps;
 	return new_asset;
@@ -204,8 +205,8 @@ void AssetManager::load_asset_async(const AssetId &id)
 
 	printf("[AssetManager] Loading %s asynchronously.\n", id.name.c_str());
 
-	auto *req           = this->database.asset_async_requests.insert(id, {});
-	req->data           = std::make_unique<AssetAsyncRequest::Data>();
+	auto *req = this->database.asset_async_requests.insert(id, {});
+	req->data = std::make_unique<AssetAsyncRequest::Data>();
 	req->data->asset_id = id;
 
 	req->waitable = cross::custom_job<AssetAsyncRequest::Data>(*this->jobmanager,
@@ -241,8 +242,8 @@ void AssetManager::unload_asset(const AssetId &id) { this->database.remove_asset
 
 usize AssetManager::read_blob(exo::u128 blob_hash, exo::Span<u8> out_data)
 {
-	auto path         = get_blob_path(blob_hash);
-	auto blob_file    = cross::MappedFile::open(path.view()).value();
+	auto path = get_blob_path(blob_hash);
+	auto blob_file = cross::MappedFile::open(path.view()).value();
 	auto blob_content = blob_file.content();
 	ASSERT(out_data.len() >= blob_content.len());
 	std::memcpy(out_data.data(), blob_content.data(), blob_content.len());
@@ -252,10 +253,10 @@ usize AssetManager::read_blob(exo::u128 blob_hash, exo::Span<u8> out_data)
 exo::u128 AssetManager::save_blob(exo::Span<const u8> blob_data)
 {
 	auto blob_hash = assets::hash_file128(blob_data);
-	auto path      = get_blob_path(blob_hash);
+	auto path = get_blob_path(blob_hash);
 
-	FILE *fp       = fopen(path.view().data(), "wb");
-	auto  bwritten = fwrite(blob_data.data(), 1, blob_data.len(), fp);
+	FILE *fp = fopen(path.view().data(), "wb");
+	auto bwritten = fwrite(blob_data.data(), 1, blob_data.len(), fp);
 	ASSERT(bwritten == blob_data.len());
 	fclose(fp);
 
