@@ -1,5 +1,6 @@
 #pragma once
 #include "exo/collections/span.h"
+#include "exo/collections/map.h"
 #include "exo/macros/packed.h"
 #include "exo/maths/vectors.h"
 #include "exo/string_view.h"
@@ -14,6 +15,8 @@ struct ScopeStack;
 struct Font;
 struct hb_font_t;
 struct hb_buffer_t;
+struct hb_glyph_info_t;
+struct hb_glyph_position_t;
 
 PACKED(struct ColorRect {
 	Rect rect;
@@ -60,9 +63,21 @@ union PrimitiveIndex
 };
 static_assert(sizeof(PrimitiveIndex) == sizeof(u32));
 
-struct ShapeContext
+struct CachedRun
 {
 	hb_buffer_t *hb_buf = nullptr;
+	hb_glyph_info_t *glyph_infos = nullptr;
+	hb_glyph_position_t *glyph_positions = nullptr;
+	u32 glyph_count = 0;
+};
+
+struct ShapeContext
+{
+	exo::Map<exo::RawHash, CachedRun> cached_runs;
+
+	// --
+	static ShapeContext create();
+	const CachedRun &get_run(Font &font, exo::StringView text_run);
 };
 
 struct Painter

@@ -11,6 +11,40 @@
 #include <cstring> // for std::memset
 #include <hb.h>
 
+ShapeContext ShapeContext::create()
+{
+	ShapeContext context = {};
+	return context;
+}
+
+const CachedRun &ShapeContext::get_run(Font &font, exo::StringView text_run)
+{
+	auto cache_key = exo::RawHash{0};
+	CachedRun *run = this->cached_runs.at(cache_key);
+	if (!run) {
+		run = this->cached_runs.insert(cache_key, {});
+	}
+
+	if (!run->hb_buf) {
+		run->hb_buf = hb_buffer_create();
+	}
+
+	hb_buffer_clear_contents(run->hb_buf);
+
+	// clear_contents clear buffer props
+	hb_buffer_set_direction(run->hb_buf, HB_DIRECTION_LTR);
+	hb_buffer_set_script(run->hb_buf, HB_SCRIPT_LATIN);
+	hb_buffer_set_language(run->hb_buf, hb_language_from_string("en", -1));
+
+	hb_buffer_add_utf8(run->hb_buf, text_run.data(), int(text_run.len()), 0, -1);
+
+	hb_shape(font.hb_font, run->hb_buf, nullptr, 0);
+
+	run->glyph_infos = hb_buffer_get_glyph_infos(run->hb_buf, &run->glyph_count);
+	run->glyph_positions = hb_buffer_get_glyph_positions(run->hb_buf, nullptr);
+	return *run;
+}
+
 Painter Painter::create(exo::Span<u8> vbuffer, exo::Span<PrimitiveIndex> ibuffer, int2 glyph_cache_size)
 {
 	Painter painter = {};
@@ -22,7 +56,7 @@ Painter Painter::create(exo::Span<u8> vbuffer, exo::Span<PrimitiveIndex> ibuffer
 	std::memset(painter.vertex_buffer.data(), 0, painter.vertex_buffer.size_bytes());
 	std::memset(painter.index_buffer.data(), 0, painter.index_buffer.size_bytes());
 
-	painter.shaper.hb_buf = hb_buffer_create();
+	painter.shaper = ShapeContext::create();
 	return painter;
 }
 
@@ -89,23 +123,13 @@ int2 Painter::measure_label(Font &font, exo::StringView label)
 {
 	EXO_PROFILE_SCOPE;
 
-	auto *buf = this->shaper.hb_buf;
-	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
-	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
-	hb_buffer_set_language(buf, hb_language_from_string("en", -1));
-
-	hb_shape(font.hb_font, buf, nullptr, 0);
-
-	u32 glyph_count;
-	const i32 line_height = font.metrics.ascender - font.metrics.descender;
-	// hb_glyph_info_t     *glyph_info  = hb_buffer_get_glyph_infos(buf, &glyph_count);
-	hb_glyph_position_t *glyph_pos = hb_buffer_get_glyph_positions(buf, &glyph_count);
+	const auto &shaped_run = this->shaper.get_run(font, label);
+	auto line_height = font.metrics.height;
 
 	i32 cursor_x = 0;
-	for (u32 i = 0; i < glyph_count; i++) {
-		cursor_x += (glyph_pos[i].x_advance >> 6);
+	for (u32 i = 0; i < shaped_run.glyph_count; i++) {
+		// advance is in subpixel unit
+		cursor_x += (shaped_run.glyph_positions[i].x_advance >> 6);
 	}
 
 	return {cursor_x, line_height};
@@ -115,25 +139,15 @@ void Painter::draw_label(const Rect &view_rect, u32 i_clip_rect, Font &font, exo
 {
 	EXO_PROFILE_SCOPE;
 
-	auto *buf = this->shaper.hb_buf;
-	hb_buffer_clear_contents(buf);
-	hb_buffer_add_utf8(buf, label.data(), int(label.len()), 0, -1);
-	hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-	hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
-	hb_buffer_set_language(buf, hb_language_from_string("en", -1));
-	hb_shape(font.hb_font, buf, nullptr, 0);
-
-	u32 glyph_count;
+	const auto &shaped_run = this->shaper.get_run(font, label);
 	const i32 line_height = font.metrics.height;
-	hb_glyph_info_t *glyph_infos = hb_buffer_get_glyph_infos(buf, &glyph_count);
-	hb_glyph_position_t *glyph_positions = hb_buffer_get_glyph_positions(buf, &glyph_count);
 
 	i32 cursor_x = i32(view_rect.pos.x);
 	i32 cursor_y = i32(view_rect.pos.y) + font.metrics.ascender;
-	for (u32 i = 0; i < glyph_count; i++) {
-		const u32 glyph_index = glyph_infos[i].codepoint;
-		const i32 x_advance = glyph_positions[i].x_advance;
-		const i32 y_advance = glyph_positions[i].y_advance;
+	for (u32 i = 0; i < shaped_run.glyph_count; i++) {
+		const u32 glyph_index = shaped_run.glyph_infos[i].codepoint;
+		const i32 x_advance = shaped_run.glyph_positions[i].x_advance;
+		const i32 y_advance = shaped_run.glyph_positions[i].y_advance;
 
 		GlyphImage glyph_image = {};
 		auto cache_entry = this->glyph_cache.queue_glyph(font, glyph_index, &glyph_image);
@@ -152,10 +166,11 @@ void Painter::draw_label(const Rect &view_rect, u32 i_clip_rect, Font &font, exo
 			this->draw_textured_rect(rect, i_clip_rect, uv, this->glyph_atlas_gpu_idx);
 		}
 
+		// advance is in subpixel unit
 		cursor_x += x_advance >> 6;
 		cursor_y += y_advance >> 6;
 
-		if (label[glyph_infos[i].cluster] == '\n') {
+		if (label[shaped_run.glyph_infos[i].cluster] == '\n') {
 			cursor_x = i32(view_rect.pos.x);
 			cursor_y += line_height;
 		}
