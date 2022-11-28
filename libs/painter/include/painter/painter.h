@@ -1,6 +1,6 @@
 #pragma once
-#include "exo/collections/span.h"
 #include "exo/collections/map.h"
+#include "exo/collections/span.h"
 #include "exo/macros/packed.h"
 #include "exo/maths/vectors.h"
 #include "exo/string_view.h"
@@ -20,35 +20,35 @@ struct hb_glyph_position_t;
 
 PACKED(struct ColorRect {
 	Rect rect;
-	u32  color;
-	u32  i_clip_rect;
-	u32  padding[2];
+	u32 color;
+	u32 i_clip_rect;
+	u32 padding[2];
 })
 
 PACKED(struct SdfRect {
 	Rect rect;
-	u32  color;
-	u32  i_clip_rect;
-	u32  border_color;
-	u32  border_thickness;
+	u32 color;
+	u32 i_clip_rect;
+	u32 border_color;
+	u32 border_thickness;
 })
 static_assert(sizeof(SdfRect) == sizeof(ColorRect));
 
 PACKED(struct TexturedRect {
 	Rect rect;
 	Rect uv;
-	u32  texture_descriptor;
-	u32  i_clip_rect;
-	u32  padding[2];
+	u32 texture_descriptor;
+	u32 i_clip_rect;
+	u32 padding[2];
 })
 
 enum RectType : u32
 {
-	RectType_Color              = 0,
-	RectType_Textured           = 1,
-	RectType_Clip               = 2,
+	RectType_Color = 0,
+	RectType_Textured = 1,
+	RectType_Clip = 2,
 	RectType_Sdf_RoundRectangle = (0b100000),
-	RectType_Sdf_Circle         = (0b100001)
+	RectType_Sdf_Circle = (0b100001)
 };
 
 union PrimitiveIndex
@@ -73,7 +73,7 @@ struct CachedRun
 
 struct ShapeContext
 {
-	exo::Map<exo::RawHash, CachedRun> cached_runs;
+	exo::Map<exo::StringView, CachedRun> cached_runs;
 
 	// --
 	static ShapeContext create();
@@ -82,13 +82,13 @@ struct ShapeContext
 
 struct Painter
 {
-	GlyphCache                glyph_cache         = {};
-	ShapeContext              shaper              = {};
-	exo::Span<u8>             vertex_buffer       = {};
-	exo::Span<PrimitiveIndex> index_buffer        = {};
-	usize                     vertex_bytes_offset = 0;
-	u32                       index_offset        = 0;
-	u32                       glyph_atlas_gpu_idx = u32_invalid;
+	GlyphCache glyph_cache = {};
+	ShapeContext shaper = {};
+	exo::Span<u8> vertex_buffer = {};
+	exo::Span<PrimitiveIndex> index_buffer = {};
+	usize vertex_bytes_offset = 0;
+	u32 index_offset = 0;
+	u32 glyph_atlas_gpu_idx = u32_invalid;
 
 	// --
 

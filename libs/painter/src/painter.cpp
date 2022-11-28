@@ -19,29 +19,25 @@ ShapeContext ShapeContext::create()
 
 const CachedRun &ShapeContext::get_run(Font &font, exo::StringView text_run)
 {
-	auto cache_key = exo::RawHash{0};
+	auto cache_key = text_run;
 	CachedRun *run = this->cached_runs.at(cache_key);
 	if (!run) {
-		run = this->cached_runs.insert(cache_key, {});
+		run = this->cached_runs.insert(cache_key, {.hb_buf = hb_buffer_create()});
+
+		hb_buffer_clear_contents(run->hb_buf);
+
+		// clear_contents clear buffer props
+		hb_buffer_set_direction(run->hb_buf, HB_DIRECTION_LTR);
+		hb_buffer_set_script(run->hb_buf, HB_SCRIPT_LATIN);
+		hb_buffer_set_language(run->hb_buf, hb_language_from_string("en", -1));
+
+		hb_buffer_add_utf8(run->hb_buf, text_run.data(), int(text_run.len()), 0, -1);
+
+		hb_shape(font.hb_font, run->hb_buf, nullptr, 0);
+
+		run->glyph_infos = hb_buffer_get_glyph_infos(run->hb_buf, &run->glyph_count);
+		run->glyph_positions = hb_buffer_get_glyph_positions(run->hb_buf, nullptr);
 	}
-
-	if (!run->hb_buf) {
-		run->hb_buf = hb_buffer_create();
-	}
-
-	hb_buffer_clear_contents(run->hb_buf);
-
-	// clear_contents clear buffer props
-	hb_buffer_set_direction(run->hb_buf, HB_DIRECTION_LTR);
-	hb_buffer_set_script(run->hb_buf, HB_SCRIPT_LATIN);
-	hb_buffer_set_language(run->hb_buf, hb_language_from_string("en", -1));
-
-	hb_buffer_add_utf8(run->hb_buf, text_run.data(), int(text_run.len()), 0, -1);
-
-	hb_shape(font.hb_font, run->hb_buf, nullptr, 0);
-
-	run->glyph_infos = hb_buffer_get_glyph_infos(run->hb_buf, &run->glyph_count);
-	run->glyph_positions = hb_buffer_get_glyph_positions(run->hb_buf, nullptr);
 	return *run;
 }
 

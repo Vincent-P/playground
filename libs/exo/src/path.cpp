@@ -1,8 +1,6 @@
 #include "exo/path.h"
 #include "exo/macros/assert.h"
-
 #include <utility>
-#include <xxhash.h>
 
 static bool is_separator(char c) { return c == '/' || c == '\\'; }
 
@@ -30,7 +28,7 @@ static void append_path(exo::String &storage, exo::StringView to_append)
 	const usize to_append_size = to_append.len();
 	for (u32 i = 0; i < to_append_size; ++i) {
 		auto current = to_append[i];
-		auto next    = i + 1 < to_append_size ? to_append[i + 1] : '\0';
+		auto next = i + 1 < to_append_size ? to_append[i + 1] : '\0';
 
 		if (current == '.') {
 			// Skip './' or '.\\'
@@ -73,8 +71,8 @@ Path Path::from_owned_string(exo::String &&str) { return Path::from_string(str);
 
 exo::StringView Path::extension() const
 {
-	u32       i_last_dot = u32_invalid;
-	const u32 size       = u32(this->str.len());
+	u32 i_last_dot = u32_invalid;
+	const u32 size = u32(this->str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '.') {
 			i_last_dot = size - i - 1;
@@ -91,8 +89,8 @@ exo::StringView Path::extension() const
 
 exo::StringView Path::filename() const
 {
-	u32       i_last_sep = u32_invalid;
-	const u32 size       = u32(this->str.len());
+	u32 i_last_sep = u32_invalid;
+	const u32 size = u32(this->str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (this->str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;
@@ -104,7 +102,7 @@ exo::StringView Path::filename() const
 		return exo::StringView{this->str};
 	} else {
 		const usize filename_length = size - (i_last_sep + 1);
-		auto        filename        = exo::StringView{&this->str[i_last_sep + 1], filename_length};
+		auto filename = exo::StringView{&this->str[i_last_sep + 1], filename_length};
 		return filename;
 	}
 }
@@ -129,8 +127,8 @@ Path Path::replace_filename(exo::Path path, exo::StringView new_filename)
 
 Path Path::remove_filename(exo::Path path)
 {
-	u32       i_last_sep = 0;
-	const u32 size       = u32(path.str.len());
+	u32 i_last_sep = 0;
+	const u32 size = u32(path.str.len());
 	for (u32 i = 0; i < size; ++i) {
 		if (path.str[size - i - 1] == '/') {
 			i_last_sep = size - i - 1;
@@ -140,13 +138,6 @@ Path Path::remove_filename(exo::Path path)
 
 	auto path_except_filename = exo::StringView{&path.str[0], i_last_sep + 1};
 	return Path::from_string(path_except_filename);
-}
-
-[[nodiscard]] u64 hash_value(const exo::Path &path)
-{
-	const auto view = path.view();
-	const u64  hash = XXH3_64bits(view.data(), view.len());
-	return hash;
 }
 
 } // namespace exo

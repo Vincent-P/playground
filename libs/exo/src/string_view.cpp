@@ -3,6 +3,7 @@
 #include "exo/string.h"
 #include <cstring>
 #include <utility>
+#include <xxhash.h>
 
 namespace exo
 {
@@ -17,9 +18,9 @@ StringView::StringView(const String &string) : ptr{string.c_str()}, length{strin
 StringView::StringView(StringView &&other) noexcept { *this = std::move(other); }
 StringView &StringView::operator=(StringView &&other) noexcept
 {
-	this->ptr    = other.ptr;
+	this->ptr = other.ptr;
 	this->length = other.length;
-	other.ptr    = nullptr;
+	other.ptr = nullptr;
 	other.length = 0;
 	return *this;
 }
@@ -47,6 +48,12 @@ bool operator==(const String &lhs, const StringView &rhs)
 bool operator==(const StringView &lhs, const String &rhs)
 {
 	return lhs.length == rhs.len() && std::memcmp(lhs.ptr, rhs.data(), lhs.length) == 0;
+}
+
+[[nodiscard]] u64 hash_value(const exo::StringView view)
+{
+	const u64 hash = XXH3_64bits(view.data(), view.len());
+	return hash;
 }
 
 }; // namespace exo

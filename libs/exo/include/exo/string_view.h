@@ -7,8 +7,8 @@ struct String;
 
 struct StringView
 {
-	const char *ptr    = nullptr;
-	usize       length = 0;
+	const char *ptr = nullptr;
+	usize length = 0;
 
 	// --
 
@@ -17,7 +17,7 @@ struct StringView
 	StringView(const char *c_string, usize len);
 	StringView(const String &string);
 
-	StringView(const StringView &other)            = default;
+	StringView(const StringView &other) = default;
 	StringView &operator=(const StringView &other) = default;
 
 	StringView(StringView &&other) noexcept;
@@ -30,7 +30,7 @@ struct StringView
 	// -- Observers
 
 	usize len() const { return this->length; }
-	bool  is_empty() const { return this->length == 0; }
+	bool is_empty() const { return this->length == 0; }
 
 	// -- STL compat
 
@@ -64,5 +64,7 @@ inline bool operator==(const char (&literal)[N], const StringView &view)
 {
 	return view == literal;
 }
+
+[[nodiscard]] u64 hash_value(const exo::StringView view);
 
 } // namespace exo

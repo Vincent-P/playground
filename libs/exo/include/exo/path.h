@@ -25,5 +25,5 @@ struct Path
 	static Path remove_filename(exo::Path path);
 };
 
-[[nodiscard]] u64 hash_value(const exo::Path &path);
+[[nodiscard]] inline u64 hash_value(const exo::Path &path) { return hash_value(exo::StringView{path.str}); }
 } // namespace exo
