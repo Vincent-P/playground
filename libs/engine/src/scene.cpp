@@ -1,7 +1,9 @@
 #include "engine/scene.h"
 #include "assets/asset_manager.h"
+#include "assets/material.h"
 #include "assets/mesh.h"
 #include "assets/subscene.h"
+#include "assets/texture.h"
 #include "cross/mapped_file.h"
 #include "engine/render_world_system.h"
 #include "exo/format.h"
@@ -158,6 +160,30 @@ static void scene_inspector_spatial_component(ui::Ui &ui, SpatialComponent *comp
 	ui_matrix_label(ui, component->get_local_transform(), line_rectsplit);
 }
 
+static void scene_inspector_material_asset(
+	ui::Ui &ui, AssetManager *asset_manager, Material *material, Rect &content_rect)
+{
+	auto em = ui.theme.font_size;
+	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
+
+	ui::label_split(ui, line_rectsplit, "Base color texture:");
+	(void)(em);
+	(void)(asset_manager);
+	(void)(material);
+#if 0
+	{
+		auto *texture = asset_manager->get_asset_t<Texture>(material->base_color_texture);
+
+		auto texture_width = 20.0f * em;
+		auto line = line_rectsplit.split(texture_width);
+		auto left_square = line.split_left(texture_width);
+
+		ui::textured_rect(ui, left_square, 0);
+		// ui_renderer::textured_rect(ui, left_square, texture->render_handle);
+	}
+#endif
+}
+
 static void scene_inspector_mesh_component(
 	ui::Ui &ui, AssetManager *asset_manager, MeshComponent *mesh_component, Rect &content_rect)
 {
@@ -165,10 +191,17 @@ static void scene_inspector_mesh_component(
 	auto line_rectsplit = RectSplit{content_rect, SplitDirection::Top};
 
 	ui::label_split(ui, line_rectsplit, "Mesh:");
-	auto *mesh_asset = asset_manager->load_asset_t<Mesh>(mesh_component->mesh_asset);
+	auto *mesh_asset = asset_manager->get_asset_t<Mesh>(mesh_component->mesh_asset);
 	scene_inspector_asset(ui, mesh_asset, content_rect);
 
 	scene_inspector_spatial_component(ui, mesh_component, content_rect);
+
+	ui::label_split(ui, line_rectsplit, "Submeshes:");
+	for (const auto &submesh : mesh_asset->submeshes) {
+		ui::label_split(ui, line_rectsplit, "Material:");
+		auto *material_asset = asset_manager->get_asset_t<Material>(submesh.material);
+		scene_inspector_material_asset(ui, asset_manager, material_asset, content_rect);
+	}
 }
 
 namespace custom_ui
@@ -178,7 +211,7 @@ static void inspector_header(ui::Ui &ui, RectSplit &rectsplit, exo::StringView l
 	auto em = ui.theme.font_size;
 	auto label_rect = rectsplit.split(2.0f * em);
 
-	auto const transparent_white = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.1f);
+	const auto transparent_white = ColorU32::from_floats(1.0f, 1.0f, 1.0f, 0.1f);
 	ui.painter->draw_color_rect(label_rect, ui.state.current_clip_rect, transparent_white);
 	ui.painter->draw_label(label_rect, ui.state.current_clip_rect, *ui.theme.main_font, label);
 
@@ -244,11 +277,6 @@ void Scene::update(const Inputs &)
 {
 	const double delta_t = 0.016;
 	entity_world.update(delta_t, this->asset_manager);
-}
-
-void Scene::import_mesh(Mesh * /*mesh*/)
-{
-	// import a mesh with identity transform
 }
 
 Entity *Scene::import_subscene_rec(const SubScene *subscene, u32 i_node)

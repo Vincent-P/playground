@@ -38,7 +38,7 @@ struct AssetManager
 	static AssetManager create(cross::JobManager &jobmanager);
 
 	template <typename T>
-	T *load_asset_t(AssetId id)
+	T *get_asset_t(AssetId id)
 	{
 		refl::BasePtr<Asset> asset  = this->database.get_asset(id);
 		auto                *casted = asset.as<T>();
@@ -110,7 +110,7 @@ struct ImporterApi
 	template <typename T>
 	T *retrieve_asset(AssetId id)
 	{
-		return manager.load_asset_t<T>(id);
+		return manager.get_asset_t<T>(id);
 	}
 
 	inline exo::u128 save_blob(exo::Span<const u8> data) { return manager.save_blob(data); }

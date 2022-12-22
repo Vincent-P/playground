@@ -13,15 +13,15 @@ UiRenderer UiRenderer::create(vulkan::Device &device, int2 atlas_resolution)
 	UiRenderer renderer = {};
 
 	vulkan::GraphicsState gui_state = {};
-	gui_state.vertex_shader         = device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
-	gui_state.fragment_shader       = device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
-	gui_state.attachments_format    = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
-	renderer.ui_program             = device.create_program("gui", gui_state);
+	gui_state.vertex_shader = device.create_shader(SHADER_PATH("ui.vert.glsl.spv"));
+	gui_state.fragment_shader = device.create_shader(SHADER_PATH("ui.frag.glsl.spv"));
+	gui_state.attachments_format = {.attachments_format = {VK_FORMAT_R8G8B8A8_UNORM}};
+	renderer.ui_program = device.create_program("gui", gui_state);
 	device.compile_graphics_state(renderer.ui_program, {.rasterization = {.culling = false}, .alpha_blending = true});
 
 	renderer.glyph_atlas = device.create_image({
-		.name   = "Glyph atlas",
-		.size   = int3(atlas_resolution, 1),
+		.name = "Glyph atlas",
+		.size = int3(atlas_resolution, 1),
 		.format = VK_FORMAT_R8_UNORM,
 	});
 
@@ -58,9 +58,9 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 						},
 					.imageExtent =
 						{
-							.width  = image->image_size.x,
+							.width = image->image_size.x,
 							.height = image->image_size.y,
-							.depth  = 1,
+							.depth = 1,
 						},
 				};
 				glyphs_to_upload.push(copy);
@@ -96,13 +96,13 @@ GraphicPass &register_graph(RenderGraph &graph, UiRenderer &renderer, Painter *p
 			PACKED(struct PainterOptions {
 				float2 scale;
 				float2 translation;
-				u32    vertices_descriptor_index;
-				u32    primitive_byte_offset;
+				u32 vertices_descriptor_index;
+				u32 primitive_byte_offset;
 			})
 
-			auto output_size       = graph.image_size(output);
-			auto options           = bindings::bind_option_struct<PainterOptions>(api.device, api.uniform_buffer, cmd);
-			options[0].scale       = float2(2.0) / float2(int2(output_size.x, output_size.y));
+			auto output_size = graph.image_size(output);
+			auto options = bindings::bind_option_struct<PainterOptions>(api.device, api.uniform_buffer, cmd);
+			options[0].scale = float2(2.0) / float2(int2(output_size.x, output_size.y));
 			options[0].translation = float2(-1.0f, -1.0f);
 			options[0].vertices_descriptor_index =
 				api.device.get_buffer_storage_index(api.dynamic_vertex_buffer.buffer);

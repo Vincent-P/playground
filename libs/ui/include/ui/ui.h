@@ -128,4 +128,6 @@ bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label);
 
 bool invisible_button(Ui &ui, const Rect &rect);
 
+void textured_rect(Ui &ui, const Rect &r, u32 texture_id, const Rect &uv = {.pos = float2(0.0f), .size = float2(1.0f)});
+
 } // namespace ui

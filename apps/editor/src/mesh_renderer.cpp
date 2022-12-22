@@ -101,7 +101,7 @@ MeshRenderer MeshRenderer::create(vulkan::Device &device)
 static Handle<RenderTexture> get_or_create_texture(
 	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &texture_uuid)
 {
-	auto texture = asset_manager->load_asset_t<Texture>(texture_uuid);
+	auto texture = asset_manager->get_asset_t<Texture>(texture_uuid);
 
 	auto *render_texture_handle = renderer.texture_uuid_map.at(texture_uuid);
 	if (render_texture_handle) {
@@ -146,7 +146,7 @@ static Handle<RenderTexture> get_or_create_texture(
 static Handle<RenderMaterial> get_or_create_material(
 	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &material_uuid)
 {
-	auto material = asset_manager->load_asset_t<Material>(material_uuid);
+	auto material = asset_manager->get_asset_t<Material>(material_uuid);
 
 	auto *render_material_handle = renderer.material_uuid_map.at(material_uuid);
 	if (render_material_handle) {
@@ -178,7 +178,7 @@ static Handle<RenderMesh> get_or_create_mesh(
 	MeshRenderer &renderer, AssetManager *asset_manager, vulkan::Device &device, const AssetId &mesh_uuid)
 {
 	ASSERT(asset_manager->is_loaded(mesh_uuid));
-	auto mesh = asset_manager->load_asset_t<Mesh>(mesh_uuid);
+	auto mesh = asset_manager->get_asset_t<Mesh>(mesh_uuid);
 
 	auto *render_mesh_handle = renderer.mesh_uuid_map.at(mesh_uuid);
 	if (render_mesh_handle) {
@@ -271,7 +271,7 @@ void register_upload_nodes(RenderGraph &graph,
 	for (auto [handle, p_render_texture] : mesh_renderer.render_textures) {
 		if (p_render_texture->frame_uploaded == u64_invalid) {
 
-			auto *texture                       = asset_manager->load_asset_t<Texture>(p_render_texture->texture_asset);
+			auto *texture                       = asset_manager->get_asset_t<Texture>(p_render_texture->texture_asset);
 			auto [p_upload_data, upload_offset] = upload_buffer.allocate(texture->pixels_data_size);
 
 			if (p_upload_data.empty()) {
@@ -312,7 +312,7 @@ void register_upload_nodes(RenderGraph &graph,
 				continue;
 			}
 
-			auto *material_asset    = asset_manager->load_asset_t<Material>(p_render_material->material_asset);
+			auto *material_asset    = asset_manager->get_asset_t<Material>(p_render_material->material_asset);
 			auto  p_upload_material = exo::reinterpret_span<MaterialDescriptor>(p_upload_data);
 
 			printf("[Renderer] Uploading material asset %s at offset 0x%zx frame #%u\n",
@@ -378,7 +378,7 @@ void register_upload_nodes(RenderGraph &graph,
 				continue;
 			}
 
-			auto *mesh_asset = asset_manager->load_asset_t<Mesh>(p_render_mesh->mesh_asset);
+			auto *mesh_asset = asset_manager->get_asset_t<Mesh>(p_render_mesh->mesh_asset);
 			printf("[Renderer] Uploading mesh asset %s at offset 0x%zx frame #%u\n",
 				mesh_asset->uuid.name.c_str(),
 				upload_offset,

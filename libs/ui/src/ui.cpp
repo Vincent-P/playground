@@ -304,4 +304,10 @@ bool invisible_button(Ui &ui, const Rect &rect)
 	return result;
 }
 
+
+void textured_rect(Ui &ui, const Rect &r, u32 texture_id, const Rect &uv)
+{
+	ui.painter->draw_textured_rect(r, ui.state.current_clip_rect, uv, texture_id);
+}
+
 } // namespace ui

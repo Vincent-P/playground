@@ -31,7 +31,6 @@ struct Scene
 	void destroy();
 	void update(const Inputs &inputs);
 
-	void    import_mesh(Mesh *mesh);
 	Entity *import_subscene_rec(const SubScene *subscene, u32 i_node);
 	void    import_subscene(SubScene *subscene);
 

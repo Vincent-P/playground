@@ -6,7 +6,7 @@ set(SOURCE_FILES
 add_library(ui_renderer STATIC ${SOURCE_FILES})
 setup_app_target(ui_renderer)
 
-target_link_libraries(ui_renderer PUBLIC engine painter ui)
+target_link_libraries(ui_renderer PUBLIC painter render)
 
 setup_shaders(ui_renderer
   SOURCES
