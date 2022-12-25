@@ -1,13 +1,12 @@
 #pragma once
-
 #include "cross/buttons.h"
 #include "exo/string.h"
 
-namespace exo::events
+namespace cross::events
 {
 struct Key
 {
-	VirtualKey  key;
+	VirtualKey key;
 	ButtonState state;
 };
 
@@ -54,9 +53,9 @@ struct Resize
 	int width;
 	int height;
 };
-} // namespace exo::events
+} // namespace cross::events
 
-namespace exo
+namespace cross
 {
 struct Event
 {
@@ -75,16 +74,16 @@ struct Event
 
 	union
 	{
-		events::Key                  key;
-		events::MouseClick           mouse_click;
-		events::Character            character;
-		events::IMEComposition       ime_composition;
+		events::Key key;
+		events::MouseClick mouse_click;
+		events::Character character;
+		events::IMEComposition ime_composition;
 		events::IMECompositionResult ime_composition_result;
-		events::Scroll               scroll;
-		events::MouseMove            mouse_move;
-		events::Focus                focus;
-		events::Resize               resize;
+		events::Scroll scroll;
+		events::MouseMove mouse_move;
+		events::Focus focus;
+		events::Resize resize;
 	};
 };
 
-} // namespace exo
+} // namespace cross

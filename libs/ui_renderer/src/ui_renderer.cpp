@@ -1,5 +1,4 @@
 #include "ui_renderer/ui_renderer.h"
-
 #include "painter/painter.h"
 #include "render/bindings.h"
 #include "render/render_graph/graph.h"
@@ -7,6 +6,7 @@
 #include "render/vulkan/device.h"
 #include "render/vulkan/image.h"
 #include "render/vulkan/pipelines.h"
+#include <cstring> // for memcpy
 
 UiRenderer UiRenderer::create(vulkan::Device &device, int2 atlas_resolution)
 {

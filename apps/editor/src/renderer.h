@@ -35,7 +35,7 @@ struct Renderer
 
 	AssetManager *asset_manager = nullptr;
 
-	static Renderer create(u64 window_handle, AssetManager *asset_manager);
+    static Renderer create(u64 display_handle, u64 window_handle, AssetManager *asset_manager);
 
 	DrawResult draw(DrawInput input);
 };

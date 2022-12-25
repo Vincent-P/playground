@@ -15,15 +15,15 @@ struct float4;
 // -- Functions
 float2 max(float2 lhs, float2 rhs);
 float2 min(float2 lhs, float2 rhs);
-float  length(float2 v);
-float  length(float3 v);
-float  length(float4 v);
-float  distance(float2 a, float2 b);
-float  distance(float3 a, float3 b);
-float  distance(float4 a, float4 b);
-float  dot(float2 a, float2 b);
-float  dot(float3 a, float3 b);
-float  dot(float4 a, float4 b);
+float length(float2 v);
+float length(float3 v);
+float length(float4 v);
+float distance(float2 a, float2 b);
+float distance(float3 a, float3 b);
+float distance(float4 a, float4 b);
+float dot(float2 a, float2 b);
+float dot(float3 a, float3 b);
+float dot(float4 a, float4 b);
 float2 normalize(float2 v);
 float3 normalize(float3 v);
 float4 normalize(float4 v);
@@ -43,10 +43,10 @@ float3 cross(float3 a, float3 b);
 // Access components using the [] operator, also provides pointers to components
 #define VECTOR_RAW_ACCESS(vector_type, size, inner_type)                                                               \
 	static constexpr usize SIZE = size;                                                                                \
-	using element_type          = inner_type;                                                                          \
-	element_type				 &operator[](usize i_component) { return data()[i_component]; }                        \
-	const element_type           &operator[](usize i_component) const { return data()[i_component]; }                  \
-	constexpr element_type       *data() { return &x; }                                                                \
+	using element_type = inner_type;                                                                                   \
+	element_type &operator[](usize i_component) { return data()[i_component]; }                                        \
+	const element_type &operator[](usize i_component) const { return data()[i_component]; }                            \
+	constexpr element_type *data() { return &x; }                                                                      \
 	constexpr const element_type *data() const { return &x; }
 
 struct int2
@@ -65,8 +65,8 @@ struct int2
 	bool operator==(const int2 &b) const = default;
 	VECTOR_RAW_ACCESS(int2, 2, i32)
 
-// Access swizzle for 2D vectors
-// clang-format off
+	// Access swizzle for 2D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr int2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -90,8 +90,8 @@ struct uint2
 	bool operator==(const uint2 &b) const = default;
 	VECTOR_RAW_ACCESS(uint2, 2, u32)
 
-// Access swizzle for 2D vectors
-// clang-format off
+	// Access swizzle for 2D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr uint2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -115,8 +115,8 @@ struct float2
 	bool operator==(const float2 &b) const = default;
 	VECTOR_RAW_ACCESS(float2, 2, float)
 
-// Access swizzle for 2D vectors
-// clang-format off
+	// Access swizzle for 2D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC2_S2(a, b) constexpr float2 a##b() const { return {a, b}; }
     VEC2_SWIZZLES
@@ -142,8 +142,8 @@ struct int3
 	bool operator==(const int3 &b) const = default;
 	VECTOR_RAW_ACCESS(int3, 3, i32)
 
-	// Access swizzle for 3D vectors
-	// clang-format off
+// Access swizzle for 3D vectors
+// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr int3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -173,8 +173,8 @@ struct uint3
 	bool operator==(const uint3 &b) const = default;
 	VECTOR_RAW_ACCESS(uint3, 3, u32)
 
-// Access swizzle for 3D vectors
-// clang-format off
+	// Access swizzle for 3D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr uint3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -204,8 +204,8 @@ struct float3
 	bool operator==(const float3 &b) const = default;
 	VECTOR_RAW_ACCESS(float3, 3, float)
 
-// Access swizzle for 3D vectors
-// clang-format off
+	// Access swizzle for 3D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC3_S3(a, b, c) constexpr float3 a##b##c() const { return {a, b, c}; }
     VEC3_SWIZZLES
@@ -233,8 +233,8 @@ struct float4
 	bool operator==(const float4 &b) const = default;
 	VECTOR_RAW_ACCESS(float4, 4, float)
 
-// Access swizzle for 4D vectors
-// clang-format off
+	// Access swizzle for 4D vectors
+	// clang-format off
     #include "vectors_swizzle.h"
     #define VEC4_S4(a, b, c, d) constexpr float4 a##b##c##d() const { return {a, b, c, d}; }
     VEC4_SWIZZLES
@@ -272,7 +272,7 @@ constexpr float2::float2(uint2 v) : float2{static_cast<float>(v.x), static_cast<
 constexpr float2::float2(int2 v) : float2{static_cast<float>(v.x), static_cast<float>(v.y)} {}
 
 constexpr int3::int3(i32 _x, i32 _y, i32 _z) : x{_x}, y{_y}, z{_z} {}
-constexpr int3::int3(int2 v, i32 z) : int3{v.x, v.y, z} {}
+constexpr int3::int3(int2 v, i32 _z) : int3{v.x, v.y, _z} {}
 constexpr int3::int3(i32 val) : int3{val, val, val} {}
 constexpr int3::int3(float3 v) : int3{static_cast<i32>(v.x), static_cast<i32>(v.y), static_cast<i32>(v.z)} {}
 constexpr int3::int3(uint3 v) : int3{static_cast<i32>(v.x), static_cast<i32>(v.y), static_cast<i32>(v.z)} {}
@@ -335,8 +335,8 @@ constexpr float4 operator*(float a, float4 b)  { return {a * b.x, a * b.y, a * b
 // clang-format on
 
 // -- Constants
-inline constexpr auto float3_RIGHT   = float3{1, 0, 0};
-inline constexpr auto float3_UP      = float3{0, 1, 0};
+inline constexpr auto float3_RIGHT = float3{1, 0, 0};
+inline constexpr auto float3_UP = float3{0, 1, 0};
 inline constexpr auto float3_FORWARD = float3{0, 0, -1};
 } // namespace exo
 

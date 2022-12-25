@@ -17,6 +17,7 @@
 #include "reflection/reflection.h"
 #include "reflection/reflection_serializer.h"
 #include <filesystem>
+#include <cstring> // for memcpy
 
 static const exo::Path AssetPath = exo::Path::from_string(ASSET_PATH);
 static const exo::Path DatabasePath = exo::Path::from_string(DATABASE_PATH);

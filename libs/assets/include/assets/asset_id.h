@@ -2,6 +2,7 @@
 #include "exo/hash.h"
 #include "exo/maths/numerics.h"
 #include "exo/string.h"
+#include "exo/string_view.h"
 
 namespace exo
 {

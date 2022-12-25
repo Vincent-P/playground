@@ -1,21 +1,21 @@
 #include "render/simple_renderer.h"
 
-#include "render/vulkan/buffer.h"
-#include "render/vulkan/pipelines.h"
-#include "render/vulkan/shader.h"
 #include "exo/format.h"
 #include "exo/logger.h"
 #include "exo/profile.h"
+#include "render/vulkan/buffer.h"
+#include "render/vulkan/pipelines.h"
+#include "render/vulkan/shader.h"
 
-SimpleRenderer SimpleRenderer::create(u64 window_handle)
+SimpleRenderer SimpleRenderer::create(u64 display_handle, u64 window_handle)
 {
 	SimpleRenderer renderer = {};
 	renderer.context = vulkan::Context::create({.enable_validation = false});
 
 	// Pick a GPU
 	auto &physical_devices = renderer.context.physical_devices;
-	u32   i_selected       = u32_invalid;
-	u32   i_device         = 0;
+	u32 i_selected = u32_invalid;
+	u32 i_device = 0;
 	for (auto &physical_device : physical_devices) {
 		exo::logger::info("Found device: %s\n", physical_device.properties.deviceName);
 		if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -32,11 +32,11 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 	}
 
 	vulkan::DeviceDescription device_desc = {};
-	device_desc.physical_device           = &physical_devices[i_selected];
+	device_desc.physical_device = &physical_devices[i_selected];
 
 	// Create the GPU
 	renderer.device = vulkan::Device::create(renderer.context, device_desc);
-	auto &device    = renderer.device;
+	auto &device = renderer.device;
 
 	for (auto &workpool : renderer.workpools) {
 		device.create_work_pool(workpool);
@@ -44,39 +44,41 @@ SimpleRenderer SimpleRenderer::create(u64 window_handle)
 
 	renderer.uniform_buffer = RingBuffer::create(device,
 		{
-			.name               = "Dynamic Uniform",
-			.size               = 512_KiB,
-			.gpu_usage          = vulkan::uniform_buffer_usage,
+			.name = "Dynamic Uniform",
+			.size = 512_KiB,
+			.gpu_usage = vulkan::uniform_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
 
 	renderer.dynamic_vertex_buffer = RingBuffer::create(device,
 		{
-			.name               = "Dynamic vertices",
-			.size               = 8_MiB,
-			.gpu_usage          = vulkan::storage_buffer_usage,
+			.name = "Dynamic vertices",
+			.size = 8_MiB,
+			.gpu_usage = vulkan::storage_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
 
 	renderer.dynamic_index_buffer = RingBuffer::create(device,
 		{
-			.name               = "Dynamic indices",
-			.size               = 8_MiB,
-			.gpu_usage          = vulkan::index_buffer_usage,
+			.name = "Dynamic indices",
+			.size = 8_MiB,
+			.gpu_usage = vulkan::index_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
 
 	renderer.upload_buffer = RingBuffer::create(device,
 		{
-			.name               = "Upload buffer",
-			.size               = 128_MiB,
-			.gpu_usage          = vulkan::source_buffer_usage,
+			.name = "Upload buffer",
+			.size = 128_MiB,
+			.gpu_usage = vulkan::source_buffer_usage,
 			.frame_queue_length = FRAME_QUEUE_LENGTH,
 		});
 
 	// Create the drawing surface
-	renderer.swapchain_node.surface = vulkan::Surface::create(renderer.context, device, window_handle);
-	renderer.swapchain_node.fence   = device.create_fence();
+	renderer.swapchain_node.surface = vulkan::Surface::create(renderer.context, device, display_handle, window_handle);
+	renderer.swapchain_node.fence = device.create_fence();
+
+	renderer.shader_watcher = cross::FileWatcher::create();
 
 	return renderer;
 }
@@ -122,14 +124,14 @@ void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 	EXO_PROFILE_SCOPE;
 	this->time += dt;
 
-	auto i_frame          = this->swapchain_node.i_frame;
+	auto i_frame = this->swapchain_node.i_frame;
 	auto swapchain_output = builtins::acquire_next_image(this->render_graph, this->swapchain_node);
 
 	builtins::blit_image(this->render_graph, output, swapchain_output);
 	builtins::present(this->render_graph, this->swapchain_node, i_frame + FRAME_QUEUE_LENGTH);
 
-	auto  current_frame = i_frame % FRAME_QUEUE_LENGTH;
-	auto &workpool      = this->workpools[current_frame];
+	auto current_frame = i_frame % FRAME_QUEUE_LENGTH;
+	auto &workpool = this->workpools[current_frame];
 	this->device.wait_for_fence(this->swapchain_node.fence, i_frame);
 	this->device.reset_work_pool(workpool);
 
@@ -138,12 +140,12 @@ void SimpleRenderer::render(Handle<TextureDesc> output, float dt)
 	this->device.update_globals();
 
 	auto pass_api = PassApi{
-		.context               = this->context,
-		.device                = this->device,
-		.uniform_buffer        = this->uniform_buffer,
+		.context = this->context,
+		.device = this->device,
+		.uniform_buffer = this->uniform_buffer,
 		.dynamic_vertex_buffer = this->dynamic_vertex_buffer,
-		.dynamic_index_buffer  = this->dynamic_index_buffer,
-		.upload_buffer         = this->upload_buffer,
+		.dynamic_index_buffer = this->dynamic_index_buffer,
+		.upload_buffer = this->upload_buffer,
 	};
 
 	this->render_graph.execute(pass_api, workpool);

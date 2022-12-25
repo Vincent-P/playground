@@ -1,6 +1,7 @@
 #include "exo/maths/vectors.h"
 
-#include <cmath> // for std::round
+#include <algorithm> // for std::min,max :/
+#include <cmath>     // for std::round
 
 #if defined(ENABLE_DOCTEST)
 #include <doctest.h>
@@ -199,7 +200,7 @@ TEST_SUITE("Vectors")
 
 	TEST_CASE("raw access")
 	{
-		float3       x{1.0f, 0.0f, 0.0f};
+		float3 x{1.0f, 0.0f, 0.0f};
 		const float3 y{0.0f, 1.0f, 0.0f};
 		const float3 z{0.0f, 0.0f, 1.0f};
 

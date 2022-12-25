@@ -1,13 +1,13 @@
 #include "render/vulkan/context.h"
 
-#include "render/vulkan/operators.h"
-#include "render/vulkan/utils.h"
-#include "exo/memory/linear_allocator.h"
-#include "exo/memory/scope_stack.h"
-
-#include "vulkan/vulkan_core.h"
 #include "exo/collections/dynamic_array.h"
 #include "exo/logger.h"
+#include "exo/macros/debugbreak.h"
+#include "exo/memory/linear_allocator.h"
+#include "exo/memory/scope_stack.h"
+#include "render/vulkan/operators.h"
+#include "render/vulkan/utils.h"
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -37,7 +37,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 	}
 
 	if (message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		__debugbreak();
+		DEBUG_BREAK();
 	}
 
 	return VK_FALSE;
@@ -70,7 +70,7 @@ Context Context::create(const ContextDescription &desc)
 	uint layer_props_count = 0;
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
 
-	auto  allocator_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
+	auto allocator_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
 	auto *installed_layers =
 		reinterpret_cast<VkLayerProperties *>(allocator_scope.allocate(layer_props_count * sizeof(VkLayerProperties)));
 	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
@@ -92,20 +92,20 @@ Context Context::create(const ContextDescription &desc)
 		instance_layers.push("VK_LAYER_KHRONOS_validation");
 	}
 
-	VkApplicationInfo app_info  = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
-	app_info.pApplicationName   = "Multi";
+	VkApplicationInfo app_info = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
+	app_info.pApplicationName = "Multi";
 	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	app_info.pEngineName        = "GoodEngine";
-	app_info.engineVersion      = VK_MAKE_VERSION(1, 1, 0);
-	app_info.apiVersion         = VK_API_VERSION_1_2;
+	app_info.pEngineName = "GoodEngine";
+	app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
+	app_info.apiVersion = VK_API_VERSION_1_2;
 
-	VkInstanceCreateInfo create_info    = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-	create_info.pNext                   = nullptr;
-	create_info.flags                   = 0;
-	create_info.pApplicationInfo        = &app_info;
-	create_info.enabledLayerCount       = static_cast<uint32_t>(instance_layers.len());
-	create_info.ppEnabledLayerNames     = instance_layers.data();
-	create_info.enabledExtensionCount   = static_cast<uint32_t>(instance_extensions.len());
+	VkInstanceCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+	create_info.pNext = nullptr;
+	create_info.flags = 0;
+	create_info.pApplicationInfo = &app_info;
+	create_info.enabledLayerCount = static_cast<uint32_t>(instance_layers.len());
+	create_info.ppEnabledLayerNames = instance_layers.data();
+	create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.len());
 	create_info.ppEnabledExtensionNames = instance_extensions.data();
 
 	vk_check(vkCreateInstance(&create_info, nullptr, &ctx.instance));
@@ -114,8 +114,8 @@ Context Context::create(const ContextDescription &desc)
 	/// --- Init debug layers
 	if (enable_validation) {
 		VkDebugUtilsMessengerCreateInfoEXT ci = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-		ci.flags                              = 0;
-		ci.messageSeverity                    = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+		ci.flags = 0;
+		ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 		ci.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
 		ci.messageType |= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -148,8 +148,8 @@ Context Context::create(const ContextDescription &desc)
 
 		vkGetPhysicalDeviceProperties(physical_device.vkdevice, &physical_device.properties);
 		physical_device.vulkan12_features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-		physical_device.features          = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-		physical_device.features.pNext    = &physical_device.vulkan12_features;
+		physical_device.features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+		physical_device.features.pNext = &physical_device.vulkan12_features;
 		vkGetPhysicalDeviceFeatures2(physical_device.vkdevice, &physical_device.features);
 		physical_device.features.pNext = nullptr;
 	}

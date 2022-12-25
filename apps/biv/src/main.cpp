@@ -25,6 +25,7 @@
 #include "ui/ui.h"
 #include "ui_renderer/ui_renderer.h"
 #include <spng.h>
+#include <cstring> // for memcmp
 
 inline constexpr int2 GLYPH_ATLAS_RESOLUTION = int2(1024, 1024);
 
@@ -116,9 +117,9 @@ RenderSample *render_sample_init(exo::ScopeStack &scope)
 	cross::platform::create(platform);
 
 	app->window = cross::Window::create({1280, 720}, "Best Image Viewer");
-	app->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
+	app->inputs.bind(Action::QuitApp, {.keys = {cross::VirtualKey::Escape}});
 
-	app->renderer = SimpleRenderer::create(app->window->get_win32_hwnd());
+    app->renderer = SimpleRenderer::create(app->window->get_display_handle(), app->window->get_window_handle());
 	auto &renderer = app->renderer;
 
 	app->ui_renderer = UiRenderer::create(renderer.device, GLYPH_ATLAS_RESOLUTION);
@@ -168,12 +169,12 @@ bool char_checkbox(Ui &ui, const CharCheckbox &checkbox)
 
 	if (ui.is_hovering(checkbox.rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == 0 && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
 
-	if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left] && ui.activation.focused == id &&
+	if (!ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left] && ui.activation.focused == id &&
 		ui.activation.active == id) {
 		result = !result;
 	}

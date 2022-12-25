@@ -377,7 +377,7 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 		ui.activation.focused = id;
 
 		const bool has_pressed =
-			ui.has_pressed(exo::MouseButton::Left) || ui.has_pressed(exo::MouseButton::Right);
+			ui.has_pressed(cross::MouseButton::Left) || ui.has_pressed(cross::MouseButton::Right);
 		if (ui.activation.active == u64_invalid && has_pressed) {
 			ui.activation.active = id;
 		}
@@ -389,7 +389,7 @@ static TabState draw_tab(DockingUi &docking, ui::Ui &ui, const TabView &tabview,
 		res = TabState::ClickedTitle;
 	}
 
-	if (is_hovering && ui.has_clicked(id, exo::MouseButton::Right)) {
+	if (is_hovering && ui.has_clicked(id, cross::MouseButton::Right)) {
 		res = TabState::ClickedDetach;
 	}
 
@@ -499,7 +499,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		auto id = ui.make_id();
 		if (ui.is_hovering(titlebar_rect)) {
 			ui.activation.focused = id;
-			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 				ui.activation.active = id;
 				ui.state.active_drag_offset = ui.mouse_position() - floating_container.rect.pos;
 			}
@@ -521,7 +521,7 @@ static void draw_floating_area(Docking &self, ui::Ui &ui, usize i_floating)
 		auto id = ui.make_id();
 		if (ui.is_hovering(handle_rect)) {
 			ui.activation.focused = id;
-			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+			if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 				ui.activation.active = id;
 				ui.state.active_drag_offset = mouse_pos - handle_rect.pos;
 			}
@@ -580,7 +580,7 @@ static void draw_area_overlay(Docking &self, ui::Ui &ui, Handle<Area> area_handl
 			auto color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.25f * 255));
 
 			if (ui.is_hovering(rect)) {
-				if (!ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+				if (!ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 					self.ui.events.push(event);
 				}
 				color = ColorU32::from_uints(0x1B, 0x83, 0xF7, u8(0.50f * 255));

@@ -1,7 +1,6 @@
 #pragma once
 #include "exo/string.h"
 #include <utility>
-
 #include "exo/collections/span.h"
 #include "exo/option.h"
 

@@ -6,6 +6,7 @@
 #include "assets/asset_manager.h"
 #include "assets/texture.h"
 #include <spng.h>
+#include <cstring> // for memcmp
 
 bool PNGImporter::can_import_extension(exo::Span<const exo::StringView> extensions)
 {

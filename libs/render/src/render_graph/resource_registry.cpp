@@ -67,8 +67,8 @@ static void update_image_metadata(ResourceRegistry &registry, Handle<vulkan::Ima
 {
 	ASSERT(image.is_valid());
 	if (auto *handle = registry.image_pool.at(image); handle) {
-		auto &metadata           = registry.image_metadatas.get(*handle);
-		metadata.resolved_desc   = desc;
+		auto &metadata = registry.image_metadatas.get(*handle);
+		metadata.resolved_desc = desc;
 		metadata.last_frame_used = registry.i_frame;
 	} else {
 		auto metadata_handle =
@@ -79,7 +79,7 @@ static void update_image_metadata(ResourceRegistry &registry, Handle<vulkan::Ima
 
 void ResourceRegistry::set_image(Handle<TextureDesc> desc_handle, Handle<vulkan::Image> image_handle)
 {
-	auto &desc          = this->texture_descs.get(desc_handle);
+	auto &desc = this->texture_descs.get(desc_handle);
 	desc.resolved_image = image_handle;
 	update_image_metadata(*this, image_handle, desc_handle);
 }
@@ -112,9 +112,9 @@ Handle<vulkan::Image> ResourceRegistry::resolve_image(vulkan::Device &device, Ha
 		}
 
 		auto desc_spec = vulkan::ImageDescription{
-			.name   = desc.name,
-			.size   = int3(this->texture_desc_handle_size(desc_handle), 1),
-			.type   = desc.image_type,
+			.name = desc.name,
+			.size = int3(this->texture_desc_handle_size(desc_handle), 1),
+			.type = desc.image_type,
 			.format = desc.format,
 			.usages = usages,
 		};
@@ -147,9 +147,9 @@ int2 ResourceRegistry::texture_desc_handle_size(Handle<TextureDesc> desc_handle)
 	const auto texture_size = this->texture_descs.get(desc_handle).size;
 	switch (texture_size.type) {
 	case TextureSizeType::Absolute:
-		return texture_size.size.int2;
+		return texture_size.size.i;
 	case TextureSizeType::ScreenRelative:
-		return int2(this->screen_size * texture_size.size.float2);
+		return int2(this->screen_size * texture_size.size.f);
 	default:
 		ASSERT(false);
 		return {};
@@ -160,7 +160,7 @@ static void update_framebuffer_metadata(ResourceRegistry &registry, Handle<vulka
 {
 	ASSERT(framebuffer.is_valid());
 	if (auto *handle = registry.framebuffer_pool.at(framebuffer); handle) {
-		auto &metadata           = registry.framebuffer_metadatas.get(*handle);
+		auto &metadata = registry.framebuffer_metadatas.get(*handle);
 		metadata.last_frame_used = registry.i_frame;
 	} else {
 		auto metadata_handle =
@@ -170,8 +170,8 @@ static void update_framebuffer_metadata(ResourceRegistry &registry, Handle<vulka
 }
 
 Handle<vulkan::Framebuffer> ResourceRegistry::resolve_framebuffer(vulkan::Device &device,
-	exo::Span<const Handle<TextureDesc>>                                          color_attachments,
-	Handle<TextureDesc>                                                           depth_attachment)
+	exo::Span<const Handle<TextureDesc>> color_attachments,
+	Handle<TextureDesc> depth_attachment)
 {
 	exo::DynamicArray<Handle<vulkan::Image>, vulkan::MAX_ATTACHMENTS> color_images;
 	for (auto desc_handle : color_attachments) {

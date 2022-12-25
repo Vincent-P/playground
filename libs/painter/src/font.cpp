@@ -3,8 +3,8 @@
 #include "exo/macros/assert.h"
 #include "exo/maths/vectors.h"
 #include "exo/profile.h"
-
 #include "painter/glyph_cache.h"
+#include <cstring> // for memcpy
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

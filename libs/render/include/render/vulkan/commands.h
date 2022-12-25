@@ -5,11 +5,10 @@
 #include "exo/collections/vector.h"
 #include "exo/maths/vectors.h"
 #include "exo/option.h"
-
+#include "exo/string_view.h"
 #include "render/vulkan/queues.h"
 #include "render/vulkan/synchronization.h"
-
-#include "exo/string_view.h"
+#include <tuple>
 #include <volk.h>
 
 namespace vulkan
@@ -31,9 +30,9 @@ inline constexpr usize MAX_SEMAPHORES = 4; // Maximum number of waitable semapho
 
 struct CommandPool
 {
-	VkCommandPool        vk_handle               = VK_NULL_HANDLE;
-	Vec<VkCommandBuffer> command_buffers         = {};
-	Vec<u32>             command_buffers_is_used = {};
+	VkCommandPool vk_handle = VK_NULL_HANDLE;
+	Vec<VkCommandBuffer> command_buffers = {};
+	Vec<u32> command_buffers_is_used = {};
 };
 
 struct WorkPool
@@ -50,17 +49,17 @@ struct Work
 {
 	Device *device;
 
-	VkCommandBuffer                                         command_buffer;
-	exo::DynamicArray<Fence, MAX_SEMAPHORES>                wait_fence_list;
-	exo::DynamicArray<u64, MAX_SEMAPHORES>                  wait_value_list;
+	VkCommandBuffer command_buffer;
+	exo::DynamicArray<Fence, MAX_SEMAPHORES> wait_fence_list;
+	exo::DynamicArray<u64, MAX_SEMAPHORES> wait_value_list;
 	exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES> wait_stage_list;
-	VkQueue                                                 queue;
-	QueueType                                               queue_type;
+	VkQueue queue;
+	QueueType queue_type;
 
 	// vulkan hacks:
-	Option<VkSemaphore>          image_acquired_semaphore;
+	Option<VkSemaphore> image_acquired_semaphore;
 	Option<VkPipelineStageFlags> image_acquired_stage;
-	Option<VkSemaphore>          signal_present_semaphore;
+	Option<VkSemaphore> signal_present_semaphore;
 
 	void begin();
 	void bind_global_set();
@@ -78,7 +77,7 @@ struct Work
 	void barrier(Handle<Image> image, ImageUsage usage_destination);
 	void clear_barrier(Handle<Image> image, ImageUsage usage_destination);
 	void barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
-		exo::Span<std::pair<Handle<Buffer>, BufferUsage>>         buffers);
+		exo::Span<std::pair<Handle<Buffer>, BufferUsage>> buffers);
 
 	// queries
 	void reset_query_pool(QueryPool &query_pool, u32 first_query, u32 count);
@@ -94,7 +93,7 @@ struct Work
 struct TransferWork : Work
 {
 	void copy_buffer(
-		Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size);
+        Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size);
 	void copy_buffer(Handle<Buffer> src, Handle<Buffer> dst);
 	void copy_image(Handle<Image> src, Handle<Image> dst);
 	void blit_image(Handle<Image> src, Handle<Image> dst);
@@ -110,35 +109,39 @@ struct ComputeWork : TransferWork
 
 	void clear_image(Handle<Image> image, VkClearColorValue clear_color);
 
-	void                       push_constant(const void *data, usize len);
-	template <typename T> void push_constant(const T &object) { this->push_constant(&object, sizeof(T)); }
+	void push_constant(const void *data, usize len);
+	template <typename T>
+	void push_constant(const T &object)
+	{
+		this->push_constant(&object, sizeof(T));
+	}
 };
 
 struct DrawIndexedOptions
 {
-	u32 vertex_count    = 0;
-	u32 instance_count  = 1;
-	u32 index_offset    = 0;
-	i32 vertex_offset   = 0;
+	u32 vertex_count = 0;
+	u32 instance_count = 1;
+	u32 index_offset = 0;
+	i32 vertex_offset = 0;
 	u32 instance_offset = 0;
 };
 
 struct DrawOptions
 {
-	u32 vertex_count    = 0;
-	u32 instance_count  = 1;
-	u32 vertex_offset   = 0;
+	u32 vertex_count = 0;
+	u32 instance_count = 1;
+	u32 vertex_offset = 0;
 	u32 instance_offset = 0;
 };
 
 struct DrawIndexedIndirectCountOptions
 {
 	Handle<Buffer> arguments_buffer = {};
-	usize          arguments_offset = 0;
-	Handle<Buffer> count_buffer     = {};
-	usize          count_offset     = 0;
-	u32            max_draw_count   = 0;
-	u32            stride           = sizeof(DrawIndexedOptions);
+	usize arguments_offset = 0;
+	Handle<Buffer> count_buffer = {};
+	usize count_offset = 0;
+	u32 max_draw_count = 0;
+	u32 stride = sizeof(DrawIndexedOptions);
 };
 
 struct GraphicsWork : ComputeWork

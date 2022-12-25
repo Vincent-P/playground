@@ -5,6 +5,7 @@
 #include "exo/macros/assert.h"
 #include "exo/maths/pointer.h"
 #include "exo/profile.h"
+#include "exo/collections/array.h"
 
 #if defined(PLATFORM_LINUX)
 #include <fcntl.h>
@@ -29,7 +30,7 @@ static FileWatcher create_internal()
 	ASSERT(fw.inotify_fd > 0);
 
 	int flags = fcntl(fw.inotify_fd, F_GETFL, 0);
-	int res   = fcntl(fw.inotify_fd, F_SETFL, flags | O_NONBLOCK) >= 0;
+	int res = fcntl(fw.inotify_fd, F_SETFL, flags | O_NONBLOCK) >= 0;
 	ASSERT(res);
 
 	fw.current_events.reserve(10);
@@ -47,35 +48,34 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 {
 	Watch watch;
 	watch.path = path;
-	watch.wd   = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
+	watch.wd = inotify_add_watch(fw.inotify_fd, path, IN_MODIFY);
 	ASSERT(watch.wd > 0);
-	fw.watches.push_back(std::move(watch));
+	fw.watches.push(std::move(watch));
 	return fw.watches.last();
 }
 
 static void fetch_events_internal(FileWatcher &fw)
 {
-	std::array<u8, 2048> buffer;
-	ssize_t              sbread = read(fw.inotify_fd, buffer.data(), buffer.size());
+    u8 buffer[2048] = {};
+    ssize_t sbread = read(fw.inotify_fd, buffer, exo::Array::len(buffer));
 	if (sbread <= 0) {
 		return;
 	}
 
 	usize bread = sbread;
 
-	u8   *p_buffer = buffer.data();
-	usize offset   = 0;
+	usize offset = 0;
 
 	while (offset + sizeof(inotify_event) < bread) {
-		auto *p_event    = reinterpret_cast<inotify_event *>(exo::ptr_offset(p_buffer, offset));
+        auto *p_event = reinterpret_cast<inotify_event *>(exo::ptr_offset(buffer, offset));
 		usize event_size = offsetof(inotify_event, name) + p_event->len;
 
 		WatchEvent event = {};
-		event.wd         = p_event->wd;
-		event.mask       = p_event->mask;
-		event.cookie     = p_event->cookie;
-		event.name       = exo::String{p_event->name};
-		fw.current_events.push_back(std::move(event));
+		event.wd = p_event->wd;
+		event.mask = p_event->mask;
+		event.cookie = p_event->cookie;
+		event.name = exo::String{p_event->name};
+		fw.current_events.push(std::move(event));
 
 		offset += event_size;
 	}
@@ -101,9 +101,9 @@ static void destroy_internal(FileWatcher &fw)
 static Watch add_watch_internal(FileWatcher &fw, const char *path)
 {
 	static int last_wd = 0;
-	Watch      watch;
+	Watch watch;
 	watch.path = path;
-	watch.wd   = last_wd++;
+	watch.wd = last_wd++;
 
 	watch.directory_handle = CreateFileA(path,
 		GENERIC_READ,
@@ -114,7 +114,7 @@ static Watch add_watch_internal(FileWatcher &fw, const char *path)
 		nullptr);
 
 	watch.overlapped = {};
-	watch.buffer     = {};
+	watch.buffer = {};
 
 	DWORD notify_flags = 0;
 	notify_flags |= FILE_NOTIFY_CHANGE_LAST_WRITE; // timestamp changed
@@ -139,14 +139,14 @@ static void fetch_events_internal(FileWatcher &fw)
 	for (auto &watch : fw.watches) {
 
 		DWORD bread = 0;
-		BOOL  res   = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
+		BOOL res = GetOverlappedResult(watch.directory_handle, &watch.overlapped, &bread, false);
 		if (!res) {
 			auto error = GetLastError();
 			ASSERT(error == ERROR_IO_INCOMPLETE);
 		}
 
-		u8   *p_buffer = watch.buffer.data();
-		usize offset   = 0;
+		u8 *p_buffer = watch.buffer.data();
+		usize offset = 0;
 
 		while (offset + sizeof(FILE_NOTIFY_INFORMATION) < bread) {
 			auto *p_event = reinterpret_cast<PFILE_NOTIFY_INFORMATION>(exo::ptr_offset(p_buffer, offset));
@@ -157,7 +157,7 @@ static void fetch_events_internal(FileWatcher &fw)
 
 			const std::wstring wname{p_event->FileName, p_event->FileNameLength / sizeof(wchar_t)};
 			event.name = utils::utf16_to_utf8(wname);
-			event.len  = p_event->FileNameLength / sizeof(wchar_t);
+			event.len = p_event->FileNameLength / sizeof(wchar_t);
 
 			if (p_event->Action == FILE_ACTION_ADDED) {
 				event.action = WatchEventAction::FileAdded;

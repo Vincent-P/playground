@@ -3,13 +3,13 @@
 #include "cross/jobs/readfiles.h"
 #include "exo/collections/span.h"
 #include "exo/profile.h"
-
 #include <algorithm>
 #include <cstdio>
 #include <execution>
-
+#if defined(PLATFORM_WINDOWS)
 #include <intrin.h>
 #include <windows.h>
+#endif
 
 inline constexpr usize VECTOR_SIZE = 1 << 17;
 
@@ -71,6 +71,7 @@ void test_async(int argc, char *argv[])
 	manager.destroy();
 }
 
+#if defined(PLATFORM_WINDOWS)
 namespace utils
 {
 std::wstring utf8_to_utf16(const exo::StringView &str)
@@ -173,6 +174,7 @@ void test_sync(int argc, char *argv[])
 		}
 	}
 }
+#endif
 
 void test_std()
 {
@@ -209,7 +211,9 @@ int main(int argc, char *argv[])
 	EXO_PROFILE_SCOPE
 
 	test_async(argc, argv);
+#if defined(PLATFORM_WINDOWS)
 	test_sync(argc, argv);
+#endif
 	test_std();
 
 	EXO_PROFILE_FRAMEMARK;

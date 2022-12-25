@@ -1,34 +1,46 @@
-#include "exo/os/window.h"
-
-#include <exo/collections/enum_array.h>
-
+#include "cross/window.h"
+#include "exo/collections/enum_array.h"
 #include <cstdio>
-#include <fmt/core.h>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-x11.h>
 #include <xkbcommon/xkbcommon.h>
 
-EnumArray<uint, VirtualKey> native_to_virtual{
+exo::EnumArray<uint, cross::VirtualKey> native_to_virtual{
 #define X(EnumName, DisplayName, Win32, XKB) XKB,
-#include "exo/os/window_keys.def"
+#include "cross/keyboard_keys.def"
 #undef X
 };
 
-namespace exo
+namespace cross
 {
-void Window::create(Window &window, u32 width, u32 height, exo::StringView title)
+struct Window::Impl
 {
-	window.title  = exo::String(title);
-	window.width  = width;
-	window.height = height;
-	window.stop   = false;
-	window.events.reserve(5); // should be good enough
+	Impl() = default;
+	~Impl();
 
-	int screen_num        = 0;
-	window.xcb.connection = xcb_connect(nullptr, &screen_num);
+	xcb_connection_t *connection;
+	u32 window;
+	xcb_intern_atom_reply_t *close_reply;
+	xkb_context *kb_ctx;
+	i32 device_id;
+	xkb_keymap *keymap;
+	xkb_state *kb_state;
+};
 
-	const xcb_setup_t *setup = xcb_get_setup(window.xcb.connection);
+std::unique_ptr<Window> Window::create(int2 size, const exo::StringView title)
+{
+	auto window = std::make_unique<Window>();
+	window->title = exo::String(title);
+	window->size = size;
+	window->stop = false;
+	window->events.reserve(5); // should be good enough
+
+	auto &window_impl = window->impl.get();
+	int screen_num = 0;
+	window_impl.connection = xcb_connect(nullptr, &screen_num);
+
+	const xcb_setup_t *setup = xcb_get_setup(window_impl.connection);
 
 	/// --- Get the active screen to create the window
 
@@ -47,95 +59,102 @@ void Window::create(Window &window, u32 width, u32 height, exo::StringView title
 			| XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE,                              // keyboard inputs
 	};
 
-	window.xcb.window = xcb_generate_id(window.xcb.connection);
-	xcb_create_window(window.xcb.connection, /* Pointer to the xcb_connection_t structure */
-		0,                                   /* Depth of the screen */
-		window.xcb.window,                   /* Id of the window */
-		screen->root,                        /* Id of an existing window that should be the parent of the new window */
-		0,                                   /* X position of the top-left corner of the window (in pixels) */
-		0,                                   /* Y position of the top-left corner of the window (in pixels) */
-		width,                               /* Width of the window (in pixels) */
-		height,                              /* Height of the window (in pixels) */
-		0,                                   /* Width of the window's border (in pixels) */
+	window_impl.window = xcb_generate_id(window_impl.connection);
+	xcb_create_window(window_impl.connection, /* Pointer to the xcb_connection_t structure */
+		0,                                    /* Depth of the screen */
+		window_impl.window,                   /* Id of the window */
+		screen->root,                         /* Id of an existing window that should be the parent of the new window */
+		0,                                    /* X position of the top-left corner of the window (in pixels) */
+		0,                                    /* Y position of the top-left corner of the window (in pixels) */
+		u16(size.x),                          /* Width of the window (in pixels) */
+		u16(size.y),                          /* Height of the window (in pixels) */
+		0,                                    /* Width of the window's border (in pixels) */
 		XCB_WINDOW_CLASS_INPUT_OUTPUT,
 		screen->root_visual,
 		XCB_CW_EVENT_MASK,
 		values);
 
-	xcb_change_property(window.xcb.connection,
+	xcb_change_property(window_impl.connection,
 		XCB_PROP_MODE_REPLACE,
-		window.xcb.window,
+		window_impl.window,
 		XCB_ATOM_WM_NAME,
 		XCB_ATOM_STRING,
 		8,
-		window.title.size(),
-		window.title.c_str());
+		window->title.len(),
+		window->title.c_str());
 
-	xcb_intern_atom_cookie_t cookie = xcb_intern_atom(window.xcb.connection, 1, 12, "WM_PROTOCOLS");
-	xcb_intern_atom_reply_t *reply  = xcb_intern_atom_reply(window.xcb.connection, cookie, nullptr);
+	xcb_intern_atom_cookie_t cookie = xcb_intern_atom(window_impl.connection, 1, 12, "WM_PROTOCOLS");
+	xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply(window_impl.connection, cookie, nullptr);
 
-	xcb_intern_atom_cookie_t cookie2 = xcb_intern_atom(window.xcb.connection, 0, 16, "WM_DELETE_WINDOW");
-	window.xcb.close_reply           = xcb_intern_atom_reply(window.xcb.connection, cookie2, nullptr);
+	xcb_intern_atom_cookie_t cookie2 = xcb_intern_atom(window_impl.connection, 0, 16, "WM_DELETE_WINDOW");
+	window_impl.close_reply = xcb_intern_atom_reply(window_impl.connection, cookie2, nullptr);
 
-	xcb_change_property(window.xcb.connection,
+	xcb_change_property(window_impl.connection,
 		XCB_PROP_MODE_REPLACE,
-		window.xcb.window,
+		window_impl.window,
 		reply->atom,
 		4,
 		32,
 		1,
-		&window.xcb.close_reply->atom);
+		&window_impl.close_reply->atom);
 
 	// show window
-	xcb_map_window(window.xcb.connection, window.xcb.window);
+	xcb_map_window(window_impl.connection, window_impl.window);
 
 	/// --- Setup keyboard state using Xkbcommon
 
-	window.xcb.kb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	ASSERT(window.xcb.kb_ctx);
-	window.xcb.device_id = xkb_x11_get_core_keyboard_device_id(window.xcb.connection);
+	window_impl.kb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	ASSERT(window_impl.kb_ctx);
+	window_impl.device_id = xkb_x11_get_core_keyboard_device_id(window_impl.connection);
 
-	if (window.xcb.device_id != -1) {
+	if (window_impl.device_id != -1) {
 
-		window.xcb.keymap = xkb_x11_keymap_new_from_device(window.xcb.kb_ctx,
-			window.xcb.connection,
-			window.xcb.device_id,
+		window_impl.keymap = xkb_x11_keymap_new_from_device(window_impl.kb_ctx,
+			window_impl.connection,
+			window_impl.device_id,
 			XKB_KEYMAP_COMPILE_NO_FLAGS);
 	} else {
 		struct xkb_rule_names names = {};
-		window.xcb.keymap           = xkb_keymap_new_from_names(window.xcb.kb_ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+		window_impl.keymap = xkb_keymap_new_from_names(window_impl.kb_ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
 	}
 
-	ASSERT(window.xcb.keymap);
-	if (window.xcb.device_id != -1) {
-		window.xcb.kb_state =
-			xkb_x11_state_new_from_device(window.xcb.keymap, window.xcb.connection, window.xcb.device_id);
+	ASSERT(window_impl.keymap);
+	if (window_impl.device_id != -1) {
+		window_impl.kb_state =
+			xkb_x11_state_new_from_device(window_impl.keymap, window_impl.connection, window_impl.device_id);
 	} else {
-		window.xcb.kb_state = xkb_state_new(window.xcb.keymap);
+		window_impl.kb_state = xkb_state_new(window_impl.keymap);
 	}
 
-	ASSERT(window.xcb.kb_state);
+	ASSERT(window_impl.kb_state);
 
 	// flush commands
-	xcb_flush(window.xcb.connection);
+	xcb_flush(window_impl.connection);
+
+	return window;
 }
 
-void Window::set_title(exo::String &&new_title)
+Window::Impl::~Impl() { xcb_disconnect(this->connection); }
+
+void Window::set_title(exo::StringView new_title)
 {
-	this->title = std::move(new_title);
+	this->title = new_title;
+	auto &xcb = this->impl.get();
+
 	xcb_change_property(xcb.connection,
 		XCB_PROP_MODE_REPLACE,
 		xcb.window,
 		XCB_ATOM_WM_NAME,
 		XCB_ATOM_STRING,
 		8,
-		title.size(),
-		title.c_str());
+		this->title.len(),
+		this->title.c_str());
 	xcb_flush(xcb.connection);
 }
 
 void Window::poll_events()
 {
+	auto &xcb = this->impl.get();
 	xcb_generic_event_t *ev = nullptr;
 
 	while ((ev = xcb_poll_for_event(xcb.connection))) {
@@ -164,10 +183,10 @@ void Window::poll_events()
 			auto *button_press = reinterpret_cast<xcb_button_press_event_t *>(ev);
 
 			if (button_press->detail == 4) {
-				push_event<event::Scroll>({.dx = 0, .dy = -1});
+				this->events.push(Event{.type = Event::ScrollType, .scroll = {.dx = 0, .dy = -1}});
 				break;
 			} else if (button_press->detail == 5) {
-				push_event<event::Scroll>({.dx = 0, .dy = 1});
+				this->events.push(Event{.type = Event::ScrollType, .scroll = {.dx = 0, .dy = 1}});
 				break;
 			}
 
@@ -191,7 +210,8 @@ void Window::poll_events()
 			}
 
 			if (pressed != MouseButton::Count) {
-				push_event<event::MouseClick>({.button = pressed, .state = ButtonState::Pressed});
+				events.push(Event{.type = Event::MouseClickType,
+					.mouse_click = {.button = pressed, .state = ButtonState::Pressed}});
 				mouse_buttons_pressed[pressed] = true;
 			}
 
@@ -223,7 +243,8 @@ void Window::poll_events()
 			}
 
 			if (released != MouseButton::Count) {
-				push_event<event::MouseClick>({.button = released, .state = ButtonState::Released});
+				events.push(Event{.type = Event::MouseClickType,
+					.mouse_click = {.button = released, .state = ButtonState::Released}});
 				mouse_buttons_pressed[released] = false;
 			}
 			break;
@@ -231,10 +252,10 @@ void Window::poll_events()
 
 		case XCB_MOTION_NOTIFY: {
 			auto *motion = reinterpret_cast<xcb_motion_notify_event_t *>(ev);
-			auto  x      = motion->event_x;
-			auto  y      = motion->event_y;
-			push_event<event::MouseMove>({x, y});
-			mouse_position = float2(x, y);
+			auto x = motion->event_x;
+			auto y = motion->event_y;
+			events.push(Event{.type = Event::MouseMoveType, .mouse_move = {x, y}});
+			mouse_position = {x, y};
 			break;
 		}
 
@@ -242,12 +263,12 @@ void Window::poll_events()
 		case XCB_KEY_RELEASE: {
 			// xcb_key_release_event_t is typedef'd to key_press
 			auto *key_press = reinterpret_cast<xcb_key_press_event_t *>(ev);
-			auto  keycode   = key_press->detail;
-			auto  keysym    = xkb_state_key_get_one_sym(xcb.kb_state, keycode);
+			auto keycode = key_press->detail;
+			auto keysym = xkb_state_key_get_one_sym(xcb.kb_state, keycode);
 
 			auto key = VirtualKey::Count;
 			for (uint i = 0; i < static_cast<usize>(VirtualKey::Count); i++) {
-				auto virtual_key     = static_cast<VirtualKey>(i);
+				auto virtual_key = static_cast<VirtualKey>(i);
 				uint xcb_virtual_key = native_to_virtual[virtual_key];
 				if (keysym == xcb_virtual_key) {
 					key = static_cast<VirtualKey>(i);
@@ -257,7 +278,7 @@ void Window::poll_events()
 
 			if (key != VirtualKey::Count) {
 				auto state = ev->response_type == XCB_KEY_PRESS ? ButtonState::Pressed : ButtonState::Released;
-				push_event<event::Key>({.key = key, .state = state});
+				events.push(Event{Event::KeyType, {events::Key{.key = key, .state = state}}});
 				keys_pressed[key] = state == ButtonState::Pressed;
 			}
 			break;
@@ -273,15 +294,10 @@ void Window::poll_events()
 	}
 }
 
-void Window::set_caret_pos(int2) {}
-
-void Window::set_caret_size(int2) {}
-
-void Window::remove_caret() {}
-
 void Window::set_cursor(Cursor) {}
 
 [[nodiscard]] float2 Window::get_dpi_scale() const { return float2(1.0f); }
 
-void Window::destroy() { xcb_disconnect(xcb.connection); }
-} // namespace exo
+u64 Window::get_display_handle() const { return (u64)impl.get().connection; }
+u64 Window::get_window_handle() const { return u64(impl.get().window); }
+} // namespace cross

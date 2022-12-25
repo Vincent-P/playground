@@ -52,7 +52,7 @@ Rect begin_scroll_area(Ui &ui, const Rect &scrollview_rect, exo::float2 &offset)
 
 	if (ui.is_hovering(vertical_thumb)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 			ui.state.active_drag_offset = ui.mouse_position() - vertical_thumb.pos;
 		}

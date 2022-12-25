@@ -8,10 +8,10 @@
 #include "render/vulkan/device.h"
 #include "render/vulkan/image.h"
 
-Renderer Renderer::create(u64 window_handle, AssetManager *asset_manager)
+Renderer Renderer::create(u64 display_handle, u64 window_handle, AssetManager *asset_manager)
 {
 	Renderer renderer;
-	renderer.base          = SimpleRenderer::create(window_handle);
+    renderer.base          = SimpleRenderer::create(display_handle, window_handle);
 	renderer.asset_manager = asset_manager;
 	renderer.mesh_renderer = MeshRenderer::create(renderer.base.device);
 	renderer.ui_renderer   = UiRenderer::create(renderer.base.device, int2(1024, 1024));

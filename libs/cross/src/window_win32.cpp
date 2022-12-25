@@ -1,10 +1,9 @@
 #include "cross/window.h"
 
+#include "cross/platform.h"
 #include "exo/logger.h"
 #include "exo/memory/scope_stack.h"
 #include "exo/profile.h"
-
-#include "cross/platform.h"
 #include "utils_win32.h"
 
 // clang-format off
@@ -25,7 +24,7 @@ namespace cross
 
 struct Window::Impl
 {
-	HWND  hwnd          = nullptr;
+	HWND hwnd = nullptr;
 	void *polling_fiber = nullptr;
 };
 
@@ -41,9 +40,9 @@ EnumArray<i32, VirtualKey> native_to_virtual{
 // Some keys on windows don't get updated with a message and need to be polled manually
 static void update_key_state(Window &window, VirtualKey key)
 {
-	auto old        = window.keys_pressed[key];
+	auto old = window.keys_pressed[key];
 	auto native_key = native_to_virtual[key];
-	auto pressed    = (GetKeyState(native_key) & 0x8000) != 0;
+	auto pressed = (GetKeyState(native_key) & 0x8000) != 0;
 
 	window.keys_pressed[key] = pressed;
 
@@ -60,7 +59,7 @@ static void update_key_state(Window &window, VirtualKey key)
 static void poll_events_fiber(void *window)
 {
 	Window &self = *reinterpret_cast<Window *>(window);
-	MSG     msg  = {};
+	MSG msg = {};
 
 	while (true) {
 		// need to take care of shit, control and alt manually...
@@ -85,22 +84,22 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 std::unique_ptr<Window> Window::create(int2 size, const exo::StringView title)
 {
-	auto window   = std::make_unique<Window>();
+	auto window = std::make_unique<Window>();
 	window->title = exo::String(title);
-	window->size  = size;
-	window->stop  = false;
+	window->size = size;
+	window->stop = false;
 	window->events.reserve(5); // should be good enough
 
-	auto &window_impl         = window->impl.get();
+	auto &window_impl = window->impl.get();
 	window_impl.polling_fiber = CreateFiber(0, poll_events_fiber, window.get());
 
 	// Register the window class
 	HINSTANCE instance = GetModuleHandle(nullptr);
-	WNDCLASS  wc       = {};
-	wc.lpfnWndProc     = window_proc;
-	wc.hInstance       = instance;
-	wc.lpszClassName   = L"Cross window class";
-	wc.style           = CS_OWNDC;
+	WNDCLASS wc = {};
+	wc.lpfnWndProc = window_proc;
+	wc.hInstance = instance;
+	wc.lpszClassName = L"Cross window class";
+	wc.style = CS_OWNDC;
 	RegisterClassW(&wc);
 
 	// Create the window instance
@@ -131,8 +130,8 @@ u64 Window::get_win32_hwnd() const { return reinterpret_cast<u64>(this->impl.get
 
 float2 Window::get_dpi_scale() const
 {
-	const uint dpi   = GetDpiForWindow(this->impl.get().hwnd);
-	float      scale = static_cast<float>(dpi) / 96.0f;
+	const uint dpi = GetDpiForWindow(this->impl.get().hwnd);
+	float scale = static_cast<float>(dpi) / 96.0f;
 	if (scale <= 0.0f) {
 		scale = 1.0f;
 	}
@@ -141,9 +140,9 @@ float2 Window::get_dpi_scale() const
 
 void Window::set_title(exo::StringView new_title)
 {
-	this->title      = exo::String{new_title};
+	this->title = exo::String{new_title};
 	auto utf16_title = utils::utf8_to_utf16(title);
-	auto res         = SetWindowTextW(this->impl.get().hwnd, utf16_title.c_str());
+	auto res = SetWindowTextW(this->impl.get().hwnd, utf16_title.c_str());
 	ASSERT(res != 0);
 }
 
@@ -162,11 +161,11 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	Window *tmp = nullptr;
 	if (uMsg == WM_CREATE) {
 		auto *p_create = reinterpret_cast<CREATESTRUCT *>(lParam);
-		tmp            = static_cast<Window *>(p_create->lpCreateParams);
+		tmp = static_cast<Window *>(p_create->lpCreateParams);
 		SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(tmp));
 	} else {
 		LONG_PTR const ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
-		tmp                = reinterpret_cast<Window *>(ptr);
+		tmp = reinterpret_cast<Window *>(ptr);
 	}
 
 	Window &window = *tmp;
@@ -263,7 +262,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	case WM_KEYDOWN: {
 		auto key = VirtualKey::Count;
 		for (usize i = 0; i < static_cast<usize>(VirtualKey::Count); i++) {
-			auto virtual_key       = static_cast<VirtualKey>(i);
+			auto virtual_key = static_cast<VirtualKey>(i);
 			auto win32_virtual_key = native_to_virtual[virtual_key];
 			if (static_cast<i32>(wParam) == win32_virtual_key) {
 				key = virtual_key;
@@ -319,16 +318,16 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 			static wchar_t buffer[3] = {0, 0, 0};
 
 			auto codepoint = static_cast<wchar_t>(wParam);
-			bool clear     = false;
+			bool clear = false;
 
 			if (is_high_surrogate(codepoint)) {
 				buffer[0] = codepoint;
 			} else if (is_low_surrogate(codepoint)) {
 				buffer[1] = codepoint;
-				clear     = true;
+				clear = true;
 			} else {
 				buffer[0] = codepoint;
-				clear     = true;
+				clear = true;
 			}
 
 			if (clear) {

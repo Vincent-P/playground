@@ -1,10 +1,8 @@
+#include "cross/platform.h"
+#include "cross/window.h"
 #include "exo/memory/linear_allocator.h"
 #include "exo/memory/scope_stack.h"
 #include "exo/profile.h"
-
-#include "cross/platform.h"
-#include "cross/window.h"
-
 #include "render/simple_renderer.h"
 #include "render/vulkan/commands.h"
 
@@ -28,7 +26,7 @@ void operator delete(void *ptr) noexcept
 	free(ptr);
 }
 
-u8  global_stack_mem[64 << 20];
+u8 global_stack_mem[64 << 20];
 int main(int /*argc*/, char ** /*argv*/)
 {
 	exo::LinearAllocator global_allocator =
@@ -41,7 +39,7 @@ int main(int /*argc*/, char ** /*argv*/)
 	auto window = cross::Window::create({1280, 720}, "Render sample");
 
 #if defined(GPU_RENDER)
-	auto renderer = SimpleRenderer::create(window->get_win32_hwnd());
+	auto renderer = SimpleRenderer::create(window->get_display_handle(), window->get_window_handle());
 #else
 	int X = 0;
 #endif
@@ -63,10 +61,11 @@ int main(int /*argc*/, char ** /*argv*/)
 				Handle<TextureDesc>::invalid(),
 				[](RenderGraph & /*graph*/, PassApi & /*api*/, vulkan::GraphicsWork & /*cmd*/) {});
 			renderer.render(intermediate_buffer, 1.0);
+			renderer.end_frame();
 		}
 #else
-		int  MidPoint = (X++ % (64 * 1024)) / 64;
-		HWND Window   = (HWND)window->get_win32_hwnd();
+		int MidPoint = (X++ % (64 * 1024)) / 64;
+		HWND Window = (HWND)window->get_win32_hwnd();
 		RECT Client;
 		GetClientRect(Window, &Client);
 		HDC DC = GetDC(Window);

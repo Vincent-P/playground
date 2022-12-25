@@ -42,8 +42,8 @@ struct Theme
 
 struct Inputs
 {
-	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
-	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed_last_frame = {};
+	exo::EnumArray<bool, cross::MouseButton> mouse_buttons_pressed = {};
+	exo::EnumArray<bool, cross::MouseButton> mouse_buttons_pressed_last_frame = {};
 	int2 mouse_position = {0};
 	Option<int2> mouse_wheel = {};
 };
@@ -89,9 +89,9 @@ struct Ui
 	u64 make_id();
 
 	// widget api
-	bool has_pressed(exo::MouseButton button = exo::MouseButton::Left) const;
-	bool has_pressed_and_released(exo::MouseButton button = exo::MouseButton::Left) const;
-	bool has_clicked(u64 id, exo::MouseButton button = exo::MouseButton::Left) const;
+	bool has_pressed(cross::MouseButton button = cross::MouseButton::Left) const;
+	bool has_pressed_and_released(cross::MouseButton button = cross::MouseButton::Left) const;
+	bool has_clicked(u64 id, cross::MouseButton button = cross::MouseButton::Left) const;
 
 	const Rect &current_clip_rect() const;
 	bool is_clipped(const Rect &rect) const;

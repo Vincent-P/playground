@@ -122,12 +122,12 @@ void EditorCameraTransformSystem::update(const UpdateContext &ctx)
 				auto mouse_right = float(mouse_delta->x);
 
 				auto camera_world  = reinterpret_cast<SpatialComponent *>(camera_component)->get_local_transform();
-				const float3 front = -1.0 * normalize(camera_world.col(2).xyz());
-				const float3 up    = normalize(camera_world.col(1).xyz());
+                const float3 front = -1.0 * exo::normalize(camera_world.col(2).xyz());
+                const float3 up    = exo::normalize(camera_world.col(1).xyz());
 
-				auto camera_plane_forward = normalize(float3(front.x, 0.0f, front.z));
-				auto camera_right         = cross(up, front);
-				auto camera_plane_right   = normalize(float3(camera_right.x, 0.0f, camera_right.z));
+                auto camera_plane_forward = exo::normalize(float3(front.x, 0.0f, front.z));
+                auto camera_right         = exo::cross(up, front);
+                auto camera_plane_right   = exo::normalize(float3(camera_right.x, 0.0f, camera_right.z));
 
 				editor_camera_component->target =
 					editor_camera_component->target +
@@ -190,7 +190,7 @@ void EditorCameraTransformSystem::update(const UpdateContext &ctx)
 	auto up       = float3(std::sin(PI / 2 + phi_rad) * std::sin(theta_rad),
         std::cos(PI / 2 + phi_rad),
         std::sin(PI / 2 + phi_rad) * std::cos(theta_rad));
-	auto right    = cross(front, up);
+    auto right    = exo::cross(front, up);
 
 	float4x4 new_transform = {};
 	new_transform.col(0)   = float4(right, 0.0f);

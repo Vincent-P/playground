@@ -29,6 +29,8 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fansi-escape-codes>
 
+  $<$<CXX_COMPILER_ID:Clang>:-stdlib=libc++>
+
   # Disable warnings for external headers
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
@@ -58,7 +60,7 @@ endfunction()
 function(setup_app_target_options TARGET)
   target_compile_options(${TARGET} PRIVATE
       # zstd in ktx doesnt compile with this flag
-      $<$<CXX_COMPILER_ID:Clang>:-march=native>
+      $<$<CXX_COMPILER_ID:Clang,GNU>:-march=native>
 
       # Warning level
       $<$<CXX_COMPILER_ID:Clang>:-Werror> # No GNU here :)
@@ -88,6 +90,8 @@ function(setup_app_target_options TARGET)
 
   if (WIN32)
 	target_compile_definitions(${TARGET} PRIVATE PLATFORM_WINDOWS)
+  elseif(UNIX)
+	target_compile_definitions(${TARGET} PRIVATE PLATFORM_LINUX)
   else()
 	message(WARNING "Platform not supported." )
   endif()
@@ -191,7 +195,7 @@ add_subdirectory(libs/engine)
 add_subdirectory(libs/ui)
 add_subdirectory(libs/ui_renderer)
 
-add_subdirectory(apps/editor)
+# add_subdirectory(apps/editor)
 add_subdirectory(apps/render_sample)
-add_subdirectory(apps/biv)
-add_subdirectory(apps/test_iocp)
+# add_subdirectory(apps/biv)
+# add_subdirectory(apps/test_iocp)

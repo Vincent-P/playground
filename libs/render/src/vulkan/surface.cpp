@@ -16,20 +16,20 @@
 namespace vulkan
 {
 
-Surface Surface::create(Context &context, Device &device, u64 window_handle)
+Surface Surface::create(Context &context, Device &device, u64 display_handle, u64 window_handle)
 {
 	Surface surface = {};
 
 	/// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 	VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-	sci.hwnd                        = reinterpret_cast<HWND>(window_handle);
-	sci.hinstance                   = GetModuleHandle(nullptr);
+	sci.hwnd = reinterpret_cast<HWND>(window_handle);
+	sci.hinstance = GetModuleHandle(nullptr);
 	vk_check(vkCreateWin32SurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
 	VkXcbSurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-	sci.connection                = window.xcb.connection;
-	sci.window                    = window.xcb.window;
+	sci.connection = (xcb_connection_t *)display_handle;
+	sci.window = u32(window_handle);
 	vk_check(vkCreateXcbSurfaceKHR(context.instance, &sci, nullptr, &surface.surface));
 #else
 #error "Unknown platform."
@@ -81,7 +81,7 @@ Surface Surface::create(Context &context, Device &device, u64 window_handle)
 	}
 
 	// Find the best format
-	uint                    formats_count = 0;
+	uint formats_count = 0;
 	Vec<VkSurfaceFormatKHR> formats;
 	vk_check(vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device.vkdevice,
 		surface.surface,
@@ -94,7 +94,7 @@ Surface Surface::create(Context &context, Device &device, u64 window_handle)
 		formats.data()));
 	surface.format = formats[0];
 	if (surface.format.format == VK_FORMAT_UNDEFINED) {
-		surface.format.format     = VK_FORMAT_B8G8R8A8_UNORM;
+		surface.format.format = VK_FORMAT_B8G8R8A8_UNORM;
 		surface.format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	} else {
 		for (const auto &f : formats) {
@@ -125,7 +125,7 @@ void Surface::create_swapchain(Device &device)
 		return;
 	}
 
-	this->width  = static_cast<i32>(capabilities.currentExtent.width);
+	this->width = static_cast<i32>(capabilities.currentExtent.width);
 	this->height = static_cast<i32>(capabilities.currentExtent.height);
 
 	auto image_count = capabilities.minImageCount;
@@ -139,21 +139,21 @@ void Surface::create_swapchain(Device &device)
 	const VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
 
 	VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
-	ci.surface                  = this->surface;
-	ci.minImageCount            = image_count;
-	ci.imageFormat              = this->format.format;
-	ci.imageColorSpace          = this->format.colorSpace;
-	ci.imageExtent.width        = static_cast<u32>(this->width);
-	ci.imageExtent.height       = static_cast<u32>(this->height);
-	ci.imageArrayLayers         = 1;
-	ci.imageUsage               = image_usage;
-	ci.imageSharingMode         = VK_SHARING_MODE_EXCLUSIVE;
-	ci.queueFamilyIndexCount    = 0;
-	ci.pQueueFamilyIndices      = nullptr;
-	ci.preTransform             = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	ci.compositeAlpha           = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	ci.presentMode              = this->present_mode;
-	ci.clipped                  = VK_TRUE;
+	ci.surface = this->surface;
+	ci.minImageCount = image_count;
+	ci.imageFormat = this->format.format;
+	ci.imageColorSpace = this->format.colorSpace;
+	ci.imageExtent.width = static_cast<u32>(this->width);
+	ci.imageExtent.height = static_cast<u32>(this->height);
+	ci.imageArrayLayers = 1;
+	ci.imageUsage = image_usage;
+	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = 0;
+	ci.pQueueFamilyIndices = nullptr;
+	ci.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ci.presentMode = this->present_mode;
+	ci.clipped = VK_TRUE;
 
 	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &this->swapchain));
 
@@ -168,8 +168,8 @@ void Surface::create_swapchain(Device &device)
 	for (uint i_image = 0; i_image < images_count; i_image++) {
 		this->images[i_image] = device.create_image(
 			{
-				.name   = exo::formatf(scope, "Swapchain #%u", i_image),
-				.size   = {width, height, 1},
+				.name = exo::formatf(scope, "Swapchain #%u", i_image),
+				.size = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,
 			},
@@ -218,28 +218,28 @@ void Surface::recreate_swapchain(Device &device)
 		return;
 	}
 
-	this->width  = static_cast<i32>(capabilities.currentExtent.width);
+	this->width = static_cast<i32>(capabilities.currentExtent.width);
 	this->height = static_cast<i32>(capabilities.currentExtent.height);
 
 	const VkImageUsageFlags image_usage = color_attachment_usage | storage_image_usage;
 
 	VkSwapchainCreateInfoKHR ci = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
-	ci.surface                  = this->surface;
-	ci.minImageCount            = static_cast<u32>(this->images.len());
-	ci.imageFormat              = this->format.format;
-	ci.imageColorSpace          = this->format.colorSpace;
-	ci.imageExtent.width        = static_cast<u32>(this->width);
-	ci.imageExtent.height       = static_cast<u32>(this->height);
-	ci.imageArrayLayers         = 1;
-	ci.imageUsage               = image_usage;
-	ci.imageSharingMode         = VK_SHARING_MODE_EXCLUSIVE;
-	ci.queueFamilyIndexCount    = 0;
-	ci.pQueueFamilyIndices      = nullptr;
-	ci.preTransform             = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	ci.compositeAlpha           = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	ci.presentMode              = this->present_mode;
-	ci.clipped                  = VK_TRUE;
-	ci.oldSwapchain             = this->swapchain;
+	ci.surface = this->surface;
+	ci.minImageCount = static_cast<u32>(this->images.len());
+	ci.imageFormat = this->format.format;
+	ci.imageColorSpace = this->format.colorSpace;
+	ci.imageExtent.width = static_cast<u32>(this->width);
+	ci.imageExtent.height = static_cast<u32>(this->height);
+	ci.imageArrayLayers = 1;
+	ci.imageUsage = image_usage;
+	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = 0;
+	ci.pQueueFamilyIndices = nullptr;
+	ci.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ci.presentMode = this->present_mode;
+	ci.clipped = VK_TRUE;
+	ci.oldSwapchain = this->swapchain;
 
 	VkSwapchainKHR new_swapchain;
 	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
@@ -247,8 +247,8 @@ void Surface::recreate_swapchain(Device &device)
 	vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = new_swapchain;
 
-	u32  images_count = static_cast<u32>(this->images.len());
-	auto vkimages     = Vec<VkImage>::with_length(images_count);
+	u32 images_count = static_cast<u32>(this->images.len());
+	auto vkimages = Vec<VkImage>::with_length(images_count);
 	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	exo::ScopeStack scope;
@@ -256,8 +256,8 @@ void Surface::recreate_swapchain(Device &device)
 		device.destroy_image(this->images[i_image]);
 		this->images[i_image] = device.create_image(
 			{
-				.name   = exo::formatf(scope, "Swapchain #%u", i_image),
-				.size   = {width, height, 1},
+				.name = exo::formatf(scope, "Swapchain #%u", i_image),
+				.size = {width, height, 1},
 				.format = format.format,
 				.usages = image_usage,
 			},

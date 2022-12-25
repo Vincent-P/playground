@@ -33,13 +33,13 @@ App::App(exo::ScopeStack &scope)
 	this->window = cross::Window::create({DEFAULT_WIDTH, DEFAULT_HEIGHT}, "Editor");
 	this->asset_manager = AssetManager::create(this->jobmanager);
 
-	this->inputs.bind(Action::QuitApp, {.keys = {exo::VirtualKey::Escape}});
-	this->inputs.bind(Action::CameraModifier, {.keys = {exo::VirtualKey::LAlt}});
-	this->inputs.bind(Action::CameraMove, {.mouse_buttons = {exo::MouseButton::Left}});
-	this->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {exo::MouseButton::Right}});
+	this->inputs.bind(Action::QuitApp, {.keys = {cross::VirtualKey::Escape}});
+	this->inputs.bind(Action::CameraModifier, {.keys = {cross::VirtualKey::LAlt}});
+	this->inputs.bind(Action::CameraMove, {.mouse_buttons = {cross::MouseButton::Left}});
+	this->inputs.bind(Action::CameraOrbit, {.mouse_buttons = {cross::MouseButton::Right}});
 
 	this->watcher = cross::FileWatcher::create();
-	this->renderer = Renderer::create(this->window->get_win32_hwnd(), &this->asset_manager);
+    this->renderer = Renderer::create(this->window->get_display_handle(), this->window->get_window_handle(), &this->asset_manager);
 
 	const int font_size_pt = 18;
 	const auto font_size_px = float(font_size_pt);
@@ -254,7 +254,7 @@ void App::run()
 		EXO_PROFILE_SCOPE_NAMED("loop");
 
 		for (auto &event : window->events) {
-			if (event.type == exo::Event::MouseMoveType) {
+			if (event.type == cross::Event::MouseMoveType) {
 				this->is_minimized = false;
 			}
 		}

@@ -1,15 +1,13 @@
-#include "exo/os/mapped_file.h"
-
+#include "cross/mapped_file.h"
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace exo
+namespace cross
 {
-
-MappedFile::MappedFile(MappedFile &&moved) { *this = std::move(moved); }
+MappedFile::MappedFile(MappedFile &&moved) noexcept { *this = std::move(moved); }
 
 MappedFile::~MappedFile()
 {
@@ -18,12 +16,16 @@ MappedFile::~MappedFile()
 	}
 }
 
-MappedFile &MappedFile::operator=(MappedFile &&moved)
+MappedFile &MappedFile::operator=(MappedFile &&moved) noexcept
 {
 	if (this != &moved) {
-		fd        = std::exchange(moved.fd, -1);
-		base_addr = std::exchange(moved.base_addr, nullptr);
-		size      = std::exchange(moved.size, 0);
+		fd = moved.fd;
+		base_addr = moved.base_addr;
+		size = moved.size;
+
+		moved.fd = -1;
+		moved.base_addr = nullptr;
+		moved.size = 0;
 	}
 	return *this;
 }
@@ -32,8 +34,8 @@ Option<MappedFile> MappedFile::open(const exo::StringView &path)
 {
 	MappedFile file{};
 
-	file.fd        = -1;
-	file.size      = 0;
+	file.fd = -1;
+	file.size = 0;
 	file.base_addr = nullptr;
 
 	int res = 0;
@@ -46,7 +48,7 @@ Option<MappedFile> MappedFile::open(const exo::StringView &path)
 	file.fd = res;
 
 	struct stat file_stat = {};
-	res                   = fstat(file.fd, &file_stat);
+	res = fstat(file.fd, &file_stat);
 	if (res < 0) {
 		return {};
 	}
@@ -62,5 +64,4 @@ Option<MappedFile> MappedFile::open(const exo::StringView &path)
 }
 
 void MappedFile::close() { ::close(fd); }
-
-}; // namespace exo
+}; // namespace cross

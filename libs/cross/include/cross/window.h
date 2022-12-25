@@ -5,7 +5,6 @@
 #include "exo/collections/vector.h"
 #include "exo/forward_container.h"
 #include "exo/maths/vectors.h"
-
 #include "exo/string.h"
 #include "exo/string_view.h"
 #include <memory>
@@ -31,13 +30,13 @@ struct Window
 	struct Impl;
 	exo::ForwardContainer<Impl, 128> impl;
 
-	exo::EnumArray<bool, exo::VirtualKey>  keys_pressed          = {};
-	exo::EnumArray<bool, exo::MouseButton> mouse_buttons_pressed = {};
+	exo::EnumArray<bool, cross::VirtualKey> keys_pressed = {};
+	exo::EnumArray<bool, cross::MouseButton> mouse_buttons_pressed = {};
 
-	Vec<exo::Event> events;
+	Vec<Event> events;
 
 	exo::String title;
-	int2        size;
+	int2 size;
 
 	int2 mouse_position = int2{0, 0};
 
@@ -61,13 +60,15 @@ struct Window
 	[[nodiscard]] float2 get_dpi_scale() const;
 
 	[[nodiscard]] inline bool should_close() const { return stop; }
-	[[nodiscard]] inline bool is_key_pressed(exo::VirtualKey key) const { return keys_pressed[key]; }
-	[[nodiscard]] inline bool is_mouse_button_pressed(exo::MouseButton button) const
+	[[nodiscard]] inline bool is_key_pressed(VirtualKey key) const { return keys_pressed[key]; }
+	[[nodiscard]] inline bool is_mouse_button_pressed(MouseButton button) const
 	{
 		return mouse_buttons_pressed[button];
 	}
 	[[nodiscard]] inline int2 get_mouse_position() const { return mouse_position; }
-	u64                       get_win32_hwnd() const;
+
+	u64 get_display_handle() const;
+	u64 get_window_handle() const;
 };
 
 } // namespace cross

@@ -30,7 +30,7 @@ void Ui::end_frame()
 {
 	EXO_PROFILE_SCOPE;
 
-	if (!this->inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+	if (!this->inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 		this->activation.active = u64_invalid;
 	}
 }
@@ -39,14 +39,14 @@ bool Ui::is_hovering(const Rect &rect) const { return rect.is_point_inside(this-
 
 u64 Ui::make_id() { return ++this->activation.gen; }
 
-bool Ui::has_pressed(exo::MouseButton button) const { return this->inputs.mouse_buttons_pressed[button]; }
+bool Ui::has_pressed(cross::MouseButton button) const { return this->inputs.mouse_buttons_pressed[button]; }
 
-bool Ui::has_pressed_and_released(exo::MouseButton button) const
+bool Ui::has_pressed_and_released(cross::MouseButton button) const
 {
 	return !this->inputs.mouse_buttons_pressed_last_frame[button] && this->inputs.mouse_buttons_pressed[button];
 }
 
-bool Ui::has_clicked(u64 id, exo::MouseButton button) const
+bool Ui::has_clicked(u64 id, cross::MouseButton button) const
 {
 	return this->has_pressed_and_released(button) && this->activation.focused == id && this->activation.active == id;
 }
@@ -106,7 +106,7 @@ bool button(Ui &ui, const Button &button)
 	// behavior
 	if (ui.is_hovering(button.rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -152,7 +152,7 @@ RectPair splitter_x(Ui &ui, const Rect &view_rect, float &value)
 	// behavior
 	if (ui.is_hovering(splitter_rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -189,7 +189,7 @@ RectPair splitter_y(Ui &ui, const Rect &view_rect, float &value)
 	// behavior
 	if (ui.is_hovering(splitter_rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -253,7 +253,7 @@ bool button_split(Ui &ui, RectSplit &rectsplit, exo::StringView label)
 	// behavior
 	if (ui.is_hovering(button_rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}
@@ -292,7 +292,7 @@ bool invisible_button(Ui &ui, const Rect &rect)
 	// behavior
 	if (ui.is_hovering(rect)) {
 		ui.activation.focused = id;
-		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[exo::MouseButton::Left]) {
+		if (ui.activation.active == u64_invalid && ui.inputs.mouse_buttons_pressed[cross::MouseButton::Left]) {
 			ui.activation.active = id;
 		}
 	}

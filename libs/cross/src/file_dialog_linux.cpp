@@ -1,6 +1,6 @@
-#include "exo/os/file_dialog.h"
+#include "cross/file_dialog.h"
 
 namespace exo
 {
-Option<std::filesystem::path> file_dialog(Vec<std::pair<exo::String, exo::String>>) { return std::nullopt; }
+Option<exo::String> file_dialog(exo::Span<const std::pair<exo::String, exo::String>> extensions) { return {}; }
 } // namespace exo

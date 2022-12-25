@@ -3,10 +3,10 @@
 #include "exo/macros/assert.h"
 #include "exo/maths/numerics.h"
 #include "exo/memory/dynamic_buffer.h"
-
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
+#include <new> // for placement new
 
 namespace exo
 {

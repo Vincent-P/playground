@@ -1,5 +1,7 @@
 #include "render/vulkan/commands.h"
 
+#include "exo/collections/dynamic_array.h"
+#include "exo/profile.h"
 #include "render/vulkan/buffer.h"
 #include "render/vulkan/descriptor_set.h"
 #include "render/vulkan/device.h"
@@ -9,10 +11,7 @@
 #include "render/vulkan/queues.h"
 #include "render/vulkan/surface.h"
 #include "render/vulkan/utils.h"
-
-#include "exo/collections/dynamic_array.h"
-#include "exo/profile.h"
-
+#include <algorithm> // for std::min
 #include <volk.h>
 
 namespace vulkan
@@ -24,7 +23,7 @@ void Work::begin()
 {
 	EXO_PROFILE_SCOPE;
 	VkCommandBufferBeginInfo binfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-	binfo.flags                    = 0;
+	binfo.flags = 0;
 	vkBeginCommandBuffer(command_buffer, &binfo);
 
 	vkCmdBindDescriptorSets(command_buffer,
@@ -84,7 +83,7 @@ void Work::wait_for(Fence &fence, u64 wait_value, VkPipelineStageFlags stage_dst
 void Work::wait_for_acquired(Surface &surface, VkPipelineStageFlags stage_dst)
 {
 	image_acquired_semaphore = surface.image_acquired_semaphores[surface.previous_image];
-	image_acquired_stage     = stage_dst;
+	image_acquired_stage = stage_dst;
 }
 
 void Work::prepare_present(Surface &surface)
@@ -99,7 +98,7 @@ void Work::barrier(Handle<Buffer> buffer_handle, BufferUsage usage_destination)
 
 	auto src_access = get_src_buffer_access(buffer.usage);
 	auto dst_access = get_dst_buffer_access(usage_destination);
-	auto b          = get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size);
+	auto b = get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size);
 	vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 1, &b, 0, nullptr);
 
 	buffer.usage = usage_destination;
@@ -113,14 +112,14 @@ void Work::absolute_barrier(Handle<Image> image_handle)
 	auto src_access = get_src_image_access(image.usage);
 
 	VkImageMemoryBarrier b = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-	b.oldLayout            = src_access.layout;
-	b.newLayout            = src_access.layout;
-	b.srcAccessMask        = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-	b.dstAccessMask        = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-	b.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
-	b.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
-	b.image                = image.vkhandle;
-	b.subresourceRange     = image.full_view.range;
+	b.oldLayout = src_access.layout;
+	b.newLayout = src_access.layout;
+	b.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	b.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	b.image = image.vkhandle;
+	b.subresourceRange = image.full_view.range;
 
 	vkCmdPipelineBarrier(command_buffer,
 		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -141,7 +140,7 @@ void Work::barrier(Handle<Image> image_handle, ImageUsage usage_destination)
 
 	auto src_access = get_src_image_access(image.usage);
 	auto dst_access = get_dst_image_access(usage_destination);
-	auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
+	auto b = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
 	vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
 
 	image.usage = usage_destination;
@@ -153,26 +152,26 @@ void Work::clear_barrier(Handle<Image> image_handle, ImageUsage usage_destinatio
 
 	auto src_access = get_src_image_access(ImageUsage::None);
 	auto dst_access = get_dst_image_access(usage_destination);
-	auto b          = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
+	auto b = get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range);
 	vkCmdPipelineBarrier(command_buffer, src_access.stage, dst_access.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
 
 	image.usage = usage_destination;
 }
 
 void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
-	exo::Span<std::pair<Handle<Buffer>, BufferUsage>>               buffers)
+	exo::Span<std::pair<Handle<Buffer>, BufferUsage>> buffers)
 {
 	EXO_PROFILE_SCOPE;
-	exo::DynamicArray<VkImageMemoryBarrier, 8>  image_barriers  = {};
+	exo::DynamicArray<VkImageMemoryBarrier, 8> image_barriers = {};
 	exo::DynamicArray<VkBufferMemoryBarrier, 8> buffer_barriers = {};
 
 	VkPipelineStageFlags src_stage = 0;
 	VkPipelineStageFlags dst_stage = 0;
 
 	for (auto &[image_handle, usage_dst] : images) {
-		auto &image      = device->images.get(image_handle);
-		auto  src_access = get_src_image_access(image.usage);
-		auto  dst_access = get_dst_image_access(usage_dst);
+		auto &image = device->images.get(image_handle);
+		auto src_access = get_src_image_access(image.usage);
+		auto dst_access = get_dst_image_access(usage_dst);
 		image_barriers.push(get_image_barrier(image.vkhandle, src_access, dst_access, image.full_view.range));
 		src_stage |= src_access.stage;
 		dst_stage |= dst_access.stage;
@@ -181,9 +180,9 @@ void Work::barriers(exo::Span<std::pair<Handle<Image>, ImageUsage>> images,
 	}
 
 	for (auto &[buffer_handle, usage_dst] : buffers) {
-		auto &buffer     = device->buffers.get(buffer_handle);
-		auto  src_access = get_src_buffer_access(buffer.usage);
-		auto  dst_access = get_dst_buffer_access(usage_dst);
+		auto &buffer = device->buffers.get(buffer_handle);
+		auto src_access = get_src_buffer_access(buffer.usage);
+		auto dst_access = get_dst_buffer_access(usage_dst);
 		buffer_barriers.push(get_buffer_barrier(buffer.vkhandle, src_access, dst_access, 0, buffer.desc.size));
 		src_stage |= src_access.stage;
 		dst_stage |= dst_access.stage;
@@ -231,11 +230,11 @@ void Work::timestamp_query(QueryPool &query_pool, u32 index)
 void Work::begin_debug_label(exo::StringView label, float4 color)
 {
 	VkDebugUtilsLabelEXT label_info = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
-	label_info.pLabelName           = label.data();
-	label_info.color[0]             = color[0];
-	label_info.color[1]             = color[1];
-	label_info.color[2]             = color[2];
-	label_info.color[3]             = color[3];
+	label_info.pLabelName = label.data();
+	label_info.color[0] = color[0];
+	label_info.color[1] = color[1];
+	label_info.color[2] = color[2];
+	label_info.color[3] = color[3];
 
 	vkCmdBeginDebugUtilsLabelEXT(command_buffer, &label_info);
 }
@@ -244,7 +243,7 @@ void Work::end_debug_label() { vkCmdEndDebugUtilsLabelEXT(command_buffer); }
 
 /// --- TransferWork
 void TransferWork::copy_buffer(
-	Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
+    Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
 	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
@@ -253,11 +252,8 @@ void TransferWork::copy_buffer(
 	exo::DynamicArray<VkBufferCopy, 16> buffer_copies = {};
 
 	for (usize i_copy = 0; i_copy < offsets_src_dst_size.len(); i_copy += 1) {
-		buffer_copies.push(VkBufferCopy{
-			.srcOffset = std::get<0>(offsets_src_dst_size[i_copy]),
-			.dstOffset = std::get<1>(offsets_src_dst_size[i_copy]),
-			.size      = std::get<2>(offsets_src_dst_size[i_copy]),
-		});
+		auto [soff, doff, size] = offsets_src_dst_size[i_copy];
+		buffer_copies.push(VkBufferCopy{.srcOffset = soff, .dstOffset = doff, .size = size});
 	}
 
 	vkCmdCopyBuffer(command_buffer,
@@ -276,7 +272,7 @@ void TransferWork::copy_buffer(Handle<Buffer> src, Handle<Buffer> dst)
 	const VkBufferCopy copy = {
 		.srcOffset = 0,
 		.dstOffset = 0,
-		.size      = std::min(src_buffer.desc.size, dst_buffer.desc.size),
+		.size = std::min(src_buffer.desc.size, dst_buffer.desc.size),
 	};
 
 	vkCmdCopyBuffer(command_buffer, src_buffer.vkhandle, dst_buffer.vkhandle, 1, &copy);
@@ -288,20 +284,20 @@ void TransferWork::copy_image(Handle<Image> src, Handle<Image> dst)
 	auto &src_image = device->images.get(src);
 	auto &dst_image = device->images.get(dst);
 
-	VkImageCopy copy                   = {};
-	copy.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
-	copy.srcSubresource.mipLevel       = src_image.full_view.range.baseMipLevel;
+	VkImageCopy copy = {};
+	copy.srcSubresource.aspectMask = src_image.full_view.range.aspectMask;
+	copy.srcSubresource.mipLevel = src_image.full_view.range.baseMipLevel;
 	copy.srcSubresource.baseArrayLayer = src_image.full_view.range.baseArrayLayer;
-	copy.srcSubresource.layerCount     = src_image.full_view.range.layerCount;
-	copy.srcOffset                     = {.x = 0, .y = 0, .z = 0};
-	copy.dstSubresource.aspectMask     = dst_image.full_view.range.aspectMask;
-	copy.dstSubresource.mipLevel       = dst_image.full_view.range.baseMipLevel;
+	copy.srcSubresource.layerCount = src_image.full_view.range.layerCount;
+	copy.srcOffset = {.x = 0, .y = 0, .z = 0};
+	copy.dstSubresource.aspectMask = dst_image.full_view.range.aspectMask;
+	copy.dstSubresource.mipLevel = dst_image.full_view.range.baseMipLevel;
 	copy.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
-	copy.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
-	copy.dstOffset                     = {.x = 0, .y = 0, .z = 0};
-	copy.extent.width                  = static_cast<u32>(std::min(src_image.desc.size.x, dst_image.desc.size.x));
-	copy.extent.height                 = static_cast<u32>(std::min(src_image.desc.size.y, dst_image.desc.size.y));
-	copy.extent.depth                  = static_cast<u32>(std::min(src_image.desc.size.z, dst_image.desc.size.z));
+	copy.dstSubresource.layerCount = dst_image.full_view.range.layerCount;
+	copy.dstOffset = {.x = 0, .y = 0, .z = 0};
+	copy.extent.width = static_cast<u32>(std::min(src_image.desc.size.x, dst_image.desc.size.x));
+	copy.extent.height = static_cast<u32>(std::min(src_image.desc.size.y, dst_image.desc.size.y));
+	copy.extent.depth = static_cast<u32>(std::min(src_image.desc.size.z, dst_image.desc.size.z));
 
 	vkCmdCopyImage(command_buffer,
 		src_image.vkhandle,
@@ -318,23 +314,23 @@ void TransferWork::blit_image(Handle<Image> src, Handle<Image> dst)
 	auto &src_image = device->images.get(src);
 	auto &dst_image = device->images.get(dst);
 
-	VkImageBlit blit                   = {};
-	blit.srcSubresource.aspectMask     = src_image.full_view.range.aspectMask;
-	blit.srcSubresource.mipLevel       = src_image.full_view.range.baseMipLevel;
+	VkImageBlit blit = {};
+	blit.srcSubresource.aspectMask = src_image.full_view.range.aspectMask;
+	blit.srcSubresource.mipLevel = src_image.full_view.range.baseMipLevel;
 	blit.srcSubresource.baseArrayLayer = src_image.full_view.range.baseArrayLayer;
-	blit.srcSubresource.layerCount     = src_image.full_view.range.layerCount;
-	blit.srcOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
-	blit.srcOffsets[1]                 = {.x = static_cast<i32>(src_image.desc.size.x),
-						.y                   = static_cast<i32>(src_image.desc.size.y),
-						.z                   = static_cast<i32>(src_image.desc.size.z)};
-	blit.dstSubresource.aspectMask     = dst_image.full_view.range.aspectMask;
-	blit.dstSubresource.mipLevel       = dst_image.full_view.range.baseMipLevel;
+	blit.srcSubresource.layerCount = src_image.full_view.range.layerCount;
+	blit.srcOffsets[0] = {.x = 0, .y = 0, .z = 0};
+	blit.srcOffsets[1] = {.x = static_cast<i32>(src_image.desc.size.x),
+		.y = static_cast<i32>(src_image.desc.size.y),
+		.z = static_cast<i32>(src_image.desc.size.z)};
+	blit.dstSubresource.aspectMask = dst_image.full_view.range.aspectMask;
+	blit.dstSubresource.mipLevel = dst_image.full_view.range.baseMipLevel;
 	blit.dstSubresource.baseArrayLayer = dst_image.full_view.range.baseArrayLayer;
-	blit.dstSubresource.layerCount     = dst_image.full_view.range.layerCount;
-	blit.dstOffsets[0]                 = {.x = 0, .y = 0, .z = 0};
-	blit.dstOffsets[1]                 = {.x = static_cast<i32>(dst_image.desc.size.x),
-						.y                   = static_cast<i32>(dst_image.desc.size.y),
-						.z                   = static_cast<i32>(dst_image.desc.size.z)};
+	blit.dstSubresource.layerCount = dst_image.full_view.range.layerCount;
+	blit.dstOffsets[0] = {.x = 0, .y = 0, .z = 0};
+	blit.dstOffsets[1] = {.x = static_cast<i32>(dst_image.desc.size.x),
+		.y = static_cast<i32>(dst_image.desc.size.y),
+		.z = static_cast<i32>(dst_image.desc.size.z)};
 
 	vkCmdBlitImage(command_buffer,
 		src_image.vkhandle,
@@ -351,7 +347,7 @@ void TransferWork::copy_buffer_to_image(
 {
 	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
-	auto &dst_image  = device->images.get(dst);
+	auto &dst_image = device->images.get(dst);
 
 	const u32 region_count = static_cast<u32>(buffer_copy_regions.len());
 	vkCmdCopyBufferToImage(command_buffer,
@@ -434,7 +430,7 @@ void GraphicsWork::draw_indexed_indirect_count(const DrawIndexedIndirectCountOpt
 {
 	EXO_PROFILE_SCOPE;
 	auto &arguments = device->buffers.get(options.arguments_buffer);
-	auto &count     = device->buffers.get(options.count_buffer);
+	auto &count = device->buffers.get(options.count_buffer);
 	vkCmdDrawIndexedIndirectCount(command_buffer,
 		arguments.vkhandle,
 		options.arguments_offset,
@@ -460,20 +456,20 @@ void GraphicsWork::begin_pass(Handle<Framebuffer> framebuffer_handle, exo::Span<
 {
 	EXO_PROFILE_SCOPE;
 	auto &framebuffer = device->framebuffers.get(framebuffer_handle);
-	auto &renderpass  = device->find_or_create_renderpass(framebuffer, load_ops);
+	auto &renderpass = device->find_or_create_renderpass(framebuffer, load_ops);
 
 	exo::DynamicArray<VkClearValue, MAX_ATTACHMENTS> clear_colors = {};
 	for (auto &load_op : load_ops) {
 		clear_colors.push(load_op.color);
 	}
 
-	VkRenderPassBeginInfo begin_info    = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-	begin_info.renderPass               = renderpass.vkhandle;
-	begin_info.framebuffer              = framebuffer.vkhandle;
-	begin_info.renderArea.extent.width  = static_cast<u32>(framebuffer.format.size[0]);
+	VkRenderPassBeginInfo begin_info = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+	begin_info.renderPass = renderpass.vkhandle;
+	begin_info.framebuffer = framebuffer.vkhandle;
+	begin_info.renderArea.extent.width = static_cast<u32>(framebuffer.format.size[0]);
 	begin_info.renderArea.extent.height = static_cast<u32>(framebuffer.format.size[1]);
-	begin_info.clearValueCount          = static_cast<u32>(clear_colors.len());
-	begin_info.pClearValues             = clear_colors.data();
+	begin_info.clearValueCount = static_cast<u32>(clear_colors.len());
+	begin_info.pClearValues = clear_colors.data();
 
 	vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -483,8 +479,8 @@ void GraphicsWork::end_pass() { vkCmdEndRenderPass(command_buffer); }
 void GraphicsWork::bind_pipeline(Handle<GraphicsProgram> program_handle, uint pipeline_index)
 {
 	EXO_PROFILE_SCOPE;
-	auto &program  = device->graphics_programs.get(program_handle);
-	auto  pipeline = program.pipelines[pipeline_index];
+	auto &program = device->graphics_programs.get(program_handle);
+	auto pipeline = program.pipelines[pipeline_index];
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
@@ -502,8 +498,8 @@ void Device::create_work_pool(WorkPool &work_pool)
 {
 	EXO_PROFILE_SCOPE;
 	VkCommandPoolCreateInfo pool_info = {
-		.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.flags            = 0,
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = 0,
 		.queueFamilyIndex = this->graphics_family_idx,
 	};
 
@@ -542,8 +538,8 @@ void Device::create_query_pool(QueryPool &query_pool, u32 query_capacity)
 {
 	EXO_PROFILE_SCOPE;
 	VkQueryPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
-	pool_info.queryType             = VK_QUERY_TYPE_TIMESTAMP;
-	pool_info.queryCount            = query_capacity;
+	pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	pool_info.queryCount = query_capacity;
 
 	vk_check(vkCreateQueryPool(device, &pool_info, nullptr, &query_pool.vkhandle));
 
@@ -587,23 +583,23 @@ static Work create_work(Device &device, WorkPool &work_pool, QueueType queue_typ
 	EXO_PROFILE_SCOPE;
 	auto &command_pool = work_pool.command_pools[queue_type];
 
-	Work work           = {};
-	work.device         = &device;
+	Work work = {};
+	work.device = &device;
 	work.command_buffer = VK_NULL_HANDLE;
 
 	for (u32 i_command_buffer = 0; i_command_buffer < command_pool.command_buffers.len(); i_command_buffer += 1) {
 		if (command_pool.command_buffers_is_used[i_command_buffer] == false) {
 			command_pool.command_buffers_is_used[i_command_buffer] = true;
-			work.command_buffer                                    = command_pool.command_buffers[i_command_buffer];
+			work.command_buffer = command_pool.command_buffers[i_command_buffer];
 			break;
 		}
 	}
 
 	if (work.command_buffer == VK_NULL_HANDLE) {
 		VkCommandBufferAllocateInfo ai = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-		ai.commandPool                 = command_pool.vk_handle;
-		ai.level                       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		ai.commandBufferCount          = 1;
+		ai.commandPool = command_pool.vk_handle;
+		ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		ai.commandBufferCount = 1;
 		vk_check(vkAllocateCommandBuffers(device.device, &ai, &work.command_buffer));
 
 		command_pool.command_buffers.push(work.command_buffer);
@@ -642,13 +638,13 @@ TransferWork Device::get_transfer_work(WorkPool &work_pool)
 Fence Device::create_fence(u64 initial_value)
 {
 	EXO_PROFILE_SCOPE;
-	Fence                     fence         = {};
+	Fence fence = {};
 	VkSemaphoreTypeCreateInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
-	timeline_info.semaphoreType             = VK_SEMAPHORE_TYPE_TIMELINE;
-	timeline_info.initialValue              = initial_value;
+	timeline_info.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+	timeline_info.initialValue = initial_value;
 
 	VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-	semaphore_info.pNext                 = &timeline_info;
+	semaphore_info.pNext = &timeline_info;
 
 	vk_check(vkCreateSemaphore(device, &semaphore_info, nullptr, &fence.timeline_semaphore));
 
@@ -666,8 +662,8 @@ void Device::set_fence_value(Fence &fence, u64 value)
 {
 	EXO_PROFILE_SCOPE;
 	VkSemaphoreSignalInfo signal_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO};
-	signal_info.semaphore             = fence.timeline_semaphore;
-	signal_info.value                 = value;
+	signal_info.semaphore = fence.timeline_semaphore;
+	signal_info.value = value;
 
 	vk_check(vkSignalSemaphore(device, &signal_info));
 }
@@ -684,8 +680,8 @@ void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<
 {
 	EXO_PROFILE_SCOPE;
 	// Creathe list of semaphores to wait
-	exo::DynamicArray<VkSemaphore, 4> signal_list         = {};
-	exo::DynamicArray<u64, 4>         local_signal_values = {signal_values};
+	exo::DynamicArray<VkSemaphore, 4> signal_list = {};
+	exo::DynamicArray<u64, 4> local_signal_values = {signal_values};
 	for (const auto &fence : signal_fences) {
 		signal_list.push(fence.timeline_semaphore);
 	}
@@ -695,9 +691,9 @@ void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<
 		local_signal_values.push(0u);
 	}
 
-	exo::DynamicArray<VkSemaphore, MAX_SEMAPHORES + 1>          semaphore_list = {};
-	exo::DynamicArray<u64, MAX_SEMAPHORES + 1>                  value_list     = {};
-	exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES + 1> stage_list     = {};
+	exo::DynamicArray<VkSemaphore, MAX_SEMAPHORES + 1> semaphore_list = {};
+	exo::DynamicArray<u64, MAX_SEMAPHORES + 1> value_list = {};
+	exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES + 1> stage_list = {};
 
 	for (usize i = 0; i < work.wait_fence_list.len(); i++) {
 		semaphore_list.push(work.wait_fence_list[i].timeline_semaphore);
@@ -713,20 +709,20 @@ void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<
 	}
 
 	VkTimelineSemaphoreSubmitInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO};
-	timeline_info.waitSemaphoreValueCount       = static_cast<u32>(value_list.len());
-	timeline_info.pWaitSemaphoreValues          = value_list.data();
-	timeline_info.signalSemaphoreValueCount     = static_cast<u32>(local_signal_values.len());
-	timeline_info.pSignalSemaphoreValues        = local_signal_values.data();
+	timeline_info.waitSemaphoreValueCount = static_cast<u32>(value_list.len());
+	timeline_info.pWaitSemaphoreValues = value_list.data();
+	timeline_info.signalSemaphoreValueCount = static_cast<u32>(local_signal_values.len());
+	timeline_info.pSignalSemaphoreValues = local_signal_values.data();
 
-	VkSubmitInfo submit_info         = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-	submit_info.pNext                = &timeline_info;
-	submit_info.waitSemaphoreCount   = static_cast<u32>(semaphore_list.len());
-	submit_info.pWaitSemaphores      = semaphore_list.data();
-	submit_info.pWaitDstStageMask    = stage_list.data();
-	submit_info.commandBufferCount   = 1;
-	submit_info.pCommandBuffers      = &work.command_buffer;
+	VkSubmitInfo submit_info = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	submit_info.pNext = &timeline_info;
+	submit_info.waitSemaphoreCount = static_cast<u32>(semaphore_list.len());
+	submit_info.pWaitSemaphores = semaphore_list.data();
+	submit_info.pWaitDstStageMask = stage_list.data();
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &work.command_buffer;
 	submit_info.signalSemaphoreCount = static_cast<u32>(signal_list.len());
-	submit_info.pSignalSemaphores    = signal_list.data();
+	submit_info.pSignalSemaphores = signal_list.data();
 
 	vk_check(vkQueueSubmit(work.queue, 1, &submit_info, VK_NULL_HANDLE));
 }
@@ -734,12 +730,12 @@ void Device::submit(Work &work, exo::Span<const Fence> signal_fences, exo::Span<
 bool Device::present(Surface &surface, Work &work)
 {
 	EXO_PROFILE_SCOPE;
-	VkPresentInfoKHR present_i   = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+	VkPresentInfoKHR present_i = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	present_i.waitSemaphoreCount = 1;
-	present_i.pWaitSemaphores    = &surface.can_present_semaphores[surface.current_image];
-	present_i.swapchainCount     = 1;
-	present_i.pSwapchains        = &surface.swapchain;
-	present_i.pImageIndices      = &surface.current_image;
+	present_i.pWaitSemaphores = &surface.can_present_semaphores[surface.current_image];
+	present_i.swapchainCount = 1;
+	present_i.pSwapchains = &surface.swapchain;
+	present_i.pImageIndices = &surface.current_image;
 
 	auto res = vkQueuePresentKHR(work.queue, &present_i);
 
@@ -756,11 +752,11 @@ void Device::wait_for_fence(const Fence &fence, u64 wait_value)
 {
 	EXO_PROFILE_SCOPE;
 	// 1 sec in nanoseconds
-	const u64           timeout   = 1llu * 1000llu * 1000llu * 1000llu;
+	const u64 timeout = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
-	wait_info.semaphoreCount      = 1;
-	wait_info.pSemaphores         = &fence.timeline_semaphore;
-	wait_info.pValues             = &wait_value;
+	wait_info.semaphoreCount = 1;
+	wait_info.pSemaphores = &fence.timeline_semaphore;
+	wait_info.pValues = &wait_value;
 	vk_check(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
@@ -775,11 +771,11 @@ void Device::wait_for_fences(exo::Span<const Fence> fences, exo::Span<const u64>
 	}
 
 	// 1 sec in nanoseconds
-	const u64           timeout   = 1llu * 1000llu * 1000llu * 1000llu;
+	const u64 timeout = 1llu * 1000llu * 1000llu * 1000llu;
 	VkSemaphoreWaitInfo wait_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO};
-	wait_info.semaphoreCount      = static_cast<u32>(fences.len());
-	wait_info.pSemaphores         = semaphores.data();
-	wait_info.pValues             = wait_values.data();
+	wait_info.semaphoreCount = static_cast<u32>(fences.len());
+	wait_info.pSemaphores = semaphores.data();
+	wait_info.pValues = wait_values.data();
 	vk_check(vkWaitSemaphores(device, &wait_info, timeout));
 }
 
@@ -798,7 +794,7 @@ bool Device::acquire_next_swapchain(Surface &surface)
 
 	auto res = vkAcquireNextImageKHR(device,
 		surface.swapchain,
-		std::numeric_limits<uint64_t>::max(),
+		u64(~0llu),
 		surface.image_acquired_semaphores[surface.current_image],
 		nullptr,
 		&surface.current_image);

@@ -1,29 +1,26 @@
 #pragma once
+#include "exo/collections/span.h"
 #include "exo/maths/numerics.h"
 #include "exo/option.h"
-
-#include "cross/prelude.h"
-
-#include "exo/collections/span.h"
 #include "exo/string_view.h"
 
 namespace cross
 {
 struct MappedFile
 {
-#if defined(CROSS_WINDOWS)
+#if defined(PLATFORM_WINDOWS)
 #else
 	int fd = -1;
 #endif
 
 	const void *base_addr = nullptr;
-	void       *mapping   = nullptr;
-	usize       size      = 0;
+	void *mapping = nullptr;
+	usize size = 0;
 
 	MappedFile() = default;
 	~MappedFile();
 
-	MappedFile(const MappedFile &copied)            = delete;
+	MappedFile(const MappedFile &copied) = delete;
 	MappedFile &operator=(const MappedFile &copied) = delete;
 
 	MappedFile(MappedFile &&moved) noexcept;
