@@ -50,7 +50,9 @@ int main(int /*argc*/, char ** /*argv*/)
 		window->events.clear();
 
 		// -- Render
-		printf("%d\n", i_frame);
+		if ((i_frame % 100) == 0) {
+			printf("%d\n", i_frame);
+		}
 #if defined(GPU_RENDER)
 		{
 			auto intermediate_buffer = renderer.render_graph.output(TextureDesc{
