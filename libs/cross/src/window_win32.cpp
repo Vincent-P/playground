@@ -126,7 +126,8 @@ std::unique_ptr<Window> Window::create(int2 size, const exo::StringView title)
 	return window;
 }
 
-u64 Window::get_win32_hwnd() const { return reinterpret_cast<u64>(this->impl.get().hwnd); }
+u64 Window::get_display_handle() const { return 0; }
+u64 Window::get_window_handle() const { return reinterpret_cast<u64>(this->impl.get().hwnd); }
 
 float2 Window::get_dpi_scale() const
 {

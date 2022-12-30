@@ -22,6 +22,8 @@ Surface Surface::create(Context &context, Device &device, u64 display_handle, u6
 
 	/// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
+	(void)(display_handle);
+
 	VkWin32SurfaceCreateInfoKHR sci = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 	sci.hwnd = reinterpret_cast<HWND>(window_handle);
 	sci.hinstance = GetModuleHandle(nullptr);

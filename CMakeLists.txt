@@ -26,10 +26,11 @@ enable_testing()
 add_compile_options(
   # colored output when using ninja generator
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fcolor-diagnostics>
-  $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
   $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fansi-escape-codes>
+  $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
 
-  $<$<CXX_COMPILER_ID:Clang>:-stdlib=libc++>
+  # Enable libc++ with clang on Linux
+  $<$<AND:$<CXX_COMPILER_ID:Clang>,$<PLATFORM_ID:Linux>>:-stdlib=libc++>
 
   # Disable warnings for external headers
   $<$<CXX_COMPILER_ID:MSVC>:/external:anglebrackets>
@@ -41,7 +42,9 @@ add_compile_options(
 
 
 # Global C++ macros
-add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(
+  $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS>
+)
 
 
 # Function to setup 3rd party source code
@@ -59,7 +62,6 @@ endfunction()
 
 function(setup_app_target_options TARGET)
   target_compile_options(${TARGET} PRIVATE
-      # zstd in ktx doesnt compile with this flag
       $<$<CXX_COMPILER_ID:Clang,GNU>:-march=native>
 
       # Warning level
@@ -82,28 +84,23 @@ function(setup_app_target_options TARGET)
       $<$<CXX_COMPILER_ID:MSVC>:/wd4324> # "structure was padded due to alignment specifier"
 
       # utils
-      # $<$<CXX_COMPILER_ID:Clang,GNU>:-fsanitize=address>
-      # $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
       $<$<CXX_COMPILER_ID:Clang,GNU>:-std=c++20>
       $<$<CXX_COMPILER_ID:MSVC>:/std:c++latest>
   )
 
-  if (WIN32)
-	target_compile_definitions(${TARGET} PRIVATE PLATFORM_WINDOWS)
-  elseif(UNIX)
-	target_compile_definitions(${TARGET} PRIVATE PLATFORM_LINUX)
-  else()
-	message(WARNING "Platform not supported." )
-  endif()
+  target_compile_definitions(${TARGET} PRIVATE
+    $<$<PLATFORM_ID:Windows>:PLATFORM_WINDOWS>
+    $<$<PLATFORM_ID:Linux>:PLATFORM_LINUX>
+  )
 
   target_compile_definitions(${TARGET} PRIVATE
     OUT_DIR="${CMAKE_BINARY_DIR}"
     TARGET_NAME="${TARGET}"
-    $<$<BOOL:${WIN32}>:NOMINMAX>               # Disable min/max macros
-    $<$<BOOL:${WIN32}>:NOCOMM>                 # Disable serial communication API
-    $<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN>    # Disable some APIs
-    $<$<BOOL:${WIN32}>:VC_EXTRALEAN>           # Disable even more APIs
-    $<$<BOOL:${WIN32}>:UNICODE>                # Use unicode not ascii
+    $<$<PLATFORM_ID:Windows>:NOMINMAX>               # Disable min/max macros
+    $<$<PLATFORM_ID:Windows>:NOCOMM>                 # Disable serial communication API
+    $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>    # Disable some APIs
+    $<$<PLATFORM_ID:Windows>:VC_EXTRALEAN>           # Disable even more APIs
+    $<$<PLATFORM_ID:Windows>:UNICODE>                # Use unicode not ascii
   )
 endfunction()
 
@@ -177,8 +174,6 @@ function(SETUP_SHADERS TARGET)
   add_dependencies(${TARGET} ${TARGET}.shaders)
   set_target_properties(${TARGET}.shaders PROPERTIES FOLDER "shaders")
 endfunction()
-
-
 
 
 add_subdirectory(third_party)
