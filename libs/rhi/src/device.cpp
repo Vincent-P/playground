@@ -15,9 +15,9 @@ namespace rhi
 
 Device Device::create(const Context &context, const DeviceDescription &desc)
 {
-	Device device               = {};
-	device.desc                 = desc;
-	device.physical_device      = *desc.physical_device;
+	Device device = {};
+	device.desc = desc;
+	device.physical_device = *desc.physical_device;
 	device.push_constant_layout = desc.push_constant_layout;
 
 	// Features warnings!
@@ -35,7 +35,7 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 	}
 
 	device.physical_device.vulkan12_features.bufferDeviceAddressCaptureReplay = VK_FALSE;
-	device.physical_device.vulkan12_features.bufferDeviceAddressMultiDevice   = VK_FALSE;
+	device.physical_device.vulkan12_features.bufferDeviceAddressMultiDevice = VK_FALSE;
 
 	/// --- Create the logical device
 	uint installed_device_extensions_count = 0;
@@ -66,13 +66,13 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		queue_families.data());
 
 	Vec<VkDeviceQueueCreateInfo> queue_create_infos;
-	const float                  priority = 0.0;
+	const float priority = 0.0;
 
 	for (uint32_t i = 0; i < queue_families.len(); i++) {
 		VkDeviceQueueCreateInfo queue_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-		queue_info.queueFamilyIndex        = i;
-		queue_info.queueCount              = 1;
-		queue_info.pQueuePriorities        = &priority;
+		queue_info.queueFamilyIndex = i;
+		queue_info.queueCount = 1;
+		queue_info.pQueuePriorities = &priority;
 
 		if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			if (device.graphics_family_idx == u32_invalid) {
@@ -105,33 +105,37 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 
 	device.physical_device.features.pNext = &device.physical_device.vulkan12_features;
 
-	VkDeviceCreateInfo dci      = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-	dci.pNext                   = &device.physical_device.features;
-	dci.flags                   = 0;
-	dci.queueCreateInfoCount    = static_cast<uint32_t>(queue_create_infos.len());
-	dci.pQueueCreateInfos       = queue_create_infos.data();
-	dci.enabledLayerCount       = 0;
-	dci.ppEnabledLayerNames     = nullptr;
-	dci.enabledExtensionCount   = static_cast<uint32_t>(device_extensions.len());
+	VkDeviceCreateInfo dci = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+	dci.pNext = &device.physical_device.features;
+	dci.flags = 0;
+	dci.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.len());
+	dci.pQueueCreateInfos = queue_create_infos.data();
+	dci.enabledLayerCount = 0;
+	dci.ppEnabledLayerNames = nullptr;
+	dci.enabledExtensionCount = static_cast<uint32_t>(device_extensions.len());
 	dci.ppEnabledExtensionNames = device_extensions.data();
-	dci.pEnabledFeatures        = nullptr;
+	dci.pEnabledFeatures = nullptr;
 
 	vk_check(vkCreateDevice(device.physical_device.vkdevice, &dci, nullptr, &device.device));
-	volkLoadDevice(device.device);
+
+	device.vk = static_cast<VkDeviceFuncs *>(calloc(1, sizeof(VkDeviceFuncs)));
+	volkLoadDeviceTable(device.vk, device.device);
+	device.vk->vkSetDebugUtilsObjectNameEXT = vkSetDebugUtilsObjectNameEXT;
+	device.vk->vkSetDebugUtilsObjectTagEXT = vkSetDebugUtilsObjectTagEXT;
 
 	device.physical_device.features.pNext = nullptr;
 
 	/// --- Init VMA allocator
-	VmaVulkanFunctions vma_functions    = {};
+	VmaVulkanFunctions vma_functions = {};
 	vma_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-	vma_functions.vkGetDeviceProcAddr   = vkGetDeviceProcAddr;
+	vma_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
 
 	VmaAllocatorCreateInfo allocator_info = {};
-	allocator_info.vulkanApiVersion       = VK_API_VERSION_1_2;
-	allocator_info.physicalDevice         = device.physical_device.vkdevice;
-	allocator_info.device                 = device.device;
-	allocator_info.instance               = context.instance;
-	allocator_info.flags                  = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+	allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
+	allocator_info.physicalDevice = device.physical_device.vkdevice;
+	allocator_info.device = device.device;
+	allocator_info.instance = context.instance;
+	allocator_info.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
 	if (desc.buffer_device_address) {
 		allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	}
@@ -145,36 +149,36 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		};
 
 		VkDescriptorPoolCreateInfo pool_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-		pool_info.flags                      = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		pool_info.poolSizeCount              = static_cast<u32>(exo::Array::len(pool_sizes));
-		pool_info.pPoolSizes                 = pool_sizes;
-		pool_info.maxSets                    = 1024;
+		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		pool_info.poolSizeCount = static_cast<u32>(exo::Array::len(pool_sizes));
+		pool_info.pPoolSizes = pool_sizes;
+		pool_info.maxSets = 1024;
 
-		vk_check(
+		VK_CHECK_DEVICE(
 			vkCreateDescriptorPool(device.device, &pool_info, nullptr, &device.global_sets.uniform_descriptor_pool));
 
 		device.global_sets.bindless = create_bindless_set(device, 1024, 1024, 32 * 1024);
 
 		VkPushConstantRange push_constant_range;
 		push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
-		push_constant_range.offset     = 0;
-		push_constant_range.size       = static_cast<u32>(device.push_constant_layout.size);
+		push_constant_range.offset = 0;
+		push_constant_range.size = static_cast<u32>(device.push_constant_layout.size);
 
 		// Create the dynamic buffer descriptor layout
 		VkDescriptorSetLayoutBinding bindings[] = {{
-			.binding         = 0,
-			.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
 			.descriptorCount = 1,
-			.stageFlags      = VK_SHADER_STAGE_ALL,
+			.stageFlags = VK_SHADER_STAGE_ALL,
 		}};
 
 		const VkDescriptorSetLayoutCreateInfo desc_layout_info = {
-			.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			.bindingCount = static_cast<u32>(exo::Array::len(bindings)),
-			.pBindings    = bindings,
+			.pBindings = bindings,
 		};
 
-		vk_check(
+		VK_CHECK_DEVICE(
 			vkCreateDescriptorSetLayout(device.device, &desc_layout_info, nullptr, &device.global_sets.uniform_layout));
 
 		VkDescriptorSetLayout layouts[] = {
@@ -184,35 +188,35 @@ Device Device::create(const Context &context, const DeviceDescription &desc)
 		};
 
 		VkPipelineLayoutCreateInfo pipeline_layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-		pipeline_layout_info.setLayoutCount             = static_cast<u32>(exo::Array::len(layouts));
-		pipeline_layout_info.pSetLayouts                = layouts;
-		pipeline_layout_info.pushConstantRangeCount     = push_constant_range.size ? 1 : 0;
-		pipeline_layout_info.pPushConstantRanges        = &push_constant_range;
+		pipeline_layout_info.setLayoutCount = static_cast<u32>(exo::Array::len(layouts));
+		pipeline_layout_info.pSetLayouts = layouts;
+		pipeline_layout_info.pushConstantRangeCount = push_constant_range.size ? 1 : 0;
+		pipeline_layout_info.pPushConstantRanges = &push_constant_range;
 
-		vk_check(
+		VK_CHECK_DEVICE(
 			vkCreatePipelineLayout(device.device, &pipeline_layout_info, nullptr, &device.global_sets.pipeline_layout));
 	}
 
 	/// --- Create default samplers
 	device.samplers.resize(BuiltinSampler::Count);
 	VkSamplerCreateInfo sampler_info = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-	sampler_info.magFilter           = VK_FILTER_LINEAR;
-	sampler_info.minFilter           = VK_FILTER_LINEAR;
-	sampler_info.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	sampler_info.addressModeU        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeV        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeW        = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.compareOp           = VK_COMPARE_OP_NEVER;
-	sampler_info.borderColor         = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-	sampler_info.minLod              = 0;
-	sampler_info.maxLod              = 7;
-	sampler_info.maxAnisotropy       = 8.0f;
-	sampler_info.anisotropyEnable    = true;
-	vk_check(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Default]));
+	sampler_info.magFilter = VK_FILTER_LINEAR;
+	sampler_info.minFilter = VK_FILTER_LINEAR;
+	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.compareOp = VK_COMPARE_OP_NEVER;
+	sampler_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+	sampler_info.minLod = 0;
+	sampler_info.maxLod = 7;
+	sampler_info.maxAnisotropy = 8.0f;
+	sampler_info.anisotropyEnable = true;
+	VK_CHECK_DEVICE(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Default]));
 
 	sampler_info.magFilter = VK_FILTER_NEAREST;
 	sampler_info.minFilter = VK_FILTER_NEAREST;
-	vk_check(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Nearest]));
+	VK_CHECK_DEVICE(vkCreateSampler(device.device, &sampler_info, nullptr, &device.samplers[BuiltinSampler::Nearest]));
 
 	device.create_image(ImageDescription{.name = "empty image", .usages = storage_image_usage | sampled_image_usage});
 	for (u32 i_slot = 1; i_slot < 1024; ++i_slot) {
@@ -249,15 +253,15 @@ void Device::destroy(const Context & /*context*/)
 		destroy_buffer(handle);
 
 	for (auto sampler : samplers)
-		vkDestroySampler(device, sampler, nullptr);
+		this->vk->vkDestroySampler(device, sampler, nullptr);
 
-	vkDestroyDescriptorSetLayout(device, global_sets.uniform_layout, nullptr);
-	vkDestroyDescriptorPool(device, global_sets.uniform_descriptor_pool, nullptr);
+	this->vk->vkDestroyDescriptorSetLayout(device, global_sets.uniform_layout, nullptr);
+	this->vk->vkDestroyDescriptorPool(device, global_sets.uniform_descriptor_pool, nullptr);
 	destroy_bindless_set(*this, global_sets.bindless);
-	vkDestroyPipelineLayout(device, global_sets.pipeline_layout, nullptr);
+	this->vk->vkDestroyPipelineLayout(device, global_sets.pipeline_layout, nullptr);
 
 	vmaDestroyAllocator(allocator);
-	vkDestroyDevice(device, nullptr);
+	this->vk->vkDestroyDevice(device, nullptr);
 }
 
 /// --- Global descriptor set

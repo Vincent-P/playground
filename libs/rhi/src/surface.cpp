@@ -157,13 +157,13 @@ void Surface::create_swapchain(Device &device)
 	ci.presentMode = this->present_mode;
 	ci.clipped = VK_TRUE;
 
-	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &this->swapchain));
+	VK_CHECK_DEVICE(vkCreateSwapchainKHR(device.device, &ci, nullptr, &this->swapchain));
 
 	uint images_count = 0;
-	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, nullptr));
+	VK_CHECK_DEVICE(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, nullptr));
 
 	auto vkimages = Vec<VkImage>::with_length(images_count);
-	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
+	VK_CHECK_DEVICE(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	exo::ScopeStack scope;
 	this->images.resize(images_count);
@@ -181,13 +181,13 @@ void Surface::create_swapchain(Device &device)
 	this->can_present_semaphores.resize(images_count);
 	for (auto &semaphore : this->can_present_semaphores) {
 		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		VK_CHECK_DEVICE(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	this->image_acquired_semaphores.resize(images_count);
 	for (auto &semaphore : this->image_acquired_semaphores) {
 		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		VK_CHECK_DEVICE(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }
 
@@ -198,16 +198,16 @@ void Surface::destroy_swapchain(Device &device)
 	}
 
 	for (auto &semaphore : this->image_acquired_semaphores) {
-		vkDestroySemaphore(device.device, semaphore, nullptr);
+		device.vk->vkDestroySemaphore(device.device, semaphore, nullptr);
 		semaphore = VK_NULL_HANDLE;
 	}
 
 	for (auto &semaphore : this->can_present_semaphores) {
-		vkDestroySemaphore(device.device, semaphore, nullptr);
+		device.vk->vkDestroySemaphore(device.device, semaphore, nullptr);
 		semaphore = VK_NULL_HANDLE;
 	}
 
-	vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
+	device.vk->vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = VK_NULL_HANDLE;
 }
 
@@ -244,14 +244,14 @@ void Surface::recreate_swapchain(Device &device)
 	ci.oldSwapchain = this->swapchain;
 
 	VkSwapchainKHR new_swapchain;
-	vk_check(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
+	VK_CHECK_DEVICE(vkCreateSwapchainKHR(device.device, &ci, nullptr, &new_swapchain));
 
-	vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
+	device.vk->vkDestroySwapchainKHR(device.device, this->swapchain, nullptr);
 	this->swapchain = new_swapchain;
 
 	u32 images_count = static_cast<u32>(this->images.len());
 	auto vkimages = Vec<VkImage>::with_length(images_count);
-	vk_check(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
+	VK_CHECK_DEVICE(vkGetSwapchainImagesKHR(device.device, this->swapchain, &images_count, vkimages.data()));
 
 	exo::ScopeStack scope;
 	for (uint i_image = 0; i_image < images_count; i_image++) {
@@ -267,15 +267,15 @@ void Surface::recreate_swapchain(Device &device)
 	}
 
 	for (auto &semaphore : this->image_acquired_semaphores) {
-		vkDestroySemaphore(device.device, semaphore, nullptr);
+		device.vk->vkDestroySemaphore(device.device, semaphore, nullptr);
 		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		VK_CHECK_DEVICE(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 
 	for (auto &semaphore : this->can_present_semaphores) {
-		vkDestroySemaphore(device.device, semaphore, nullptr);
+		device.vk->vkDestroySemaphore(device.device, semaphore, nullptr);
 		const VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-		vk_check(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
+		VK_CHECK_DEVICE(vkCreateSemaphore(device.device, &semaphore_info, nullptr, &semaphore));
 	}
 }
 

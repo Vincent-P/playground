@@ -243,7 +243,7 @@ void Work::end_debug_label() { vkCmdEndDebugUtilsLabelEXT(command_buffer); }
 
 /// --- TransferWork
 void TransferWork::copy_buffer(
-    Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
+	Handle<Buffer> src, Handle<Buffer> dst, exo::Span<const std::tuple<usize, usize, usize>> offsets_src_dst_size)
 {
 	EXO_PROFILE_SCOPE;
 	auto &src_buffer = device->buffers.get(src);
@@ -646,7 +646,7 @@ Fence Device::create_fence(u64 initial_value)
 	VkSemaphoreCreateInfo semaphore_info = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 	semaphore_info.pNext = &timeline_info;
 
-	vk_check(vkCreateSemaphore(device, &semaphore_info, nullptr, &fence.timeline_semaphore));
+	vk_check(this->vk->vkCreateSemaphore(device, &semaphore_info, nullptr, &fence.timeline_semaphore));
 
 	return fence;
 }
@@ -654,7 +654,7 @@ Fence Device::create_fence(u64 initial_value)
 u64 Device::get_fence_value(Fence &fence)
 {
 	EXO_PROFILE_SCOPE;
-	vk_check(vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
+	vk_check(this->vk->vkGetSemaphoreCounterValue(device, fence.timeline_semaphore, &fence.value));
 	return fence.value;
 }
 
@@ -671,7 +671,7 @@ void Device::set_fence_value(Fence &fence, u64 value)
 void Device::destroy_fence(Fence &fence)
 {
 	EXO_PROFILE_SCOPE;
-	vkDestroySemaphore(device, fence.timeline_semaphore, nullptr);
+	this->vk->vkDestroySemaphore(device, fence.timeline_semaphore, nullptr);
 	fence.timeline_semaphore = VK_NULL_HANDLE;
 }
 
@@ -782,7 +782,7 @@ void Device::wait_for_fences(exo::Span<const Fence> fences, exo::Span<const u64>
 void Device::wait_idle()
 {
 	EXO_PROFILE_SCOPE;
-	vk_check(vkDeviceWaitIdle(device));
+	vk_check(this->vk->vkDeviceWaitIdle(device));
 }
 
 bool Device::acquire_next_swapchain(Surface &surface)

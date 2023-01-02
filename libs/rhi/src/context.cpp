@@ -109,7 +109,12 @@ Context Context::create(const ContextDescription &desc)
 	create_info.ppEnabledExtensionNames = instance_extensions.data();
 
 	vk_check(vkCreateInstance(&create_info, nullptr, &ctx.instance));
-	volkLoadInstance(ctx.instance);
+	volkLoadInstanceOnly(ctx.instance);
+
+	// Load volk functions in our own struct
+	ctx.vk = reinterpret_cast<VkInstanceFuncs *>(calloc(1, sizeof(VkInstanceFuncs)));
+	ctx.vk->DestroyInstance = vkDestroyInstance;
+	ctx.vk->DestroyDebugUtilsMessengerEXT = vkDestroyDebugUtilsMessengerEXT;
 
 	/// --- Init debug layers
 	if (enable_validation) {
@@ -160,11 +165,11 @@ Context Context::create(const ContextDescription &desc)
 void Context::destroy()
 {
 	if (debug_messenger) {
-		vkDestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);
+		vk->DestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);
 		debug_messenger = std::nullopt;
 	}
 
-	vkDestroyInstance(instance, nullptr);
+	vk->DestroyInstance(instance, nullptr);
 }
 
 // -- Operators for vulkan structs

@@ -1,13 +1,22 @@
+#include <cstdint>
 #include <cstdio>
 
 #include <windows.h>
 // subwindow below
 #include <debugapi.h>
 
-using InitFunc = void *(*)();
+struct PlatformWindow
+{
+	uint64_t display_handle;
+	uint64_t window_handle;
+};
+
+using InitFunc = void *(*)(PlatformWindow *);
 using ReloadFn = void (*)(void *);
 using UpdateFn = int (*)(void *);
 using ShutdownFn = void (*)(void *);
+
+// -- Win32
 
 struct DynamicModule
 {
@@ -50,7 +59,7 @@ void unload_dynamic_module(DynamicModule *module)
 	module->shutdown_fn = nullptr;
 }
 
-struct Win32Window
+struct Win32Window : PlatformWindow
 {
 	bool stop;
 };
@@ -128,12 +137,15 @@ int APIENTRY WinMain(HINSTANCE instance, HINSTANCE previous_instance, PSTR cmdli
 
 	ShowWindow(hwnd, cmdshow);
 
+	// Prepare window data for the game
+	win32_window.window_handle = (uint64_t)(hwnd);
+
 	// Load game DLL
 	const char *game_path = GAME_DLL_PATH;
 	const char *game_tmp_path = GAME_DLL_PATH ".tmp";
 	DynamicModule game = {};
 	load_dynamic_module(&game, game_path, game_tmp_path);
-	void *game_state = game.init_fn();
+	void *game_state = game.init_fn(&win32_window);
 
 	char buffer[1024] = {};
 	int value = 2;
