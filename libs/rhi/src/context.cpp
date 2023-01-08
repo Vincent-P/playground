@@ -5,12 +5,119 @@
 #include "exo/macros/debugbreak.h"
 #include "exo/memory/linear_allocator.h"
 #include "exo/memory/scope_stack.h"
-#include "rhi/operators.h"
-#include "rhi/utils.h"
-#include <vulkan/vulkan_core.h>
+
+#define VK_USE_PLATFORM_WIN32_KHR
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
+
+/* platform .h */
+
+enum struct PlatformType : uint32_t
+{
+	Win32,
+	Count
+};
+
+struct PlatformWindow
+{
+	uint64_t display_handle;
+	uint64_t window_handle;
+};
+
+struct GameState;
+
+struct Platform
+{
+	PlatformType type;
+	PlatformWindow *window;
+	GameState *game_state;
+
+	void (*debug_print)(const char *);
+
+	using LoadLibraryFn = void *(*)(const char *);
+	using GetLibraryProcFn = void *(*)(void *, const char *);
+	using UnloadLibraryFn = void (*)(void *);
+	LoadLibraryFn load_library;
+	GetLibraryProcFn get_library_proc;
+	UnloadLibraryFn unload_library;
+};
+/* platform .h end */
 
 namespace rhi
 {
+// -- Vulkan loading
+
+static void init_vulkan(Platform *platform, VkInstanceFuncs *funcs)
+{
+	funcs->vulkan_module = platform->load_library("vulkan-1.dll");
+
+	auto vkGetInstanceProcAddr =
+		(PFN_vkGetInstanceProcAddr)platform->get_library_proc(funcs->vulkan_module, "vkGetInstanceProcAddr");
+	auto vkGetDeviceProcAddr =
+		(PFN_vkGetDeviceProcAddr)platform->get_library_proc(funcs->vulkan_module, "vkGetDeviceProcAddr");
+
+	funcs->GetInstanceProcAddr = vkGetInstanceProcAddr;
+	funcs->GetDeviceProcAddr = vkGetDeviceProcAddr;
+
+#define LOAD_INSTANCE_FUN(inst, x) funcs->x = (PFN_vk##x)vkGetInstanceProcAddr(inst, "vk" #x)
+
+	LOAD_INSTANCE_FUN(NULL, EnumerateInstanceLayerProperties);
+	LOAD_INSTANCE_FUN(NULL, CreateInstance);
+}
+
+static void load_vulkan_instance(VkInstance instance, VkInstanceFuncs *funcs)
+{
+
+	auto vkGetInstanceProcAddr = funcs->GetInstanceProcAddr;
+	LOAD_INSTANCE_FUN(instance, CreateDevice);
+	LOAD_INSTANCE_FUN(instance, DestroyDevice);
+	LOAD_INSTANCE_FUN(instance, DestroyInstance);
+	LOAD_INSTANCE_FUN(instance, CreateDebugUtilsMessengerEXT);
+	LOAD_INSTANCE_FUN(instance, DestroyDebugUtilsMessengerEXT);
+	LOAD_INSTANCE_FUN(instance, EnumeratePhysicalDevices);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceQueueFamilyProperties);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceProperties);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceMemoryProperties);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceMemoryProperties2);
+}
+#undef LOAD_INSTANCE_FUN
+
+static void load_vulkan_device(VkDevice device, VkInstanceFuncs *inst_funcs, VkDeviceFuncs *dev_funcs)
+{
+	auto vkGetDeviceProcAddr = inst_funcs->GetDeviceProcAddr;
+#define LOAD_DEVICE_FUN(x) dev_funcs->x = (PFN_vk##x)vkGetDeviceProcAddr(device, "vk" #x)
+
+	LOAD_DEVICE_FUN(AllocateMemory);
+	LOAD_DEVICE_FUN(FreeMemory);
+	LOAD_DEVICE_FUN(MapMemory);
+	LOAD_DEVICE_FUN(UnmapMemory);
+	LOAD_DEVICE_FUN(FlushMappedMemoryRanges);
+	LOAD_DEVICE_FUN(InvalidateMappedMemoryRanges);
+	LOAD_DEVICE_FUN(BindBufferMemory);
+	LOAD_DEVICE_FUN(BindImageMemory);
+	LOAD_DEVICE_FUN(GetBufferMemoryRequirements);
+	LOAD_DEVICE_FUN(GetImageMemoryRequirements);
+	LOAD_DEVICE_FUN(CreateBuffer);
+	LOAD_DEVICE_FUN(DestroyBuffer);
+	LOAD_DEVICE_FUN(CreateImage);
+	LOAD_DEVICE_FUN(DestroyImage);
+	LOAD_DEVICE_FUN(CmdCopyBuffer);
+	LOAD_DEVICE_FUN(GetBufferMemoryRequirements2);
+	LOAD_DEVICE_FUN(GetImageMemoryRequirements2);
+	LOAD_DEVICE_FUN(BindBufferMemory2);
+	LOAD_DEVICE_FUN(BindImageMemory2);
+	LOAD_DEVICE_FUN(GetDeviceBufferMemoryRequirementsKHR);
+	LOAD_DEVICE_FUN(GetDeviceImageMemoryRequirementsKHR);
+
+#undef LOAD_DEVICE_FUN
+}
+
+static void shutdown_vulkan(Platform *platform, VkInstanceFuncs *funcs)
+{
+	platform->unload_library(funcs->vulkan_module);
+	*funcs = {};
+}
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 	VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
 	const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
@@ -43,17 +150,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 	return VK_FALSE;
 }
 
-Context Context::create(const ContextDescription &desc)
+static void create_instance(Platform *platform, Context *ctx, const ContextDescription *desc)
 {
-	Context ctx = {};
-
 	/// --- Load the vulkan dynamic libs
-	vk_check(volkInitialize());
+	init_vulkan(platform, &ctx->vk);
 
 	/// --- Create Instance
 	exo::DynamicArray<const char *, 8> instance_extensions;
 
-	if (desc.enable_graphic_windows) {
+	if (desc->enable_graphic_windows) {
 		instance_extensions.push(VK_KHR_SURFACE_EXTENSION_NAME);
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
@@ -67,13 +172,11 @@ Context Context::create(const ContextDescription &desc)
 
 	instance_extensions.push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
-	uint layer_props_count = 0;
-	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, nullptr));
-
-	auto allocator_scope = exo::ScopeStack::with_allocator(&exo::tls_allocator);
-	auto *installed_layers =
-		reinterpret_cast<VkLayerProperties *>(allocator_scope.allocate(layer_props_count * sizeof(VkLayerProperties)));
-	vk_check(vkEnumerateInstanceLayerProperties(&layer_props_count, installed_layers));
+	exo::DynamicArray<VkLayerProperties, 64> installed_layers;
+	u32 layer_props_count = installed_layers.capacity();
+	ctx->vk.EnumerateInstanceLayerProperties(&layer_props_count, nullptr);
+	installed_layers.resize(layer_props_count);
+	ctx->vk.EnumerateInstanceLayerProperties(&layer_props_count, installed_layers.data());
 
 	u32 i_validation = u32_invalid;
 	for (u32 i_layer = 0; i_layer < layer_props_count; i_layer += 1) {
@@ -82,13 +185,13 @@ Context Context::create(const ContextDescription &desc)
 		}
 	}
 
-	const bool enable_validation = desc.enable_validation && i_validation != u32_invalid;
-	if (desc.enable_validation && i_validation == u32_invalid) {
+	const bool enable_validation = desc->enable_validation && i_validation != u32_invalid;
+	if (desc->enable_validation && i_validation == u32_invalid) {
 		exo::logger::info("Validation layers are enabled but the vulkan layer was not found.\n");
 	}
 
 	exo::DynamicArray<const char *, 8> instance_layers;
-	if (desc.enable_validation && i_validation != u32_invalid) {
+	if (desc->enable_validation && i_validation != u32_invalid) {
 		instance_layers.push("VK_LAYER_KHRONOS_validation");
 	}
 
@@ -99,27 +202,21 @@ Context Context::create(const ContextDescription &desc)
 	app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
 	app_info.apiVersion = VK_API_VERSION_1_2;
 
-	VkInstanceCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
-	create_info.pNext = nullptr;
-	create_info.flags = 0;
-	create_info.pApplicationInfo = &app_info;
-	create_info.enabledLayerCount = static_cast<uint32_t>(instance_layers.len());
-	create_info.ppEnabledLayerNames = instance_layers.data();
-	create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.len());
-	create_info.ppEnabledExtensionNames = instance_extensions.data();
+	VkInstanceCreateInfo instance_create_info = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+	instance_create_info.pNext = nullptr;
+	instance_create_info.flags = 0;
+	instance_create_info.pApplicationInfo = &app_info;
+	instance_create_info.enabledLayerCount = instance_layers.len();
+	instance_create_info.ppEnabledLayerNames = instance_layers.data();
+	instance_create_info.enabledExtensionCount = instance_extensions.len();
+	instance_create_info.ppEnabledExtensionNames = instance_extensions.data();
 
-	vk_check(vkCreateInstance(&create_info, nullptr, &ctx.instance));
-	volkLoadInstanceOnly(ctx.instance);
-
-	// Load volk functions in our own struct
-	ctx.vk = reinterpret_cast<VkInstanceFuncs *>(calloc(1, sizeof(VkInstanceFuncs)));
-	ctx.vk->DestroyInstance = vkDestroyInstance;
-	ctx.vk->DestroyDebugUtilsMessengerEXT = vkDestroyDebugUtilsMessengerEXT;
+	ctx->vk.CreateInstance(&instance_create_info, nullptr, &ctx->instance);
+	load_vulkan_instance(ctx->instance, &ctx->vk);
 
 	/// --- Init debug layers
 	if (enable_validation) {
 		VkDebugUtilsMessengerCreateInfoEXT ci = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-		ci.flags = 0;
 		ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 		ci.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
@@ -127,124 +224,149 @@ Context Context::create(const ContextDescription &desc)
 		ci.pfnUserCallback = debug_callback;
 
 		VkDebugUtilsMessengerEXT messenger;
-		vk_check(vkCreateDebugUtilsMessengerEXT(ctx.instance, &ci, nullptr, &messenger));
-		ctx.debug_messenger = messenger;
+		ctx->vk.CreateDebugUtilsMessengerEXT(ctx->instance, &ci, nullptr, &messenger);
+		ctx->debug_messenger = messenger;
+	}
+}
+
+static void create_device(Context *ctx)
+{
+	// Enumerate devices
+	exo::DynamicArray<VkPhysicalDevice, 4> vkphysical_devices = {};
+	uint vkphysical_devices_count = vkphysical_devices.capacity();
+	ctx->vk.EnumeratePhysicalDevices(ctx->instance, &vkphysical_devices_count, nullptr);
+	vkphysical_devices.resize(vkphysical_devices_count);
+	ctx->vk.EnumeratePhysicalDevices(ctx->instance, &vkphysical_devices_count, vkphysical_devices.data());
+
+	// Pick device
+	VkPhysicalDevice vkphysical_device = vkphysical_devices[0];
+
+	exo::DynamicArray<const char *, 8> device_extensions = {};
+	device_extensions.push(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+	// Create queues
+	exo::DynamicArray<VkQueueFamilyProperties, 8> queue_families = {};
+	uint queue_families_count = queue_families.capacity();
+	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(vkphysical_device, &queue_families_count, nullptr);
+	queue_families.resize(queue_families_count);
+	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(vkphysical_device, &queue_families_count, queue_families.data());
+
+	exo::DynamicArray<VkDeviceQueueCreateInfo, 8> queue_create_infos;
+
+	ctx->graphics_family_idx = u32_invalid;
+	ctx->compute_family_idx = u32_invalid;
+	ctx->transfer_family_idx = u32_invalid;
+
+	const float priority = 0.0;
+	for (uint32_t i = 0; i < queue_families.len(); i++) {
+		VkDeviceQueueCreateInfo queue_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+		queue_info.queueFamilyIndex = i;
+		queue_info.queueCount = 1;
+		queue_info.pQueuePriorities = &priority;
+
+		if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			if (ctx->graphics_family_idx == u32_invalid) {
+				queue_create_infos.push(queue_info);
+				ctx->graphics_family_idx = i;
+			}
+		} else if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			if (ctx->compute_family_idx == u32_invalid && (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT)) {
+				queue_create_infos.push(queue_info);
+				ctx->compute_family_idx = i;
+			}
+		} else if (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+			if (ctx->transfer_family_idx == u32_invalid && (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT)) {
+				queue_create_infos.push(queue_info);
+				ctx->transfer_family_idx = i;
+			}
+		}
 	}
 
-	/// --- Enumerate devices
-	uint physical_devices_count = 0;
-	vk_check(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, nullptr));
-	if (physical_devices_count > ctx.physical_devices.capacity()) {
-		exo::logger::info("There are %u physical devices, only the first %zu are enabled.\n",
-			physical_devices_count,
-			ctx.physical_devices.capacity());
+	if (ctx->graphics_family_idx == u32_invalid) {
+		exo::logger::error("Failed to find a graphics queue.\n");
+	}
+	if (ctx->compute_family_idx == u32_invalid) {
+		exo::logger::error("Failed to find a compute queue.\n");
+	}
+	if (ctx->transfer_family_idx == u32_invalid) {
+		exo::logger::error("Failed to find a transfer queue.\n");
+		ctx->transfer_family_idx = ctx->compute_family_idx;
 	}
 
-	exo::DynamicArray<VkPhysicalDevice, MAX_PHYSICAL_DEVICES> vkphysical_devices;
-	vkphysical_devices.resize(physical_devices_count);
-	vk_check(vkEnumeratePhysicalDevices(ctx.instance, &physical_devices_count, vkphysical_devices.data()));
+	VkDeviceCreateInfo device_create_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+	device_create_info.pNext = nullptr;
+	device_create_info.flags = 0;
+	device_create_info.queueCreateInfoCount = queue_create_infos.len();
+	device_create_info.pQueueCreateInfos = queue_create_infos.data();
+	device_create_info.enabledLayerCount = 0;
+	device_create_info.ppEnabledLayerNames = nullptr;
+	device_create_info.enabledExtensionCount = device_extensions.len();
+	device_create_info.ppEnabledExtensionNames = device_extensions.data();
+	device_create_info.pEnabledFeatures = nullptr;
 
-	ctx.physical_devices.resize(physical_devices_count);
+	ctx->vk.CreateDevice(vkphysical_device, &device_create_info, nullptr, &ctx->device);
+	load_vulkan_device(ctx->device, &ctx->vk, &ctx->vkdevice);
 
-	for (uint i_device = 0; i_device < physical_devices_count; i_device++) {
-		auto &physical_device = ctx.physical_devices[i_device];
+	// Create allocator
+	VmaVulkanFunctions vma_functions = {};
+	vma_functions.vkGetPhysicalDeviceProperties = ctx->vk.GetPhysicalDeviceProperties;
+	vma_functions.vkGetPhysicalDeviceMemoryProperties = ctx->vk.GetPhysicalDeviceMemoryProperties;
+	vma_functions.vkGetPhysicalDeviceMemoryProperties2KHR = ctx->vk.GetPhysicalDeviceMemoryProperties2;
+	vma_functions.vkAllocateMemory = ctx->vkdevice.AllocateMemory;
+	vma_functions.vkFreeMemory = ctx->vkdevice.FreeMemory;
+	vma_functions.vkMapMemory = ctx->vkdevice.MapMemory;
+	vma_functions.vkUnmapMemory = ctx->vkdevice.UnmapMemory;
+	vma_functions.vkFlushMappedMemoryRanges = ctx->vkdevice.FlushMappedMemoryRanges;
+	vma_functions.vkInvalidateMappedMemoryRanges = ctx->vkdevice.InvalidateMappedMemoryRanges;
+	vma_functions.vkBindBufferMemory = ctx->vkdevice.BindBufferMemory;
+	vma_functions.vkBindImageMemory = ctx->vkdevice.BindImageMemory;
+	vma_functions.vkGetBufferMemoryRequirements = ctx->vkdevice.GetBufferMemoryRequirements;
+	vma_functions.vkGetImageMemoryRequirements = ctx->vkdevice.GetImageMemoryRequirements;
+	vma_functions.vkCreateBuffer = ctx->vkdevice.CreateBuffer;
+	vma_functions.vkDestroyBuffer = ctx->vkdevice.DestroyBuffer;
+	vma_functions.vkCreateImage = ctx->vkdevice.CreateImage;
+	vma_functions.vkDestroyImage = ctx->vkdevice.DestroyImage;
+	vma_functions.vkCmdCopyBuffer = ctx->vkdevice.CmdCopyBuffer;
+	vma_functions.vkGetBufferMemoryRequirements2KHR = ctx->vkdevice.GetBufferMemoryRequirements2;
+	vma_functions.vkGetImageMemoryRequirements2KHR = ctx->vkdevice.GetImageMemoryRequirements2;
+	vma_functions.vkBindBufferMemory2KHR = ctx->vkdevice.BindBufferMemory2;
+	vma_functions.vkBindImageMemory2KHR = ctx->vkdevice.BindImageMemory2;
+#if 0
+	vma_functions.vkGetDeviceBufferMemoryRequirementsKHR = ctx->vkdevice.GetDeviceBufferMemoryRequirementsKHR;
+	vma_functions.vkGetDeviceImageMemoryRequirementsKHR = ctx->vkdevice.GetDeviceImageMemoryRequirementsKHR;
+#endif
 
-		physical_device.vkdevice = vkphysical_devices[i_device];
+	VmaAllocatorCreateInfo allocator_info = {};
+	allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
+	allocator_info.physicalDevice = vkphysical_device;
+	allocator_info.device = ctx->device;
+	allocator_info.instance = ctx->instance;
+	allocator_info.pVulkanFunctions = &vma_functions;
+	vmaCreateAllocator(&allocator_info, &ctx->allocator);
+}
 
-		vkGetPhysicalDeviceProperties(physical_device.vkdevice, &physical_device.properties);
-		physical_device.vulkan12_features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-		physical_device.features = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-		physical_device.features.pNext = &physical_device.vulkan12_features;
-		vkGetPhysicalDeviceFeatures2(physical_device.vkdevice, &physical_device.features);
-		physical_device.features.pNext = nullptr;
-	}
+static void create_device_resources(Context * /*ctx*/) {}
 
+Context Context::create(Platform *platform, const ContextDescription &desc)
+{
+	Context ctx = {};
+	create_instance(platform, &ctx, &desc);
+	create_device(&ctx);
+	create_device_resources(&ctx);
 	return ctx;
 }
 
-void Context::destroy()
+void Context::destroy(Platform *platform)
 {
-	if (debug_messenger) {
-		vk->DestroyDebugUtilsMessengerEXT(instance, *debug_messenger, nullptr);
-		debug_messenger = std::nullopt;
+	vmaDestroyAllocator(this->allocator);
+
+	this->vk.DestroyDevice(this->device, nullptr);
+	if (this->debug_messenger) {
+		this->vk.DestroyDebugUtilsMessengerEXT(this->instance, *debug_messenger, nullptr);
+		debug_messenger = {};
 	}
 
-	vk->DestroyInstance(instance, nullptr);
+	this->vk.DestroyInstance(this->instance, nullptr);
+	shutdown_vulkan(platform, &this->vk);
 }
-
-// -- Operators for vulkan structs
-
-bool operator==(const VkPipelineShaderStageCreateInfo &a, const VkPipelineShaderStageCreateInfo &b)
-{
-	return a.flags == b.flags && a.stage == b.stage && a.module == b.module && a.pName == b.pName &&
-	       a.pSpecializationInfo == b.pSpecializationInfo;
-}
-
-bool operator==(const VkDescriptorBufferInfo &a, const VkDescriptorBufferInfo &b)
-{
-	return a.buffer == b.buffer && a.offset == b.offset && a.range == b.range;
-}
-
-bool operator==(const VkDescriptorImageInfo &a, const VkDescriptorImageInfo &b)
-{
-	return a.sampler == b.sampler && a.imageView == b.imageView && a.imageLayout == b.imageLayout;
-}
-
-bool operator==(const VkExtent3D &a, const VkExtent3D &b)
-{
-	return a.width == b.width && a.height == b.height && a.depth == b.depth;
-}
-
-bool operator==(const VkImageSubresourceRange &a, const VkImageSubresourceRange &b)
-{
-	return a.aspectMask == b.aspectMask && a.baseMipLevel == b.baseMipLevel && a.levelCount == b.levelCount &&
-	       a.baseArrayLayer == b.baseArrayLayer && a.layerCount == b.layerCount;
-}
-
-bool operator==(const VkImageCreateInfo &a, const VkImageCreateInfo &b)
-{
-	bool same = a.queueFamilyIndexCount == b.queueFamilyIndexCount;
-	if (!same) {
-		return false;
-	}
-
-	if (a.pQueueFamilyIndices && b.pQueueFamilyIndices) {
-		for (usize i = 0; i < a.queueFamilyIndexCount; i++) {
-			if (a.pQueueFamilyIndices[i] != b.pQueueFamilyIndices[i]) {
-				return false;
-			}
-		}
-	} else {
-		same = a.pQueueFamilyIndices == b.pQueueFamilyIndices;
-	}
-
-	return same && a.flags == b.flags && a.imageType == b.imageType && a.format == b.format && a.extent == b.extent &&
-	       a.mipLevels == b.mipLevels && a.arrayLayers == b.arrayLayers && a.samples == b.samples &&
-	       a.tiling == b.tiling && a.usage == b.usage && a.sharingMode == b.sharingMode &&
-	       a.initialLayout == b.initialLayout;
-}
-
-bool operator==(const VkComputePipelineCreateInfo &a, const VkComputePipelineCreateInfo &b)
-{
-	return a.flags == b.flags && a.stage == b.stage && a.layout == b.layout &&
-	       a.basePipelineHandle == b.basePipelineHandle && a.basePipelineIndex == b.basePipelineIndex;
-}
-
-bool operator==(const VkFramebufferCreateInfo &a, const VkFramebufferCreateInfo &b)
-{
-	if (a.attachmentCount != b.attachmentCount) {
-		return false;
-	}
-
-	for (uint i = 0; i < a.attachmentCount; i++) {
-		if (a.pAttachments[i] != b.pAttachments[i]) {
-			return false;
-		}
-	}
-
-	return a.flags == b.flags && a.renderPass == b.renderPass && a.width == b.width && a.height == b.height &&
-	       a.layers == b.layers;
-}
-
-bool operator==(const VkClearValue &a, const VkClearValue &b) { return std::memcmp(&a, &b, sizeof(VkClearValue)) == 0; }
 } // namespace rhi

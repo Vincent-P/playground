@@ -1,26 +1,15 @@
+#include "common.h"
+#include "platform.h"
+
 #include "exo/logger.h"
 #include "rhi/context.h"
-#include "rhi/device.h"
-#include "rhi/surface.h"
-#include "rhi/synchronization.h"
 #include <cstdlib>
-
-// -- Platform
-
-struct PlatformWindow
-{
-	uint64_t display_handle;
-	uint64_t window_handle;
-};
 
 // -- Game
 
 struct RenderState
 {
 	rhi::Context context;
-	rhi::Device device;
-	rhi::Surface surface;
-	rhi::Fence fence;
 };
 
 struct GameState
@@ -29,74 +18,45 @@ struct GameState
 	RenderState render;
 };
 
-void init_renderstate(RenderState *render_state, PlatformWindow *window)
+void init_renderstate(Platform *platform, RenderState *render_state)
 {
-	render_state->context = rhi::Context::create({.enable_validation = true});
-
-	auto &physical_devices = render_state->context.physical_devices;
-	u32 i_selected = u32_invalid;
-	u32 i_device = 0;
-	for (auto &physical_device : physical_devices) {
-		exo::logger::info("Found device: %s\n", physical_device.properties.deviceName);
-		if (i_device == u32_invalid && physical_device.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-			exo::logger::info("Prioritizing device %s because it is a discrete GPU.\n",
-				physical_device.properties.deviceName);
-			i_selected = i_device;
-		}
-		i_device += 1;
-	}
-	if (i_selected == u32_invalid) {
-		i_selected = 0;
-		exo::logger::info("No discrete GPU found, defaulting to device #0: %s.\n",
-			physical_devices[0].properties.deviceName);
-	}
-
-	rhi::DeviceDescription device_desc = {};
-	device_desc.physical_device = &physical_devices[i_selected];
-
-	// Create the GPU
-	render_state->device = rhi::Device::create(render_state->context, device_desc);
-	render_state->surface = rhi::Surface::create(render_state->context,
-		render_state->device,
-		window->display_handle,
-		window->window_handle);
-	render_state->fence = render_state->device.create_fence();
+	render_state->context = rhi::Context::create(platform, {.enable_validation = true});
 }
 
-void shutdown_renderstate(RenderState *render_state)
-{
-	render_state->device.wait_idle();
-	render_state->device.destroy_fence(render_state->fence);
-	render_state->surface.destroy(render_state->context, render_state->device);
-	render_state->device.destroy(render_state->context);
-	render_state->context.destroy();
-}
+void shutdown_renderstate(Platform *platform, RenderState *render_state) { render_state->context.destroy(platform); }
 
-extern "C" __declspec(dllexport) GameState *init(PlatformWindow *platform_window)
+extern "C" __declspec(dllexport) void init(Platform *platform)
 {
 	auto *state = static_cast<GameState *>(calloc(1, sizeof(GameState)));
-	init_renderstate(&state->render, platform_window);
-	return state;
+	init_renderstate(platform, &state->render);
+	platform->game_state = state;
 }
 
-extern "C" __declspec(dllexport) void reload(GameState *state)
+extern "C" __declspec(dllexport) void reload(Platform *platform)
 {
 	// do nothing
-	(void)(state);
+	(void)(platform);
+	auto b = make_tester(98);
+	b.bark();
 }
 
-extern "C" __declspec(dllexport) int update(GameState *state)
+extern "C" __declspec(dllexport) void update(Platform *platform)
 {
+	auto *state = platform->game_state;
 	state->counter += 1;
 	state->counter += 3;
 	state->counter -= 3;
 	state->counter -= 2;
 	state->counter += 2;
-	return state->counter;
+
+	char buffer[64] = {};
+	snprintf(buffer, 64, "Value: %d\n", state->counter);
+	platform->debug_print(buffer);
 }
 
-extern "C" __declspec(dllexport) void shutdown(GameState *state)
+extern "C" __declspec(dllexport) void shutdown(Platform *platform)
 {
-	shutdown_renderstate(&state->render);
+	auto *state = platform->game_state;
+	shutdown_renderstate(platform, &state->render);
 	free(state);
 }

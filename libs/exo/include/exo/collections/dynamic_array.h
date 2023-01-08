@@ -9,11 +9,11 @@
 
 namespace exo
 {
-template <typename T, usize CAPACITY>
+template <typename T, u32 CAPACITY>
 struct DynamicArray
 {
-	T     values[CAPACITY] = {};
-	usize length           = {0};
+	T values[CAPACITY] = {};
+	u32 length = {0};
 
 	// --
 	constexpr DynamicArray() = default;
@@ -22,7 +22,7 @@ struct DynamicArray
 	{
 		ASSERT(span.len() < CAPACITY);
 		length = span.len();
-		for (usize i = 0; i < length; i += 1) {
+		for (u32 i = 0; i < length; i += 1) {
 			this->values[i] = span[i];
 		}
 	}
@@ -71,37 +71,37 @@ struct DynamicArray
 
 	// Element access
 
-	constexpr const T &operator[](usize i) const
+	constexpr const T &operator[](u32 i) const
 	{
 		ASSERT(i < this->length);
 		return this->values[i];
 	}
 
-	constexpr T &operator[](usize i)
+	constexpr T &operator[](u32 i)
 	{
 		ASSERT(i < this->length);
 		return this->values[i];
 	}
 
 	constexpr const T *data() const noexcept { return &this->values[0]; }
-	constexpr T       *data() noexcept { return &this->values[0]; }
+	constexpr T *data() noexcept { return &this->values[0]; }
 
-	constexpr T       &last() noexcept { return this->values[this->length - 1]; }
+	constexpr T &last() noexcept { return this->values[this->length - 1]; }
 	constexpr const T &last() const noexcept { return this->values[this->length - 1]; }
 
 	// Iterators
 
 	constexpr const T *begin() const noexcept { return &this->values[0]; }
-	constexpr T       *begin() noexcept { return &this->values[0]; }
+	constexpr T *begin() noexcept { return &this->values[0]; }
 
 	constexpr const T *end() const noexcept { return begin() + this->length; }
-	constexpr T       *end() noexcept { return begin() + this->length; }
+	constexpr T *end() noexcept { return begin() + this->length; }
 
 	// Capacity
 
-	constexpr bool  is_empty() const noexcept { return this->length == 0; }
-	constexpr usize len() const noexcept { return this->length; }
-	constexpr usize capacity() const noexcept { return CAPACITY; }
+	constexpr bool is_empty() const noexcept { return this->length == 0; }
+	constexpr u32 len() const noexcept { return this->length; }
+	constexpr u32 capacity() const noexcept { return CAPACITY; }
 
 	// Modifiers
 	template <typename... Args>
@@ -123,24 +123,24 @@ struct DynamicArray
 	constexpr void clear() noexcept
 	{
 		if constexpr (std::is_trivially_destructible<T>() == false) {
-			for (usize i = 0; i < this->length; i += 1) {
+			for (u32 i = 0; i < this->length; i += 1) {
 				this->values[i].~T();
 			}
 		}
 		this->length = 0;
 	}
 
-	constexpr void resize(usize new_size) noexcept
+	constexpr void resize(u32 new_size) noexcept
 	{
 		ASSERT(new_size <= CAPACITY);
 
 		// Delete elements if new_size < old_size
-		for (usize i = new_size; i < this->length; i += 1) {
+		for (u32 i = new_size; i < this->length; i += 1) {
 			this->values[i].~T();
 		}
 
 		// Default-initialize new elements if new_size > old_size
-		for (usize i = this->length; i < new_size; i += 1) {
+		for (u32 i = this->length; i < new_size; i += 1) {
 			this->values[i] = {};
 		}
 
@@ -148,14 +148,14 @@ struct DynamicArray
 	}
 };
 
-template <typename T, usize C1, usize C2>
+template <typename T, u32 C1, u32 C2>
 constexpr bool operator==(const DynamicArray<T, C1> &lhs, const DynamicArray<T, C2> &rhs)
 {
 	if (lhs.length != rhs.length) {
 		return false;
 	}
 
-	for (usize i = 0; i < lhs.length; ++i) {
+	for (u32 i = 0; i < lhs.length; ++i) {
 		if (lhs[i] != rhs[i]) {
 			return false;
 		}

@@ -28,7 +28,7 @@ target_include_directories(vulkan_headers SYSTEM INTERFACE vulkan_headers/includ
 add_library(vma vk_mem_alloc/vk_mem_alloc.cc)
 setup_thirdparty_target(vma)
 target_include_directories(vma SYSTEM PUBLIC vk_mem_alloc/)
-target_compile_definitions(vma PRIVATE VMA_STATIC_VULKAN_FUNCTIONS=0)
+target_compile_definitions(vma PRIVATE VMA_STATIC_VULKAN_FUNCTIONS=0 VMA_DYNAMIC_VULKAN_FUNCTIONS=0)
 target_link_libraries(vma PRIVATE vulkan_headers)
 
 #volk
