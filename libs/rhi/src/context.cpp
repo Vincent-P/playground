@@ -10,6 +10,8 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#undef CreateSemaphore
+
 /* platform .h */
 
 enum struct PlatformType : uint32_t
@@ -79,6 +81,12 @@ static void load_vulkan_instance(VkInstance instance, VkInstanceFuncs *funcs)
 	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceProperties);
 	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceMemoryProperties);
 	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceMemoryProperties2);
+	LOAD_INSTANCE_FUN(instance, CreateWin32SurfaceKHR);
+	LOAD_INSTANCE_FUN(instance, DestroySurfaceKHR);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceSurfaceSupportKHR);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceSurfacePresentModesKHR);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceSurfaceFormatsKHR);
+	LOAD_INSTANCE_FUN(instance, GetPhysicalDeviceSurfaceCapabilitiesKHR);
 }
 #undef LOAD_INSTANCE_FUN
 
@@ -108,6 +116,15 @@ static void load_vulkan_device(VkDevice device, VkInstanceFuncs *inst_funcs, VkD
 	LOAD_DEVICE_FUN(BindImageMemory2);
 	LOAD_DEVICE_FUN(GetDeviceBufferMemoryRequirementsKHR);
 	LOAD_DEVICE_FUN(GetDeviceImageMemoryRequirementsKHR);
+
+	LOAD_DEVICE_FUN(CreateSwapchainKHR);
+	LOAD_DEVICE_FUN(DestroySwapchainKHR);
+	LOAD_DEVICE_FUN(GetSwapchainImagesKHR);
+	LOAD_DEVICE_FUN(CreateSemaphore);
+	LOAD_DEVICE_FUN(DestroySemaphore);
+	LOAD_DEVICE_FUN(SetDebugUtilsObjectNameEXT);
+	LOAD_DEVICE_FUN(CreateImageView);
+	LOAD_DEVICE_FUN(DestroyImageView);
 
 #undef LOAD_DEVICE_FUN
 }
@@ -239,7 +256,7 @@ static void create_device(Context *ctx)
 	ctx->vk.EnumeratePhysicalDevices(ctx->instance, &vkphysical_devices_count, vkphysical_devices.data());
 
 	// Pick device
-	VkPhysicalDevice vkphysical_device = vkphysical_devices[0];
+	ctx->physical_device = vkphysical_devices[0];
 
 	exo::DynamicArray<const char *, 8> device_extensions = {};
 	device_extensions.push(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -247,9 +264,9 @@ static void create_device(Context *ctx)
 	// Create queues
 	exo::DynamicArray<VkQueueFamilyProperties, 8> queue_families = {};
 	uint queue_families_count = queue_families.capacity();
-	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(vkphysical_device, &queue_families_count, nullptr);
+	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(ctx->physical_device, &queue_families_count, nullptr);
 	queue_families.resize(queue_families_count);
-	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(vkphysical_device, &queue_families_count, queue_families.data());
+	ctx->vk.GetPhysicalDeviceQueueFamilyProperties(ctx->physical_device, &queue_families_count, queue_families.data());
 
 	exo::DynamicArray<VkDeviceQueueCreateInfo, 8> queue_create_infos;
 
@@ -304,7 +321,7 @@ static void create_device(Context *ctx)
 	device_create_info.ppEnabledExtensionNames = device_extensions.data();
 	device_create_info.pEnabledFeatures = nullptr;
 
-	ctx->vk.CreateDevice(vkphysical_device, &device_create_info, nullptr, &ctx->device);
+	ctx->vk.CreateDevice(ctx->physical_device, &device_create_info, nullptr, &ctx->device);
 	load_vulkan_device(ctx->device, &ctx->vk, &ctx->vkdevice);
 
 	// Create allocator
@@ -338,7 +355,7 @@ static void create_device(Context *ctx)
 
 	VmaAllocatorCreateInfo allocator_info = {};
 	allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
-	allocator_info.physicalDevice = vkphysical_device;
+	allocator_info.physicalDevice = ctx->physical_device;
 	allocator_info.device = ctx->device;
 	allocator_info.instance = ctx->instance;
 	allocator_info.pVulkanFunctions = &vma_functions;

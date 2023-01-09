@@ -3,6 +3,7 @@
 
 #include "exo/logger.h"
 #include "rhi/context.h"
+#include "rhi/surface.h"
 #include <cstdlib>
 
 // -- Game
@@ -10,6 +11,7 @@
 struct RenderState
 {
 	rhi::Context context;
+	rhi::Surface surface;
 };
 
 struct GameState
@@ -21,9 +23,15 @@ struct GameState
 void init_renderstate(Platform *platform, RenderState *render_state)
 {
 	render_state->context = rhi::Context::create(platform, {.enable_validation = true});
+	render_state->surface =
+		rhi::Surface::create(&render_state->context, platform->window->display_handle, platform->window->window_handle);
 }
 
-void shutdown_renderstate(Platform *platform, RenderState *render_state) { render_state->context.destroy(platform); }
+void shutdown_renderstate(Platform *platform, RenderState *render_state)
+{
+	render_state->surface.destroy(&render_state->context);
+	render_state->context.destroy(platform);
+}
 
 extern "C" __declspec(dllexport) void init(Platform *platform)
 {

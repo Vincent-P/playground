@@ -3,20 +3,12 @@
 #include "exo/collections/enum_array.h"
 #include "exo/collections/handle.h"
 #include "exo/maths/numerics.h"
-
 #include "rhi/queues.h"
-
-#include <volk.h>
-
-namespace cross
-{
-struct Window;
-}
+#include <vulkan/vulkan_core.h>
 
 namespace rhi
 {
 struct Context;
-struct Device;
 struct Image;
 
 inline constexpr usize MAX_SWAPCHAIN_IMAGES = 6;
@@ -37,10 +29,10 @@ struct Surface
 	exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES> image_acquired_semaphores;
 	exo::DynamicArray<VkSemaphore, MAX_SWAPCHAIN_IMAGES> can_present_semaphores;
 
-	static Surface create(Context &context, Device &device, u64 display_handle, u64 window_handle);
-	void destroy(Context &context, Device &device);
-	void create_swapchain(Device &device);
-	void destroy_swapchain(Device &device);
-	void recreate_swapchain(Device &device);
+	// --
+	static Surface create(Context *context, u64 display_handle, u64 window_handle);
+	void destroy(Context *context);
+
+	void resize(Context *ctx);
 };
 } // namespace rhi
