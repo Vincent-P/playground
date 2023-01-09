@@ -5,6 +5,7 @@
 #include "exo/macros/debugbreak.h"
 #include "exo/memory/linear_allocator.h"
 #include "exo/memory/scope_stack.h"
+#include <vulkan/vulkan_core.h>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vk_mem_alloc.h>
@@ -49,7 +50,7 @@ namespace rhi
 {
 // -- Vulkan loading
 
-static void init_vulkan(Platform *platform, VkInstanceFuncs *funcs)
+static void load_vulkan(Platform *platform, VkInstanceFuncs *funcs)
 {
 	funcs->vulkan_module = platform->load_library("vulkan-1.dll");
 
@@ -67,7 +68,7 @@ static void init_vulkan(Platform *platform, VkInstanceFuncs *funcs)
 	LOAD_INSTANCE_FUN(NULL, CreateInstance);
 }
 
-static void load_vulkan_instance(VkInstance instance, VkInstanceFuncs *funcs)
+static void load_vulkan_instance_functions(VkInstance instance, VkInstanceFuncs *funcs)
 {
 
 	auto vkGetInstanceProcAddr = funcs->GetInstanceProcAddr;
@@ -90,7 +91,7 @@ static void load_vulkan_instance(VkInstance instance, VkInstanceFuncs *funcs)
 }
 #undef LOAD_INSTANCE_FUN
 
-static void load_vulkan_device(VkDevice device, VkInstanceFuncs *inst_funcs, VkDeviceFuncs *dev_funcs)
+static void load_vulkan_device_functions(VkDevice device, VkInstanceFuncs *inst_funcs, VkDeviceFuncs *dev_funcs)
 {
 	auto vkGetDeviceProcAddr = inst_funcs->GetDeviceProcAddr;
 #define LOAD_DEVICE_FUN(x) dev_funcs->x = (PFN_vk##x)vkGetDeviceProcAddr(device, "vk" #x)
@@ -114,9 +115,6 @@ static void load_vulkan_device(VkDevice device, VkInstanceFuncs *inst_funcs, VkD
 	LOAD_DEVICE_FUN(GetImageMemoryRequirements2);
 	LOAD_DEVICE_FUN(BindBufferMemory2);
 	LOAD_DEVICE_FUN(BindImageMemory2);
-	LOAD_DEVICE_FUN(GetDeviceBufferMemoryRequirementsKHR);
-	LOAD_DEVICE_FUN(GetDeviceImageMemoryRequirementsKHR);
-
 	LOAD_DEVICE_FUN(CreateSwapchainKHR);
 	LOAD_DEVICE_FUN(DestroySwapchainKHR);
 	LOAD_DEVICE_FUN(GetSwapchainImagesKHR);
@@ -125,11 +123,24 @@ static void load_vulkan_device(VkDevice device, VkInstanceFuncs *inst_funcs, VkD
 	LOAD_DEVICE_FUN(SetDebugUtilsObjectNameEXT);
 	LOAD_DEVICE_FUN(CreateImageView);
 	LOAD_DEVICE_FUN(DestroyImageView);
+	LOAD_DEVICE_FUN(CreateCommandPool);
+	LOAD_DEVICE_FUN(AcquireNextImageKHR);
+	LOAD_DEVICE_FUN(DeviceWaitIdle);
+	LOAD_DEVICE_FUN(BeginCommandBuffer);
+	LOAD_DEVICE_FUN(EndCommandBuffer);
+	LOAD_DEVICE_FUN(CmdBeginDebugUtilsLabelEXT);
+	LOAD_DEVICE_FUN(CmdEndDebugUtilsLabelEXT);
+	LOAD_DEVICE_FUN(GetDeviceQueue);
+	LOAD_DEVICE_FUN(QueuePresentKHR);
+	LOAD_DEVICE_FUN(QueueSubmit);
+	LOAD_DEVICE_FUN(AllocateCommandBuffers);
+	LOAD_DEVICE_FUN(FreeCommandBuffers);
+	LOAD_DEVICE_FUN(ResetCommandPool);
 
 #undef LOAD_DEVICE_FUN
 }
 
-static void shutdown_vulkan(Platform *platform, VkInstanceFuncs *funcs)
+static void unload_vulkan(Platform *platform, VkInstanceFuncs *funcs)
 {
 	platform->unload_library(funcs->vulkan_module);
 	*funcs = {};
@@ -147,6 +158,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
 	// Resize with out of date imageExtent
 	if (pCallbackData->messageIdNumber == 0x7cd0911d) {
+		return VK_FALSE;
+	}
+
+	// pSwapchains[0] images passed to present must be in layout VK_IMAGE_LAYOUT_PRESENT_SRC_KHR or
+	// VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR but is in VK_IMAGE_LAYOUT_UNDEFINED. The Vulkan spec states: Each element of
+	// pImageIndices must be the index of a presentable image acquired from the swapchain specified by the corresponding
+	// element of the pSwapchains array, and the presented image subresource must be in the
+	// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout at the time the operation is executed on a VkDevice
+	if (pCallbackData->messageIdNumber == -945112042) {
 		return VK_FALSE;
 	}
 
@@ -170,7 +190,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 static void create_instance(Platform *platform, Context *ctx, const ContextDescription *desc)
 {
 	/// --- Load the vulkan dynamic libs
-	init_vulkan(platform, &ctx->vk);
+	load_vulkan(platform, &ctx->vk);
 
 	/// --- Create Instance
 	exo::DynamicArray<const char *, 8> instance_extensions;
@@ -229,7 +249,7 @@ static void create_instance(Platform *platform, Context *ctx, const ContextDescr
 	instance_create_info.ppEnabledExtensionNames = instance_extensions.data();
 
 	ctx->vk.CreateInstance(&instance_create_info, nullptr, &ctx->instance);
-	load_vulkan_instance(ctx->instance, &ctx->vk);
+	load_vulkan_instance_functions(ctx->instance, &ctx->vk);
 
 	/// --- Init debug layers
 	if (enable_validation) {
@@ -322,9 +342,12 @@ static void create_device(Context *ctx)
 	device_create_info.pEnabledFeatures = nullptr;
 
 	ctx->vk.CreateDevice(ctx->physical_device, &device_create_info, nullptr, &ctx->device);
-	load_vulkan_device(ctx->device, &ctx->vk, &ctx->vkdevice);
+	load_vulkan_device_functions(ctx->device, &ctx->vk, &ctx->vkdevice);
+}
 
-	// Create allocator
+static void create_device_resources(Context *ctx)
+{
+
 	VmaVulkanFunctions vma_functions = {};
 	vma_functions.vkGetPhysicalDeviceProperties = ctx->vk.GetPhysicalDeviceProperties;
 	vma_functions.vkGetPhysicalDeviceMemoryProperties = ctx->vk.GetPhysicalDeviceMemoryProperties;
@@ -348,10 +371,6 @@ static void create_device(Context *ctx)
 	vma_functions.vkGetImageMemoryRequirements2KHR = ctx->vkdevice.GetImageMemoryRequirements2;
 	vma_functions.vkBindBufferMemory2KHR = ctx->vkdevice.BindBufferMemory2;
 	vma_functions.vkBindImageMemory2KHR = ctx->vkdevice.BindImageMemory2;
-#if 0
-	vma_functions.vkGetDeviceBufferMemoryRequirementsKHR = ctx->vkdevice.GetDeviceBufferMemoryRequirementsKHR;
-	vma_functions.vkGetDeviceImageMemoryRequirementsKHR = ctx->vkdevice.GetDeviceImageMemoryRequirementsKHR;
-#endif
 
 	VmaAllocatorCreateInfo allocator_info = {};
 	allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
@@ -360,9 +379,19 @@ static void create_device(Context *ctx)
 	allocator_info.instance = ctx->instance;
 	allocator_info.pVulkanFunctions = &vma_functions;
 	vmaCreateAllocator(&allocator_info, &ctx->allocator);
+
+	VkCommandPoolCreateInfo command_pool_info = {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+	command_pool_info.queueFamilyIndex = ctx->graphics_family_idx;
+	for (u32 i_frame = 0; i_frame < FRAME_BUFFERING; ++i_frame) {
+		ctx->vkdevice.CreateCommandPool(ctx->device, &command_pool_info, nullptr, &ctx->command_pools[i_frame]);
+	}
 }
 
-static void create_device_resources(Context * /*ctx*/) {}
+static void destroy_resources(Context *ctx)
+{
+	//
+	vmaDestroyAllocator(ctx->allocator);
+}
 
 Context Context::create(Platform *platform, const ContextDescription &desc)
 {
@@ -375,7 +404,7 @@ Context Context::create(Platform *platform, const ContextDescription &desc)
 
 void Context::destroy(Platform *platform)
 {
-	vmaDestroyAllocator(this->allocator);
+	destroy_resources(this);
 
 	this->vk.DestroyDevice(this->device, nullptr);
 	if (this->debug_messenger) {
@@ -384,6 +413,6 @@ void Context::destroy(Platform *platform)
 	}
 
 	this->vk.DestroyInstance(this->instance, nullptr);
-	shutdown_vulkan(platform, &this->vk);
+	unload_vulkan(platform, &this->vk);
 }
 } // namespace rhi

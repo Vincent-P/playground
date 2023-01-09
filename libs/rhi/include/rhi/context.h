@@ -1,7 +1,9 @@
 #pragma once
 #include "exo/collections/dynamic_array.h"
 #include "exo/collections/pool.h"
+#include "exo/collections/vector.h"
 #include "exo/option.h"
+#include "rhi/commands.h"
 #include <vulkan/vulkan_core.h>
 
 /*
@@ -27,13 +29,8 @@ typedef VkResult(VKAPI_PTR *PFN_vkCreateWin32SurfaceKHR)(VkInstance instance,
 namespace rhi
 {
 struct Image;
+struct Surface;
 struct ImageDescription;
-
-struct ContextDescription
-{
-	bool enable_validation = true;
-	bool enable_graphic_windows = true;
-};
 
 struct VkInstanceFuncs
 {
@@ -81,8 +78,6 @@ struct VkDeviceFuncs
 	PFN_vkGetImageMemoryRequirements2 GetImageMemoryRequirements2;
 	PFN_vkBindBufferMemory2 BindBufferMemory2;
 	PFN_vkBindImageMemory2 BindImageMemory2;
-	PFN_vkGetDeviceBufferMemoryRequirementsKHR GetDeviceBufferMemoryRequirementsKHR;
-	PFN_vkGetDeviceImageMemoryRequirementsKHR GetDeviceImageMemoryRequirementsKHR;
 	PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
 	PFN_vkDestroySwapchainKHR DestroySwapchainKHR;
 	PFN_vkGetSwapchainImagesKHR GetSwapchainImagesKHR;
@@ -91,7 +86,28 @@ struct VkDeviceFuncs
 	PFN_vkSetDebugUtilsObjectNameEXT SetDebugUtilsObjectNameEXT;
 	PFN_vkCreateImageView CreateImageView;
 	PFN_vkDestroyImageView DestroyImageView;
+	PFN_vkCreateCommandPool CreateCommandPool;
+	PFN_vkAcquireNextImageKHR AcquireNextImageKHR;
+	PFN_vkDeviceWaitIdle DeviceWaitIdle;
+	PFN_vkBeginCommandBuffer BeginCommandBuffer;
+	PFN_vkEndCommandBuffer EndCommandBuffer;
+	PFN_vkCmdBeginDebugUtilsLabelEXT CmdBeginDebugUtilsLabelEXT;
+	PFN_vkCmdEndDebugUtilsLabelEXT CmdEndDebugUtilsLabelEXT;
+	PFN_vkGetDeviceQueue GetDeviceQueue;
+	PFN_vkQueuePresentKHR QueuePresentKHR;
+	PFN_vkQueueSubmit QueueSubmit;
+	PFN_vkAllocateCommandBuffers AllocateCommandBuffers;
+	PFN_vkFreeCommandBuffers FreeCommandBuffers;
+	PFN_vkResetCommandPool ResetCommandPool;
 };
+
+struct ContextDescription
+{
+	bool enable_validation = true;
+	bool enable_graphic_windows = true;
+};
+
+inline constexpr u32 FRAME_BUFFERING = 2;
 
 struct Context
 {
@@ -103,9 +119,13 @@ struct Context
 	VkPhysicalDevice physical_device;
 	VkDevice device;
 	VmaAllocator allocator;
-	u32 graphics_family_idx = u32_invalid;
-	u32 compute_family_idx = u32_invalid;
-	u32 transfer_family_idx = u32_invalid;
+	u32 graphics_family_idx;
+	u32 compute_family_idx;
+	u32 transfer_family_idx;
+	u32 frame_count;
+	VkCommandPool command_pools[FRAME_BUFFERING];
+	Vec<VkCommandBuffer> command_buffers[FRAME_BUFFERING];
+	Vec<bool> command_buffers_is_used[FRAME_BUFFERING];
 
 	// Resources
 	exo::Pool<Image> images;
@@ -123,5 +143,12 @@ struct Context
 	Handle<Image> create_image(const ImageDescription *desc);
 	Handle<Image> create_image(const ImageDescription *desc, VkImage proxy);
 	void destroy_image(Handle<Image> image);
+
+	// Work submission
+	Work get_work();
+	bool acquire_next_backbuffer(Surface *surface);
+	void wait_idle();
+	bool present(Surface *surface);
+	void submit(Work *work);
 };
 } // namespace rhi

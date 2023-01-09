@@ -122,8 +122,6 @@ Surface Surface::create(Context *ctx, u64 display_handle, u64 window_handle)
 
 	/// --- Create the surface
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-	(void)(display_handle);
-
 	VkWin32SurfaceCreateInfoKHR surface_create_info = {.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 	surface_create_info.hwnd = (HWND)(window_handle);
 	surface_create_info.hinstance = (HINSTANCE)(display_handle);

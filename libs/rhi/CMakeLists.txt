@@ -10,6 +10,9 @@ set(SOURCE_FILES
 
   include/rhi/image.h
   src/image.cpp
+
+  include/rhi/commands.h
+  src/commands.cpp
 )
 
 add_library(rhi STATIC ${SOURCE_FILES})

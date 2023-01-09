@@ -36,4 +36,5 @@ Standard: Latest
 TabWidth: 4
 UseTab: AlignWithSpaces
 QualifierAlignment: Left
+AllowShortFunctionsOnASingleLine: None
 ...
