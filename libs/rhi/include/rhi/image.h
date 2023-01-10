@@ -38,7 +38,8 @@ enum struct ImageUsage : u8
 	TransferSrc,
 	ColorAttachment,
 	DepthAttachment,
-	Present
+	Present,
+	Count
 };
 
 struct ImageDescription

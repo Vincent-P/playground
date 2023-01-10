@@ -132,10 +132,13 @@ static void load_vulkan_device_functions(VkDevice device, VkInstanceFuncs *inst_
 	LOAD_DEVICE_FUN(CmdEndDebugUtilsLabelEXT);
 	LOAD_DEVICE_FUN(GetDeviceQueue);
 	LOAD_DEVICE_FUN(QueuePresentKHR);
-	LOAD_DEVICE_FUN(QueueSubmit);
+	LOAD_DEVICE_FUN(QueueSubmit2);
 	LOAD_DEVICE_FUN(AllocateCommandBuffers);
 	LOAD_DEVICE_FUN(FreeCommandBuffers);
 	LOAD_DEVICE_FUN(ResetCommandPool);
+	LOAD_DEVICE_FUN(DestroyCommandPool);
+	LOAD_DEVICE_FUN(CmdClearColorImage);
+	LOAD_DEVICE_FUN(CmdPipelineBarrier2);
 
 #undef LOAD_DEVICE_FUN
 }
@@ -180,7 +183,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 		}
 	}
 
-	if (message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+	if (false && message_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		DEBUG_BREAK();
 	}
 
@@ -236,8 +239,8 @@ static void create_instance(Platform *platform, Context *ctx, const ContextDescr
 	app_info.pApplicationName = "Multi";
 	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	app_info.pEngineName = "GoodEngine";
-	app_info.engineVersion = VK_MAKE_VERSION(1, 1, 0);
-	app_info.apiVersion = VK_API_VERSION_1_2;
+	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo instance_create_info = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
 	instance_create_info.pNext = nullptr;
@@ -330,8 +333,13 @@ static void create_device(Context *ctx)
 		ctx->transfer_family_idx = ctx->compute_family_idx;
 	}
 
+	// Vulkan 1.3
+	VkPhysicalDeviceVulkan13Features vulkan13_features = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+	vulkan13_features.synchronization2 = true;
+
 	VkDeviceCreateInfo device_create_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-	device_create_info.pNext = nullptr;
+	device_create_info.pNext = &vulkan13_features;
 	device_create_info.flags = 0;
 	device_create_info.queueCreateInfoCount = queue_create_infos.len();
 	device_create_info.pQueueCreateInfos = queue_create_infos.data();
@@ -382,6 +390,7 @@ static void create_device_resources(Context *ctx)
 
 	VkCommandPoolCreateInfo command_pool_info = {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
 	command_pool_info.queueFamilyIndex = ctx->graphics_family_idx;
+
 	for (u32 i_frame = 0; i_frame < FRAME_BUFFERING; ++i_frame) {
 		ctx->vkdevice.CreateCommandPool(ctx->device, &command_pool_info, nullptr, &ctx->command_pools[i_frame]);
 	}
@@ -391,6 +400,10 @@ static void destroy_resources(Context *ctx)
 {
 	//
 	vmaDestroyAllocator(ctx->allocator);
+
+	for (u32 i_frame = 0; i_frame < rhi::FRAME_BUFFERING; ++i_frame) {
+		ctx->vkdevice.DestroyCommandPool(ctx->device, ctx->command_pools[i_frame], nullptr);
+	}
 }
 
 Context Context::create(Platform *platform, const ContextDescription &desc)

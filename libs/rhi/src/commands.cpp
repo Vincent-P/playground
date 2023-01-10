@@ -1,11 +1,12 @@
 #include "rhi/commands.h"
 
 #include "exo/collections/dynamic_array.h"
+#include "exo/collections/enum_array.h"
 #include "exo/profile.h"
 #include "rhi/context.h"
+#include "rhi/image.h"
 #include "rhi/queues.h"
 #include "rhi/surface.h"
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace rhi
@@ -55,6 +56,112 @@ void Work::end_debug_label()
 	ctx->vkdevice.CmdEndDebugUtilsLabelEXT(this->command_buffer);
 }
 
+inline constexpr exo::EnumArray<VkImageLayout, ImageUsage> USAGE_TO_VK_LAYOUT = {
+	VK_IMAGE_LAYOUT_UNDEFINED,
+	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	VK_IMAGE_LAYOUT_GENERAL,
+	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	VK_IMAGE_LAYOUT_GENERAL,
+	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+	VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+	VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+};
+
+inline constexpr exo::EnumArray<VkAccessFlags2, ImageUsage> USAGE_TO_SRC_ACCESS = {
+	VK_ACCESS_2_NONE,
+	VK_ACCESS_2_SHADER_READ_BIT,
+	VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR,
+	VK_ACCESS_2_SHADER_READ_BIT,
+	VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR,
+	VK_ACCESS_2_TRANSFER_WRITE_BIT,
+	VK_ACCESS_2_TRANSFER_READ_BIT,
+	VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+	VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+	VK_ACCESS_2_NONE,
+};
+
+inline constexpr exo::EnumArray<VkPipelineStageFlags2, ImageUsage> USAGE_TO_SRC_PIPELINE_STAGE = {
+	VK_PIPELINE_STAGE_2_NONE,
+	VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+	VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+	VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+	VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+	VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+	VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+	VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+	VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+	VK_PIPELINE_STAGE_2_NONE,
+};
+
+inline constexpr exo::EnumArray<VkAccessFlags2, ImageUsage> USAGE_TO_DST_ACCESS = {
+	VK_ACCESS_2_NONE,
+	VK_ACCESS_2_SHADER_READ_BIT,
+	VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR,
+	VK_ACCESS_2_SHADER_READ_BIT,
+	VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR,
+	VK_ACCESS_2_TRANSFER_WRITE_BIT,
+	VK_ACCESS_2_TRANSFER_READ_BIT,
+	VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+	VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+	VK_ACCESS_2_NONE,
+};
+
+inline constexpr exo::EnumArray<VkPipelineStageFlags2, ImageUsage> USAGE_TO_DST_PIPELINE_STAGE = {
+	VK_PIPELINE_STAGE_2_NONE,
+	VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+	VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+	VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+	VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+	VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+	VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+	VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+	VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+	VK_PIPELINE_STAGE_2_NONE,
+};
+
+void Work::barrier(Handle<Image> image_handle, ImageUsage new_usage)
+{
+	auto &image = this->ctx->images.get(image_handle);
+	if (image.usage == new_usage) {
+		return;
+	}
+
+	VkImageMemoryBarrier2 image_barrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+	image_barrier.srcStageMask = USAGE_TO_SRC_PIPELINE_STAGE[image.usage];
+	image_barrier.dstStageMask = USAGE_TO_DST_PIPELINE_STAGE[new_usage];
+	image_barrier.srcAccessMask = USAGE_TO_SRC_ACCESS[image.usage];
+	image_barrier.dstAccessMask = USAGE_TO_SRC_ACCESS[new_usage];
+	image_barrier.oldLayout = USAGE_TO_VK_LAYOUT[image.usage];
+	image_barrier.newLayout = USAGE_TO_VK_LAYOUT[new_usage];
+	image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_barrier.image = image.vkhandle;
+	image_barrier.subresourceRange = image.full_view.range;
+
+	VkDependencyInfo dependency_info = {.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+	dependency_info.imageMemoryBarrierCount = 1;
+	dependency_info.pImageMemoryBarriers = &image_barrier;
+
+	this->ctx->vkdevice.CmdPipelineBarrier2(this->command_buffer, &dependency_info);
+
+	image.usage = new_usage;
+}
+
+void Work::clear_image(Handle<Image> image_handle, VkClearColorValue clear_color)
+{
+	EXO_PROFILE_SCOPE;
+	auto &image = this->ctx->images.get(image_handle);
+
+	this->ctx->vkdevice.CmdClearColorImage(command_buffer,
+		image.vkhandle,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		&clear_color,
+		1,
+		&image.full_view.range);
+}
+
 // -- Submission
 
 Work Context::get_work()
@@ -83,46 +190,43 @@ void Context::submit(Work *work)
 {
 	EXO_PROFILE_SCOPE;
 
-	// Creathe list of semaphores to wait
-	exo::DynamicArray<VkSemaphore, 4> signal_list = {};
-	exo::DynamicArray<u64, 4> local_signal_values = {};
+	exo::DynamicArray<VkSemaphoreSubmitInfo, MAX_SEMAPHORES> wait_semaphore_infos = {};
+	exo::DynamicArray<VkSemaphoreSubmitInfo, MAX_SEMAPHORES> signal_semaphore_infos = {};
 
 	// If we requested to signal the "present" semaphore of a Surface
 	if (work->signal_present_semaphore != VK_NULL_HANDLE) {
-		signal_list.push(work->signal_present_semaphore);
-		local_signal_values.push(0u);
+		signal_semaphore_infos.push(VkSemaphoreSubmitInfo{
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+			.semaphore = work->signal_present_semaphore,
+			.value = 0,
+		});
 	}
-
-	exo::DynamicArray<VkSemaphore, MAX_SEMAPHORES + 1> semaphore_list = {};
-	exo::DynamicArray<u64, MAX_SEMAPHORES + 1> value_list = {};
-	exo::DynamicArray<VkPipelineStageFlags, MAX_SEMAPHORES + 1> stage_list = {};
 
 	// If we requested to wait for a "image acquired" semaphore of a Surface
 	if (work->image_acquired_semaphore != VK_NULL_HANDLE) {
-		semaphore_list.push(work->image_acquired_semaphore);
-		value_list.push(0u);
-		stage_list.push(work->image_acquired_stage);
+		wait_semaphore_infos.push(VkSemaphoreSubmitInfo{
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+			.semaphore = work->image_acquired_semaphore,
+			.value = 0,
+			.stageMask = work->image_acquired_stage,
+		});
 	}
 
-	VkTimelineSemaphoreSubmitInfo timeline_info = {.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO};
-	timeline_info.waitSemaphoreValueCount = static_cast<u32>(value_list.len());
-	timeline_info.pWaitSemaphoreValues = value_list.data();
-	timeline_info.signalSemaphoreValueCount = static_cast<u32>(local_signal_values.len());
-	timeline_info.pSignalSemaphoreValues = local_signal_values.data();
+	VkCommandBufferSubmitInfo cmdbuffer_info = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+	cmdbuffer_info.commandBuffer = work->command_buffer;
 
-	VkSubmitInfo submit_info = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-	submit_info.pNext = &timeline_info;
-	submit_info.waitSemaphoreCount = static_cast<u32>(semaphore_list.len());
-	submit_info.pWaitSemaphores = semaphore_list.data();
-	submit_info.pWaitDstStageMask = stage_list.data();
-	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &work->command_buffer;
-	submit_info.signalSemaphoreCount = static_cast<u32>(signal_list.len());
-	submit_info.pSignalSemaphores = signal_list.data();
+	VkSubmitInfo2 submit_info = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+	submit_info.waitSemaphoreInfoCount = wait_semaphore_infos.len();
+	submit_info.pWaitSemaphoreInfos = wait_semaphore_infos.data();
+	submit_info.commandBufferInfoCount = 1;
+	submit_info.pCommandBufferInfos = &cmdbuffer_info;
+	submit_info.signalSemaphoreInfoCount = signal_semaphore_infos.len();
+	submit_info.pSignalSemaphoreInfos = signal_semaphore_infos.data();
 
 	VkQueue queue;
 	this->vkdevice.GetDeviceQueue(this->device, this->graphics_family_idx, 0, &queue);
-	this->vkdevice.QueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE);
+
+	this->vkdevice.QueueSubmit2(queue, 1, &submit_info, VK_NULL_HANDLE);
 }
 
 bool Context::present(Surface *surface)

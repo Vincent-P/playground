@@ -95,10 +95,13 @@ struct VkDeviceFuncs
 	PFN_vkCmdEndDebugUtilsLabelEXT CmdEndDebugUtilsLabelEXT;
 	PFN_vkGetDeviceQueue GetDeviceQueue;
 	PFN_vkQueuePresentKHR QueuePresentKHR;
-	PFN_vkQueueSubmit QueueSubmit;
+	PFN_vkQueueSubmit2 QueueSubmit2;
 	PFN_vkAllocateCommandBuffers AllocateCommandBuffers;
 	PFN_vkFreeCommandBuffers FreeCommandBuffers;
 	PFN_vkResetCommandPool ResetCommandPool;
+	PFN_vkDestroyCommandPool DestroyCommandPool;
+	PFN_vkCmdClearColorImage CmdClearColorImage;
+	PFN_vkCmdPipelineBarrier2 CmdPipelineBarrier2;
 };
 
 struct ContextDescription

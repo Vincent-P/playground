@@ -114,6 +114,10 @@ static void destroy_resources(Context *ctx, Surface *surface)
 		ctx->vkdevice.DestroySemaphore(ctx->device, semaphore, nullptr);
 		semaphore = VK_NULL_HANDLE;
 	}
+
+	surface->images.clear();
+	surface->image_acquired_semaphores.clear();
+	surface->can_present_semaphores.clear();
 }
 
 Surface Surface::create(Context *ctx, u64 display_handle, u64 window_handle)

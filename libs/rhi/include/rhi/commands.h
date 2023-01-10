@@ -12,6 +12,7 @@ namespace rhi
 {
 enum struct ImageUsage : u8;
 struct Context;
+struct Image;
 struct Surface;
 inline constexpr usize MAX_SEMAPHORES = 4; // Maximum number of waitable semaphores per command buffer
 
@@ -38,6 +39,9 @@ struct Work
 	// debug utils
 	void begin_debug_label(exo::StringView label, float4 color = float4(0.0f));
 	void end_debug_label();
+
+	void barrier(Handle<Image> image_handle, ImageUsage new_usage);
+	void clear_image(Handle<Image> image_handle, VkClearColorValue clear_color);
 };
 
 } // namespace rhi
